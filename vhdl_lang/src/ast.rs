@@ -489,6 +489,7 @@ impl<T> WithToken<T> {
 }
 
 /// LRM 6.6 Alias declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithPos<Designator>>,
@@ -498,6 +499,7 @@ pub struct AliasDeclaration {
 }
 
 /// LRM 6.7 Attribute declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -538,6 +540,7 @@ pub enum EntityClass {
 }
 
 /// LRM 7.2 Attribute specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
@@ -547,7 +550,7 @@ pub struct AttributeSpecification {
 }
 
 /// LRM 7.2 Attribute specification
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum Attribute {
     Specification(AttributeSpecification),
     Declaration(AttributeDeclaration),
@@ -644,6 +647,7 @@ pub struct ObjectDeclaration {
     pub expression: Option<WithPos<Expression>>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -683,6 +687,7 @@ pub struct FunctionSpecification {
 }
 
 /// LRM 4.3 Subprogram bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
     pub specification: SubprogramSpecification,
@@ -803,6 +808,7 @@ pub struct PortClause {
 }
 
 /// LRM 6.8 Component declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
@@ -811,7 +817,7 @@ pub struct ComponentDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum Declaration {
     Object(ObjectDeclaration),
     File(FileDeclaration),
@@ -1249,6 +1255,7 @@ pub enum ContextItem {
 }
 
 /// LRM 13.4 Context clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextDeclaration {
     pub ident: WithDecl<Ident>,
@@ -1257,6 +1264,7 @@ pub struct ContextDeclaration {
 }
 
 /// LRM 4.9 Package instatiation declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {
     pub context_clause: ContextClause,
@@ -1303,6 +1311,7 @@ pub struct VUnitBindingIndication {
 }
 
 /// LRM 7.3 Configuration specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
@@ -1342,6 +1351,7 @@ pub struct BlockConfiguration {
 }
 
 /// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
@@ -1354,6 +1364,7 @@ pub struct ConfigurationDeclaration {
 }
 
 /// LRM 3.2 Entity declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
@@ -1366,6 +1377,7 @@ pub struct EntityDeclaration {
 }
 
 /// LRM 3.3 Architecture bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub context_clause: ContextClause,
@@ -1377,6 +1389,7 @@ pub struct ArchitectureBody {
 }
 
 /// LRM 4.7 Package declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageDeclaration {
     pub context_clause: ContextClause,
@@ -1387,6 +1400,7 @@ pub struct PackageDeclaration {
 }
 
 /// LRM 4.8 Package bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageBody {
     pub context_clause: ContextClause,
@@ -1396,7 +1410,7 @@ pub struct PackageBody {
 }
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
     Entity(EntityDeclaration),
@@ -1415,7 +1429,7 @@ pub enum AnyPrimaryUnit {
 }
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnySecondaryUnit {
     /// LRM 3.3 Architecture bodies
     Architecture(ArchitectureBody),
@@ -1427,7 +1441,7 @@ pub enum AnySecondaryUnit {
 pub type ContextClause = Vec<ContextItem>;
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnyDesignUnit {
     Primary(AnyPrimaryUnit),
     Secondary(AnySecondaryUnit),

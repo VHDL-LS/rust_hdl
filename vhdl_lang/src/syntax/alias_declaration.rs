@@ -8,11 +8,11 @@ use super::common::ParseResult;
 use super::names::{parse_designator, parse_name};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenInfo, TokenStream};
 use crate::ast::{AliasDeclaration, WithDecl};
 
 pub fn parse_alias_declaration(stream: &TokenStream) -> ParseResult<AliasDeclaration> {
-    stream.expect_kind(Alias)?;
+    let start_token = stream.expect_kind(Alias)?;
     let designator = WithDecl::new(parse_designator(stream)?);
     let subtype_indication = {
         if stream.skip_if_kind(Colon) {
@@ -33,9 +33,10 @@ pub fn parse_alias_declaration(stream: &TokenStream) -> ParseResult<AliasDeclara
         }
     };
 
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(AliasDeclaration {
+        info: TokenInfo::new(start_token, end_token),
         designator,
         subtype_indication,
         name,
@@ -54,6 +55,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
+                info: TokenInfo::new(code.s1("alias").token(), code.s1(";").token()),
                 designator: code.s1("foo").decl_designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
@@ -68,6 +70,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
+                info: TokenInfo::new(code.s1("alias").token(), code.s1(";").token()),
                 designator: code.s1("foo").decl_designator(),
                 subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
                 name: code.s1("name").name(),
@@ -82,6 +85,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
+                info: TokenInfo::new(code.s1("alias").token(), code.s1(";").token()),
                 designator: code.s1("foo").decl_designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
@@ -99,6 +103,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
+                info: TokenInfo::new(code.s1("alias").token(), code.s1(";").token()),
                 designator,
                 subtype_indication: None,
                 name: code.s1("name").name(),
@@ -116,6 +121,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
+                info: TokenInfo::new(code.s1("alias").token(), code.s1(";").token()),
                 designator,
                 subtype_indication: None,
                 name: code.s1("'b'").name(),

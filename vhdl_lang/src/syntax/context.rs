@@ -89,7 +89,9 @@ pub fn parse_context(
         }
 
         let ident = WithDecl::new(to_simple_name(name)?);
+        let end_token = stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
+            info: TokenInfo::new(context_token, end_token),
             end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
             ident,
             items,
@@ -205,6 +207,7 @@ end context ident;
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
+                    info: TokenInfo::new(code.s1("context").token(), code.s1(";").token()),
                     ident: code.s1("ident").decl_ident(),
                     items: vec![],
                     end_ident_pos: if has_end_ident {
@@ -236,6 +239,7 @@ end context ident2;
         assert_eq!(
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
+                info: TokenInfo::new(code.s1("context").token(), code.s1(";").token()),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![],
                 end_ident_pos: None,
@@ -257,6 +261,10 @@ end context;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
+                info: TokenInfo::new(
+                    code.s1("context").token(),
+                    code.sa("end context", ";").token()
+                ),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![
                     ContextItem::Library(LibraryClause {

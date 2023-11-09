@@ -323,6 +323,24 @@ impl Code {
         self.with_partial_stream(parse_fun_eof)
     }
 
+    pub fn with_partial_stream_err<F, R>(&self, parse_fun: F) -> Diagnostic
+    where
+        R: Debug,
+        F: FnOnce(&TokenStream) -> ParseResult<R>,
+    {
+        let parse_fun_eof = |stream: &TokenStream| {
+            let result = parse_fun(stream);
+            match result {
+                Err(err) => err,
+                Ok(result) => {
+                    panic!("Expected error got {result:?}");
+                }
+            }
+        };
+
+        self.with_partial_stream(parse_fun_eof)
+    }
+
     pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Diagnostic
     where
         R: Debug,

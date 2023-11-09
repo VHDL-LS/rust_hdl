@@ -18,6 +18,7 @@ use super::declarative_part::{parse_declarative_part, parse_package_instantiatio
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
+use crate::TokenInfo;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -25,7 +26,7 @@ pub fn parse_entity_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<EntityDeclaration> {
-    stream.expect_kind(Entity)?;
+    let start_token = stream.expect_kind(Entity)?;
 
     let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Is)?;
@@ -43,8 +44,9 @@ pub fn parse_entity_declaration(
     stream.pop_if_kind(End);
     stream.pop_if_kind(Entity);
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
+        info: TokenInfo::new(start_token, end_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
@@ -60,7 +62,7 @@ pub fn parse_architecture_body(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ArchitectureBody> {
-    stream.expect_kind(Architecture)?;
+    let start_token = stream.expect_kind(Architecture)?;
     let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Of)?;
     let entity_name = stream.expect_ident()?;
@@ -74,9 +76,10 @@ pub fn parse_architecture_body(
     stream.pop_if_kind(Architecture);
 
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
+        info: TokenInfo::new(start_token, end_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
@@ -91,7 +94,7 @@ pub fn parse_package_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageDeclaration> {
-    stream.expect_kind(Package)?;
+    let start_token = stream.expect_kind(Package)?;
     let ident = WithDecl::new(stream.expect_ident()?);
 
     stream.expect_kind(Is)?;
@@ -108,8 +111,9 @@ pub fn parse_package_declaration(
     stream.expect_kind(End)?;
     stream.pop_if_kind(Package);
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
+        info: TokenInfo::new(start_token, end_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
@@ -123,7 +127,7 @@ pub fn parse_package_body(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageBody> {
-    stream.expect_kind(Package)?;
+    let start_token = stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
     let ident = stream.expect_ident()?;
 
@@ -134,9 +138,10 @@ pub fn parse_package_body(
         stream.expect_kind(Body)?;
     }
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
+        info: TokenInfo::new(start_token, end_token),
         context_clause: ContextClause::default(),
         decl,
         end_ident_pos: check_end_identifier_mismatch(&ident, end_ident, diagnostics),
@@ -282,7 +287,7 @@ mod tests {
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
-    use crate::syntax::{TokenAccess, TokenSpan};
+    use crate::syntax::{TokenAccess, TokenId, TokenSpan};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -311,8 +316,14 @@ mod tests {
     }
 
     /// An simple entity with only a name
-    fn simple_entity(ident: Ident, end_ident_pos: Option<SrcPos>) -> AnyDesignUnit {
+    fn simple_entity(
+        ident: Ident,
+        start_token: TokenId,
+        end_token: TokenId,
+        end_ident_pos: Option<SrcPos>,
+    ) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
+            info: TokenInfo::new(start_token, end_token),
             context_clause: ContextClause::default(),
             ident: ident.into(),
             generic_clause: None,
@@ -335,7 +346,12 @@ end entity;
             design_file.design_units,
             [(
                 code.tokenize(),
-                simple_entity(code.s1("myent").ident(), None)
+                simple_entity(
+                    code.s1("myent").ident(),
+                    code.s1("entity").token(),
+                    code.s1(";").token(),
+                    None
+                )
             )]
         );
 
@@ -349,7 +365,12 @@ end entity myent;
             design_file.design_units,
             [(
                 code.tokenize(),
-                simple_entity(code.s1("myent").ident(), Some(code.s("myent", 2).pos()),)
+                simple_entity(
+                    code.s1("myent").ident(),
+                    code.s1("entity").token(),
+                    code.s1(";").token(),
+                    Some(code.s("myent", 2).pos()),
+                )
             )]
         );
     }
@@ -366,6 +387,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: Some(Vec::new()),
@@ -391,6 +416,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
@@ -414,6 +443,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
@@ -437,6 +470,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
@@ -460,6 +497,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
@@ -484,6 +525,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                info: TokenInfo::new(
+                    code.s1("entity").token(),
+                    code.sa("end entity", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
@@ -533,24 +578,60 @@ end;
             expected_streams
         );
 
+        let start_myent2 = code.s1("entity myent2").token();
+        let start_myent3 = code.s1("entity myent3").token();
+        let start_myent4 = code.s1("entity myent4").token();
+
         assert_eq!(
             design_file.design_units,
             [
                 (
                     substreams[0].clone(),
-                    simple_entity(code.s1("myent").ident(), None)
+                    simple_entity(
+                        code.s1("myent").ident(),
+                        code.sb("entity", " myent").token(),
+                        code.sa("end entity", ";").token(),
+                        None,
+                    )
                 ),
                 (
                     substreams[1].clone(),
-                    simple_entity(code.s1("myent2").ident(), Some(code.s("myent2", 2).pos()))
+                    simple_entity(
+                        code.s1("myent2").ident(),
+                        code.sb("entity", " myent2")
+                            .token()
+                            .create_offset_token(start_myent2),
+                        code.sa("end entity myent2", ";")
+                            .token()
+                            .create_offset_token(start_myent2),
+                        Some(code.s("myent2", 2).pos()),
+                    )
                 ),
                 (
                     substreams[2].clone(),
-                    simple_entity(code.s1("myent3").ident(), Some(code.s("myent3", 2).pos()))
+                    simple_entity(
+                        code.s1("myent3").ident(),
+                        code.sb("entity", " myent3")
+                            .token()
+                            .create_offset_token(start_myent3),
+                        code.sa("end myent3", ";")
+                            .token()
+                            .create_offset_token(start_myent3),
+                        Some(code.s("myent3", 2).pos()),
+                    )
                 ),
                 (
                     substreams[3].clone(),
-                    simple_entity(code.s1("myent4").ident(), None)
+                    simple_entity(
+                        code.s1("myent4").ident(),
+                        code.sb("entity", " myent4")
+                            .token()
+                            .create_offset_token(start_myent4),
+                        code.sa("end", ";")
+                            .token()
+                            .create_offset_token(start_myent4),
+                        None
+                    )
                 )
             ]
         );
@@ -560,9 +641,12 @@ end;
     fn simple_architecture(
         ident: WithDecl<Ident>,
         entity_name: Ident,
+        start_token: TokenId,
+        end_token: TokenId,
         end_ident_pos: Option<SrcPos>,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
+            info: TokenInfo::new(start_token, end_token),
             context_clause: ContextClause::default(),
             ident,
             entity_name: entity_name.into_ref(),
@@ -588,6 +672,8 @@ end architecture;
                 simple_architecture(
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
+                    code.s1("architecture").token(),
+                    code.sa("end architecture", ";").token(),
                     None,
                 )
             )]
@@ -610,6 +696,8 @@ end architecture arch_name;
                 simple_architecture(
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
+                    code.s1("architecture").token(),
+                    code.sa("end architecture arch_name", ";").token(),
                     Some(code.s("arch_name", 2).pos()),
                 )
             )]
@@ -632,6 +720,8 @@ end;
                 simple_architecture(
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
+                    code.s1("architecture").token(),
+                    code.sa("end", ";").token(),
                     None,
                 )
             )]
@@ -649,6 +739,10 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                info: TokenInfo::new(
+                    code.s1("package").token(),
+                    code.sa("end package", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
@@ -671,6 +765,10 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                info: TokenInfo::new(
+                    code.s1("package").token(),
+                    code.sa("end package", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
@@ -700,6 +798,10 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                info: TokenInfo::new(
+                    code.s1("package").token(),
+                    code.sa("end package", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: Some(vec![
@@ -729,6 +831,10 @@ end entity;
                 design_units: vec![(
                     code.tokenize(),
                     AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
+                        info: TokenInfo::new(
+                            code.s1("entity").token(),
+                            code.sa("end entity", ";").token()
+                        ),
                         context_clause: vec![
                             ContextItem::Library(code.s1("library lib;").library_clause()),
                             ContextItem::Use(code.s1("use lib.foo;").use_clause()),

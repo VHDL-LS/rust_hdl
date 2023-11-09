@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenInfo, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenInfo, TokenSpan, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
@@ -245,9 +245,10 @@ pub fn parse_subprogram_body(
             } else {
                 None
             };
-            stream.expect_kind(SemiColon)?;
+            let end_token = stream.expect_kind(SemiColon)?;
 
             Ok(SubprogramBody {
+                info: TokenInfo::new(specification.get_start_token(), end_token),
                 end_ident_pos: check_end_identifier_mismatch(specification.subpgm_designator(), end_ident, diagnostics),
                 specification,
                 declarations,
@@ -651,6 +652,10 @@ end function;
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
+            info: TokenInfo::new(
+                code.s1("function").token(),
+                code.sa("end function", ";").token(),
+            ),
             specification,
             declarations,
             statements,
@@ -691,6 +696,10 @@ end function foo;
             .s1("function foo(arg : natural) return natural")
             .subprogram_specification();
         let body = SubprogramBody {
+            info: TokenInfo::new(
+                code.s1("function").token(),
+                code.sa("end function foo", ";").token(),
+            ),
             specification,
             declarations: vec![],
             statements: vec![],
@@ -715,6 +724,10 @@ end function \"+\";
             .s1("function \"+\"(arg : natural) return natural")
             .subprogram_specification();
         let body = SubprogramBody {
+            info: TokenInfo::new(
+                code.s1("function").token(),
+                code.sa("end function \"+\"", ";").token(),
+            ),
             specification,
             declarations: vec![],
             statements: vec![],
@@ -853,6 +866,10 @@ end function;
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
+            info: TokenInfo::new(
+                code.s1("function").token(),
+                code.sa("end function", ";").token(),
+            ),
             specification,
             declarations,
             statements,
@@ -884,6 +901,10 @@ end procedure swap;
   parameter (a, b : inout T)")
             .subprogram_specification();
         let body = SubprogramBody {
+            info: TokenInfo::new(
+                code.s1("procedure").token(),
+                code.sa("end procedure swap", ";").token(),
+            ),
             specification,
             declarations: code.s1("variable temp : T;").declarative_part(),
             statements: vec![

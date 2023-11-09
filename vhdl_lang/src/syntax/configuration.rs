@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause;
 use super::names::{parse_name, parse_selected_name};
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenInfo, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
@@ -272,7 +272,7 @@ pub fn parse_configuration_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
-    stream.expect_kind(Configuration)?;
+    let start_token = stream.expect_kind(Configuration)?;
     let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Of)?;
     let entity_name = parse_selected_name(stream)?;
@@ -303,9 +303,10 @@ pub fn parse_configuration_declaration(
     stream.expect_kind(End)?;
     stream.pop_if_kind(Configuration);
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(ConfigurationDeclaration {
+        info: TokenInfo::new(start_token, end_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
@@ -321,7 +322,7 @@ pub fn parse_configuration_specification(
     stream: &TokenStream,
     diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationSpecification> {
-    stream.expect_kind(For)?;
+    let start_token = stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(spec) => {
             let bind_ind = parse_binding_indication(stream, diagnsotics)?;
@@ -329,8 +330,9 @@ pub fn parse_configuration_specification(
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 stream.expect_kind(End)?;
                 stream.expect_kind(For)?;
-                stream.expect_kind(SemiColon)?;
+                let end_token = stream.expect_kind(SemiColon)?;
                 Ok(ConfigurationSpecification {
+                    info: TokenInfo::new(start_token, end_token),
                     spec,
                     bind_ind,
                     vunit_bind_inds,
@@ -340,7 +342,9 @@ pub fn parse_configuration_specification(
                     stream.expect_kind(For)?;
                     stream.expect_kind(SemiColon)?;
                 }
+                let end_token = stream.get_last_token_id();
                 Ok(ConfigurationSpecification {
+                    info: TokenInfo::new(start_token, end_token),
                     spec,
                     bind_ind,
                     vunit_bind_inds: Vec::new(),
@@ -371,6 +375,10 @@ end;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -399,6 +407,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -428,6 +440,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -461,6 +477,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -493,6 +513,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -525,6 +549,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -568,6 +596,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -616,6 +648,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -670,6 +706,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -723,6 +763,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                info: TokenInfo::new(
+                    code.s1("configuration").token(),
+                    code.sa("end configuration cfg", ";").token()
+                ),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -824,6 +868,10 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
+                info: TokenInfo::new(
+                    code.s1("for").token(),
+                    code.sa("work.foo(rtl)", ";").token()
+                ),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),
@@ -848,6 +896,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
+                info: TokenInfo::new(code.s1("for").token(), code.sa("end for", ";").token()),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),
@@ -874,6 +923,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
+                info: TokenInfo::new(code.s1("for").token(), code.sa("end for", ";").token()),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),

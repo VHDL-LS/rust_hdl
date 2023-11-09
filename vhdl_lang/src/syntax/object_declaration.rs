@@ -8,10 +8,11 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream, TokenInfo};
+use super::tokens::{Kind::*, TokenInfo, TokenStream};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
+use crate::Diagnostic;
 
 pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
@@ -75,8 +76,8 @@ pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectD
     Ok(result)
 }
 
-pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
-    stream.expect_kind(File)?;
+pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
+    let start_token = stream.expect_kind(File)?;
     let idents = parse_identifier_list(stream)?;
     stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(stream)?;
@@ -97,21 +98,28 @@ pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<F
         }
     };
 
+    // If the `file_open_information` is present, `file_name` is mandatory
+    // LRM 6.4.2.5
+    if open_info.is_some() && file_name.is_none() {
+        if let Some(ident) = idents.first() {
+            return Err(Diagnostic::error(
+                ident,
+                "file_declaration must have a file name specified if the file open expression is specified as well",
+            ));
+        }
+    }
+
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(idents
         .into_iter()
         .map(|ident| FileDeclaration {
+            info: TokenInfo::new(start_token, end_token),
             ident: ident.into(),
             subtype_indication: subtype.clone(),
             open_info: open_info.clone(),
             file_name: file_name.clone(),
         })
         .collect())
-}
-
-pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
-    let result = parse_file_declaration_no_semi(stream)?;
-    stream.expect_kind(SemiColon)?;
-    Ok(result)
 }
 
 #[cfg(test)]
@@ -188,6 +196,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
+                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
@@ -202,6 +211,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
+                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
@@ -216,11 +226,24 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
+                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: Some(code.s1("write_mode").expr()),
                 file_name: Some(code.s1("\"file_name\"").expr())
             }]
+        );
+    }
+
+    #[test]
+    fn parses_file_with_open_information_without_file_name() {
+        let code = Code::new("file foo : text open write_mode;");
+        assert_eq!(
+            code.with_partial_stream_err(parse_file_declaration),
+            Diagnostic::error(
+                code.s1("foo"),
+                "file_declaration must have a file name specified if the file open expression is specified as well",
+            )
         );
     }
 

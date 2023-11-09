@@ -476,6 +476,17 @@ impl TokenId {
     pub(crate) fn new(idx: usize) -> TokenId {
         TokenId(idx)
     }
+
+    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
+    /// method `TokenStream::slice_tokens`.
+    #[cfg(test)]
+    pub(crate) fn create_offset_token(&self, offset: TokenId) -> TokenId {
+        debug_assert!(
+            self.0 >= offset.0,
+            "The token ID of the offset token must be lower than the token ID to be offset!"
+        );
+        TokenId(self.0 - offset.0)
+    }
 }
 
 /// AST elements for which it is necessary to get the underlying tokens can implement the `TokenSpan` trait.

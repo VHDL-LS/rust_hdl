@@ -6,7 +6,7 @@
 
 use super::common::ParseResult;
 use super::names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
-use super::object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
+use super::object_declaration::parse_optional_assignment;
 use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
@@ -56,28 +56,34 @@ fn parse_optional_object_class(
 fn parse_interface_file_declaration(
     stream: &TokenStream,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    let file_objects = parse_file_declaration_no_semi(stream)?;
-    for file_object in file_objects.iter() {
-        if file_object.open_info.is_some() {
+    stream.expect_kind(File)?;
+    let idents = parse_identifier_list(stream)?;
+    stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(stream)?;
+
+    if stream.next_kind_is(Open) {
+        if let Some(ident) = idents.first() {
             return Err(Diagnostic::error(
-                &file_object.ident,
+                ident,
                 "interface_file_declaration may not have file open information",
             ));
         }
-        if file_object.file_name.is_some() {
+    }
+    if stream.next_kind_is(Is) {
+        if let Some(ident) = idents.first() {
             return Err(Diagnostic::error(
-                &file_object.ident,
+                ident,
                 "interface_file_declaration may not have file name",
             ));
         }
     }
 
-    Ok(file_objects
+    Ok(idents
         .into_iter()
-        .map(|file_object| {
+        .map(|ident| {
             InterfaceDeclaration::File(InterfaceFileDeclaration {
-                ident: file_object.ident,
-                subtype_indication: file_object.subtype_indication,
+                ident: ident.into(),
+                subtype_indication: subtype.clone(),
             })
         })
         .collect())
@@ -454,7 +460,7 @@ mod tests {
     fn parses_interface_file_declaration_no_open_info() {
         let code = Code::new("file foo : text open read_mode");
         assert_eq!(
-            code.with_stream_err(parse_parameter),
+            code.with_partial_stream_err(parse_parameter),
             Diagnostic::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file open information"
@@ -466,7 +472,7 @@ mod tests {
     fn parses_interface_file_declaration_no_file_name() {
         let code = Code::new("file foo : text is \"file_name\"");
         assert_eq!(
-            code.with_stream_err(parse_parameter),
+            code.with_partial_stream_err(parse_parameter),
             Diagnostic::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file name"
@@ -757,20 +763,25 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_specification(),
+                code.s1("function foo return bar")
+                    .subprogram_specification(),
                 None
             )
         );
         let code = Code::new("procedure foo");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_specification(), None)
+            InterfaceDeclaration::Subprogram(
+                code.s1("procedure foo").subprogram_specification(),
+                None
+            )
         );
         let code = Code::new("impure function foo return bar");
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("impure function foo return bar").subprogram_specification(),
+                code.s1("impure function foo return bar")
+                    .subprogram_specification(),
                 None
             )
         );
@@ -782,7 +793,8 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_specification(),
+                code.s1("function foo return bar")
+                    .subprogram_specification(),
                 Some(SubprogramDefault::Name(code.s1("lib.name").selected_name()))
             )
         );
@@ -791,7 +803,8 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_specification(),
+                code.s1("function foo return bar")
+                    .subprogram_specification(),
                 Some(SubprogramDefault::Box)
             )
         );
