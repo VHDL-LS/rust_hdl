@@ -489,6 +489,7 @@ impl<T> WithToken<T> {
 }
 
 /// LRM 6.6 Alias declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithPos<Designator>>,
@@ -498,6 +499,7 @@ pub struct AliasDeclaration {
 }
 
 /// LRM 6.7 Attribute declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -538,6 +540,7 @@ pub enum EntityClass {
 }
 
 /// LRM 7.2 Attribute specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
@@ -547,7 +550,7 @@ pub struct AttributeSpecification {
 }
 
 /// LRM 7.2 Attribute specification
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum Attribute {
     Specification(AttributeSpecification),
     Declaration(AttributeDeclaration),
@@ -611,6 +614,7 @@ pub enum TypeDefinition {
 }
 
 /// LRM 6.2 Type declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -634,6 +638,7 @@ pub enum InterfaceType {
     Parameter,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
@@ -642,6 +647,7 @@ pub struct ObjectDeclaration {
     pub expression: Option<WithPos<Expression>>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -679,9 +685,10 @@ pub struct FunctionSpecification {
 }
 
 /// LRM 4.3 Subprogram bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
-    pub specification: SubprogramDeclaration,
+    pub specification: SubprogramSpecification,
     pub declarations: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<SrcPos>,
@@ -705,14 +712,14 @@ pub enum SubprogramKind {
 }
 
 /// LRM 4.4 Subprogram Instantiation Statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramInstantiation {
-    pub kind: WithToken<SubprogramKind>,
+    pub kind: SubprogramKind,
     pub ident: WithDecl<Ident>,
     pub subprogram_name: WithPos<Name>,
     pub signature: Option<WithPos<Signature>>,
     pub generic_map: Option<MapAspect>,
-    pub semi: TokenId,
 }
 
 /// LRM 4.5.3 Signatures
@@ -723,9 +730,16 @@ pub enum Signature {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum SubprogramDeclaration {
+pub enum SubprogramSpecification {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
+}
+
+/// LRM 4.2 Subprogram declarations
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubprogramDeclaration {
+    pub specification: SubprogramSpecification,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -772,7 +786,7 @@ pub enum InterfaceDeclaration {
     File(InterfaceFileDeclaration),
     Type(WithDecl<Ident>),
     /// LRM 6.5.4 Interface subprogram declarations
-    Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
+    Subprogram(SubprogramSpecification, Option<SubprogramDefault>),
     /// LRM 6.5.5 Interface package declaration
     Package(InterfacePackageDeclaration),
 }
@@ -792,6 +806,7 @@ pub struct PortClause {
 }
 
 /// LRM 6.8 Component declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
@@ -800,7 +815,7 @@ pub struct ComponentDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum Declaration {
     Object(ObjectDeclaration),
     File(FileDeclaration),
@@ -1177,11 +1192,10 @@ pub struct LabeledConcurrentStatement {
 }
 
 /// LRM 13. Design units and their analysis
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub library_token: TokenId,
     pub name_list: IdentList,
-    pub semi_token: TokenId,
 }
 
 /// Represents a token-separated list of some generic type `T`
@@ -1217,23 +1231,21 @@ pub type IdentList = SeparatedList<WithRef<Ident>>;
 pub type NameList = SeparatedList<WithPos<Name>>;
 
 /// LRM 12.4. Use clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub use_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub context_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum ContextItem {
     Use(UseClause),
     Library(LibraryClause),
@@ -1241,6 +1253,7 @@ pub enum ContextItem {
 }
 
 /// LRM 13.4 Context clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextDeclaration {
     pub ident: WithDecl<Ident>,
@@ -1249,6 +1262,7 @@ pub struct ContextDeclaration {
 }
 
 /// LRM 4.9 Package instatiation declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {
     pub context_clause: ContextClause,
@@ -1295,6 +1309,7 @@ pub struct VUnitBindingIndication {
 }
 
 /// LRM 7.3 Configuration specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
@@ -1334,6 +1349,7 @@ pub struct BlockConfiguration {
 }
 
 /// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
@@ -1346,6 +1362,7 @@ pub struct ConfigurationDeclaration {
 }
 
 /// LRM 3.2 Entity declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
@@ -1358,6 +1375,7 @@ pub struct EntityDeclaration {
 }
 
 /// LRM 3.3 Architecture bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub context_clause: ContextClause,
@@ -1369,6 +1387,7 @@ pub struct ArchitectureBody {
 }
 
 /// LRM 4.7 Package declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageDeclaration {
     pub context_clause: ContextClause,
@@ -1379,6 +1398,7 @@ pub struct PackageDeclaration {
 }
 
 /// LRM 4.8 Package bodies
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageBody {
     pub context_clause: ContextClause,
@@ -1388,7 +1408,7 @@ pub struct PackageBody {
 }
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
     Entity(EntityDeclaration),
@@ -1407,7 +1427,7 @@ pub enum AnyPrimaryUnit {
 }
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnySecondaryUnit {
     /// LRM 3.3 Architecture bodies
     Architecture(ArchitectureBody),
@@ -1419,7 +1439,7 @@ pub enum AnySecondaryUnit {
 pub type ContextClause = Vec<ContextItem>;
 
 /// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum AnyDesignUnit {
     Primary(AnyPrimaryUnit),
     Secondary(AnySecondaryUnit),

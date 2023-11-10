@@ -288,20 +288,6 @@ pub trait Visitor {
     ) -> VisitorResult {
         Continue
     }
-    fn visit_procedure_specification(
-        &mut self,
-        _node: &ProcedureSpecification,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        Continue
-    }
-    fn visit_function_specification(
-        &mut self,
-        _node: &FunctionSpecification,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        Continue
-    }
     fn visit_subprogram_body(
         &mut self,
         _node: &SubprogramBody,
@@ -309,7 +295,6 @@ pub trait Visitor {
     ) -> VisitorResult {
         Continue
     }
-
     fn visit_subprogram_header(
         &mut self,
         _node: &SubprogramHeader,
@@ -1307,16 +1292,26 @@ impl ASTNode for LabeledSequentialStatement {
     }
 }
 
+impl ASTNode for SubprogramSpecification {
+    fn visit(&self, _visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult {
+        Continue
+    }
+
+    fn children(&self) -> Vec<&dyn ASTNode> {
+        match self {
+            SubprogramSpecification::Procedure(proc) => vec![proc],
+            SubprogramSpecification::Function(func) => vec![func],
+        }
+    }
+}
+
 impl ASTNode for SubprogramDeclaration {
     fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
         visitor.visit_subprogram_declaration(self, ctx)
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {
-        match self {
-            SubprogramDeclaration::Procedure(proc) => vec![proc],
-            SubprogramDeclaration::Function(func) => vec![func],
-        }
+        vec![&self.specification]
     }
 }
 
@@ -1629,18 +1624,23 @@ impl ASTNode for WaitStatement {
 }
 
 impl ASTNode for FunctionSpecification {
-    fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
-        visitor.visit_function_specification(self, ctx)
+    fn visit(&self, _visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult {
+        Continue
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.parameter_list, &self.header, &self.return_type]
+        vec![
+            &self.designator,
+            &self.parameter_list,
+            &self.header,
+            &self.return_type,
+        ]
     }
 }
 
 impl ASTNode for ProcedureSpecification {
-    fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
-        visitor.visit_procedure_specification(self, ctx)
+    fn visit(&self, _visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult {
+        Continue
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {

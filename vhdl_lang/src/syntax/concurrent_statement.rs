@@ -72,7 +72,7 @@ fn parse_block_header(
     let mut port_map = None;
 
     loop {
-        let token_id = stream.get_token_id();
+        let token_id = stream.get_current_token_id();
         let token = stream.peek_expect()?;
         match token.kind {
             Generic => {

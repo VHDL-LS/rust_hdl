@@ -124,6 +124,7 @@ impl<'a> AnalyzeContext<'a> {
             name,
             subtype_indication,
             signature,
+            span: _,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
@@ -322,6 +323,7 @@ impl<'a> AnalyzeContext<'a> {
                     subtype_indication,
                     open_info,
                     file_name,
+                    span: _,
                 } = file;
 
                 let subtype =
@@ -394,6 +396,7 @@ impl<'a> AnalyzeContext<'a> {
                         // @TODO also check the entity class
                         entity_class: _,
                         expr,
+                        span: _,
                     } = attr_spec;
 
                     match scope.lookup(
@@ -478,7 +481,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let (subpgm_region, subpgm_ent) = match self.subprogram_declaration(
+                let (subpgm_region, subpgm_ent) = match self.subprogram_specification(
                     scope,
                     parent,
                     &mut body.specification,
@@ -515,10 +518,10 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                match self.subprogram_declaration(
+                match self.subprogram_specification(
                     scope,
                     parent,
-                    subdecl,
+                    &mut subdecl.specification,
                     Overloaded::SubprogramDecl,
                     diagnostics,
                 ) {
@@ -562,10 +565,10 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn find_subpgm_declaration(
+    fn find_subpgm_specification(
         &self,
         scope: &Scope<'a>,
-        decl: &SubprogramDeclaration,
+        decl: &SubprogramSpecification,
         signature: &Signature,
     ) -> Option<OverloadedEnt<'a>> {
         let des = decl.subpgm_designator().item.clone().into_designator();
@@ -733,10 +736,10 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            match self.subprogram_declaration(
+                            match self.subprogram_specification(
                                 scope,
                                 ptype,
-                                subprogram,
+                                &mut subprogram.specification,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
                             ) {
@@ -1175,7 +1178,7 @@ impl<'a> AnalyzeContext<'a> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let (_, ent) = self.subprogram_declaration(
+                let (_, ent) = self.subprogram_specification(
                     scope,
                     parent,
                     subpgm,
@@ -1421,11 +1424,11 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)
     }
 
-    fn subprogram_declaration(
+    fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
-        subprogram: &mut SubprogramDeclaration,
+        subprogram: &mut SubprogramSpecification,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<(Scope<'a>, OverloadedEnt<'a>)> {
@@ -1442,7 +1445,7 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         let signature = match subprogram {
-            SubprogramDeclaration::Function(fun) => {
+            SubprogramSpecification::Function(fun) => {
                 if let Some(header) = &mut fun.header {
                     self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
                 }
@@ -1455,7 +1458,7 @@ impl<'a> AnalyzeContext<'a> {
                 let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
                 Signature::new(params?, Some(return_type?))
             }
-            SubprogramDeclaration::Procedure(procedure) => {
+            SubprogramSpecification::Procedure(procedure) => {
                 if let Some(header) = &mut procedure.header {
                     self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
                 }
@@ -1472,7 +1475,7 @@ impl<'a> AnalyzeContext<'a> {
         let kind = to_kind(signature);
 
         if matches!(kind, Overloaded::Subprogram(_)) {
-            let declared_by = self.find_subpgm_declaration(scope, subprogram, kind.signature());
+            let declared_by = self.find_subpgm_specification(scope, subprogram, kind.signature());
 
             if let Some(declared_by) = declared_by {
                 unsafe {

@@ -17,7 +17,7 @@ pub struct TokenStream<'a> {
     idx: Cell<usize>,
     tokens: Vec<Token>,
     // This is the offset that a token's ID should be adapted
-    // when getting it via `TokenStream::get_token_id()`
+    // when getting it via `TokenStream::get_current_token_id()`
     // It is updated in the `slice_tokens` method
     token_offset: Cell<usize>,
 }
@@ -89,6 +89,10 @@ impl<'a> TokenStream<'a> {
         self.set_idx(self.get_idx() + 1)
     }
 
+    pub fn back(&self) {
+        self.set_idx(self.get_idx() - 1)
+    }
+
     fn get_idx(&self) -> usize {
         self.idx.get()
     }
@@ -101,8 +105,12 @@ impl<'a> TokenStream<'a> {
         self.tokens.get(self.get_idx())
     }
 
-    pub fn get_token_id(&self) -> TokenId {
+    pub fn get_current_token_id(&self) -> TokenId {
         TokenId::new(self.get_idx() - self.token_offset.get())
+    }
+
+    pub fn get_last_token_id(&self) -> TokenId {
+        TokenId::new(self.get_idx() - 1 - self.token_offset.get())
     }
 
     pub fn last(&self) -> Option<&Token> {
@@ -157,7 +165,7 @@ impl<'a> TokenStream<'a> {
     pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
-                let id = self.get_token_id();
+                let id = self.get_current_token_id();
                 self.skip();
                 Ok(id)
             } else {
@@ -204,7 +212,7 @@ impl<'a> TokenStream<'a> {
     pub fn pop_if_kind(&self, kind: Kind) -> Option<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
-                let id = self.get_token_id();
+                let id = self.get_current_token_id();
                 self.skip();
                 return Some(id);
             }
@@ -286,6 +294,10 @@ impl<'a> TokenStream<'a> {
 impl<'a> TokenAccess for TokenStream<'a> {
     fn get_token(&self, id: TokenId) -> &Token {
         self.tokens[self.token_offset.get()..].get_token(id)
+    }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        self.tokens[self.token_offset.get()..].get_token_slice(start_id, end_id)
     }
 }
 
@@ -558,15 +570,27 @@ end arch;
         let code = Code::new("1 2 abc; () +");
         new_stream!(code, stream);
         let tokens = code.tokenize();
-        assert_eq!(tokens[0], stream.get_token(stream.get_token_id()).clone());
+        assert_eq!(
+            tokens[0],
+            stream.get_token(stream.get_current_token_id()).clone()
+        );
         stream.skip();
-        assert_eq!(tokens[1], stream.get_token(stream.get_token_id()).clone());
+        assert_eq!(
+            tokens[1],
+            stream.get_token(stream.get_current_token_id()).clone()
+        );
         stream
             .skip_until(|kind| kind == SemiColon)
             .expect("Unexpected EOF");
         stream.slice_tokens();
-        assert_eq!(tokens[3], stream.get_token(stream.get_token_id()).clone());
+        assert_eq!(
+            tokens[3],
+            stream.get_token(stream.get_current_token_id()).clone()
+        );
         stream.skip();
-        assert_eq!(tokens[4], stream.get_token(stream.get_token_id()).clone());
+        assert_eq!(
+            tokens[4],
+            stream.get_token(stream.get_current_token_id()).clone()
+        );
     }
 }

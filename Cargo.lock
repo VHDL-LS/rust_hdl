@@ -925,6 +925,15 @@ dependencies = [
  "rayon",
  "tempfile",
  "toml",
+ "vhdl_lang_macros",
+]
+
+[[package]]
+name = "vhdl_lang_macros"
+version = "0.73.0"
+dependencies = [
+ "quote",
+ "syn 2.0.22",
 ]
 
 [[package]]

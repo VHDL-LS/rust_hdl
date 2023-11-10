@@ -9,6 +9,10 @@
 #![allow(clippy::vec_init_then_push)]
 
 #[macro_use]
+extern crate vhdl_lang_macros;
+extern crate self as vhdl_lang;
+
+#[macro_use]
 pub mod ast;
 #[macro_use]
 mod analysis;
@@ -30,4 +34,6 @@ pub use crate::analysis::{
     Type,
 };
 pub use crate::project::{Project, SourceFile};
-pub use crate::syntax::{kind_str, ParserResult, VHDLParser};
+pub use crate::syntax::{
+    kind_str, HasTokenSpan, ParserResult, Token, TokenAccess, TokenId, TokenSpan, VHDLParser,
+};

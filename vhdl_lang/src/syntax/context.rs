@@ -7,7 +7,7 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
@@ -21,9 +21,8 @@ pub fn parse_library_clause(
     let name_list = parse_ident_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(LibraryClause {
-        library_token,
+        span: TokenSpan::new(library_token, semi_token),
         name_list,
-        semi_token,
     })
 }
 
@@ -37,9 +36,8 @@ pub fn parse_use_clause(
     let name_list = parse_name_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(UseClause {
-        use_token,
+        span: TokenSpan::new(use_token, semi_token),
         name_list,
-        semi_token,
     })
 }
 
@@ -58,9 +56,8 @@ pub fn parse_context_reference(
     let name_list = parse_name_list(stream, diagnostics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
-        context_token,
+        span: TokenSpan::new(context_token, semi_token),
         name_list,
-        semi_token,
     })
 }
 
@@ -92,7 +89,9 @@ pub fn parse_context(
         }
 
         let ident = WithDecl::new(to_simple_name(name)?);
+        let end_token = stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
+            span: TokenSpan::new(context_token, end_token),
             end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
             ident,
             items,
@@ -108,9 +107,8 @@ pub fn parse_context(
         let name_list = SeparatedList { items, tokens };
         let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {
-            context_token,
+            span: TokenSpan::new(context_token, semi_token),
             name_list,
-            semi_token,
         }))
     }
 }
@@ -120,7 +118,8 @@ mod tests {
     use super::*;
 
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{token_to_string, Code};
+    use crate::HasTokenSpan;
 
     #[test]
     fn test_library_clause_single_name() {
@@ -128,9 +127,8 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
-                library_token: code.s1("library").token(),
+                span: code.token_span(),
                 name_list: code.s1("foo").ident_list(),
-                semi_token: code.s1(";").token(),
             }
         )
     }
@@ -141,9 +139,8 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
-                library_token: code.s1("library").token(),
+                span: code.token_span(),
                 name_list: code.s1("foo, bar").ident_list(),
-                semi_token: code.s1(";").token(),
             },
         )
     }
@@ -154,9 +151,8 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
-                use_token: code.s1("use").token(),
+                span: code.token_span(),
                 name_list: code.s1("lib.foo").name_list(),
-                semi_token: code.s1(";").token(),
             },
         )
     }
@@ -167,9 +163,8 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
-                use_token: code.s1("use").token(),
+                span: code.token_span(),
                 name_list: code.s1("foo.'a', lib.bar.all").name_list(),
-                semi_token: code.s1(";").token(),
             },
         )
     }
@@ -180,9 +175,8 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
-                context_token: code.s1("context").token(),
+                span: code.token_span(),
                 name_list: code.s1("lib.foo").name_list(),
-                semi_token: code.s1(";").token(),
             },)
         )
     }
@@ -213,6 +207,7 @@ end context ident;
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
+                    span: code.token_span(),
                     ident: code.s1("ident").decl_ident(),
                     items: vec![],
                     end_ident_pos: if has_end_ident {
@@ -244,6 +239,7 @@ end context ident2;
         assert_eq!(
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
+                span: code.token_span(),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![],
                 end_ident_pos: None,
@@ -265,26 +261,103 @@ end context;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
+                span: code.token_span(),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![
                     ContextItem::Library(LibraryClause {
-                        library_token: code.s1("library").token(),
+                        span: TokenSpan::new(code.s("library", 1).token(), code.s(";", 1).token()),
                         name_list: code.s1("foo").ident_list(),
-                        semi_token: code.s(";", 1).token(),
                     }),
                     ContextItem::Use(UseClause {
-                        use_token: code.s1("use").token(),
+                        span: TokenSpan::new(code.s1("use").token(), code.s(";", 2).token()),
                         name_list: code.s1("foo.bar").name_list(),
-                        semi_token: code.s(";", 2).token(),
                     }),
                     ContextItem::Context(ContextReference {
-                        context_token: code.s("context", 2).token(),
+                        span: TokenSpan::new(code.s("context", 2).token(), code.s(";", 3).token()),
                         name_list: code.s1("foo.ctx").name_list(),
-                        semi_token: code.s(";", 3).token(),
                     }),
                 ],
                 end_ident_pos: None,
             })
         )
+    }
+
+    #[test]
+    pub fn test_pos_of_context_elements() {
+        let code = Code::new(
+            "\
+context my_context is
+  library ieee, env;
+  context my_context;
+  use ieee.std_logic_1164.all, std.env.xyz;
+end my_context;
+",
+        );
+        let ctx = code.tokenize();
+        let lib = code.context_declaration();
+        assert_eq!(
+            lib.items[0].get_pos(&ctx),
+            code.s1("library ieee, env;").pos()
+        );
+        assert_eq!(
+            lib.items[1].get_pos(&ctx),
+            code.s1("context my_context;").pos()
+        );
+        assert_eq!(
+            lib.items[2].get_pos(&ctx),
+            code.s1("use ieee.std_logic_1164.all, std.env.xyz;").pos()
+        );
+    }
+
+    #[test]
+    pub fn test_token_span() {
+        let code = Code::new(
+            "\
+context my_context is
+  library ieee, env;
+  context my_context;
+  use ieee.std_logic_1164.all, std.env.xyz;
+end my_context;
+",
+        );
+        let ctx = code.tokenize();
+        let lib = code.context_declaration();
+
+        let lib_token_string: Vec<String> = lib.items[0]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+        let ctx_token_string: Vec<String> = lib.items[1]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+        let use_token_string: Vec<String> = lib.items[2]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+
+        assert_eq!(lib_token_string, vec!["library", "ieee", ",", "env", ";"],);
+        assert_eq!(ctx_token_string, vec!["context", "my_context", ";"],);
+        assert_eq!(
+            use_token_string,
+            vec![
+                "use",
+                "ieee",
+                ".",
+                "std_logic_1164",
+                ".",
+                "all",
+                ",",
+                "std",
+                ".",
+                "env",
+                ".",
+                "xyz",
+                ";"
+            ],
+        );
     }
 }
