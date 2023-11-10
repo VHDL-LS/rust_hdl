@@ -144,7 +144,6 @@ pub fn parse_subprogram_specification(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramSpecification> {
-    let start_token = stream.get_current_token_id();
     let (is_function, is_pure) = {
         expect_token!(
             stream,
@@ -182,9 +181,7 @@ pub fn parse_subprogram_specification(
     if is_function {
         stream.expect_kind(Return)?;
         let return_type = parse_type_mark(stream)?;
-        let end_token = stream.get_last_token_id();
         Ok(SubprogramSpecification::Function(FunctionSpecification {
-            span: TokenSpan::new(start_token, end_token),
             pure: is_pure,
             param_tok,
             designator: designator.into(),
@@ -193,9 +190,7 @@ pub fn parse_subprogram_specification(
             return_type,
         }))
     } else {
-        let end_token = stream.get_last_token_id();
         Ok(SubprogramSpecification::Procedure(ProcedureSpecification {
-            span: TokenSpan::new(start_token, end_token),
             designator: designator.into(),
             param_tok,
             header,
@@ -221,6 +216,7 @@ pub fn parse_subprogram_declaration(
 /// LRM 4.3 Subprogram bodies
 pub fn parse_subprogram_body(
     stream: &TokenStream,
+    specification_start_token: TokenId,
     specification: SubprogramSpecification,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
@@ -248,7 +244,7 @@ pub fn parse_subprogram_body(
             let end_token = stream.expect_kind(SemiColon)?;
 
             Ok(SubprogramBody {
-                span: TokenSpan::new(specification.get_start_token(), end_token),
+                span: TokenSpan::new(specification_start_token, end_token),
                 end_ident_pos: check_end_identifier_mismatch(specification.subpgm_designator(), end_ident, diagnostics),
                 specification,
                 declarations,
@@ -275,7 +271,7 @@ pub fn parse_subprogram(
         stream,
         token,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, start_token, specification, diagnostics)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(SubprogramDeclaration{
@@ -308,7 +304,6 @@ procedure foo;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    span: TokenSpan::new(code.s1("procedure").token(), code.s1("foo").token()),
                     designator: code
                         .s1("foo")
                         .ident()
@@ -334,7 +329,6 @@ function foo return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(code.s1("function").token(), code.s1("natural").token()),
                     pure: true,
                     designator: code
                         .s1("foo")
@@ -362,7 +356,6 @@ function \"+\" return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(code.s1("function").token(), code.s1("natural").token()),
                     pure: true,
                     designator: WithPos {
                         item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
@@ -390,7 +383,6 @@ impure function foo return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(code.s1("impure").token(), code.s1("natural").token()),
                     pure: false,
                     designator: code
                         .s1("foo")
@@ -417,7 +409,6 @@ pure function foo return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(code.s1("pure").token(), code.s1("natural").token()),
                     pure: true,
                     designator: code
                         .s1("foo")
@@ -444,7 +435,6 @@ procedure foo(foo : natural);
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    span: TokenSpan::new(code.s1("procedure").token(), code.s1(")").token()),
                     designator: code
                         .s1("foo")
                         .ident()
@@ -470,10 +460,6 @@ function foo(foo : natural) return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(
-                        code.s1("function").token(),
-                        code.sa("lib.foo.", "natural").token()
-                    ),
                     pure: true,
                     designator: code
                         .s1("foo")
@@ -501,10 +487,6 @@ function foo parameter (foo : natural) return lib.foo.natural;
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(
-                        code.s1("function").token(),
-                        code.sa("lib.foo.", "natural").token()
-                    ),
                     pure: true,
                     designator: code
                         .s1("foo")
@@ -532,10 +514,6 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
-                    span: TokenSpan::new(
-                        code.s1("function").token(),
-                        code.sa("lib.foo.", "natural").token()
-                    ),
                     pure: true,
                     designator: code
                         .s1("foo")
@@ -793,7 +771,6 @@ procedure my_proc
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    span: TokenSpan::new(code.s1("procedure").token(), code.sb(")", ";").token()),
                     designator: code
                         .s1("my_proc")
                         .ident()
@@ -824,7 +801,6 @@ procedure my_proc
             SubprogramDeclaration {
                 span: code.token_span(),
                 specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    span: TokenSpan::new(code.s1("procedure").token(), code.sb(")", ";").token()),
                     designator: code
                         .s1("my_proc")
                         .ident()

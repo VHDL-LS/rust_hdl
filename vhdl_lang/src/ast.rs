@@ -663,7 +663,6 @@ pub enum SubprogramDesignator {
 }
 
 /// LRM 4.2 Subprogram declaration
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
@@ -674,7 +673,6 @@ pub struct ProcedureSpecification {
 }
 
 /// LRM 4.2 Subprogram declaration
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
@@ -731,7 +729,7 @@ pub enum Signature {
     Procedure(Vec<WithPos<TypeMark>>),
 }
 
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum SubprogramSpecification {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
