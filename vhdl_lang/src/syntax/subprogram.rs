@@ -291,6 +291,12 @@ mod tests {
     use crate::syntax::test::{token_to_string, Code};
     use crate::{HasTokenSpan, Token};
 
+    fn check_token_span(tokens: &[Token], expected_str: &str) {
+        assert_eq!(
+            tokens.iter().map(token_to_string).collect::<Vec<String>>(),
+            expected_str.split(" ").collect::<Vec<&str>>(),
+        )
+    }
 
     #[test]
     pub fn parses_procedure_declaration() {
@@ -1012,52 +1018,15 @@ end package;
             })
             .collect_vec();
 
-        let function_foo_token_string: Vec<String> = subprograms[0]
-            .get_token_slice(&ctx)
-            .iter()
-            .map(token_to_string)
-            .collect();
-        let function_bar_token_string: Vec<String> = subprograms[1]
-            .get_token_slice(&ctx)
-            .iter()
-            .map(token_to_string)
-            .collect();
-        let proc_proc_token_string: Vec<String> = subprograms[2]
-            .get_token_slice(&ctx)
-            .iter()
-            .map(token_to_string)
-            .collect();
+        check_token_span(subprograms[0]
+                .get_token_slice(&ctx),
+                "function foo generic ( abc_def : natural ) parameter ( foo : natural ) return lib . foo . natural ;");
 
-        assert_eq!(
-            function_foo_token_string,
-            vec![
-                "function",
-                "foo",
-                "generic",
-                "(",
-                "abc_def",
-                ":",
-                "natural",
-                ")",
-                "parameter",
-                "(",
-                "foo",
-                ":",
-                "natural",
-                ")",
-                "return",
-                "lib",
-                ".",
-                "foo",
-                ".",
-                "natural",
-                ";"
-            ],
+        check_token_span(
+            subprograms[1].get_token_slice(&ctx),
+            "function bar ( idx : natural ) return boolean ;",
         );
-        assert_eq!(
-            function_bar_token_string,
-            vec!["function", "bar", "(", "idx", ":", "natural", ")", "return", "boolean", ";"],
-        );
-        assert_eq!(proc_proc_token_string, vec!["procedure", "proc", ";",],);
+
+        check_token_span(subprograms[2].get_token_slice(&ctx), "procedure proc ;");
     }
 }

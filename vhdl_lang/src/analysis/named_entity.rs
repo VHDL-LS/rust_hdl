@@ -10,8 +10,8 @@ use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
-    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
+    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
+    SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
