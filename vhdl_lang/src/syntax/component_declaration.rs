@@ -7,7 +7,7 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use super::tokens::{Kind::*, TokenInfo, TokenStream};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::{Diagnostic, DiagnosticHandler};
@@ -87,7 +87,7 @@ pub fn parse_component_declaration(
     let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(ComponentDeclaration {
-        info: TokenInfo::new(start_token, end_token),
+        span: TokenSpan::new(start_token, end_token),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
         generic_list: generic_list.unwrap_or_default(),
@@ -101,18 +101,17 @@ mod tests {
 
     use crate::ast::Ident;
     use crate::syntax::test::Code;
-    use crate::{SrcPos, TokenId};
+    use crate::SrcPos;
 
     fn to_component(
-        start_token: TokenId,
-        end_token: TokenId,
         ident: WithDecl<Ident>,
+        span: TokenSpan,
         generic_list: Vec<InterfaceDeclaration>,
         port_list: Vec<InterfaceDeclaration>,
         end_ident_pos: Option<SrcPos>,
     ) -> ComponentDeclaration {
         ComponentDeclaration {
-            info: TokenInfo::new(start_token, end_token),
+            span,
             ident,
             generic_list,
             port_list,
@@ -132,9 +131,8 @@ end component;
         assert_eq!(
             component,
             to_component(
-                code.s1("component").token(),
-                code.sa("end component", ";").token(),
                 code.s1("foo").decl_ident(),
+                code.token_span(),
                 vec![],
                 vec![],
                 None
@@ -151,9 +149,8 @@ end component;
         assert_eq!(
             component,
             to_component(
-                code.s1("component").token(),
-                code.sa("end component", ";").token(),
                 code.s1("foo").decl_ident(),
+                code.token_span(),
                 vec![],
                 vec![],
                 None
@@ -170,9 +167,8 @@ end component foo;
         assert_eq!(
             component,
             to_component(
-                code.s1("component").token(),
-                code.sa("end component foo", ";").token(),
                 code.s1("foo").decl_ident(),
+                code.token_span(),
                 vec![],
                 vec![],
                 Some(code.s("foo", 2).pos())
@@ -195,9 +191,8 @@ end component;
         assert_eq!(
             component,
             to_component(
-                code.s1("component").token(),
-                code.sa("end component", ";").token(),
                 code.s1("foo").decl_ident(),
+                code.token_span(),
                 vec![code.s1("foo : natural").generic()],
                 vec![],
                 None
@@ -220,9 +215,8 @@ end component;
         assert_eq!(
             component,
             to_component(
-                code.s1("component").token(),
-                code.sa("end component", ";").token(),
                 code.s1("foo").decl_ident(),
+                code.token_span(),
                 vec![],
                 vec![code.s1("foo : natural").port()],
                 None

@@ -13,7 +13,7 @@ use crate::analysis::DesignRoot;
 use crate::analysis::EntRef;
 pub use crate::analysis::HasEntityId;
 use crate::analysis::Related;
-use crate::TokenSpan;
+use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
 pub enum SearchResult {
@@ -27,7 +27,6 @@ pub enum SearchState {
     NotFinished,
 }
 
-use crate::syntax::TokenAccess;
 pub use SearchResult::*;
 pub use SearchState::*;
 
@@ -1026,7 +1025,7 @@ impl Search for Declaration {
                 entity_name,
                 entity_class: _,
                 expr,
-                info: _,
+                span: _,
             })) => {
                 return_if_found!(searcher.search_ident_ref(ctx, ident).or_not_found());
                 if let EntityName::Name(EntityTag {
@@ -1053,7 +1052,7 @@ impl Search for Declaration {
                     subtype_indication,
                     name,
                     signature,
-                    info: _,
+                    span: _,
                 } = alias;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(name.search(ctx, searcher));
@@ -1076,7 +1075,7 @@ impl Search for Declaration {
                     generic_list,
                     port_list,
                     end_ident_pos: _,
-                    info: _,
+                    span: _,
                 } = component;
                 return_if_found!(generic_list.search(ctx, searcher));
                 return_if_found!(port_list.search(ctx, searcher));
@@ -1091,7 +1090,7 @@ impl Search for Declaration {
                     subtype_indication,
                     open_info,
                     file_name,
-                    info: _,
+                    span: _,
                 } = file;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(open_info.search(ctx, searcher));

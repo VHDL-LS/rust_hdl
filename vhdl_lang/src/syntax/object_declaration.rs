@@ -8,7 +8,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenInfo, TokenStream};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
@@ -53,7 +53,7 @@ fn parse_object_declaration_kind(
     Ok(idents
         .into_iter()
         .map(|ident| ObjectDeclaration {
-            info: TokenInfo::new(start_token, end_token),
+            span: TokenSpan::new(start_token, end_token),
             class,
             ident: ident.into(),
             subtype_indication: subtype.clone(),
@@ -113,7 +113,7 @@ pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDecla
     Ok(idents
         .into_iter()
         .map(|ident| FileDeclaration {
-            info: TokenInfo::new(start_token, end_token),
+            span: TokenSpan::new(start_token, end_token),
             ident: ident.into(),
             subtype_indication: subtype.clone(),
             open_info: open_info.clone(),
@@ -128,7 +128,7 @@ mod tests {
 
     use super::*;
     use crate::syntax::test::{token_to_string, Code};
-    use crate::TokenSpan;
+    use crate::HasTokenSpan;
 
     #[test]
     fn parses_constant() {
@@ -136,7 +136,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(code.s1("signal").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(code.s1("variable").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Variable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(code.s1("shared").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::SharedVariable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
@@ -226,7 +226,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                info: TokenInfo::new(code.s1("file").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: Some(code.s1("write_mode").expr()),
@@ -239,7 +239,7 @@ mod tests {
     fn parses_file_with_open_information_without_file_name() {
         let code = Code::new("file foo : text open write_mode;");
         assert_eq!(
-            code.with_partial_stream_err(parse_file_declaration),
+            code.with_stream_err(parse_file_declaration),
             Diagnostic::error(
                 code.s1("foo"),
                 "file_declaration must have a file name specified if the file open expression is specified as well",
@@ -253,7 +253,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -268,14 +268,14 @@ mod tests {
 
         let objects = vec![
             ObjectDeclaration {
-                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr()),
             },
             ObjectDeclaration {
-                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
+                span: code.token_span(),
                 class: ObjectClass::Constant,
                 ident: code.s1("bar").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),

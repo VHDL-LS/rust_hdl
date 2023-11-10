@@ -8,7 +8,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
-use super::tokens::{Kind::*, TokenInfo, TokenStream};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
@@ -81,7 +81,7 @@ pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
             let type_mark = parse_type_mark(stream)?;
             let end_token = stream.expect_kind(SemiColon)?;
             vec![Attribute::Declaration(AttributeDeclaration {
-                info: TokenInfo::new(start_token, end_token),
+                span: TokenSpan::new(start_token, end_token),
                 ident: ident.into(),
                 type_mark,
             })]
@@ -98,7 +98,7 @@ pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
-                        info: TokenInfo::new(start_token, end_token),
+                        span: TokenSpan::new(start_token, end_token),
                         ident: WithRef::new(ident.clone()),
                         entity_name,
                         entity_class,
@@ -120,7 +120,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Declaration(AttributeDeclaration {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
                 type_mark: code.s1("lib.name").type_mark()
             })]
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").ref_designator(),
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("\"**\"").ref_designator(),
@@ -170,7 +170,7 @@ mod tests {
             code.with_stream(parse_attribute),
             vec![
                 Attribute::Specification(AttributeSpecification {
-                    info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                    span: code.token_span(),
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("foo").ref_designator(),
@@ -180,7 +180,7 @@ mod tests {
                     expr: code.s1("0+1").expr()
                 }),
                 Attribute::Specification(AttributeSpecification {
-                    info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                    span: code.token_span(),
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("bar").ref_designator(),
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::All,
                 entity_class: EntityClass::Signal,
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Others,
                 entity_class: EntityClass::Signal,
@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                info: TokenInfo::new(code.s1("attribute").token(), code.s1(";").token()),
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").ref_designator(),

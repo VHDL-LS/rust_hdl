@@ -32,13 +32,13 @@ fn add_token_span_impl_struct(item: ItemStruct) -> TokenStream {
 
     quote! {
         #[automatically_derived]
-        impl #generics ::vhdl_lang::TokenSpan for #name #generics #where_clause {
+        impl #generics ::vhdl_lang::HasTokenSpan for #name #generics #where_clause {
             fn get_start_token(&self) -> ::vhdl_lang::TokenId {
-                self.info.start_token
+                self.span.start_token
             }
 
             fn get_end_token(&self) -> ::vhdl_lang::TokenId {
-                self.info.end_token
+                self.span.end_token
             }
 
             fn get_token_slice<'a>(&self, tokens: &'a dyn ::vhdl_lang::TokenAccess) -> &'a[::vhdl_lang::Token] {
@@ -86,31 +86,31 @@ fn add_token_span_impl_enum(item: ItemEnum) -> TokenStream {
         .map(|variant| variant.ident)
         .collect();
 
-    // Parse the delegating implementations for all `TokenSpan` methods
-    // Note that by calling the methods using the trait itself `TokenSpan`, we get nice error messages if
+    // Parse the delegating implementations for all `HasTokenSpan` methods
+    // Note that by calling the methods using the trait itself `HasTokenSpan`, we get nice error messages if
     // a fields' type does not implement the trait!
     quote! {
-        impl ::vhdl_lang::TokenSpan for #enum_name {
+        impl ::vhdl_lang::HasTokenSpan for #enum_name {
             fn get_start_token(&self) -> ::vhdl_lang::TokenId {
                 match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_start_token(inner), )*
+                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::HasTokenSpan::get_start_token(inner), )*
                 }
             }
             fn get_end_token(&self) -> ::vhdl_lang::TokenId {
                 match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_end_token(inner), )*
+                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::HasTokenSpan::get_end_token(inner), )*
                 }
             }
 
             fn get_token_slice<'internal_a>(&self, tokens: &'internal_a dyn ::vhdl_lang::TokenAccess) -> &'internal_a [::vhdl_lang::Token] {
                 match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_token_slice(inner, tokens), )*
+                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::HasTokenSpan::get_token_slice(inner, tokens), )*
                 }
             }
 
             fn get_pos(&self, ctx: &dyn ::vhdl_lang::TokenAccess) -> ::vhdl_lang::SrcPos {
                 match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_pos(inner, ctx), )*
+                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::HasTokenSpan::get_pos(inner, ctx), )*
                 }
             }
         }

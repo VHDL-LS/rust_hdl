@@ -124,7 +124,7 @@ impl<'a> AnalyzeContext<'a> {
             name,
             subtype_indication,
             signature,
-            info: _,
+            span: _,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
@@ -323,7 +323,7 @@ impl<'a> AnalyzeContext<'a> {
                     subtype_indication,
                     open_info,
                     file_name,
-                    info: _,
+                    span: _,
                 } = file;
 
                 let subtype =
@@ -396,7 +396,7 @@ impl<'a> AnalyzeContext<'a> {
                         // @TODO also check the entity class
                         entity_class: _,
                         expr,
-                        info: _,
+                        span: _,
                     } = attr_spec;
 
                     match scope.lookup(

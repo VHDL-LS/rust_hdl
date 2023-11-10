@@ -20,7 +20,7 @@ pub fn add_token_span_fields(args: TokenStream, input: TokenStream) -> TokenStre
     let _ = parse_macro_input!(args as Nothing);
     let mut item_struct = parse_macro_input!(input as ItemStruct);
 
-    // Add an attribute to the struct for deriving the `TokenSpan` implementation
+    // Add an attribute to the struct for deriving the `HasTokenSpan` implementation
     let token_span_attr_raw: syn::Attribute =
         parse_quote! { #[derive(::vhdl_lang_macros::TokenSpan)] };
     item_struct.attrs.push(token_span_attr_raw);
@@ -46,7 +46,7 @@ pub fn add_token_span_fields(args: TokenStream, input: TokenStream) -> TokenStre
     // Add the required field
     fields.named.push(
         syn::Field::parse_named
-            .parse2(quote! {pub(crate) info: ::vhdl_lang::TokenInfo})
+            .parse2(quote! {pub(crate) span: ::vhdl_lang::TokenSpan})
             .unwrap(),
     );
 

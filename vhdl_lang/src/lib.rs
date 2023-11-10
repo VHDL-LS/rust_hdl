@@ -35,5 +35,5 @@ pub use crate::analysis::{
 };
 pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{
-    kind_str, ParserResult, Token, TokenAccess, TokenId, TokenInfo, TokenSpan, VHDLParser,
+    kind_str, HasTokenSpan, ParserResult, Token, TokenAccess, TokenId, TokenSpan, VHDLParser,
 };

@@ -489,21 +489,21 @@ impl TokenId {
     }
 }
 
-/// AST elements for which it is necessary to get the underlying tokens can implement the `TokenSpan` trait.
+/// AST elements for which it is necessary to get the underlying tokens can implement the `HasTokenSpan` trait.
 /// The trait provides getters for the start and end token.
 ///
-/// Using the `with_token_span` attribute macro, the necessary fields can be inserted, and `TokenSpan` is implemented automatically.
+/// Using the `with_token_span` attribute macro, the necessary fields can be inserted, and `HasTokenSpan` is implemented automatically.
 ///
 /// For enums containing alternative AST elements the custom derive macro can be used directly under certain constraints:
 /// 1. All variants must contain exactly one unnamed field.
-/// 2. The fields of all variants must implement the `TokenSpan` trait one way or another.
+/// 2. The fields of all variants must implement the `HasTokenSpan` trait one way or another.
 ///
 /// Example:
 /// ```rust
 /// use vhdl_lang_macros::{with_token_span, TokenSpan};
 ///
 /// // With `with_token_span` a field `info` of type `(TokenId, TokenId)` is inserted.
-/// // Additionally the `TokenSpan` trait is implemented using the `TokenSpan` derive macro
+/// // Additionally the `HasTokenSpan` trait is implemented using the `TokenSpan` derive macro
 /// #[with_token_span]
 /// #[derive(PartialEq, Debug, Clone)]
 /// pub struct UseClause {
@@ -530,7 +530,7 @@ impl TokenId {
 ///     Context(ContextReference),
 /// }
 /// ```
-pub trait TokenSpan {
+pub trait HasTokenSpan {
     fn get_start_token(&self) -> TokenId;
     fn get_end_token(&self) -> TokenId;
 
@@ -542,12 +542,12 @@ pub trait TokenSpan {
 /// Since the different pieces may be gathered in different locations,
 /// the fields are gated behind accessor functions which also check some invariants every time they are called.
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct TokenInfo {
+pub struct TokenSpan {
     pub start_token: TokenId,
     pub end_token: TokenId,
 }
 
-impl TokenInfo {
+impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
         Self {
             start_token,
