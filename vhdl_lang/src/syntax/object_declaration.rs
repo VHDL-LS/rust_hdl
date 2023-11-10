@@ -97,6 +97,7 @@ pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDecla
             None
         }
     };
+    let end_token = stream.expect_kind(SemiColon)?;
 
     // If the `file_open_information` is present, `file_name` is mandatory
     // LRM 6.4.2.5
@@ -109,7 +110,6 @@ pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDecla
         }
     }
 
-    let end_token = stream.expect_kind(SemiColon)?;
     Ok(idents
         .into_iter()
         .map(|ident| FileDeclaration {

@@ -397,6 +397,14 @@ pub fn parse_generic(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> 
 }
 
 #[cfg(test)]
+pub fn parse_parameter_list(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<Vec<InterfaceDeclaration>> {
+    parse_interface_list(stream, diagnostics, InterfaceType::Parameter)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
@@ -458,24 +466,54 @@ mod tests {
 
     #[test]
     fn parses_interface_file_declaration_no_open_info() {
-        let code = Code::new("file foo : text open read_mode");
+        let code = Code::new("(file foo : text open read_mode)");
         assert_eq!(
-            code.with_partial_stream_err(parse_parameter),
-            Diagnostic::error(
-                code.s1("foo"),
-                "interface_file_declaration may not have file open information"
+            code.with_stream_diagnostics(parse_parameter_list),
+            (
+                vec![],
+                vec![Diagnostic::error(
+                    code.s1("foo"),
+                    "interface_file_declaration may not have file open information"
+                )]
             )
         );
     }
 
     #[test]
     fn parses_interface_file_declaration_no_file_name() {
-        let code = Code::new("file foo : text is \"file_name\"");
+        let code = Code::new("(file foo : text is \"file_name\")");
         assert_eq!(
-            code.with_partial_stream_err(parse_parameter),
-            Diagnostic::error(
-                code.s1("foo"),
-                "interface_file_declaration may not have file name"
+            code.with_stream_diagnostics(parse_parameter_list),
+            (
+                vec![],
+                vec![Diagnostic::error(
+                    code.s1("foo"),
+                    "interface_file_declaration may not have file name"
+                )]
+            )
+        );
+    }
+
+    #[test]
+    fn parses_interface_file_declaration_list_with_errors() {
+        let code = Code::new("(file with_name: text is \"file_name\"; file valid : text; file open_info: text open read_mode)");
+        assert_eq!(
+            code.with_stream_diagnostics(parse_parameter_list),
+            (
+                vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
+                    ident: code.s1("valid").decl_ident(),
+                    subtype_indication: code.s("text", 2).subtype_indication()
+                })],
+                vec![
+                    Diagnostic::error(
+                        code.s1("with_name"),
+                        "interface_file_declaration may not have file name"
+                    ),
+                    Diagnostic::error(
+                        code.s1("open_info"),
+                        "interface_file_declaration may not have file open information"
+                    )
+                ]
             )
         );
     }
