@@ -145,7 +145,7 @@ impl Code {
         }
     }
 
-    fn from_pos_to_end(&self, start: Position) -> Code {
+    fn pos_to_end(&self, start: Position) -> Code {
         Code {
             symbols: self.symbols.clone(),
             pos: SrcPos::new(
@@ -158,7 +158,7 @@ impl Code {
         }
     }
 
-    fn from_start_to_pos(&self, end: Position) -> Code {
+    fn start_to_pos(&self, end: Position) -> Code {
         Code {
             symbols: self.symbols.clone(),
             pos: SrcPos::new(
@@ -174,13 +174,13 @@ impl Code {
     pub fn s_to_end(&self, substr: &str, occurence: usize) -> Code {
         let substr_match_range =
             substr_range(&self.pos.source, self.pos.range(), substr, occurence);
-        self.from_pos_to_end(substr_match_range.start)
+        self.pos_to_end(substr_match_range.start)
     }
 
     pub fn s_from_start(&self, substr: &str, occurence: usize) -> Code {
         let substr_match_range =
             substr_range(&self.pos.source, self.pos.range(), substr, occurence);
-        self.from_start_to_pos(substr_match_range.end)
+        self.start_to_pos(substr_match_range.end)
     }
 
     pub fn s1_to_end(&self, substr: &str) -> Code {
@@ -837,9 +837,7 @@ impl AsRef<SrcPos> for Code {
 fn value_to_string(value: &Value) -> String {
     match value {
         Value::Identifier(ident) => ident.name_utf8(),
-        Value::String(s) => {
-            String::from_utf8(s.chars().into_iter().map(|c| *c).collect_vec()).unwrap()
-        }
+        Value::String(s) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
         Value::BitString(_) => {
             panic!("value_to_string is currently not supported for BitString literals!")
         }
@@ -848,9 +846,7 @@ fn value_to_string(value: &Value) -> String {
             AbstractLiteral::Real(f) => f.to_string(),
         },
         Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
-        Value::Text(text) => {
-            String::from_utf8(text.chars().into_iter().map(|c| *c).collect_vec()).unwrap()
-        }
+        Value::Text(text) => String::from_utf8(text.chars().copied().collect_vec()).unwrap(),
         Value::NoValue => "".into(),
     }
 }

@@ -55,7 +55,7 @@ pub enum FoundDeclaration<'a> {
     Component(&'a mut ComponentDeclaration),
     Attribute(&'a mut AttributeDeclaration),
     Alias(&'a mut AliasDeclaration),
-    SubprogramSpec(&'a mut SubprogramSpecification),
+    SubprogramDecl(&'a mut SubprogramSpecification),
     Subprogram(&'a mut SubprogramBody),
     SubprogramInstantiation(&'a mut SubprogramInstantiation),
     Package(&'a mut PackageDeclaration),
@@ -1119,9 +1119,9 @@ impl Search for InterfaceDeclaration {
                 return_if_found!(decl.subtype_indication.search(ctx, searcher));
                 return_if_found!(decl.expression.search(ctx, searcher));
             }
-            InterfaceDeclaration::Subprogram(ref mut decl, ref mut subpgm_default) => {
+            InterfaceDeclaration::Subprogram(ref mut spec, ref mut subpgm_default) => {
                 return_if_found!(searcher
-                    .search_decl(ctx, FoundDeclaration::SubprogramSpec(decl))
+                    .search_decl(ctx, FoundDeclaration::SubprogramDecl(spec))
                     .or_not_found());
 
                 if let Some(subpgm_default) = subpgm_default {
@@ -1170,7 +1170,7 @@ impl Search for SubprogramDeclaration {
 impl Search for SubprogramSpecification {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
-            .search_decl(ctx, FoundDeclaration::SubprogramSpec(self))
+            .search_decl(ctx, FoundDeclaration::SubprogramDecl(self))
             .or_not_found());
         search_subpgm_inner(self, ctx, searcher)
     }
@@ -1654,7 +1654,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::ForIndex(..) => None,
             FoundDeclaration::ForGenerateIndex(..) => None,
             FoundDeclaration::Subprogram(value) => value.end_ident_pos.as_ref(),
-            FoundDeclaration::SubprogramSpec(..) => None,
+            FoundDeclaration::SubprogramDecl(..) => None,
             FoundDeclaration::Object(..) => None,
             FoundDeclaration::ElementDeclaration(..) => None,
             FoundDeclaration::EnumerationLiteral(..) => None,
@@ -1688,7 +1688,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::ForIndex(ident, _) => &mut ident.decl,
             FoundDeclaration::ForGenerateIndex(_, value) => &mut value.index_name.decl,
             FoundDeclaration::Subprogram(value) => value.specification.ent_id_mut(),
-            FoundDeclaration::SubprogramSpec(value) => value.ent_id_mut(),
+            FoundDeclaration::SubprogramDecl(value) => value.ent_id_mut(),
             FoundDeclaration::SubprogramInstantiation(value) => &mut value.ident.decl,
             FoundDeclaration::Object(value) => &mut value.ident.decl,
             FoundDeclaration::ElementDeclaration(elem) => &mut elem.ident.decl,
@@ -1735,7 +1735,7 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::ForIndex(ident, _) => ident.decl,
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl,
             FoundDeclaration::Subprogram(value) => value.specification.ent_id(),
-            FoundDeclaration::SubprogramSpec(value) => value.ent_id(),
+            FoundDeclaration::SubprogramDecl(value) => value.ent_id(),
             FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl,
             FoundDeclaration::Object(value) => value.ident.decl,
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl,
@@ -1771,7 +1771,7 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::ForIndex(ident, _) => ident.pos(),
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.pos(),
             FoundDeclaration::Subprogram(value) => &value.specification.subpgm_designator().pos,
-            FoundDeclaration::SubprogramSpec(value) => &value.subpgm_designator().pos,
+            FoundDeclaration::SubprogramDecl(value) => &value.subpgm_designator().pos,
             FoundDeclaration::SubprogramInstantiation(value) => &value.ident.tree.pos,
             FoundDeclaration::Object(value) => value.ident.pos(),
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.pos(),
@@ -1818,7 +1818,7 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             FoundDeclaration::Subprogram(ref value) => {
                 write!(f, "{};", value.specification)
             }
-            FoundDeclaration::SubprogramSpec(ref value) => {
+            FoundDeclaration::SubprogramDecl(ref value) => {
                 write!(f, "{value}")
             }
             FoundDeclaration::SubprogramInstantiation(ref value) => {

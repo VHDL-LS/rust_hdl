@@ -294,7 +294,7 @@ mod tests {
     fn check_token_span(tokens: &[Token], expected_str: &str) {
         assert_eq!(
             tokens.iter().map(token_to_string).collect::<Vec<String>>(),
-            expected_str.split(" ").collect::<Vec<&str>>(),
+            expected_str.split(' ').collect::<Vec<&str>>(),
         )
     }
 
