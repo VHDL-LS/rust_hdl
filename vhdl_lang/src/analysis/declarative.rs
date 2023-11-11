@@ -612,6 +612,9 @@ impl<'a> AnalyzeContext<'a> {
                 }
             };
 
+            // Attributes affect the underlying entity and cannot be set directly on aliases
+            let ent = ent.as_actual();
+
             match entity_class {
                 EntityClass::Architecture
                 | EntityClass::Entity

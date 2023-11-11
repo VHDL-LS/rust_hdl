@@ -244,3 +244,42 @@ end architecture;
         .related(code.s("mysig", 2), "Previously specified here")],
     );
 }
+
+#[test]
+fn attributes_affect_aliased_object_and_not_alias_itself() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    
+    signal mysig : natural;
+    alias myalias is mysig;
+
+    attribute myattr of myalias : signal is false;
+    attribute myattr of mysig : signal is false;
+
+    constant c0 : boolean := mysig'myattr;
+    constant c1 : boolean := myalias'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("mysig : signal").s1("mysig"),
+            "Duplicate specification of attribute 'myattr' for signal 'mysig'",
+        )
+        .related(
+            code.s1("myalias : signal").s1("myalias"),
+            "Previously specified here",
+        )],
+    );
+}

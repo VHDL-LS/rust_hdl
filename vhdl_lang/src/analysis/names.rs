@@ -322,7 +322,7 @@ impl<'a> ResolvedName<'a> {
         match self {
             ResolvedName::ObjectName(oname) => match oname.base {
                 ObjectBase::Object(obj) => Some(*obj),
-                ObjectBase::ObjectAlias(_, _) => None,
+                ObjectBase::ObjectAlias(obj, _) => Some(*obj),
                 ObjectBase::DeferredConstant(ent) => Some(ent),
                 ObjectBase::ExternalName(_) => None,
             },

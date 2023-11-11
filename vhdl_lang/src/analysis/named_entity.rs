@@ -374,6 +374,7 @@ impl<'a> AnyEnt<'a> {
         match self.kind() {
             AnyEntKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
             AnyEntKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
+            AnyEntKind::ObjectAlias { base_object, .. } => base_object.as_actual(),
             _ => self,
         }
     }
