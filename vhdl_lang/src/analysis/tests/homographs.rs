@@ -1030,3 +1030,31 @@ end architecture;
         .related(code.s("homo1", 1), "Previously defined here")],
     );
 }
+
+// This was a bug at one point
+#[test]
+fn same_label_in_different_process_is_not_homograph() {
+    check_code_with_no_diagnostics(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+    process
+    begin
+        l0 : loop
+        end loop;
+        wait;
+    end process;
+
+    process
+    begin
+        l0 : loop
+        end loop;
+        wait;
+    end process;
+end architecture;
+    ",
+    );
+}

@@ -117,10 +117,21 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         if let Some((_, indexes)) = typ.array_type() {
-            if let Some(first) = indexes.first().unwrap() {
-                Ok(*first)
+            if let Some(first) = indexes.first() {
+                if let Some(base_type) = first {
+                    Ok(*base_type)
+                } else {
+                    // There was probably an error in the type definition of this signal/variable
+                    Err(EvalError::Unknown)
+                }
             } else {
-                // There was probably an error in the type definition of this signal/variable
+                // This should never happen
+                if let Some(decl_pos) = typ.decl_pos() {
+                    // To debug if it ever happens
+                    eprintln!("{}", decl_pos.show("Array with no indexes"));
+                    eprintln!("{}", attr.name.pos.show("Used here"));
+                    panic!("Internal error")
+                }
                 Err(EvalError::Unknown)
             }
         } else {

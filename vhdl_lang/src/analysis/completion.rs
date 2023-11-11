@@ -1,15 +1,14 @@
-use crate::analysis::region::{AsUnique, NamedEntities};
+use crate::analysis::region::{AsUnique, NamedEntities, Region};
 use crate::analysis::{DesignRoot, HasEntityId};
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Designator,
-    EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
+    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Designator, InstantiationStatement, MapAspect,
+    ObjectClass,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::AnyEntKind::Design;
-use crate::{EntRef, EntityId, Position, Source};
+use crate::{AnyEntKind, Design, EntRef, EntityId, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
@@ -51,95 +50,54 @@ enum MapAspectKind {
     Generic,
 }
 
-/// Extracts the name of ports or generics from an AST for an entity with a certain ID.
-/// The entity can be an `Entity`, `Component` or `Package`.
-/// After walking the AST, the ports or generics are written to the `items` vector.
-/// The `kind` member chooses whether to select ports or generics.
-struct PortsOrGenericsExtractor {
-    id: EntityId,
-    items: Vec<EntityId>,
-    kind: MapAspectKind,
+impl<'a> Region<'a> {
+    /// From this region, extracts those `AnyEntKind::Object`s where the class of the
+    /// object matches the specified class.
+    fn extract_objects_with_class(&self, object_class: ObjectClass) -> Vec<EntityId> {
+        self.entities
+            .values()
+            .filter_map(|ent| ent.as_unique())
+            .filter_map(|ent| match &ent.kind {
+                AnyEntKind::Object(obj) if obj.class == object_class => Some(ent.id),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 impl DesignRoot {
-    fn extract_port_or_generic_names(&self, id: EntityId, kind: MapAspectKind) -> Vec<EntityId> {
-        let mut searcher = PortsOrGenericsExtractor::new(id, kind);
-        self.walk(&mut searcher);
-        searcher.items
-    }
-}
+    /// Extracts the name of ports or generics from an AST for an entity with a certain ID.
+    /// The entity can be an `Entity`, `Component` or `Package`.
+    ///
+    /// # Arguments
+    ///
+    /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
+    /// while `ObjectClass::Constant` extracts constants.
 
-impl PortsOrGenericsExtractor {
-    pub fn new(id: EntityId, kind: MapAspectKind) -> PortsOrGenericsExtractor {
-        PortsOrGenericsExtractor {
-            id,
-            items: vec![],
-            kind,
-        }
-    }
-
-    fn add_map_aspect_items(&mut self, map_aspect: &Vec<InterfaceDeclaration>) {
-        for decl in map_aspect {
-            if let Some(id) = decl.ent_id() {
-                self.items.push(id)
+    fn extract_port_or_generic_names(
+        &self,
+        id: EntityId,
+        object_class: ObjectClass,
+    ) -> Vec<EntityId> {
+        let cmp_ent = self.get_ent(id);
+        match cmp_ent.kind() {
+            AnyEntKind::Component(region) => region.extract_objects_with_class(object_class),
+            AnyEntKind::Design(Design::Entity(_, region)) => {
+                region.extract_objects_with_class(object_class)
             }
+            AnyEntKind::Design(Design::UninstPackage(_, region)) => {
+                region.extract_objects_with_class(object_class)
+            }
+            _ => vec![],
         }
     }
 
-    fn add_optional_map_aspect_items(&mut self, map_aspect: &Option<Vec<InterfaceDeclaration>>) {
-        if let Some(map_aspect) = map_aspect {
-            self.add_map_aspect_items(map_aspect);
-        }
-    }
-}
-
-impl Visitor for PortsOrGenericsExtractor {
-    fn visit_component_declaration(
-        &mut self,
-        node: &ComponentDeclaration,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if node.ident.decl != Some(self.id) {
-            return VisitorResult::Skip;
-        }
-        if self.kind == MapAspectKind::Port {
-            self.add_map_aspect_items(&node.port_list);
-        }
-        if self.kind == MapAspectKind::Generic {
-            self.add_map_aspect_items(&node.generic_list);
-        }
-        VisitorResult::Stop
+    pub fn extract_port_names(&self, id: EntityId) -> Vec<EntityId> {
+        self.extract_port_or_generic_names(id, ObjectClass::Signal)
     }
 
-    fn visit_entity_declaration(
-        &mut self,
-        node: &EntityDeclaration,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if node.ident.decl != Some(self.id) {
-            return VisitorResult::Skip;
-        }
-        if self.kind == MapAspectKind::Port {
-            self.add_optional_map_aspect_items(&node.port_clause);
-        }
-        if self.kind == MapAspectKind::Generic {
-            self.add_optional_map_aspect_items(&node.generic_clause);
-        }
-        VisitorResult::Stop
-    }
-
-    fn visit_package_declaration(
-        &mut self,
-        node: &PackageDeclaration,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if node.ident.decl != Some(self.id) {
-            return VisitorResult::Skip;
-        }
-        if self.kind == MapAspectKind::Generic {
-            self.add_optional_map_aspect_items(&node.generic_clause);
-        }
-        VisitorResult::Stop
+    pub fn extract_generic_names(&self, id: EntityId) -> Vec<EntityId> {
+        self.extract_port_or_generic_names(id, ObjectClass::Constant)
     }
 }
 
@@ -185,7 +143,10 @@ impl<'a> AutocompletionVisitor<'a> {
         let formals_in_map: HashSet<EntityId> =
             HashSet::from_iter(map.formals().filter_map(|it| *it));
         if let Some(ent) = node.entity_reference() {
-            let ids = self.root.extract_port_or_generic_names(ent, kind);
+            let ids = match kind {
+                MapAspectKind::Port => self.root.extract_port_names(ent),
+                MapAspectKind::Generic => self.root.extract_generic_names(ent),
+            };
             self.completions.extend(
                 ids.iter()
                     .filter(|id| !formals_in_map.contains(id))
@@ -321,7 +282,7 @@ impl DesignRoot {
                 };
                 let ent = self.get_ent(pkg_id);
                 match &ent.kind {
-                    Design(crate::analysis::Design::Package(_, region)) => region
+                    AnyEntKind::Design(Design::Package(_, region)) => region
                         .entities
                         .values()
                         .map(|named_ent| match named_ent {
@@ -365,7 +326,7 @@ impl DesignRoot {
             }
             _ => {
                 let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
-                self.walk(&mut visitor);
+                self.walk_source(source, &mut visitor);
                 visitor.completions
             }
         }
@@ -467,7 +428,6 @@ mod test {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        println!("{:?}", options);
 
         assert!(options.contains(&CompletionItem::Overloaded(
             Designator::Identifier(root.symbol_utf8("stop")),

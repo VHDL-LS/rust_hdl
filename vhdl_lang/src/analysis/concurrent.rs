@@ -121,7 +121,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 let nested = scope.nested();
-                self.define_labels_for_sequential_part(scope, parent, statements, diagnostics)?;
+                self.define_labels_for_sequential_part(&nested, parent, statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
                 self.analyze_sequential_part(&nested, parent, statements, diagnostics)?;
             }
@@ -157,14 +157,24 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
-                for alternative in gen.sels.alternatives.iter_mut() {
+                let CaseGenerateStatement {
+                    sels:
+                        Selection {
+                            ref mut expression,
+                            ref mut alternatives,
+                        },
+                    end_label_pos: _,
+                } = gen;
+
+                let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
+                for alternative in alternatives.iter_mut() {
+                    let Alternative {
+                        ref mut choices,
+                        ref mut item,
+                    } = alternative;
+                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     let nested = scope.nested();
-                    self.analyze_generate_body(
-                        &nested,
-                        parent,
-                        &mut alternative.item,
-                        diagnostics,
-                    )?;
+                    self.analyze_generate_body(&nested, parent, item, diagnostics)?;
                 }
             }
             ConcurrentStatement::Instance(ref mut instance) => {

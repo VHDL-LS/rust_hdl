@@ -286,3 +286,130 @@ end procedure;
         Some(code.s1("theproc").pos())
     );
 }
+
+#[test]
+fn named_argument_before_positional() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg1: integer; arg2 : natural) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(arg1 => 0, 0);
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("arg1", 2),
+            "Named arguments are not allowed before positional arguments",
+        )],
+    );
+}
+
+#[test]
+fn argument_associated_as_both_named_and_positional() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg: integer) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(0, arg => 0);
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("arg", 2),
+            "parameter 'arg' has already been associated",
+        )
+        .related(code.s1("theproc(0, ").s1("0"), "Previously associated here")],
+    );
+}
+
+#[test]
+fn duplicate_named_argument() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg: integer) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(arg => 0, arg => 0);
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("arg", 3),
+            "parameter 'arg' has already been associated",
+        )
+        .related(code.s("arg", 2), "Previously associated here")],
+    );
+}
+
+#[test]
+fn partial_named_argument_is_allowed_multiple_times() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+procedure theproc(arg: bit_vector) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(arg(0) => '0', arg(1 to 2) => \"01\");
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn cannot_combine_partial_and_full_argument() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg: bit_vector) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(arg(0) => '0', arg => \"01\");
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("arg", 3),
+            "parameter 'arg' has already been associated",
+        )
+        .related(code.s1("arg(0)"), "Previously associated here")],
+    );
+}
