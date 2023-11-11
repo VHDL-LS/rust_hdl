@@ -111,7 +111,7 @@ pub enum RangeAttribute {
 pub enum AttributeDesignator {
     Type(TypeAttribute),
     Range(RangeAttribute),
-    Ident(Symbol),
+    Ident(WithRef<Symbol>),
     Ascending,
     Descending,
     Left,
@@ -436,7 +436,7 @@ pub enum Designator {
 pub type Reference = Option<EntityId>;
 
 /// An item which has a reference to a declaration
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WithRef<T> {
     pub item: T,
     pub reference: Reference,

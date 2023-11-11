@@ -6,7 +6,7 @@
 
 use fnv::FnvHashMap;
 
-use crate::ast::{self, AttributeDesignator, Operator};
+use crate::ast::{self, AttributeDesignator, Operator, WithRef};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -1668,7 +1668,7 @@ impl<'a> Tokenizer<'a> {
             .attributes
             .get(&sym)
             .cloned()
-            .unwrap_or_else(|| AttributeDesignator::Ident(sym))
+            .unwrap_or_else(|| AttributeDesignator::Ident(WithRef::new(sym)))
     }
 
     fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {

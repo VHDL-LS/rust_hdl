@@ -724,7 +724,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: None,
             })),
@@ -855,7 +855,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
@@ -874,7 +874,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: Some(code.s1("[return natural]").signature()),
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),

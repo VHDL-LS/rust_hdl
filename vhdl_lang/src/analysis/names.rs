@@ -944,9 +944,10 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            AttributeDesignator::Ident(ref sym) => {
+            AttributeDesignator::Ident(ref mut sym) => {
                 if let Some(actual) = prefix.as_actual_entity() {
-                    if let Some(attr) = actual.get_attribute(sym) {
+                    if let Some(attr) = actual.get_attribute(&sym.item) {
+                        sym.set_unique_reference(attr.into());
                         Ok(AttrResolveResult::Value(attr.typ().base()))
                     } else {
                         diagnostics.error(

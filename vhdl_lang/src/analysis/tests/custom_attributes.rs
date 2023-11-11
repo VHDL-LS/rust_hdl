@@ -4,6 +4,8 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use itertools::Itertools;
+
 use super::*;
 
 #[test]
@@ -124,6 +126,40 @@ end architecture;
 
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn finds_references_of_custom_attributes() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+    attribute myattr : boolean;
+    attribute myattr of ent : entity is false;
+end entity;
+
+architecture a of ent is
+    constant c0 : boolean := ent'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("myattr").pos()),
+        vec![
+            code.s1("attribute myattr : boolean"),
+            code.s1("myattr of ent"),
+            code.s1("ent'myattr"),
+        ]
+        .into_iter()
+        .map(|c| c.s1("myattr").pos())
+        .collect_vec()
+    );
 }
 
 #[test]

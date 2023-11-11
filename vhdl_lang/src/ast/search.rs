@@ -628,8 +628,17 @@ fn search_pos_name(
         Name::CallOrIndexed(ref mut fcall) => fcall.search(ctx, searcher),
         Name::Attribute(ref mut attr) => {
             // @TODO more
-            let AttributeName { name, expr, .. } = attr.as_mut();
+            let AttributeName {
+                name, expr, attr, ..
+            } = attr.as_mut();
             return_if_found!(name.search(ctx, searcher));
+            if let AttributeDesignator::Ident(ref mut user_attr) = attr.item {
+                return_if_finished!(searcher.search_pos_with_ref(
+                    ctx,
+                    &attr.pos,
+                    &mut user_attr.reference
+                ));
+            }
             if let Some(expr) = expr {
                 return_if_found!(expr.search(ctx, searcher));
             }

@@ -42,3 +42,9 @@ impl<'a> AttributeEnt<'a> {
         }
     }
 }
+
+impl<'a> From<AttributeEnt<'a>> for EntRef<'a> {
+    fn from(value: AttributeEnt<'a>) -> Self {
+        value.ent
+    }
+}

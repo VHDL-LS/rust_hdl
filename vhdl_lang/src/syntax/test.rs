@@ -459,6 +459,11 @@ impl Code {
         self.parse_ok(|stream: &TokenStream| stream.expect_ident())
     }
 
+    pub fn attr_ident(&self) -> WithPos<AttributeDesignator> {
+        self.parse_ok(|stream: &TokenStream| stream.expect_ident())
+            .map_into(|i| AttributeDesignator::Ident(WithRef::new(i)))
+    }
+
     pub fn decl_ident(&self) -> WithDecl<Ident> {
         WithDecl::new(self.parse_ok(|stream: &TokenStream| stream.expect_ident()))
     }
