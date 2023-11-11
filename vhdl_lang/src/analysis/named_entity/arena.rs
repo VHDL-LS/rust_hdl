@@ -17,6 +17,7 @@ use crate::SrcPos;
 
 use super::AnyEnt;
 use super::AnyEntKind;
+use super::AttributeEnt;
 use super::EntRef;
 use super::Related;
 use super::TypeEnt;
@@ -161,10 +162,11 @@ impl Arena {
             id: EntityId::undefined(),
             parent,
             related,
-            implicits: Vec::new(),
+            implicits: Default::default(),
             designator,
             kind,
             decl_pos,
+            attrs: Default::default(),
         };
 
         unsafe {
@@ -195,19 +197,29 @@ impl Arena {
                 designator,
                 kind,
                 decl_pos,
+                attrs: Default::default(),
             };
             &*eref as EntRef<'a>
         }
     }
 
     pub(crate) unsafe fn add_implicit<'a>(&'a self, id: EntityId, ent: EntRef<'a>) {
-        let local = self.local.borrow_mut();
+        let mut local = self.local.borrow_mut();
         assert_eq!(id.arena_id(), local.id);
-        let p = &mut *self.local.as_ptr() as &mut LocalArena;
-        let eref = p.get_mut(id.local_id());
+        let eref = local.get_mut(id.local_id());
         unsafe {
             let eref: &mut AnyEnt = &mut *eref as &mut AnyEnt;
             eref.add_implicit(ent);
+        }
+    }
+
+    pub(crate) unsafe fn add_attr<'a>(&'a self, id: EntityId, ent: AttributeEnt<'a>) {
+        let mut local = self.local.borrow_mut();
+        assert_eq!(id.arena_id(), local.id);
+        let eref = local.get_mut(id.local_id());
+        unsafe {
+            let eref: &mut AnyEnt = &mut *eref as &mut AnyEnt;
+            eref.add_attribute(ent);
         }
     }
 

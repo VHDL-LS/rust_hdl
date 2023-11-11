@@ -524,19 +524,27 @@ impl<'a> AnalyzeContext<'a> {
             span: _,
         } = attr_spec;
 
-        match scope.lookup(
+        let attr_ent = match scope.lookup(
             &ident.item.pos,
             &Designator::Identifier(ident.item.name().clone()),
         ) {
             Ok(NamedEntities::Single(ent)) => {
                 ident.set_unique_reference(ent);
-                if let AnyEntKind::Attribute(typ) = ent.actual_kind() {
-                    self.expr_pos_with_ttyp(scope, *typ, &expr.pos, &mut expr.item, diagnostics)?;
+                if let Some(attr_ent) = AttributeEnt::from_any(ent) {
+                    self.expr_pos_with_ttyp(
+                        scope,
+                        attr_ent.typ(),
+                        &expr.pos,
+                        &mut expr.item,
+                        diagnostics,
+                    )?;
+                    attr_ent
                 } else {
                     diagnostics.error(
                         &ident.item.pos,
                         format!("{} is not an attribute", ent.describe()),
                     );
+                    return Ok(());
                 }
             }
             Ok(NamedEntities::Overloaded(_)) => {
@@ -544,11 +552,13 @@ impl<'a> AnalyzeContext<'a> {
                     &ident.item.pos,
                     format!("Overloaded name '{}' is not an attribute", ident.item),
                 );
+                return Ok(());
             }
             Err(err) => {
                 diagnostics.push(err);
+                return Ok(());
             }
-        }
+        };
 
         if let EntityName::Name(EntityTag {
             designator,
@@ -613,6 +623,7 @@ impl<'a> AnalyzeContext<'a> {
                             designator,
                             "Attribute specification must be in the immediate declarative part",
                         ));
+                        return Ok(());
                     }
                 }
                 EntityClass::Signal
@@ -628,8 +639,13 @@ impl<'a> AnalyzeContext<'a> {
                             designator,
                             "Attribute specification must be in the immediate declarative part",
                         ));
+                        return Ok(());
                     }
                 }
+            }
+
+            unsafe {
+                self.arena.add_attr(ent.id(), attr_ent);
             }
         }
 

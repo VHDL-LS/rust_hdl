@@ -95,3 +95,60 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn custom_attribute_can_be_used() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+    attribute myattr : boolean;
+    attribute myattr of ent : entity is false;
+end entity;
+
+architecture a of ent is
+    constant c0 : boolean := ent'myattr;
+
+    signal mysig : natural;
+    attribute myattr of mysig : signal is false;
+    constant c1 : boolean := mysig'myattr;
+    
+    type mytype is (alpha, beta);
+    attribute myattr of mytype : type is false;
+    constant c2 : boolean := mytype'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn invalid_prefix_for_custom_attribute() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    constant c1 : boolean := std'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("std'myattr"),
+            "library std may not be the prefix of a user defined attribute",
+        )],
+    );
+}

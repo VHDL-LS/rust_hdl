@@ -17,6 +17,7 @@ use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDecla
 use crate::data::*;
 
 mod types;
+use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
@@ -27,6 +28,9 @@ pub use object::{Object, ObjectEnt, ObjectInterface};
 
 mod design;
 pub use design::{Design, DesignEnt};
+
+mod attribute;
+pub use attribute::AttributeEnt;
 
 mod arena;
 pub use arena::{Arena, ArenaId, EntityId, FinalArena};
@@ -138,6 +142,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
             designator,
             kind,
             decl_pos,
+            attrs,
         } = self;
 
         let mut s = f.debug_struct(stringify!(AnyEnt));
@@ -148,6 +153,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
         s.field(stringify!(designator), designator);
         s.field(stringify!(kind), kind);
         s.field(stringify!(decl_pos), decl_pos);
+        s.field(stringify!(attrs), attrs);
         s.finish()
     }
 }
@@ -177,6 +183,9 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
+
+    /// Custom attributes on this entity
+    pub attrs: FnvHashMap<Symbol, AttributeEnt<'a>>,
 }
 
 impl Arena {
@@ -371,6 +380,14 @@ impl<'a> AnyEnt<'a> {
 
     pub(crate) fn add_implicit(&mut self, ent: EntRef<'a>) {
         self.implicits.push(ent);
+    }
+
+    pub(crate) fn add_attribute(&mut self, ent: AttributeEnt<'a>) {
+        self.attrs.insert(ent.name().clone(), ent);
+    }
+
+    pub fn get_attribute(&self, name: &Symbol) -> Option<AttributeEnt<'a>> {
+        self.attrs.get(name).copied()
     }
 
     /// Strip aliases and return reference to actual entity kind
