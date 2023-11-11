@@ -655,8 +655,10 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(());
             }
 
-            unsafe {
-                self.arena.add_attr(ent.id(), attr_ent);
+            let res = unsafe { self.arena.add_attr(ent.id(), &designator.pos, attr_ent) };
+
+            if let Err(diagnostic) = res {
+                diagnostics.push(diagnostic);
             }
         }
 

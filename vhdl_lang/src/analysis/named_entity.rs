@@ -185,7 +185,7 @@ pub struct AnyEnt<'a> {
     pub decl_pos: Option<SrcPos>,
 
     /// Custom attributes on this entity
-    pub attrs: FnvHashMap<Symbol, AttributeEnt<'a>>,
+    pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
 }
 
 impl Arena {
@@ -382,12 +382,34 @@ impl<'a> AnyEnt<'a> {
         self.implicits.push(ent);
     }
 
-    pub(crate) fn add_attribute(&mut self, ent: AttributeEnt<'a>) {
-        self.attrs.insert(ent.name().clone(), ent);
+    pub(crate) fn add_attribute(
+        &mut self,
+        ent: AttributeEnt<'a>,
+        pos: &SrcPos,
+    ) -> Result<(), Diagnostic> {
+        use std::collections::hash_map::Entry;
+        match self.attrs.entry(ent.name().clone()) {
+            Entry::Occupied(entry) => {
+                let last_pos = entry.get().0.clone();
+                Err(Diagnostic::error(
+                    pos,
+                    format!(
+                        "Duplicate specification of attribute '{}' for {}",
+                        ent.name(),
+                        self.describe()
+                    ),
+                )
+                .related(last_pos, "Previously specified here"))
+            }
+            Entry::Vacant(entry) => {
+                entry.insert((pos.clone(), ent));
+                Ok(())
+            }
+        }
     }
 
     pub fn get_attribute(&self, name: &Symbol) -> Option<AttributeEnt<'a>> {
-        self.attrs.get(name).copied()
+        self.attrs.get(name).map(|(_, ent)| *ent)
     }
 
     /// Strip aliases and return reference to actual entity kind

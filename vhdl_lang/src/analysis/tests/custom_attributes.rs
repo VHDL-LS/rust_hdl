@@ -214,3 +214,33 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn duplicate_attribute() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    signal mysig : natural;
+    attribute myattr of mysig : signal is false;
+    attribute myattr of mysig : signal is true;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("mysig", 3),
+            "Duplicate specification of attribute 'myattr' for signal 'mysig'",
+        )
+        .related(code.s("mysig", 2), "Previously specified here")],
+    );
+}
