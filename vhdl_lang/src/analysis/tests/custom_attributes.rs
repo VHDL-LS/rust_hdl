@@ -152,3 +152,65 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn incorrect_entity_class() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+
+    signal good, bad : natural;
+    attribute myattr of good : signal is true;
+    attribute myattr of bad : variable is true;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("bad", 2),
+            "signal 'bad' is not of class variable",
+        )],
+    );
+}
+
+#[test]
+fn subtype_entity_class() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+
+    subtype good is integer range 0 to 3;
+    type bad is (alpha, beta);
+
+    attribute myattr of good : subtype is true;
+    attribute myattr of bad : subtype is true;
+begin
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("bad", 2),
+            "type 'bad' is not of class subtype",
+        )],
+    );
+}

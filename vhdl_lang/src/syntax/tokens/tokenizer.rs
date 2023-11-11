@@ -96,6 +96,7 @@ pub enum Kind {
     Procedure,
     Vunit,
     Parameter,
+    Literal,
 
     // Unary operators
     Abs,
@@ -348,6 +349,7 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Procedure => "procedure",
         Vunit => "vunit",
         Parameter => "parameter",
+        Literal => "literal",
 
         // Unary operators
         Abs => "abs",

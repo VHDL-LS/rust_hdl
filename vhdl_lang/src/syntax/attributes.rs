@@ -19,15 +19,19 @@ fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
         Configuration => EntityClass::Configuration,
-        Package => EntityClass::Package,
-        Signal => EntityClass::Signal,
-        Variable => EntityClass::Variable,
         Procedure => EntityClass::Procedure,
         Function => EntityClass::Function,
-        Component => EntityClass::Component,
-        Constant => EntityClass::Constant,
+        Package => EntityClass::Package,
         Type => EntityClass::Type,
-        Label => EntityClass::Label
+        Subtype => EntityClass::Subtype,
+        Constant => EntityClass::Constant,
+        Signal => EntityClass::Signal,
+        Variable => EntityClass::Variable,
+        Component => EntityClass::Component,
+        Label => EntityClass::Label,
+        Literal => EntityClass::Literal,
+        Units => EntityClass::Units,
+        File => EntityClass::File
     ))
 }
 

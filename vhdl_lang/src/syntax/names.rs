@@ -11,7 +11,7 @@ use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
-use crate::ast::*;
+use crate::ast::{Literal, *};
 use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;

@@ -612,7 +612,6 @@ impl<'a> AnalyzeContext<'a> {
                 }
             };
 
-            // @TODO also check the entity class matches ent
             match entity_class {
                 EntityClass::Architecture
                 | EntityClass::Entity
@@ -633,6 +632,10 @@ impl<'a> AnalyzeContext<'a> {
                 | EntityClass::Component
                 | EntityClass::Constant
                 | EntityClass::Type
+                | EntityClass::Subtype
+                | EntityClass::Literal
+                | EntityClass::Units
+                | EntityClass::File
                 | EntityClass::Label => {
                     if ent.parent != Some(parent) {
                         diagnostics.push(Diagnostic::error(
@@ -642,6 +645,14 @@ impl<'a> AnalyzeContext<'a> {
                         return Ok(());
                     }
                 }
+            }
+
+            if Some(*entity_class) != get_entity_class(ent) {
+                diagnostics.push(Diagnostic::error(
+                    designator,
+                    format!("{} is not of class {}", ent.describe(), entity_class),
+                ));
+                return Ok(());
             }
 
             unsafe {
@@ -1598,5 +1609,58 @@ impl Diagnostic {
             pos,
             "Signature required for alias of subprogram and enum literals",
         )
+    }
+}
+
+fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
+    match ent.actual_kind() {
+        // Alias is never the direct target of attribute
+        AnyEntKind::ExternalAlias { .. } => None,
+        // Alias is never the direct target of attribute
+        AnyEntKind::ObjectAlias { .. } => None,
+        AnyEntKind::File(_) => Some(EntityClass::File),
+        AnyEntKind::InterfaceFile(_) => Some(EntityClass::File),
+        AnyEntKind::Component(_) => Some(EntityClass::Component),
+        AnyEntKind::Attribute(_) => None,
+        AnyEntKind::Overloaded(ent) => match ent {
+            Overloaded::SubprogramDecl(s)
+            | Overloaded::Subprogram(s)
+            | Overloaded::InterfaceSubprogram(s) => {
+                if s.return_type.is_some() {
+                    Some(EntityClass::Function)
+                } else {
+                    Some(EntityClass::Procedure)
+                }
+            }
+            Overloaded::EnumLiteral(_) => Some(EntityClass::Literal),
+            // Alias is never the direct target of attribute
+            Overloaded::Alias(_) => None,
+        },
+        AnyEntKind::Type(Type::Subtype(_)) => Some(EntityClass::Subtype),
+        AnyEntKind::Type(_) => Some(EntityClass::Type),
+        AnyEntKind::ElementDeclaration(_) => None,
+        AnyEntKind::Concurrent(_) => Some(EntityClass::Label),
+        AnyEntKind::Sequential(_) => Some(EntityClass::Label),
+        AnyEntKind::Object(obj) => match obj.class {
+            ObjectClass::Signal => Some(EntityClass::Signal),
+            ObjectClass::Constant => Some(EntityClass::Constant),
+            ObjectClass::Variable => Some(EntityClass::Variable),
+            ObjectClass::SharedVariable => Some(EntityClass::Variable),
+        },
+        AnyEntKind::LoopParameter(_) => None, // @TODO is it allowed?
+        AnyEntKind::PhysicalLiteral(_) => None, // @TODO maybe Units?
+        AnyEntKind::DeferredConstant(_) => Some(EntityClass::Constant),
+        AnyEntKind::Library => None,
+        AnyEntKind::Design(des) => match des {
+            Design::Entity(_, _) => Some(EntityClass::Entity),
+            Design::Architecture(_) => Some(EntityClass::Architecture),
+            Design::Configuration => Some(EntityClass::Configuration),
+            Design::Package(_, _) => Some(EntityClass::Package),
+            // Should never be target of attribute
+            Design::PackageBody => None,
+            Design::UninstPackage(_, _) => None,
+            Design::PackageInstance(_) => None,
+            Design::Context(_) => None,
+        },
     }
 }

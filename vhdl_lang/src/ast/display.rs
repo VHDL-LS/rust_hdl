@@ -160,6 +160,29 @@ impl Display for RangeAttribute {
     }
 }
 
+impl Display for EntityClass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            EntityClass::Entity => write!(f, "entity"),
+            EntityClass::Architecture => write!(f, "architecture"),
+            EntityClass::Configuration => write!(f, "ponfiguration"),
+            EntityClass::Procedure => write!(f, "procedure"),
+            EntityClass::Function => write!(f, "function"),
+            EntityClass::Package => write!(f, "package"),
+            EntityClass::Type => write!(f, "type"),
+            EntityClass::Subtype => write!(f, "subtype"),
+            EntityClass::Constant => write!(f, "constant"),
+            EntityClass::Signal => write!(f, "signal"),
+            EntityClass::Variable => write!(f, "variable"),
+            EntityClass::Component => write!(f, "component"),
+            EntityClass::Label => write!(f, "label"),
+            EntityClass::Literal => write!(f, "literal"),
+            EntityClass::Units => write!(f, "units"),
+            EntityClass::File => write!(f, "file"),
+        }
+    }
+}
+
 impl Display for ExternalObjectClass {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
