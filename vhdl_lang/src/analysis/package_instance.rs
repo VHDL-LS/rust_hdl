@@ -7,27 +7,8 @@
 use fnv::FnvHashMap;
 
 use super::analyze::*;
-use super::formal_region::FormalRegion;
-use super::formal_region::GpkgInterfaceEnt;
-use super::formal_region::GpkgRegion;
-use super::formal_region::InterfaceEnt;
-use super::formal_region::RecordElement;
-use super::formal_region::RecordRegion;
-use super::named_entity::Design;
-use super::named_entity::Object;
-use super::named_entity::ObjectEnt;
-use super::named_entity::Overloaded;
-use super::named_entity::OverloadedEnt;
-use super::named_entity::Signature;
-use super::named_entity::Subtype;
-use super::named_entity::Type;
-use super::named_entity::TypeEnt;
 use super::names::ResolvedName;
-use super::region::*;
-use super::AnyEntKind;
-use super::EntRef;
-use super::EntityId;
-use super::Related;
+use super::scope::*;
 use crate::ast::ActualPart;
 use crate::ast::AssociationElement;
 use crate::ast::Expression;
@@ -36,6 +17,7 @@ use crate::ast::Name;
 use crate::ast::Operator;
 use crate::ast::PackageInstantiation;
 use crate::data::DiagnosticHandler;
+use crate::named_entity::*;
 use crate::Diagnostic;
 use crate::NullDiagnostics;
 
@@ -449,8 +431,10 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = region;
 
-        let mut inst_region = Region::default();
-        inst_region.kind = *kind;
+        let mut inst_region = Region {
+            kind: *kind,
+            ..Region::default()
+        };
 
         for (_, uninst) in uninst_entities.iter() {
             match uninst {

@@ -9,7 +9,7 @@ use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*, TokenStream};
 use crate::ast;
-use crate::ast::*;
+use crate::ast::{Literal, *};
 use crate::data::{Diagnostic, WithPos};
 use crate::syntax::TokenAccess;
 

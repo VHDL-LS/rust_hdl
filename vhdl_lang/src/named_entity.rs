@@ -4,19 +4,18 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
-use super::formal_region::FormalRegion;
-use super::region::Region;
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramDeclaration,
-    SubprogramInstantiation, TypeDeclaration, WithDecl,
+    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
+    SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
 
 mod types;
+use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
@@ -28,8 +27,23 @@ pub use object::{Object, ObjectEnt, ObjectInterface};
 mod design;
 pub use design::{Design, DesignEnt};
 
+mod attribute;
+pub use attribute::AttributeEnt;
+
 mod arena;
 pub use arena::{Arena, ArenaId, EntityId, FinalArena};
+
+mod visibility;
+pub use visibility::{Visibility, Visible};
+
+mod region;
+pub(crate) use region::RegionKind;
+pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
+
+mod formal_region;
+pub use formal_region::{
+    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceEnt, RecordElement, RecordRegion,
+};
 
 pub enum AnyEntKind<'a> {
     ExternalAlias {
@@ -145,6 +159,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
             designator,
             kind,
             decl_pos,
+            attrs,
         } = self;
 
         let mut s = f.debug_struct(stringify!(AnyEnt));
@@ -155,6 +170,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
         s.field(stringify!(designator), designator);
         s.field(stringify!(kind), kind);
         s.field(stringify!(decl_pos), decl_pos);
+        s.field(stringify!(attrs), attrs);
         s.finish()
     }
 }
@@ -184,6 +200,9 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
+
+    /// Custom attributes on this entity
+    pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
 }
 
 impl Arena {
@@ -372,12 +391,43 @@ impl<'a> AnyEnt<'a> {
         match self.kind() {
             AnyEntKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
             AnyEntKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
+            AnyEntKind::ObjectAlias { base_object, .. } => base_object.as_actual(),
             _ => self,
         }
     }
 
     pub(crate) fn add_implicit(&mut self, ent: EntRef<'a>) {
         self.implicits.push(ent);
+    }
+
+    pub(crate) fn add_attribute(
+        &mut self,
+        ent: AttributeEnt<'a>,
+        pos: &SrcPos,
+    ) -> Result<(), Diagnostic> {
+        use std::collections::hash_map::Entry;
+        match self.attrs.entry(ent.name().clone()) {
+            Entry::Occupied(entry) => {
+                let last_pos = entry.get().0.clone();
+                Err(Diagnostic::error(
+                    pos,
+                    format!(
+                        "Duplicate specification of attribute '{}' for {}",
+                        ent.name(),
+                        self.describe()
+                    ),
+                )
+                .related(last_pos, "Previously specified here"))
+            }
+            Entry::Vacant(entry) => {
+                entry.insert((pos.clone(), ent));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn get_attribute(&self, name: &Symbol) -> Option<AttributeEnt<'a>> {
+        self.attrs.get(name).map(|(_, ent)| *ent)
     }
 
     /// Strip aliases and return reference to actual entity kind
@@ -508,11 +558,11 @@ impl HasEntityId for InterfaceFileDeclaration {
     }
 }
 
-impl HasEntityId for SubprogramDeclaration {
+impl HasEntityId for SubprogramSpecification {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
-            SubprogramDeclaration::Procedure(proc) => proc.designator.decl,
-            SubprogramDeclaration::Function(func) => func.designator.decl,
+            SubprogramSpecification::Procedure(proc) => proc.designator.decl,
+            SubprogramSpecification::Function(func) => func.designator.decl,
         }
     }
 }
@@ -532,7 +582,7 @@ impl HasEntityId for Declaration {
             Declaration::Component(comp) => comp.ent_id(),
             Declaration::Attribute(attr) => attr.ent_id(),
             Declaration::Alias(alias) => alias.ent_id(),
-            Declaration::SubprogramDeclaration(decl) => decl.ent_id(),
+            Declaration::SubprogramDeclaration(decl) => decl.specification.ent_id(),
             Declaration::SubprogramBody(body) => body.ent_id(),
             Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
@@ -642,11 +692,11 @@ impl WithDecl<WithPos<Designator>> {
     }
 }
 
-impl SubprogramDeclaration {
+impl SubprogramSpecification {
     pub fn set_decl_id(&mut self, id: EntityId) {
         match self {
-            SubprogramDeclaration::Function(f) => f.designator.decl = Some(id),
-            SubprogramDeclaration::Procedure(p) => p.designator.decl = Some(id),
+            SubprogramSpecification::Function(f) => f.designator.decl = Some(id),
+            SubprogramSpecification::Procedure(p) => p.designator.decl = Some(id),
         }
     }
 }

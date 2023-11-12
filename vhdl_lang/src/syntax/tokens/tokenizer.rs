@@ -6,7 +6,7 @@
 
 use fnv::FnvHashMap;
 
-use crate::ast::{self, AttributeDesignator, Operator};
+use crate::ast::{self, AttributeDesignator, Operator, WithRef};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -96,6 +96,7 @@ pub enum Kind {
     Procedure,
     Vunit,
     Parameter,
+    Literal,
 
     // Unary operators
     Abs,
@@ -348,6 +349,7 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Procedure => "procedure",
         Vunit => "vunit",
         Parameter => "parameter",
+        Literal => "literal",
 
         // Unary operators
         Abs => "abs",
@@ -465,7 +467,7 @@ pub struct Token {
 /// A TokenId represents a unique value that is used to access a token.
 /// A token ID cannot be created directly by the user. Instead, the value must be taken
 /// from the AST.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct TokenId(usize);
 
 /// The TokenId represents an index into an array of tokens.
@@ -475,6 +477,94 @@ pub struct TokenId(usize);
 impl TokenId {
     pub(crate) fn new(idx: usize) -> TokenId {
         TokenId(idx)
+    }
+
+    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
+    /// method `TokenStream::slice_tokens`.
+    #[cfg(test)]
+    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenId {
+        debug_assert!(
+            self.0 >= offset.0,
+            "The token ID of the offset token must be lower than the token ID to be offset!"
+        );
+        TokenId(self.0 - offset.0)
+    }
+}
+
+/// AST elements for which it is necessary to get the underlying tokens can implement the `HasTokenSpan` trait.
+/// The trait provides getters for the start and end token.
+///
+/// Using the `with_token_span` attribute macro, the necessary fields can be inserted, and `HasTokenSpan` is implemented automatically.
+///
+/// For enums containing alternative AST elements the custom derive macro can be used directly under certain constraints:
+/// 1. All variants must contain exactly one unnamed field.
+/// 2. The fields of all variants must implement the `HasTokenSpan` trait one way or another.
+///
+/// Example:
+/// ```rust
+/// use vhdl_lang_macros::{with_token_span, TokenSpan};
+///
+/// // With `with_token_span` a field `info` of type `(TokenId, TokenId)` is inserted.
+/// // Additionally the `HasTokenSpan` trait is implemented using the `TokenSpan` derive macro
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct UseClause {
+///     pub name_list: ::vhdl_lang::ast::NameList,
+/// }
+///
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct ContextReference {
+///     pub name_list: ::vhdl_lang::ast::NameList,
+/// }
+///
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct LibraryClause {
+///     pub name_list: ::vhdl_lang::ast::IdentList,
+/// }
+///
+/// // Enums can use the `TokenSpan` derive macro directly
+/// #[derive(PartialEq, Debug, Clone, TokenSpan)]
+/// pub enum ContextItem {
+///     Use(UseClause),
+///     Library(LibraryClause),
+///     Context(ContextReference),
+/// }
+/// ```
+pub trait HasTokenSpan {
+    fn get_start_token(&self) -> TokenId;
+    fn get_end_token(&self) -> TokenId;
+
+    fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token];
+    fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos;
+}
+
+/// Holds token information about an AST element.
+/// Since the different pieces may be gathered in different locations,
+/// the fields are gated behind accessor functions which also check some invariants every time they are called.
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct TokenSpan {
+    pub start_token: TokenId,
+    pub end_token: TokenId,
+}
+
+impl TokenSpan {
+    pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
+        Self {
+            start_token,
+            end_token,
+        }
+    }
+
+    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
+    /// method `TokenStream::slice_tokens`.
+    #[cfg(test)]
+    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenSpan {
+        TokenSpan {
+            start_token: self.start_token.apply_offset(offset),
+            end_token: self.end_token.apply_offset(offset),
+        }
     }
 }
 
@@ -486,6 +576,9 @@ impl TokenId {
 pub trait TokenAccess {
     /// Get a token by its ID
     fn get_token(&self, id: TokenId) -> &Token;
+
+    /// Get a slice of tokens by using a start ID and an end ID
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token];
 
     /// Get a token's position by its ID
     fn get_pos(&self, id: TokenId) -> &SrcPos {
@@ -503,11 +596,19 @@ impl TokenAccess for Vec<Token> {
     fn get_token(&self, id: TokenId) -> &Token {
         &self[id.0]
     }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        &self[start_id.0..end_id.0 + 1]
+    }
 }
 
 impl TokenAccess for [Token] {
     fn get_token(&self, id: TokenId) -> &Token {
         &self[id.0]
+    }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        &self[start_id.0..end_id.0 + 1]
     }
 }
 
@@ -1567,7 +1668,7 @@ impl<'a> Tokenizer<'a> {
             .attributes
             .get(&sym)
             .cloned()
-            .unwrap_or_else(|| AttributeDesignator::Ident(sym))
+            .unwrap_or_else(|| AttributeDesignator::Ident(WithRef::new(sym)))
     }
 
     fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {
@@ -2012,8 +2113,8 @@ end entity"
     #[test]
     fn tokenize_many_identifiers() {
         let code = Code::new(
-            "my_ident     
-        
+            "my_ident
+
 my_other_ident",
         );
         let tokens = code.tokenize();

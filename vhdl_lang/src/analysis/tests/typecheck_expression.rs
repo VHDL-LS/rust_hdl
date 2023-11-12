@@ -1325,10 +1325,10 @@ function bad_fun1 return natural;
 function bad_fun1 return character;
 function bad_fun2 return natural;
 
-attribute ram_style of good_fun1 : signal is 0;
-attribute ram_style of good_fun2[return natural] : signal is 0;
-attribute ram_style of bad_fun1 : signal is 0;
-attribute ram_style of bad_fun2[return boolean] : signal is 0;
+attribute ram_style of good_fun1 : function is 0;
+attribute ram_style of good_fun2[return natural] : function is 0;
+attribute ram_style of bad_fun1 : function is 0;
+attribute ram_style of bad_fun2[return boolean] : function is 0;
 
 ",
     );
@@ -1341,7 +1341,7 @@ attribute ram_style of bad_fun2[return boolean] : signal is 0;
             "Attribute specification should only have a signature for subprograms and enum literals",
         ),
         Diagnostic::error(
-            code.s1("bad_fun1 : signal").s1("bad_fun1"),
+            code.s1("bad_fun1 : function").s1("bad_fun1"),
             "Signature required for alias of subprogram and enum literals",
         ),
         Diagnostic::error(

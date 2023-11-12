@@ -6,8 +6,8 @@
 
 //! Name conversions
 use super::*;
-use crate::analysis::{Concurrent, Sequential};
 use crate::data::*;
+use crate::named_entity::{Concurrent, Sequential};
 
 impl From<WithPos<SelectedName>> for WithPos<Name> {
     fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {
@@ -295,11 +295,11 @@ impl SubprogramDesignator {
     }
 }
 
-impl SubprogramDeclaration {
+impl SubprogramSpecification {
     pub fn pos(&self) -> &SrcPos {
         match self {
-            SubprogramDeclaration::Function(ref function) => &function.designator.tree.pos,
-            SubprogramDeclaration::Procedure(ref procedure) => &procedure.designator.tree.pos,
+            SubprogramSpecification::Function(ref function) => &function.designator.tree.pos,
+            SubprogramSpecification::Procedure(ref procedure) => &procedure.designator.tree.pos,
         }
     }
 }
@@ -468,21 +468,29 @@ impl DiscreteRange {
     }
 }
 
-impl SubprogramDeclaration {
+impl SubprogramSpecification {
     pub fn subpgm_designator(&self) -> &WithPos<SubprogramDesignator> {
         match self {
-            SubprogramDeclaration::Procedure(s) => &s.designator.tree,
-            SubprogramDeclaration::Function(s) => &s.designator.tree,
+            SubprogramSpecification::Procedure(s) => &s.designator.tree,
+            SubprogramSpecification::Function(s) => &s.designator.tree,
+        }
+    }
+
+    pub fn reference_mut(&mut self) -> &mut Reference {
+        match self {
+            SubprogramSpecification::Function(ref mut function) => &mut function.designator.decl,
+            SubprogramSpecification::Procedure(ref mut procedure) => &mut procedure.designator.decl,
         }
     }
 }
 
 impl SubprogramDeclaration {
+    pub fn subpgm_designator(&self) -> &WithPos<SubprogramDesignator> {
+        self.specification.subpgm_designator()
+    }
+
     pub fn reference_mut(&mut self) -> &mut Reference {
-        match self {
-            SubprogramDeclaration::Function(ref mut function) => &mut function.designator.decl,
-            SubprogramDeclaration::Procedure(ref mut procedure) => &mut procedure.designator.decl,
-        }
+        self.specification.reference_mut()
     }
 }
 

@@ -12,22 +12,19 @@ mod concurrent;
 mod declarative;
 mod design_unit;
 mod expression;
-mod formal_region;
 mod literals;
 mod lock;
-mod named_entity;
 mod names;
 mod overloaded;
 mod package_instance;
 mod range;
-mod region;
 mod root;
+mod scope;
 mod semantic;
 mod sequential;
 mod standard;
 mod static_expression;
 mod target;
-mod visibility;
 
 mod completion;
 
@@ -37,7 +34,3 @@ pub(crate) use root::{Library, LockedUnit};
 
 pub use self::root::{DesignRoot, EntHierarchy};
 pub use completion::CompletionItem;
-pub use named_entity::{
-    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
-    Related, Sequential, Type,
-};

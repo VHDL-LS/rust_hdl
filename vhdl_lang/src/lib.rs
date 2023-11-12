@@ -9,12 +9,17 @@
 #![allow(clippy::vec_init_then_push)]
 
 #[macro_use]
+extern crate vhdl_lang_macros;
+extern crate self as vhdl_lang;
+
+#[macro_use]
 pub mod ast;
 #[macro_use]
 mod analysis;
 mod config;
 mod data;
 mod lint;
+mod named_entity;
 mod project;
 mod syntax;
 
@@ -25,9 +30,13 @@ pub use crate::data::{
 };
 
 pub use crate::analysis::CompletionItem;
-pub use crate::analysis::{
-    AnyEnt, AnyEntKind, Concurrent, Design, EntHierarchy, EntRef, EntityId, Object, Overloaded,
-    Type,
+pub use crate::analysis::EntHierarchy;
+pub use crate::named_entity::{
+    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
+    Related, Sequential, Type,
 };
+
 pub use crate::project::{Project, SourceFile};
-pub use crate::syntax::{kind_str, ParserResult, VHDLParser};
+pub use crate::syntax::{
+    kind_str, HasTokenSpan, ParserResult, Token, TokenAccess, TokenId, TokenSpan, VHDLParser,
+};

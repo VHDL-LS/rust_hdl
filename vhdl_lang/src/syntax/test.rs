@@ -4,13 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use itertools::Itertools;
+
 use super::alias_declaration::parse_alias_declaration;
 use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::concurrent_statement::parse_labeled_concurrent_statement;
 use super::context::{parse_library_clause, parse_use_clause};
 use super::declarative_part::parse_declarative_part;
-use super::design_unit::{parse_design_file, parse_entity_declaration};
+use super::design_unit::{
+    parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_declaration,
+};
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use super::names::{
@@ -20,9 +24,11 @@ use super::object_declaration::{parse_file_declaration, parse_object_declaration
 use super::range::{parse_discrete_range, parse_range};
 use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
-use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
+use super::subprogram::{
+    parse_signature, parse_subprogram_declaration, parse_subprogram_specification,
+};
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer};
+use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer, Value};
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
@@ -33,7 +39,7 @@ use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
-use crate::syntax::{TokenAccess, TokenId};
+use crate::syntax::{kind_str, TokenAccess, TokenId, TokenSpan};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -139,6 +145,52 @@ impl Code {
         }
     }
 
+    fn pos_to_end(&self, start: Position) -> Code {
+        Code {
+            symbols: self.symbols.clone(),
+            pos: SrcPos::new(
+                self.pos.source.clone(),
+                Range {
+                    start,
+                    end: self.pos.end(),
+                },
+            ),
+        }
+    }
+
+    fn start_to_pos(&self, end: Position) -> Code {
+        Code {
+            symbols: self.symbols.clone(),
+            pos: SrcPos::new(
+                self.pos.source.clone(),
+                Range {
+                    start: self.pos.start(),
+                    end,
+                },
+            ),
+        }
+    }
+
+    pub fn s_to_end(&self, substr: &str, occurence: usize) -> Code {
+        let substr_match_range =
+            substr_range(&self.pos.source, self.pos.range(), substr, occurence);
+        self.pos_to_end(substr_match_range.start)
+    }
+
+    pub fn s_from_start(&self, substr: &str, occurence: usize) -> Code {
+        let substr_match_range =
+            substr_range(&self.pos.source, self.pos.range(), substr, occurence);
+        self.start_to_pos(substr_match_range.end)
+    }
+
+    pub fn s1_to_end(&self, substr: &str) -> Code {
+        self.s_to_end(substr, 1)
+    }
+
+    pub fn s1_from_start(&self, substr: &str) -> Code {
+        self.s_from_start(substr, 1)
+    }
+
     /// Create new Code from n:th occurence of substr
     pub fn s(&self, substr: &str, occurence: usize) -> Code {
         self.in_range(substr_range(
@@ -203,20 +255,31 @@ impl Code {
         &self.pos.source
     }
 
-    /// Helper method to test tokenization functions
-    pub fn tokenize_result(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>) {
+    fn tokenize_result_raw(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>, usize) {
         let mut tokens = Vec::new();
         let final_comments: Vec<Comment>;
+        let mut dropped_tokens: usize = 0;
         {
             let contents = self.pos.source.contents();
+            let source = Source::from_contents(
+                self.pos.file_name(),
+                contents.crop(Range::new(Position::default(), self.pos.end())),
+            );
+            let contents = source.contents();
             let reader = ContentReader::new(&contents);
-            let mut tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
+            let mut tokenizer = Tokenizer::new(&self.symbols, &source, reader);
             loop {
                 let token = tokenizer.pop();
 
                 match token {
                     Ok(None) => break,
-                    Ok(Some(token)) => tokens.push(Ok(token)),
+                    Ok(Some(token)) => {
+                        if token.pos.start() >= self.pos.start() {
+                            tokens.push(Ok(token));
+                        } else {
+                            dropped_tokens += 1;
+                        }
+                    }
                     Err(err) => tokens.push(Err(err)),
                 }
             }
@@ -225,6 +288,12 @@ impl Code {
                 None => panic!("Tokenizer failed to check for final comments."),
             }
         }
+        (tokens, final_comments, dropped_tokens)
+    }
+
+    /// Helper method to test tokenization functions
+    pub fn tokenize_result(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>) {
+        let (tokens, final_comments, _) = self.tokenize_result_raw();
         (tokens, final_comments)
     }
 
@@ -232,6 +301,13 @@ impl Code {
     pub fn tokenize(&self) -> Vec<Token> {
         let tokens = self.tokenize_result().0;
         tokens.into_iter().map(|tok| tok.unwrap()).collect()
+    }
+
+    pub fn token_span(&self) -> TokenSpan {
+        let (tokens, _, dropped_tokens) = self.tokenize_result_raw();
+        let start_token = TokenId::new(dropped_tokens);
+        let end_token = TokenId::new(dropped_tokens + tokens.len() - 1);
+        TokenSpan::new(start_token, end_token)
     }
 
     pub fn token(&self) -> TokenId {
@@ -246,7 +322,7 @@ impl Code {
         let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         forward(&stream, self.pos.start());
         stream.peek().expect("No token found");
-        stream.get_token_id()
+        stream.get_current_token_id()
     }
 
     /// Helper method to run lower level parsing function at specific substring
@@ -381,6 +457,11 @@ impl Code {
     /// Helper to create a identifier at first occurence of name
     pub fn ident(&self) -> Ident {
         self.parse_ok(|stream: &TokenStream| stream.expect_ident())
+    }
+
+    pub fn attr_ident(&self) -> WithPos<AttributeDesignator> {
+        self.parse_ok(|stream: &TokenStream| stream.expect_ident())
+            .map_into(|i| AttributeDesignator::Ident(WithRef::new(i)))
     }
 
     pub fn decl_ident(&self) -> WithDecl<Ident> {
@@ -568,12 +649,24 @@ impl Code {
         }
     }
 
+    pub fn package_declaration(&self) -> PackageDeclaration {
+        self.parse_ok_no_diagnostics(parse_package_declaration)
+    }
+
     pub fn design_file(&self) -> DesignFile {
         self.parse_ok_no_diagnostics(parse_design_file)
     }
 
+    pub fn architecture_body(&self) -> ArchitectureBody {
+        self.parse_ok_no_diagnostics(parse_architecture_body)
+    }
+
+    pub fn subprogram_specification(&self) -> SubprogramSpecification {
+        self.parse_ok_no_diagnostics(parse_subprogram_specification)
+    }
+
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {
-        self.parse_ok_no_diagnostics(parse_subprogram_declaration_no_semi)
+        self.parse_ok_no_diagnostics(parse_subprogram_declaration)
     }
 
     pub fn subprogram_instantiation(&self) -> SubprogramInstantiation {
@@ -743,6 +836,35 @@ pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
+    }
+}
+
+fn value_to_string(value: &Value) -> String {
+    match value {
+        Value::Identifier(ident) => ident.name_utf8(),
+        Value::String(s) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
+        Value::BitString(_) => {
+            panic!("value_to_string is currently not supported for BitString literals!")
+        }
+        Value::AbstractLiteral(lit) => match lit {
+            AbstractLiteral::Integer(i) => i.to_string(),
+            AbstractLiteral::Real(f) => f.to_string(),
+        },
+        Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
+        Value::Text(text) => String::from_utf8(text.chars().copied().collect_vec()).unwrap(),
+        Value::NoValue => "".into(),
+    }
+}
+
+pub fn token_to_string(token: &Token) -> String {
+    match token.kind {
+        Kind::Identifier
+        | Kind::AbstractLiteral
+        | Kind::StringLiteral
+        | Kind::BitString
+        | Kind::Character
+        | Kind::Text => value_to_string(&token.value),
+        _ => kind_str(token.kind).into(),
     }
 }
 

@@ -3,10 +3,8 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2020, Olof Kraigher olof.kraigher@gmail.com
-use super::named_entity::*;
-use super::region::*;
 use crate::ast::*;
-use crate::data::*;
+use crate::named_entity::*;
 
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;

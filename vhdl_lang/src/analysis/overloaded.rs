@@ -8,12 +8,11 @@ use fnv::FnvHashSet;
 
 use super::analyze::*;
 use super::expression::ExpressionType;
-use super::formal_region::InterfaceEnt;
-use super::named_entity::*;
-use super::region::*;
+use super::scope::*;
 use crate::ast::search::clear_references;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Disambiguated<'a> {

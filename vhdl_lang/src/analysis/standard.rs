@@ -13,10 +13,7 @@ use crate::data::DiagnosticHandler;
 use crate::syntax::Symbols;
 
 use super::analyze::AnalyzeContext;
-use super::formal_region::FormalRegion;
-use super::named_entity::*;
-use super::region::*;
-use super::EntityId;
+use crate::named_entity::*;
 
 #[derive(Clone, Copy)]
 pub(crate) struct UniversalTypes {

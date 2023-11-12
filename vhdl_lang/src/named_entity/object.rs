@@ -6,15 +6,10 @@
 
 use std::ops::Deref;
 
-use crate::analysis::AnyEntKind;
+use super::*;
 use crate::ast::InterfaceType;
 use crate::ast::Mode;
 use crate::ast::ObjectClass;
-
-use super::AnyEnt;
-use super::EntRef;
-use super::Subtype;
-use super::TypeEnt;
 
 // A named entity that is known to be an object
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

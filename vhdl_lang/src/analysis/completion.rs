@@ -1,14 +1,15 @@
-use crate::analysis::region::{AsUnique, NamedEntities, Region};
-use crate::analysis::{DesignRoot, HasEntityId};
+use crate::analysis::DesignRoot;
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Designator, InstantiationStatement, MapAspect,
-    ObjectClass,
+    ObjectClass, PackageInstantiation, Reference,
 };
 use crate::data::{ContentReader, Symbol};
+use crate::named_entity::AsUnique;
+use crate::named_entity::{self, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{AnyEntKind, Design, EntRef, EntityId, Position, Source};
+use crate::{AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
@@ -59,6 +60,16 @@ impl<'a> Region<'a> {
             .filter_map(|ent| ent.as_unique())
             .filter_map(|ent| match &ent.kind {
                 AnyEntKind::Object(obj) if obj.class == object_class => Some(ent.id),
+                AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_))
+                    if object_class == ObjectClass::Constant =>
+                {
+                    Some(ent.id)
+                }
+                AnyEntKind::Type(named_entity::Type::Interface)
+                    if object_class == ObjectClass::Constant =>
+                {
+                    Some(ent.id)
+                }
                 _ => None,
             })
             .collect()
@@ -128,7 +139,7 @@ impl<'a> AutocompletionVisitor<'a> {
     /// Returns `false` otherwise
     fn load_completions_for_map_aspect(
         &mut self,
-        node: &InstantiationStatement,
+        ent_ref: Reference,
         map: &MapAspect,
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
@@ -142,7 +153,7 @@ impl<'a> AutocompletionVisitor<'a> {
         }
         let formals_in_map: HashSet<EntityId> =
             HashSet::from_iter(map.formals().filter_map(|it| *it));
-        if let Some(ent) = node.entity_reference() {
+        if let Some(ent) = ent_ref {
             let ids = match kind {
                 MapAspectKind::Port => self.root.extract_port_names(ent),
                 MapAspectKind::Generic => self.root.extract_generic_names(ent),
@@ -165,12 +176,40 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
         ctx: &dyn TokenAccess,
     ) -> VisitorResult {
         if let Some(map) = &node.generic_map {
-            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Generic) {
+            if self.load_completions_for_map_aspect(
+                node.entity_reference(),
+                map,
+                ctx,
+                MapAspectKind::Generic,
+            ) {
                 return VisitorResult::Stop;
             }
         }
         if let Some(map) = &node.port_map {
-            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Port) {
+            if self.load_completions_for_map_aspect(
+                node.entity_reference(),
+                map,
+                ctx,
+                MapAspectKind::Port,
+            ) {
+                return VisitorResult::Stop;
+            }
+        }
+        VisitorResult::Skip
+    }
+
+    fn visit_package_instantiation(
+        &mut self,
+        node: &PackageInstantiation,
+        ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if let Some(map) = &node.generic_map {
+            if self.load_completions_for_map_aspect(
+                node.package_name.item.reference(),
+                map,
+                ctx,
+                MapAspectKind::Generic,
+            ) {
                 return VisitorResult::Stop;
             }
         }
@@ -180,10 +219,13 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
     // preliminary optimizations: only visit architecture
     fn visit_any_primary_unit(
         &mut self,
-        _node: &AnyPrimaryUnit,
+        node: &AnyPrimaryUnit,
         _ctx: &dyn TokenAccess,
     ) -> VisitorResult {
-        VisitorResult::Skip
+        match node {
+            AnyPrimaryUnit::PackageInstance(_) => VisitorResult::Continue,
+            _ => VisitorResult::Skip,
+        }
     }
 
     // preliminary optimizations: only visit architecture
@@ -512,5 +554,44 @@ mod test {
             .end();
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(options.len(), 0);
+    }
+
+    #[test]
+    pub fn complete_in_generic_map() {
+        let mut input = LibraryBuilder::new();
+        let code = input.code(
+            "libname",
+            "\
+    package my_pkg is
+    generic (
+        function foo(x: Integer) return bit;
+        function bar(y: Integer) return boolean;
+        type T;
+        x: natural
+    );
+    end my_pkg;
+
+    use work.my_pkg.all ; 
+    package my_pkg_inst is new work.my_pkg
+    generic map (
+         foo => foo
+    );",
+        );
+        let (root, _) = input.get_analyzed_root();
+        let bar_func = root
+            .search_reference(code.source(), code.s1("bar").start())
+            .unwrap();
+        let x = root
+            .search_reference(code.source(), code.s1("x: natural").s1("x").start())
+            .unwrap();
+        let t = root
+            .search_reference(code.source(), code.s1("type T").s1("T").start())
+            .unwrap();
+        let cursor = code.s1("generic map (").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert!(options.contains(&CompletionItem::Formal(bar_func)));
+        assert!(options.contains(&CompletionItem::Formal(x)));
+        assert!(options.contains(&CompletionItem::Formal(t)));
+        assert_eq!(options.len(), 3);
     }
 }

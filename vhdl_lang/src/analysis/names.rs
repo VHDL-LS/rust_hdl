@@ -8,13 +8,13 @@ use fnv::FnvHashSet;
 
 use super::analyze::*;
 use super::expression::ExpressionType;
-use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::SubprogramKind;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectBase<'a> {
@@ -315,6 +315,24 @@ impl<'a> ResolvedName<'a> {
             ),
         );
         Err(EvalError::Unknown)
+    }
+
+    // The actual underlying entity
+    fn as_actual_entity(&self) -> Option<EntRef<'a>> {
+        match self {
+            ResolvedName::ObjectName(oname) => match oname.base {
+                ObjectBase::Object(obj) => Some(*obj),
+                ObjectBase::ObjectAlias(obj, _) => Some(*obj),
+                ObjectBase::DeferredConstant(ent) => Some(ent),
+                ObjectBase::ExternalName(_) => None,
+            },
+            ResolvedName::Type(typ) => Some((*typ).into()),
+            ResolvedName::Design(des) => Some((*des).into()),
+            ResolvedName::Library(..) => None,
+            ResolvedName::Overloaded(_, _) => None,
+            ResolvedName::Expression(_) => None,
+            ResolvedName::Final(_) => None,
+        }
     }
 
     /// Convenience function that returns `Some(name)` when self is an object name, else `None`
@@ -926,12 +944,28 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            AttributeDesignator::Ident(_) => {
-                diagnostics.error(
-                    &attr.attr.pos,
-                    format!("Unknown attribute '{}", attr.attr.item),
-                );
-                Err(EvalError::Unknown)
+            AttributeDesignator::Ident(ref mut sym) => {
+                if let Some(actual) = prefix.as_actual_entity() {
+                    if let Some(attr) = actual.get_attribute(&sym.item) {
+                        sym.set_unique_reference(attr.into());
+                        Ok(AttrResolveResult::Value(attr.typ().base()))
+                    } else {
+                        diagnostics.error(
+                            &attr.attr.pos,
+                            format!("Unknown attribute '{}", attr.attr.item),
+                        );
+                        Err(EvalError::Unknown)
+                    }
+                } else {
+                    diagnostics.error(
+                        name_pos,
+                        format!(
+                            "{} may not be the prefix of a user defined attribute",
+                            prefix.describe()
+                        ),
+                    );
+                    Err(EvalError::Unknown)
+                }
             }
             AttributeDesignator::Range(_) => {
                 diagnostics.error(name_pos, "Range cannot be used as an expression");

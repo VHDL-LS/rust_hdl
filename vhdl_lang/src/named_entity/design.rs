@@ -6,16 +6,12 @@
 
 use std::ops::Deref;
 
-use super::AnyEnt;
-use super::AnyEntKind;
-use super::EntRef;
-use crate::analysis::region::NamedEntities;
-use crate::analysis::region::Region;
-use crate::analysis::visibility::Visibility;
+use super::*;
 use crate::ast::Designator;
 use crate::ast::HasDesignator;
 use crate::ast::WithRef;
 use crate::data::WithPos;
+use crate::named_entity::visibility::Visibility;
 use crate::Diagnostic;
 use crate::SrcPos;
 

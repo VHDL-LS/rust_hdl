@@ -23,15 +23,16 @@ pub fn parse_package_instantiation(
     stream: &TokenStream,
     diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageInstantiation> {
-    stream.expect_kind(Package)?;
+    let start_token = stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
     stream.expect_kind(New)?;
     let package_name = parse_selected_name(stream)?;
     let generic_map = parse_map_aspect(stream, Generic, diagnsotics)?;
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(PackageInstantiation {
+        span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
         ident: ident.into(),
         package_name,
@@ -175,6 +176,7 @@ package ident is new lib.foo.bar;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_instantiation),
             PackageInstantiation {
+                span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").decl_ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
@@ -196,6 +198,7 @@ package ident is new lib.foo.bar
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_instantiation),
             PackageInstantiation {
+                span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").decl_ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
@@ -221,6 +224,7 @@ constant x: natural := 5;
         assert_eq!(
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
+                span: code.s1_to_end("constant").token_span(),
                 class: ObjectClass::Constant,
                 ident: code.s1("x").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),

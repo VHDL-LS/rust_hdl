@@ -4,10 +4,11 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
+use crate::analysis::{CompletionItem, DesignRoot};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
+use crate::named_entity::{AnyEnt, EntRef};
 use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};

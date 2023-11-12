@@ -10,9 +10,10 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
-use crate::analysis::EntRef;
-pub use crate::analysis::HasEntityId;
-use crate::analysis::Related;
+use crate::named_entity::EntRef;
+pub use crate::named_entity::HasEntityId;
+use crate::named_entity::Related;
+use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
 pub enum SearchResult {
@@ -26,7 +27,6 @@ pub enum SearchState {
     NotFinished,
 }
 
-use crate::syntax::TokenAccess;
 pub use SearchResult::*;
 pub use SearchState::*;
 
@@ -55,7 +55,7 @@ pub enum FoundDeclaration<'a> {
     Component(&'a mut ComponentDeclaration),
     Attribute(&'a mut AttributeDeclaration),
     Alias(&'a mut AliasDeclaration),
-    SubprogramDecl(&'a mut SubprogramDeclaration),
+    SubprogramDecl(&'a mut SubprogramSpecification),
     Subprogram(&'a mut SubprogramBody),
     SubprogramInstantiation(&'a mut SubprogramInstantiation),
     Package(&'a mut PackageDeclaration),
@@ -628,8 +628,17 @@ fn search_pos_name(
         Name::CallOrIndexed(ref mut fcall) => fcall.search(ctx, searcher),
         Name::Attribute(ref mut attr) => {
             // @TODO more
-            let AttributeName { name, expr, .. } = attr.as_mut();
+            let AttributeName {
+                name, expr, attr, ..
+            } = attr.as_mut();
             return_if_found!(name.search(ctx, searcher));
+            if let AttributeDesignator::Ident(ref mut user_attr) = attr.item {
+                return_if_finished!(searcher.search_pos_with_ref(
+                    ctx,
+                    &attr.pos,
+                    &mut user_attr.reference
+                ));
+            }
             if let Some(expr) = expr {
                 return_if_found!(expr.search(ctx, searcher));
             }
@@ -1025,6 +1034,7 @@ impl Search for Declaration {
                 entity_name,
                 entity_class: _,
                 expr,
+                span: _,
             })) => {
                 return_if_found!(searcher.search_ident_ref(ctx, ident).or_not_found());
                 if let EntityName::Name(EntityTag {
@@ -1051,6 +1061,7 @@ impl Search for Declaration {
                     subtype_indication,
                     name,
                     signature,
+                    span: _,
                 } = alias;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(name.search(ctx, searcher));
@@ -1060,7 +1071,7 @@ impl Search for Declaration {
             }
             Declaration::Use(use_clause) => {
                 return_if_found!(searcher
-                    .search_with_pos(ctx, &use_clause.pos(ctx))
+                    .search_with_pos(ctx, &use_clause.get_pos(ctx))
                     .or_not_found());
                 return_if_found!(use_clause.name_list.search(ctx, searcher));
             }
@@ -1073,6 +1084,7 @@ impl Search for Declaration {
                     generic_list,
                     port_list,
                     end_ident_pos: _,
+                    span: _,
                 } = component;
                 return_if_found!(generic_list.search(ctx, searcher));
                 return_if_found!(port_list.search(ctx, searcher));
@@ -1087,6 +1099,7 @@ impl Search for Declaration {
                     subtype_indication,
                     open_info,
                     file_name,
+                    span: _,
                 } = file;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(open_info.search(ctx, searcher));
@@ -1115,9 +1128,9 @@ impl Search for InterfaceDeclaration {
                 return_if_found!(decl.subtype_indication.search(ctx, searcher));
                 return_if_found!(decl.expression.search(ctx, searcher));
             }
-            InterfaceDeclaration::Subprogram(ref mut decl, ref mut subpgm_default) => {
+            InterfaceDeclaration::Subprogram(ref mut spec, ref mut subpgm_default) => {
                 return_if_found!(searcher
-                    .search_decl(ctx, FoundDeclaration::SubprogramDecl(decl))
+                    .search_decl(ctx, FoundDeclaration::SubprogramDecl(spec))
                     .or_not_found());
 
                 if let Some(subpgm_default) = subpgm_default {
@@ -1159,6 +1172,12 @@ impl Search for InterfaceDeclaration {
 
 impl Search for SubprogramDeclaration {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        self.specification.search(ctx, searcher)
+    }
+}
+
+impl Search for SubprogramSpecification {
+    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::SubprogramDecl(self))
             .or_not_found());
@@ -1167,17 +1186,17 @@ impl Search for SubprogramDeclaration {
 }
 
 fn search_subpgm_inner(
-    subgpm: &mut SubprogramDeclaration,
+    subgpm: &mut SubprogramSpecification,
     ctx: &dyn TokenAccess,
     searcher: &mut impl Searcher,
 ) -> SearchResult {
     match subgpm {
-        SubprogramDeclaration::Function(ref mut decl) => {
+        SubprogramSpecification::Function(ref mut decl) => {
             return_if_found!(decl.header.search(ctx, searcher));
             return_if_found!(decl.parameter_list.search(ctx, searcher));
             decl.return_type.search(ctx, searcher)
         }
-        SubprogramDeclaration::Procedure(ref mut decl) => {
+        SubprogramSpecification::Procedure(ref mut decl) => {
             return_if_found!(decl.header.search(ctx, searcher));
             decl.parameter_list.search(ctx, searcher)
         }
@@ -1204,7 +1223,7 @@ impl Search for LibraryClause {
 
 impl Search for ContextItem {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.get_pos(ctx)));
         match self {
             ContextItem::Use(ref mut use_clause) => {
                 return_if_found!(use_clause.name_list.search(ctx, searcher));
@@ -1709,11 +1728,11 @@ impl<'a> FoundDeclaration<'a> {
     }
 }
 
-impl SubprogramDeclaration {
+impl SubprogramSpecification {
     fn ent_id_mut(&mut self) -> &mut Option<EntityId> {
         match self {
-            SubprogramDeclaration::Procedure(proc) => &mut proc.designator.decl,
-            SubprogramDeclaration::Function(func) => &mut func.designator.decl,
+            SubprogramSpecification::Procedure(proc) => &mut proc.designator.decl,
+            SubprogramSpecification::Function(func) => &mut func.designator.decl,
         }
     }
 }
@@ -1809,7 +1828,7 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 write!(f, "{};", value.specification)
             }
             FoundDeclaration::SubprogramDecl(ref value) => {
-                write!(f, "{value};")
+                write!(f, "{value}")
             }
             FoundDeclaration::SubprogramInstantiation(ref value) => {
                 write!(f, "{value};")

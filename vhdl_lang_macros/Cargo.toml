@@ -5,32 +5,17 @@
 # Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 [package]
-name = "vhdl_lang"
+name = "vhdl_lang_macros"
 version = "0.74.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
-description = "VHDL Language Frontend"
+description = "VHDL Language Frontend - Macros"
 repository = "https://github.com/kraigher/rust_hdl"
 edition = "2021"
 
+[lib]
+proc-macro = true
+
 [dependencies]
-vhdl_lang_macros = { version = "^0.74.0", path = "../vhdl_lang_macros" }
-pad = "0"
-fnv = "1"
-clap = { version = "4", features = ["derive"] }
-toml = "0"
-glob = "0"
-dirs = "4"
-rayon = "1"
-parking_lot = "0"
-dunce = "1"
-pinned_vec = "0"
-itertools = "0"
-
-[dev-dependencies]
-tempfile = "3"
-pretty_assertions = "1"
-assert_matches = "1"
-
-[features]
-default = []
+syn = { version = "2", features = ["full"] }
+quote = "1"

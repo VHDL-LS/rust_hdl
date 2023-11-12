@@ -8,6 +8,7 @@ mod assignment_typecheck;
 mod association_formal;
 mod circular_dependencies;
 mod context_clause;
+mod custom_attributes;
 mod deferred_constant;
 mod hierarchy;
 mod homographs;
@@ -38,10 +39,9 @@ pub use crate::syntax::test::*;
 use crate::syntax::Token;
 
 use super::analyze::AnalyzeContext;
-use super::named_entity::*;
-use super::region::*;
+use super::scope::*;
 use super::DesignRoot;
-use super::EntRef;
+use crate::named_entity::*;
 
 pub(super) struct TestSetup<'a> {
     builder: RefCell<LibraryBuilder>,

@@ -8,7 +8,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
@@ -19,15 +19,19 @@ fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
         Configuration => EntityClass::Configuration,
-        Package => EntityClass::Package,
-        Signal => EntityClass::Signal,
-        Variable => EntityClass::Variable,
         Procedure => EntityClass::Procedure,
         Function => EntityClass::Function,
-        Component => EntityClass::Component,
-        Constant => EntityClass::Constant,
+        Package => EntityClass::Package,
         Type => EntityClass::Type,
-        Label => EntityClass::Label
+        Subtype => EntityClass::Subtype,
+        Constant => EntityClass::Constant,
+        Signal => EntityClass::Signal,
+        Variable => EntityClass::Variable,
+        Component => EntityClass::Component,
+        Label => EntityClass::Label,
+        Literal => EntityClass::Literal,
+        Units => EntityClass::Units,
+        File => EntityClass::File
     ))
 }
 
@@ -74,13 +78,14 @@ pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityNam
 }
 
 pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
-    stream.expect_kind(Attribute)?;
+    let start_token = stream.expect_kind(Attribute)?;
     let ident = stream.expect_ident()?;
     Ok(expect_token!(stream, token,
         Colon => {
             let type_mark = parse_type_mark(stream)?;
-            stream.expect_kind(SemiColon)?;
+            let end_token = stream.expect_kind(SemiColon)?;
             vec![Attribute::Declaration(AttributeDeclaration {
+                span: TokenSpan::new(start_token, end_token),
                 ident: ident.into(),
                 type_mark,
             })]
@@ -91,12 +96,13 @@ pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
             let entity_class = parse_entity_class(stream)?;
             stream.expect_kind(Is)?;
             let expr = parse_expression(stream)?;
-            stream.expect_kind(SemiColon)?;
+            let end_token = stream.expect_kind(SemiColon)?;
 
             entity_names
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
+                        span: TokenSpan::new(start_token, end_token),
                         ident: WithRef::new(ident.clone()),
                         entity_name,
                         entity_class,
@@ -118,6 +124,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Declaration(AttributeDeclaration {
+                span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
                 type_mark: code.s1("lib.name").type_mark()
             })]
@@ -130,6 +137,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").ref_designator(),
@@ -147,6 +155,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("\"**\"").ref_designator(),
@@ -165,6 +174,7 @@ mod tests {
             code.with_stream(parse_attribute),
             vec![
                 Attribute::Specification(AttributeSpecification {
+                    span: code.token_span(),
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("foo").ref_designator(),
@@ -174,6 +184,7 @@ mod tests {
                     expr: code.s1("0+1").expr()
                 }),
                 Attribute::Specification(AttributeSpecification {
+                    span: code.token_span(),
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("bar").ref_designator(),
@@ -192,6 +203,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::All,
                 entity_class: EntityClass::Signal,
@@ -206,6 +218,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Others,
                 entity_class: EntityClass::Signal,
@@ -220,6 +233,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
+                span: code.token_span(),
                 ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").ref_designator(),

@@ -4,13 +4,13 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::named_entity::*;
 use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::SubprogramKind;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn resolve_non_overloaded_with_kind(
@@ -290,14 +290,14 @@ impl<'a> AnyEnt<'a> {
 }
 
 impl Diagnostic {
-    pub(super) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
+    pub(crate) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
         Diagnostic::error(
             pos,
             format!("{} does not match {}", desc, expected_type.describe()),
         )
     }
 
-    pub(super) fn invalid_selected_name_prefix(
+    pub(crate) fn invalid_selected_name_prefix(
         named_entity: &AnyEnt,
         prefix: &SrcPos,
     ) -> Diagnostic {
@@ -310,7 +310,7 @@ impl Diagnostic {
         )
     }
 
-    pub(super) fn no_declaration_within(
+    pub(crate) fn no_declaration_within(
         named_entity: &AnyEnt,
         pos: &SrcPos,
         suffix: &Designator,

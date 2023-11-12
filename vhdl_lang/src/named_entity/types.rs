@@ -6,13 +6,8 @@
 
 use std::ops::Deref;
 
-use crate::analysis::named_entity::{AnyEnt, AnyEntKind, EntityId};
-
-use crate::analysis::formal_region::{RecordElement, RecordRegion};
-use crate::analysis::region::{NamedEntities, OverloadedName, Region};
-use crate::ast::WithDecl;
-use crate::ast::{Designator, WithRef};
-use crate::ast::{HasDesignator, Ident};
+use super::*;
+use crate::ast::{Designator, HasDesignator, Ident, WithDecl, WithRef};
 use crate::data::WithPos;
 use crate::{Diagnostic, SrcPos};
 

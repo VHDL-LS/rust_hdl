@@ -160,6 +160,29 @@ impl Display for RangeAttribute {
     }
 }
 
+impl Display for EntityClass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            EntityClass::Entity => write!(f, "entity"),
+            EntityClass::Architecture => write!(f, "architecture"),
+            EntityClass::Configuration => write!(f, "ponfiguration"),
+            EntityClass::Procedure => write!(f, "procedure"),
+            EntityClass::Function => write!(f, "function"),
+            EntityClass::Package => write!(f, "package"),
+            EntityClass::Type => write!(f, "type"),
+            EntityClass::Subtype => write!(f, "subtype"),
+            EntityClass::Constant => write!(f, "constant"),
+            EntityClass::Signal => write!(f, "signal"),
+            EntityClass::Variable => write!(f, "variable"),
+            EntityClass::Component => write!(f, "component"),
+            EntityClass::Label => write!(f, "label"),
+            EntityClass::Literal => write!(f, "literal"),
+            EntityClass::Units => write!(f, "units"),
+            EntityClass::File => write!(f, "file"),
+        }
+    }
+}
+
 impl Display for ExternalObjectClass {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
@@ -856,16 +879,22 @@ impl Display for Signature {
 
 impl Display for SubprogramDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{};", self.specification)
+    }
+}
+
+impl Display for SubprogramSpecification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SubprogramDeclaration::Procedure(ref procedure) => write!(f, "{procedure}"),
-            SubprogramDeclaration::Function(ref function) => write!(f, "{function}"),
+            SubprogramSpecification::Procedure(ref procedure) => write!(f, "{procedure}"),
+            SubprogramSpecification::Function(ref function) => write!(f, "{function}"),
         }
     }
 }
 
 impl Display for SubprogramInstantiation {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.kind.item {
+        match self.kind {
             SubprogramKind::Function => write!(f, "function ")?,
             SubprogramKind::Procedure => write!(f, "procedure ")?,
         };
@@ -1822,19 +1851,22 @@ end units;",
 
     #[test]
     pub fn test_procedure_specification() {
-        assert_format("procedure foo", Code::subprogram_decl);
+        assert_format("procedure foo", Code::subprogram_specification);
     }
 
     #[test]
     pub fn test_function_specification() {
-        assert_format("function foo return lib.foo.natural", Code::subprogram_decl);
+        assert_format(
+            "function foo return lib.foo.natural",
+            Code::subprogram_specification,
+        );
     }
 
     #[test]
     pub fn test_function_specification_operator() {
         assert_format(
             "function \"+\" return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_specification,
         );
     }
 
@@ -1842,7 +1874,7 @@ end units;",
     pub fn test_function_specification_impure() {
         assert_format(
             "impure function foo return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_specification,
         );
     }
 
@@ -1852,7 +1884,7 @@ end units;",
             "procedure foo(
   constant foo : in natural
 )",
-            Code::subprogram_decl,
+            Code::subprogram_specification,
         );
     }
 
@@ -1862,7 +1894,7 @@ end units;",
             "function foo(
   constant foo : in natural
 ) return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_specification,
         );
     }
 

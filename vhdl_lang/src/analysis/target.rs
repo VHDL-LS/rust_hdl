@@ -1,9 +1,9 @@
 use super::analyze::*;
-use super::named_entity::*;
 use super::names::*;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 /// Analysis of assignment targets
 ///

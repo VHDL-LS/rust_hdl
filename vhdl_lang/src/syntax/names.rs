@@ -11,7 +11,7 @@ use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
-use crate::ast::*;
+use crate::ast::{Literal, *};
 use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
@@ -724,7 +724,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: None,
             })),
@@ -855,7 +855,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
@@ -874,7 +874,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
+                attr: code.s1("foo").attr_ident(),
                 signature: Some(code.s1("[return natural]").signature()),
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),

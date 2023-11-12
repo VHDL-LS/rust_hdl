@@ -7,12 +7,11 @@
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]
 
-use super::named_entity::TypeEnt;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 use analyze::*;
-use region::*;
 use target::AssignmentType;
 
 impl<'a> AnalyzeContext<'a> {

@@ -1,21 +1,20 @@
-#![allow(clippy::only_used_in_recursion)]
-
-use fnv::FnvHashMap;
-use fnv::FnvHashSet;
-
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+
+#![allow(clippy::only_used_in_recursion)]
+
+use fnv::FnvHashMap;
+use fnv::FnvHashSet;
+
 use super::analyze::*;
-use super::formal_region::FormalRegion;
-use super::formal_region::InterfaceEnt;
-use super::named_entity::*;
 use super::names::ResolvedName;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 #[derive(Copy, Clone)]
 struct ResolvedFormal<'a> {

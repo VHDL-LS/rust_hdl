@@ -4,18 +4,14 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::formal_region::FormalRegion;
-use super::formal_region::RecordRegion;
-use super::named_entity::*;
 use super::names::*;
 use super::*;
 use crate::ast;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::{Signature, *};
 use analyze::*;
 use fnv::FnvHashMap;
-use named_entity::Signature;
-use region::*;
 use std::collections::hash_map::Entry;
 
 impl<'a> AnalyzeContext<'a> {
@@ -75,7 +71,7 @@ impl<'a> AnalyzeContext<'a> {
                             Entry::Occupied(entry) => {
                                 let (_, decl_pos) = entry.get();
 
-                                diagnostics.push(duplicate_error(
+                                diagnostics.push(Diagnostic::duplicate_error(
                                     &type_decl.ident,
                                     type_decl.ident.pos(),
                                     Some(decl_pos),
@@ -124,6 +120,7 @@ impl<'a> AnalyzeContext<'a> {
             name,
             subtype_indication,
             signature,
+            span: _,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
@@ -322,6 +319,7 @@ impl<'a> AnalyzeContext<'a> {
                     subtype_indication,
                     open_info,
                     file_name,
+                    span: _,
                 } = file;
 
                 let subtype =
@@ -388,97 +386,11 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 Attribute::Specification(ref mut attr_spec) => {
-                    let AttributeSpecification {
-                        ident,
-                        entity_name,
-                        // @TODO also check the entity class
-                        entity_class: _,
-                        expr,
-                    } = attr_spec;
-
-                    match scope.lookup(
-                        &ident.item.pos,
-                        &Designator::Identifier(ident.item.name().clone()),
-                    ) {
-                        Ok(NamedEntities::Single(ent)) => {
-                            ident.set_unique_reference(ent);
-                            if let AnyEntKind::Attribute(typ) = ent.actual_kind() {
-                                self.expr_pos_with_ttyp(
-                                    scope,
-                                    *typ,
-                                    &expr.pos,
-                                    &mut expr.item,
-                                    diagnostics,
-                                )?;
-                            } else {
-                                diagnostics.error(
-                                    &ident.item.pos,
-                                    format!("{} is not an attribute", ent.describe()),
-                                );
-                            }
-                        }
-                        Ok(NamedEntities::Overloaded(_)) => {
-                            diagnostics.error(
-                                &ident.item.pos,
-                                format!("Overloaded name '{}' is not an attribute", ident.item),
-                            );
-                        }
-                        Err(err) => {
-                            diagnostics.push(err);
-                        }
-                    }
-
-                    if let EntityName::Name(EntityTag {
-                        designator,
-                        signature,
-                    }) = entity_name
-                    {
-                        match scope.lookup(&designator.pos, &designator.item.item) {
-                            Ok(NamedEntities::Single(ent)) => {
-                                designator.set_unique_reference(ent);
-
-                                if let Some(signature) = signature {
-                                    diagnostics.push(Diagnostic::should_not_have_signature(
-                                        "Attribute specification",
-                                        &signature.pos,
-                                    ));
-                                }
-                            }
-                            Ok(NamedEntities::Overloaded(overloaded)) => {
-                                if let Some(signature) = signature {
-                                    match self.resolve_signature(scope, signature, false) {
-                                        Ok(signature_key) => {
-                                            if let Some(ent) = overloaded.get(&signature_key) {
-                                                designator.set_unique_reference(&ent);
-                                            } else {
-                                                diagnostics.push(
-                                                    Diagnostic::no_overloaded_with_signature(
-                                                        &designator.pos,
-                                                        &designator.item.item,
-                                                        &overloaded,
-                                                    ),
-                                                );
-                                            }
-                                        }
-                                        Err(err) => {
-                                            err.add_to(diagnostics)?;
-                                        }
-                                    }
-                                } else if let Some(ent) = overloaded.as_unique() {
-                                    designator.set_unique_reference(ent);
-                                } else {
-                                    diagnostics.push(Diagnostic::signature_required(designator));
-                                }
-                            }
-                            Err(err) => {
-                                diagnostics.push(err);
-                            }
-                        }
-                    }
+                    self.attribute_specification(scope, parent, attr_spec, diagnostics)?;
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let (subpgm_region, subpgm_ent) = match self.subprogram_declaration(
+                let (subpgm_region, subpgm_ent) = match self.subprogram_specification(
                     scope,
                     parent,
                     &mut body.specification,
@@ -515,10 +427,10 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                match self.subprogram_declaration(
+                match self.subprogram_specification(
                     scope,
                     parent,
-                    subdecl,
+                    &mut subdecl.specification,
                     Overloaded::SubprogramDecl,
                     diagnostics,
                 ) {
@@ -751,10 +663,10 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn find_subpgm_declaration(
+    fn find_subpgm_specification(
         &self,
         scope: &Scope<'a>,
-        decl: &SubprogramDeclaration,
+        decl: &SubprogramSpecification,
         signature: &Signature,
     ) -> Option<OverloadedEnt<'a>> {
         let des = decl.subpgm_designator().item.clone().into_designator();
@@ -780,6 +692,165 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         None
+    }
+
+    fn attribute_specification(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        attr_spec: &mut AttributeSpecification,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        let AttributeSpecification {
+            ident,
+            entity_name,
+            entity_class,
+            expr,
+            span: _,
+        } = attr_spec;
+
+        let attr_ent = match scope.lookup(
+            &ident.item.pos,
+            &Designator::Identifier(ident.item.name().clone()),
+        ) {
+            Ok(NamedEntities::Single(ent)) => {
+                ident.set_unique_reference(ent);
+                if let Some(attr_ent) = AttributeEnt::from_any(ent) {
+                    self.expr_pos_with_ttyp(
+                        scope,
+                        attr_ent.typ(),
+                        &expr.pos,
+                        &mut expr.item,
+                        diagnostics,
+                    )?;
+                    attr_ent
+                } else {
+                    diagnostics.error(
+                        &ident.item.pos,
+                        format!("{} is not an attribute", ent.describe()),
+                    );
+                    return Ok(());
+                }
+            }
+            Ok(NamedEntities::Overloaded(_)) => {
+                diagnostics.error(
+                    &ident.item.pos,
+                    format!("Overloaded name '{}' is not an attribute", ident.item),
+                );
+                return Ok(());
+            }
+            Err(err) => {
+                diagnostics.push(err);
+                return Ok(());
+            }
+        };
+
+        if let EntityName::Name(EntityTag {
+            designator,
+            signature,
+        }) = entity_name
+        {
+            let ent: EntRef = match scope.lookup(&designator.pos, &designator.item.item) {
+                Ok(NamedEntities::Single(ent)) => {
+                    designator.set_unique_reference(ent);
+
+                    if let Some(signature) = signature {
+                        diagnostics.push(Diagnostic::should_not_have_signature(
+                            "Attribute specification",
+                            &signature.pos,
+                        ));
+                    }
+                    ent
+                }
+                Ok(NamedEntities::Overloaded(overloaded)) => {
+                    if let Some(signature) = signature {
+                        match self.resolve_signature(scope, signature) {
+                            Ok(signature_key) => {
+                                if let Some(ent) = overloaded.get(&signature_key) {
+                                    designator.set_unique_reference(&ent);
+                                    ent.into()
+                                } else {
+                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                        &designator.pos,
+                                        &designator.item.item,
+                                        &overloaded,
+                                    ));
+                                    return Ok(());
+                                }
+                            }
+                            Err(err) => {
+                                err.add_to(diagnostics)?;
+                                return Ok(());
+                            }
+                        }
+                    } else if let Some(ent) = overloaded.as_unique() {
+                        designator.set_unique_reference(ent);
+                        ent
+                    } else {
+                        diagnostics.push(Diagnostic::signature_required(designator));
+                        return Ok(());
+                    }
+                }
+                Err(err) => {
+                    diagnostics.push(err);
+                    return Ok(());
+                }
+            };
+
+            // Attributes affect the underlying entity and cannot be set directly on aliases
+            let ent = ent.as_actual();
+
+            match entity_class {
+                EntityClass::Architecture
+                | EntityClass::Entity
+                | EntityClass::Package
+                | EntityClass::Configuration => {
+                    if ent != parent {
+                        diagnostics.push(Diagnostic::error(
+                            designator,
+                            "Attribute specification must be in the immediate declarative part",
+                        ));
+                        return Ok(());
+                    }
+                }
+                EntityClass::Signal
+                | EntityClass::Variable
+                | EntityClass::Procedure
+                | EntityClass::Function
+                | EntityClass::Component
+                | EntityClass::Constant
+                | EntityClass::Type
+                | EntityClass::Subtype
+                | EntityClass::Literal
+                | EntityClass::Units
+                | EntityClass::File
+                | EntityClass::Label => {
+                    if ent.parent != Some(parent) {
+                        diagnostics.push(Diagnostic::error(
+                            designator,
+                            "Attribute specification must be in the immediate declarative part",
+                        ));
+                        return Ok(());
+                    }
+                }
+            }
+
+            if Some(*entity_class) != get_entity_class(ent) {
+                diagnostics.push(Diagnostic::error(
+                    designator,
+                    format!("{} is not of class {}", ent.describe(), entity_class),
+                ));
+                return Ok(());
+            }
+
+            let res = unsafe { self.arena.add_attr(ent.id(), &designator.pos, attr_ent) };
+
+            if let Err(diagnostic) = res {
+                diagnostics.push(diagnostic);
+            }
+        }
+
+        Ok(())
     }
 
     pub(crate) fn analyze_type_declaration(
@@ -850,7 +921,7 @@ impl<'a> AnalyzeContext<'a> {
                                 {
                                     if *is_body {
                                         if let Some(prev_pos) = ent.decl_pos() {
-                                            diagnostics.push(duplicate_error(
+                                            diagnostics.push(Diagnostic::duplicate_error(
                                                 &type_decl.ident.tree,
                                                 &type_decl.ident.tree.pos,
                                                 Some(prev_pos),
@@ -925,10 +996,10 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            match self.subprogram_declaration(
+                            match self.subprogram_specification(
                                 scope,
                                 ptype,
-                                subprogram,
+                                &mut subprogram.specification,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
                             ) {
@@ -1369,7 +1440,7 @@ impl<'a> AnalyzeContext<'a> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let (_, ent) = self.subprogram_declaration(
+                let (_, ent) = self.subprogram_specification(
                     scope,
                     parent,
                     subpgm,
@@ -1627,11 +1698,11 @@ impl<'a> AnalyzeContext<'a> {
         Ok(region)
     }
 
-    fn subprogram_declaration(
+    fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
-        subprogram: &mut SubprogramDeclaration,
+        subprogram: &mut SubprogramSpecification,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<(Scope<'a>, OverloadedEnt<'a>)> {
@@ -1652,7 +1723,7 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         let signature = match subprogram {
-            SubprogramDeclaration::Function(fun) => {
+            SubprogramSpecification::Function(fun) => {
                 let generic_map = if let Some(header) = &mut fun.header {
                     Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
                 } else {
@@ -1667,7 +1738,7 @@ impl<'a> AnalyzeContext<'a> {
                 let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
                 Signature::new(params?, Some(return_type?), generic_map)
             }
-            SubprogramDeclaration::Procedure(procedure) => {
+            SubprogramSpecification::Procedure(procedure) => {
                 let generic_map = if let Some(header) = &mut procedure.header {
                     Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
                 } else {
@@ -1686,7 +1757,7 @@ impl<'a> AnalyzeContext<'a> {
         let kind = to_kind(signature);
 
         if matches!(kind, Overloaded::Subprogram(_)) {
-            let declared_by = self.find_subpgm_declaration(scope, subprogram, kind.signature());
+            let declared_by = self.find_subpgm_specification(scope, subprogram, kind.signature());
 
             if let Some(declared_by) = declared_by {
                 unsafe {
@@ -1753,5 +1824,58 @@ impl Diagnostic {
             pos,
             "Signature required for alias of subprogram and enum literals",
         )
+    }
+}
+
+fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
+    match ent.actual_kind() {
+        // Alias is never the direct target of attribute
+        AnyEntKind::ExternalAlias { .. } => None,
+        // Alias is never the direct target of attribute
+        AnyEntKind::ObjectAlias { .. } => None,
+        AnyEntKind::File(_) => Some(EntityClass::File),
+        AnyEntKind::InterfaceFile(_) => Some(EntityClass::File),
+        AnyEntKind::Component(_) => Some(EntityClass::Component),
+        AnyEntKind::Attribute(_) => None,
+        AnyEntKind::Overloaded(ent) => match ent {
+            Overloaded::SubprogramDecl(s)
+            | Overloaded::Subprogram(s)
+            | Overloaded::InterfaceSubprogram(s) => {
+                if s.return_type.is_some() {
+                    Some(EntityClass::Function)
+                } else {
+                    Some(EntityClass::Procedure)
+                }
+            }
+            Overloaded::EnumLiteral(_) => Some(EntityClass::Literal),
+            // Alias is never the direct target of attribute
+            Overloaded::Alias(_) => None,
+        },
+        AnyEntKind::Type(Type::Subtype(_)) => Some(EntityClass::Subtype),
+        AnyEntKind::Type(_) => Some(EntityClass::Type),
+        AnyEntKind::ElementDeclaration(_) => None,
+        AnyEntKind::Concurrent(_) => Some(EntityClass::Label),
+        AnyEntKind::Sequential(_) => Some(EntityClass::Label),
+        AnyEntKind::Object(obj) => match obj.class {
+            ObjectClass::Signal => Some(EntityClass::Signal),
+            ObjectClass::Constant => Some(EntityClass::Constant),
+            ObjectClass::Variable => Some(EntityClass::Variable),
+            ObjectClass::SharedVariable => Some(EntityClass::Variable),
+        },
+        AnyEntKind::LoopParameter(_) => None, // @TODO is it allowed?
+        AnyEntKind::PhysicalLiteral(_) => None, // @TODO maybe Units?
+        AnyEntKind::DeferredConstant(_) => Some(EntityClass::Constant),
+        AnyEntKind::Library => None,
+        AnyEntKind::Design(des) => match des {
+            Design::Entity(_, _) => Some(EntityClass::Entity),
+            Design::Architecture(_) => Some(EntityClass::Architecture),
+            Design::Configuration => Some(EntityClass::Configuration),
+            Design::Package(_, _) => Some(EntityClass::Package),
+            // Should never be target of attribute
+            Design::PackageBody => None,
+            Design::UninstPackage(_, _) => None,
+            Design::PackageInstance(_) => None,
+            Design::Context(_) => None,
+        },
     }
 }

@@ -6,13 +6,9 @@
 
 use super::analyze::*;
 use super::lock::*;
-use super::named_entity::*;
-use super::region::NamedEntities;
-use super::region::Region;
-use super::region::Scope;
 use super::standard::StandardTypes;
 use super::standard::UniversalTypes;
-use super::visibility::Visibility;
+use crate::named_entity::*;
 
 use crate::ast::search::*;
 use crate::ast::visitor::{walk, Visitor};

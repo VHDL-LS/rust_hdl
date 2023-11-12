@@ -6,4 +6,4 @@
 
 [workspace]
 resolver = "2"
-members = ["vhdl_lang", "vhdl_ls"]
+members = ["vhdl_lang_macros", "vhdl_lang", "vhdl_ls"]
