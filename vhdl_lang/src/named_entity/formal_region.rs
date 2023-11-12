@@ -9,7 +9,7 @@ use crate::{
     Diagnostic, SrcPos,
 };
 
-use super::named_entity::*;
+use super::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct InterfaceEnt<'a> {
@@ -79,6 +79,46 @@ impl<'a> std::ops::Deref for InterfaceEnt<'a> {
     type Target = AnyEnt<'a>;
     fn deref(&self) -> EntRef<'a> {
         self.ent
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum GpkgInterfaceEnt<'a> {
+    Type(TypeEnt<'a>),
+    Constant(ObjectEnt<'a>),
+    Subprogram(OverloadedEnt<'a>),
+    Package(EntRef<'a>),
+}
+
+impl<'a> GpkgInterfaceEnt<'a> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
+        match ent.actual_kind() {
+            AnyEntKind::Type(Type::Interface) => {
+                Some(GpkgInterfaceEnt::Type(TypeEnt::from_any(ent).unwrap()))
+            }
+            AnyEntKind::Object(obj) if obj.is_generic() => Some(GpkgInterfaceEnt::Constant(
+                ObjectEnt::from_any(ent).unwrap(),
+            )),
+            AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
+                GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
+            ),
+            AnyEntKind::Design(Design::PackageInstance(_)) => Some(GpkgInterfaceEnt::Package(ent)),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> std::ops::Deref for GpkgInterfaceEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            GpkgInterfaceEnt::Type(typ) => typ.deref(),
+            GpkgInterfaceEnt::Constant(obj) => obj.deref(),
+            GpkgInterfaceEnt::Subprogram(subp) => subp.deref(),
+            // `ent` is of type `&&AnyEnt`. `deref()` returns `&AnyEnt` which is what we want
+            #[allow(suspicious_double_ref_op)]
+            GpkgInterfaceEnt::Package(ent) => ent.deref(),
+        }
     }
 }
 
@@ -230,46 +270,6 @@ impl<'a> std::ops::Deref for RecordElement<'a> {
 impl<'a> From<RecordElement<'a>> for EntRef<'a> {
     fn from(value: RecordElement<'a>) -> Self {
         value.ent
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum GpkgInterfaceEnt<'a> {
-    Type(TypeEnt<'a>),
-    Constant(ObjectEnt<'a>),
-    Subprogram(OverloadedEnt<'a>),
-    Package(EntRef<'a>),
-}
-
-impl<'a> GpkgInterfaceEnt<'a> {
-    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
-        match ent.actual_kind() {
-            AnyEntKind::Type(Type::Interface) => {
-                Some(GpkgInterfaceEnt::Type(TypeEnt::from_any(ent).unwrap()))
-            }
-            AnyEntKind::Object(obj) if obj.is_generic() => Some(GpkgInterfaceEnt::Constant(
-                ObjectEnt::from_any(ent).unwrap(),
-            )),
-            AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
-                GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
-            ),
-            AnyEntKind::Design(Design::PackageInstance(_)) => Some(GpkgInterfaceEnt::Package(ent)),
-            _ => None,
-        }
-    }
-}
-
-impl<'a> std::ops::Deref for GpkgInterfaceEnt<'a> {
-    type Target = AnyEnt<'a>;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            GpkgInterfaceEnt::Type(typ) => typ.deref(),
-            GpkgInterfaceEnt::Constant(obj) => obj.deref(),
-            GpkgInterfaceEnt::Subprogram(subp) => subp.deref(),
-            // `ent` is of type `&&AnyEnt`. `deref()` returns `&AnyEnt` which is what we want
-            #[allow(suspicious_double_ref_op)]
-            GpkgInterfaceEnt::Package(ent) => ent.deref(),
-        }
     }
 }
 

@@ -1,14 +1,15 @@
-use crate::analysis::region::{AsUnique, NamedEntities, Region};
-use crate::analysis::{DesignRoot, HasEntityId};
+use crate::analysis::DesignRoot;
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Designator, InstantiationStatement, MapAspect,
     ObjectClass, PackageInstantiation, Reference,
 };
 use crate::data::{ContentReader, Symbol};
+use crate::named_entity::AsUnique;
+use crate::named_entity::{self, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{analysis, AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
+use crate::{AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
@@ -64,7 +65,7 @@ impl<'a> Region<'a> {
                 {
                     Some(ent.id)
                 }
-                AnyEntKind::Type(analysis::Type::Interface)
+                AnyEntKind::Type(named_entity::Type::Interface)
                     if object_class == ObjectClass::Constant =>
                 {
                     Some(ent.id)

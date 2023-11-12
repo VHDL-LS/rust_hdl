@@ -6,15 +6,15 @@
 
 use super::analyze::*;
 use super::expression::ExpressionType;
-use super::named_entity::*;
 use super::names::AttributeSuffix;
 use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
-use super::region::*;
+use super::scope::*;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn range_unknown_typ(
@@ -372,12 +372,12 @@ impl<'a> AnalyzeContext<'a> {
 mod tests {
     use crate::analysis::analyze::EvalError;
     use crate::analysis::analyze::EvalResult;
-    use crate::analysis::named_entity::BaseType;
     use crate::analysis::tests::TestSetup;
     use crate::ast::search::check_no_unresolved;
     use crate::ast::Range;
     use crate::data::DiagnosticHandler;
     use crate::data::NoDiagnostics;
+    use crate::named_entity::BaseType;
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;
     use crate::Diagnostic;

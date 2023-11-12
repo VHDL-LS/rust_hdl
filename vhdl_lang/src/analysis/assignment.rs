@@ -6,11 +6,11 @@
 #![allow(clippy::only_used_in_recursion)]
 
 use super::analyze::*;
-use super::named_entity::*;
-use super::region::*;
+use super::scope::*;
 use super::target::AssignmentType;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
     // @TODO maybe make generic function for expression/waveform.

@@ -4,11 +4,11 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::named_entity::*;
-use super::region::*;
 use super::root::*;
+pub(crate) use super::scope::Scope;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 use crate::syntax::TokenAccess;
 use fnv::FnvHashSet;
 use std::cell::RefCell;

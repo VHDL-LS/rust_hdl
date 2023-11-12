@@ -3,13 +3,7 @@
 //! You can obtain one at http://mozilla.org/MPL/2.0/.
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
-use super::AnyEnt;
-use super::AnyEntKind;
-use super::BaseType;
-use super::EntRef;
-use super::TypeEnt;
-use crate::analysis::formal_region::FormalRegion;
-use crate::analysis::formal_region::InterfaceEnt;
+use super::*;
 use crate::ast::Designator;
 
 pub enum Overloaded<'a> {

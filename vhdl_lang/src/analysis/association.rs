@@ -9,13 +9,11 @@ use fnv::FnvHashSet;
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::formal_region::FormalRegion;
-use super::formal_region::InterfaceEnt;
-use super::named_entity::*;
 use super::names::ResolvedName;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 #[derive(Copy, Clone)]
 struct ResolvedFormal<'a> {

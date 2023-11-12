@@ -10,9 +10,9 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
-use crate::analysis::EntRef;
-pub use crate::analysis::HasEntityId;
-use crate::analysis::Related;
+use crate::named_entity::EntRef;
+pub use crate::named_entity::HasEntityId;
+use crate::named_entity::Related;
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]

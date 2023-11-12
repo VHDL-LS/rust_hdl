@@ -23,8 +23,8 @@ pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
 
-use crate::analysis::EntityId;
 use crate::data::*;
+use crate::named_entity::EntityId;
 use crate::syntax::{Token, TokenAccess, TokenId};
 
 /// LRM 15.8 Bit string literals

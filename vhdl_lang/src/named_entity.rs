@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
-use super::formal_region::FormalRegion;
-use super::region::Region;
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
@@ -34,6 +32,18 @@ pub use attribute::AttributeEnt;
 
 mod arena;
 pub use arena::{Arena, ArenaId, EntityId, FinalArena};
+
+mod visibility;
+pub use visibility::{Visibility, Visible};
+
+mod region;
+pub(crate) use region::RegionKind;
+pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
+
+mod formal_region;
+pub use formal_region::{
+    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceEnt, RecordElement, RecordRegion,
+};
 
 pub enum AnyEntKind<'a> {
     ExternalAlias {

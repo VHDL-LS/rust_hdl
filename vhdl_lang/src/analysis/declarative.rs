@@ -4,18 +4,14 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::formal_region::FormalRegion;
-use super::formal_region::RecordRegion;
-use super::named_entity::*;
 use super::names::*;
 use super::*;
 use crate::ast;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::{Signature, *};
 use analyze::*;
 use fnv::FnvHashMap;
-use named_entity::Signature;
-use region::*;
 use std::collections::hash_map::Entry;
 
 impl<'a> AnalyzeContext<'a> {
@@ -75,7 +71,7 @@ impl<'a> AnalyzeContext<'a> {
                             Entry::Occupied(entry) => {
                                 let (_, decl_pos) = entry.get();
 
-                                diagnostics.push(duplicate_error(
+                                diagnostics.push(Diagnostic::duplicate_error(
                                     &type_decl.ident,
                                     type_decl.ident.pos(),
                                     Some(decl_pos),
@@ -733,7 +729,7 @@ impl<'a> AnalyzeContext<'a> {
                                 {
                                     if *is_body {
                                         if let Some(prev_pos) = ent.decl_pos() {
-                                            diagnostics.push(duplicate_error(
+                                            diagnostics.push(Diagnostic::duplicate_error(
                                                 &type_decl.ident.tree,
                                                 &type_decl.ident.tree.pos,
                                                 Some(prev_pos),

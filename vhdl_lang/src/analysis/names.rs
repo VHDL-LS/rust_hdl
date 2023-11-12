@@ -8,13 +8,13 @@ use fnv::FnvHashSet;
 
 use super::analyze::*;
 use super::expression::ExpressionType;
-use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::SubprogramKind;
-use super::region::*;
+use super::scope::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectBase<'a> {

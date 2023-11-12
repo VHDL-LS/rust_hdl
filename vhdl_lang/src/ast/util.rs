@@ -6,8 +6,8 @@
 
 //! Name conversions
 use super::*;
-use crate::analysis::{Concurrent, Sequential};
 use crate::data::*;
+use crate::named_entity::{Concurrent, Sequential};
 
 impl From<WithPos<SelectedName>> for WithPos<Name> {
     fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {

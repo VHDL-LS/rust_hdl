@@ -4,13 +4,11 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::named_entity::*;
-use super::visibility::Visibility;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 use analyze::*;
-use region::*;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_primary_unit(

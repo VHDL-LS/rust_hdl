@@ -7,7 +7,6 @@
 use crate::analysis::DesignRoot;
 use crate::analysis::Library;
 use crate::analysis::LockedUnit;
-use crate::analysis::Related;
 use crate::ast::search::HasEntityId;
 use crate::ast::search::Search;
 use crate::ast::search::SearchState;
@@ -16,6 +15,7 @@ use crate::ast::Reference;
 use crate::ast::UnitId;
 use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
+use crate::named_entity::Related;
 use crate::syntax::TokenAccess;
 use crate::AnyEntKind;
 use crate::Config;

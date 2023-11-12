@@ -6,11 +6,11 @@ use fnv::FnvHashSet;
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::named_entity::*;
-use super::region::*;
+use super::scope::*;
 use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
 use crate::ast::*;
 use crate::data::*;
+use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
     /// Analyze a string literal or expanded bit-string literal for type-matching

@@ -19,6 +19,7 @@ mod analysis;
 mod config;
 mod data;
 mod lint;
+mod named_entity;
 mod project;
 mod syntax;
 
@@ -29,10 +30,12 @@ pub use crate::data::{
 };
 
 pub use crate::analysis::CompletionItem;
-pub use crate::analysis::{
-    AnyEnt, AnyEntKind, Concurrent, Design, EntHierarchy, EntRef, EntityId, Object, Overloaded,
-    Type,
+pub use crate::analysis::EntHierarchy;
+pub use crate::named_entity::{
+    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
+    Related, Sequential, Type,
 };
+
 pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{
     kind_str, HasTokenSpan, ParserResult, Token, TokenAccess, TokenId, TokenSpan, VHDLParser,

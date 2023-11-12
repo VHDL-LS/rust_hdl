@@ -6,10 +6,10 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
-use crate::analysis::EntityId;
 use crate::ast::search::*;
 use crate::ast::Reference;
 use crate::data::SrcPos;
+use crate::named_entity::EntityId;
 use crate::syntax::TokenAccess;
 use fnv::FnvHashSet;
 use pretty_assertions::assert_eq;
