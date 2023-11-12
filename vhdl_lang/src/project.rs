@@ -4,8 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{CompletionItem, DesignRoot};
+use crate::analysis::DesignRoot;
 use crate::ast::DesignFile;
+use crate::completion::{list_completion_options, CompletionItem};
 use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
 use crate::named_entity::{AnyEnt, EntRef};
@@ -318,7 +319,7 @@ impl Project {
         source: &Source,
         cursor: Position,
     ) -> Vec<CompletionItem> {
-        self.root.list_completion_options(source, cursor)
+        list_completion_options(&self.root, source, cursor)
     }
 }
 
