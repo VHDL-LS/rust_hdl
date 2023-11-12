@@ -26,11 +26,8 @@ mod standard;
 mod static_expression;
 mod target;
 
-mod completion;
-
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) use root::{Library, LockedUnit};
 
 pub use self::root::{DesignRoot, EntHierarchy};
-pub use completion::CompletionItem;

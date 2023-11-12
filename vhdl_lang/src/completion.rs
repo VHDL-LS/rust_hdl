@@ -281,96 +281,94 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
     tokens
 }
 
-impl DesignRoot {
-    /// helper function to list the name of all available libraries
-    fn list_all_libraries(&self) -> Vec<CompletionItem> {
-        self.libraries()
-            .map(|lib| CompletionItem::Simple(self.get_ent(lib.id())))
-            .collect()
-    }
+/// helper function to list the name of all available libraries
+fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem> {
+    root.libraries()
+        .map(|lib| CompletionItem::Simple(root.get_ent(lib.id())))
+        .collect()
+}
 
-    /// List the name of all primary units for a given library.
-    /// If the library is non-resolvable, list an empty vector
-    fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<CompletionItem> {
-        let Some(lib) = self.get_lib(lib) else {
-            return vec![];
-        };
-        lib.primary_units()
-            .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
-            .map(|id| CompletionItem::Simple(self.get_ent(id)))
-            .collect()
-    }
+/// List the name of all primary units for a given library.
+/// If the library is non-resolvable, list an empty vector
+fn list_primaries_for_lib<'a>(root: &'a DesignRoot, lib: &Symbol) -> Vec<CompletionItem<'a>> {
+    let Some(lib) = root.get_lib(lib) else {
+        return vec![];
+    };
+    lib.primary_units()
+        .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
+        .map(|id| CompletionItem::Simple(root.get_ent(id)))
+        .collect()
+}
 
-    /// Lists all available declarations for a primary unit inside a given library
-    /// If the library does not exist or there is no primary unit with the given name for that library,
-    /// return an empty vector
-    fn list_available_declarations(
-        &self,
-        lib: &Symbol,
-        primary_unit: &Symbol,
-    ) -> Vec<CompletionItem> {
-        let Some(unit) = self
-            .get_lib(lib)
-            .and_then(|lib| lib.primary_unit(primary_unit))
-            .and_then(|unit| unit.unit.get())
-        else {
-            return vec![];
-        };
+/// Lists all available declarations for a primary unit inside a given library
+/// If the library does not exist or there is no primary unit with the given name for that library,
+/// return an empty vector
+fn list_available_declarations<'a>(
+    root: &'a DesignRoot,
+    lib: &Symbol,
+    primary_unit: &Symbol,
+) -> Vec<CompletionItem<'a>> {
+    let Some(unit) = root
+        .get_lib(lib)
+        .and_then(|lib| lib.primary_unit(primary_unit))
+        .and_then(|unit| unit.unit.get())
+    else {
+        return vec![];
+    };
 
-        match unit.data() {
-            AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
-                let Some(pkg_id) = pkg.ident.decl else {
-                    return Vec::default();
-                };
-                let ent = self.get_ent(pkg_id);
-                match &ent.kind {
-                    AnyEntKind::Design(Design::Package(_, region)) => region
-                        .entities
-                        .values()
-                        .map(|named_ent| match named_ent {
-                            NamedEntities::Single(ent) => CompletionItem::Simple(ent),
-                            NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
-                                None => CompletionItem::Overloaded(
-                                    overloaded.designator().clone(),
-                                    overloaded.len(),
-                                ),
-                                Some(ent_ref) => CompletionItem::Simple(ent_ref),
-                            },
-                        })
-                        .chain(once(CompletionItem::Keyword(All)))
-                        .collect(),
-                    _ => Vec::default(),
-                }
+    match unit.data() {
+        AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
+            let Some(pkg_id) = pkg.ident.decl else {
+                return Vec::default();
+            };
+            let ent = root.get_ent(pkg_id);
+            match &ent.kind {
+                AnyEntKind::Design(Design::Package(_, region)) => region
+                    .entities
+                    .values()
+                    .map(|named_ent| match named_ent {
+                        NamedEntities::Single(ent) => CompletionItem::Simple(ent),
+                        NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
+                            None => CompletionItem::Overloaded(
+                                overloaded.designator().clone(),
+                                overloaded.len(),
+                            ),
+                            Some(ent_ref) => CompletionItem::Simple(ent_ref),
+                        },
+                    })
+                    .chain(once(CompletionItem::Keyword(All)))
+                    .collect(),
+                _ => Vec::default(),
             }
-            _ => Vec::default(),
         }
+        _ => Vec::default(),
     }
+}
 
-    /// Main entry point for completion. Given a source-file and a cursor position,
-    /// lists available completion options at the cursor position.
-    pub fn list_completion_options(
-        &self,
-        source: &Source,
-        cursor: Position,
-    ) -> Vec<CompletionItem> {
-        let tokens = tokenize_input(&self.symbols, source, cursor);
-        match &tokens[..] {
-            [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
-                self.list_all_libraries()
-            }
-            [.., kind!(Use), ident!(library), kind!(Dot)]
-            | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
-                self.list_primaries_for_lib(library)
-            }
-            [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
-            | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
-                self.list_available_declarations(library, selected)
-            }
-            _ => {
-                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
-                self.walk_source(source, &mut visitor);
-                visitor.completions
-            }
+/// Main entry point for completion. Given a source-file and a cursor position,
+/// lists available completion options at the cursor position.
+pub fn list_completion_options<'a>(
+    root: &'a DesignRoot,
+    source: &Source,
+    cursor: Position,
+) -> Vec<CompletionItem<'a>> {
+    let tokens = tokenize_input(root.symbols(), source, cursor);
+    match &tokens[..] {
+        [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
+            list_all_libraries(root)
+        }
+        [.., kind!(Use), ident!(library), kind!(Dot)]
+        | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
+            list_primaries_for_lib(root, library)
+        }
+        [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
+        | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
+            list_available_declarations(root, library, selected)
+        }
+        _ => {
+            let mut visitor = AutocompletionVisitor::new(root, cursor, tokens);
+            root.walk_source(source, &mut visitor);
+            visitor.completions
         }
     }
 }
@@ -378,8 +376,8 @@ impl DesignRoot {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::analysis::completion::tokenize_input;
     use crate::analysis::tests::LibraryBuilder;
+    use crate::completion::tokenize_input;
     use crate::syntax::test::Code;
     use assert_matches::assert_matches;
 
@@ -438,8 +436,8 @@ mod test {
         let code = Code::new("library ");
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("library ").pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, root.list_all_libraries())
+        let options = list_completion_options(&root, code.source(), cursor);
+        assert_eq!(options, list_all_libraries(&root))
     }
 
     #[test]
@@ -447,7 +445,7 @@ mod test {
         let (root, _) = LibraryBuilder::new().get_analyzed_root();
         let code = Code::new("use std.");
         let cursor = code.pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
         assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
         assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
@@ -455,7 +453,7 @@ mod test {
 
         let code = Code::new("use std.t");
         let cursor = code.pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         // Note that the filtering only happens at client side
         assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
         assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
@@ -469,7 +467,7 @@ mod test {
         let code = Code::new("use std.env.");
         let (root, _) = input.get_analyzed_root();
         let cursor = code.pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
 
         assert!(options.contains(&CompletionItem::Overloaded(
             Designator::Identifier(root.symbol_utf8("stop")),
@@ -521,7 +519,7 @@ mod test {
         );
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("generic map (").pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         let ent = root
             .search_reference(code.source(), code.s1("B").start())
             .unwrap();
@@ -536,7 +534,7 @@ mod test {
             .unwrap();
 
         let cursor = code.s1("port map (").pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         assert!(options.contains(&CompletionItem::Formal(rst)));
         assert!(options.contains(&CompletionItem::Formal(dout)));
         assert_eq!(options.len(), 2);
@@ -545,14 +543,14 @@ mod test {
             clk =>")
             .pos()
             .end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         assert_eq!(options.len(), 0);
         let cursor = code
             .s1("port map (
             clk => c")
             .pos()
             .end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         assert_eq!(options.len(), 0);
     }
 
@@ -588,7 +586,7 @@ mod test {
             .search_reference(code.source(), code.s1("type T").s1("T").start())
             .unwrap();
         let cursor = code.s1("generic map (").pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let options = list_completion_options(&root, code.source(), cursor);
         assert!(options.contains(&CompletionItem::Formal(bar_func)));
         assert!(options.contains(&CompletionItem::Formal(x)));
         assert!(options.contains(&CompletionItem::Formal(t)));

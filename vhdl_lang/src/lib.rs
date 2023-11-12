@@ -23,13 +23,14 @@ mod named_entity;
 mod project;
 mod syntax;
 
+mod completion;
+
 pub use crate::config::Config;
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
     NullDiagnostics, NullMessages, Position, Range, Severity, Source, SrcPos,
 };
 
-pub use crate::analysis::CompletionItem;
 pub use crate::analysis::EntHierarchy;
 pub use crate::named_entity::{
     AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
@@ -40,3 +41,5 @@ pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{
     kind_str, HasTokenSpan, ParserResult, Token, TokenAccess, TokenId, TokenSpan, VHDLParser,
 };
+
+pub use completion::{list_completion_options, CompletionItem};
