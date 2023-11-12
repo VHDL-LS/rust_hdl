@@ -6,10 +6,10 @@
 
 use super::names::*;
 use super::*;
-use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
+use crate::{ast, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
@@ -479,8 +479,8 @@ impl<'a> AnalyzeContext<'a> {
                             }
                             self.check_instantiated_subprogram_kind_matches_declared(
                                 &ent,
-                                instance.kind.item.clone(),
-                                self.ctx.get_pos(instance.kind.token),
+                                instance.kind.clone(),
+                                self.ctx.get_pos(instance.get_start_token()),
                                 diagnostics,
                             );
                             let subprogram = self.instantiate_subprogram(&ent);
@@ -764,7 +764,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(NamedEntities::Overloaded(overloaded)) => {
                     if let Some(signature) = signature {
-                        match self.resolve_signature(scope, signature) {
+                        match self.resolve_signature(scope, signature, false) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     designator.set_unique_reference(&ent);
