@@ -1063,12 +1063,12 @@ mod tests {
         expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
-        let file_url = root_uri.join("ent.vhd").unwrap();
         let code = "
-entity ent is
-end entity ent;
-"
+        entity ent is
+        end entity ent;
+        "
         .to_owned();
+        let file_url = write_file(&root_uri, "ent.vhd", code.clone());
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
@@ -1092,12 +1092,12 @@ end entity ent;
         expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
-        let file_url = root_uri.join("ent.vhd").unwrap();
         let code = "
 entity ent is
 end entity ent2;
 "
         .to_owned();
+        let file_url = write_file(&root_uri, "ent.vhd", code.clone());
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {

@@ -172,7 +172,19 @@ impl Project {
     }
 
     pub fn get_source(&self, file_name: &Path) -> Option<Source> {
-        self.files.get(file_name).map(|file| file.source.clone())
+        fn as_abspath(file_path: &Path) -> Result<PathBuf, Message> {
+            match dunce::canonicalize(file_path) {
+                Ok(file_path) => Ok(file_path),
+                Err(err) => Err(Message::error(format!(
+                    "Could not create absolute path {}: {:?}",
+                    file_path.to_string_lossy(),
+                    err
+                ))),
+            }
+        }
+        self.files
+            .get(&as_abspath(file_name).unwrap())
+            .map(|file| file.source.clone())
     }
 
     pub fn update_source(&mut self, source: &Source) {
