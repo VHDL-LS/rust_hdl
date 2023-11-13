@@ -191,13 +191,7 @@ impl<'a> AnalyzeContext<'a> {
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.analyze_assoc_elems_with_formal_region(
-            error_pos,
-            ent.formals(),
-            scope,
-            assocs,
-            diagnostics,
-        )?;
+        self.check_association(error_pos, ent.formals(), scope, assocs, diagnostics)?;
         Ok(())
     }
 

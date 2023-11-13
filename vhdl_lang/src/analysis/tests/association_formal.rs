@@ -505,3 +505,65 @@ end architecture;
         .search_reference(code.source(), code.s1("inport => sig").s1("sig").start())
         .is_some())
 }
+
+#[test]
+fn does_not_stop_on_first_error() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent_inst is
+  port (
+    prt0 : in boolean;
+    prt1 : in boolean
+  );
+end entity;
+
+architecture a of ent_inst is
+begin
+end architecture;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+   signal sig0, sig1 : boolean;
+begin
+   ent: entity work.ent_inst
+      port map (
+        missing => sig0,
+        prt1 => sig1);
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("missing"), "No declaration of 'missing'"),
+            Diagnostic::error(
+                code.s1("work.ent_inst"),
+                "No association of port 'prt0' : in",
+            )
+            .related(code.s1("prt0"), "Defined here"),
+        ],
+    );
+
+    // Still sets the reference even if it fails
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("=> sig0").s1("sig0").pos().start())
+            .unwrap(),
+        code.s1("sig0").pos()
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("=> sig1").s1("sig1").pos().start())
+            .unwrap(),
+        code.s1("sig1").pos()
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("prt1 => ").s1("prt1").pos().start())
+            .unwrap(),
+        code.s1("prt1").pos()
+    );
+}
