@@ -14,13 +14,13 @@ use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub struct Project {
     parser: VHDLParser,
     config: Config,
     root: DesignRoot,
-    files: FnvHashMap<PathBuf, SourceFile>,
+    files: FnvHashMap<FilePath, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
     lint: Option<UnusedDeclarationsLinter>,
 }
@@ -90,8 +90,8 @@ impl Project {
         &mut self,
         config: &Config,
         messages: &mut dyn MessageHandler,
-    ) -> FnvHashMap<PathBuf, FnvHashSet<Symbol>> {
-        let mut files: FnvHashMap<PathBuf, FnvHashSet<Symbol>> = FnvHashMap::default();
+    ) -> FnvHashMap<FilePath, FnvHashSet<Symbol>> {
+        let mut files: FnvHashMap<FilePath, FnvHashSet<Symbol>> = FnvHashMap::default();
         self.empty_libraries.clear();
 
         for library in config.iter_libraries() {
@@ -103,7 +103,7 @@ impl Project {
             for file_name in library.file_names(messages) {
                 empty_library = false;
 
-                match files.entry(file_name.clone()) {
+                match files.entry(FilePath::new(&file_name)) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().insert(library_name.clone());
                     }
@@ -124,7 +124,7 @@ impl Project {
 
     fn parse_and_add_files(
         &mut self,
-        files_to_parse: FnvHashMap<PathBuf, FnvHashSet<Symbol>>,
+        files_to_parse: FnvHashMap<FilePath, FnvHashSet<Symbol>>,
         messages: &mut dyn MessageHandler,
     ) {
         use rayon::prelude::*;
@@ -151,7 +151,7 @@ impl Project {
             };
 
             self.files.insert(
-                source.file_name().to_owned(),
+                FilePath::new(source.file_name()),
                 SourceFile {
                     source,
                     library_names,
@@ -163,7 +163,7 @@ impl Project {
     }
 
     pub fn library_mapping_of(&self, source: &Source) -> Vec<Symbol> {
-        let file = if let Some(file) = self.files.get(source.file_name()) {
+        let file = if let Some(file) = self.files.get(source.file_path()) {
             file
         } else {
             return Vec::new();
@@ -174,12 +174,14 @@ impl Project {
     }
 
     pub fn get_source(&self, file_name: &Path) -> Option<Source> {
-        self.files.get(file_name).map(|file| file.source.clone())
+        self.files
+            .get(&FilePath::new(file_name))
+            .map(|file| file.source.clone())
     }
 
     pub fn update_source(&mut self, source: &Source) {
         let mut source_file = {
-            if let Some(mut source_file) = self.files.remove(source.file_name()) {
+            if let Some(mut source_file) = self.files.remove(source.file_path()) {
                 // File is already part of the project
                 for library_name in source_file.library_names.iter() {
                     self.root.remove_source(library_name.clone(), source);
@@ -208,7 +210,7 @@ impl Project {
             .parser
             .parse_design_source(source, &mut source_file.parser_diagnostics);
         self.files
-            .insert(source.file_name().to_owned(), source_file);
+            .insert(source.file_path().to_owned(), source_file);
     }
 
     pub fn analyse(&mut self) -> Vec<Diagnostic> {
