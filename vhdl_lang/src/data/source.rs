@@ -604,11 +604,13 @@ impl FilePath {
         let path = match dunce::canonicalize(path) {
             Ok(path) => path,
             Err(err) => {
-                eprintln!(
-                    "Could not create absolute path {}: {:?}",
-                    path.to_string_lossy(),
-                    err
-                );
+                if !cfg!(test) {
+                    eprintln!(
+                        "Could not create absolute path {}: {:?}",
+                        path.to_string_lossy(),
+                        err
+                    );
+                }
                 path.to_owned()
             }
         };
