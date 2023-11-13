@@ -638,40 +638,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    /// An expression of any integer type
-    pub fn integer_expr(
-        &self,
-        scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        if let Some(types) = as_fatal(self.expr_type(scope, expr, diagnostics))? {
-            match types {
-                ExpressionType::Unambiguous(typ) => {
-                    if !typ.base().is_any_integer() {
-                        diagnostics.error(
-                            &expr.pos,
-                            format!("Expected integer type, got {}", typ.describe()),
-                        )
-                    }
-                }
-                ExpressionType::Ambiguous(types) => {
-                    // @TODO does not check if type is ambiguous
-                    if types.iter().any(|typ| !typ.is_any_integer()) {
-                        diagnostics.error(&expr.pos, "Expected integer type")
-                    }
-                }
-                ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
-                    diagnostics.error(
-                        &expr.pos,
-                        format!("Expected integer type, got {}", types.describe()),
-                    )
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// An expression that is either boolean or implicitly boolean via ?? operator
     pub fn boolean_expr(
         &self,
