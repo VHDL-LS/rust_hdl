@@ -1601,4 +1601,31 @@ function \"+\"(a : integer; b : character) return integer;
             ))
         );
     }
+
+    #[test]
+    fn universal_integer_target_type_accepts_integer() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+function no_arg return boolean;
+function no_arg return integer;
+function with_arg(arg : natural) return boolean;
+function with_arg(arg : natural) return integer;
+
+        ",
+        );
+
+        let code = test.snippet("no_arg");
+        test.expr_with_ttyp(
+            &code,
+            test.ctx().universal_integer().into(),
+            &mut NoDiagnostics,
+        );
+        let code = test.snippet("with_arg(0)");
+        test.expr_with_ttyp(
+            &code,
+            test.ctx().universal_integer().into(),
+            &mut NoDiagnostics,
+        );
+    }
 }

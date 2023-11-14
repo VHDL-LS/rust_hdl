@@ -319,7 +319,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let ok_return_type = if let SubprogramKind::Function(rtyp) = kind {
             let mut ok_return_type = ok_assoc_types.clone();
-            self.implicit_matcher()
+            self.any_matcher()
                 .disambiguate_op_by_return_type(&mut ok_return_type, rtyp);
 
             // Only one candidate matches type profile, check it
