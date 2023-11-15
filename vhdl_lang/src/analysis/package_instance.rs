@@ -22,7 +22,7 @@ use crate::Diagnostic;
 use crate::NullDiagnostics;
 
 impl<'a> AnalyzeContext<'a> {
-    fn package_generic_map(
+    pub fn package_generic_map(
         &self,
         scope: &Scope<'a>,
         generics: GpkgRegion<'a>,

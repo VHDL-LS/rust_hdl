@@ -460,34 +460,8 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.resolve_uninstantiated_subprogram(
-                        scope,
-                        &name,
-                        &referenced_name.pos,
-                        &mut instance.signature,
-                    ) {
-                        Ok(ent) => {
-                            match Self::check_ent_is_uninstantiated_subprogram(
-                                ent,
-                                &referenced_name.pos,
-                            ) {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    e.add_to(diagnostics)?;
-                                    return Ok(());
-                                }
-                            }
-                            self.check_instantiated_subprogram_kind_matches_declared(
-                                &ent,
-                                instance.kind.clone(),
-                                self.ctx.get_pos(instance.get_start_token()),
-                                diagnostics,
-                            );
-                            let subprogram = self.instantiate_subprogram(&ent);
-                            unsafe {
-                                subpgm_ent.set_kind(AnyEntKind::Overloaded(subprogram));
-                            }
-
+                    match self.subprogram_instantiation(scope, &name, instance, diagnostics) {
+                        Ok(()) => {
                             scope.add(subpgm_ent, diagnostics);
                         }
                         Err(err) => err.add_to(diagnostics)?,
@@ -522,12 +496,76 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    fn subprogram_instantiation(
+        &self,
+        scope: &Scope<'a>,
+        name: &ResolvedName<'a>,
+        instance: &mut SubprogramInstantiation,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> AnalysisResult<()> {
+        let ent = self.resolve_uninstantiated_subprogram(
+            scope,
+            name,
+            &instance.subprogram_name.pos,
+            &mut instance.signature,
+        )?;
+        Self::check_ent_is_uninstantiated_subprogram(ent, &instance.subprogram_name.pos)?;
+        self.check_instantiated_subprogram_kind_matches_declared(
+            &ent,
+            instance.kind,
+            self.ctx.get_pos(instance.get_start_token()),
+            diagnostics,
+        );
+        /* let subprogram = if let Some(ref mut generic_map) = instance.generic_map
+        {
+            as_fatal(self.instantiate_subprogram(
+                &scope,
+                &ent,
+                &mut generic_map.list.items[..],
+                diagnostics,
+            ))?
+        } else {
+            as_fatal(self.instantiate_subprogram_no_generics(
+                &scope,
+                &ent,
+                diagnostics,
+            ))?
+        }; */
+        /* if let Some(subprogram) = subprogram {
+            unsafe {
+                subpgm_ent.set_kind(AnyEntKind::Overloaded(subprogram));
+            }
+        } */
+        Ok(())
+    }
+
     /// Instantiates the subprogram and associates the map aspect with the actual parameters
-    fn instantiate_subprogram(&self, uninstantiated_ent: &OverloadedEnt<'a>) -> Overloaded<'a> {
+    fn instantiate_subprogram<'e>(
+        &self,
+        scope: &'e Scope<'a>,
+        uninstantiated_ent: &OverloadedEnt<'a>,
+        generic_map: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Overloaded<'a>> {
         let old_sig = uninstantiated_ent.kind().signature();
-        // TODO: associate formals with actual values
+        let generics = match uninstantiated_ent.kind() {
+            Overloaded::UninstSubprogramDecl(_, region) => region,
+            Overloaded::UninstSubprogram(_, region) => region,
+            _ => unreachable!(),
+        };
+        self.package_generic_map(scope, generics.clone(), generic_map, diagnostics)?;
         let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type);
-        Overloaded::Subprogram(sig)
+        Ok(Overloaded::Subprogram(sig))
+    }
+
+    fn instantiate_subprogram_no_generics<'e>(
+        &self,
+        scope: &'e Scope<'a>,
+        uninstantiated_ent: &OverloadedEnt<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Overloaded<'a>> {
+        let mut generic_map = [];
+        self.instantiate_subprogram(scope, uninstantiated_ent, &mut generic_map, diagnostics)
     }
 
     fn check_ent_is_uninstantiated_subprogram(
