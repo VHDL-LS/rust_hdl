@@ -553,7 +553,7 @@ impl<'a> AnalyzeContext<'a> {
             Overloaded::UninstSubprogram(_, region) => region,
             _ => unreachable!(),
         };
-        self.package_generic_map(scope, generics.clone(), generic_map, diagnostics)?;
+        // self.package_generic_map(scope, generics.clone(), generic_map, diagnostics)?;
         let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type);
         Ok(Overloaded::Subprogram(sig))
     }
@@ -1725,7 +1725,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         header: &mut SubprogramHeader,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<GpkgRegion<'a>> {
+    ) -> FatalResult<Region<'a>> {
         let mut region = Region::default();
         for decl in header.generic_list.iter_mut() {
             match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
@@ -1739,8 +1739,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;
-        let (generics, _) = region.to_package_generic();
-        Ok(generics)
+        Ok(region)
     }
 
     fn subprogram_specification(
