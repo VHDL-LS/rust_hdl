@@ -1687,7 +1687,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         header: &mut SubprogramHeader,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Region<'a>> {
+    ) -> FatalResult<GpkgRegion<'a>> {
         let mut region = Region::default();
         for decl in header.generic_list.iter_mut() {
             match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
@@ -1701,7 +1701,8 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;
-        Ok(region)
+        let (generics, _) = region.to_package_generic();
+        Ok(generics)
     }
 
     fn subprogram_specification(

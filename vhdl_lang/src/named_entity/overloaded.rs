@@ -10,8 +10,8 @@ use std::fmt::{Debug, Formatter};
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
-    UninstSubprogramDecl(Signature<'a>, Region<'a>),
-    UninstSubprogram(Signature<'a>, Region<'a>),
+    UninstSubprogramDecl(Signature<'a>, GpkgRegion<'a>),
+    UninstSubprogram(Signature<'a>, GpkgRegion<'a>),
     InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
