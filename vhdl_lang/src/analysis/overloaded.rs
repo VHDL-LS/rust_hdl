@@ -293,7 +293,7 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         // Disambiguate based on uninstantiated subprogram
-        ok_kind.retain(|ent| !ent.is_uninstantiated_subprogram());
+        ok_kind.retain(|ent| !ent.is_uninst());
 
         if ok_kind.len() == 1 {
             let ent = ok_kind[0];
@@ -627,7 +627,7 @@ function myfun(arg1 : integer) return integer;
         assert_eq!(
             test.disambiguate(&fcall, None, &mut NoDiagnostics),
             Some(Disambiguated::Ambiguous(vec![
-                test.lookup_overloaded(decl.s1("myfun")),
+                test.lookup_overloaded(decl.s("myfun", 1)),
                 test.lookup_overloaded(decl.s("myfun", 2)),
             ]))
         );

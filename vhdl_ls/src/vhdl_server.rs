@@ -740,6 +740,8 @@ fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
         AnyEntKind::Overloaded(overloaded) => match overloaded {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
+            | Overloaded::UninstSubprogramDecl(..)
+            | Overloaded::UninstSubprogram(..)
             | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
             Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
             Overloaded::Alias(_) => CompletionItemKind::FIELD,
@@ -914,6 +916,8 @@ fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {
     match overloaded {
         Overloaded::SubprogramDecl(_) => SymbolKind::FUNCTION,
         Overloaded::Subprogram(_) => SymbolKind::FUNCTION,
+        Overloaded::UninstSubprogramDecl(..) => SymbolKind::FUNCTION,
+        Overloaded::UninstSubprogram(..) => SymbolKind::FUNCTION,
         Overloaded::InterfaceSubprogram(_) => SymbolKind::FUNCTION,
         Overloaded::EnumLiteral(_) => SymbolKind::ENUM_MEMBER,
         Overloaded::Alias(o) => overloaded_kind(o.kind()),

@@ -177,6 +177,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
+                        // TODO: Uninstantiated subprogram in aliases
                         match self.resolve_signature(scope, signature, false) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
@@ -450,7 +451,6 @@ impl<'a> AnalyzeContext<'a> {
                     AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
                         FormalRegion::new_params(),
                         None,
-                        None,
                     ))),
                 );
                 let referenced_name = &mut instance.subprogram_name;
@@ -526,7 +526,7 @@ impl<'a> AnalyzeContext<'a> {
     fn instantiate_subprogram(&self, uninstantiated_ent: &OverloadedEnt<'a>) -> Overloaded<'a> {
         let old_sig = uninstantiated_ent.kind().signature();
         // TODO: associate formals with actual values
-        let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type, None);
+        let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type);
         Overloaded::Subprogram(sig)
     }
 
@@ -535,16 +535,7 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
     ) -> AnalysisResult<()> {
         match ent.kind() {
-            Overloaded::Subprogram(signature) => {
-                if signature.generic_map.is_none() {
-                    Err(AnalysisError::not_fatal_error(
-                        pos.clone(),
-                        format!("{} cannot be instantiated", ent.describe()),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
+            Overloaded::UninstSubprogram(..) => Ok(()),
             _ => Err(AnalysisError::NotFatal(Diagnostic::error(
                 pos.clone(),
                 format!("{} cannot be instantiated", ent.describe()),
@@ -675,6 +666,24 @@ impl<'a> AnalyzeContext<'a> {
             let ent = overloaded.get(&signature.key())?;
 
             if ent.is_subprogram_decl() {
+                return Some(ent);
+            }
+        }
+        None
+    }
+
+    fn find_uninst_subpgm_specification(
+        &self,
+        scope: &Scope<'a>,
+        decl: &SubprogramSpecification,
+        signature: &Signature,
+    ) -> Option<OverloadedEnt<'a>> {
+        let des = decl.subpgm_designator().item.clone().into_designator();
+
+        if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
+            let ent = overloaded.get(&signature.uninstantiated_key())?;
+
+            if ent.is_uninst_subprogram_decl() {
                 return Some(ent);
             }
         }
@@ -879,11 +888,8 @@ impl<'a> AnalyzeContext<'a> {
                     ),
                 );
 
-                let signature = Signature::new(
-                    FormalRegion::new(InterfaceType::Parameter),
-                    Some(enum_type),
-                    None,
-                );
+                let signature =
+                    Signature::new(FormalRegion::new(InterfaceType::Parameter), Some(enum_type));
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
@@ -1714,15 +1720,11 @@ impl<'a> AnalyzeContext<'a> {
                 .clone()
                 .into_designator(),
             parent,
-            AnyEntKind::Overloaded(to_kind(Signature::new(
-                FormalRegion::new_params(),
-                None,
-                None,
-            ))),
+            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
             Some(&subprogram.subpgm_designator().pos),
         );
 
-        let signature = match subprogram {
+        let (signature, generic_map) = match subprogram {
             SubprogramSpecification::Function(fun) => {
                 let generic_map = if let Some(header) = &mut fun.header {
                     Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
@@ -1736,7 +1738,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 );
                 let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
-                Signature::new(params?, Some(return_type?), generic_map)
+                (Signature::new(params?, Some(return_type?)), generic_map)
             }
             SubprogramSpecification::Procedure(procedure) => {
                 let generic_map = if let Some(header) = &mut procedure.header {
@@ -1750,20 +1752,45 @@ impl<'a> AnalyzeContext<'a> {
                     &mut procedure.parameter_list,
                     diagnostics,
                 );
-                Signature::new(params?, None, generic_map)
+                (Signature::new(params?, None), generic_map)
             }
         };
 
-        let kind = to_kind(signature);
+        let mut kind = to_kind(signature);
+        if let Some(map) = generic_map {
+            match kind {
+                Overloaded::SubprogramDecl(signature) => {
+                    kind = Overloaded::UninstSubprogramDecl(signature, map)
+                }
+                Overloaded::Subprogram(signature) => {
+                    kind = Overloaded::UninstSubprogram(signature, map)
+                }
+                _ => unreachable!(),
+            }
+        }
 
-        if matches!(kind, Overloaded::Subprogram(_)) {
-            let declared_by = self.find_subpgm_specification(scope, subprogram, kind.signature());
+        match kind {
+            Overloaded::Subprogram(_) => {
+                let declared_by =
+                    self.find_subpgm_specification(scope, subprogram, kind.signature());
 
-            if let Some(declared_by) = declared_by {
-                unsafe {
-                    ent.set_declared_by(declared_by.into());
+                if let Some(declared_by) = declared_by {
+                    unsafe {
+                        ent.set_declared_by(declared_by.into());
+                    }
                 }
             }
+            Overloaded::UninstSubprogram(_, _) => {
+                let declared_by =
+                    self.find_uninst_subpgm_specification(scope, subprogram, kind.signature());
+
+                if let Some(declared_by) = declared_by {
+                    unsafe {
+                        ent.set_declared_by(declared_by.into());
+                    }
+                }
+            }
+            _ => {}
         }
 
         unsafe {
@@ -1840,6 +1867,8 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
         AnyEntKind::Overloaded(ent) => match ent {
             Overloaded::SubprogramDecl(s)
             | Overloaded::Subprogram(s)
+            | Overloaded::UninstSubprogramDecl(s, _)
+            | Overloaded::UninstSubprogram(s, _)
             | Overloaded::InterfaceSubprogram(s) => {
                 if s.return_type.is_some() {
                     Some(EntityClass::Function)

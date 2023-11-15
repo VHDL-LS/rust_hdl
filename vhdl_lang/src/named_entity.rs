@@ -75,22 +75,15 @@ impl<'a> AnyEntKind<'a> {
     pub(crate) fn new_function_decl(
         formals: FormalRegion<'a>,
         return_type: TypeEnt<'a>,
-        generics: Option<Region<'a>>,
     ) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
             formals,
             Some(return_type),
-            generics,
         )))
     }
 
-    pub(crate) fn new_procedure_decl(
-        formals: FormalRegion<'a>,
-        generics: Option<Region<'a>>,
-    ) -> AnyEntKind<'a> {
-        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
-            formals, None, generics,
-        )))
+    pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
+        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 
     pub fn is_deferred_constant(&self) -> bool {
@@ -288,6 +281,28 @@ impl<'a> AnyEnt<'a> {
         matches!(
             self.kind,
             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(..))
+        )
+    }
+
+    pub fn is_uninst_subprogram_decl(&self) -> bool {
+        matches!(
+            self.kind,
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogramDecl(..))
+        )
+    }
+
+    pub fn is_uninst_subprogram(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))
+        )
+    }
+
+    pub fn is_uninst(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))
+                | AnyEntKind::Overloaded(Overloaded::UninstSubprogramDecl(..))
         )
     }
 

@@ -358,6 +358,16 @@ impl<'a> AnalyzeContext<'a> {
             Overloaded::Subprogram(signature) => {
                 Overloaded::Subprogram(self.map_signature(parent, mapping, signature)?)
             }
+            Overloaded::UninstSubprogramDecl(signature, generic_map) => {
+                Overloaded::UninstSubprogramDecl(
+                    self.map_signature(parent, mapping, signature)?,
+                    generic_map.clone(),
+                )
+            }
+            Overloaded::UninstSubprogram(signature, generic_map) => Overloaded::UninstSubprogram(
+                self.map_signature(parent, mapping, signature)?,
+                generic_map.clone(),
+            ),
             Overloaded::InterfaceSubprogram(signature) => {
                 Overloaded::InterfaceSubprogram(self.map_signature(parent, mapping, signature)?)
             }
@@ -388,7 +398,6 @@ impl<'a> AnalyzeContext<'a> {
         let Signature {
             formals,
             return_type,
-            generic_map,
         } = signature;
 
         let FormalRegion {
@@ -415,7 +424,6 @@ impl<'a> AnalyzeContext<'a> {
                 entities: inst_entities,
             },
             return_type: return_type.map(|typ| self.map_type_ent(mapping, typ)),
-            generic_map: generic_map.clone(),
         })
     }
 

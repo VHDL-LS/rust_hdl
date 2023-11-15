@@ -10,6 +10,8 @@ use std::fmt::{Debug, Formatter};
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
+    UninstSubprogramDecl(Signature<'a>, Region<'a>),
+    UninstSubprogram(Signature<'a>, Region<'a>),
     InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
@@ -18,6 +20,10 @@ pub enum Overloaded<'a> {
 impl<'a> Debug for Overloaded<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Overloaded::UninstSubprogramDecl(..) => {
+                write!(f, "uninstantiated subprogram declaration")
+            }
+            Overloaded::UninstSubprogram(..) => write!(f, "uninstantiated subprogram"),
             Overloaded::SubprogramDecl(..) => write!(f, "subprogram declaration"),
             Overloaded::Subprogram(..) => write!(f, "subprogram"),
             Overloaded::InterfaceSubprogram(_) => write!(f, "interface subprogram"),
@@ -31,7 +37,11 @@ impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
-            SubprogramDecl(signature) | Subprogram(signature) | InterfaceSubprogram(signature) => {
+            SubprogramDecl(signature)
+            | Subprogram(signature)
+            | UninstSubprogramDecl(signature, _)
+            | UninstSubprogram(signature, _)
+            | InterfaceSubprogram(signature) => {
                 if signature.return_type().is_some() {
                     "function"
                 } else {
@@ -48,6 +58,8 @@ impl<'a> Overloaded<'a> {
             Overloaded::InterfaceSubprogram(ref signature)
             | Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
+            | Overloaded::UninstSubprogram(ref signature, _)
+            | Overloaded::UninstSubprogramDecl(ref signature, _)
             | Overloaded::EnumLiteral(ref signature) => signature,
             Overloaded::Alias(ref overloaded) => overloaded.signature(),
         }
@@ -59,19 +71,13 @@ pub struct Signature<'a> {
     /// Vector of InterfaceObject or InterfaceFile
     pub(crate) formals: FormalRegion<'a>,
     pub(crate) return_type: Option<TypeEnt<'a>>,
-    pub(crate) generic_map: Option<Region<'a>>,
 }
 
 impl<'a> Signature<'a> {
-    pub fn new(
-        formals: FormalRegion<'a>,
-        return_type: Option<TypeEnt<'a>>,
-        generics: Option<Region<'a>>,
-    ) -> Signature<'a> {
+    pub fn new(formals: FormalRegion<'a>, return_type: Option<TypeEnt<'a>>) -> Signature<'a> {
         Signature {
             formals,
             return_type: return_type.as_ref().map(TypeEnt::to_owned),
-            generic_map: generics,
         }
     }
 
@@ -82,8 +88,14 @@ impl<'a> Signature<'a> {
         SignatureKey {
             formals,
             return_type,
-            uninstantiated: self.generic_map.is_some(),
+            uninstantiated: false,
         }
+    }
+
+    pub fn uninstantiated_key(&self) -> SignatureKey<'a> {
+        let mut key = self.key();
+        key.uninstantiated = true;
+        key
     }
 
     pub fn describe(&self) -> String {
@@ -207,6 +219,14 @@ impl<'a> OverloadedEnt<'a> {
         }
     }
 
+    pub fn signature_key(&self) -> SignatureKey<'a> {
+        if self.is_uninst() {
+            self.signature().uninstantiated_key()
+        } else {
+            self.signature().key()
+        }
+    }
+
     pub fn kind(&self) -> &'a Overloaded<'a> {
         if let AnyEntKind::Overloaded(kind) = self.ent.actual_kind() {
             kind
@@ -231,10 +251,6 @@ impl<'a> OverloadedEnt<'a> {
         self.return_type().is_none()
     }
 
-    pub fn is_uninstantiated_subprogram(&self) -> bool {
-        self.signature().generic_map.is_some()
-    }
-
     pub fn is_function(&self) -> bool {
         self.return_type().is_some()
     }
@@ -253,6 +269,8 @@ impl<'a> OverloadedEnt<'a> {
         let prefix = match self.kind() {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
+            | Overloaded::UninstSubprogramDecl(..)
+            | Overloaded::UninstSubprogram(..)
             | Overloaded::InterfaceSubprogram(_) => {
                 if matches!(self.designator(), Designator::OperatorSymbol(_)) {
                     "operator "

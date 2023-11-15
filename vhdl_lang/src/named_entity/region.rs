@@ -221,14 +221,14 @@ impl<'a> OverloadedName<'a> {
         debug_assert!(!entities.is_empty());
         let mut map = FnvHashMap::default();
         for ent in entities.into_iter() {
-            map.insert(ent.signature().key(), ent);
+            map.insert(ent.signature_key(), ent);
         }
         OverloadedName { entities: map }
     }
 
     pub fn single(ent: OverloadedEnt) -> OverloadedName {
         let mut map = FnvHashMap::default();
-        map.insert(ent.signature().key(), ent);
+        map.insert(ent.signature_key(), ent);
         OverloadedName { entities: map }
     }
 
@@ -265,7 +265,7 @@ impl<'a> OverloadedName<'a> {
 
     #[allow(clippy::if_same_then_else)]
     fn insert(&mut self, ent: OverloadedEnt<'a>) -> Result<(), Diagnostic> {
-        match self.entities.entry(ent.signature().key()) {
+        match self.entities.entry(ent.signature_key()) {
             Entry::Occupied(mut entry) => {
                 let old_ent = entry.get();
 
