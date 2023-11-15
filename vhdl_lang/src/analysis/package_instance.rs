@@ -124,7 +124,7 @@ impl<'a> AnalyzeContext<'a> {
                             let resolved =
                                 self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
                             if let ResolvedName::Overloaded(des, overloaded) = resolved {
-                                let signature = target.signature().key().map(|base_type| {
+                                let signature = target.signature_key().map(|base_type| {
                                     mapping
                                         .get(&base_type.id())
                                         .map(|ent| ent.base())

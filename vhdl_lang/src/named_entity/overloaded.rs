@@ -81,21 +81,15 @@ impl<'a> Signature<'a> {
         }
     }
 
-    pub fn key(&self) -> SignatureKey<'a> {
+    pub fn key(&self, category: SignatureCategory) -> SignatureKey<'a> {
         let formals = self.formals.iter().map(|formal| formal.base()).collect();
         let return_type = self.return_type.as_ref().map(|ent| ent.base());
 
         SignatureKey {
             formals,
             return_type,
-            uninstantiated: false,
+            category,
         }
-    }
-
-    pub fn uninstantiated_key(&self) -> SignatureKey<'a> {
-        let mut key = self.key();
-        key.uninstantiated = true;
-        key
     }
 
     pub fn describe(&self) -> String {
@@ -165,23 +159,29 @@ pub fn describe_signature<'a>(
     result
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Copy)]
+pub enum SignatureCategory {
+    Uninstantiated,
+    Normal,
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SignatureKey<'a> {
     pub formals: Vec<BaseType<'a>>,
     pub return_type: Option<BaseType<'a>>,
-    pub uninstantiated: bool,
+    pub category: SignatureCategory,
 }
 
 impl<'a> SignatureKey<'a> {
     pub fn new(
         formals: Vec<BaseType<'a>>,
         return_type: Option<BaseType<'a>>,
-        uninstantiated: bool,
+        category: SignatureCategory,
     ) -> SignatureKey<'a> {
         SignatureKey {
             formals,
             return_type,
-            uninstantiated,
+            category,
         }
     }
 
@@ -221,9 +221,9 @@ impl<'a> OverloadedEnt<'a> {
 
     pub fn signature_key(&self) -> SignatureKey<'a> {
         if self.is_uninst() {
-            self.signature().uninstantiated_key()
+            self.signature().key(SignatureCategory::Uninstantiated)
         } else {
-            self.signature().key()
+            self.signature().key(SignatureCategory::Normal)
         }
     }
 

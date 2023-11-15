@@ -178,7 +178,7 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
                         // TODO: Uninstantiated subprogram in aliases
-                        match self.resolve_signature(scope, signature, false) {
+                        match self.resolve_signature(scope, signature, SignatureCategory::Normal) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
@@ -555,7 +555,7 @@ impl<'a> AnalyzeContext<'a> {
         let signature_key = match signature {
             None => None,
             Some(ref mut signature) => Some((
-                self.resolve_signature(scope, signature, true)?,
+                self.resolve_signature(scope, signature, SignatureCategory::Uninstantiated)?,
                 signature.pos.clone(),
             )),
         };
@@ -663,7 +663,7 @@ impl<'a> AnalyzeContext<'a> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
         if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
-            let ent = overloaded.get(&signature.key())?;
+            let ent = overloaded.get(&signature.key(SignatureCategory::Normal))?;
 
             if ent.is_subprogram_decl() {
                 return Some(ent);
@@ -681,7 +681,7 @@ impl<'a> AnalyzeContext<'a> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
         if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
-            let ent = overloaded.get(&signature.uninstantiated_key())?;
+            let ent = overloaded.get(&signature.key(SignatureCategory::Uninstantiated))?;
 
             if ent.is_uninst_subprogram_decl() {
                 return Some(ent);
@@ -773,7 +773,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(NamedEntities::Overloaded(overloaded)) => {
                     if let Some(signature) = signature {
-                        match self.resolve_signature(scope, signature, false) {
+                        match self.resolve_signature(scope, signature, SignatureCategory::Normal) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     designator.set_unique_reference(&ent);
@@ -1330,7 +1330,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         signature: &mut WithPos<ast::Signature>,
-        uninstantiated: bool,
+        category: SignatureCategory,
     ) -> AnalysisResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
@@ -1359,10 +1359,10 @@ impl<'a> AnalyzeContext<'a> {
             Ok(SignatureKey::new(
                 params,
                 Some(return_type?.base_type().base()),
-                uninstantiated,
+                category,
             ))
         } else {
-            Ok(SignatureKey::new(params, None, uninstantiated))
+            Ok(SignatureKey::new(params, None, category))
         }
     }
 

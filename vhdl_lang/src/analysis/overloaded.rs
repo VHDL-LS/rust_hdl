@@ -627,8 +627,8 @@ function myfun(arg1 : integer) return integer;
         assert_eq!(
             test.disambiguate(&fcall, None, &mut NoDiagnostics),
             Some(Disambiguated::Ambiguous(vec![
-                test.lookup_overloaded(decl.s("myfun", 1)),
                 test.lookup_overloaded(decl.s("myfun", 2)),
+                test.lookup_overloaded(decl.s("myfun", 1)),
             ]))
         );
     }

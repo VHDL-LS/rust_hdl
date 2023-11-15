@@ -75,8 +75,8 @@ procedure proc is new foo;
             code.s1("new foo").s1("foo"),
             "Ambiguous instantiation of 'foo'",
         )
-        .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")
-        .related(code.s("foo", 1), "Might be procedure foo[BIT]")],
+        .related(code.s("foo", 1), "Might be procedure foo[BIT]")
+        .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")],
     )
 }
 
