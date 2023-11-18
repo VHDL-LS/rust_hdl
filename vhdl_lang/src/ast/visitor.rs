@@ -8,7 +8,6 @@
 use crate::ast::visitor::VisitorResult::{Continue, Skip, Stop};
 use crate::ast::*;
 use crate::syntax::TokenAccess;
-use itertools::Itertools;
 use std::ops::Deref;
 
 #[derive(PartialEq)]
@@ -810,10 +809,10 @@ pub trait ASTNode {
     /// simply return `Continue`.
     fn visit(&self, visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult;
 
-    /// Returns the Children of this Node.
-    /// Must return all children that are considered AST elements.
+    /// Populates the stack.
+    /// This method pushes a reference to all its children onto the stack.
     /// Doesn't return auxiliary information such as the Tokens.
-    fn children(&self) -> Vec<&dyn ASTNode>;
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>);
 }
 
 pub fn walk(node: &dyn ASTNode, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) {
@@ -824,9 +823,7 @@ pub fn walk(node: &dyn ASTNode, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess
             Skip => continue,
             _ => {}
         }
-        for child in node.children().into_iter().rev() {
-            stack.push(child);
-        }
+        node.push_stack(&mut stack);
     }
 }
 
@@ -837,13 +834,23 @@ pub fn walk_design_file(node: &DesignFile, visitor: &mut dyn Visitor) {
     }
 }
 
+macro_rules! push {
+    ($stack:ident, $el:expr) => {
+        $stack.push($el)
+    };
+    ($stack:ident, $el:expr, $($es:expr),+) => {{
+        $stack.push($el);
+        push!($stack, $($es),+)
+    }};
+}
+
 impl<T: ASTNode> ASTNode for Box<T> {
     fn visit(&self, _visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![self.deref()]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, self.deref());
     }
 }
 
@@ -852,10 +859,10 @@ impl<T: ASTNode> ASTNode for Option<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match &self {
-            None => vec![],
-            Some(el) => vec![el],
+            None => {}
+            Some(el) => push!(stack, el),
         }
     }
 }
@@ -865,8 +872,8 @@ impl<T: ASTNode, U: ASTNode> ASTNode for (T, U) {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.0, &self.1]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.0, &self.1)
     }
 }
 
@@ -875,8 +882,8 @@ impl<T: ASTNode> ASTNode for Vec<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        self.iter().map(|f| f as &dyn ASTNode).collect()
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        stack.extend(self.iter().rev().map(|f| f as &dyn ASTNode))
     }
 }
 
@@ -885,8 +892,8 @@ impl<T: ASTNode> ASTNode for WithPos<T> {
         visitor.visit_item_with_pos(&self.pos, &self.item, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.item]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.item)
     }
 }
 
@@ -895,8 +902,8 @@ impl<T: ASTNode> ASTNode for WithDecl<T> {
         visitor.visit_item_with_decl(&self.decl, &self.tree, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.tree]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.tree)
     }
 }
 
@@ -905,8 +912,8 @@ impl<T: ASTNode> ASTNode for WithRef<T> {
         visitor.visit_item_with_reference(&self.reference, &self.item, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.reference, &self.item]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.reference, &self.item)
     }
 }
 
@@ -915,8 +922,8 @@ impl<T: ASTNode> ASTNode for Conditional<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.condition, &self.item]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.condition, &self.item)
     }
 }
 
@@ -925,8 +932,8 @@ impl<T: ASTNode> ASTNode for Conditionals<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.conditionals, &self.else_item]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.conditionals, &self.else_item)
     }
 }
 
@@ -935,8 +942,8 @@ impl<T: ASTNode> ASTNode for Selection<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.alternatives, &self.expression]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.alternatives, &self.expression)
     }
 }
 
@@ -945,11 +952,11 @@ impl<T: ASTNode> ASTNode for AssignmentRightHand<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match &self {
-            AssignmentRightHand::Simple(expr) => vec![expr],
-            AssignmentRightHand::Conditional(conds) => vec![conds],
-            AssignmentRightHand::Selected(sel) => vec![sel],
+            AssignmentRightHand::Simple(expr) => push!(stack, expr),
+            AssignmentRightHand::Conditional(conds) => push!(stack, conds),
+            AssignmentRightHand::Selected(sel) => push!(stack, sel),
         }
     }
 }
@@ -959,8 +966,8 @@ impl<T: ASTNode> ASTNode for Alternative<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.choices, &self.item]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.choices, &self.item)
     }
 }
 
@@ -969,11 +976,13 @@ impl ASTNode for DesignFile {
         visitor.visit_design_file(self)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        self.design_units
-            .iter()
-            .map(|it| &it.1 as &dyn ASTNode)
-            .collect_vec()
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        stack.extend(
+            self.design_units
+                .iter()
+                .rev()
+                .map(|it| &it.1 as &dyn ASTNode),
+        )
     }
 }
 
@@ -982,10 +991,10 @@ impl ASTNode for AnyDesignUnit {
         visitor.visit_any_design_unit(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            AnyDesignUnit::Primary(unit) => vec![unit],
-            AnyDesignUnit::Secondary(unit) => vec![unit],
+            AnyDesignUnit::Primary(unit) => push!(stack, unit),
+            AnyDesignUnit::Secondary(unit) => push!(stack, unit),
         }
     }
 }
@@ -995,13 +1004,13 @@ impl ASTNode for AnyPrimaryUnit {
         visitor.visit_any_primary_unit(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            AnyPrimaryUnit::Entity(decl) => vec![decl],
-            AnyPrimaryUnit::Configuration(decl) => vec![decl],
-            AnyPrimaryUnit::Package(decl) => vec![decl],
-            AnyPrimaryUnit::PackageInstance(decl) => vec![decl],
-            AnyPrimaryUnit::Context(decl) => vec![decl],
+            AnyPrimaryUnit::Entity(decl) => push!(stack, decl),
+            AnyPrimaryUnit::Configuration(decl) => push!(stack, decl),
+            AnyPrimaryUnit::Package(decl) => push!(stack, decl),
+            AnyPrimaryUnit::PackageInstance(decl) => push!(stack, decl),
+            AnyPrimaryUnit::Context(decl) => push!(stack, decl),
         }
     }
 }
@@ -1011,8 +1020,8 @@ impl ASTNode for ContextDeclaration {
         visitor.visit_context_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.items]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.items)
     }
 }
 
@@ -1021,11 +1030,11 @@ impl ASTNode for ContextItem {
         visitor.visit_context_item(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ContextItem::Use(clause) => vec![clause],
-            ContextItem::Library(clause) => vec![clause],
-            ContextItem::Context(clause) => vec![clause],
+            ContextItem::Use(clause) => push!(stack, clause),
+            ContextItem::Library(clause) => push!(stack, clause),
+            ContextItem::Context(clause) => push!(stack, clause),
         }
     }
 }
@@ -1035,8 +1044,8 @@ impl ASTNode for ContextReference {
         visitor.visit_context_reference(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name_list)
     }
 }
 
@@ -1045,8 +1054,8 @@ impl<T: ASTNode> ASTNode for SeparatedList<T> {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        self.items.iter().map(|it| it as &dyn ASTNode).collect_vec()
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        stack.extend(self.items.iter().rev().map(|it| it as &dyn ASTNode))
     }
 }
 
@@ -1055,8 +1064,8 @@ impl ASTNode for LibraryClause {
         visitor.visit_library_clause(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name_list)
     }
 }
 
@@ -1065,8 +1074,8 @@ impl ASTNode for UseClause {
         visitor.visit_use_clause(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name_list)
     }
 }
 
@@ -1075,9 +1084,7 @@ impl ASTNode for Ident {
         visitor.visit_ident(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack(&self, _stack: &mut Vec<&dyn ASTNode>) {}
 }
 
 impl ASTNode for PackageInstantiation {
@@ -1085,13 +1092,14 @@ impl ASTNode for PackageInstantiation {
         visitor.visit_package_instantiation(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.context_clause,
             &self.ident,
             &self.package_name,
-            &self.generic_map,
-        ]
+            &self.generic_map
+        )
     }
 }
 
@@ -1100,8 +1108,8 @@ impl ASTNode for AssociationElement {
         visitor.visit_association_element(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.formal, &self.actual]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.formal, &self.actual)
     }
 }
 
@@ -1110,10 +1118,10 @@ impl ASTNode for ActualPart {
         visitor.visit_actual_part(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ActualPart::Expression(expr) => vec![expr],
-            ActualPart::Open => vec![],
+            ActualPart::Expression(expr) => push!(stack, expr),
+            ActualPart::Open => {}
         }
     }
 }
@@ -1123,10 +1131,10 @@ impl ASTNode for SelectedName {
         visitor.visit_selected_name(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SelectedName::Designator(desi) => vec![desi],
-            SelectedName::Selected(name, desi) => vec![name, desi],
+            SelectedName::Designator(desi) => push!(stack, desi),
+            SelectedName::Selected(name, desi) => push!(stack, name, desi),
         }
     }
 }
@@ -1136,9 +1144,7 @@ impl ASTNode for Designator {
         visitor.visit_designator(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for PackageDeclaration {
@@ -1146,13 +1152,14 @@ impl ASTNode for PackageDeclaration {
         visitor.visit_package_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.context_clause,
             &self.ident,
             &self.generic_clause,
-            &self.decl,
-        ]
+            &self.decl
+        )
     }
 }
 
@@ -1161,20 +1168,20 @@ impl ASTNode for Declaration {
         visitor.visit_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Declaration::Object(decl) => vec![decl],
-            Declaration::File(decl) => vec![decl],
-            Declaration::Type(decl) => vec![decl],
-            Declaration::Component(decl) => vec![decl],
-            Declaration::Attribute(decl) => vec![decl],
-            Declaration::Alias(decl) => vec![decl],
-            Declaration::SubprogramDeclaration(decl) => vec![decl],
-            Declaration::SubprogramBody(decl) => vec![decl],
-            Declaration::Use(decl) => vec![decl],
-            Declaration::Package(decl) => vec![decl],
-            Declaration::Configuration(decl) => vec![decl],
-            Declaration::SubprogramInstantiation(decl) => vec![decl],
+            Declaration::Object(decl) => push!(stack, decl),
+            Declaration::File(decl) => push!(stack, decl),
+            Declaration::Type(decl) => push!(stack, decl),
+            Declaration::Component(decl) => push!(stack, decl),
+            Declaration::Attribute(decl) => push!(stack, decl),
+            Declaration::Alias(decl) => push!(stack, decl),
+            Declaration::SubprogramDeclaration(decl) => push!(stack, decl),
+            Declaration::SubprogramBody(decl) => push!(stack, decl),
+            Declaration::Use(decl) => push!(stack, decl),
+            Declaration::Package(decl) => push!(stack, decl),
+            Declaration::Configuration(decl) => push!(stack, decl),
+            Declaration::SubprogramInstantiation(decl) => push!(stack, decl),
         }
     }
 }
@@ -1184,13 +1191,14 @@ impl ASTNode for SubprogramInstantiation {
         visitor.visit_subprogram_instantiation(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.ident,
             &self.subprogram_name,
             &self.signature,
-            &self.generic_map,
-        ]
+            &self.generic_map
+        )
     }
 }
 
@@ -1199,8 +1207,8 @@ impl ASTNode for ConfigurationSpecification {
         visitor.visit_configuration_specification(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.spec, &self.bind_ind, &self.vunit_bind_inds]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.spec, &self.bind_ind, &self.vunit_bind_inds)
     }
 }
 
@@ -1209,8 +1217,8 @@ impl ASTNode for VUnitBindingIndication {
         visitor.visit_v_unit_binding_indication(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.vunit_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.vunit_list)
     }
 }
 
@@ -1219,8 +1227,13 @@ impl ASTNode for BindingIndication {
         visitor.visit_binding_indication(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.entity_aspect, &self.generic_map, &self.port_map]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
+            &self.entity_aspect,
+            &self.generic_map,
+            &self.port_map
+        )
     }
 }
 
@@ -1229,11 +1242,11 @@ impl ASTNode for EntityAspect {
         visitor.visit_entity_aspect(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            EntityAspect::Entity(name, id) => vec![name, id],
-            EntityAspect::Configuration(config) => vec![config],
-            EntityAspect::Open => vec![],
+            EntityAspect::Entity(name, id) => push!(stack, name, id),
+            EntityAspect::Configuration(config) => push!(stack, config),
+            EntityAspect::Open => {}
         }
     }
 }
@@ -1243,8 +1256,8 @@ impl ASTNode for ComponentSpecification {
         visitor.visit_component_specification(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.instantiation_list, &self.component_name]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.instantiation_list, &self.component_name)
     }
 }
 
@@ -1253,11 +1266,11 @@ impl ASTNode for InstantiationList {
         visitor.visit_instantiation_list(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            InstantiationList::Labels(idents) => vec![idents],
-            InstantiationList::Others => vec![],
-            InstantiationList::All => vec![],
+            InstantiationList::Labels(idents) => push!(stack, idents),
+            InstantiationList::Others => {}
+            InstantiationList::All => {}
         }
     }
 }
@@ -1267,8 +1280,13 @@ impl ASTNode for SubprogramBody {
         visitor.visit_subprogram_body(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.specification, &self.declarations, &self.statements]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
+            &self.specification,
+            &self.declarations,
+            &self.statements
+        )
     }
 }
 
@@ -1277,8 +1295,8 @@ impl ASTNode for SubprogramHeader {
         visitor.visit_subprogram_header(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.map_aspect, &self.generic_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.map_aspect, &self.generic_list)
     }
 }
 
@@ -1287,8 +1305,8 @@ impl ASTNode for LabeledSequentialStatement {
         visitor.visit_labeled_sequential_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.label, &self.statement]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.label, &self.statement)
     }
 }
 
@@ -1297,10 +1315,10 @@ impl ASTNode for SubprogramSpecification {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SubprogramSpecification::Procedure(proc) => vec![proc],
-            SubprogramSpecification::Function(func) => vec![func],
+            SubprogramSpecification::Procedure(proc) => push!(stack, proc),
+            SubprogramSpecification::Function(func) => push!(stack, func),
         }
     }
 }
@@ -1310,8 +1328,8 @@ impl ASTNode for SubprogramDeclaration {
         visitor.visit_subprogram_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.specification]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.specification)
     }
 }
 
@@ -1320,23 +1338,23 @@ impl ASTNode for SequentialStatement {
         visitor.visit_sequential_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SequentialStatement::Wait(stmt) => vec![stmt],
-            SequentialStatement::Assert(stmt) => vec![stmt],
-            SequentialStatement::Report(stmt) => vec![stmt],
-            SequentialStatement::VariableAssignment(stmt) => vec![stmt],
-            SequentialStatement::SignalAssignment(stmt) => vec![stmt],
-            SequentialStatement::SignalForceAssignment(stmt) => vec![stmt],
-            SequentialStatement::SignalReleaseAssignment(stmt) => vec![stmt],
-            SequentialStatement::ProcedureCall(stmt) => vec![stmt],
-            SequentialStatement::If(stmt) => vec![stmt],
-            SequentialStatement::Case(stmt) => vec![stmt],
-            SequentialStatement::Loop(stmt) => vec![stmt],
-            SequentialStatement::Next(stmt) => vec![stmt],
-            SequentialStatement::Exit(stmt) => vec![stmt],
-            SequentialStatement::Return(stmt) => vec![stmt],
-            SequentialStatement::Null => vec![],
+            SequentialStatement::Wait(stmt) => push!(stack, stmt),
+            SequentialStatement::Assert(stmt) => push!(stack, stmt),
+            SequentialStatement::Report(stmt) => push!(stack, stmt),
+            SequentialStatement::VariableAssignment(stmt) => push!(stack, stmt),
+            SequentialStatement::SignalAssignment(stmt) => push!(stack, stmt),
+            SequentialStatement::SignalForceAssignment(stmt) => push!(stack, stmt),
+            SequentialStatement::SignalReleaseAssignment(stmt) => push!(stack, stmt),
+            SequentialStatement::ProcedureCall(stmt) => push!(stack, stmt),
+            SequentialStatement::If(stmt) => push!(stack, stmt),
+            SequentialStatement::Case(stmt) => push!(stack, stmt),
+            SequentialStatement::Loop(stmt) => push!(stack, stmt),
+            SequentialStatement::Next(stmt) => push!(stack, stmt),
+            SequentialStatement::Exit(stmt) => push!(stack, stmt),
+            SequentialStatement::Return(stmt) => push!(stack, stmt),
+            SequentialStatement::Null => {}
         }
     }
 }
@@ -1346,8 +1364,8 @@ impl ASTNode for CaseStatement {
         visitor.visit_case_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.expression, &self.alternatives]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.expression, &self.alternatives)
     }
 }
 
@@ -1356,10 +1374,10 @@ impl ASTNode for ReturnStatement {
         visitor.visit_return_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match &self.expression {
-            Some(expr) => vec![expr],
-            None => vec![],
+            Some(expr) => push!(stack, expr),
+            None => {}
         }
     }
 }
@@ -1369,8 +1387,8 @@ impl ASTNode for ExitStatement {
         visitor.visit_exit_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.loop_label, &self.condition]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.loop_label, &self.condition)
     }
 }
 
@@ -1379,8 +1397,8 @@ impl ASTNode for NextStatement {
         visitor.visit_next_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.loop_label, &self.condition]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.loop_label, &self.condition)
     }
 }
 
@@ -1389,8 +1407,8 @@ impl ASTNode for LoopStatement {
         visitor.visit_loop_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.iteration_scheme, &self.statements]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.iteration_scheme, &self.statements)
     }
 }
 
@@ -1399,10 +1417,10 @@ impl ASTNode for IterationScheme {
         visitor.visit_iteration_scheme(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            IterationScheme::While(scheme) => vec![scheme],
-            IterationScheme::For(ident, range) => vec![ident, range],
+            IterationScheme::While(scheme) => push!(stack, scheme),
+            IterationScheme::For(ident, range) => push!(stack, ident, range),
         }
     }
 }
@@ -1412,10 +1430,10 @@ impl ASTNode for DiscreteRange {
         visitor.visit_discrete_range(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            DiscreteRange::Discrete(type_mark, range) => vec![type_mark, range],
-            DiscreteRange::Range(range) => vec![range],
+            DiscreteRange::Discrete(type_mark, range) => push!(stack, type_mark, range),
+            DiscreteRange::Range(range) => push!(stack, range),
         }
     }
 }
@@ -1425,8 +1443,8 @@ impl ASTNode for TypeMark {
         visitor.visit_type_mark(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name)
     }
 }
 
@@ -1435,10 +1453,10 @@ impl ASTNode for Range {
         visitor.visit_range(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Range::Range(constraint) => vec![constraint],
-            Range::Attribute(attr) => vec![attr.deref()],
+            Range::Range(constraint) => push!(stack, constraint),
+            Range::Attribute(attr) => push!(stack, attr.deref()),
         }
     }
 }
@@ -1448,8 +1466,8 @@ impl ASTNode for RangeConstraint {
         visitor.visit_range_constraint(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.left_expr, &self.right_expr]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.left_expr, &self.right_expr)
     }
 }
 
@@ -1458,8 +1476,8 @@ impl ASTNode for IfStatement {
         visitor.visit_if_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.conds]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.conds)
     }
 }
 
@@ -1468,8 +1486,8 @@ impl ASTNode for CallOrIndexed {
         visitor.visit_call_or_indexed(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name, &self.parameters]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name, &self.parameters)
     }
 }
 
@@ -1478,8 +1496,8 @@ impl ASTNode for SignalReleaseAssignment {
         visitor.visit_signal_release_assignment(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.target]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.target)
     }
 }
 
@@ -1488,10 +1506,10 @@ impl ASTNode for Target {
         visitor.visit_target(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Target::Name(name) => vec![name],
-            Target::Aggregate(aggr) => vec![aggr],
+            Target::Name(name) => push!(stack, name),
+            Target::Aggregate(aggr) => push!(stack, aggr),
         }
     }
 }
@@ -1501,10 +1519,10 @@ impl ASTNode for ElementAssociation {
         visitor.visit_element_association(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ElementAssociation::Positional(expr) => vec![expr],
-            ElementAssociation::Named(choices, expr) => vec![choices, expr],
+            ElementAssociation::Positional(expr) => push!(stack, expr),
+            ElementAssociation::Named(choices, expr) => push!(stack, choices, expr),
         }
     }
 }
@@ -1514,8 +1532,8 @@ impl ASTNode for SignalForceAssignment {
         visitor.visit_signal_force_assignment(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.rhs]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.rhs)
     }
 }
 
@@ -1524,8 +1542,8 @@ impl ASTNode for SignalAssignment {
         visitor.visit_signal_assignment(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.target, &self.delay_mechanism, &self.rhs]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.target, &self.delay_mechanism, &self.rhs)
     }
 }
 
@@ -1534,10 +1552,10 @@ impl ASTNode for DelayMechanism {
         visitor.visit_delay_mechanism(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            DelayMechanism::Transport => vec![],
-            DelayMechanism::Inertial { reject } => vec![reject],
+            DelayMechanism::Transport => {}
+            DelayMechanism::Inertial { reject } => push!(stack, reject),
         }
     }
 }
@@ -1547,10 +1565,10 @@ impl ASTNode for Waveform {
         visitor.visit_waveform(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Waveform::Elements(elements) => vec![elements],
-            Waveform::Unaffected => vec![],
+            Waveform::Elements(elements) => push!(stack, elements),
+            Waveform::Unaffected => {}
         }
     }
 }
@@ -1560,8 +1578,8 @@ impl ASTNode for WaveformElement {
         visitor.visit_waveform_element(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.value, &self.after]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.value, &self.after)
     }
 }
 
@@ -1570,8 +1588,8 @@ impl ASTNode for VariableAssignment {
         visitor.visit_variable_assignment(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.target, &self.rhs]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.target, &self.rhs)
     }
 }
 
@@ -1580,8 +1598,8 @@ impl ASTNode for ReportStatement {
         visitor.visit_report_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.severity, &self.report]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.severity, &self.report)
     }
 }
 
@@ -1590,8 +1608,8 @@ impl ASTNode for AssertStatement {
         visitor.visit_assert_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.condition, &self.report, &self.severity]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.condition, &self.report, &self.severity)
     }
 }
 
@@ -1600,11 +1618,11 @@ impl ASTNode for Choice {
         visitor.visit_choice(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Choice::Expression(expr) => vec![expr],
-            Choice::DiscreteRange(range) => vec![range],
-            Choice::Others => vec![],
+            Choice::Expression(expr) => push!(stack, expr),
+            Choice::DiscreteRange(range) => push!(stack, range),
+            Choice::Others => {}
         }
     }
 }
@@ -1614,12 +1632,13 @@ impl ASTNode for WaitStatement {
         visitor.visit_wait_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.sensitivity_clause,
             &self.condition_clause,
-            &self.timeout_clause,
-        ]
+            &self.timeout_clause
+        )
     }
 }
 
@@ -1628,13 +1647,14 @@ impl ASTNode for FunctionSpecification {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.designator,
             &self.parameter_list,
             &self.header,
-            &self.return_type,
-        ]
+            &self.return_type
+        )
     }
 }
 
@@ -1643,8 +1663,8 @@ impl ASTNode for ProcedureSpecification {
         Continue
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.designator, &self.header, &self.parameter_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.designator, &self.header, &self.parameter_list)
     }
 }
 
@@ -1653,9 +1673,7 @@ impl ASTNode for SubprogramDesignator {
         visitor.visit_subprogram_designator(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for AliasDeclaration {
@@ -1663,13 +1681,14 @@ impl ASTNode for AliasDeclaration {
         visitor.visit_alias_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.designator,
             &self.subtype_indication,
             &self.name,
-            &self.signature,
-        ]
+            &self.signature
+        )
     }
 }
 
@@ -1678,10 +1697,10 @@ impl ASTNode for Attribute {
         visitor.visit_attribute(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Attribute::Specification(spec) => vec![spec],
-            Attribute::Declaration(decl) => vec![decl],
+            Attribute::Specification(spec) => push!(stack, spec),
+            Attribute::Declaration(decl) => push!(stack, decl),
         }
     }
 }
@@ -1691,8 +1710,8 @@ impl ASTNode for SubtypeIndication {
         visitor.visit_subtype_indication(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.resolution, &self.type_mark, &self.constraint]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.resolution, &self.type_mark, &self.constraint)
     }
 }
 
@@ -1701,8 +1720,8 @@ impl ASTNode for AttributeSpecification {
         visitor.visit_attribute_specification(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.entity_name, &self.expr]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.entity_name, &self.expr)
     }
 }
 
@@ -1711,10 +1730,10 @@ impl ASTNode for EntityName {
         visitor.visit_entity_name(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            EntityName::Name(name) => vec![name],
-            EntityName::All | EntityName::Others => vec![],
+            EntityName::Name(name) => push!(stack, name),
+            EntityName::All | EntityName::Others => {}
         }
     }
 }
@@ -1724,12 +1743,12 @@ impl ASTNode for ResolutionIndication {
         visitor.visit_resolution_indication(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ResolutionIndication::FunctionName(name) => vec![name],
-            ResolutionIndication::ArrayElement(name) => vec![name],
-            ResolutionIndication::Record(record) => vec![record],
-            ResolutionIndication::Unresolved => vec![],
+            ResolutionIndication::FunctionName(name) => push!(stack, name),
+            ResolutionIndication::ArrayElement(name) => push!(stack, name),
+            ResolutionIndication::Record(record) => push!(stack, record),
+            ResolutionIndication::Unresolved => {}
         }
     }
 }
@@ -1739,8 +1758,8 @@ impl ASTNode for RecordElementResolution {
         visitor.visit_record_element_resolution(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.resolution]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.resolution)
     }
 }
 
@@ -1749,11 +1768,11 @@ impl ASTNode for SubtypeConstraint {
         visitor.visit_subtype_constraint(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SubtypeConstraint::Range(range) => vec![range],
-            SubtypeConstraint::Array(ranges, constraint) => vec![ranges, constraint],
-            SubtypeConstraint::Record(constraints) => vec![constraints],
+            SubtypeConstraint::Range(range) => push!(stack, range),
+            SubtypeConstraint::Array(ranges, constraint) => push!(stack, ranges, constraint),
+            SubtypeConstraint::Record(constraints) => push!(stack, constraints),
         }
     }
 }
@@ -1763,8 +1782,8 @@ impl ASTNode for ElementConstraint {
         visitor.visit_element_constraint(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.constraint]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.constraint)
     }
 }
 
@@ -1773,8 +1792,8 @@ impl ASTNode for AttributeDeclaration {
         visitor.visit_attribute_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.type_mark]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.type_mark)
     }
 }
 
@@ -1783,8 +1802,8 @@ impl ASTNode for ComponentDeclaration {
         visitor.visit_component_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.generic_list, &self.port_list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.generic_list, &self.port_list)
     }
 }
 
@@ -1793,8 +1812,8 @@ impl ASTNode for TypeDeclaration {
         visitor.visit_type_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.def]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.def)
     }
 }
 
@@ -1803,19 +1822,19 @@ impl ASTNode for TypeDefinition {
         visitor.visit_type_definition(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            TypeDefinition::Enumeration(literals) => vec![literals],
-            TypeDefinition::Numeric(range) => vec![range],
-            TypeDefinition::Physical(decl) => vec![decl],
-            TypeDefinition::Array(indices, indication) => vec![indices, indication],
-            TypeDefinition::Record(record) => vec![record],
-            TypeDefinition::Access(subtype) => vec![subtype],
-            TypeDefinition::Incomplete(reference) => vec![reference],
-            TypeDefinition::File(type_mark) => vec![type_mark],
-            TypeDefinition::Protected(decl) => vec![decl],
-            TypeDefinition::ProtectedBody(body) => vec![body],
-            TypeDefinition::Subtype(subtype) => vec![subtype],
+            TypeDefinition::Enumeration(literals) => push!(stack, literals),
+            TypeDefinition::Numeric(range) => push!(stack, range),
+            TypeDefinition::Physical(decl) => push!(stack, decl),
+            TypeDefinition::Array(indices, indication) => push!(stack, indices, indication),
+            TypeDefinition::Record(record) => push!(stack, record),
+            TypeDefinition::Access(subtype) => push!(stack, subtype),
+            TypeDefinition::Incomplete(reference) => push!(stack, reference),
+            TypeDefinition::File(type_mark) => push!(stack, type_mark),
+            TypeDefinition::Protected(decl) => push!(stack, decl),
+            TypeDefinition::ProtectedBody(body) => push!(stack, body),
+            TypeDefinition::Subtype(subtype) => push!(stack, subtype),
         }
     }
 }
@@ -1825,9 +1844,7 @@ impl ASTNode for Reference {
         visitor.visit_reference(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for ProtectedTypeBody {
@@ -1835,8 +1852,8 @@ impl ASTNode for ProtectedTypeBody {
         visitor.visit_protected_type_body(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.decl]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.decl)
     }
 }
 
@@ -1845,8 +1862,8 @@ impl ASTNode for ProtectedTypeDeclaration {
         visitor.visit_protected_type_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.items]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.items)
     }
 }
 
@@ -1855,9 +1872,9 @@ impl ASTNode for ProtectedTypeDeclarativeItem {
         visitor.visit_protected_type_declarative_item(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ProtectedTypeDeclarativeItem::Subprogram(decl) => vec![decl],
+            ProtectedTypeDeclarativeItem::Subprogram(decl) => push!(stack, decl),
         }
     }
 }
@@ -1867,8 +1884,8 @@ impl ASTNode for ElementDeclaration {
         visitor.visit_element_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.subtype]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.subtype)
     }
 }
 
@@ -1877,10 +1894,10 @@ impl ASTNode for ArrayIndex {
         visitor.visit_array_index(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ArrayIndex::IndexSubtypeDefintion(type_mark) => vec![type_mark],
-            ArrayIndex::Discrete(range) => vec![range],
+            ArrayIndex::IndexSubtypeDefintion(type_mark) => push!(stack, type_mark),
+            ArrayIndex::Discrete(range) => push!(stack, range),
         }
     }
 }
@@ -1890,8 +1907,13 @@ impl ASTNode for PhysicalTypeDeclaration {
         visitor.visit_physical_type_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.range, &self.primary_unit, &self.secondary_units]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
+            &self.range,
+            &self.primary_unit,
+            &self.secondary_units
+        )
     }
 }
 
@@ -1900,8 +1922,8 @@ impl ASTNode for PhysicalLiteral {
         visitor.visit_physical_literal(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.value, &self.unit]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.value, &self.unit)
     }
 }
 
@@ -1910,9 +1932,7 @@ impl ASTNode for EnumerationLiteral {
         visitor.visit_enumeration_literal(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for FileDeclaration {
@@ -1920,13 +1940,14 @@ impl ASTNode for FileDeclaration {
         visitor.visit_file_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.ident,
             &self.subtype_indication,
             &self.file_name,
-            &self.open_info,
-        ]
+            &self.open_info
+        )
     }
 }
 
@@ -1935,8 +1956,13 @@ impl ASTNode for ObjectDeclaration {
         visitor.visit_object_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.subtype_indication, &self.expression]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
+            &self.ident,
+            &self.subtype_indication,
+            &self.expression
+        )
     }
 }
 
@@ -1945,13 +1971,13 @@ impl ASTNode for InterfaceDeclaration {
         visitor.visit_interface_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            InterfaceDeclaration::Object(obj) => vec![obj],
-            InterfaceDeclaration::File(obj) => vec![obj],
-            InterfaceDeclaration::Type(obj) => vec![obj],
-            InterfaceDeclaration::Subprogram(decl, default) => vec![decl, default],
-            InterfaceDeclaration::Package(pkg) => vec![pkg],
+            InterfaceDeclaration::Object(obj) => push!(stack, obj),
+            InterfaceDeclaration::File(obj) => push!(stack, obj),
+            InterfaceDeclaration::Type(obj) => push!(stack, obj),
+            InterfaceDeclaration::Subprogram(decl, default) => push!(stack, decl, default),
+            InterfaceDeclaration::Package(pkg) => push!(stack, pkg),
         }
     }
 }
@@ -1961,8 +1987,13 @@ impl ASTNode for InterfaceObjectDeclaration {
         visitor.visit_interface_object_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.subtype_indication, &self.expression]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
+            &self.ident,
+            &self.subtype_indication,
+            &self.expression
+        )
     }
 }
 
@@ -1971,8 +2002,8 @@ impl ASTNode for InterfaceFileDeclaration {
         visitor.visit_interface_file_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.subtype_indication]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.subtype_indication)
     }
 }
 
@@ -1981,10 +2012,10 @@ impl ASTNode for SubprogramDefault {
         visitor.visit_subprogram_default(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SubprogramDefault::Name(name) => vec![name],
-            SubprogramDefault::Box => vec![],
+            SubprogramDefault::Name(name) => push!(stack, name),
+            SubprogramDefault::Box => {}
         }
     }
 }
@@ -1994,8 +2025,8 @@ impl ASTNode for InterfacePackageDeclaration {
         visitor.visit_interface_package_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.ident, &self.package_name, &self.generic_map]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.ident, &self.package_name, &self.generic_map)
     }
 }
 
@@ -2004,11 +2035,11 @@ impl ASTNode for InterfacePackageGenericMapAspect {
         visitor.visit_interface_package_generic_map_aspect(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            InterfacePackageGenericMapAspect::Map(map) => vec![map],
-            InterfacePackageGenericMapAspect::Box => vec![],
-            InterfacePackageGenericMapAspect::Default => vec![],
+            InterfacePackageGenericMapAspect::Map(map) => push!(stack, map),
+            InterfacePackageGenericMapAspect::Box => {}
+            InterfacePackageGenericMapAspect::Default => {}
         }
     }
 }
@@ -2018,15 +2049,16 @@ impl ASTNode for ConfigurationDeclaration {
         visitor.visit_configuration_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.context_clause,
             &self.ident,
             &self.entity_name,
             &self.decl,
             &self.vunit_bind_inds,
-            &self.block_config,
-        ]
+            &self.block_config
+        )
     }
 }
 
@@ -2035,9 +2067,9 @@ impl ASTNode for ConfigurationDeclarativeItem {
         visitor.visit_configuration_declarative_item(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ConfigurationDeclarativeItem::Use(clause) => vec![clause],
+            ConfigurationDeclarativeItem::Use(clause) => push!(stack, clause),
         }
     }
 }
@@ -2047,8 +2079,8 @@ impl ASTNode for BlockConfiguration {
         visitor.visit_block_configuration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.block_spec, &self.use_clauses, &self.items]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.block_spec, &self.use_clauses, &self.items)
     }
 }
 
@@ -2057,10 +2089,10 @@ impl ASTNode for ConfigurationItem {
         visitor.visit_configuration_item(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ConfigurationItem::Block(block) => vec![block],
-            ConfigurationItem::Component(component) => vec![component],
+            ConfigurationItem::Block(block) => push!(stack, block),
+            ConfigurationItem::Component(component) => push!(stack, component),
         }
     }
 }
@@ -2070,13 +2102,14 @@ impl ASTNode for ComponentConfiguration {
         visitor.visit_component_configuration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.spec,
             &self.bind_ind,
             &self.vunit_bind_inds,
-            &self.block_config,
-        ]
+            &self.block_config
+        )
     }
 }
 
@@ -2085,15 +2118,16 @@ impl ASTNode for EntityDeclaration {
         visitor.visit_entity_declaration(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.context_clause,
             &self.ident,
             &self.generic_clause,
             &self.port_clause,
             &self.decl,
-            &self.statements,
-        ]
+            &self.statements
+        )
     }
 }
 
@@ -2102,10 +2136,10 @@ impl ASTNode for AnySecondaryUnit {
         visitor.visit_any_secondary_unit(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            AnySecondaryUnit::Architecture(arch) => vec![arch],
-            AnySecondaryUnit::PackageBody(package) => vec![package],
+            AnySecondaryUnit::Architecture(arch) => push!(stack, arch),
+            AnySecondaryUnit::PackageBody(package) => push!(stack, package),
         }
     }
 }
@@ -2115,8 +2149,8 @@ impl ASTNode for LabeledConcurrentStatement {
         visitor.visit_labeled_concurrent_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.label, &self.statement]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.label, &self.statement)
     }
 }
 
@@ -2125,17 +2159,17 @@ impl ASTNode for ConcurrentStatement {
         visitor.visit_concurrent_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match &self {
-            ConcurrentStatement::ProcedureCall(stmt) => vec![stmt],
-            ConcurrentStatement::Block(stmt) => vec![stmt],
-            ConcurrentStatement::Process(stmt) => vec![stmt],
-            ConcurrentStatement::Assert(stmt) => vec![stmt],
-            ConcurrentStatement::Assignment(stmt) => vec![stmt],
-            ConcurrentStatement::Instance(stmt) => vec![stmt],
-            ConcurrentStatement::ForGenerate(stmt) => vec![stmt],
-            ConcurrentStatement::IfGenerate(stmt) => vec![stmt],
-            ConcurrentStatement::CaseGenerate(stmt) => vec![stmt],
+            ConcurrentStatement::ProcedureCall(stmt) => push!(stack, stmt),
+            ConcurrentStatement::Block(stmt) => push!(stack, stmt),
+            ConcurrentStatement::Process(stmt) => push!(stack, stmt),
+            ConcurrentStatement::Assert(stmt) => push!(stack, stmt),
+            ConcurrentStatement::Assignment(stmt) => push!(stack, stmt),
+            ConcurrentStatement::Instance(stmt) => push!(stack, stmt),
+            ConcurrentStatement::ForGenerate(stmt) => push!(stack, stmt),
+            ConcurrentStatement::IfGenerate(stmt) => push!(stack, stmt),
+            ConcurrentStatement::CaseGenerate(stmt) => push!(stack, stmt),
         }
     }
 }
@@ -2145,8 +2179,8 @@ impl ASTNode for CaseGenerateStatement {
         visitor.visit_case_generate_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.sels]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.sels)
     }
 }
 
@@ -2155,8 +2189,8 @@ impl ASTNode for IfGenerateStatement {
         visitor.visit_if_generate_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.conds]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.conds)
     }
 }
 
@@ -2165,8 +2199,8 @@ impl ASTNode for ForGenerateStatement {
         visitor.visit_for_generate_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.index_name, &self.discrete_range, &self.body]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.index_name, &self.discrete_range, &self.body)
     }
 }
 
@@ -2175,8 +2209,8 @@ impl ASTNode for InstantiationStatement {
         visitor.visit_instantiation_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.unit, &self.generic_map, &self.port_map]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.unit, &self.generic_map, &self.port_map)
     }
 }
 
@@ -2185,8 +2219,8 @@ impl ASTNode for GenerateBody {
         visitor.visit_generate_body(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.alternative_label, &self.decl, &self.statements]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.alternative_label, &self.decl, &self.statements)
     }
 }
 
@@ -2195,11 +2229,11 @@ impl ASTNode for InstantiatedUnit {
         visitor.visit_instantiated_unit(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            InstantiatedUnit::Component(component) => vec![component],
-            InstantiatedUnit::Entity(name, ident) => vec![name, ident],
-            InstantiatedUnit::Configuration(config) => vec![config],
+            InstantiatedUnit::Component(component) => push!(stack, component),
+            InstantiatedUnit::Entity(name, ident) => push!(stack, name, ident),
+            InstantiatedUnit::Configuration(config) => push!(stack, config),
         }
     }
 }
@@ -2209,8 +2243,8 @@ impl ASTNode for ConcurrentSignalAssignment {
         visitor.visit_concurrent_signal_assignment(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.target, &self.delay_mechanism, &self.rhs]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.target, &self.delay_mechanism, &self.rhs)
     }
 }
 
@@ -2219,8 +2253,8 @@ impl ASTNode for ConcurrentAssertStatement {
         visitor.visit_concurrent_assert_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.statement]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.statement)
     }
 }
 
@@ -2229,8 +2263,8 @@ impl ASTNode for ProcessStatement {
         visitor.visit_process_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.sensitivity_list, &self.decl, &self.statements]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.sensitivity_list, &self.decl, &self.statements)
     }
 }
 
@@ -2239,13 +2273,14 @@ impl ASTNode for BlockStatement {
         visitor.visit_block_statement(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.guard_condition,
             &self.header,
             &self.decl,
-            &self.statements,
-        ]
+            &self.statements
+        )
     }
 }
 
@@ -2254,13 +2289,14 @@ impl ASTNode for BlockHeader {
         visitor.visit_block_header(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.generic_map,
             &self.generic_map,
             &self.port_map,
-            &self.port_map,
-        ]
+            &self.port_map
+        )
     }
 }
 
@@ -2269,8 +2305,8 @@ impl ASTNode for ConcurrentProcedureCall {
         visitor.visit_concurrent_procedure_call(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.call]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.call)
     }
 }
 
@@ -2279,8 +2315,8 @@ impl ASTNode for PackageBody {
         visitor.visit_package_body(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.context_clause, &self.ident, &self.decl]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.context_clause, &self.ident, &self.decl)
     }
 }
 
@@ -2289,10 +2325,10 @@ impl ASTNode for SensitivityList {
         visitor.visit_sensitivity_list(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            SensitivityList::Names(names) => vec![names],
-            SensitivityList::All => vec![],
+            SensitivityList::Names(names) => push!(stack, names),
+            SensitivityList::All => {}
         }
     }
 }
@@ -2302,14 +2338,15 @@ impl ASTNode for ArchitectureBody {
         visitor.visit_architecture_body(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(
+            stack,
             &self.context_clause,
             &self.ident,
             &self.entity_name,
             &self.decl,
-            &self.statements,
-        ]
+            &self.statements
+        )
     }
 }
 
@@ -2318,15 +2355,15 @@ impl ASTNode for Expression {
         visitor.visit_expression(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Expression::Binary(_, lhs, rhs) => vec![lhs, rhs],
-            Expression::Unary(_, expr) => vec![expr],
-            Expression::Aggregate(elements) => vec![elements],
-            Expression::Qualified(qual) => vec![qual],
-            Expression::Name(name) => vec![name],
-            Expression::Literal(lit) => vec![lit],
-            Expression::New(allocator) => vec![allocator],
+            Expression::Binary(_, lhs, rhs) => push!(stack, lhs, rhs),
+            Expression::Unary(_, expr) => push!(stack, expr),
+            Expression::Aggregate(elements) => push!(stack, elements),
+            Expression::Qualified(qual) => push!(stack, qual),
+            Expression::Name(name) => push!(stack, name),
+            Expression::Literal(lit) => push!(stack, lit),
+            Expression::New(allocator) => push!(stack, allocator),
         }
     }
 }
@@ -2336,8 +2373,8 @@ impl ASTNode for QualifiedExpression {
         visitor.visit_qualified_expression(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.type_mark, &self.expr]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.type_mark, &self.expr)
     }
 }
 
@@ -2346,10 +2383,10 @@ impl ASTNode for Allocator {
         visitor.visit_allocator(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Allocator::Qualified(qual) => vec![qual],
-            Allocator::Subtype(subtype) => vec![subtype],
+            Allocator::Qualified(qual) => push!(stack, qual),
+            Allocator::Subtype(subtype) => push!(stack, subtype),
         }
     }
 }
@@ -2359,9 +2396,7 @@ impl ASTNode for AttributeDesignator {
         visitor.visit_attribute_designator(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for Signature {
@@ -2369,10 +2404,10 @@ impl ASTNode for Signature {
         visitor.visit_signature(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Signature::Function(t1, t2) => vec![t1, t2],
-            Signature::Procedure(proc) => vec![proc],
+            Signature::Function(t1, t2) => push!(stack, t1, t2),
+            Signature::Procedure(proc) => push!(stack, proc),
         }
     }
 }
@@ -2382,15 +2417,15 @@ impl ASTNode for Name {
         visitor.visit_name(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Name::Designator(desi) => vec![desi],
-            Name::Selected(name, desi) => vec![name, desi],
-            Name::SelectedAll(name) => vec![name],
-            Name::Slice(name, range) => vec![name, range],
-            Name::Attribute(attr) => vec![attr],
-            Name::CallOrIndexed(coi) => vec![coi],
-            Name::External(external) => vec![external],
+            Name::Designator(desi) => push!(stack, desi),
+            Name::Selected(name, desi) => push!(stack, name, desi),
+            Name::SelectedAll(name) => push!(stack, name),
+            Name::Slice(name, range) => push!(stack, name, range),
+            Name::Attribute(attr) => push!(stack, attr),
+            Name::CallOrIndexed(coi) => push!(stack, coi),
+            Name::External(external) => push!(stack, external),
         }
     }
 }
@@ -2400,8 +2435,8 @@ impl ASTNode for ExternalName {
         visitor.visit_external_name(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.path, &self.subtype]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.path, &self.subtype)
     }
 }
 
@@ -2410,11 +2445,11 @@ impl ASTNode for ExternalPath {
         visitor.visit_external_path(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            ExternalPath::Package(name) => vec![name],
-            ExternalPath::Absolute(name) => vec![name],
-            ExternalPath::Relative(name, _) => vec![name],
+            ExternalPath::Package(name) => push!(stack, name),
+            ExternalPath::Absolute(name) => push!(stack, name),
+            ExternalPath::Relative(name, _) => push!(stack, name),
         }
     }
 }
@@ -2424,8 +2459,8 @@ impl ASTNode for AttributeName {
         visitor.visit_attribute_name(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.name, &self.signature, &self.attr, &self.expr]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.name, &self.signature, &self.attr, &self.expr)
     }
 }
 
@@ -2434,9 +2469,7 @@ impl ASTNode for AbstractLiteral {
         visitor.visit_abstract_literal(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![]
-    }
+    fn push_stack<'a>(&'a self, _stack: &mut Vec<&'a dyn ASTNode>) {}
 }
 
 impl ASTNode for Literal {
@@ -2444,13 +2477,11 @@ impl ASTNode for Literal {
         visitor.visit_literal(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
         match self {
-            Literal::String(_) | Literal::BitString(_) | Literal::Character(_) | Literal::Null => {
-                vec![]
-            }
-            Literal::AbstractLiteral(lit) => vec![lit],
-            Literal::Physical(phy) => vec![phy],
+            Literal::String(_) | Literal::BitString(_) | Literal::Character(_) | Literal::Null => {}
+            Literal::AbstractLiteral(lit) => push!(stack, lit),
+            Literal::Physical(phy) => push!(stack, phy),
         }
     }
 }
@@ -2460,8 +2491,8 @@ impl ASTNode for EntityTag {
         visitor.visit_entity_tag(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.designator, &self.signature]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.designator, &self.signature)
     }
 }
 
@@ -2470,7 +2501,7 @@ impl ASTNode for MapAspect {
         visitor.visit_map_aspect(self, ctx)
     }
 
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.list]
+    fn push_stack<'a>(&'a self, stack: &mut Vec<&'a dyn ASTNode>) {
+        push!(stack, &self.list)
     }
 }
