@@ -516,17 +516,11 @@ impl<'a> AnalyzeContext<'a> {
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Signature> {
-        let uninstantiated_subprogram = self.resolve_uninstantiated_subprogram(
-            scope,
-            instance.ident.pos(),
-            name,
-            &instance.subprogram_name.pos,
-            &mut instance.signature,
-        )?;
+        let uninstantiated_subprogram =
+            self.resolve_uninstantiated_subprogram(scope, name, instance)?;
         self.check_instantiated_subprogram_kind_matches_declared(
             &uninstantiated_subprogram,
-            instance.kind,
-            self.ctx.get_pos(instance.get_start_token()),
+            instance,
             diagnostics,
         );
         let region = match uninstantiated_subprogram.kind() {
@@ -543,7 +537,7 @@ impl<'a> AnalyzeContext<'a> {
             &mut instance.generic_map,
             diagnostics,
         ))? {
-            None => todo!(),
+            None => Ok(uninstantiated_subprogram.signature().clone()),
             Some((_, mapping)) => {
                 match self.map_signature(
                     Some(inst_subprogram_ent),
@@ -551,23 +545,28 @@ impl<'a> AnalyzeContext<'a> {
                     uninstantiated_subprogram.signature(),
                 ) {
                     Ok(signature) => Ok(signature),
-                    Err(_) => unreachable!(),
+                    Err(err) => {
+                        let mut diag = Diagnostic::error(&instance.ident.tree.pos, err);
+                        if let Some(pos) = uninstantiated_subprogram.decl_pos() {
+                            diag.add_related(pos, "When instantiating this declaration");
+                        }
+                        Err(AnalysisError::NotFatal(diag))
+                    }
                 }
             }
         }
     }
 
-    /// Given a `ResolvedName`, find the uninstantiated subprogram that the resolved name
-    /// references. Return that resolved subprogram, if it exists, else return an `Err`
+    /// Given a `ResolvedName` and the subprogram instantiation,
+    /// find the uninstantiated subprogram that the resolved name references.
+    /// Return that resolved subprogram, if it exists, else return an `Err`
     fn resolve_uninstantiated_subprogram(
         &self,
         scope: &Scope<'a>,
-        ident_pos: &SrcPos,
         name: &ResolvedName<'a>,
-        name_pos: &SrcPos,
-        signature: &mut Option<WithPos<ast::Signature>>,
+        instantiation: &mut SubprogramInstantiation,
     ) -> AnalysisResult<OverloadedEnt<'a>> {
-        let signature_key = match signature {
+        let signature_key = match &mut instantiation.signature {
             None => None,
             Some(ref mut signature) => Some((
                 self.resolve_signature(scope, signature, SignatureCategory::Uninstantiated)?,
@@ -582,7 +581,7 @@ impl<'a> AnalyzeContext<'a> {
                     .collect_vec();
                 if choices.is_empty() {
                     Err(AnalysisError::NotFatal(Diagnostic::error(
-                        ident_pos,
+                        &instantiation.ident.tree.pos,
                         format!(
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()
@@ -614,7 +613,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(resolved_ent)
                     } else {
                         Err(AnalysisError::NotFatal(Diagnostic::error(
-                            name_pos,
+                            &instantiation.subprogram_name.pos,
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.0.describe()
@@ -625,7 +624,7 @@ impl<'a> AnalyzeContext<'a> {
                     // There are multiple candidates
                     // and there is no signature to resolve
                     let mut err = Diagnostic::error(
-                        name_pos,
+                        &instantiation.subprogram_name.pos,
                         format!("Ambiguous instantiation of '{}'", overloaded.designator()),
                     );
                     for ent in choices {
@@ -637,7 +636,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             _ => Err(AnalysisError::NotFatal(Diagnostic::error(
-                name_pos,
+                &instantiation.subprogram_name.pos,
                 format!(
                     "{} does not denote an uninstantiated subprogram",
                     name.describe()
@@ -647,7 +646,7 @@ impl<'a> AnalyzeContext<'a> {
         match overloaded_ent.kind() {
             Overloaded::UninstSubprogram(..) => Ok(overloaded_ent),
             _ => Err(AnalysisError::NotFatal(Diagnostic::error(
-                name_pos,
+                &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
             ))),
         }
@@ -668,19 +667,18 @@ impl<'a> AnalyzeContext<'a> {
     fn check_instantiated_subprogram_kind_matches_declared(
         &self,
         ent: &OverloadedEnt,
-        kind: SubprogramKind,
-        pos: &SrcPos,
+        instance: &SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let err_msg = if ent.is_function() && kind != SubprogramKind::Function {
+        let err_msg = if ent.is_function() && instance.kind != SubprogramKind::Function {
             Some("Instantiating function as procedure")
-        } else if ent.is_procedure() && kind != SubprogramKind::Procedure {
+        } else if ent.is_procedure() && instance.kind != SubprogramKind::Procedure {
             Some("Instantiating procedure as function")
         } else {
             None
         };
         if let Some(msg) = err_msg {
-            let mut err = Diagnostic::error(pos, msg);
+            let mut err = Diagnostic::error(self.ctx.get_pos(instance.get_start_token()), msg);
             if let Some(pos) = ent.decl_pos() {
                 err.add_related(pos, format!("{} declared here", ent.describe()));
             }
