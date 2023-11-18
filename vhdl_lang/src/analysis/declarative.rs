@@ -12,6 +12,7 @@ use crate::named_entity::{Signature, *};
 use crate::{ast, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 
 impl<'a> AnalyzeContext<'a> {
@@ -460,9 +461,20 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.subprogram_instantiation(scope, &name, instance, diagnostics) {
-                        Ok(()) => {
-                            scope.add(subpgm_ent, diagnostics);
+                    match self.subprogram_instantiation(
+                        scope,
+                        &subpgm_ent,
+                        &name,
+                        instance,
+                        diagnostics,
+                    ) {
+                        Ok((signature, _)) => {
+                            unsafe {
+                                subpgm_ent.set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(
+                                    signature,
+                                )))
+                            }
+                            scope.add(subpgm_ent, diagnostics)
                         }
                         Err(err) => err.add_to(diagnostics)?,
                     }
@@ -499,73 +511,72 @@ impl<'a> AnalyzeContext<'a> {
     fn subprogram_instantiation(
         &self,
         scope: &Scope<'a>,
+        ent: &EntRef<'a>,
         name: &ResolvedName<'a>,
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<()> {
-        let ent = self.resolve_uninstantiated_subprogram(
+    ) -> AnalysisResult<(Signature, Region)> {
+        let uninstantiated_ent = self.resolve_uninstantiated_subprogram(
             scope,
+            instance.ident.pos(),
             name,
             &instance.subprogram_name.pos,
             &mut instance.signature,
         )?;
-        Self::check_ent_is_uninstantiated_subprogram(ent, &instance.subprogram_name.pos)?;
+        Self::check_ent_is_uninstantiated_subprogram(
+            uninstantiated_ent,
+            &instance.subprogram_name.pos,
+        )?;
         self.check_instantiated_subprogram_kind_matches_declared(
-            &ent,
+            &uninstantiated_ent,
             instance.kind,
             self.ctx.get_pos(instance.get_start_token()),
             diagnostics,
         );
-        /* let subprogram = if let Some(ref mut generic_map) = instance.generic_map
-        {
-            as_fatal(self.instantiate_subprogram(
-                &scope,
-                &ent,
-                &mut generic_map.list.items[..],
-                diagnostics,
-            ))?
-        } else {
-            as_fatal(self.instantiate_subprogram_no_generics(
-                &scope,
-                &ent,
-                diagnostics,
-            ))?
-        }; */
-        /* if let Some(subprogram) = subprogram {
-            unsafe {
-                subpgm_ent.set_kind(AnyEntKind::Overloaded(subprogram));
-            }
-        } */
-        Ok(())
-    }
-
-    /// Instantiates the subprogram and associates the map aspect with the actual parameters
-    fn instantiate_subprogram<'e>(
-        &self,
-        scope: &'e Scope<'a>,
-        uninstantiated_ent: &OverloadedEnt<'a>,
-        generic_map: &mut [AssociationElement],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Overloaded<'a>> {
-        let old_sig = uninstantiated_ent.kind().signature();
-        let generics = match uninstantiated_ent.kind() {
+        let region = match uninstantiated_ent.kind() {
             Overloaded::UninstSubprogramDecl(_, region) => region,
             Overloaded::UninstSubprogram(_, region) => region,
             _ => unreachable!(),
         };
-        // self.package_generic_map(scope, generics.clone(), generic_map, diagnostics)?;
-        let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type);
-        Ok(Overloaded::Subprogram(sig))
-    }
+        let (generics, other) = region.to_package_generic();
 
-    fn instantiate_subprogram_no_generics<'e>(
-        &self,
-        scope: &'e Scope<'a>,
-        uninstantiated_ent: &OverloadedEnt<'a>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Overloaded<'a>> {
-        let mut generic_map = [];
-        self.instantiate_subprogram(scope, uninstantiated_ent, &mut generic_map, diagnostics)
+        let nested = scope.nested().in_package_declaration();
+
+        let mapping = if let Some(ref mut generic_map) = instance.generic_map {
+            match as_fatal(self.package_generic_map(
+                &nested,
+                generics.clone(),
+                generic_map.list.items.as_mut_slice(),
+                diagnostics,
+            ))? {
+                None => FnvHashMap::default(),
+                Some(map) => map,
+            }
+        } else {
+            FnvHashMap::default()
+        };
+
+        for uninst in other {
+            match self.instantiate(Some(ent), &mapping, uninst) {
+                Ok(inst) => {
+                    // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
+                    // They can collide if there are more than one interface type that map to the same actual type
+                    nested.add(inst, &mut NullDiagnostics);
+                }
+                Err(err) => {
+                    let mut diag = Diagnostic::error(&instance.ident.tree.pos, err);
+                    if let Some(pos) = uninst.decl_pos() {
+                        diag.add_related(pos, "When instantiating this declaration");
+                    }
+                    diagnostics.push(diag);
+                }
+            }
+        }
+
+        match self.map_signature(Some(ent), &mapping, uninstantiated_ent.signature()) {
+            Ok(signature) => Ok((signature, nested.into_region())),
+            Err(_) => unreachable!(),
+        }
     }
 
     fn check_ent_is_uninstantiated_subprogram(
@@ -586,10 +597,11 @@ impl<'a> AnalyzeContext<'a> {
     fn resolve_uninstantiated_subprogram(
         &self,
         scope: &Scope<'a>,
+        ident_pos: &SrcPos,
         name: &ResolvedName<'a>,
         name_pos: &SrcPos,
         signature: &mut Option<WithPos<ast::Signature>>,
-    ) -> AnalysisResult<OverloadedEnt> {
+    ) -> AnalysisResult<OverloadedEnt<'a>> {
         let signature_key = match signature {
             None => None,
             Some(ref mut signature) => Some((
@@ -598,14 +610,26 @@ impl<'a> AnalyzeContext<'a> {
             )),
         };
         match name {
-            ResolvedName::Overloaded(_, name) => {
-                if name.len() == 1 {
+            ResolvedName::Overloaded(_, overloaded) => {
+                let choices = overloaded
+                    .entities()
+                    .filter(|ent| ent.is_uninst())
+                    .collect_vec();
+                if choices.is_empty() {
+                    Err(AnalysisError::NotFatal(Diagnostic::error(
+                        ident_pos,
+                        format!(
+                            "{} does not denote an uninstantiated subprogram",
+                            name.describe()
+                        ),
+                    )))
+                } else if choices.len() == 1 {
                     // There is only one possible candidate
-                    let ent = name.first();
+                    let ent = choices[0];
                     // If the instantiated program has a signature, check that it matches
                     // that of the uninstantiated subprogram
                     if let Some((key, pos)) = signature_key {
-                        match name.get(&key) {
+                        match overloaded.get(&key) {
                             None => Err(AnalysisError::NotFatal(Diagnostic::error(
                                 pos.clone(),
                                 format!(
@@ -621,7 +645,7 @@ impl<'a> AnalyzeContext<'a> {
                 } else if let Some(key) = signature_key {
                     // There are multiple candidates
                     // but there is a signature that we can try to resolve
-                    if let Some(resolved_ent) = name.get(&key.0) {
+                    if let Some(resolved_ent) = overloaded.get(&key.0) {
                         Ok(resolved_ent)
                     } else {
                         Err(AnalysisError::NotFatal(Diagnostic::error(
@@ -637,9 +661,9 @@ impl<'a> AnalyzeContext<'a> {
                     // and there is no signature to resolve
                     let mut err = Diagnostic::error(
                         name_pos,
-                        format!("Ambiguous instantiation of '{}'", name.designator()),
+                        format!("Ambiguous instantiation of '{}'", overloaded.designator()),
                     );
-                    for ent in name.entities() {
+                    for ent in choices {
                         if let Some(pos) = &ent.decl_pos {
                             err.add_related(pos.clone(), format!("Might be {}", ent.describe()))
                         }

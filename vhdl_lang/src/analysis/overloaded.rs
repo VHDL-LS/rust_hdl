@@ -278,6 +278,7 @@ impl<'a> AnalyzeContext<'a> {
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         }
+        println!("{:?}", all_overloaded);
 
         let mut ok_kind = all_overloaded.clone();
         Self::disambiguate_by_kind(&mut ok_kind, kind);

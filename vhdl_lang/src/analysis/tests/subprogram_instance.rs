@@ -231,14 +231,13 @@ procedure proc is new proc;
     ",
     );
 
-    let diagnostics = builder.analyze();
-    assert_eq!(
-        diagnostics,
+    check_diagnostics(
+        builder.analyze(),
         vec![Diagnostic::error(
-            code.s1("new proc").s1("proc").pos(),
-            "procedure proc[] cannot be instantiated"
-        )]
-    )
+            code.s1("procedure proc is new").s("proc", 2).pos(),
+            "procedure proc[] does not denote an uninstantiated subprogram",
+        )],
+    );
 }
 
 #[test]
@@ -290,6 +289,35 @@ architecture arch of ent is
     procedure proc is new proc generic map (T => natural);
 begin
     proc;
+end architecture arch;
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze())
+}
+
+#[test]
+pub fn resolves_its_generic_map() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "\
+entity ent is
+end ent;
+
+architecture arch of ent is
+    procedure proc
+        generic ( type T )
+        parameter (param : T)
+    is
+    begin
+    end proc;
+
+    procedure proc is new proc generic map (T => natural);
+    procedure proc is new proc generic map (T => bit);
+begin
+    proc('1');
+    proc(42);
 end architecture arch;
     ",
     );

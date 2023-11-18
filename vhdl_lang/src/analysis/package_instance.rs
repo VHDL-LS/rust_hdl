@@ -243,7 +243,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn instantiate(
+    pub(crate) fn instantiate(
         &self,
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
@@ -389,7 +389,7 @@ impl<'a> AnalyzeContext<'a> {
         })
     }
 
-    fn map_signature(
+    pub(crate) fn map_signature(
         &self,
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
