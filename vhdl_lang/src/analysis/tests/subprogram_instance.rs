@@ -299,28 +299,65 @@ end architecture arch;
 #[test]
 pub fn resolves_its_generic_map() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let code = builder.code(
         "libname",
         "\
 entity ent is
 end ent;
 
 architecture arch of ent is
-    procedure proc
+    procedure foo
         generic ( type T )
         parameter (param : T)
     is
     begin
-    end proc;
+    end foo;
 
-    procedure proc is new proc generic map (T => natural);
-    procedure proc is new proc generic map (T => bit);
+    procedure foo is new foo generic map (T => natural);
+    procedure foo is new foo generic map (T => bit);
 begin
-    proc('1');
-    proc(42);
+    foo('1');
+    foo(42);
 end architecture arch;
     ",
     );
 
-    check_no_diagnostics(&builder.analyze())
+    let (root, diagnostics) = builder.get_analyzed_root();
+
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("foo('1')").s1("foo").end(),),
+        Some(
+            code.s1("procedure foo is new foo generic map (T => bit)")
+                .s1("foo")
+                .pos()
+        )
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("foo(42)").s1("foo").end(),),
+        Some(
+            code.s1("procedure foo is new foo generic map (T => natural)")
+                .s1("foo")
+                .pos()
+        )
+    );
+    assert_eq!(
+        root.search_reference_pos(
+            code.source(),
+            code.s1("procedure foo is new foo generic map (T => natural)")
+                .s("foo", 2)
+                .end(),
+        ),
+        Some(code.s1("procedure foo").s1("foo").pos())
+    );
+    assert_eq!(
+        root.search_reference_pos(
+            code.source(),
+            code.s1("procedure foo is new foo generic map (T => bit)")
+                .s("foo", 2)
+                .end(),
+        ),
+        Some(code.s1("procedure foo").s1("foo").pos())
+    );
 }
