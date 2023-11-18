@@ -478,8 +478,8 @@ impl<T: AsRef<SrcPos>> AsRef<SrcPos> for WithDecl<T> {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithToken<T> {
-    pub item: T,
-    pub token: TokenId,
+    item: T,
+    token: TokenId,
 }
 
 impl<T> WithToken<T> {
