@@ -32,7 +32,23 @@ impl Declaration {
         use Declaration::*;
         use ObjectClass::*;
         match ctx {
-            DeclarativeContext::Block => true,
+            DeclarativeContext::Block => matches!(
+                self,
+                Object(ObjectDeclaration {
+                    class: Constant | Signal | SharedVariable,
+                    ..
+                }) | File(_)
+                    | Type(_)
+                    | Component(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+                    | Configuration(_)
+            ),
             DeclarativeContext::Configuration => {
                 matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
             }
@@ -55,7 +71,7 @@ impl Declaration {
             | DeclarativeContext::Subprogram => matches!(
                 self,
                 Object(ObjectDeclaration {
-                    class: Constant | Variable,
+                    class: Constant | Variable | SharedVariable,
                     ..
                 }) | File(_)
                     | Type(_)
@@ -70,7 +86,7 @@ impl Declaration {
             DeclarativeContext::Package => matches!(
                 self,
                 Object(ObjectDeclaration {
-                    class: Constant | Variable,
+                    class: Constant | Variable | SharedVariable,
                     ..
                 }) | File(_)
                     | Type(_)
