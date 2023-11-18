@@ -539,6 +539,10 @@ impl<'a> AnalyzeContext<'a> {
             instance,
             diagnostics,
         );
+        instance
+            .subprogram_name
+            .item
+            .set_unique_reference(&uninstantiated_subprogram);
         let region = match uninstantiated_subprogram.kind() {
             Overloaded::UninstSubprogramDecl(_, region) => region,
             Overloaded::UninstSubprogram(_, region) => region,
