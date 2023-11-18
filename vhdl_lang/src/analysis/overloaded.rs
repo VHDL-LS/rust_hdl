@@ -293,7 +293,7 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         // Disambiguate based on uninstantiated subprogram
-        ok_kind.retain(|ent| !ent.is_uninst());
+        ok_kind.retain(|ent| !ent.is_uninst_subprogram());
 
         if ok_kind.len() == 1 {
             let ent = ok_kind[0];

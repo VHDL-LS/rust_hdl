@@ -291,14 +291,14 @@ impl<'a> AnyEnt<'a> {
         )
     }
 
-    pub fn is_uninst_subprogram(&self) -> bool {
+    pub fn is_uninst_subprogram_body(&self) -> bool {
         matches!(
             self.kind(),
             AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))
         )
     }
 
-    pub fn is_uninst(&self) -> bool {
+    pub fn is_uninst_subprogram(&self) -> bool {
         matches!(
             self.kind(),
             AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))

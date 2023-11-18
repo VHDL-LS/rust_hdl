@@ -220,7 +220,7 @@ impl<'a> OverloadedEnt<'a> {
     }
 
     pub fn signature_key(&self) -> SignatureKey<'a> {
-        if self.is_uninst() {
+        if self.is_uninst_subprogram() {
             self.signature().key(SignatureCategory::Uninstantiated)
         } else {
             self.signature().key(SignatureCategory::Normal)

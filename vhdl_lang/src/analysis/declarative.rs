@@ -597,7 +597,7 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Overloaded(_, overloaded) => {
                 let choices = overloaded
                     .entities()
-                    .filter(|ent| ent.is_uninst())
+                    .filter(|ent| ent.is_uninst_subprogram())
                     .collect_vec();
                 if choices.is_empty() {
                     Err(AnalysisError::NotFatal(Diagnostic::error(
@@ -663,7 +663,7 @@ impl<'a> AnalyzeContext<'a> {
                 ),
             ))),
         }?;
-        if overloaded_ent.is_uninst() {
+        if overloaded_ent.is_uninst_subprogram() {
             Ok(overloaded_ent)
         } else {
             Err(AnalysisError::NotFatal(Diagnostic::error(
