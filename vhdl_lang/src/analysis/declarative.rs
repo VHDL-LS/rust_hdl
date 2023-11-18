@@ -557,19 +557,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn check_ent_is_uninstantiated_subprogram(
-        ent: OverloadedEnt,
-        pos: &SrcPos,
-    ) -> AnalysisResult<()> {
-        match ent.kind() {
-            Overloaded::UninstSubprogram(..) => Ok(()),
-            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
-                pos.clone(),
-                format!("{} cannot be instantiated", ent.describe()),
-            ))),
-        }
-    }
-
     /// Given a `ResolvedName`, find the uninstantiated subprogram that the resolved name
     /// references. Return that resolved subprogram, if it exists, else return an `Err`
     fn resolve_uninstantiated_subprogram(
@@ -657,8 +644,13 @@ impl<'a> AnalyzeContext<'a> {
                 ),
             ))),
         }?;
-        Self::check_ent_is_uninstantiated_subprogram(overloaded_ent, name_pos)?;
-        Ok(overloaded_ent)
+        match overloaded_ent.kind() {
+            Overloaded::UninstSubprogram(..) => Ok(overloaded_ent),
+            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
+                name_pos,
+                format!("{} cannot be instantiated", overloaded_ent.describe()),
+            ))),
+        }
     }
 
     /// Checks that an instantiated subprogram kind matches the declared subprogram.
