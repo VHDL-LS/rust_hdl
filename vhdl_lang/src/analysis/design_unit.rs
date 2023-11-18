@@ -5,7 +5,6 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
-use crate::analysis::declarative::DeclarativeContext;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
@@ -72,13 +71,7 @@ impl<'a> AnalyzeContext<'a> {
             &mut unit.statements,
             diagnostics,
         )?;
-        self.analyze_declarative_part(
-            &primary_scope,
-            ent,
-            &mut unit.decl,
-            diagnostics,
-            DeclarativeContext::Entity,
-        )?;
+        self.analyze_declarative_part(&primary_scope, ent, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&primary_scope, ent, &mut unit.statements, diagnostics)?;
 
         let region = primary_scope.into_region();
@@ -155,13 +148,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&scope, ent, list, diagnostics)?;
         }
-        self.analyze_declarative_part(
-            &scope,
-            ent,
-            &mut unit.decl,
-            diagnostics,
-            DeclarativeContext::Package,
-        )?;
+        self.analyze_declarative_part(&scope, ent, &mut unit.decl, diagnostics)?;
 
         if !self.has_package_body() {
             scope.close(diagnostics);
@@ -282,13 +269,7 @@ impl<'a> AnalyzeContext<'a> {
         scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
         self.define_labels_for_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
-        self.analyze_declarative_part(
-            &scope,
-            arch,
-            &mut unit.decl,
-            diagnostics,
-            DeclarativeContext::Block,
-        )?;
+        self.analyze_declarative_part(&scope, arch, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
@@ -346,13 +327,7 @@ impl<'a> AnalyzeContext<'a> {
         // Package name is visible
         scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
-        self.analyze_declarative_part(
-            &scope,
-            body,
-            &mut unit.decl,
-            diagnostics,
-            DeclarativeContext::PackageBody,
-        )?;
+        self.analyze_declarative_part(&scope, body, &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }

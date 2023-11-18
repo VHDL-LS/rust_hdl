@@ -9,30 +9,18 @@ use super::*;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
-use crate::{ast, HasTokenSpan};
+use crate::{ast, named_entity, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
-/// Describes where a declaration was made
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DeclarativeContext {
-    Block,
-    Configuration,
-    Entity,
-    PackageBody,
-    Package,
-    Process,
-    ProtectedTypeBody,
-    Subprogram,
-}
-
 impl Declaration {
-    pub fn is_allowed_in_context(&self, ctx: DeclarativeContext) -> bool {
+    pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
         use Declaration::*;
         use ObjectClass::*;
-        match ctx {
-            DeclarativeContext::Block => matches!(
+        match parent {
+            AnyEntKind::Design(Design::Architecture(..))
+            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate)) => matches!(
                 self,
                 Object(ObjectDeclaration {
                     class: Constant | Signal | SharedVariable,
@@ -49,10 +37,10 @@ impl Declaration {
                     | Package(_)
                     | Configuration(_)
             ),
-            DeclarativeContext::Configuration => {
+            AnyEntKind::Design(Design::Configuration) => {
                 matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
             }
-            DeclarativeContext::Entity => matches!(
+            AnyEntKind::Design(Design::Entity(..)) => matches!(
                 self,
                 Object(_)
                     | File(_)
@@ -65,10 +53,10 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
             ),
-            DeclarativeContext::PackageBody
-            | DeclarativeContext::Process
-            | DeclarativeContext::ProtectedTypeBody
-            | DeclarativeContext::Subprogram => matches!(
+            AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
+            | AnyEntKind::Overloaded(Overloaded::SubprogramDecl(_) | Overloaded::Subprogram(_))
+            | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
                 Object(ObjectDeclaration {
                     class: Constant | Variable | SharedVariable,
@@ -83,7 +71,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
             ),
-            DeclarativeContext::Package => matches!(
+            AnyEntKind::Design(Design::Package(..)) => matches!(
                 self,
                 Object(_)
                     | File(_)
@@ -96,6 +84,13 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
             ),
+            _ => {
+                // AnyEntKind::Library is used in tests for a generic declarative region
+                if !(cfg!(test) && matches!(parent, AnyEntKind::Library)) {
+                    debug_assert!(false, "Parent should be a declarative region");
+                }
+                true
+            }
         }
     }
 }
@@ -107,7 +102,6 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
-        context: DeclarativeContext,
     ) -> FatalResult {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
 
@@ -116,7 +110,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
 
-            if !decl.is_allowed_in_context(context) {
+            if !decl.is_allowed_in_context(parent.kind()) {
                 diagnostics.error(
                     decl.get_pos(self.ctx),
                     format!("{} declaration not allowed here", decl.describe(),),
@@ -511,7 +505,6 @@ impl<'a> AnalyzeContext<'a> {
                     subpgm_ent.into(),
                     &mut body.declarations,
                     diagnostics,
-                    DeclarativeContext::Subprogram,
                 )?;
 
                 self.analyze_sequential_part(
@@ -847,7 +840,6 @@ impl<'a> AnalyzeContext<'a> {
                                             ptype_body,
                                             &mut body.decl,
                                             diagnostics,
-                                            DeclarativeContext::ProtectedTypeBody,
                                         )?;
 
                                         let kind = Type::Protected(region.into_region(), true);

@@ -28,7 +28,6 @@ mod typecheck_expression;
 mod util;
 mod visibility;
 
-use crate::analysis::declarative::DeclarativeContext;
 use std::cell::RefCell;
 
 pub use self::util::*;
@@ -101,7 +100,6 @@ impl<'a> TestSetup<'a> {
                 dummy_parent,
                 code.declarative_part().as_mut(),
                 &mut NoDiagnostics,
-                DeclarativeContext::Block,
             )
             .unwrap();
         code
