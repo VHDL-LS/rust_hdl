@@ -1645,6 +1645,36 @@ fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'stati
     }
 }
 
+impl Declaration {
+    pub fn describe(&self) -> &'static str {
+        match self {
+            Declaration::Object(ObjectDeclaration { class, .. }) => match class {
+                ObjectClass::Constant => "constant",
+                ObjectClass::Signal => "signal",
+                ObjectClass::Variable => "variable",
+                ObjectClass::SharedVariable => "shared variable",
+            },
+            Declaration::File(_) => "file",
+            Declaration::Type(TypeDeclaration { def, .. }) => match def {
+                TypeDefinition::Subtype(_) => "subtype",
+                _ => "type",
+            },
+            Declaration::Component(_) => "component",
+            Declaration::Attribute(attribute) => match attribute {
+                Attribute::Specification(_) => "attribute specification",
+                Attribute::Declaration(_) => "attribute",
+            },
+            Declaration::Alias(_) => "alias",
+            Declaration::SubprogramDeclaration(_) => "subprogram",
+            Declaration::SubprogramInstantiation(_) => "subprogram instantiation",
+            Declaration::SubprogramBody(_) => "subprogram body",
+            Declaration::Use(_) => "use",
+            Declaration::Package(_) => "package instantiation",
+            Declaration::Configuration(_) => "configuration",
+        }
+    }
+}
+
 impl Diagnostic {
     fn cannot_be_prefix(prefix_pos: &SrcPos, resolved: ResolvedName, suffix: Suffix) -> Diagnostic {
         let suffix_desc = match suffix {

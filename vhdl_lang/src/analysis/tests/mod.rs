@@ -9,6 +9,7 @@ mod association_formal;
 mod circular_dependencies;
 mod context_clause;
 mod custom_attributes;
+mod declarations;
 mod deferred_constant;
 mod hierarchy;
 mod homographs;
@@ -27,6 +28,7 @@ mod typecheck_expression;
 mod util;
 mod visibility;
 
+use crate::analysis::declarative::DeclarativeContext;
 use std::cell::RefCell;
 
 pub use self::util::*;
@@ -99,6 +101,7 @@ impl<'a> TestSetup<'a> {
                 dummy_parent,
                 code.declarative_part().as_mut(),
                 &mut NoDiagnostics,
+                DeclarativeContext::Block,
             )
             .unwrap();
         code

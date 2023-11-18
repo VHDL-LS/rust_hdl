@@ -8,6 +8,7 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::*;
+use crate::analysis::declarative::DeclarativeContext;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
@@ -100,7 +101,13 @@ impl<'a> AnalyzeContext<'a> {
                     &mut block.statements,
                     diagnostics,
                 )?;
-                self.analyze_declarative_part(&nested, parent, &mut block.decl, diagnostics)?;
+                self.analyze_declarative_part(
+                    &nested,
+                    parent,
+                    &mut block.decl,
+                    diagnostics,
+                    DeclarativeContext::Block,
+                )?;
                 self.analyze_concurrent_part(&nested, parent, &mut block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref mut process) => {
@@ -121,7 +128,13 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 let nested = scope.nested();
                 self.define_labels_for_sequential_part(&nested, parent, statements, diagnostics)?;
-                self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
+                self.analyze_declarative_part(
+                    &nested,
+                    parent,
+                    decl,
+                    diagnostics,
+                    DeclarativeContext::Process,
+                )?;
                 self.analyze_sequential_part(&nested, parent, statements, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
@@ -245,7 +258,13 @@ impl<'a> AnalyzeContext<'a> {
         self.define_labels_for_concurrent_part(scope, parent, statements, diagnostics)?;
 
         if let Some(ref mut decl) = decl {
-            self.analyze_declarative_part(scope, parent, decl, diagnostics)?;
+            self.analyze_declarative_part(
+                scope,
+                parent,
+                decl,
+                diagnostics,
+                DeclarativeContext::Block,
+            )?;
         }
         self.analyze_concurrent_part(scope, inner_parent, statements, diagnostics)?;
 

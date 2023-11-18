@@ -6,13 +6,85 @@
 
 use super::names::*;
 use super::*;
-use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
+use crate::{ast, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
+
+/// Describes where a declaration was made
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DeclarativeContext {
+    Block,
+    Configuration,
+    Entity,
+    PackageBody,
+    Package,
+    Process,
+    ProtectedTypeBody,
+    Subprogram,
+}
+
+impl Declaration {
+    pub fn is_allowed_in_context(&self, ctx: DeclarativeContext) -> bool {
+        use Declaration::*;
+        use ObjectClass::*;
+        match ctx {
+            DeclarativeContext::Block => true,
+            DeclarativeContext::Configuration => {
+                matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
+            }
+            DeclarativeContext::Entity => matches!(
+                self,
+                Object(_)
+                    | File(_)
+                    | Type(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+            DeclarativeContext::PackageBody
+            | DeclarativeContext::Process
+            | DeclarativeContext::ProtectedTypeBody
+            | DeclarativeContext::Subprogram => matches!(
+                self,
+                Object(ObjectDeclaration {
+                    class: Constant | Variable,
+                    ..
+                }) | File(_)
+                    | Type(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+            DeclarativeContext::Package => matches!(
+                self,
+                Object(ObjectDeclaration {
+                    class: Constant | Variable,
+                    ..
+                }) | File(_)
+                    | Type(_)
+                    | Component(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+        }
+    }
+}
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -21,6 +93,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
+        context: DeclarativeContext,
     ) -> FatalResult {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
 
@@ -28,6 +101,13 @@ impl<'a> AnalyzeContext<'a> {
             // Handle incomplete types
 
             let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
+
+            if !decl.is_allowed_in_context(context) {
+                diagnostics.error(
+                    decl.get_pos(self.ctx),
+                    format!("{} declaration not allowed here", decl.describe(),),
+                )
+            }
 
             match decl {
                 Declaration::Type(type_decl) => match type_decl.def {
@@ -417,6 +497,7 @@ impl<'a> AnalyzeContext<'a> {
                     subpgm_ent.into(),
                     &mut body.declarations,
                     diagnostics,
+                    DeclarativeContext::Subprogram,
                 )?;
 
                 self.analyze_sequential_part(
@@ -752,6 +833,7 @@ impl<'a> AnalyzeContext<'a> {
                                             ptype_body,
                                             &mut body.decl,
                                             diagnostics,
+                                            DeclarativeContext::ProtectedTypeBody,
                                         )?;
 
                                         let kind = Type::Protected(region.into_region(), true);
