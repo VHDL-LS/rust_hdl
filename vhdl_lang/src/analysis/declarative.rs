@@ -461,14 +461,14 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.subprogram_instantiation(
+                    match self.generic_subprogram_instance(
                         scope,
                         &subpgm_ent,
                         &name,
                         instance,
                         diagnostics,
                     ) {
-                        Ok((signature, _)) => {
+                        Ok(signature) => {
                             unsafe {
                                 subpgm_ent.set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(
                                     signature,
@@ -508,74 +508,52 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn subprogram_instantiation(
+    fn generic_subprogram_instance(
         &self,
         scope: &Scope<'a>,
-        ent: &EntRef<'a>,
+        inst_subprogram_ent: &EntRef<'a>,
         name: &ResolvedName<'a>,
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<(Signature, Region)> {
-        let uninstantiated_ent = self.resolve_uninstantiated_subprogram(
+    ) -> AnalysisResult<Signature> {
+        let uninstantiated_subprogram = self.resolve_uninstantiated_subprogram(
             scope,
             instance.ident.pos(),
             name,
             &instance.subprogram_name.pos,
             &mut instance.signature,
         )?;
-        Self::check_ent_is_uninstantiated_subprogram(
-            uninstantiated_ent,
-            &instance.subprogram_name.pos,
-        )?;
         self.check_instantiated_subprogram_kind_matches_declared(
-            &uninstantiated_ent,
+            &uninstantiated_subprogram,
             instance.kind,
             self.ctx.get_pos(instance.get_start_token()),
             diagnostics,
         );
-        let region = match uninstantiated_ent.kind() {
+        let region = match uninstantiated_subprogram.kind() {
             Overloaded::UninstSubprogramDecl(_, region) => region,
             Overloaded::UninstSubprogram(_, region) => region,
             _ => unreachable!(),
         };
-        let (generics, other) = region.to_package_generic();
 
-        let nested = scope.nested().in_package_declaration();
-
-        let mapping = if let Some(ref mut generic_map) = instance.generic_map {
-            match as_fatal(self.package_generic_map(
-                &nested,
-                generics.clone(),
-                generic_map.list.items.as_mut_slice(),
-                diagnostics,
-            ))? {
-                None => FnvHashMap::default(),
-                Some(map) => map,
-            }
-        } else {
-            FnvHashMap::default()
-        };
-
-        for uninst in other {
-            match self.instantiate(Some(ent), &mapping, uninst) {
-                Ok(inst) => {
-                    // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
-                    // They can collide if there are more than one interface type that map to the same actual type
-                    nested.add(inst, &mut NullDiagnostics);
-                }
-                Err(err) => {
-                    let mut diag = Diagnostic::error(&instance.ident.tree.pos, err);
-                    if let Some(pos) = uninst.decl_pos() {
-                        diag.add_related(pos, "When instantiating this declaration");
-                    }
-                    diagnostics.push(diag);
+        match as_fatal(self.generic_instance(
+            inst_subprogram_ent,
+            scope,
+            &instance.ident.tree.pos,
+            region,
+            &mut instance.generic_map,
+            diagnostics,
+        ))? {
+            None => todo!(),
+            Some((_, mapping)) => {
+                match self.map_signature(
+                    Some(inst_subprogram_ent),
+                    &mapping,
+                    uninstantiated_subprogram.signature(),
+                ) {
+                    Ok(signature) => Ok(signature),
+                    Err(_) => unreachable!(),
                 }
             }
-        }
-
-        match self.map_signature(Some(ent), &mapping, uninstantiated_ent.signature()) {
-            Ok(signature) => Ok((signature, nested.into_region())),
-            Err(_) => unreachable!(),
         }
     }
 
@@ -609,7 +587,7 @@ impl<'a> AnalyzeContext<'a> {
                 signature.pos.clone(),
             )),
         };
-        match name {
+        let overloaded_ent = match name {
             ResolvedName::Overloaded(_, overloaded) => {
                 let choices = overloaded
                     .entities()
@@ -678,7 +656,9 @@ impl<'a> AnalyzeContext<'a> {
                     name.describe()
                 ),
             ))),
-        }
+        }?;
+        Self::check_ent_is_uninstantiated_subprogram(overloaded_ent, name_pos)?;
+        Ok(overloaded_ent)
     }
 
     /// Checks that an instantiated subprogram kind matches the declared subprogram.

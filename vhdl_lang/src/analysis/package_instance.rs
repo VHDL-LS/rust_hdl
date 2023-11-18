@@ -5,24 +5,56 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use fnv::FnvHashMap;
+use vhdl_lang::SrcPos;
 
 use super::analyze::*;
 use super::names::ResolvedName;
 use super::scope::*;
-use crate::ast::ActualPart;
 use crate::ast::AssociationElement;
 use crate::ast::Expression;
 use crate::ast::Literal;
 use crate::ast::Name;
 use crate::ast::Operator;
 use crate::ast::PackageInstantiation;
+use crate::ast::{ActualPart, MapAspect};
 use crate::data::DiagnosticHandler;
 use crate::named_entity::*;
 use crate::Diagnostic;
 use crate::NullDiagnostics;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn package_generic_map(
+    pub fn generic_package_instance(
+        &self,
+        scope: &Scope<'a>,
+        package_ent: EntRef<'a>,
+        unit: &mut PackageInstantiation,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Region<'a>> {
+        let PackageInstantiation {
+            package_name,
+            generic_map,
+            ..
+        } = unit;
+
+        match self.analyze_package_instance_name(scope, package_name) {
+            Ok(package_region) => self
+                .generic_instance(
+                    package_ent,
+                    scope,
+                    &unit.ident.tree.pos,
+                    package_region,
+                    generic_map,
+                    diagnostics,
+                )
+                .map(|(region, _)| region),
+            Err(err) => {
+                diagnostics.push(err.into_non_fatal()?);
+                Err(EvalError::Unknown)
+            }
+        }
+    }
+
+    pub fn generic_map(
         &self,
         scope: &Scope<'a>,
         generics: GpkgRegion<'a>,
@@ -188,59 +220,47 @@ impl<'a> AnalyzeContext<'a> {
         Ok(mapping)
     }
 
-    pub fn generic_package_instance(
+    pub fn generic_instance(
         &self,
+        ent: EntRef<'a>,
         scope: &Scope<'a>,
-        package_ent: EntRef<'a>,
-        unit: &mut PackageInstantiation,
+        decl_pos: &SrcPos,
+        uninst_region: &Region<'a>,
+        generic_map: &mut Option<MapAspect>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Region<'a>> {
-        let PackageInstantiation {
-            package_name,
-            generic_map,
-            ..
-        } = unit;
+    ) -> EvalResult<(Region<'a>, FnvHashMap<EntityId, TypeEnt>)> {
+        let nested = scope.nested().in_package_declaration();
+        let (generics, other) = uninst_region.to_package_generic();
 
-        match self.analyze_package_instance_name(scope, package_name) {
-            Ok(package_region) => {
-                let nested = scope.nested().in_package_declaration();
-                let (generics, other) = package_region.to_package_generic();
+        let mapping = if let Some(generic_map) = generic_map {
+            self.generic_map(
+                &nested,
+                generics,
+                generic_map.list.items.as_mut_slice(),
+                diagnostics,
+            )?
+        } else {
+            FnvHashMap::default()
+        };
 
-                let mapping = if let Some(generic_map) = generic_map {
-                    self.package_generic_map(
-                        &nested,
-                        generics,
-                        generic_map.list.items.as_mut_slice(),
-                        diagnostics,
-                    )?
-                } else {
-                    FnvHashMap::default()
-                };
-
-                for uninst in other {
-                    match self.instantiate(Some(package_ent), &mapping, uninst) {
-                        Ok(inst) => {
-                            // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
-                            // They can collide if there are more than one interface type that map to the same actual type
-                            nested.add(inst, &mut NullDiagnostics);
-                        }
-                        Err(err) => {
-                            let mut diag = Diagnostic::error(&unit.ident.tree.pos, err);
-                            if let Some(pos) = uninst.decl_pos() {
-                                diag.add_related(pos, "When instantiating this declaration");
-                            }
-                            diagnostics.push(diag);
-                        }
-                    }
+        for uninst in other {
+            match self.instantiate(Some(ent), &mapping, uninst) {
+                Ok(inst) => {
+                    // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
+                    // They can collide if there are more than one interface type that map to the same actual type
+                    nested.add(inst, &mut NullDiagnostics);
                 }
-
-                Ok(nested.into_region())
-            }
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                Err(EvalError::Unknown)
+                Err(err) => {
+                    let mut diag = Diagnostic::error(decl_pos, err);
+                    if let Some(pos) = uninst.decl_pos() {
+                        diag.add_related(pos, "When instantiating this declaration");
+                    }
+                    diagnostics.push(diag);
+                }
             }
         }
+
+        Ok((nested.into_region(), mapping))
     }
 
     pub(crate) fn instantiate(
