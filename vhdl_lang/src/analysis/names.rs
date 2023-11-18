@@ -846,7 +846,12 @@ impl<'a> AnalyzeContext<'a> {
 
                 if typ.base().is_discrete() {
                     if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
-                        self.integer_expr(scope, expr, diagnostics)?;
+                        self.expr_with_ttyp(
+                            scope,
+                            self.universal_integer().into(),
+                            expr,
+                            diagnostics,
+                        )?;
                     }
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
@@ -2554,7 +2559,7 @@ constant c0 : arr_t := (others => 0);
             diagnostics,
             vec![Diagnostic::error(
                 code.s1("'a'"),
-                "Expected integer type, got type 'CHARACTER'",
+                "character literal does not match type universal_integer",
             )],
         );
 
@@ -2587,6 +2592,33 @@ constant c0 : arr_t := (others => 0);
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().character()
+            )))
+        );
+    }
+
+    /// This is a regression test
+    #[test]
+    fn val_attribute_with_overloaded_name() {
+        let test = TestSetup::new();
+
+        test.declarative_part(
+            "
+impure function pop return integer is
+begin
+end function;
+
+impure function pop return boolean is
+begin
+end function;
+
+type enum_t is (alpha, beta);
+        ",
+        );
+        let code = test.snippet("enum_t'val(pop)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("enum_t")
             )))
         );
     }

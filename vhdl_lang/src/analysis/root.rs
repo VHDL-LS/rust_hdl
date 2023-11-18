@@ -1142,6 +1142,11 @@ impl DesignRoot {
     pub fn get_ent(&self, id: EntityId) -> &AnyEnt {
         self.arenas.get(id)
     }
+
+    /// Returns a reference to the symbols that were used to analyze and parse the design root.
+    pub fn symbols(&self) -> &Symbols {
+        self.symbols.as_ref()
+    }
 }
 
 fn get_all_affected(

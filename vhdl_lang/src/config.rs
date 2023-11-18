@@ -33,17 +33,6 @@ impl LibraryConfig {
     /// Only include files that exists
     /// Files that do not exist produce a warning message
     pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
-        fn as_abspath(file_path: &Path) -> Result<PathBuf, Message> {
-            match dunce::canonicalize(file_path) {
-                Ok(file_path) => Ok(file_path),
-                Err(err) => Err(Message::error(format!(
-                    "Could not create absolute path {}: {:?}",
-                    file_path.to_string_lossy(),
-                    err
-                ))),
-            }
-        }
-
         let mut result = Vec::new();
         for pattern in self.patterns.iter() {
             let stripped_pattern = if cfg!(windows) {
@@ -53,17 +42,10 @@ impl LibraryConfig {
             };
 
             if is_literal(stripped_pattern) {
-                let file_path = Path::new(pattern);
+                let file_path = Path::new(pattern).to_owned();
 
                 if file_path.exists() {
-                    match as_abspath(file_path) {
-                        Ok(abs_path) => {
-                            result.push(abs_path);
-                        }
-                        Err(msg) => {
-                            messages.push(msg);
-                        }
-                    };
+                    result.push(file_path);
                 } else {
                     messages.push(Message::warning(format! {"File {pattern} does not exist"}));
                 }
@@ -76,14 +58,7 @@ impl LibraryConfig {
                             empty_pattern = false;
                             match file_path_or_error {
                                 Ok(file_path) => {
-                                    match as_abspath(&file_path) {
-                                        Ok(abs_path) => {
-                                            result.push(abs_path);
-                                        }
-                                        Err(msg) => {
-                                            messages.push(msg);
-                                        }
-                                    };
+                                    result.push(file_path);
                                 }
                                 Err(err) => {
                                     messages.push(Message::error(err.to_string()));
@@ -329,7 +304,7 @@ mod tests {
     }
 
     fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
-        assert_eq!(got, abspaths(expected).as_slice());
+        assert_eq!(abspaths(got), abspaths(expected));
     }
 
     #[test]

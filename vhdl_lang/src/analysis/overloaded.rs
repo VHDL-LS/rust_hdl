@@ -191,13 +191,7 @@ impl<'a> AnalyzeContext<'a> {
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.analyze_assoc_elems_with_formal_region(
-            error_pos,
-            ent.formals(),
-            scope,
-            assocs,
-            diagnostics,
-        )?;
+        self.check_association(error_pos, ent.formals(), scope, assocs, diagnostics)?;
         Ok(())
     }
 
@@ -340,7 +334,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let ok_return_type = if let SubprogramKind::Function(rtyp) = kind {
             let mut ok_return_type = ok_assoc_types.clone();
-            self.implicit_matcher()
+            self.any_matcher()
                 .disambiguate_op_by_return_type(&mut ok_return_type, rtyp);
 
             // Only one candidate matches type profile, check it

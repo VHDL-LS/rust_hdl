@@ -7,7 +7,7 @@
 #![allow(clippy::only_used_in_recursion)]
 
 use fnv::FnvHashMap;
-use fnv::FnvHashSet;
+use itertools::Itertools;
 
 use super::analyze::*;
 use super::names::ResolvedName;
@@ -297,6 +297,114 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    fn combine_formal_with_actuals<'e>(
+        &self,
+        formal_region: &FormalRegion<'a>,
+        scope: &Scope<'a>,
+        elems: &'e mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Vec<(&'e SrcPos, Result<ResolvedFormal<'a>, Diagnostic>)>> {
+        self.check_positional_before_named(elems, diagnostics)?;
+
+        // Formal region index => actual position, resolved formal
+        let mut result: Vec<(&SrcPos, Result<ResolvedFormal, Diagnostic>)> = Vec::default();
+
+        for (actual_idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
+            if let Some(ref mut formal) = formal {
+                // Named argument
+                let resolved_formal = match self.resolve_formal(
+                    formal_region,
+                    scope,
+                    &formal.pos,
+                    &mut formal.item,
+                    diagnostics,
+                ) {
+                    Err(err) => Err(err.into_non_fatal()?),
+                    Ok(resolved_formal) => Ok(resolved_formal),
+                };
+
+                result.push((&formal.pos, resolved_formal));
+            } else if let Some(formal) = formal_region.nth(actual_idx) {
+                // Actual index is same as formal index for positional argument
+                let formal = ResolvedFormal::new_basic(actual_idx, formal);
+                result.push((&actual.pos, Ok(formal)));
+            } else {
+                result.push((
+                    &actual.pos,
+                    Err(Diagnostic::error(&actual.pos, "Unexpected extra argument")),
+                ));
+            };
+        }
+        Ok(result)
+    }
+
+    fn check_missing_and_duplicates<'e>(
+        &self,
+        error_pos: &SrcPos, // The position of the instance/call-site
+        resolved_pairs: &[(&'e SrcPos, Result<ResolvedFormal<'a>, Diagnostic>)],
+        formal_region: &FormalRegion<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Vec<TypeEnt<'a>>> {
+        let mut is_error = false;
+        let mut result = Vec::default();
+
+        let mut associated: FnvHashMap<usize, (&SrcPos, ResolvedFormal)> = Default::default();
+        for (actual_pos, resolved_formal) in resolved_pairs.iter() {
+            match resolved_formal {
+                Ok(resolved_formal) => {
+                    if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
+                        if !(resolved_formal.is_partial && prev_formal.is_partial) {
+                            let mut diag = Diagnostic::error(
+                                actual_pos,
+                                format!(
+                                    "{} has already been associated",
+                                    resolved_formal.iface.describe()
+                                ),
+                            );
+
+                            diag.add_related(prev_pos, "Previously associated here");
+                            is_error = true;
+                            diagnostics.push(diag);
+                        }
+                    }
+                    result.push(resolved_formal.type_mark);
+                    associated.insert(resolved_formal.idx, (actual_pos, *resolved_formal));
+                }
+                Err(diagnostic) => {
+                    is_error = true;
+                    diagnostics.push(diagnostic.clone());
+                }
+            }
+        }
+
+        for (idx, formal) in formal_region.iter().enumerate() {
+            if !(associated.contains_key(&idx)
+                // Default may be unconnected
+                || formal.has_default()
+                // Output ports are allowed to be unconnected
+                || (formal_region.typ == InterfaceType::Port && formal.is_out_or_inout_signal()))
+            {
+                let mut diagnostic = Diagnostic::error(
+                    error_pos,
+                    format!("No association of {}", formal.describe()),
+                );
+
+                if let Some(decl_pos) = formal.decl_pos() {
+                    diagnostic.add_related(decl_pos, "Defined here");
+                }
+
+                is_error = true;
+                diagnostics.push(diagnostic);
+            }
+        }
+
+        if !is_error {
+            Ok(result)
+        } else {
+            Err(EvalError::Unknown)
+        }
+    }
+
     pub fn resolve_association_formals<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
@@ -305,139 +413,53 @@ impl<'a> AnalyzeContext<'a> {
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<TypeEnt<'a>>> {
-        self.check_positional_before_named(elems, diagnostics)?;
-
-        // Formal region index => actual position, resolved formal
-        let mut result: Vec<(&SrcPos, ResolvedFormal)> = Vec::default();
-
-        let mut missing = false;
-        let mut extra_associations: Vec<SrcPos> = Default::default();
-
-        for (actual_idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
-            if let Some(ref mut formal) = formal {
-                // Named argument
-                match self.resolve_formal(
-                    formal_region,
-                    scope,
-                    &formal.pos,
-                    &mut formal.item,
-                    diagnostics,
-                ) {
-                    Err(err) => {
-                        missing = true;
-                        diagnostics.push(err.into_non_fatal()?);
-                    }
-                    Ok(resolved_formal) => {
-                        result.push((&formal.pos, resolved_formal));
-                    }
-                }
-            } else if let Some(formal) = formal_region.nth(actual_idx) {
-                // Actual index is same as formal index for positional argument
-                let formal = ResolvedFormal::new_basic(actual_idx, formal);
-                result.push((&actual.pos, formal));
-            } else {
-                extra_associations.push(actual.pos.clone());
-            };
-        }
-
-        let mut not_associated = Vec::new();
-        let mut has_duplicates = false;
-
-        {
-            let associated_indexes =
-                FnvHashSet::from_iter(result.iter().map(|(_, formal)| formal.idx));
-            for (idx, formal) in formal_region.iter().enumerate() {
-                if !(associated_indexes.contains(&idx)
-                // Default may be unconnected
-                || formal.has_default()
-                // Output ports are allowed to be unconnected
-                || (formal_region.typ == InterfaceType::Port && formal.is_out_or_inout_signal()))
-                {
-                    not_associated.push(idx);
-                }
-            }
-        }
-
-        {
-            let mut seen: FnvHashMap<usize, (&SrcPos, ResolvedFormal)> = Default::default();
-            for (actual_pos, resolved_formal) in result.iter() {
-                if let Some((prev_pos, prev_formal)) = seen.get(&resolved_formal.idx) {
-                    if !(resolved_formal.is_partial && prev_formal.is_partial) {
-                        let mut diag = Diagnostic::error(
-                            actual_pos,
-                            format!(
-                                "{} has already been associated",
-                                resolved_formal.iface.describe()
-                            ),
-                        );
-
-                        diag.add_related(prev_pos, "Previously associated here");
-                        diagnostics.push(diag);
-                        has_duplicates = true;
-                    }
-                }
-                seen.insert(resolved_formal.idx, (*actual_pos, *resolved_formal));
-            }
-        }
-
-        if not_associated.is_empty() && extra_associations.is_empty() && !missing && !has_duplicates
-        {
-            Ok(result
-                .into_iter()
-                .map(|(_, formal)| formal.type_mark)
-                .collect())
-        } else {
-            // Only complain if nothing else is wrong
-            for idx in not_associated {
-                if let Some(formal) = formal_region.nth(idx) {
-                    let mut diagnostic = Diagnostic::error(
-                        error_pos,
-                        format!("No association of {}", formal.describe()),
-                    );
-
-                    if let Some(decl_pos) = formal.decl_pos() {
-                        diagnostic.add_related(decl_pos, "Defined here");
-                    }
-
-                    diagnostics.push(diagnostic);
-                }
-            }
-            for pos in extra_associations.into_iter() {
-                diagnostics.error(pos, "Unexpected extra argument")
-            }
-
-            Err(EvalError::Unknown)
-        }
+        let resolved_pairs =
+            self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
+        self.check_missing_and_duplicates(error_pos, &resolved_pairs, formal_region, diagnostics)
     }
 
-    pub fn analyze_assoc_elems_with_formal_region(
+    pub fn check_association<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion<'a>,
         scope: &Scope<'a>,
-        elems: &mut [AssociationElement],
+        elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        if let Some(formals) = as_fatal(self.resolve_association_formals(
-            error_pos,
-            formal_region,
-            scope,
-            elems,
-            diagnostics,
-        ))? {
-            for (formal_type, actual) in formals
+        let resolved_pairs =
+            as_fatal(self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics))?;
+
+        if let Some(resolved_pairs) = resolved_pairs {
+            as_fatal(self.check_missing_and_duplicates(
+                error_pos,
+                &resolved_pairs,
+                formal_region,
+                diagnostics,
+            ))?;
+
+            let resolved_formals = resolved_pairs
+                .into_iter()
+                .map(|(_, resolved_formal)| resolved_formal)
+                .collect_vec();
+
+            for (resolved_formal, actual) in resolved_formals
                 .iter()
                 .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        self.expr_pos_with_ttyp(
-                            scope,
-                            *formal_type,
-                            &actual.pos,
-                            expr,
-                            diagnostics,
-                        )?;
+                        if let Ok(resolved_formal) = resolved_formal {
+                            // Error case is already checked in check_missing_and_duplicates
+                            self.expr_pos_with_ttyp(
+                                scope,
+                                resolved_formal.type_mark,
+                                &actual.pos,
+                                expr,
+                                diagnostics,
+                            )?;
+                        } else {
+                            self.expr_pos_unknown_ttyp(scope, &actual.pos, expr, diagnostics)?;
+                        }
                     }
                     ActualPart::Open => {}
                 }

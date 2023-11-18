@@ -209,14 +209,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let AnyEntKind::Component(region) = ent.kind() {
                     name.set_unique_reference(ent);
                     let (generic_region, port_region) = region.to_entity_formal();
-                    self.analyze_assoc_elems_with_formal_region(
+                    self.check_association(
                         &fcall.item.name.pos,
                         &generic_region,
                         scope,
                         &mut [],
                         diagnostics,
                     )?;
-                    self.analyze_assoc_elems_with_formal_region(
+                    self.check_association(
                         &fcall.item.name.pos,
                         &port_region,
                         scope,

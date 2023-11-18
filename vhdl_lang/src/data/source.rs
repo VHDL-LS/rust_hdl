@@ -17,7 +17,7 @@ pub use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 struct FileId {
-    name: PathBuf,
+    name: FilePath,
     /// Hash value of `self.name`.
     hash: u64,
 }
@@ -26,7 +26,7 @@ impl FileId {
     fn new(name: &Path) -> FileId {
         let hash = hash(name);
         Self {
-            name: name.to_owned(),
+            name: FilePath::new(name),
             hash,
         }
     }
@@ -93,6 +93,10 @@ impl UniqueSource {
     fn file_name(&self) -> &Path {
         self.file_id.name.as_ref()
     }
+
+    fn file_path(&self) -> &FilePath {
+        &self.file_id.name
+    }
 }
 
 /// A thread-safe reference to a source file.
@@ -158,6 +162,10 @@ impl Source {
 
     pub fn file_name(&self) -> &Path {
         self.source.file_name()
+    }
+
+    pub(crate) fn file_path(&self) -> &FilePath {
+        self.source.file_path()
     }
 
     pub fn pos(&self, start: Position, end: Position) -> SrcPos {
@@ -575,6 +583,39 @@ impl HasSrcPos for SrcPos {
 impl<T: HasSrcPos> HasSource for T {
     fn source(&self) -> &Source {
         &self.pos().source
+    }
+}
+
+/// A wrapper arround a PathBuf that ensures the path is canoninicalized
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub(crate) struct FilePath {
+    path: PathBuf,
+}
+
+impl std::ops::Deref for FilePath {
+    type Target = Path;
+    fn deref(&self) -> &Self::Target {
+        &self.path
+    }
+}
+
+impl FilePath {
+    pub fn new(path: &Path) -> Self {
+        let path = match dunce::canonicalize(path) {
+            Ok(path) => path,
+            Err(err) => {
+                if !cfg!(test) {
+                    eprintln!(
+                        "Could not create absolute path {}: {:?}",
+                        path.to_string_lossy(),
+                        err
+                    );
+                }
+                path.to_owned()
+            }
+        };
+
+        Self { path }
     }
 }
 

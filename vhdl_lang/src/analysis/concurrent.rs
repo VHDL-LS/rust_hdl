@@ -293,7 +293,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
-                                self.analyze_assoc_elems_with_formal_region(
+                                self.check_association(
                                     &entity_name.pos,
                                     &generic_region,
                                     scope,
@@ -304,7 +304,7 @@ impl<'a> AnalyzeContext<'a> {
                                         .unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
-                                self.analyze_assoc_elems_with_formal_region(
+                                self.check_association(
                                     &entity_name.pos,
                                     &port_region,
                                     scope,
@@ -339,7 +339,7 @@ impl<'a> AnalyzeContext<'a> {
 
                             if let AnyEntKind::Component(ent_region) = ent.kind() {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
-                                self.analyze_assoc_elems_with_formal_region(
+                                self.check_association(
                                     &component_name.pos,
                                     &generic_region,
                                     scope,
@@ -350,7 +350,7 @@ impl<'a> AnalyzeContext<'a> {
                                         .unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
-                                self.analyze_assoc_elems_with_formal_region(
+                                self.check_association(
                                     &component_name.pos,
                                     &port_region,
                                     scope,
