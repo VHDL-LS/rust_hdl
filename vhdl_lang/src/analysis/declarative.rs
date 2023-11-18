@@ -508,16 +508,32 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    /// Analyze a generic subprogram instance, i.e.,
+    /// ```vhdl
+    /// procedure my_proc is new my_proc generic map (T => std_logic);
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The scope that this instance was declared in
+    /// * `inst_subprogram_ent` - A reference to the instantiated subprogram entity.
+    ///     Used to set the parent reference of the signature
+    /// * `uninst_name` - The [ResolvedName] of the uninstantiated subprogram
+    /// * `instance` - A reference to the AST element of the subprogram instantiation
+    /// * `diagnostics` - The diagnostics handler
+    ///
+    /// # Returns
+    /// The signature after applying the optional map aspect of the uninstantiated subprogram
     fn generic_subprogram_instance(
         &self,
         scope: &Scope<'a>,
         inst_subprogram_ent: &EntRef<'a>,
-        name: &ResolvedName<'a>,
+        uninst_name: &ResolvedName<'a>,
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Signature> {
         let uninstantiated_subprogram =
-            self.resolve_uninstantiated_subprogram(scope, name, instance)?;
+            self.resolve_uninstantiated_subprogram(scope, uninst_name, instance)?;
         self.check_instantiated_subprogram_kind_matches_declared(
             &uninstantiated_subprogram,
             instance,
