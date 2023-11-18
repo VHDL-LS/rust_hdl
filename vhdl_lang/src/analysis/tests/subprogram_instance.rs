@@ -481,6 +481,21 @@ function foo generic (type F) parameter (x: bit) return bit;
 }
 
 #[test]
-pub fn check_instantiated_function_errors_without_implementation() {}
+#[ignore]
+pub fn generic_function_declaration_with_separate_body() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+function foo generic (type F) parameter (x: F) return F;
+function foo generic (type F) parameter (x: F) return F
+is
+begin
+    return x;
+end foo;
 
-// TODO: Check uninstantiated subprogram & declaration...
+function foo is new foo generic map (F => std_logic);
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}

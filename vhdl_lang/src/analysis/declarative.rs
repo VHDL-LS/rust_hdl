@@ -663,12 +663,13 @@ impl<'a> AnalyzeContext<'a> {
                 ),
             ))),
         }?;
-        match overloaded_ent.kind() {
-            Overloaded::UninstSubprogram(..) => Ok(overloaded_ent),
-            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
+        if overloaded_ent.is_uninst() {
+            Ok(overloaded_ent)
+        } else {
+            Err(AnalysisError::NotFatal(Diagnostic::error(
                 &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
-            ))),
+            )))
         }
     }
 
