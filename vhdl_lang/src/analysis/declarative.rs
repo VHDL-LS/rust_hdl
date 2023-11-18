@@ -1789,7 +1789,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut fun.parameter_list,
                     diagnostics,
                 );
-                let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
+                let return_type = self.resolve_type_mark(&subpgm_region, &mut fun.return_type);
                 (Signature::new(params?, Some(return_type?)), generic_map)
             }
             SubprogramSpecification::Procedure(procedure) => {
