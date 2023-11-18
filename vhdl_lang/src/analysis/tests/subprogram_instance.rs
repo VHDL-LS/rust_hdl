@@ -361,3 +361,126 @@ end architecture arch;
         Some(code.s1("procedure foo").s1("foo").pos())
     );
 }
+
+#[test]
+pub fn resolve_instantiated_function() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+function foo
+    generic (type F)
+    parameter (x: F)
+return F
+is begin
+   return x;
+end foo;
+
+function foo is new foo generic map (F => bit);
+
+constant x : bit := foo('1');
+    ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("foo('1')").s1("foo").end(),),
+        Some(
+            code.s1("function foo is new foo generic map (F => bit);")
+                .s1("foo")
+                .pos()
+        )
+    );
+}
+
+// LRM 4.2.1: "An uninstantiated subprogram shall not be called,
+// except as a recursive call within the body of the uninstantiated subprogram"
+#[test]
+#[ignore]
+pub fn generic_subprogram_can_be_called_recursively() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+function foo
+    generic (type F)
+    parameter (x: F)
+return F
+is begin
+   return foo(x);
+end foo;
+
+procedure bar
+    generic (type F)
+    parameter (x: F)
+is begin
+   bar(x);
+end bar;
+    ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("foo(x)").s1("foo").end(),),
+        Some(code.s1("function foo").s1("foo").pos())
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("bar(x)").s1("bar").end(),),
+        Some(code.s1("procedure bar").s1("bar").pos())
+    );
+}
+
+// LRM 4.2.1: "an uninstantiated subprogram shall not be used as a resolution
+// function or used as a conversion function in an association list."
+#[test]
+#[ignore]
+pub fn generic_subprogram_cannot_be_used_as_resolution_function() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+function resolved generic (type F) parameter (x: F) return F;
+
+subtype x is resolved bit;
+    ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s1("subtype x is resolved bit").s1("resolved"),
+            "uninstantiated function resolved[F] return F cannot be used as resolution function",
+        )],
+    );
+}
+
+#[test]
+#[ignore]
+pub fn generic_subprogram_cannot_be_used_as_conversion_function() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+procedure bar (x : in bit) is
+begin
+end bar;
+
+function foo generic (type F) parameter (x: bit) return bit;
+    ",
+    );
+
+    let code = builder.snippet("bar(foo('1'))");
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s1("foo"),
+            "uninstantiated function foo[F] return F cannot be used as conversion",
+        )],
+    );
+}
+
+#[test]
+pub fn check_instantiated_function_errors_without_implementation() {}
+
+// TODO: Check uninstantiated subprogram & declaration...
