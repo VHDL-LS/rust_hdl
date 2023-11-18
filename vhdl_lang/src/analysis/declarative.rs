@@ -85,10 +85,8 @@ impl Declaration {
             ),
             DeclarativeContext::Package => matches!(
                 self,
-                Object(ObjectDeclaration {
-                    class: Constant | Variable | SharedVariable,
-                    ..
-                }) | File(_)
+                Object(_)
+                    | File(_)
                     | Type(_)
                     | Component(_)
                     | Attribute(_)
