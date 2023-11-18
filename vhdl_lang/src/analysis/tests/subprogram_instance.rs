@@ -86,19 +86,19 @@ pub fn by_signature_resolved_multiple_uninstantiated_subprograms() {
     builder.in_declarative_region(
         "\
 procedure foo
-    generic (type T)
+    generic (a: natural)
     parameter (x : bit)
 is begin
 end foo;
 
 procedure foo
-    generic (type T)
+    generic (a: natural)
     parameter (x : bit; y: bit)
 is begin
 end foo;
 
-procedure proc is new foo [bit];
-procedure proc2 is new foo [bit, bit];
+procedure proc is new foo [bit] generic map (a => 5);
+procedure proc2 is new foo [bit, bit] generic map (a => 5);
     ",
     );
 
@@ -518,4 +518,31 @@ function foo is new foo generic map (F => std_logic);
     );
 
     check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+#[ignore]
+pub fn by_signature_resolved_multiple_uninstantiated_subprograms_with_generics() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+procedure foo
+    generic (type T)
+    parameter (x : T)
+is begin
+end foo;
+
+procedure foo
+    generic (type T)
+    parameter (x : T; y: T)
+is begin
+end foo;
+
+procedure proc is new foo [bit] generic map (T => bit);
+procedure proc2 is new foo [bit, bit] generic map (T => bit);
+    ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
 }
