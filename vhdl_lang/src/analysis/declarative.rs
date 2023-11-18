@@ -734,6 +734,14 @@ impl<'a> AnalyzeContext<'a> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
         if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
+            // Note: This does not work in common circumstances with a generic type parameter
+            // since the parameters of the declared subprogram and the subprogram with body
+            // point to two different type-ID's. For example:
+            // function foo generic (type F);
+            //                            ^-- F has EntityId X
+            // function foo generic (type F) return F is ... end function foo;
+            //                            ^-- F has EntityId Y
+            // A future improvement must take this fact into account.
             let ent = overloaded.get(&signature.key(SignatureCategory::Uninstantiated))?;
 
             if ent.is_uninst_subprogram_decl() {

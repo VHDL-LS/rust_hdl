@@ -394,6 +394,26 @@ constant x : bit := foo('1');
     );
 }
 
+#[test]
+pub fn generic_function_declaration_with_separate_body() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+function foo generic (type F) parameter (x: bit) return bit;
+
+function foo generic (type F) parameter (x: bit) return bit
+is
+begin
+    return x;
+end foo;
+
+function foo is new foo generic map (F => natural);
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}
+
 // LRM 4.2.1: "An uninstantiated subprogram shall not be called,
 // except as a recursive call within the body of the uninstantiated subprogram"
 #[test]
@@ -482,7 +502,7 @@ function foo generic (type F) parameter (x: bit) return bit;
 
 #[test]
 #[ignore]
-pub fn generic_function_declaration_with_separate_body() {
+pub fn generic_function_declaration_with_separate_body_and_type_parameters() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(
         "\
