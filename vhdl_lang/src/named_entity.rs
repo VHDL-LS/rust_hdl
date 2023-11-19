@@ -19,7 +19,7 @@ use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
-pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureCategory, SignatureKey};
+pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
 
 mod object;
 pub use object::{Object, ObjectEnt, ObjectInterface};

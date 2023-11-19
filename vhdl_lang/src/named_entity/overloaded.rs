@@ -81,14 +81,13 @@ impl<'a> Signature<'a> {
         }
     }
 
-    pub fn key(&self, category: SignatureCategory) -> SignatureKey<'a> {
+    pub fn key(&self) -> SignatureKey<'a> {
         let formals = self.formals.iter().map(|formal| formal.base()).collect();
         let return_type = self.return_type.as_ref().map(|ent| ent.base());
 
         SignatureKey {
             formals,
             return_type,
-            category,
         }
     }
 
@@ -159,29 +158,44 @@ pub fn describe_signature<'a>(
     result
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Copy)]
-pub enum SignatureCategory {
-    Uninstantiated,
-    Normal,
-}
-
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SignatureKey<'a> {
     pub formals: Vec<BaseType<'a>>,
     pub return_type: Option<BaseType<'a>>,
-    pub category: SignatureCategory,
+}
+
+/// An Uninstantiated key is that of an uninstantiated subprogram
+/// or an uninstantiated subprogram declaration.
+/// Everything else is a Normal key.
+/// This indirection is introduced because uninstantiated subprograms can have
+/// the same signature as regular subprograms.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SubprogramKey<'a> {
+    Normal(SignatureKey<'a>),
+    Uninstantiated(SignatureKey<'a>),
+}
+
+impl<'a> SubprogramKey<'a> {
+    pub fn map(self, map: impl Fn(BaseType<'a>) -> BaseType<'a>) -> Self {
+        match self {
+            SubprogramKey::Normal(sig) => SubprogramKey::Normal(sig.map(map)),
+            SubprogramKey::Uninstantiated(sig) => SubprogramKey::Uninstantiated(sig.map(map)),
+        }
+    }
+
+    pub(crate) fn key(&self) -> &SignatureKey<'a> {
+        match self {
+            SubprogramKey::Normal(key) => key,
+            SubprogramKey::Uninstantiated(key) => key,
+        }
+    }
 }
 
 impl<'a> SignatureKey<'a> {
-    pub fn new(
-        formals: Vec<BaseType<'a>>,
-        return_type: Option<BaseType<'a>>,
-        category: SignatureCategory,
-    ) -> SignatureKey<'a> {
+    pub fn new(formals: Vec<BaseType<'a>>, return_type: Option<BaseType<'a>>) -> SignatureKey<'a> {
         SignatureKey {
             formals,
             return_type,
-            category,
         }
     }
 
@@ -219,11 +233,12 @@ impl<'a> OverloadedEnt<'a> {
         }
     }
 
-    pub fn signature_key(&self) -> SignatureKey<'a> {
+    pub fn subprogram_key(&self) -> SubprogramKey<'a> {
+        let key = self.signature().key();
         if self.is_uninst_subprogram() {
-            self.signature().key(SignatureCategory::Uninstantiated)
+            SubprogramKey::Uninstantiated(key)
         } else {
-            self.signature().key(SignatureCategory::Normal)
+            SubprogramKey::Normal(key)
         }
     }
 

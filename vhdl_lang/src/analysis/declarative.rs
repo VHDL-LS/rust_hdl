@@ -179,9 +179,11 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
                         // TODO: Uninstantiated subprogram in aliases
-                        match self.resolve_signature(scope, signature, SignatureCategory::Normal) {
+                        match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
-                                if let Some(ent) = overloaded.get(&signature_key) {
+                                if let Some(ent) =
+                                    overloaded.get(&SubprogramKey::Normal(signature_key))
+                                {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
                                         reference.set_unique_reference(&ent);
                                     }
@@ -589,7 +591,7 @@ impl<'a> AnalyzeContext<'a> {
         let signature_key = match &mut instantiation.signature {
             None => None,
             Some(ref mut signature) => Some((
-                self.resolve_signature(scope, signature, SignatureCategory::Uninstantiated)?,
+                self.resolve_signature(scope, signature)?,
                 signature.pos.clone(),
             )),
         };
@@ -613,7 +615,7 @@ impl<'a> AnalyzeContext<'a> {
                     // If the instantiated program has a signature, check that it matches
                     // that of the uninstantiated subprogram
                     if let Some((key, pos)) = signature_key {
-                        match overloaded.get(&key) {
+                        match overloaded.get(&SubprogramKey::Uninstantiated(key)) {
                             None => Err(AnalysisError::NotFatal(Diagnostic::error(
                                 pos.clone(),
                                 format!(
@@ -626,17 +628,19 @@ impl<'a> AnalyzeContext<'a> {
                     } else {
                         Ok(ent)
                     }
-                } else if let Some(key) = signature_key {
+                } else if let Some((key, _)) = signature_key {
                     // There are multiple candidates
                     // but there is a signature that we can try to resolve
-                    if let Some(resolved_ent) = overloaded.get(&key.0) {
+                    if let Some(resolved_ent) =
+                        overloaded.get(&SubprogramKey::Uninstantiated(key.clone()))
+                    {
                         Ok(resolved_ent)
                     } else {
                         Err(AnalysisError::NotFatal(Diagnostic::error(
                             &instantiation.subprogram_name.pos,
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
-                                key.0.describe()
+                                key.describe()
                             ),
                         )))
                     }
@@ -716,7 +720,7 @@ impl<'a> AnalyzeContext<'a> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
         if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
-            let ent = overloaded.get(&signature.key(SignatureCategory::Normal))?;
+            let ent = overloaded.get(&SubprogramKey::Normal(signature.key()))?;
 
             if ent.is_subprogram_decl() {
                 return Some(ent);
@@ -742,7 +746,7 @@ impl<'a> AnalyzeContext<'a> {
             // function foo generic (type F) return F is ... end function foo;
             //                            ^-- F has EntityId Y
             // A future improvement must take this fact into account.
-            let ent = overloaded.get(&signature.key(SignatureCategory::Uninstantiated))?;
+            let ent = overloaded.get(&SubprogramKey::Uninstantiated(signature.key()))?;
 
             if ent.is_uninst_subprogram_decl() {
                 return Some(ent);
@@ -834,9 +838,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(NamedEntities::Overloaded(overloaded)) => {
                     if let Some(signature) = signature {
-                        match self.resolve_signature(scope, signature, SignatureCategory::Normal) {
+                        match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
-                                if let Some(ent) = overloaded.get(&signature_key) {
+                                if let Some(ent) =
+                                    overloaded.get(&SubprogramKey::Normal(signature_key))
+                                {
                                     designator.set_unique_reference(&ent);
                                     ent.into()
                                 } else {
@@ -1391,7 +1397,6 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         signature: &mut WithPos<ast::Signature>,
-        category: SignatureCategory,
     ) -> AnalysisResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
@@ -1420,10 +1425,9 @@ impl<'a> AnalyzeContext<'a> {
             Ok(SignatureKey::new(
                 params,
                 Some(return_type?.base_type().base()),
-                category,
             ))
         } else {
-            Ok(SignatureKey::new(params, None, category))
+            Ok(SignatureKey::new(params, None))
         }
     }
 
