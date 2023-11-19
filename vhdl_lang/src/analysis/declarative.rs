@@ -9,11 +9,92 @@ use super::*;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
-use crate::{ast, HasTokenSpan};
+use crate::{ast, named_entity, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
 use itertools::Itertools;
 use std::collections::hash_map::Entry;
+
+impl Declaration {
+    pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
+        use Declaration::*;
+        use ObjectClass::*;
+        match parent {
+            AnyEntKind::Design(Design::Architecture(..))
+            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate)) => matches!(
+                self,
+                Object(ObjectDeclaration {
+                    class: Constant | Signal | SharedVariable,
+                    ..
+                }) | File(_)
+                    | Type(_)
+                    | Component(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+                    | Configuration(_)
+            ),
+            AnyEntKind::Design(Design::Configuration) => {
+                matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
+            }
+            AnyEntKind::Design(Design::Entity(..)) => matches!(
+                self,
+                Object(_)
+                    | File(_)
+                    | Type(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+            AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
+            | AnyEntKind::Overloaded(Overloaded::SubprogramDecl(_) | Overloaded::Subprogram(_))
+            | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
+                self,
+                Object(ObjectDeclaration {
+                    class: Constant | Variable | SharedVariable,
+                    ..
+                }) | File(_)
+                    | Type(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | SubprogramBody(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+            AnyEntKind::Design(Design::Package(..)) => matches!(
+                self,
+                Object(_)
+                    | File(_)
+                    | Type(_)
+                    | Component(_)
+                    | Attribute(_)
+                    | Alias(_)
+                    | SubprogramDeclaration(_)
+                    | SubprogramInstantiation(_)
+                    | Use(_)
+                    | Package(_)
+            ),
+            _ => {
+                // AnyEntKind::Library is used in tests for a generic declarative region
+                if !(cfg!(test) && matches!(parent, AnyEntKind::Library)) {
+                    debug_assert!(false, "Parent should be a declarative region");
+                }
+                true
+            }
+        }
+    }
+}
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -29,6 +110,13 @@ impl<'a> AnalyzeContext<'a> {
             // Handle incomplete types
 
             let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
+
+            if !decl.is_allowed_in_context(parent.kind()) {
+                diagnostics.error(
+                    decl.get_pos(self.ctx),
+                    format!("{} declaration not allowed here", decl.describe(),),
+                )
+            }
 
             match decl {
                 Declaration::Type(type_decl) => match type_decl.def {

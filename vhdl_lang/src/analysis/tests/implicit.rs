@@ -116,13 +116,15 @@ fn deallocate_is_defined_for_access_type() {
 package pkg is
   type arr_t is array (natural range <>) of character;
   type ptr_t is access arr_t;
+end package;
 
+package body pkg is
   procedure theproc is
       variable theptr: ptr_t;
   begin
       deallocate(theptr);
   end procedure;
-end package;
+end package body;
 ",
     );
 }

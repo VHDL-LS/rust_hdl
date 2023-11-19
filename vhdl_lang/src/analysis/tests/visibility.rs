@@ -772,7 +772,7 @@ fn generics_are_visible_in_procedures_but_not_outside() {
       a := b;
       b := temp;
     end procedure swap;
-    variable temp2: T;
+    shared variable temp2: T;
     ",
     );
     let (_, diagnostics) = builder.get_analyzed_root();

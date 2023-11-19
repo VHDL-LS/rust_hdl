@@ -9,6 +9,7 @@ mod association_formal;
 mod circular_dependencies;
 mod context_clause;
 mod custom_attributes;
+mod declarations;
 mod deferred_constant;
 mod hierarchy;
 mod homographs;
