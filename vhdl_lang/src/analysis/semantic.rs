@@ -195,6 +195,11 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                             diagnostics.push(diagnostic);
+                        } else if ent.is_uninst_subprogram_body() {
+                            diagnostics.error(
+                                &name.pos,
+                                format!("uninstantiated {} cannot be called", ent.describe()),
+                            )
                         }
                     }
                     None => {}

@@ -326,7 +326,6 @@ impl<'a> AnalyzeContext<'a> {
 
     fn binary(
         &self,
-
         op: Operator,
         implicit_of: TypeEnt<'a>,
         left: TypeEnt<'a>,

@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::ast::*;
+use crate::named_entity::overloaded::SubprogramKey;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
@@ -211,9 +212,9 @@ impl<'a> Region<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-/// A non-emtpy collection of overloaded entites
+/// A non-empty collection of overloaded entities
 pub struct OverloadedName<'a> {
-    entities: FnvHashMap<SignatureKey<'a>, OverloadedEnt<'a>>,
+    entities: FnvHashMap<SubprogramKey<'a>, OverloadedEnt<'a>>,
 }
 
 impl<'a> OverloadedName<'a> {
@@ -221,14 +222,14 @@ impl<'a> OverloadedName<'a> {
         debug_assert!(!entities.is_empty());
         let mut map = FnvHashMap::default();
         for ent in entities.into_iter() {
-            map.insert(ent.signature().key(), ent);
+            map.insert(ent.subprogram_key(), ent);
         }
         OverloadedName { entities: map }
     }
 
     pub fn single(ent: OverloadedEnt) -> OverloadedName {
         let mut map = FnvHashMap::default();
-        map.insert(ent.signature().key(), ent);
+        map.insert(ent.subprogram_key(), ent);
         OverloadedName { entities: map }
     }
 
@@ -259,13 +260,13 @@ impl<'a> OverloadedName<'a> {
         self.entities().map(|ent| ent.signature())
     }
 
-    pub fn get(&self, key: &SignatureKey) -> Option<OverloadedEnt<'a>> {
+    pub fn get(&self, key: &SubprogramKey) -> Option<OverloadedEnt<'a>> {
         self.entities.get(key).cloned()
     }
 
     #[allow(clippy::if_same_then_else)]
     fn insert(&mut self, ent: OverloadedEnt<'a>) -> Result<(), Diagnostic> {
-        match self.entities.entry(ent.signature().key()) {
+        match self.entities.entry(ent.subprogram_key()) {
             Entry::Occupied(mut entry) => {
                 let old_ent = entry.get();
 

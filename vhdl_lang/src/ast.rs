@@ -712,7 +712,7 @@ pub struct SubprogramHeader {
     pub map_aspect: Option<MapAspect>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SubprogramKind {
     Function,
     Procedure,

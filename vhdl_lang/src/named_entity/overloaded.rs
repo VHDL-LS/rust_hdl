@@ -5,20 +5,43 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::*;
 use crate::ast::Designator;
+use std::fmt::{Debug, Formatter};
 
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
+    UninstSubprogramDecl(Signature<'a>, Region<'a>),
+    UninstSubprogram(Signature<'a>, Region<'a>),
     InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
+}
+
+impl<'a> Debug for Overloaded<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Overloaded::UninstSubprogramDecl(..) => {
+                write!(f, "uninstantiated subprogram declaration")
+            }
+            Overloaded::UninstSubprogram(..) => write!(f, "uninstantiated subprogram"),
+            Overloaded::SubprogramDecl(..) => write!(f, "subprogram declaration"),
+            Overloaded::Subprogram(..) => write!(f, "subprogram"),
+            Overloaded::InterfaceSubprogram(_) => write!(f, "interface subprogram"),
+            Overloaded::EnumLiteral(_) => write!(f, "enum literal"),
+            Overloaded::Alias(_) => write!(f, "alias"),
+        }
+    }
 }
 
 impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
-            SubprogramDecl(signature) | Subprogram(signature) | InterfaceSubprogram(signature) => {
+            SubprogramDecl(signature)
+            | Subprogram(signature)
+            | UninstSubprogramDecl(signature, _)
+            | UninstSubprogram(signature, _)
+            | InterfaceSubprogram(signature) => {
                 if signature.return_type().is_some() {
                     "function"
                 } else {
@@ -35,6 +58,8 @@ impl<'a> Overloaded<'a> {
             Overloaded::InterfaceSubprogram(ref signature)
             | Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
+            | Overloaded::UninstSubprogram(ref signature, _)
+            | Overloaded::UninstSubprogramDecl(ref signature, _)
             | Overloaded::EnumLiteral(ref signature) => signature,
             Overloaded::Alias(ref overloaded) => overloaded.signature(),
         }
@@ -139,6 +164,33 @@ pub struct SignatureKey<'a> {
     pub return_type: Option<BaseType<'a>>,
 }
 
+/// An Uninstantiated key is that of an uninstantiated subprogram
+/// or an uninstantiated subprogram declaration.
+/// Everything else is a Normal key.
+/// This indirection is introduced because uninstantiated subprograms can have
+/// the same signature as regular subprograms.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SubprogramKey<'a> {
+    Normal(SignatureKey<'a>),
+    Uninstantiated(SignatureKey<'a>),
+}
+
+impl<'a> SubprogramKey<'a> {
+    pub fn map(self, map: impl Fn(BaseType<'a>) -> BaseType<'a>) -> Self {
+        match self {
+            SubprogramKey::Normal(sig) => SubprogramKey::Normal(sig.map(map)),
+            SubprogramKey::Uninstantiated(sig) => SubprogramKey::Uninstantiated(sig.map(map)),
+        }
+    }
+
+    pub(crate) fn key(&self) -> &SignatureKey<'a> {
+        match self {
+            SubprogramKey::Normal(key) => key,
+            SubprogramKey::Uninstantiated(key) => key,
+        }
+    }
+}
+
 impl<'a> SignatureKey<'a> {
     pub fn new(formals: Vec<BaseType<'a>>, return_type: Option<BaseType<'a>>) -> SignatureKey<'a> {
         SignatureKey {
@@ -178,6 +230,15 @@ impl<'a> OverloadedEnt<'a> {
             Some(OverloadedEnt { ent })
         } else {
             None
+        }
+    }
+
+    pub fn subprogram_key(&self) -> SubprogramKey<'a> {
+        let key = self.signature().key();
+        if self.is_uninst_subprogram() {
+            SubprogramKey::Uninstantiated(key)
+        } else {
+            SubprogramKey::Normal(key)
         }
     }
 
@@ -223,6 +284,8 @@ impl<'a> OverloadedEnt<'a> {
         let prefix = match self.kind() {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
+            | Overloaded::UninstSubprogramDecl(..)
+            | Overloaded::UninstSubprogram(..)
             | Overloaded::InterfaceSubprogram(_) => {
                 if matches!(self.designator(), Designator::OperatorSymbol(_)) {
                     "operator "

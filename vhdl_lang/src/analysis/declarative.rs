@@ -12,6 +12,7 @@ use crate::named_entity::{Signature, *};
 use crate::{ast, named_entity, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 
 impl Declaration {
@@ -54,7 +55,12 @@ impl Declaration {
                     | Package(_)
             ),
             AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
-            | AnyEntKind::Overloaded(Overloaded::SubprogramDecl(_) | Overloaded::Subprogram(_))
+            | AnyEntKind::Overloaded(
+                Overloaded::SubprogramDecl(_)
+                | Overloaded::Subprogram(_)
+                | Overloaded::UninstSubprogramDecl(..)
+                | Overloaded::UninstSubprogram(..),
+            )
             | AnyEntKind::Concurrent(Some(Concurrent::Process))
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
@@ -265,9 +271,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
+                        // TODO: Uninstantiated subprogram in aliases
                         match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
-                                if let Some(ent) = overloaded.get(&signature_key) {
+                                if let Some(ent) =
+                                    overloaded.get(&SubprogramKey::Normal(signature_key))
+                                {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
                                         reference.set_unique_reference(&ent);
                                     }
@@ -531,8 +540,40 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-            Declaration::SubprogramInstantiation(_) => {
-                // TODO: subprogram instantiation statement
+            Declaration::SubprogramInstantiation(ref mut instance) => {
+                let subpgm_ent = self.arena.define(
+                    &mut instance.ident,
+                    parent,
+                    AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
+                        FormalRegion::new_params(),
+                        None,
+                    ))),
+                );
+                let referenced_name = &mut instance.subprogram_name;
+                if let Some(name) = as_fatal(self.name_resolve(
+                    scope,
+                    &referenced_name.pos,
+                    &mut referenced_name.item,
+                    diagnostics,
+                ))? {
+                    match self.generic_subprogram_instance(
+                        scope,
+                        &subpgm_ent,
+                        &name,
+                        instance,
+                        diagnostics,
+                    ) {
+                        Ok(signature) => {
+                            unsafe {
+                                subpgm_ent.set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(
+                                    signature,
+                                )))
+                            }
+                            scope.add(subpgm_ent, diagnostics)
+                        }
+                        Err(err) => err.add_to(diagnostics)?,
+                    }
+                }
             }
             Declaration::Use(ref mut use_clause) => {
                 self.analyze_use_clause(scope, use_clause, diagnostics)?;
@@ -562,6 +603,207 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    /// Analyze a generic subprogram instance, i.e.,
+    /// ```vhdl
+    /// procedure my_proc is new my_proc generic map (T => std_logic);
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The scope that this instance was declared in
+    /// * `inst_subprogram_ent` - A reference to the instantiated subprogram entity.
+    ///     Used to set the parent reference of the signature
+    /// * `uninst_name` - The [ResolvedName] of the uninstantiated subprogram
+    /// * `instance` - A reference to the AST element of the subprogram instantiation
+    /// * `diagnostics` - The diagnostics handler
+    ///
+    /// # Returns
+    /// The signature after applying the optional map aspect of the uninstantiated subprogram
+    fn generic_subprogram_instance(
+        &self,
+        scope: &Scope<'a>,
+        inst_subprogram_ent: &EntRef<'a>,
+        uninst_name: &ResolvedName<'a>,
+        instance: &mut SubprogramInstantiation,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> AnalysisResult<Signature> {
+        let uninstantiated_subprogram =
+            self.resolve_uninstantiated_subprogram(scope, uninst_name, instance)?;
+        self.check_instantiated_subprogram_kind_matches_declared(
+            &uninstantiated_subprogram,
+            instance,
+            diagnostics,
+        );
+        instance
+            .subprogram_name
+            .item
+            .set_unique_reference(&uninstantiated_subprogram);
+        let region = match uninstantiated_subprogram.kind() {
+            Overloaded::UninstSubprogramDecl(_, region) => region,
+            Overloaded::UninstSubprogram(_, region) => region,
+            _ => unreachable!(),
+        };
+
+        match as_fatal(self.generic_instance(
+            inst_subprogram_ent,
+            scope,
+            &instance.ident.tree.pos,
+            region,
+            &mut instance.generic_map,
+            diagnostics,
+        ))? {
+            None => Ok(uninstantiated_subprogram.signature().clone()),
+            Some((_, mapping)) => {
+                match self.map_signature(
+                    Some(inst_subprogram_ent),
+                    &mapping,
+                    uninstantiated_subprogram.signature(),
+                ) {
+                    Ok(signature) => Ok(signature),
+                    Err(err) => {
+                        let mut diag = Diagnostic::error(&instance.ident.tree.pos, err);
+                        if let Some(pos) = uninstantiated_subprogram.decl_pos() {
+                            diag.add_related(pos, "When instantiating this declaration");
+                        }
+                        Err(AnalysisError::NotFatal(diag))
+                    }
+                }
+            }
+        }
+    }
+
+    /// Given a `ResolvedName` and the subprogram instantiation,
+    /// find the uninstantiated subprogram that the resolved name references.
+    /// Return that resolved subprogram, if it exists, else return an `Err`
+    fn resolve_uninstantiated_subprogram(
+        &self,
+        scope: &Scope<'a>,
+        name: &ResolvedName<'a>,
+        instantiation: &mut SubprogramInstantiation,
+    ) -> AnalysisResult<OverloadedEnt<'a>> {
+        let signature_key = match &mut instantiation.signature {
+            None => None,
+            Some(ref mut signature) => Some((
+                self.resolve_signature(scope, signature)?,
+                signature.pos.clone(),
+            )),
+        };
+        let overloaded_ent = match name {
+            ResolvedName::Overloaded(_, overloaded) => {
+                let choices = overloaded
+                    .entities()
+                    .filter(|ent| ent.is_uninst_subprogram())
+                    .collect_vec();
+                if choices.is_empty() {
+                    Err(AnalysisError::NotFatal(Diagnostic::error(
+                        &instantiation.ident.tree.pos,
+                        format!(
+                            "{} does not denote an uninstantiated subprogram",
+                            name.describe()
+                        ),
+                    )))
+                } else if choices.len() == 1 {
+                    // There is only one possible candidate
+                    let ent = choices[0];
+                    // If the instantiated program has a signature, check that it matches
+                    // that of the uninstantiated subprogram
+                    if let Some((key, pos)) = signature_key {
+                        match overloaded.get(&SubprogramKey::Uninstantiated(key)) {
+                            None => Err(AnalysisError::NotFatal(Diagnostic::error(
+                                pos.clone(),
+                                format!(
+                                    "Signature does not match the the signature of {}",
+                                    ent.describe()
+                                ),
+                            ))),
+                            Some(_) => Ok(ent),
+                        }
+                    } else {
+                        Ok(ent)
+                    }
+                } else if let Some((key, _)) = signature_key {
+                    // There are multiple candidates
+                    // but there is a signature that we can try to resolve
+                    if let Some(resolved_ent) =
+                        overloaded.get(&SubprogramKey::Uninstantiated(key.clone()))
+                    {
+                        Ok(resolved_ent)
+                    } else {
+                        Err(AnalysisError::NotFatal(Diagnostic::error(
+                            &instantiation.subprogram_name.pos,
+                            format!(
+                                "No uninstantiated subprogram exists with signature {}",
+                                key.describe()
+                            ),
+                        )))
+                    }
+                } else {
+                    // There are multiple candidates
+                    // and there is no signature to resolve
+                    let mut err = Diagnostic::error(
+                        &instantiation.subprogram_name.pos,
+                        format!("Ambiguous instantiation of '{}'", overloaded.designator()),
+                    );
+                    for ent in choices {
+                        if let Some(pos) = &ent.decl_pos {
+                            err.add_related(pos.clone(), format!("Might be {}", ent.describe()))
+                        }
+                    }
+                    Err(AnalysisError::NotFatal(err))
+                }
+            }
+            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
+                &instantiation.subprogram_name.pos,
+                format!(
+                    "{} does not denote an uninstantiated subprogram",
+                    name.describe()
+                ),
+            ))),
+        }?;
+        if overloaded_ent.is_uninst_subprogram() {
+            Ok(overloaded_ent)
+        } else {
+            Err(AnalysisError::NotFatal(Diagnostic::error(
+                &instantiation.subprogram_name.pos,
+                format!("{} cannot be instantiated", overloaded_ent.describe()),
+            )))
+        }
+    }
+
+    /// Checks that an instantiated subprogram kind matches the declared subprogram.
+    /// For instance, when a subprogram was instantiated using
+    /// ```vhdl
+    /// function my_func is new proc;
+    /// ```
+    /// where proc is
+    /// ```vhdl
+    /// procedure proc is
+    /// ...
+    /// ```
+    ///
+    /// This function will push an appropriate diagnostic.
+    fn check_instantiated_subprogram_kind_matches_declared(
+        &self,
+        ent: &OverloadedEnt,
+        instance: &SubprogramInstantiation,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let err_msg = if ent.is_function() && instance.kind != SubprogramKind::Function {
+            Some("Instantiating function as procedure")
+        } else if ent.is_procedure() && instance.kind != SubprogramKind::Procedure {
+            Some("Instantiating procedure as function")
+        } else {
+            None
+        };
+        if let Some(msg) = err_msg {
+            let mut err = Diagnostic::error(self.ctx.get_pos(instance.get_start_token()), msg);
+            if let Some(pos) = ent.decl_pos() {
+                err.add_related(pos, format!("{} declared here", ent.describe()));
+            }
+            diagnostics.push(err)
+        }
+    }
+
     fn find_subpgm_specification(
         &self,
         scope: &Scope<'a>,
@@ -571,9 +813,35 @@ impl<'a> AnalyzeContext<'a> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
         if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
-            let ent = overloaded.get(&signature.key())?;
+            let ent = overloaded.get(&SubprogramKey::Normal(signature.key()))?;
 
             if ent.is_subprogram_decl() {
+                return Some(ent);
+            }
+        }
+        None
+    }
+
+    fn find_uninst_subpgm_specification(
+        &self,
+        scope: &Scope<'a>,
+        decl: &SubprogramSpecification,
+        signature: &Signature,
+    ) -> Option<OverloadedEnt<'a>> {
+        let des = decl.subpgm_designator().item.clone().into_designator();
+
+        if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
+            // Note: This does not work in common circumstances with a generic type parameter
+            // since the parameters of the declared subprogram and the subprogram with body
+            // point to two different type-ID's. For example:
+            // function foo generic (type F);
+            //                            ^-- F has EntityId X
+            // function foo generic (type F) return F is ... end function foo;
+            //                            ^-- F has EntityId Y
+            // A future improvement must take this fact into account.
+            let ent = overloaded.get(&SubprogramKey::Uninstantiated(signature.key()))?;
+
+            if ent.is_uninst_subprogram_decl() {
                 return Some(ent);
             }
         }
@@ -665,7 +933,9 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(signature) = signature {
                         match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
-                                if let Some(ent) = overloaded.get(&signature_key) {
+                                if let Some(ent) =
+                                    overloaded.get(&SubprogramKey::Normal(signature_key))
+                                {
                                     designator.set_unique_reference(&ent);
                                     ent.into()
                                 } else {
@@ -1575,9 +1845,21 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         header: &mut SubprogramHeader,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        self.analyze_interface_list(scope, parent, &mut header.generic_list[..], diagnostics)?;
-        self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)
+    ) -> FatalResult<Region<'a>> {
+        let mut region = Region::default();
+        for decl in header.generic_list.iter_mut() {
+            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
+                Ok(ent) => {
+                    region.add(ent, diagnostics);
+                    scope.add(ent, diagnostics);
+                }
+                Err(err) => {
+                    err.add_to(diagnostics)?;
+                }
+            }
+        }
+        self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;
+        Ok(region)
     }
 
     fn subprogram_specification(
@@ -1600,44 +1882,73 @@ impl<'a> AnalyzeContext<'a> {
             Some(&subprogram.subpgm_designator().pos),
         );
 
-        let signature = match subprogram {
+        let (signature, generic_map) = match subprogram {
             SubprogramSpecification::Function(fun) => {
-                if let Some(header) = &mut fun.header {
-                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
-                }
+                let generic_map = if let Some(header) = &mut fun.header {
+                    Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
+                } else {
+                    None
+                };
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,
                     &mut fun.parameter_list,
                     diagnostics,
                 );
-                let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
-                Signature::new(params?, Some(return_type?))
+                let return_type = self.resolve_type_mark(&subpgm_region, &mut fun.return_type);
+                (Signature::new(params?, Some(return_type?)), generic_map)
             }
             SubprogramSpecification::Procedure(procedure) => {
-                if let Some(header) = &mut procedure.header {
-                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
-                }
+                let generic_map = if let Some(header) = &mut procedure.header {
+                    Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
+                } else {
+                    None
+                };
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,
                     &mut procedure.parameter_list,
                     diagnostics,
                 );
-                Signature::new(params?, None)
+                (Signature::new(params?, None), generic_map)
             }
         };
 
-        let kind = to_kind(signature);
+        let mut kind = to_kind(signature);
+        if let Some(map) = generic_map {
+            match kind {
+                Overloaded::SubprogramDecl(signature) => {
+                    kind = Overloaded::UninstSubprogramDecl(signature, map)
+                }
+                Overloaded::Subprogram(signature) => {
+                    kind = Overloaded::UninstSubprogram(signature, map)
+                }
+                _ => unreachable!(),
+            }
+        }
 
-        if matches!(kind, Overloaded::Subprogram(_)) {
-            let declared_by = self.find_subpgm_specification(scope, subprogram, kind.signature());
+        match kind {
+            Overloaded::Subprogram(_) => {
+                let declared_by =
+                    self.find_subpgm_specification(scope, subprogram, kind.signature());
 
-            if let Some(declared_by) = declared_by {
-                unsafe {
-                    ent.set_declared_by(declared_by.into());
+                if let Some(declared_by) = declared_by {
+                    unsafe {
+                        ent.set_declared_by(declared_by.into());
+                    }
                 }
             }
+            Overloaded::UninstSubprogram(_, _) => {
+                let declared_by =
+                    self.find_uninst_subpgm_specification(scope, subprogram, kind.signature());
+
+                if let Some(declared_by) = declared_by {
+                    unsafe {
+                        ent.set_declared_by(declared_by.into());
+                    }
+                }
+            }
+            _ => {}
         }
 
         unsafe {
@@ -1714,6 +2025,8 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
         AnyEntKind::Overloaded(ent) => match ent {
             Overloaded::SubprogramDecl(s)
             | Overloaded::Subprogram(s)
+            | Overloaded::UninstSubprogramDecl(s, _)
+            | Overloaded::UninstSubprogram(s, _)
             | Overloaded::InterfaceSubprogram(s) => {
                 if s.return_type.is_some() {
                     Some(EntityClass::Function)

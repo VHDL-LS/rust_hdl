@@ -19,7 +19,7 @@ use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
-pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};
+pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
 
 mod object;
 pub use object::{Object, ObjectEnt, ObjectInterface};
@@ -281,6 +281,28 @@ impl<'a> AnyEnt<'a> {
         matches!(
             self.kind,
             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(..))
+        )
+    }
+
+    pub fn is_uninst_subprogram_decl(&self) -> bool {
+        matches!(
+            self.kind,
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogramDecl(..))
+        )
+    }
+
+    pub fn is_uninst_subprogram_body(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))
+        )
+    }
+
+    pub fn is_uninst_subprogram(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Overloaded(Overloaded::UninstSubprogram(..))
+                | AnyEntKind::Overloaded(Overloaded::UninstSubprogramDecl(..))
         )
     }
 
