@@ -428,6 +428,7 @@ signal sig2 : rec.field'subtype;
 fn check_good_type_marks() {
     check_code_with_no_diagnostics(
         "
+
 package gpkg is
   -- Interface type
   generic (type type_t);
@@ -437,7 +438,10 @@ package gpkg is
   end record;
 end package;
 
-package pkg is
+entity ent is
+end entity ent;
+
+architecture arch of ent is
   type incomplete;
   -- Incomplete type
   type access_t is access incomplete;
@@ -461,11 +465,8 @@ package pkg is
   -- Alias of type
   alias alias_t is enum_t;
   constant const2 : alias_t := alpha;
-end package;
-
-package body pkg is
-end package body;
-
+begin
+end architecture;
 ",
     );
 }

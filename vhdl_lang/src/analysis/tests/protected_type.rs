@@ -249,7 +249,10 @@ fn protected_type_body_reference() {
     let code = builder.code(
         "libname",
         "
-package pkg1 is
+entity ent1 is
+end ent1;
+
+architecture arch of ent1 is
   type prot_t is protected
   end protected;
 
@@ -257,7 +260,8 @@ package pkg1 is
   end protected body;
 
   shared variable var : prot_t;
-end package;",
+begin
+end architecture;",
     );
 
     let (root, diagnostics) = builder.get_analyzed_root();
