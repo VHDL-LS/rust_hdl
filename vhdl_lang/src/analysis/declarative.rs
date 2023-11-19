@@ -55,7 +55,12 @@ impl Declaration {
                     | Package(_)
             ),
             AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
-            | AnyEntKind::Overloaded(Overloaded::SubprogramDecl(_) | Overloaded::Subprogram(_))
+            | AnyEntKind::Overloaded(
+                Overloaded::SubprogramDecl(_)
+                | Overloaded::Subprogram(_)
+                | Overloaded::UninstSubprogramDecl(..)
+                | Overloaded::UninstSubprogram(..),
+            )
             | AnyEntKind::Concurrent(Some(Concurrent::Process))
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
