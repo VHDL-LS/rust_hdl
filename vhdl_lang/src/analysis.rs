@@ -26,6 +26,9 @@ mod standard;
 mod static_expression;
 mod target;
 
+// @TODO consider moving facade into analysis
+pub(crate) use {lock::ReadGuard, root::AnalysisData};
+
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) use root::{Library, LockedUnit};
