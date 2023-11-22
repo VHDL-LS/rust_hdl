@@ -348,7 +348,7 @@ impl Searcher for FindAnyReferences {
         &mut self,
         _ctx: &dyn TokenAccess,
         _: &SrcPos,
-        reference: &mut Reference,
+        reference: &Reference,
     ) -> SearchState {
         if let Some(id) = reference {
             self.references.push(*id);

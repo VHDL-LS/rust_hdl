@@ -49,7 +49,7 @@ impl<'a> Searcher for DeadCodeSearcher<'a> {
         &mut self,
         _ctx: &dyn TokenAccess,
         _: &SrcPos,
-        reference: &mut Reference,
+        reference: &Reference,
     ) -> SearchState {
         if let Some(id) = reference {
             let ent = self.root.get_ent(*id);
