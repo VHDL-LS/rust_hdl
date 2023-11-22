@@ -550,7 +550,10 @@ impl DesignRoot {
             if let Some(unit_ids) = library.units_by_source.get(source) {
                 for unit_id in unit_ids {
                     let unit = library.units.get(unit_id.key()).unwrap();
-                    let _ = unit.unit.write().search(&unit.tokens, &mut searcher);
+                    let _ = unit
+                        .unit
+                        .expect_analyzed()
+                        .search(&unit.tokens, &mut searcher);
                 }
             }
         }
@@ -645,7 +648,7 @@ impl DesignRoot {
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
+                return_if_found!(unit.unit.expect_analyzed().search(&unit.tokens, searcher));
             }
         }
         NotFound
@@ -655,9 +658,7 @@ impl DesignRoot {
     /// `UnitId`.
     pub fn walk(&self, unit: &UnitId, visitor: &mut impl Visitor) {
         let unit = self.get_unit(unit).unwrap();
-        if let Some(unit_rguard) = unit.unit.get() {
-            walk(unit_rguard.data(), visitor, &unit.tokens);
-        }
+        walk(unit.unit.expect_analyzed().data(), visitor, &unit.tokens);
     }
 
     /// Walks all units in a source file denoted by `source`.
@@ -676,7 +677,7 @@ impl DesignRoot {
             if let Some(units) = lib.units_by_source.get(source) {
                 for unit_id in units {
                     let unit = self.get_unit(unit_id).unwrap();
-                    return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
+                    return_if_found!(unit.unit.expect_analyzed().search(&unit.tokens, searcher));
                 }
             }
         }
@@ -691,7 +692,7 @@ impl DesignRoot {
         if let Some(library) = self.libraries.get(library_name) {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
+                return_if_found!(unit.unit.expect_analyzed().search(&unit.tokens, searcher));
             }
         }
         NotFound
