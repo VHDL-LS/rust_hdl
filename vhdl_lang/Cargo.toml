@@ -31,6 +31,11 @@ itertools = "0"
 tempfile = "3"
 pretty_assertions = "1"
 assert_matches = "1"
+brunch = "0"
+
+[[bench]]
+name = "benchmark"
+harness = false
 
 [features]
 default = []

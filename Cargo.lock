@@ -85,6 +85,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
 
 [[package]]
+name = "brunch"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d17c4f96f1c7b675faca45aaa5074ccf639f173c679bed6d6d75f9741a31088b"
+dependencies = [
+ "dactyl",
+ "unicode-width",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -195,6 +205,12 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "dactyl"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fde1aea0a3c540ad05bcffd5579783f6f249e1dfab8cdac42fa526d4fe3aeea"
 
 [[package]]
 name = "diff"
@@ -912,6 +928,7 @@ name = "vhdl_lang"
 version = "0.76.0"
 dependencies = [
  "assert_matches",
+ "brunch",
  "clap",
  "dirs",
  "dunce",
