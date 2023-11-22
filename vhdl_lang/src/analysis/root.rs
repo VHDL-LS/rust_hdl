@@ -667,7 +667,6 @@ impl DesignRoot {
                 for unit in units {
                     self.walk(unit, visitor);
                 }
-                return;
             }
         }
     }
