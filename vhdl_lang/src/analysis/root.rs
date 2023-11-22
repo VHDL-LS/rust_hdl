@@ -246,7 +246,7 @@ impl Library {
         result
     }
 
-    pub(crate) fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
+    pub(crate) fn get_unit<'a>(&'a self, key: &UnitKey) -> Option<&'a LockedUnit> {
         self.units.get(key)
     }
 
@@ -413,10 +413,20 @@ impl DesignRoot {
         cursor: Position,
     ) -> Option<(SrcPos, EntRef<'a>)> {
         let mut searcher = ItemAtCursor::new(cursor);
-        let _ = self.search_source(source, &mut searcher);
-        let (pos, id) = searcher.result?;
-        let ent = self.get_ent(id);
-        Some((pos, ent))
+
+        for unit in self.units_by_source(source) {
+            let _ = unit
+                .unit
+                .expect_analyzed()
+                .search(&unit.tokens, &mut searcher);
+
+            if let Some((pos, id)) = searcher.result {
+                let ent = self.get_ent(id);
+                return Some((pos, ent));
+            }
+        }
+
+        None
     }
 
     pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
@@ -654,34 +664,28 @@ impl DesignRoot {
         NotFound
     }
 
-    /// With the provided visitor, walk a specific AST element, denoted by
-    /// `UnitId`.
-    pub fn walk(&self, unit: &UnitId, visitor: &mut impl Visitor) {
-        let unit = self.get_unit(unit).unwrap();
-        walk(unit.unit.expect_analyzed().data(), visitor, &unit.tokens);
+    fn units_by_source<'a>(
+        &'a self,
+        source: &'a Source,
+    ) -> impl Iterator<Item = &'a LockedUnit> + 'a {
+        self.libraries()
+            .flat_map(|lib| {
+                lib.units_by_source
+                    .get(source)
+                    .map(|unit_ids| (lib, unit_ids))
+            })
+            .flat_map(|(lib, units_ids)| {
+                units_ids
+                    .iter()
+                    .filter_map(|unit_id| lib.get_unit(unit_id.key()))
+            })
     }
 
     /// Walks all units in a source file denoted by `source`.
     pub fn walk_source(&self, source: &Source, visitor: &mut impl Visitor) {
-        for lib in self.libraries.values() {
-            if let Some(units) = lib.units_by_source.get(source) {
-                for unit in units {
-                    self.walk(unit, visitor);
-                }
-            }
+        for unit in self.units_by_source(source) {
+            walk(unit.unit.expect_analyzed().data(), visitor, &unit.tokens);
         }
-    }
-
-    fn search_source(&self, source: &Source, searcher: &mut impl Searcher) -> SearchResult {
-        for lib in self.libraries.values() {
-            if let Some(units) = lib.units_by_source.get(source) {
-                for unit_id in units {
-                    let unit = self.get_unit(unit_id).unwrap();
-                    return_if_found!(unit.unit.expect_analyzed().search(&unit.tokens, searcher));
-                }
-            }
-        }
-        NotFound
     }
 
     pub fn search_library(
