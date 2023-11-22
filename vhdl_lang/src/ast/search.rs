@@ -106,9 +106,6 @@ pub trait Searcher {
     fn search_with_pos(&mut self, _ctx: &dyn TokenAccess, _pos: &SrcPos) -> SearchState {
         NotFinished
     }
-    fn search_source(&mut self, _ctx: &dyn TokenAccess, _source: &Source) -> SearchState {
-        NotFinished
-    }
 }
 
 pub trait Search {
@@ -1248,7 +1245,6 @@ impl Search for AnySecondaryUnit {
 
 impl Search for EntityDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Entity(self))
@@ -1262,7 +1258,6 @@ impl Search for EntityDeclaration {
 
 impl Search for ArchitectureBody {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_ident_ref(ctx, &self.entity_name)
@@ -1277,7 +1272,6 @@ impl Search for ArchitectureBody {
 
 impl Search for PackageDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Package(self))
@@ -1289,7 +1283,6 @@ impl Search for PackageDeclaration {
 
 impl Search for PackageBody {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::PackageBody(self))
@@ -1300,7 +1293,6 @@ impl Search for PackageBody {
 
 impl Search for PackageInstantiation {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::PackageInstance(self))
@@ -1312,7 +1304,6 @@ impl Search for PackageInstantiation {
 
 impl Search for ConfigurationDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(self.context_clause.search(ctx, searcher));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Configuration(self))
@@ -1323,7 +1314,6 @@ impl Search for ConfigurationDeclaration {
 
 impl Search for ContextDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_source(ctx, self.source()));
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Context(self))
             .or_not_found());
@@ -1366,15 +1356,13 @@ impl Search for SubprogramInstantiation {
 
 // Search for reference to declaration/definition at cursor
 pub struct ItemAtCursor {
-    source: Source,
     cursor: Position,
     pub result: Option<(SrcPos, EntityId)>,
 }
 
 impl ItemAtCursor {
-    pub fn new(source: &Source, cursor: Position) -> ItemAtCursor {
+    pub fn new(cursor: Position) -> ItemAtCursor {
         ItemAtCursor {
-            source: source.clone(),
             cursor,
             result: None,
         }
@@ -1439,15 +1427,6 @@ impl Searcher for ItemAtCursor {
             }
         } else {
             NotFinished
-        }
-    }
-
-    // Assume source is searched first to filter out design units in other files
-    fn search_source(&mut self, _ctx: &dyn TokenAccess, source: &Source) -> SearchState {
-        if source == &self.source {
-            NotFinished
-        } else {
-            Finished(NotFound)
         }
     }
 }

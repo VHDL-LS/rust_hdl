@@ -412,8 +412,8 @@ impl DesignRoot {
         source: &Source,
         cursor: Position,
     ) -> Option<(SrcPos, EntRef<'a>)> {
-        let mut searcher = ItemAtCursor::new(source, cursor);
-        let _ = self.search(&mut searcher);
+        let mut searcher = ItemAtCursor::new(cursor);
+        let _ = self.search_source(source, &mut searcher);
         let (pos, id) = searcher.result?;
         let ent = self.get_ent(id);
         Some((pos, ent))
@@ -669,6 +669,18 @@ impl DesignRoot {
                 }
             }
         }
+    }
+
+    fn search_source(&self, source: &Source, searcher: &mut impl Searcher) -> SearchResult {
+        for lib in self.libraries.values() {
+            if let Some(units) = lib.units_by_source.get(source) {
+                for unit_id in units {
+                    let unit = self.get_unit(unit_id).unwrap();
+                    return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
+                }
+            }
+        }
+        NotFound
     }
 
     pub fn search_library(
