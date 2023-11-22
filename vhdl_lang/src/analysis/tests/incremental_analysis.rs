@@ -7,9 +7,8 @@
 use super::*;
 use crate::analysis::DesignRoot;
 use crate::ast::search::*;
-use crate::ast::Reference;
 use crate::data::SrcPos;
-use crate::named_entity::EntityId;
+use crate::named_entity::{EntityId, Reference};
 use crate::syntax::TokenAccess;
 use fnv::FnvHashSet;
 use pretty_assertions::assert_eq;
@@ -350,8 +349,8 @@ impl Searcher for FindAnyReferences {
         _: &SrcPos,
         reference: &Reference,
     ) -> SearchState {
-        if let Some(id) = reference {
-            self.references.push(*id);
+        if let Some(id) = reference.get() {
+            self.references.push(id);
         };
         NotFinished
     }

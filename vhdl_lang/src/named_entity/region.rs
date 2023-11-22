@@ -442,7 +442,7 @@ impl<T: SetReference> SetReference for WithPos<T> {
 
 impl SetReference for Reference {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
-        *self = Some(ent.id());
+        self.set(ent.id());
     }
 }
 

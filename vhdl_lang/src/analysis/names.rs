@@ -462,7 +462,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(disamb) = self.disambiguate_no_actuals(&des, None, &overloaded)? {
                     if let Disambiguated::Unambiguous(ref ent) = disamb {
                         if let Some(reference) = reference {
-                            *reference = Some(ent.id());
+                            reference.set(ent.id());
                         }
                     }
                     Ok(Some(disamb.into_type()))
@@ -507,7 +507,7 @@ impl<'a> AnalyzeContext<'a> {
                     match disamb {
                         Disambiguated::Unambiguous(ent) => {
                             if let Some(reference) = suffix_ref {
-                                *reference = Some(ent.id());
+                                reference.set(ent.id());
                             }
                             Ok(Some(ent.return_type().unwrap()))
                         }

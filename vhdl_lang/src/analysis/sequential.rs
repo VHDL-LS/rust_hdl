@@ -30,7 +30,7 @@ impl<'a> AnalyzeContext<'a> {
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     Some(label.pos()),
                 );
-                statement.label.decl = Some(ent.id());
+                statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
                 ent
             } else if statement.statement.item.can_have_label() {
@@ -42,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     None,
                 );
-                statement.label.decl = Some(ent.id());
+                statement.label.decl.set(ent.id());
                 ent
             } else {
                 parent
@@ -362,7 +362,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            let parent = if let Some(id) = statement.label.decl {
+            let parent = if let Some(id) = statement.label.decl.get() {
                 self.arena.get(id)
             } else {
                 parent

@@ -10,9 +10,7 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
-use crate::named_entity::EntRef;
-pub use crate::named_entity::HasEntityId;
-use crate::named_entity::Related;
+use crate::named_entity::{EntRef, HasEntityId, Reference, Related};
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
@@ -1419,8 +1417,8 @@ impl Searcher for ItemAtCursor {
         reference: &Reference,
     ) -> SearchState {
         if self.is_inside(pos) {
-            if let Some(id) = reference {
-                self.result = Some((pos.clone(), *id));
+            if let Some(id) = reference.get() {
+                self.result = Some((pos.clone(), id));
                 Finished(Found)
             } else {
                 Finished(NotFound)
@@ -1614,8 +1612,8 @@ impl<'a> Searcher for FindAllReferences<'a> {
         pos: &SrcPos,
         reference: &Reference,
     ) -> SearchState {
-        if let Some(id) = reference.as_ref() {
-            let other = self.root.get_ent(*id);
+        if let Some(id) = reference.get() {
+            let other = self.root.get_ent(id);
             if is_reference(self.ent, other) {
                 self.references.push(pos.clone());
             }
@@ -1659,7 +1657,7 @@ impl<'a> FoundDeclaration<'a> {
         }
     }
 
-    fn ent_id_ref(&self) -> &Option<EntityId> {
+    fn ent_id_ref(&self) -> &Reference {
         match self {
             FoundDeclaration::InterfaceObject(value) => &value.ident.decl,
             FoundDeclaration::ForIndex(ident, _) => &ident.decl,
@@ -1695,7 +1693,7 @@ impl<'a> FoundDeclaration<'a> {
 }
 
 impl SubprogramSpecification {
-    fn ent_id_ref(&self) -> &Option<EntityId> {
+    fn ent_id_ref(&self) -> &Reference {
         match self {
             SubprogramSpecification::Procedure(proc) => &proc.designator.decl,
             SubprogramSpecification::Function(func) => &func.designator.decl,
@@ -1706,35 +1704,35 @@ impl SubprogramSpecification {
 impl<'a> HasEntityId for FoundDeclaration<'a> {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
-            FoundDeclaration::InterfaceObject(value) => value.ident.decl,
-            FoundDeclaration::ForIndex(ident, _) => ident.decl,
-            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl,
+            FoundDeclaration::InterfaceObject(value) => value.ident.decl.get(),
+            FoundDeclaration::ForIndex(ident, _) => ident.decl.get(),
+            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl.get(),
             FoundDeclaration::Subprogram(value) => value.specification.ent_id(),
             FoundDeclaration::SubprogramDecl(value) => value.ent_id(),
-            FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl,
-            FoundDeclaration::Object(value) => value.ident.decl,
-            FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl,
-            FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl,
-            FoundDeclaration::File(value) => value.ident.decl,
-            FoundDeclaration::Type(value) => value.ident.decl,
-            FoundDeclaration::InterfaceType(value) => value.decl,
-            FoundDeclaration::InterfacePackage(value) => value.ident.decl,
-            FoundDeclaration::InterfaceFile(value) => value.ident.decl,
-            FoundDeclaration::PhysicalTypePrimary(value) => value.decl,
-            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl,
-            FoundDeclaration::Component(value) => value.ident.decl,
-            FoundDeclaration::Attribute(value) => value.ident.decl,
-            FoundDeclaration::Alias(value) => value.designator.decl,
-            FoundDeclaration::Package(value) => value.ident.decl,
-            FoundDeclaration::PackageBody(value) => value.ident.decl,
-            FoundDeclaration::PackageInstance(value) => value.ident.decl,
-            FoundDeclaration::Configuration(value) => value.ident.decl,
-            FoundDeclaration::Entity(value) => value.ident.decl,
-            FoundDeclaration::Architecture(value) => value.ident.decl,
-            FoundDeclaration::Context(value) => value.ident.decl,
-            FoundDeclaration::GenerateBody(value) => value.decl,
-            FoundDeclaration::ConcurrentStatement(_, value) => **value,
-            FoundDeclaration::SequentialStatement(_, value) => **value,
+            FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl.get(),
+            FoundDeclaration::Object(value) => value.ident.decl.get(),
+            FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl.get(),
+            FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl.get(),
+            FoundDeclaration::File(value) => value.ident.decl.get(),
+            FoundDeclaration::Type(value) => value.ident.decl.get(),
+            FoundDeclaration::InterfaceType(value) => value.decl.get(),
+            FoundDeclaration::InterfacePackage(value) => value.ident.decl.get(),
+            FoundDeclaration::InterfaceFile(value) => value.ident.decl.get(),
+            FoundDeclaration::PhysicalTypePrimary(value) => value.decl.get(),
+            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl.get(),
+            FoundDeclaration::Component(value) => value.ident.decl.get(),
+            FoundDeclaration::Attribute(value) => value.ident.decl.get(),
+            FoundDeclaration::Alias(value) => value.designator.decl.get(),
+            FoundDeclaration::Package(value) => value.ident.decl.get(),
+            FoundDeclaration::PackageBody(value) => value.ident.decl.get(),
+            FoundDeclaration::PackageInstance(value) => value.ident.decl.get(),
+            FoundDeclaration::Configuration(value) => value.ident.decl.get(),
+            FoundDeclaration::Entity(value) => value.ident.decl.get(),
+            FoundDeclaration::Architecture(value) => value.ident.decl.get(),
+            FoundDeclaration::Context(value) => value.ident.decl.get(),
+            FoundDeclaration::GenerateBody(value) => value.decl.get(),
+            FoundDeclaration::ConcurrentStatement(_, value) => value.get(),
+            FoundDeclaration::SequentialStatement(_, value) => value.get(),
         }
     }
 }
@@ -1887,7 +1885,7 @@ impl Searcher for FindAllUnresolved {
         reference: &Reference,
     ) -> SearchState {
         self.count += 1;
-        if reference.is_none() {
+        if reference.is_undefined() {
             self.unresolved.push(pos.clone());
         }
         NotFinished
@@ -1897,22 +1895,6 @@ impl Searcher for FindAllUnresolved {
 pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
     struct ReferenceClearer;
 
-    /// We use unsafe to clear the references as a compromise
-    /// as we do not want to maintain a &mut traversal of the AST
-    /// just to be able to clear the references.
-    /// Also we would like to avoid using a Cell since we will want to run multi-threaded
-    /// iteration over the AST. Using a Atomic type for the reference could also affect performance.
-    ///
-    /// Thus this is a safe operation because:
-    /// As references are leafs in the AST, clearing the reference will not affect the iteration.
-    /// Also the reference is a pure value and not a pointer.
-    unsafe fn clear(reference: &Reference) {
-        let const_ptr = reference as *const Reference;
-        let mut_ptr = const_ptr as *mut Reference;
-
-        *mut_ptr = None;
-    }
-
     impl Searcher for ReferenceClearer {
         fn search_pos_with_ref(
             &mut self,
@@ -1920,19 +1902,13 @@ pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
             _pos: &SrcPos,
             reference: &Reference,
         ) -> SearchState {
-            unsafe {
-                // Safe because tree is &mut
-                clear(reference);
-            }
+            reference.clear();
             NotFinished
         }
 
         fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
             let reference = decl.ent_id_ref();
-            unsafe {
-                // Safe because tree is &mut
-                clear(reference);
-            }
+            reference.clear();
             NotFinished
         }
     }
@@ -1953,7 +1929,7 @@ pub fn check_no_unresolved(tree: &mut impl Search) {
             _pos: &SrcPos,
             reference: &Reference,
         ) -> SearchState {
-            assert!(reference.is_some());
+            assert!(reference.is_defined());
             NotFinished
         }
     }

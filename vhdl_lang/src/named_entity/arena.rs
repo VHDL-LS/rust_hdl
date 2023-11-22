@@ -7,6 +7,7 @@
 use pinned_vec::PinnedVec;
 use std::cell::RefCell;
 use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -273,11 +274,13 @@ pub struct EntityId {
     id: usize,
 }
 
+// Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
+static UNDEFINED_ID: usize = usize::MAX;
+
 impl EntityId {
-    // Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
     #[allow(clippy::new_without_default)]
-    pub fn undefined() -> Self {
-        EntityId { id: usize::MAX }
+    pub(crate) fn undefined() -> Self {
+        EntityId { id: UNDEFINED_ID }
     }
 
     pub(crate) fn new_arena(arena_id: ArenaId, id: LocalId) -> Self {
@@ -304,5 +307,76 @@ impl EntityId {
     /// for serialization purposes.
     pub fn to_raw(&self) -> usize {
         self.id
+    }
+}
+
+/// Encode an optional entity id using 8 bytes instead of 16 bytes
+pub struct Reference {
+    id: AtomicUsize,
+}
+
+impl Reference {
+    pub fn undefined() -> Self {
+        Self {
+            id: AtomicUsize::new(UNDEFINED_ID),
+        }
+    }
+
+    pub fn is_undefined(&self) -> bool {
+        self.raw_id() == UNDEFINED_ID
+    }
+
+    pub fn is_defined(&self) -> bool {
+        !self.is_undefined()
+    }
+
+    pub fn get(&self) -> Option<EntityId> {
+        let id = self.raw_id();
+        if id == UNDEFINED_ID {
+            None
+        } else {
+            Some(EntityId::from_raw(id))
+        }
+    }
+
+    pub fn expect_defined(&self) -> EntityId {
+        self.get().expect("Expected defined reference to EntityId")
+    }
+
+    pub fn raw_id(&self) -> usize {
+        // We only clear in a single thread so relaxed ordering should be fine
+        self.id.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn clear(&self) {
+        // We only clear in a single thread so relaxed ordering should be fine
+        self.id.store(UNDEFINED_ID, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set(&mut self, id: EntityId) {
+        // We only clear in a single thread so relaxed ordering should be fine
+        self.id.store(id.to_raw(), Ordering::Relaxed);
+    }
+}
+
+impl PartialEq for Reference {
+    fn eq(&self, other: &Self) -> bool {
+        self.id.load(Ordering::Relaxed) == other.id.load(Ordering::Relaxed)
+    }
+}
+
+impl Eq for Reference {}
+
+impl Clone for Reference {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.raw_id().into(),
+        }
+    }
+}
+
+impl std::fmt::Debug for Reference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
     }
 }

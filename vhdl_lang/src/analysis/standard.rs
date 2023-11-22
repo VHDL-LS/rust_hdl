@@ -133,7 +133,7 @@ impl StandardTypes {
                         continue;
                     }
                 }
-                type_decl.ident.decl = Some(id);
+                type_decl.ident.decl.set(id);
             }
         }
 

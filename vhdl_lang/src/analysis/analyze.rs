@@ -364,7 +364,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(unit) = self.get_secondary_unit(library_name, entity_name, architecture_name) {
             let data = self.get_analysis(Some(pos), unit)?;
             if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) = data.deref() {
-                if let Some(id) = arch.ident.decl {
+                if let Some(id) = arch.ident.decl.get() {
                     let ent = self.arena.get(id);
                     let design = DesignEnt::from_any(ent).ok_or_else(|| {
                         // Almost impossible but better not fail silently

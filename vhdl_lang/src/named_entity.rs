@@ -31,7 +31,7 @@ mod attribute;
 pub use attribute::AttributeEnt;
 
 mod arena;
-pub use arena::{Arena, ArenaId, EntityId, FinalArena};
+pub use arena::{Arena, ArenaId, EntityId, FinalArena, Reference};
 
 mod visibility;
 pub use visibility::{Visibility, Visible};
@@ -227,7 +227,7 @@ impl Arena {
             kind,
             Some(decl.tree.pos()),
         );
-        decl.decl = Some(ent.id());
+        decl.decl.set(ent.id());
         ent
     }
 
@@ -527,7 +527,7 @@ pub trait HasEntityId {
 
 impl HasEntityId for AnyPrimaryUnit {
     fn ent_id(&self) -> Option<EntityId> {
-        delegate_primary!(self, unit, unit.ident.decl)
+        delegate_primary!(self, unit, unit.ident.decl.get())
     }
 }
 
@@ -535,15 +535,15 @@ impl HasEntityId for AnyDesignUnit {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
             AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::Entity(ent) => ent.ident.decl,
-                AnyPrimaryUnit::Configuration(config) => config.ident.decl,
-                AnyPrimaryUnit::Package(pkg) => pkg.ident.decl,
-                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.decl,
-                AnyPrimaryUnit::Context(ctx) => ctx.ident.decl,
+                AnyPrimaryUnit::Entity(ent) => ent.ident.decl.get(),
+                AnyPrimaryUnit::Configuration(config) => config.ident.decl.get(),
+                AnyPrimaryUnit::Package(pkg) => pkg.ident.decl.get(),
+                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.decl.get(),
+                AnyPrimaryUnit::Context(ctx) => ctx.ident.decl.get(),
             },
             AnyDesignUnit::Secondary(secondary) => match secondary {
-                AnySecondaryUnit::Architecture(arch) => arch.ident.decl,
-                AnySecondaryUnit::PackageBody(bod) => bod.ident.decl,
+                AnySecondaryUnit::Architecture(arch) => arch.ident.decl.get(),
+                AnySecondaryUnit::PackageBody(bod) => bod.ident.decl.get(),
             },
         }
     }
@@ -554,7 +554,7 @@ impl HasEntityId for InterfaceDeclaration {
         match self {
             InterfaceDeclaration::Object(object) => object.ent_id(),
             InterfaceDeclaration::File(file) => file.ent_id(),
-            InterfaceDeclaration::Type(typ) => typ.decl,
+            InterfaceDeclaration::Type(typ) => typ.decl.get(),
             InterfaceDeclaration::Subprogram(decl, _) => decl.ent_id(),
             InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
         }
@@ -563,28 +563,28 @@ impl HasEntityId for InterfaceDeclaration {
 
 impl HasEntityId for InterfaceObjectDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for InterfaceFileDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for SubprogramSpecification {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
-            SubprogramSpecification::Procedure(proc) => proc.designator.decl,
-            SubprogramSpecification::Function(func) => func.designator.decl,
+            SubprogramSpecification::Procedure(proc) => proc.designator.decl.get(),
+            SubprogramSpecification::Function(func) => func.designator.decl.get(),
         }
     }
 }
 
 impl HasEntityId for InterfacePackageDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
@@ -609,13 +609,13 @@ impl HasEntityId for Declaration {
 
 impl HasEntityId for SubprogramInstantiation {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for PackageInstantiation {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
@@ -627,31 +627,31 @@ impl HasEntityId for SubprogramBody {
 
 impl HasEntityId for AliasDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.designator.decl
+        self.designator.decl.get()
     }
 }
 
 impl HasEntityId for ObjectDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for FileDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for TypeDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for ComponentDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
@@ -666,13 +666,13 @@ impl HasEntityId for Attribute {
 
 impl HasEntityId for AttributeDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl
+        self.ident.decl.get()
     }
 }
 
 impl HasEntityId for AttributeSpecification {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.reference
+        self.ident.reference.get()
     }
 }
 
@@ -689,7 +689,7 @@ impl WithDecl<Ident> {
             kind,
             Some(self.tree.pos()),
         );
-        self.decl = Some(ent.id());
+        self.decl.set(ent.id());
         ent
     }
 }
@@ -702,7 +702,7 @@ impl WithDecl<WithPos<Designator>> {
         kind: AnyEntKind<'a>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(self.tree.item.clone(), parent, kind, Some(&self.tree.pos));
-        self.decl = Some(ent.id());
+        self.decl.set(ent.id());
         ent
     }
 }
@@ -710,8 +710,8 @@ impl WithDecl<WithPos<Designator>> {
 impl SubprogramSpecification {
     pub fn set_decl_id(&mut self, id: EntityId) {
         match self {
-            SubprogramSpecification::Function(f) => f.designator.decl = Some(id),
-            SubprogramSpecification::Procedure(p) => p.designator.decl = Some(id),
+            SubprogramSpecification::Function(f) => f.designator.decl.set(id),
+            SubprogramSpecification::Procedure(p) => p.designator.decl.set(id),
         }
     }
 }

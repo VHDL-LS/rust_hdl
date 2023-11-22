@@ -7,15 +7,13 @@
 use crate::analysis::DesignRoot;
 use crate::analysis::Library;
 use crate::analysis::LockedUnit;
-use crate::ast::search::HasEntityId;
 use crate::ast::search::Search;
 use crate::ast::search::SearchState;
 use crate::ast::search::Searcher;
-use crate::ast::Reference;
 use crate::ast::UnitId;
 use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
-use crate::named_entity::Related;
+use crate::named_entity::{HasEntityId, Reference, Related};
 use crate::syntax::TokenAccess;
 use crate::AnyEntKind;
 use crate::Config;
@@ -51,8 +49,8 @@ impl<'a> Searcher for DeadCodeSearcher<'a> {
         _: &SrcPos,
         reference: &Reference,
     ) -> SearchState {
-        if let Some(id) = reference {
-            let ent = self.root.get_ent(*id);
+        if let Some(id) = reference.get() {
+            let ent = self.root.get_ent(id);
             self.references.insert(ent);
 
             if let Related::DeclaredBy(other) = ent.related {

@@ -24,7 +24,7 @@ pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
 
 use crate::data::*;
-use crate::named_entity::EntityId;
+use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
 
 /// LRM 15.8 Bit string literals
@@ -206,10 +206,10 @@ pub enum SelectedName {
 
 impl SelectedName {
     /// Returns the reference that this name selects
-    pub fn reference(&self) -> Reference {
+    pub fn reference(&self) -> Option<EntityId> {
         match &self {
-            SelectedName::Designator(desi) => desi.reference,
-            SelectedName::Selected(_, desi) => desi.item.reference,
+            SelectedName::Designator(desi) => desi.reference.get(),
+            SelectedName::Selected(_, desi) => desi.item.reference.get(),
         }
     }
 }
@@ -433,8 +433,6 @@ pub enum Designator {
     Anonymous(usize),
 }
 
-pub type Reference = Option<EntityId>;
-
 /// An item which has a reference to a declaration
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WithRef<T> {
@@ -446,7 +444,7 @@ impl<T> WithRef<T> {
     pub fn new(item: T) -> WithRef<T> {
         WithRef {
             item,
-            reference: None,
+            reference: Reference::undefined(),
         }
     }
 }
@@ -455,12 +453,15 @@ impl<T> WithRef<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithDecl<T> {
     pub tree: T,
-    pub decl: Option<EntityId>,
+    pub decl: Reference,
 }
 
 impl<T> WithDecl<T> {
     pub fn new(tree: T) -> WithDecl<T> {
-        WithDecl { tree, decl: None }
+        WithDecl {
+            tree,
+            decl: Reference::undefined(),
+        }
     }
 }
 
@@ -1103,7 +1104,7 @@ pub enum InstantiatedUnit {
 
 impl InstantiatedUnit {
     /// Returns a reference to the unit that this instantiation declares
-    pub fn entity_reference(&self) -> Reference {
+    pub fn entity_reference(&self) -> Option<EntityId> {
         match &self {
             InstantiatedUnit::Entity(name, _) => name.item.reference(),
             InstantiatedUnit::Configuration(name) => name.item.reference(),
@@ -1121,7 +1122,7 @@ pub struct MapAspect {
 
 impl MapAspect {
     /// Returns an iterator over the formal elements of this map
-    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
+    pub fn formals(&self) -> impl Iterator<Item = Option<EntityId>> + '_ {
         self.list.formals()
     }
 
@@ -1142,7 +1143,7 @@ pub struct InstantiationStatement {
 
 impl InstantiationStatement {
     /// Returns the reference to the entity declaring this instance
-    pub fn entity_reference(&self) -> Reference {
+    pub fn entity_reference(&self) -> Option<EntityId> {
         self.unit.entity_reference()
     }
 }
@@ -1223,11 +1224,11 @@ impl<T> Default for SeparatedList<T> {
 
 impl SeparatedList<AssociationElement> {
     /// Returns an iterator over the formal elements of this list
-    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
+    pub fn formals(&self) -> impl Iterator<Item = Option<EntityId>> + '_ {
         self.items.iter().filter_map(|el| match &el.formal {
             None => None,
             Some(name) => match &name.item {
-                Name::Designator(desi) => Some(&desi.reference),
+                Name::Designator(desi) => Some(desi.reference.get()),
                 _ => None,
             },
         })

@@ -51,7 +51,7 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
         );
 
-        unit.ident.decl = Some(ent.id());
+        unit.ident.decl.set(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
@@ -136,7 +136,7 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
         );
 
-        unit.ident.decl = Some(ent.id());
+        unit.ident.decl.set(ent.id());
 
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
@@ -182,7 +182,7 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
         );
 
-        unit.ident.decl = Some(ent.id());
+        unit.ident.decl.set(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
 
@@ -313,7 +313,7 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Design(Design::PackageBody),
             Some(unit.ident.tree.pos.clone()),
         );
-        unit.ident.decl = Some(body.id());
+        unit.ident.decl.set(body.id());
 
         self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 

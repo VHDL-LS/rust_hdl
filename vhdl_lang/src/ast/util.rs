@@ -348,8 +348,8 @@ impl Name {
     // Get an already set suffix reference such as when an ambiguous overloaded call has already been resolved
     pub fn get_suffix_reference(&self) -> Option<EntityId> {
         match self {
-            Name::Designator(suffix) => suffix.reference,
-            Name::Selected(_, suffix) => suffix.item.reference,
+            Name::Designator(suffix) => suffix.reference.get(),
+            Name::Selected(_, suffix) => suffix.item.reference.get(),
             _ => None,
         }
     }

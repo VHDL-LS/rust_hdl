@@ -892,7 +892,7 @@ impl<T: ASTNode> ASTNode for WithPos<T> {
 
 impl<T: ASTNode> ASTNode for WithDecl<T> {
     fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
-        visitor.visit_item_with_decl(&self.decl, &self.tree, ctx)
+        visitor.visit_item_with_decl(&self.decl.get(), &self.tree, ctx)
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {

@@ -116,7 +116,7 @@ impl<'a> TypeEnt<'a> {
             )
         };
 
-        ident.decl = Some(ent.id());
+        ident.decl.set(ent.id());
         TypeEnt(ent)
     }
 

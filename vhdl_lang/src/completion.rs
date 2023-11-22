@@ -2,11 +2,10 @@ use crate::analysis::DesignRoot;
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Designator, InstantiationStatement, MapAspect,
-    ObjectClass, PackageInstantiation, Reference,
+    ObjectClass, PackageInstantiation,
 };
 use crate::data::{ContentReader, Symbol};
-use crate::named_entity::AsUnique;
-use crate::named_entity::{self, HasEntityId, NamedEntities, Region};
+use crate::named_entity::{self, AsUnique, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
@@ -139,7 +138,7 @@ impl<'a> AutocompletionVisitor<'a> {
     /// Returns `false` otherwise
     fn load_completions_for_map_aspect(
         &mut self,
-        ent_ref: Reference,
+        ent_ref: Option<EntityId>,
         map: &MapAspect,
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
@@ -151,8 +150,7 @@ impl<'a> AutocompletionVisitor<'a> {
             [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {}
             _ => return false,
         }
-        let formals_in_map: HashSet<EntityId> =
-            HashSet::from_iter(map.formals().filter_map(|it| *it));
+        let formals_in_map: HashSet<EntityId> = HashSet::from_iter(map.formals().flatten());
         if let Some(ent) = ent_ref {
             let ids = match kind {
                 MapAspectKind::Port => self.root.extract_port_names(ent),
@@ -318,7 +316,7 @@ fn list_available_declarations<'a>(
 
     match unit.data() {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
-            let Some(pkg_id) = pkg.ident.decl else {
+            let Some(pkg_id) = pkg.ident.decl.get() else {
                 return Vec::default();
             };
             let ent = root.get_ent(pkg_id);

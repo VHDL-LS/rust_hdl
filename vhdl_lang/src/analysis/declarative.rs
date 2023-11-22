@@ -403,7 +403,7 @@ impl<'a> AnalyzeContext<'a> {
                             kind,
                             Some(object_decl.ident.tree.pos().clone()),
                         );
-                        object_decl.ident.decl = Some(object_ent.id());
+                        object_decl.ident.decl.set(object_ent.id());
 
                         scope.add(object_ent, diagnostics);
                     }
@@ -1058,7 +1058,7 @@ impl<'a> AnalyzeContext<'a> {
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(&literal.tree.pos),
                     );
-                    literal.decl = Some(literal_ent.id());
+                    literal.decl.set(literal_ent.id());
 
                     unsafe {
                         self.arena.add_implicit(enum_type.id(), literal_ent);

@@ -516,7 +516,7 @@ impl DesignRoot {
                         if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) =
                             data.deref()
                         {
-                            if let Some(id) = arch.ident.decl {
+                            if let Some(id) = arch.ident.decl.get() {
                                 let ent = self.arenas.get(id);
                                 return Box::new(std::iter::once(ent));
                             }
@@ -527,7 +527,7 @@ impl DesignRoot {
                         if let AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(body)) =
                             data.deref()
                         {
-                            if let Some(id) = body.ident.decl {
+                            if let Some(id) = body.ident.decl.get() {
                                 let ent = self.arenas.get(id);
                                 return Box::new(std::iter::once(ent));
                             }
@@ -584,7 +584,7 @@ impl DesignRoot {
             .get_unit(&UnitKey::Primary(self.symbol_utf8(symbol)))
             .unwrap();
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
-            self.get_ent(pkg.ident.decl.unwrap())
+            self.get_ent(pkg.ident.decl.expect_defined())
         } else {
             panic!("Not a package");
         }
@@ -983,7 +983,7 @@ impl DesignRoot {
             )
         };
 
-        std_package.ident.decl = Some(standard_pkg.id());
+        std_package.ident.decl.set(standard_pkg.id());
 
         let universal = UniversalTypes::new(&arena, standard_pkg, self.symbols.as_ref());
         self.universal = Some(universal);
@@ -1028,7 +1028,7 @@ impl DesignRoot {
                         &scope,
                         standard_pkg,
                         type_decl,
-                        type_decl.ident.decl, // Set by standard types
+                        type_decl.ident.decl.get(), // Set by standard types
                         &mut diagnostics,
                     )
                     .unwrap();

@@ -15,6 +15,7 @@ use super::tokens::{Kind::*, TokenSpan, TokenStream};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::data::DiagnosticHandler;
+use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
 
 /// LRM 5.2.2 Enumeration types
@@ -212,7 +213,7 @@ pub fn parse_type_declaration(
             return Ok(TypeDeclaration {
                 span: TokenSpan::new(start_token, stream.get_last_token_id()),
                 ident,
-                def: TypeDefinition::Incomplete(Reference::default()),
+                def: TypeDefinition::Incomplete(Reference::undefined()),
                 end_ident_pos
             });
         }
@@ -626,7 +627,7 @@ end foo;",
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("incomplete").decl_ident(),
-                def: TypeDefinition::Incomplete(Reference::default()),
+                def: TypeDefinition::Incomplete(Reference::undefined()),
                 end_ident_pos: None,
             }
         );
