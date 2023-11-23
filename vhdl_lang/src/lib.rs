@@ -34,7 +34,7 @@ pub use crate::data::{
 pub use crate::analysis::EntHierarchy;
 pub use crate::named_entity::{
     AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
-    Related, Sequential, Type,
+    Reference, Related, Sequential, Type,
 };
 
 pub use crate::project::{Project, SourceFile};

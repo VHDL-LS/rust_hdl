@@ -5,8 +5,11 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use brunch::{Bench, Benches};
-use std::path::Path;
-use vhdl_lang::{Config, MessagePrinter, NullMessages, Project};
+use std::{path::Path, time::Duration};
+use vhdl_lang::{
+    ast::search::{SearchState, Searcher},
+    Config, MessagePrinter, NullMessages, Project,
+};
 
 fn load_config(include_example_project: bool) -> Config {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -65,7 +68,28 @@ fn main() {
                 integer
             );
         }));
+
+        benches.push(
+            Bench::new("search entire ast")
+                .with_timeout(Duration::from_secs(30))
+                .run(|| {
+                    project.search(&mut MySearcher {});
+                }),
+        );
     }
 
     benches.finish();
+}
+
+struct MySearcher {}
+
+impl Searcher for MySearcher {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn vhdl_lang::TokenAccess,
+        _pos: &vhdl_lang::SrcPos,
+        _ref: &vhdl_lang::Reference,
+    ) -> SearchState {
+        std::hint::black_box(SearchState::NotFinished)
+    }
 }

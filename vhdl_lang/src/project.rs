@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::DesignRoot;
+use crate::ast::search::Searcher;
 use crate::ast::DesignFile;
 use crate::completion::{list_completion_options, CompletionItem};
 use crate::config::Config;
@@ -267,6 +268,10 @@ impl Project {
         cursor: Position,
     ) -> Option<(SrcPos, EntRef<'a>)> {
         self.root.item_at_cursor(source, cursor)
+    }
+
+    pub fn search(&self, searcher: &mut impl Searcher) {
+        let _ = self.root.search(searcher);
     }
 
     // Find symbols that are public such as primary design units and their interfaces
