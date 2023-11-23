@@ -116,20 +116,14 @@ struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
-    tokens: Vec<Token>,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
-    pub fn new(
-        root: &'a DesignRoot,
-        cursor: Position,
-        tokens: Vec<Token>,
-    ) -> AutocompletionVisitor<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionVisitor<'a> {
         AutocompletionVisitor {
             root,
             cursor,
             completions: Vec::new(),
-            tokens,
         }
     }
 
@@ -145,10 +139,6 @@ impl<'a> AutocompletionVisitor<'a> {
     ) -> bool {
         if !map.span(ctx).contains(self.cursor) {
             return false;
-        }
-        match self.tokens[..] {
-            [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {}
-            _ => return false,
         }
         let formals_in_map: HashSet<EntityId> = HashSet::from_iter(map.formals().flatten());
         if let Some(ent) = ent_ref {
@@ -363,10 +353,13 @@ pub fn list_completion_options<'a>(
         | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
             list_available_declarations(root, library, selected)
         }
-        _ => {
-            let mut visitor = AutocompletionVisitor::new(root, cursor, tokens);
+        [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
+            let mut visitor = AutocompletionVisitor::new(root, cursor);
             root.walk_source(source, &mut visitor);
             visitor.completions
+        }
+        _ => {
+            vec![]
         }
     }
 }
