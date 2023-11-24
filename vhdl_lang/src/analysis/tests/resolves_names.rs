@@ -2033,3 +2033,35 @@ end architecture;
         );
     }
 }
+
+/// This is a regression test for github issue #229
+/// The reference was not set on the subprogram name when selected
+#[test]
+fn sets_reference_on_selected_subprogram_call() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  type my_record_t is record
+     field1 : natural;
+  end record my_record_t;
+
+  function my_function return my_record_t is
+  begin
+  return (others => 0);
+  end function;
+
+  constant CONST1 : natural := my_function.field1;
+begin
+end architecture;
+    ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(root.find_all_unresolved().1, vec![]);
+}

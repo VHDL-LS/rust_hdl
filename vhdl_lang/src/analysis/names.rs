@@ -1125,6 +1125,8 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                         Disambiguated::Unambiguous(ent) => {
+                            prefix.set_unique_reference(&ent);
+
                             if let Some(typ) = ent.return_type() {
                                 resolved =
                                     ResolvedName::Expression(DisambiguatedType::Unambiguous(typ));
