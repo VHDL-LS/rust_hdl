@@ -334,6 +334,11 @@ impl<'a> AnyEnt<'a> {
         !self.is_implicit()
     }
 
+    /// A statement without a label
+    pub fn is_anonymous(&self) -> bool {
+        matches!(self.designator(), Designator::Anonymous(_))
+    }
+
     pub fn decl_pos(&self) -> Option<&SrcPos> {
         self.decl_pos.as_ref()
     }

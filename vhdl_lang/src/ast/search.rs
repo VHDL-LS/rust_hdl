@@ -66,8 +66,8 @@ pub enum FoundDeclaration<'a> {
     ForIndex(&'a WithDecl<Ident>, &'a DiscreteRange),
     ForGenerateIndex(Option<&'a Ident>, &'a ForGenerateStatement),
     GenerateBody(&'a WithDecl<Ident>),
-    ConcurrentStatement(&'a Ident, &'a Reference),
-    SequentialStatement(&'a Ident, &'a Reference),
+    ConcurrentStatement(&'a LabeledConcurrentStatement),
+    SequentialStatement(&'a LabeledSequentialStatement),
 }
 
 pub trait Searcher {
@@ -278,14 +278,9 @@ impl<T: Search> Search for SeparatedList<T> {
 
 impl Search for LabeledSequentialStatement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref ident) = self.label.tree {
-            return_if_found!(searcher
-                .search_decl(
-                    ctx,
-                    FoundDeclaration::SequentialStatement(ident, &self.label.decl)
-                )
-                .or_not_found());
-        }
+        return_if_found!(searcher
+            .search_decl(ctx, FoundDeclaration::SequentialStatement(self))
+            .or_not_found());
         match self.statement.item {
             SequentialStatement::Return(ref ret) => {
                 let ReturnStatement { ref expression } = ret;
@@ -478,14 +473,9 @@ impl Search for SensitivityList {
 
 impl Search for LabeledConcurrentStatement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref ident) = self.label.tree {
-            return_if_found!(searcher
-                .search_decl(
-                    ctx,
-                    FoundDeclaration::ConcurrentStatement(ident, &self.label.decl)
-                )
-                .or_not_found());
-        }
+        return_if_found!(searcher
+            .search_decl(ctx, FoundDeclaration::ConcurrentStatement(self))
+            .or_not_found());
         match self.statement.item {
             ConcurrentStatement::Block(ref block) => {
                 // @TODO guard condition
@@ -1690,8 +1680,8 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::Architecture(value) => &value.ident.decl,
             FoundDeclaration::Context(value) => &value.ident.decl,
             FoundDeclaration::GenerateBody(value) => &value.decl,
-            FoundDeclaration::ConcurrentStatement(_, value) => value,
-            FoundDeclaration::SequentialStatement(_, value) => value,
+            FoundDeclaration::ConcurrentStatement(value) => &value.label.decl,
+            FoundDeclaration::SequentialStatement(value) => &value.label.decl,
         }
     }
 }
@@ -1707,37 +1697,7 @@ impl SubprogramSpecification {
 
 impl<'a> HasEntityId for FoundDeclaration<'a> {
     fn ent_id(&self) -> Option<EntityId> {
-        match self {
-            FoundDeclaration::InterfaceObject(value) => value.ident.decl.get(),
-            FoundDeclaration::ForIndex(ident, _) => ident.decl.get(),
-            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl.get(),
-            FoundDeclaration::Subprogram(value) => value.specification.ent_id(),
-            FoundDeclaration::SubprogramDecl(value) => value.ent_id(),
-            FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl.get(),
-            FoundDeclaration::Object(value) => value.ident.decl.get(),
-            FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl.get(),
-            FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl.get(),
-            FoundDeclaration::File(value) => value.ident.decl.get(),
-            FoundDeclaration::Type(value) => value.ident.decl.get(),
-            FoundDeclaration::InterfaceType(value) => value.decl.get(),
-            FoundDeclaration::InterfacePackage(value) => value.ident.decl.get(),
-            FoundDeclaration::InterfaceFile(value) => value.ident.decl.get(),
-            FoundDeclaration::PhysicalTypePrimary(value) => value.decl.get(),
-            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl.get(),
-            FoundDeclaration::Component(value) => value.ident.decl.get(),
-            FoundDeclaration::Attribute(value) => value.ident.decl.get(),
-            FoundDeclaration::Alias(value) => value.designator.decl.get(),
-            FoundDeclaration::Package(value) => value.ident.decl.get(),
-            FoundDeclaration::PackageBody(value) => value.ident.decl.get(),
-            FoundDeclaration::PackageInstance(value) => value.ident.decl.get(),
-            FoundDeclaration::Configuration(value) => value.ident.decl.get(),
-            FoundDeclaration::Entity(value) => value.ident.decl.get(),
-            FoundDeclaration::Architecture(value) => value.ident.decl.get(),
-            FoundDeclaration::Context(value) => value.ident.decl.get(),
-            FoundDeclaration::GenerateBody(value) => value.decl.get(),
-            FoundDeclaration::ConcurrentStatement(_, value) => value.get(),
-            FoundDeclaration::SequentialStatement(_, value) => value.get(),
-        }
+        self.ent_id_ref().get()
     }
 }
 
@@ -1829,11 +1789,19 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             FoundDeclaration::GenerateBody(value) => {
                 write!(f, "{value}")
             }
-            FoundDeclaration::ConcurrentStatement(value, _) => {
-                write!(f, "{value}")
+            FoundDeclaration::ConcurrentStatement(value) => {
+                if let Some(ref label) = value.label.tree {
+                    write!(f, "{label}")
+                } else {
+                    write!(f, "<anonymous statement>")
+                }
             }
-            FoundDeclaration::SequentialStatement(value, _) => {
-                write!(f, "{value}")
+            FoundDeclaration::SequentialStatement(value) => {
+                if let Some(ref label) = value.label.tree {
+                    write!(f, "{label}")
+                } else {
+                    write!(f, "<anonymous statement>")
+                }
             }
         }
     }

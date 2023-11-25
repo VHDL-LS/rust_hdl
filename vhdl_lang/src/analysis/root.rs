@@ -553,7 +553,7 @@ impl DesignRoot {
         library_name: &Symbol,
         source: &Source,
     ) -> Vec<EntHierarchy<'a>> {
-        let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit());
+        let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit() && !ent.is_anonymous());
 
         if let Some(library) = self.libraries.get(library_name) {
             if let Some(unit_ids) = library.units_by_source.get(source) {
