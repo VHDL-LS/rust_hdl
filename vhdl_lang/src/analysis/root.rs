@@ -459,14 +459,24 @@ impl DesignRoot {
                             return vec![design.into()];
                         }
                     }
-                    // Find all components with same name as entity in the library
+                    // Find components and architectures to entity
                     AnyEntKind::Design(Design::Entity(..)) => {
-                        let mut searcher = FindAllEnt::new(self, |ent| {
-                            matches!(ent.kind(), AnyEntKind::Component(_))
-                                && matches!(
+                        let mut searcher = FindAllEnt::new(self, |ent| match ent.kind() {
+                            // Find all components with same name as entity in the library
+                            AnyEntKind::Component(_) => {
+                                matches!(
                                     ent.designator(),
                                     Designator::Identifier(comp_ident) if comp_ident == ident
                                 )
+                            },
+                            // Find all architectures which implement the entity
+                            AnyEntKind::Design(Design::Architecture(a)) => {
+                                matches!(
+                                    a.designator(),
+                                    Designator::Identifier(ent_ident) if ent_ident == ident
+                                )
+                            }
+                            _ => false,
                         });
 
                         let _ = self.search_library(library_name, &mut searcher);
