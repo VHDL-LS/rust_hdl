@@ -412,7 +412,7 @@ impl DesignRoot {
         source: &Source,
         cursor: Position,
     ) -> Option<(SrcPos, EntRef<'a>)> {
-        let mut searcher = ItemAtCursor::new(cursor);
+        let mut searcher = ItemAtCursor::new(self, cursor);
 
         for unit in self.units_by_source(source) {
             let _ = unit
@@ -420,9 +420,8 @@ impl DesignRoot {
                 .expect_analyzed()
                 .search(&unit.tokens, &mut searcher);
 
-            if let Some((pos, id)) = searcher.result {
-                let ent = self.get_ent(id);
-                return Some((pos, ent));
+            if searcher.result.is_some() {
+                return searcher.result;
             }
         }
 

@@ -1353,14 +1353,16 @@ impl Search for SubprogramInstantiation {
 }
 
 // Search for reference to declaration/definition at cursor
-pub struct ItemAtCursor {
+pub struct ItemAtCursor<'a> {
+    root: &'a DesignRoot,
     cursor: Position,
-    pub result: Option<(SrcPos, EntityId)>,
+    pub result: Option<(SrcPos, EntRef<'a>)>,
 }
 
-impl ItemAtCursor {
-    pub fn new(cursor: Position) -> ItemAtCursor {
+impl<'a> ItemAtCursor<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> Self {
         ItemAtCursor {
+            root,
             cursor,
             result: None,
         }
@@ -1372,21 +1374,17 @@ impl ItemAtCursor {
         pos.start() <= self.cursor && self.cursor <= pos.end()
     }
 
-    fn search_decl_pos(&mut self, pos: &SrcPos, decl: &FoundDeclaration) -> SearchState {
+    fn search_decl_pos(&mut self, pos: &SrcPos, ent: EntRef<'a>) -> SearchState {
         if self.is_inside(pos) {
-            if let Some(id) = decl.ent_id() {
-                self.result = Some((pos.clone(), id));
-                Finished(Found)
-            } else {
-                Finished(NotFound)
-            }
+            self.result = Some((pos.clone(), ent));
+            Finished(Found)
         } else {
             NotFinished
         }
     }
 }
 
-impl Searcher for ItemAtCursor {
+impl<'a> Searcher for ItemAtCursor<'a> {
     fn search_with_pos(&mut self, _ctx: &dyn TokenAccess, pos: &SrcPos) -> SearchState {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
@@ -1398,16 +1396,20 @@ impl Searcher for ItemAtCursor {
     }
 
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        let pos = decl.pos();
-        if let Finished(res) = self.search_decl_pos(pos, &decl) {
-            return Finished(res);
-        }
+        if let Some(id) = decl.ent_id() {
+            let ent = self.root.get_ent(id);
 
-        if let Some(end_pos) = decl.end_ident_pos() {
-            self.search_decl_pos(end_pos, &decl)
-        } else {
-            NotFinished
+            if let Some(decl_pos) = ent.decl_pos() {
+                if let Finished(res) = self.search_decl_pos(decl_pos, ent) {
+                    return Finished(res);
+                }
+            }
+
+            if let Some(end_pos) = decl.end_ident_pos() {
+                return self.search_decl_pos(end_pos, ent);
+            }
         }
+        NotFinished
     }
 
     fn search_pos_with_ref(
@@ -1418,7 +1420,7 @@ impl Searcher for ItemAtCursor {
     ) -> SearchState {
         if self.is_inside(pos) {
             if let Some(id) = reference.get() {
-                self.result = Some((pos.clone(), id));
+                self.result = Some((pos.clone(), self.root.get_ent(id)));
                 Finished(Found)
             } else {
                 Finished(NotFound)
@@ -1597,7 +1599,9 @@ impl<'a> Searcher for FindAllReferences<'a> {
             let other = self.root.get_ent(id);
 
             if is_reference(self.ent, other) {
-                self.references.push(decl.pos().clone());
+                if let Some(decl_pos) = other.decl_pos() {
+                    self.references.push(decl_pos.clone());
+                }
                 if let Some(pos) = decl.end_ident_pos() {
                     self.references.push(pos.clone());
                 }
@@ -1733,42 +1737,6 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::GenerateBody(value) => value.decl.get(),
             FoundDeclaration::ConcurrentStatement(_, value) => value.get(),
             FoundDeclaration::SequentialStatement(_, value) => value.get(),
-        }
-    }
-}
-
-impl<'a> HasSrcPos for FoundDeclaration<'a> {
-    fn pos(&self) -> &SrcPos {
-        match self {
-            FoundDeclaration::InterfaceObject(value) => value.ident.pos(),
-            FoundDeclaration::ForIndex(ident, _) => ident.pos(),
-            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.pos(),
-            FoundDeclaration::Subprogram(value) => &value.specification.subpgm_designator().pos,
-            FoundDeclaration::SubprogramDecl(value) => &value.subpgm_designator().pos,
-            FoundDeclaration::SubprogramInstantiation(value) => &value.ident.tree.pos,
-            FoundDeclaration::Object(value) => value.ident.pos(),
-            FoundDeclaration::ElementDeclaration(elem) => elem.ident.pos(),
-            FoundDeclaration::EnumerationLiteral(_, elem) => &elem.tree.pos,
-            FoundDeclaration::File(value) => value.ident.pos(),
-            FoundDeclaration::Type(value) => value.ident.pos(),
-            FoundDeclaration::InterfaceType(value) => value.pos(),
-            FoundDeclaration::InterfacePackage(value) => value.ident.pos(),
-            FoundDeclaration::InterfaceFile(value) => value.ident.pos(),
-            FoundDeclaration::PhysicalTypePrimary(value) => value.pos(),
-            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.as_ref(),
-            FoundDeclaration::Component(value) => value.ident.pos(),
-            FoundDeclaration::Alias(value) => &value.designator.tree.pos,
-            FoundDeclaration::Attribute(value) => value.ident.pos(),
-            FoundDeclaration::Package(value) => value.ident.pos(),
-            FoundDeclaration::PackageBody(value) => value.ident.pos(),
-            FoundDeclaration::PackageInstance(value) => value.ident.pos(),
-            FoundDeclaration::Configuration(value) => value.ident.pos(),
-            FoundDeclaration::Entity(value) => value.ident.pos(),
-            FoundDeclaration::Architecture(value) => value.ident.pos(),
-            FoundDeclaration::Context(value) => value.ident.pos(),
-            FoundDeclaration::GenerateBody(value) => value.pos(),
-            FoundDeclaration::ConcurrentStatement(value, _) => value.pos(),
-            FoundDeclaration::SequentialStatement(value, _) => value.pos(),
         }
     }
 }
