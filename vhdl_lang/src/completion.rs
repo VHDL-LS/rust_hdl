@@ -1,8 +1,7 @@
 use crate::analysis::DesignRoot;
-use crate::ast::visitor::{Visitor, VisitorResult};
+use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
 use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Designator, InstantiationStatement, MapAspect,
-    ObjectClass, PackageInstantiation,
+    AnyDesignUnit, AnyPrimaryUnit, ConcurrentStatement, Designator, MapAspect, ObjectClass,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, HasEntityId, NamedEntities, Region};
@@ -112,15 +111,15 @@ impl DesignRoot {
 }
 
 /// Visitor responsible for completions in selected AST elements
-struct AutocompletionVisitor<'a> {
+struct AutocompletionSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
 }
 
-impl<'a> AutocompletionVisitor<'a> {
-    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionVisitor<'a> {
-        AutocompletionVisitor {
+impl<'a> AutocompletionSearcher<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionSearcher<'a> {
+        AutocompletionSearcher {
             root,
             cursor,
             completions: Vec::new(),
@@ -156,76 +155,49 @@ impl<'a> AutocompletionVisitor<'a> {
     }
 }
 
-impl<'a> Visitor for AutocompletionVisitor<'a> {
+impl<'a> Searcher for AutocompletionSearcher<'a> {
     /// Visit an instantiation statement extracting completions for ports or generics.
-    fn visit_instantiation_statement(
-        &mut self,
-        node: &InstantiationStatement,
-        ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if let Some(map) = &node.generic_map {
-            if self.load_completions_for_map_aspect(
-                node.entity_reference(),
-                map,
-                ctx,
-                MapAspectKind::Generic,
-            ) {
-                return VisitorResult::Stop;
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+        match decl {
+            FoundDeclaration::ConcurrentStatement(stmt) => {
+                if let ConcurrentStatement::Instance(inst) = &stmt.statement.item {
+                    if let Some(map) = &inst.generic_map {
+                        if self.load_completions_for_map_aspect(
+                            inst.entity_reference(),
+                            map,
+                            ctx,
+                            MapAspectKind::Generic,
+                        ) {
+                            return SearchState::Finished(SearchResult::Found);
+                        }
+                    }
+                    if let Some(map) = &inst.port_map {
+                        if self.load_completions_for_map_aspect(
+                            inst.entity_reference(),
+                            map,
+                            ctx,
+                            MapAspectKind::Port,
+                        ) {
+                            return SearchState::Finished(SearchResult::Found);
+                        }
+                    }
+                }
             }
-        }
-        if let Some(map) = &node.port_map {
-            if self.load_completions_for_map_aspect(
-                node.entity_reference(),
-                map,
-                ctx,
-                MapAspectKind::Port,
-            ) {
-                return VisitorResult::Stop;
+            FoundDeclaration::PackageInstance(inst) => {
+                if let Some(map) = &inst.generic_map {
+                    if self.load_completions_for_map_aspect(
+                        inst.package_name.item.reference(),
+                        map,
+                        ctx,
+                        MapAspectKind::Generic,
+                    ) {
+                        return SearchState::Finished(SearchResult::Found);
+                    }
+                }
             }
+            _ => {}
         }
-        VisitorResult::Skip
-    }
-
-    fn visit_package_instantiation(
-        &mut self,
-        node: &PackageInstantiation,
-        ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if let Some(map) = &node.generic_map {
-            if self.load_completions_for_map_aspect(
-                node.package_name.item.reference(),
-                map,
-                ctx,
-                MapAspectKind::Generic,
-            ) {
-                return VisitorResult::Stop;
-            }
-        }
-        VisitorResult::Skip
-    }
-
-    // preliminary optimizations: only visit architecture
-    fn visit_any_primary_unit(
-        &mut self,
-        node: &AnyPrimaryUnit,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        match node {
-            AnyPrimaryUnit::PackageInstance(_) => VisitorResult::Continue,
-            _ => VisitorResult::Skip,
-        }
-    }
-
-    // preliminary optimizations: only visit architecture
-    fn visit_any_secondary_unit(
-        &mut self,
-        node: &AnySecondaryUnit,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        match node {
-            AnySecondaryUnit::Architecture(_) => VisitorResult::Continue,
-            AnySecondaryUnit::PackageBody(_) => VisitorResult::Skip,
-        }
+        SearchState::NotFinished
     }
 }
 
@@ -354,9 +326,9 @@ pub fn list_completion_options<'a>(
             list_available_declarations(root, library, selected)
         }
         [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
-            let mut visitor = AutocompletionVisitor::new(root, cursor);
-            root.walk_source(source, &mut visitor);
-            visitor.completions
+            let mut searcher = AutocompletionSearcher::new(root, cursor);
+            let _ = root.search_source(source, &mut searcher);
+            searcher.completions
         }
         _ => {
             vec![]

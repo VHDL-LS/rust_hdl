@@ -11,7 +11,6 @@ use super::standard::UniversalTypes;
 use crate::named_entity::*;
 
 use crate::ast::search::*;
-use crate::ast::visitor::{walk, Visitor};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::{Symbols, Token, TokenAccess};
@@ -680,11 +679,12 @@ impl DesignRoot {
             })
     }
 
-    /// Walks all units in a source file denoted by `source`.
-    pub fn walk_source(&self, source: &Source, visitor: &mut impl Visitor) {
+    /// Search all units in a source file denoted by `source`.
+    pub fn search_source(&self, source: &Source, searcher: &mut impl Searcher) -> SearchResult {
         for unit in self.units_by_source(source) {
-            walk(unit.unit.expect_analyzed().data(), visitor, &unit.tokens);
+            return_if_found!(unit.unit.expect_analyzed().search(&unit.tokens, searcher));
         }
+        NotFound
     }
 
     pub fn search_library(
