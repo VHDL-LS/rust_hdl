@@ -17,7 +17,6 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
-pub mod visitor;
 
 pub use self::display::*;
 pub(crate) use self::util::*;
