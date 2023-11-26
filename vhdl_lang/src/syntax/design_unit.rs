@@ -369,12 +369,19 @@ end entity myent;
 
     #[test]
     fn parse_entity_generic_clause() {
-        let (code, design_file) = parse_ok(
+        let (code, design_file, diagnostics) = parse_str(
             "
 entity myent is
   generic ();
 end entity;
 ",
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("()"),
+                "Interface list must not be empty",
+            )],
         );
         assert_eq!(
             to_single_entity(design_file),
@@ -419,12 +426,19 @@ end entity;
 
     #[test]
     fn parse_entity_port_clause() {
-        let (code, design_file) = parse_ok(
+        let (code, design_file, diagnostics) = parse_str(
             "
 entity myent is
   port ();
 end entity;
 ",
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("()"),
+                "Interface list must not be empty",
+            )],
         );
         assert_eq!(
             to_single_entity(design_file),
