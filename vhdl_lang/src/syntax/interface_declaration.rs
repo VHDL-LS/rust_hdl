@@ -287,12 +287,18 @@ fn parse_interface_list(
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let mut interface_list = Vec::new();
 
-    stream.expect_kind(LeftPar)?;
+    let left_par = stream.expect_kind(LeftPar)?;
 
     'outer: loop {
         let token = stream.peek_expect()?;
         match token.kind {
             RightPar => {
+                if interface_list.is_empty() {
+                    diagnostics.error(
+                        stream.get_pos(left_par).combine(token),
+                        "Interface list must not be empty",
+                    );
+                }
                 stream.skip();
                 break;
             }
@@ -407,6 +413,8 @@ pub fn parse_parameter_list(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::tests::check_diagnostics;
+    use crate::syntax::subprogram::parse_subprogram_declaration;
     use crate::syntax::test::Code;
     use crate::syntax::tokens::kinds_error;
 
@@ -898,6 +906,41 @@ package foo is new lib.pkg
                 package_name: code.s1("lib.pkg").selected_name(),
                 generic_map: InterfacePackageGenericMapAspect::Default
             })
+        );
+    }
+
+    #[test]
+    fn interface_declaration_cannot_be_empty() {
+        let code = Code::new(
+            "\
+function foo() return bit;
+",
+        );
+        let (res, diag) = code.with_partial_stream_diagnostics(parse_subprogram_declaration);
+        check_diagnostics(
+            diag,
+            vec![Diagnostic::error(
+                code.s1("()"),
+                "Interface list must not be empty",
+            )],
+        );
+        assert_eq!(
+            res.expect("Expected declaration"),
+            SubprogramDeclaration {
+                span: code.token_span(),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: vec![],
+                    return_type: code.s1("bit").type_mark()
+                })
+            }
         );
     }
 }

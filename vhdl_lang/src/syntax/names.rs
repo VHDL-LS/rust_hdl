@@ -408,6 +408,12 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
             }
             LeftPar => {
                 stream.skip();
+                if let Some(right_par) = stream.pop_if_kind(RightPar) {
+                    return Err(Diagnostic::error(
+                        token.pos.combine(stream.get_pos(right_par)),
+                        "Association list cannot be empty",
+                    ));
+                }
                 let assoc = parse_association_element(stream)?;
                 expect_token!(
                     stream,
@@ -1189,6 +1195,19 @@ mod tests {
         );
         assert!(list.0.tokens.is_empty());
         assert!(list.0.items.is_empty());
+    }
+
+    #[test]
+    fn empty_association_list_in_name_diagnostic() {
+        let code = Code::new("foo()");
+        let res = code.parse(parse_name);
+        assert_eq!(
+            res,
+            Err(Diagnostic::error(
+                code.s1("()"),
+                "Association list cannot be empty"
+            ))
+        );
     }
 
     #[test]
