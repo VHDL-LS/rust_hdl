@@ -6,7 +6,6 @@
 
 use super::names::*;
 use super::*;
-use crate::analysis::types::find_full_type_definition;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
@@ -1029,4 +1028,25 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             Design::Context(_) => None,
         },
     }
+}
+
+fn find_full_type_definition<'a>(
+    name: &Symbol,
+    decls: &'a [Declaration],
+) -> Option<&'a TypeDeclaration> {
+    for decl in decls.iter() {
+        if let Declaration::Type(type_decl) = decl {
+            match type_decl.def {
+                TypeDefinition::Incomplete(..) => {
+                    // ignored
+                }
+                _ => {
+                    if type_decl.ident.name() == name {
+                        return Some(type_decl);
+                    }
+                }
+            }
+        }
+    }
+    None
 }

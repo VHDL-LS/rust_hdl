@@ -624,24 +624,3 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 }
-
-pub(crate) fn find_full_type_definition<'a>(
-    name: &Symbol,
-    decls: &'a [Declaration],
-) -> Option<&'a TypeDeclaration> {
-    for decl in decls.iter() {
-        if let Declaration::Type(type_decl) = decl {
-            match type_decl.def {
-                TypeDefinition::Incomplete(..) => {
-                    // ignored
-                }
-                _ => {
-                    if type_decl.ident.name() == name {
-                        return Some(type_decl);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
