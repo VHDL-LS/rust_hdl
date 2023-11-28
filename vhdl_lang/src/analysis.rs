@@ -24,7 +24,9 @@ mod semantic;
 mod sequential;
 mod standard;
 mod static_expression;
+mod subprogram;
 mod target;
+mod types;
 
 #[cfg(test)]
 pub(crate) mod tests;
