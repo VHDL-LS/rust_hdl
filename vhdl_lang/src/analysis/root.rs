@@ -461,6 +461,7 @@ impl DesignRoot {
                     }
                     // Find components and architectures to entity
                     AnyEntKind::Design(Design::Entity(..)) => {
+                        let ent_id = ent.id;
                         let mut searcher = FindAllEnt::new(self, |ent| match ent.kind() {
                             // Find all components with same name as entity in the library
                             AnyEntKind::Component(_) => {
@@ -470,11 +471,8 @@ impl DesignRoot {
                                 )
                             },
                             // Find all architectures which implement the entity
-                            AnyEntKind::Design(Design::Architecture(a)) => {
-                                matches!(
-                                    a.designator(),
-                                    Designator::Identifier(ent_ident) if ent_ident == ident
-                                )
+                            AnyEntKind::Design(Design::Architecture(ent_of_arch)) => {
+                                ent_of_arch.id == ent_id
                             }
                             _ => false,
                         });
