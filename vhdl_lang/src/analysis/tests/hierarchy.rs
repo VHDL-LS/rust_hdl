@@ -309,11 +309,14 @@ end architecture;
     let ent = root
         .search_reference(code.source(), code.s1("ent0").start())
         .unwrap();
+    let arch = root
+        .search_reference(code.source(), code.s1("a ").start())
+        .unwrap();
     let comp = root
         .search_reference(code.source(), code.sa("component ", "ent0").start())
         .unwrap();
 
-    assert_eq!(root.find_implementation(ent), vec![comp]);
+    assert_eq!(root.find_implementation(ent), vec![arch, comp]);
     assert_eq!(root.find_implementation(comp), vec![ent]);
 }
 
