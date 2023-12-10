@@ -1610,27 +1610,36 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<NamedEntities<'a>> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<NamedEntities<'a>> {
         match name.item {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 let prefix_ent = self
-                    .resolve_selected_name(scope, prefix)?
+                    .resolve_selected_name(scope, prefix, diagnostics)?
                     .into_non_overloaded();
                 if let Ok(prefix_ent) = prefix_ent {
-                    let visible = self.lookup_selected(&prefix.pos, prefix_ent, suffix)?;
+                    let visible = catch_analysis_err(
+                        self.lookup_selected(&prefix.pos, prefix_ent, suffix),
+                        diagnostics,
+                    )?;
                     suffix.set_reference(&visible);
                     return Ok(visible);
                 };
 
-                Err(AnalysisError::NotFatal(Diagnostic::error(
-                    &prefix.pos,
-                    "Invalid prefix for selected name",
-                )))
+                diagnostics.error(&prefix.pos, "Invalid prefix for selected name");
+                Err(EvalError::Unknown)
             }
             SelectedName::Designator(ref mut designator) => {
-                let visible = scope.lookup(&name.pos, designator.designator())?;
-                designator.set_reference(&visible);
-                Ok(visible)
+                match scope.lookup(&name.pos, designator.designator()) {
+                    Ok(visible) => {
+                        designator.set_reference(&visible);
+                        Ok(visible)
+                    }
+                    Err(err) => {
+                        diagnostics.push(err);
+                        Err(EvalError::Unknown)
+                    }
+                }
             }
         }
     }

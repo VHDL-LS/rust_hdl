@@ -92,26 +92,23 @@ impl<'a> AnalyzeContext<'a> {
         self.add_implicit_context_clause(&root_region)?;
         self.analyze_context_clause(&root_region, &mut unit.context_clause, diagnostics)?;
 
-        match self.lookup_entity_for_configuration(&root_region, unit) {
-            Ok(named_entity) => {
-                if let Some(primary_pos) = named_entity.decl_pos() {
-                    let secondary_pos = unit.pos();
-                    if primary_pos.source == secondary_pos.source
-                        && primary_pos.start() > secondary_pos.start()
-                    {
-                        diagnostics.push(Diagnostic::error(
-                            secondary_pos,
-                            capitalize(&format!(
-                                "{} declared before {}",
-                                self.current_unit_id().describe(),
-                                named_entity.describe()
-                            )),
-                        ));
-                    }
+        if let Some(named_entity) =
+            as_fatal(self.lookup_entity_for_configuration(&root_region, unit, diagnostics))?
+        {
+            if let Some(primary_pos) = named_entity.decl_pos() {
+                let secondary_pos = unit.pos();
+                if primary_pos.source == secondary_pos.source
+                    && primary_pos.start() > secondary_pos.start()
+                {
+                    diagnostics.push(Diagnostic::error(
+                        secondary_pos,
+                        capitalize(&format!(
+                            "{} declared before {}",
+                            self.current_unit_id().describe(),
+                            named_entity.describe()
+                        )),
+                    ));
                 }
-            }
-            Err(err) => {
-                err.add_to(diagnostics)?;
             }
         };
 
@@ -358,10 +355,11 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<DesignEnt> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<DesignEnt> {
         let ent_name = &mut config.entity_name;
 
-        match ent_name.item {
+        let res = match ent_name.item {
             // Entitities are implicitly defined for configurations
             // configuration cfg of ent
             SelectedName::Designator(ref mut designator) => self.lookup_in_library(
@@ -376,7 +374,7 @@ impl<'a> AnalyzeContext<'a> {
 
             // configuration cfg of lib.ent
             SelectedName::Selected(ref mut prefix, ref mut designator) => {
-                self.resolve_selected_name(scope, prefix)?
+                self.resolve_selected_name(scope, prefix, diagnostics)?
                     .into_non_overloaded()
                     .map_err(|ent|
                              AnalysisError::not_fatal_error(
@@ -415,7 +413,8 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     })
             }
-        }
+        };
+        catch_analysis_err(res, diagnostics)
     }
 
     fn resolve_context_item_prefix(
@@ -621,8 +620,7 @@ impl<'a> AnalyzeContext<'a> {
         package_name: &mut WithPos<SelectedName>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<&'a Region<'a>> {
-        let decl =
-            catch_analysis_err(self.resolve_selected_name(scope, package_name), diagnostics)?;
+        let decl = self.resolve_selected_name(scope, package_name, diagnostics)?;
 
         if let AnyEntKind::Design(Design::UninstPackage(_, ref package_region)) = decl.first_kind()
         {

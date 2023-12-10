@@ -42,13 +42,23 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<TypeEnt<'a>> {
-        let entities = self.resolve_selected_name(scope, type_mark)?;
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        let entities = self.resolve_selected_name(scope, type_mark, diagnostics)?;
 
         let pos = type_mark.suffix_pos();
         let expected = "type";
-        let ent = self.resolve_non_overloaded(entities, pos, expected)?;
-        TypeEnt::from_any(ent).ok_or_else(|| AnalysisError::NotFatal(ent.kind_error(pos, expected)))
+        let ent = catch_analysis_err(
+            self.resolve_non_overloaded(entities, pos, expected),
+            diagnostics,
+        )?;
+        match TypeEnt::from_any(ent) {
+            None => {
+                diagnostics.push(ent.kind_error(pos, expected));
+                Err(EvalError::Unknown)
+            }
+            Some(type_ent) => Ok(type_ent),
+        }
     }
 
     pub fn resolve_type_mark(
@@ -58,10 +68,8 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         if let Some(attr) = &type_mark.item.attr {
-            let entities = catch_analysis_err(
-                self.resolve_selected_name(scope, &mut type_mark.item.name),
-                diagnostics,
-            )?;
+            let entities =
+                self.resolve_selected_name(scope, &mut type_mark.item.name, diagnostics)?;
 
             let pos = type_mark.item.name.suffix_pos();
 
@@ -102,10 +110,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         } else {
-            catch_analysis_err(
-                self.resolve_type_mark_name(scope, &mut type_mark.item.name),
-                diagnostics,
-            )
+            self.resolve_type_mark_name(scope, &mut type_mark.item.name, diagnostics)
         }
     }
 
