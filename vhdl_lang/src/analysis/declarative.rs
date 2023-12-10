@@ -841,8 +841,9 @@ impl<'a> AnalyzeContext<'a> {
                 ent.into()
             }
             InterfaceDeclaration::Package(ref mut instance) => {
-                let package_region = catch_analysis_err(
-                    self.analyze_package_instance_name(scope, &mut instance.package_name),
+                let package_region = self.analyze_package_instance_name(
+                    scope,
+                    &mut instance.package_name,
                     diagnostics,
                 )?;
 

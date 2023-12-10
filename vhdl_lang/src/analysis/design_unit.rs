@@ -619,17 +619,20 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         package_name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<&'a Region<'a>> {
-        let decl = self.resolve_selected_name(scope, package_name)?;
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<&'a Region<'a>> {
+        let decl =
+            catch_analysis_err(self.resolve_selected_name(scope, package_name), diagnostics)?;
 
         if let AnyEntKind::Design(Design::UninstPackage(_, ref package_region)) = decl.first_kind()
         {
             Ok(package_region)
         } else {
-            Err(AnalysisError::not_fatal_error(
+            diagnostics.error(
                 &package_name.pos,
                 format!("'{package_name}' is not an uninstantiated generic package"),
-            ))
+            );
+            Err(EvalError::Unknown)
         }
     }
 }
