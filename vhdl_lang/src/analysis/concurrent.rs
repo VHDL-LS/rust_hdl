@@ -264,16 +264,14 @@ impl<'a> AnalyzeContext<'a> {
                     as_fatal(self.resolve_selected_name(scope, entity_name, diagnostics))?
                 {
                     let expected = "entity";
-                    let ent = match self.resolve_non_overloaded(
+                    let ent = match as_fatal(self.resolve_non_overloaded(
                         entities,
                         entity_name.suffix_pos(),
                         expected,
-                    ) {
-                        Ok(ent) => ent,
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                            return Ok(());
-                        }
+                        diagnostics,
+                    ))? {
+                        Some(ent) => ent,
+                        None => return Ok(()),
                     };
 
                     if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
@@ -337,14 +335,14 @@ impl<'a> AnalyzeContext<'a> {
                     return Ok(());
                 };
                 let expected = "component";
-                let ent = match self.resolve_non_overloaded(
+                let ent = match as_fatal(self.resolve_non_overloaded(
                     entities,
                     component_name.suffix_pos(),
                     expected,
-                ) {
-                    Ok(ent) => ent,
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
+                    diagnostics,
+                ))? {
+                    Some(ent) => ent,
+                    None => {
                         return Ok(());
                     }
                 };
@@ -389,15 +387,15 @@ impl<'a> AnalyzeContext<'a> {
                 else {
                     return Ok(());
                 };
-                let _ = match self.resolve_non_overloaded_with_kind(
+                let _ = match as_fatal(self.resolve_non_overloaded_with_kind(
                     entities,
                     config_name.suffix_pos(),
                     &is_configuration,
                     "configuration",
-                ) {
-                    Ok(ent) => ent,
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
+                    diagnostics,
+                ))? {
+                    Some(ent) => ent,
+                    None => {
                         return Ok(());
                     }
                 };

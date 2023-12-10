@@ -19,12 +19,14 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         kind_ok: &impl Fn(&AnyEntKind) -> bool,
         expected: &str,
-    ) -> AnalysisResult<EntRef<'a>> {
-        let ent = self.resolve_non_overloaded(named_entities, pos, expected)?;
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<EntRef<'a>> {
+        let ent = self.resolve_non_overloaded(named_entities, pos, expected, diagnostics)?;
         if kind_ok(ent.actual_kind()) {
             Ok(ent)
         } else {
-            Err(AnalysisError::NotFatal(ent.kind_error(pos, expected)))
+            diagnostics.push(ent.kind_error(pos, expected));
+            Err(EvalError::Unknown)
         }
     }
 
@@ -33,9 +35,13 @@ impl<'a> AnalyzeContext<'a> {
         named_entities: NamedEntities<'a>,
         pos: &SrcPos,
         expected: &str,
-    ) -> AnalysisResult<EntRef<'a>> {
-        Ok(named_entities
-            .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name"))?)
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<EntRef<'a>> {
+        catch_diagnostic(
+            named_entities
+                .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name")),
+            diagnostics,
+        )
     }
 
     pub fn resolve_type_mark_name(
@@ -48,10 +54,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let pos = type_mark.suffix_pos();
         let expected = "type";
-        let ent = catch_analysis_err(
-            self.resolve_non_overloaded(entities, pos, expected),
-            diagnostics,
-        )?;
+        let ent = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
         match TypeEnt::from_any(ent) {
             None => {
                 diagnostics.push(ent.kind_error(pos, expected));
@@ -79,10 +82,7 @@ impl<'a> AnalyzeContext<'a> {
                 "object or alias"
             };
 
-            let named_entity = catch_analysis_err(
-                self.resolve_non_overloaded(entities, pos, expected),
-                diagnostics,
-            )?;
+            let named_entity = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
 
             let typ = match named_entity.kind() {
                 AnyEntKind::Object(obj) => obj.subtype.type_mark(),
