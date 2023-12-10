@@ -24,7 +24,7 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = subtype_indication;
 
-        let base_type = catch_analysis_err(self.resolve_type_mark(scope, type_mark), diagnostics)?;
+        let base_type = self.resolve_type_mark(scope, type_mark, diagnostics)?;
 
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
@@ -179,18 +179,17 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            match self.subprogram_specification(
+                            match as_fatal(self.subprogram_specification(
                                 scope,
                                 ptype,
                                 &mut subprogram.specification,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
-                            ) {
-                                Ok((_, ent)) => {
+                            ))? {
+                                Some((_, ent)) => {
                                     region.add(ent.into(), diagnostics);
                                 }
-                                Err(err) => {
-                                    diagnostics.push(err.into_non_fatal()?);
+                                None => {
                                     return Ok(());
                                 }
                             }
@@ -450,18 +449,14 @@ impl<'a> AnalyzeContext<'a> {
                     Type::File,
                 );
 
-                match self.resolve_type_mark(scope, type_mark) {
-                    Ok(type_mark) => {
-                        for ent in self.create_implicit_file_type_subprograms(file_type, type_mark)
-                        {
-                            unsafe {
-                                self.arena.add_implicit(file_type.id(), ent);
-                            }
-                            scope.add(ent, diagnostics);
+                if let Some(type_mark) =
+                    as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?
+                {
+                    for ent in self.create_implicit_file_type_subprograms(file_type, type_mark) {
+                        unsafe {
+                            self.arena.add_implicit(file_type.id(), ent);
                         }
-                    }
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
+                        scope.add(ent, diagnostics);
                     }
                 }
 

@@ -271,28 +271,20 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
                         // TODO: Uninstantiated subprogram in aliases
-                        match self.resolve_signature(scope, signature) {
-                            Ok(signature_key) => {
-                                if let Some(ent) =
-                                    overloaded.get(&SubprogramKey::Normal(signature_key))
-                                {
-                                    if let Some(reference) = name.item.suffix_reference_mut() {
-                                        reference.set_unique_reference(&ent);
-                                    }
-                                    AnyEntKind::Overloaded(Overloaded::Alias(ent))
-                                } else {
-                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                        &des.pos,
-                                        &des.item,
-                                        &overloaded,
-                                    ));
-                                    return Err(EvalError::Unknown);
-                                }
+                        let signature_key =
+                            self.resolve_signature(scope, signature, diagnostics)?;
+                        if let Some(ent) = overloaded.get(&SubprogramKey::Normal(signature_key)) {
+                            if let Some(reference) = name.item.suffix_reference_mut() {
+                                reference.set_unique_reference(&ent);
                             }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
-                                return Err(EvalError::Unknown);
-                            }
+                            AnyEntKind::Overloaded(Overloaded::Alias(ent))
+                        } else {
+                            diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                &des.pos,
+                                &des.item,
+                                &overloaded,
+                            ));
+                            return Err(EvalError::Unknown);
                         }
                     } else {
                         diagnostics.push(Diagnostic::signature_required(name));
@@ -456,20 +448,19 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    match self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
-                        Ok(typ) => {
-                            scope.add(
-                                self.arena.define(
-                                    &mut attr_decl.ident,
-                                    parent,
-                                    AnyEntKind::Attribute(typ),
-                                ),
-                                diagnostics,
-                            );
-                        }
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                        }
+                    if let Some(typ) = as_fatal(self.resolve_type_mark(
+                        scope,
+                        &mut attr_decl.type_mark,
+                        diagnostics,
+                    ))? {
+                        scope.add(
+                            self.arena.define(
+                                &mut attr_decl.ident,
+                                parent,
+                                AnyEntKind::Attribute(typ),
+                            ),
+                            diagnostics,
+                        );
                     }
                 }
                 Attribute::Specification(ref mut attr_spec) => {
@@ -477,16 +468,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let (subpgm_region, subpgm_ent) = match self.subprogram_specification(
+                let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
                     scope,
                     parent,
                     &mut body.specification,
                     Overloaded::Subprogram,
                     diagnostics,
-                ) {
-                    Ok(r) => r,
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
+                ))? {
+                    Some(r) => r,
+                    None => {
                         return Ok(());
                     }
                 };
@@ -514,18 +504,17 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                match self.subprogram_specification(
+                match as_fatal(self.subprogram_specification(
                     scope,
                     parent,
                     &mut subdecl.specification,
                     Overloaded::SubprogramDecl,
                     diagnostics,
-                ) {
-                    Ok((_, ent)) => {
+                ))? {
+                    Some((_, ent)) => {
                         scope.add(ent.into(), diagnostics);
                     }
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
+                    None => {
                         return Ok(());
                     }
                 }
@@ -546,22 +535,18 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.generic_subprogram_instance(
+                    if let Some(signature) = as_fatal(self.generic_subprogram_instance(
                         scope,
                         &subpgm_ent,
                         &name,
                         instance,
                         diagnostics,
-                    ) {
-                        Ok(signature) => {
-                            unsafe {
-                                subpgm_ent.set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(
-                                    signature,
-                                )))
-                            }
-                            scope.add(subpgm_ent, diagnostics)
+                    ))? {
+                        unsafe {
+                            subpgm_ent
+                                .set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(signature)))
                         }
-                        Err(err) => err.add_to(diagnostics)?,
+                        scope.add(subpgm_ent, diagnostics)
                     }
                 }
             }
@@ -676,8 +661,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(NamedEntities::Overloaded(overloaded)) => {
                     if let Some(signature) = signature {
-                        match self.resolve_signature(scope, signature) {
-                            Ok(signature_key) => {
+                        match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
+                            Some(signature_key) => {
                                 if let Some(ent) =
                                     overloaded.get(&SubprogramKey::Normal(signature_key))
                                 {
@@ -692,8 +677,7 @@ impl<'a> AnalyzeContext<'a> {
                                     return Ok(());
                                 }
                             }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
+                            None => {
                                 return Ok(());
                             }
                         }
@@ -847,14 +831,11 @@ impl<'a> AnalyzeContext<'a> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let (_, ent) = catch_analysis_err(
-                    self.subprogram_specification(
-                        scope,
-                        parent,
-                        subpgm,
-                        Overloaded::InterfaceSubprogram,
-                        diagnostics,
-                    ),
+                let (_, ent) = self.subprogram_specification(
+                    scope,
+                    parent,
+                    subpgm,
+                    Overloaded::InterfaceSubprogram,
                     diagnostics,
                 )?;
                 ent.into()
@@ -919,15 +900,9 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
         match array_index {
-            ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                match self.resolve_type_mark(scope, type_mark) {
-                    Ok(typ) => Ok(typ.base()),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
+            ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => self
+                .resolve_type_mark(scope, type_mark, diagnostics)
+                .map(|typ| typ.base()),
             ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
         }
     }

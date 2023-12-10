@@ -236,14 +236,9 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<BaseType<'a>> {
         let typ = match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                let typ = match self.resolve_type_mark(scope, type_mark) {
-                    Ok(typ) => typ.base(),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                        return Err(EvalError::Unknown);
-                    }
-                };
-
+                let typ = self
+                    .resolve_type_mark(scope, type_mark, diagnostics)?
+                    .base();
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, typ.into(), range, diagnostics)?;
                 }
@@ -353,9 +348,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark(scope, type_mark) {
-                    err.add_to(diagnostics)?;
-                }
+                let _ = as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?;
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, target_type, range, diagnostics)?;
                 }

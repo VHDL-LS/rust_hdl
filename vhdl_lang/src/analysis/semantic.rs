@@ -55,9 +55,13 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         type_mark: &mut WithPos<TypeMark>,
-    ) -> AnalysisResult<TypeEnt<'a>> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
         if let Some(attr) = &type_mark.item.attr {
-            let entities = self.resolve_selected_name(scope, &mut type_mark.item.name)?;
+            let entities = catch_analysis_err(
+                self.resolve_selected_name(scope, &mut type_mark.item.name),
+                diagnostics,
+            )?;
 
             let pos = type_mark.item.name.suffix_pos();
 
@@ -67,7 +71,10 @@ impl<'a> AnalyzeContext<'a> {
                 "object or alias"
             };
 
-            let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
+            let named_entity = catch_analysis_err(
+                self.resolve_non_overloaded(entities, pos, expected),
+                diagnostics,
+            )?;
 
             let typ = match named_entity.kind() {
                 AnyEntKind::Object(obj) => obj.subtype.type_mark(),
@@ -77,9 +84,8 @@ impl<'a> AnalyzeContext<'a> {
                     TypeEnt::from_any(named_entity).unwrap()
                 }
                 _ => {
-                    return Err(AnalysisError::NotFatal(
-                        named_entity.kind_error(pos, expected),
-                    ))
+                    diagnostics.push(named_entity.kind_error(pos, expected));
+                    return Err(EvalError::Unknown);
                 }
             };
 
@@ -89,16 +95,17 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some((elem_type, _)) = typ.array_type() {
                         Ok(elem_type)
                     } else {
-                        Err(Diagnostic::error(
-                            pos,
-                            format!("array type expected for '{attr} attribute",),
-                        )
-                        .into())
+                        diagnostics
+                            .error(pos, format!("array type expected for '{attr} attribute",));
+                        Err(EvalError::Unknown)
                     }
                 }
             }
         } else {
-            self.resolve_type_mark_name(scope, &mut type_mark.item.name)
+            catch_analysis_err(
+                self.resolve_type_mark_name(scope, &mut type_mark.item.name),
+                diagnostics,
+            )
         }
     }
 

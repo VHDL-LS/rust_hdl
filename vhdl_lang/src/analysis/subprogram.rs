@@ -40,7 +40,7 @@ impl<'a> AnalyzeContext<'a> {
         subprogram: &mut SubprogramSpecification,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<(Scope<'a>, OverloadedEnt<'a>)> {
+    ) -> EvalResult<(Scope<'a>, OverloadedEnt<'a>)> {
         let subpgm_region = scope.nested();
         let ent = self.arena.explicit(
             subprogram
@@ -66,7 +66,8 @@ impl<'a> AnalyzeContext<'a> {
                     &mut fun.parameter_list,
                     diagnostics,
                 );
-                let return_type = self.resolve_type_mark(&subpgm_region, &mut fun.return_type);
+                let return_type =
+                    self.resolve_type_mark(&subpgm_region, &mut fun.return_type, diagnostics);
                 (Signature::new(params?, Some(return_type?)), generic_map)
             }
             SubprogramSpecification::Procedure(procedure) => {
@@ -133,20 +134,21 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         signature: &mut WithPos<ast::Signature>,
-    ) -> AnalysisResult<SignatureKey> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(scope, arg))
+                    .map(|arg| self.resolve_type_mark(scope, arg, diagnostics))
                     .collect();
-                let return_type = self.resolve_type_mark(scope, ret);
+                let return_type = self.resolve_type_mark(scope, ret, diagnostics);
                 (args, Some(return_type))
             }
             ast::Signature::Procedure(args) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(scope, arg))
+                    .map(|arg| self.resolve_type_mark(scope, arg, diagnostics))
                     .collect();
                 (args, None)
             }
@@ -190,9 +192,9 @@ impl<'a> AnalyzeContext<'a> {
         uninst_name: &ResolvedName<'a>,
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Signature> {
+    ) -> EvalResult<Signature> {
         let uninstantiated_subprogram =
-            self.resolve_uninstantiated_subprogram(scope, uninst_name, instance)?;
+            self.resolve_uninstantiated_subprogram(scope, uninst_name, instance, diagnostics)?;
         self.check_instantiated_subprogram_kind_matches_declared(
             &uninstantiated_subprogram,
             instance,
@@ -229,7 +231,8 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some(pos) = uninstantiated_subprogram.decl_pos() {
                             diag.add_related(pos, "When instantiating this declaration");
                         }
-                        Err(AnalysisError::NotFatal(diag))
+                        diagnostics.push(diag);
+                        Err(EvalError::Unknown)
                     }
                 }
             }
@@ -244,11 +247,12 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         name: &ResolvedName<'a>,
         instantiation: &mut SubprogramInstantiation,
-    ) -> AnalysisResult<OverloadedEnt<'a>> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<OverloadedEnt<'a>> {
         let signature_key = match &mut instantiation.signature {
             None => None,
             Some(ref mut signature) => Some((
-                self.resolve_signature(scope, signature)?,
+                self.resolve_signature(scope, signature, diagnostics)?,
                 signature.pos.clone(),
             )),
         };
@@ -259,13 +263,14 @@ impl<'a> AnalyzeContext<'a> {
                     .filter(|ent| ent.is_uninst_subprogram())
                     .collect_vec();
                 if choices.is_empty() {
-                    Err(AnalysisError::NotFatal(Diagnostic::error(
+                    diagnostics.error(
                         &instantiation.ident.tree.pos,
                         format!(
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()
                         ),
-                    )))
+                    );
+                    return Err(EvalError::Unknown);
                 } else if choices.len() == 1 {
                     // There is only one possible candidate
                     let ent = choices[0];
@@ -273,17 +278,20 @@ impl<'a> AnalyzeContext<'a> {
                     // that of the uninstantiated subprogram
                     if let Some((key, pos)) = signature_key {
                         match overloaded.get(&SubprogramKey::Uninstantiated(key)) {
-                            None => Err(AnalysisError::NotFatal(Diagnostic::error(
-                                pos.clone(),
-                                format!(
-                                    "Signature does not match the the signature of {}",
-                                    ent.describe()
-                                ),
-                            ))),
-                            Some(_) => Ok(ent),
+                            None => {
+                                diagnostics.error(
+                                    pos.clone(),
+                                    format!(
+                                        "Signature does not match the the signature of {}",
+                                        ent.describe()
+                                    ),
+                                );
+                                return Err(EvalError::Unknown);
+                            }
+                            Some(_) => ent,
                         }
                     } else {
-                        Ok(ent)
+                        ent
                     }
                 } else if let Some((key, _)) = signature_key {
                     // There are multiple candidates
@@ -291,15 +299,16 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(resolved_ent) =
                         overloaded.get(&SubprogramKey::Uninstantiated(key.clone()))
                     {
-                        Ok(resolved_ent)
+                        resolved_ent
                     } else {
-                        Err(AnalysisError::NotFatal(Diagnostic::error(
+                        diagnostics.error(
                             &instantiation.subprogram_name.pos,
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
                             ),
-                        )))
+                        );
+                        return Err(EvalError::Unknown);
                     }
                 } else {
                     // There are multiple candidates
@@ -313,24 +322,29 @@ impl<'a> AnalyzeContext<'a> {
                             err.add_related(pos.clone(), format!("Might be {}", ent.describe()))
                         }
                     }
-                    Err(AnalysisError::NotFatal(err))
+                    diagnostics.push(err);
+                    return Err(EvalError::Unknown);
                 }
             }
-            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
-                &instantiation.subprogram_name.pos,
-                format!(
-                    "{} does not denote an uninstantiated subprogram",
-                    name.describe()
-                ),
-            ))),
-        }?;
+            _ => {
+                diagnostics.error(
+                    &instantiation.subprogram_name.pos,
+                    format!(
+                        "{} does not denote an uninstantiated subprogram",
+                        name.describe()
+                    ),
+                );
+                return Err(EvalError::Unknown);
+            }
+        };
         if overloaded_ent.is_uninst_subprogram() {
             Ok(overloaded_ent)
         } else {
-            Err(AnalysisError::NotFatal(Diagnostic::error(
+            diagnostics.error(
                 &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
-            )))
+            );
+            Err(EvalError::Unknown)
         }
     }
 

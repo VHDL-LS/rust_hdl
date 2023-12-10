@@ -573,8 +573,8 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<TypeEnt<'a>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
-        match self.resolve_type_mark(scope, type_mark) {
-            Ok(target_type) => {
+        match as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))? {
+            Some(target_type) => {
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
@@ -584,9 +584,8 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 Ok(target_type)
             }
-            Err(e) => {
+            None => {
                 self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                e.add_to(diagnostics)?;
                 Err(EvalError::Unknown)
             }
         }
