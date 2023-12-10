@@ -19,12 +19,14 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         kind_ok: &impl Fn(&AnyEntKind) -> bool,
         expected: &str,
-    ) -> AnalysisResult<EntRef<'a>> {
-        let ent = self.resolve_non_overloaded(named_entities, pos, expected)?;
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<EntRef<'a>> {
+        let ent = self.resolve_non_overloaded(named_entities, pos, expected, diagnostics)?;
         if kind_ok(ent.actual_kind()) {
             Ok(ent)
         } else {
-            Err(AnalysisError::NotFatal(ent.kind_error(pos, expected)))
+            diagnostics.push(ent.kind_error(pos, expected));
+            Err(EvalError::Unknown)
         }
     }
 
@@ -33,31 +35,44 @@ impl<'a> AnalyzeContext<'a> {
         named_entities: NamedEntities<'a>,
         pos: &SrcPos,
         expected: &str,
-    ) -> AnalysisResult<EntRef<'a>> {
-        Ok(named_entities
-            .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name"))?)
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<EntRef<'a>> {
+        catch_diagnostic(
+            named_entities
+                .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name")),
+            diagnostics,
+        )
     }
 
     pub fn resolve_type_mark_name(
         &self,
         scope: &Scope<'a>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<TypeEnt<'a>> {
-        let entities = self.resolve_selected_name(scope, type_mark)?;
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        let entities = self.resolve_selected_name(scope, type_mark, diagnostics)?;
 
         let pos = type_mark.suffix_pos();
         let expected = "type";
-        let ent = self.resolve_non_overloaded(entities, pos, expected)?;
-        TypeEnt::from_any(ent).ok_or_else(|| AnalysisError::NotFatal(ent.kind_error(pos, expected)))
+        let ent = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
+        match TypeEnt::from_any(ent) {
+            None => {
+                diagnostics.push(ent.kind_error(pos, expected));
+                Err(EvalError::Unknown)
+            }
+            Some(type_ent) => Ok(type_ent),
+        }
     }
 
     pub fn resolve_type_mark(
         &self,
         scope: &Scope<'a>,
         type_mark: &mut WithPos<TypeMark>,
-    ) -> AnalysisResult<TypeEnt<'a>> {
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
         if let Some(attr) = &type_mark.item.attr {
-            let entities = self.resolve_selected_name(scope, &mut type_mark.item.name)?;
+            let entities =
+                self.resolve_selected_name(scope, &mut type_mark.item.name, diagnostics)?;
 
             let pos = type_mark.item.name.suffix_pos();
 
@@ -67,7 +82,7 @@ impl<'a> AnalyzeContext<'a> {
                 "object or alias"
             };
 
-            let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
+            let named_entity = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
 
             let typ = match named_entity.kind() {
                 AnyEntKind::Object(obj) => obj.subtype.type_mark(),
@@ -77,9 +92,8 @@ impl<'a> AnalyzeContext<'a> {
                     TypeEnt::from_any(named_entity).unwrap()
                 }
                 _ => {
-                    return Err(AnalysisError::NotFatal(
-                        named_entity.kind_error(pos, expected),
-                    ))
+                    diagnostics.push(named_entity.kind_error(pos, expected));
+                    return Err(EvalError::Unknown);
                 }
             };
 
@@ -89,16 +103,14 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some((elem_type, _)) = typ.array_type() {
                         Ok(elem_type)
                     } else {
-                        Err(Diagnostic::error(
-                            pos,
-                            format!("array type expected for '{attr} attribute",),
-                        )
-                        .into())
+                        diagnostics
+                            .error(pos, format!("array type expected for '{attr} attribute",));
+                        Err(EvalError::Unknown)
                     }
                 }
             }
         } else {
-            self.resolve_type_mark_name(scope, &mut type_mark.item.name)
+            self.resolve_type_mark_name(scope, &mut type_mark.item.name, diagnostics)
         }
     }
 

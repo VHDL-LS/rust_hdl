@@ -16,7 +16,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Subtype<'a>> {
+    ) -> EvalResult<Subtype<'a>> {
         // @TODO more
         let SubtypeIndication {
             type_mark,
@@ -24,7 +24,7 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = subtype_indication;
 
-        let base_type = self.resolve_type_mark(scope, type_mark)?;
+        let base_type = self.resolve_type_mark(scope, type_mark, diagnostics)?;
 
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
@@ -179,18 +179,17 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            match self.subprogram_specification(
+                            match as_fatal(self.subprogram_specification(
                                 scope,
                                 ptype,
                                 &mut subprogram.specification,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
-                            ) {
-                                Ok((_, ent)) => {
+                            ))? {
+                                Some((_, ent)) => {
                                     region.add(ent.into(), diagnostics);
                                 }
-                                Err(err) => {
-                                    diagnostics.push(err.into_non_fatal()?);
+                                None => {
                                     return Ok(());
                                 }
                             }
@@ -228,19 +227,14 @@ impl<'a> AnalyzeContext<'a> {
                 for elem_decl in element_decls.iter_mut() {
                     let subtype =
                         self.resolve_subtype_indication(scope, &mut elem_decl.subtype, diagnostics);
-                    match subtype {
-                        Ok(subtype) => {
-                            let elem = self.arena.define(
-                                &mut elem_decl.ident,
-                                type_ent.into(),
-                                AnyEntKind::ElementDeclaration(subtype),
-                            );
-                            region.add(elem, diagnostics);
-                            elems.add(elem);
-                        }
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                        }
+                    if let Some(subtype) = as_fatal(subtype)? {
+                        let elem = self.arena.define(
+                            &mut elem_decl.ident,
+                            type_ent.into(),
+                            AnyEntKind::ElementDeclaration(subtype),
+                        );
+                        region.add(elem, diagnostics);
+                        elems.add(elem);
                     }
                 }
                 region.close(diagnostics);
@@ -262,27 +256,24 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Access(ref mut subtype_indication) => {
                 let subtype =
                     self.resolve_subtype_indication(scope, subtype_indication, diagnostics);
-                match subtype {
-                    Ok(subtype) => {
-                        let type_ent = TypeEnt::define_with_opt_id(
-                            self.arena,
-                            overwrite_id,
-                            &mut type_decl.ident,
-                            parent,
-                            None,
-                            Type::Access(subtype),
-                        );
+                if let Some(subtype) = as_fatal(subtype)? {
+                    let type_ent = TypeEnt::define_with_opt_id(
+                        self.arena,
+                        overwrite_id,
+                        &mut type_decl.ident,
+                        parent,
+                        None,
+                        Type::Access(subtype),
+                    );
 
-                        scope.add(type_ent.into(), diagnostics);
+                    scope.add(type_ent.into(), diagnostics);
 
-                        for ent in self.access_implicits(type_ent) {
-                            unsafe {
-                                self.arena.add_implicit(type_ent.id(), ent);
-                            }
-                            scope.add(ent, diagnostics);
+                    for ent in self.access_implicits(type_ent) {
+                        unsafe {
+                            self.arena.add_implicit(type_ent.id(), ent);
                         }
+                        scope.add(ent, diagnostics);
                     }
-                    Err(err) => err.add_to(diagnostics)?,
                 }
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
@@ -295,14 +286,14 @@ impl<'a> AnalyzeContext<'a> {
                     ))?);
                 }
 
-                let elem_type =
-                    match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
-                        Ok(subtype) => subtype.type_mark().to_owned(),
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                            return Ok(());
-                        }
-                    };
+                let elem_type = match as_fatal(self.resolve_subtype_indication(
+                    scope,
+                    subtype_indication,
+                    diagnostics,
+                ))? {
+                    Some(subtype) => subtype.type_mark().to_owned(),
+                    None => return Ok(()),
+                };
 
                 let is_1d = indexes.len() == 1;
                 let array_ent = TypeEnt::define_with_opt_id(
@@ -325,21 +316,20 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
-                match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
-                    Ok(subtype) => {
-                        let type_ent = TypeEnt::define_with_opt_id(
-                            self.arena,
-                            overwrite_id,
-                            &mut type_decl.ident,
-                            parent,
-                            None,
-                            Type::Subtype(subtype),
-                        );
-                        scope.add(type_ent.into(), diagnostics);
-                    }
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                    }
+                if let Some(subtype) = as_fatal(self.resolve_subtype_indication(
+                    scope,
+                    subtype_indication,
+                    diagnostics,
+                ))? {
+                    let type_ent = TypeEnt::define_with_opt_id(
+                        self.arena,
+                        overwrite_id,
+                        &mut type_decl.ident,
+                        parent,
+                        None,
+                        Type::Subtype(subtype),
+                    );
+                    scope.add(type_ent.into(), diagnostics);
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
@@ -459,18 +449,14 @@ impl<'a> AnalyzeContext<'a> {
                     Type::File,
                 );
 
-                match self.resolve_type_mark(scope, type_mark) {
-                    Ok(type_mark) => {
-                        for ent in self.create_implicit_file_type_subprograms(file_type, type_mark)
-                        {
-                            unsafe {
-                                self.arena.add_implicit(file_type.id(), ent);
-                            }
-                            scope.add(ent, diagnostics);
+                if let Some(type_mark) =
+                    as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?
+                {
+                    for ent in self.create_implicit_file_type_subprograms(file_type, type_mark) {
+                        unsafe {
+                            self.arena.add_implicit(file_type.id(), ent);
                         }
-                    }
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
+                        scope.add(ent, diagnostics);
                     }
                 }
 
@@ -618,9 +604,7 @@ impl<'a> AnalyzeContext<'a> {
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        if let Err(err) = self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
-            err.add_to(diagnostics)?;
-        }
-        Ok(())
+        as_fatal(self.resolve_subtype_indication(scope, subtype_indication, diagnostics))
+            .map(|_| ())
     }
 }

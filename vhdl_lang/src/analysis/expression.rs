@@ -482,15 +482,9 @@ impl<'a> AnalyzeContext<'a> {
                     let typ = self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
                     Ok(ExpressionType::Unambiguous(typ))
                 }
-                Allocator::Subtype(ref mut subtype) => {
-                    match self.resolve_subtype_indication(scope, subtype, diagnostics) {
-                        Ok(typ) => Ok(ExpressionType::Unambiguous(typ.type_mark())),
-                        Err(err) => {
-                            diagnostics.push(err.into_non_fatal()?);
-                            Err(EvalError::Unknown)
-                        }
-                    }
-                }
+                Allocator::Subtype(ref mut subtype) => self
+                    .resolve_subtype_indication(scope, subtype, diagnostics)
+                    .map(|typ| ExpressionType::Unambiguous(typ.type_mark())),
             },
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
@@ -579,8 +573,8 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<TypeEnt<'a>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
-        match self.resolve_type_mark(scope, type_mark) {
-            Ok(target_type) => {
+        match as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))? {
+            Some(target_type) => {
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
@@ -590,9 +584,8 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 Ok(target_type)
             }
-            Err(e) => {
+            None => {
                 self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                e.add_to(diagnostics)?;
                 Err(EvalError::Unknown)
             }
         }

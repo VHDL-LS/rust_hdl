@@ -271,28 +271,20 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
                         // TODO: Uninstantiated subprogram in aliases
-                        match self.resolve_signature(scope, signature) {
-                            Ok(signature_key) => {
-                                if let Some(ent) =
-                                    overloaded.get(&SubprogramKey::Normal(signature_key))
-                                {
-                                    if let Some(reference) = name.item.suffix_reference_mut() {
-                                        reference.set_unique_reference(&ent);
-                                    }
-                                    AnyEntKind::Overloaded(Overloaded::Alias(ent))
-                                } else {
-                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                        &des.pos,
-                                        &des.item,
-                                        &overloaded,
-                                    ));
-                                    return Err(EvalError::Unknown);
-                                }
+                        let signature_key =
+                            self.resolve_signature(scope, signature, diagnostics)?;
+                        if let Some(ent) = overloaded.get(&SubprogramKey::Normal(signature_key)) {
+                            if let Some(reference) = name.item.suffix_reference_mut() {
+                                reference.set_unique_reference(&ent);
                             }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
-                                return Err(EvalError::Unknown);
-                            }
+                            AnyEntKind::Overloaded(Overloaded::Alias(ent))
+                        } else {
+                            diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                &des.pos,
+                                &des.item,
+                                &overloaded,
+                            ));
+                            return Err(EvalError::Unknown);
                         }
                     } else {
                         diagnostics.push(Diagnostic::signature_required(name));
@@ -365,48 +357,42 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                match subtype {
-                    Ok(subtype) => {
-                        let kind = if object_decl.class == ObjectClass::Constant
-                            && object_decl.expression.is_none()
-                        {
-                            AnyEntKind::DeferredConstant(subtype)
+                if let Some(subtype) = as_fatal(subtype)? {
+                    let kind = if object_decl.class == ObjectClass::Constant
+                        && object_decl.expression.is_none()
+                    {
+                        AnyEntKind::DeferredConstant(subtype)
+                    } else {
+                        AnyEntKind::Object(Object {
+                            class: object_decl.class,
+                            iface: None,
+                            has_default: object_decl.expression.is_some(),
+                            subtype,
+                        })
+                    };
+
+                    let declared_by = if object_decl.class == ObjectClass::Constant
+                        && object_decl.expression.is_some()
+                    {
+                        self.find_deferred_constant_declaration(scope, &object_decl.ident.tree.item)
+                    } else {
+                        None
+                    };
+
+                    let object_ent = self.arena.alloc(
+                        object_decl.ident.tree.item.clone().into(),
+                        Some(parent),
+                        if let Some(declared_by) = declared_by {
+                            Related::DeclaredBy(declared_by)
                         } else {
-                            AnyEntKind::Object(Object {
-                                class: object_decl.class,
-                                iface: None,
-                                has_default: object_decl.expression.is_some(),
-                                subtype,
-                            })
-                        };
+                            Related::None
+                        },
+                        kind,
+                        Some(object_decl.ident.tree.pos().clone()),
+                    );
+                    object_decl.ident.decl.set(object_ent.id());
 
-                        let declared_by = if object_decl.class == ObjectClass::Constant
-                            && object_decl.expression.is_some()
-                        {
-                            self.find_deferred_constant_declaration(
-                                scope,
-                                &object_decl.ident.tree.item,
-                            )
-                        } else {
-                            None
-                        };
-
-                        let object_ent = self.arena.alloc(
-                            object_decl.ident.tree.item.clone().into(),
-                            Some(parent),
-                            if let Some(declared_by) = declared_by {
-                                Related::DeclaredBy(declared_by)
-                            } else {
-                                Related::None
-                            },
-                            kind,
-                            Some(object_decl.ident.tree.pos().clone()),
-                        );
-                        object_decl.ident.decl.set(object_ent.id());
-
-                        scope.add(object_ent, diagnostics);
-                    }
-                    Err(err) => err.add_to(diagnostics)?,
+                    scope.add(object_ent, diagnostics);
                 }
             }
             Declaration::File(ref mut file) => {
@@ -418,14 +404,11 @@ impl<'a> AnalyzeContext<'a> {
                     span: _,
                 } = file;
 
-                let subtype =
-                    match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
-                        Ok(subtype) => Some(subtype),
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                            None
-                        }
-                    };
+                let subtype = as_fatal(self.resolve_subtype_indication(
+                    scope,
+                    subtype_indication,
+                    diagnostics,
+                ))?;
 
                 if let Some(ref mut expr) = open_info {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
@@ -465,20 +448,19 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    match self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
-                        Ok(typ) => {
-                            scope.add(
-                                self.arena.define(
-                                    &mut attr_decl.ident,
-                                    parent,
-                                    AnyEntKind::Attribute(typ),
-                                ),
-                                diagnostics,
-                            );
-                        }
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                        }
+                    if let Some(typ) = as_fatal(self.resolve_type_mark(
+                        scope,
+                        &mut attr_decl.type_mark,
+                        diagnostics,
+                    ))? {
+                        scope.add(
+                            self.arena.define(
+                                &mut attr_decl.ident,
+                                parent,
+                                AnyEntKind::Attribute(typ),
+                            ),
+                            diagnostics,
+                        );
                     }
                 }
                 Attribute::Specification(ref mut attr_spec) => {
@@ -486,16 +468,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let (subpgm_region, subpgm_ent) = match self.subprogram_specification(
+                let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
                     scope,
                     parent,
                     &mut body.specification,
                     Overloaded::Subprogram,
                     diagnostics,
-                ) {
-                    Ok(r) => r,
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
+                ))? {
+                    Some(r) => r,
+                    None => {
                         return Ok(());
                     }
                 };
@@ -523,18 +504,17 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                match self.subprogram_specification(
+                match as_fatal(self.subprogram_specification(
                     scope,
                     parent,
                     &mut subdecl.specification,
                     Overloaded::SubprogramDecl,
                     diagnostics,
-                ) {
-                    Ok((_, ent)) => {
+                ))? {
+                    Some((_, ent)) => {
                         scope.add(ent.into(), diagnostics);
                     }
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
+                    None => {
                         return Ok(());
                     }
                 }
@@ -555,22 +535,18 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.generic_subprogram_instance(
+                    if let Some(signature) = as_fatal(self.generic_subprogram_instance(
                         scope,
                         &subpgm_ent,
                         &name,
                         instance,
                         diagnostics,
-                    ) {
-                        Ok(signature) => {
-                            unsafe {
-                                subpgm_ent.set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(
-                                    signature,
-                                )))
-                            }
-                            scope.add(subpgm_ent, diagnostics)
+                    ))? {
+                        unsafe {
+                            subpgm_ent
+                                .set_kind(AnyEntKind::Overloaded(Overloaded::Subprogram(signature)))
                         }
-                        Err(err) => err.add_to(diagnostics)?,
+                        scope.add(subpgm_ent, diagnostics)
                     }
                 }
             }
@@ -685,8 +661,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(NamedEntities::Overloaded(overloaded)) => {
                     if let Some(signature) = signature {
-                        match self.resolve_signature(scope, signature) {
-                            Ok(signature_key) => {
+                        match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
+                            Some(signature_key) => {
                                 if let Some(ent) =
                                     overloaded.get(&SubprogramKey::Normal(signature_key))
                                 {
@@ -701,8 +677,7 @@ impl<'a> AnalyzeContext<'a> {
                                     return Ok(());
                                 }
                             }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
+                            None => {
                                 return Ok(());
                             }
                         }
@@ -782,7 +757,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<EntRef<'a>> {
+    ) -> EvalResult<EntRef<'a>> {
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
                 let file_type = self.resolve_subtype_indication(
@@ -866,8 +841,11 @@ impl<'a> AnalyzeContext<'a> {
                 ent.into()
             }
             InterfaceDeclaration::Package(ref mut instance) => {
-                let package_region =
-                    self.analyze_package_instance_name(scope, &mut instance.package_name)?;
+                let package_region = self.analyze_package_instance_name(
+                    scope,
+                    &mut instance.package_name,
+                    diagnostics,
+                )?;
 
                 self.arena.define(
                     &mut instance.ident,
@@ -887,13 +865,10 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
-                Ok(ent) => {
-                    scope.add(ent, diagnostics);
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+            if let Some(ent) =
+                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
+            {
+                scope.add(ent, diagnostics);
             }
         }
         Ok(())
@@ -909,14 +884,11 @@ impl<'a> AnalyzeContext<'a> {
         let mut params = FormalRegion::new(InterfaceType::Parameter);
 
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
-                Ok(ent) => {
-                    scope.add(ent, diagnostics);
-                    params.add(ent);
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+            if let Some(ent) =
+                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
+            {
+                scope.add(ent, diagnostics);
+                params.add(ent);
             }
         }
         Ok(params)
@@ -929,15 +901,9 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
         match array_index {
-            ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                match self.resolve_type_mark(scope, type_mark) {
-                    Ok(typ) => Ok(typ.base()),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
+            ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => self
+                .resolve_type_mark(scope, type_mark, diagnostics)
+                .map(|typ| typ.base()),
             ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
         }
     }

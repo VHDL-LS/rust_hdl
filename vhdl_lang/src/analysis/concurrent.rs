@@ -260,116 +260,121 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match instance.unit {
             InstantiatedUnit::Entity(ref mut entity_name, ref mut architecture_name) => {
-                if let Err(err) =
-                    self.resolve_selected_name(scope, entity_name)
-                        .and_then(|entities| {
-                            let expected = "entity";
-                            let ent = self.resolve_non_overloaded(
-                                entities,
-                                entity_name.suffix_pos(),
-                                expected,
-                            )?;
+                if let Some(entities) =
+                    as_fatal(self.resolve_selected_name(scope, entity_name, diagnostics))?
+                {
+                    let expected = "entity";
+                    let ent = match as_fatal(self.resolve_non_overloaded(
+                        entities,
+                        entity_name.suffix_pos(),
+                        expected,
+                        diagnostics,
+                    ))? {
+                        Some(ent) => ent,
+                        None => return Ok(()),
+                    };
 
-                            if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
-                                if let Designator::Identifier(entity_ident) = ent.designator() {
-                                    if let Some(library_name) = ent.library_name() {
-                                        if let Some(ref mut architecture_name) = architecture_name {
-                                            match self.get_architecture(
-                                                library_name,
-                                                &architecture_name.item.pos,
-                                                entity_ident,
-                                                &architecture_name.item.item,
-                                            ) {
-                                                Ok(arch) => {
-                                                    architecture_name.set_unique_reference(&arch);
-                                                }
-                                                Err(err) => {
-                                                    diagnostics.push(err.into_non_fatal()?);
-                                                }
-                                            }
+                    if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
+                        if let Designator::Identifier(entity_ident) = ent.designator() {
+                            if let Some(library_name) = ent.library_name() {
+                                if let Some(ref mut architecture_name) = architecture_name {
+                                    match self.get_architecture(
+                                        library_name,
+                                        &architecture_name.item.pos,
+                                        entity_ident,
+                                        &architecture_name.item.item,
+                                    ) {
+                                        Ok(arch) => {
+                                            architecture_name.set_unique_reference(&arch);
+                                        }
+                                        Err(err) => {
+                                            diagnostics.push(err.into_non_fatal()?);
                                         }
                                     }
                                 }
-
-                                let (generic_region, port_region) = ent_region.to_entity_formal();
-
-                                self.check_association(
-                                    &entity_name.pos,
-                                    &generic_region,
-                                    scope,
-                                    instance
-                                        .generic_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                self.check_association(
-                                    &entity_name.pos,
-                                    &port_region,
-                                    scope,
-                                    instance
-                                        .port_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                Ok(())
-                            } else {
-                                Err(AnalysisError::NotFatal(
-                                    ent.kind_error(entity_name.suffix_pos(), expected),
-                                ))
                             }
-                        })
-                {
-                    err.add_to(diagnostics)?;
+                        }
+
+                        let (generic_region, port_region) = ent_region.to_entity_formal();
+
+                        self.check_association(
+                            &entity_name.pos,
+                            &generic_region,
+                            scope,
+                            instance
+                                .generic_map
+                                .as_mut()
+                                .map(|it| it.list.items.as_mut_slice())
+                                .unwrap_or(&mut []),
+                            diagnostics,
+                        )?;
+                        self.check_association(
+                            &entity_name.pos,
+                            &port_region,
+                            scope,
+                            instance
+                                .port_map
+                                .as_mut()
+                                .map(|it| it.list.items.as_mut_slice())
+                                .unwrap_or(&mut []),
+                            diagnostics,
+                        )?;
+                        Ok(())
+                    } else {
+                        diagnostics.push(ent.kind_error(entity_name.suffix_pos(), expected));
+                        Ok(())
+                    }
+                } else {
+                    Ok(())
                 }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
-                if let Err(err) =
-                    self.resolve_selected_name(scope, component_name)
-                        .and_then(|entities| {
-                            let expected = "component";
-                            let ent = self.resolve_non_overloaded(
-                                entities,
-                                component_name.suffix_pos(),
-                                expected,
-                            )?;
+                let Some(entities) =
+                    as_fatal(self.resolve_selected_name(scope, component_name, diagnostics))?
+                else {
+                    return Ok(());
+                };
+                let expected = "component";
+                let ent = match as_fatal(self.resolve_non_overloaded(
+                    entities,
+                    component_name.suffix_pos(),
+                    expected,
+                    diagnostics,
+                ))? {
+                    Some(ent) => ent,
+                    None => {
+                        return Ok(());
+                    }
+                };
 
-                            if let AnyEntKind::Component(ent_region) = ent.kind() {
-                                let (generic_region, port_region) = ent_region.to_entity_formal();
-                                self.check_association(
-                                    &component_name.pos,
-                                    &generic_region,
-                                    scope,
-                                    instance
-                                        .generic_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                self.check_association(
-                                    &component_name.pos,
-                                    &port_region,
-                                    scope,
-                                    instance
-                                        .port_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                Ok(())
-                            } else {
-                                Err(AnalysisError::NotFatal(
-                                    ent.kind_error(component_name.suffix_pos(), expected),
-                                ))
-                            }
-                        })
-                {
-                    err.add_to(diagnostics)?;
+                if let AnyEntKind::Component(ent_region) = ent.kind() {
+                    let (generic_region, port_region) = ent_region.to_entity_formal();
+                    self.check_association(
+                        &component_name.pos,
+                        &generic_region,
+                        scope,
+                        instance
+                            .generic_map
+                            .as_mut()
+                            .map(|it| it.list.items.as_mut_slice())
+                            .unwrap_or(&mut []),
+                        diagnostics,
+                    )?;
+                    self.check_association(
+                        &component_name.pos,
+                        &port_region,
+                        scope,
+                        instance
+                            .port_map
+                            .as_mut()
+                            .map(|it| it.list.items.as_mut_slice())
+                            .unwrap_or(&mut []),
+                        diagnostics,
+                    )?;
+                    Ok(())
+                } else {
+                    diagnostics.push(ent.kind_error(component_name.suffix_pos(), expected));
+                    Ok(())
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
@@ -377,26 +382,28 @@ impl<'a> AnalyzeContext<'a> {
                     matches!(kind, AnyEntKind::Design(Design::Configuration))
                 }
 
-                if let Err(err) =
-                    self.resolve_selected_name(scope, config_name)
-                        .and_then(|entities| {
-                            self.resolve_non_overloaded_with_kind(
-                                entities,
-                                config_name.suffix_pos(),
-                                &is_configuration,
-                                "configuration",
-                            )
-                        })
-                {
-                    err.add_to(diagnostics)?;
-                }
+                let Some(entities) =
+                    as_fatal(self.resolve_selected_name(scope, config_name, diagnostics))?
+                else {
+                    return Ok(());
+                };
+                let _ = match as_fatal(self.resolve_non_overloaded_with_kind(
+                    entities,
+                    config_name.suffix_pos(),
+                    &is_configuration,
+                    "configuration",
+                    diagnostics,
+                ))? {
+                    Some(ent) => ent,
+                    None => {
+                        return Ok(());
+                    }
+                };
 
                 self.analyze_map_aspect(scope, &mut instance.generic_map, diagnostics)?;
-                self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)?;
+                self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)
             }
-        };
-
-        Ok(())
+        }
     }
 
     pub fn analyze_map_aspect(

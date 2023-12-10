@@ -36,22 +36,17 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = unit;
 
-        match self.analyze_package_instance_name(scope, package_name) {
-            Ok(package_region) => self
-                .generic_instance(
-                    package_ent,
-                    scope,
-                    &unit.ident.tree.pos,
-                    package_region,
-                    generic_map,
-                    diagnostics,
-                )
-                .map(|(region, _)| region),
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                Err(EvalError::Unknown)
-            }
-        }
+        let package_region =
+            self.analyze_package_instance_name(scope, package_name, diagnostics)?;
+        self.generic_instance(
+            package_ent,
+            scope,
+            &unit.ident.tree.pos,
+            package_region,
+            generic_map,
+            diagnostics,
+        )
+        .map(|(region, _)| region)
     }
 
     pub fn generic_map(
