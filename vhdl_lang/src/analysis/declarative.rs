@@ -365,48 +365,42 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                match subtype {
-                    Ok(subtype) => {
-                        let kind = if object_decl.class == ObjectClass::Constant
-                            && object_decl.expression.is_none()
-                        {
-                            AnyEntKind::DeferredConstant(subtype)
+                if let Some(subtype) = as_fatal(subtype)? {
+                    let kind = if object_decl.class == ObjectClass::Constant
+                        && object_decl.expression.is_none()
+                    {
+                        AnyEntKind::DeferredConstant(subtype)
+                    } else {
+                        AnyEntKind::Object(Object {
+                            class: object_decl.class,
+                            iface: None,
+                            has_default: object_decl.expression.is_some(),
+                            subtype,
+                        })
+                    };
+
+                    let declared_by = if object_decl.class == ObjectClass::Constant
+                        && object_decl.expression.is_some()
+                    {
+                        self.find_deferred_constant_declaration(scope, &object_decl.ident.tree.item)
+                    } else {
+                        None
+                    };
+
+                    let object_ent = self.arena.alloc(
+                        object_decl.ident.tree.item.clone().into(),
+                        Some(parent),
+                        if let Some(declared_by) = declared_by {
+                            Related::DeclaredBy(declared_by)
                         } else {
-                            AnyEntKind::Object(Object {
-                                class: object_decl.class,
-                                iface: None,
-                                has_default: object_decl.expression.is_some(),
-                                subtype,
-                            })
-                        };
+                            Related::None
+                        },
+                        kind,
+                        Some(object_decl.ident.tree.pos().clone()),
+                    );
+                    object_decl.ident.decl.set(object_ent.id());
 
-                        let declared_by = if object_decl.class == ObjectClass::Constant
-                            && object_decl.expression.is_some()
-                        {
-                            self.find_deferred_constant_declaration(
-                                scope,
-                                &object_decl.ident.tree.item,
-                            )
-                        } else {
-                            None
-                        };
-
-                        let object_ent = self.arena.alloc(
-                            object_decl.ident.tree.item.clone().into(),
-                            Some(parent),
-                            if let Some(declared_by) = declared_by {
-                                Related::DeclaredBy(declared_by)
-                            } else {
-                                Related::None
-                            },
-                            kind,
-                            Some(object_decl.ident.tree.pos().clone()),
-                        );
-                        object_decl.ident.decl.set(object_ent.id());
-
-                        scope.add(object_ent, diagnostics);
-                    }
-                    Err(err) => err.add_to(diagnostics)?,
+                    scope.add(object_ent, diagnostics);
                 }
             }
             Declaration::File(ref mut file) => {
@@ -418,14 +412,11 @@ impl<'a> AnalyzeContext<'a> {
                     span: _,
                 } = file;
 
-                let subtype =
-                    match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
-                        Ok(subtype) => Some(subtype),
-                        Err(err) => {
-                            err.add_to(diagnostics)?;
-                            None
-                        }
-                    };
+                let subtype = as_fatal(self.resolve_subtype_indication(
+                    scope,
+                    subtype_indication,
+                    diagnostics,
+                ))?;
 
                 if let Some(ref mut expr) = open_info {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
@@ -782,7 +773,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<EntRef<'a>> {
+    ) -> EvalResult<EntRef<'a>> {
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
                 let file_type = self.resolve_subtype_indication(
@@ -856,18 +847,23 @@ impl<'a> AnalyzeContext<'a> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let (_, ent) = self.subprogram_specification(
-                    scope,
-                    parent,
-                    subpgm,
-                    Overloaded::InterfaceSubprogram,
+                let (_, ent) = catch_analysis_err(
+                    self.subprogram_specification(
+                        scope,
+                        parent,
+                        subpgm,
+                        Overloaded::InterfaceSubprogram,
+                        diagnostics,
+                    ),
                     diagnostics,
                 )?;
                 ent.into()
             }
             InterfaceDeclaration::Package(ref mut instance) => {
-                let package_region =
-                    self.analyze_package_instance_name(scope, &mut instance.package_name)?;
+                let package_region = catch_analysis_err(
+                    self.analyze_package_instance_name(scope, &mut instance.package_name),
+                    diagnostics,
+                )?;
 
                 self.arena.define(
                     &mut instance.ident,
@@ -887,13 +883,10 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
-                Ok(ent) => {
-                    scope.add(ent, diagnostics);
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+            if let Some(ent) =
+                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
+            {
+                scope.add(ent, diagnostics);
             }
         }
         Ok(())
@@ -909,14 +902,11 @@ impl<'a> AnalyzeContext<'a> {
         let mut params = FormalRegion::new(InterfaceType::Parameter);
 
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
-                Ok(ent) => {
-                    scope.add(ent, diagnostics);
-                    params.add(ent);
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+            if let Some(ent) =
+                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
+            {
+                scope.add(ent, diagnostics);
+                params.add(ent);
             }
         }
         Ok(params)

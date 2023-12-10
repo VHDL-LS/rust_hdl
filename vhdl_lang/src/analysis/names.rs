@@ -1068,10 +1068,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             SplitName::External(ename) => {
                 let ExternalName { subtype, class, .. } = ename;
-                let subtype = catch_analysis_err(
-                    self.resolve_subtype_indication(scope, subtype, diagnostics),
-                    diagnostics,
-                )?;
+                let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
                 return Ok(ResolvedName::ObjectName(ObjectName {
                     base: ObjectBase::ExternalName(*class),
                     type_mark: Some(subtype.type_mark().to_owned()),
