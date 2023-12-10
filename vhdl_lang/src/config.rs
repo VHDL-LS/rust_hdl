@@ -112,6 +112,13 @@ impl Config {
             .ok_or("libraries must be a table")?;
 
         for (name, lib) in libs.iter() {
+            if name.to_lowercase() == "work" {
+                return Err(format!(
+                    "The '{}' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'",
+                    name
+                ));
+            }
+
             let file_arr = lib
                 .get("files")
                 .ok_or_else(|| format!("missing field files for library {name}"))?
@@ -517,5 +524,20 @@ lib.files = [
                 parent.join("missing*.vhd").to_str().unwrap()
             ))]
         );
+    }
+
+    #[test]
+    fn the_work_library_is_an_illegal_library() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+work.files = [
+  'a.vhd', 'b.vhd'
+]
+",
+            parent,
+        );
+        assert_eq!(config.expect_err("Expected erroneous config"), "The 'work' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'")
     }
 }
