@@ -229,15 +229,6 @@ impl Display for Name {
     }
 }
 
-impl Display for SelectedName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            SelectedName::Selected(ref prefix, ref des) => write!(f, "{}.{}", prefix, &des),
-            SelectedName::Designator(ref des) => write!(f, "{}", &des),
-        }
-    }
-}
-
 impl Display for CallOrIndexed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;

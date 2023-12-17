@@ -1641,6 +1641,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
+            _ => todo!(),
         }
     }
 }

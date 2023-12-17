@@ -195,23 +195,7 @@ pub enum Name {
     External(Box<ExternalName>),
 }
 
-/// LRM 8. Names
-/// A subset of a full name allowing only selected name
-#[derive(PartialEq, Debug, Clone)]
-pub enum SelectedName {
-    Designator(WithRef<Designator>),
-    Selected(Box<WithPos<SelectedName>>, WithPos<WithRef<Designator>>),
-}
-
-impl SelectedName {
-    /// Returns the reference that this name selects
-    pub fn reference(&self) -> Option<EntityId> {
-        match &self {
-            SelectedName::Designator(desi) => desi.reference.get(),
-            SelectedName::Selected(_, desi) => desi.item.reference.get(),
-        }
-    }
-}
+pub type SelectedName = Name;
 
 /// LRM 9.3.4 Function calls
 #[derive(PartialEq, Debug, Clone)]
@@ -1105,9 +1089,9 @@ impl InstantiatedUnit {
     /// Returns a reference to the unit that this instantiation declares
     pub fn entity_reference(&self) -> Option<EntityId> {
         match &self {
-            InstantiatedUnit::Entity(name, _) => name.item.reference(),
-            InstantiatedUnit::Configuration(name) => name.item.reference(),
-            InstantiatedUnit::Component(name) => name.item.reference(),
+            InstantiatedUnit::Entity(name, _) => name.item.get_suffix_reference(),
+            InstantiatedUnit::Configuration(name) => name.item.get_suffix_reference(),
+            InstantiatedUnit::Component(name) => name.item.get_suffix_reference(),
         }
     }
 }

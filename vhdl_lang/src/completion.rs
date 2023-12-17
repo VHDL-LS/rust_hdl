@@ -186,7 +186,7 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
             FoundDeclaration::PackageInstance(inst) => {
                 if let Some(map) = &inst.generic_map {
                     if self.load_completions_for_map_aspect(
-                        inst.package_name.item.reference(),
+                        inst.package_name.item.get_suffix_reference(),
                         map,
                         ctx,
                         MapAspectKind::Generic,

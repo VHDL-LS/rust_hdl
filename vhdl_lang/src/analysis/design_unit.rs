@@ -362,7 +362,7 @@ impl<'a> AnalyzeContext<'a> {
         let res = match ent_name.item {
             // Entitities are implicitly defined for configurations
             // configuration cfg of ent
-            SelectedName::Designator(ref mut designator) => self.lookup_in_library(
+            Name::Designator(ref mut designator) => self.lookup_in_library(
                 self.work_library_name(),
                 &ent_name.pos,
                 &designator.item,
@@ -373,7 +373,7 @@ impl<'a> AnalyzeContext<'a> {
             ),
 
             // configuration cfg of lib.ent
-            SelectedName::Selected(ref mut prefix, ref mut designator) => {
+            Name::Selected(ref mut prefix, ref mut designator) => {
                 self.resolve_selected_name(scope, prefix, diagnostics)?
                     .into_non_overloaded()
                     .map_err(|ent|
@@ -412,7 +412,8 @@ impl<'a> AnalyzeContext<'a> {
                             ))
                         }
                     })
-            }
+            },
+            _ => todo!()
         };
         catch_analysis_err(res, diagnostics)
     }
