@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::analysis::names::ResolvedName;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
@@ -622,19 +623,23 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         package_name: &mut WithPos<Name>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<&'a Region<'a>> {
-        let decl = self.resolve_selected_name(scope, package_name, diagnostics)?;
-
-        if let AnyEntKind::Design(Design::UninstPackage(_, ref package_region)) = decl.first_kind()
-        {
-            Ok(package_region)
-        } else {
-            diagnostics.error(
-                &package_name.pos,
-                format!("'{package_name}' is not an uninstantiated generic package"),
-            );
-            Err(EvalError::Unknown)
+    ) -> EvalResult<Region<'a>> {
+        let name = self.name_resolve(
+            scope,
+            &package_name.pos,
+            &mut package_name.item,
+            diagnostics,
+        )?;
+        if let ResolvedName::Design(ref unit) = name {
+            if let AnyEntKind::Design(Design::UninstPackage(_, package_region)) = &unit.kind {
+                return Ok(package_region.clone());
+            }
         }
+        diagnostics.error(
+            &package_name.pos,
+            format!("'{package_name}' is not an uninstantiated generic package"),
+        );
+        Err(EvalError::Unknown)
     }
 }
 
