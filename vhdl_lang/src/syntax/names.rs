@@ -34,9 +34,14 @@ pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
         if !stream.skip_if_kind(Dot) {
             break;
         }
-        let suffix = parse_designator(stream)?.into_ref();
-        let pos = suffix.pos.combine(&name.pos);
-        name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
+        if let Some(tok) = stream.pop_if_kind(All) {
+            let pos = stream.get_pos(tok).combine(&name.pos);
+            name = WithPos::from(Name::SelectedAll(Box::new(name)), pos);
+        } else {
+            let suffix = parse_designator(stream)?.into_ref();
+            let pos = suffix.pos.combine(&name.pos);
+            name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
+        }
     }
     Ok(name)
 }
@@ -546,6 +551,19 @@ mod tests {
         );
 
         assert_eq!(code.with_stream(parse_selected_name), foo_bar_baz);
+    }
+
+    #[test]
+    fn test_parse_selected_name_all() {
+        let code = Code::new("foo.all");
+        let foo = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .into_ref()
+            .map_into(Name::Designator);
+        let foo_all = WithPos::from(Name::SelectedAll(Box::new(foo)), code.s1("foo.all").pos());
+        assert_eq!(code.with_stream(parse_selected_name), foo_all);
     }
 
     #[test]

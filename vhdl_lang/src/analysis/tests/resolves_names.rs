@@ -2065,3 +2065,26 @@ end architecture;
     check_no_diagnostics(&diagnostics);
     assert_eq!(root.find_all_unresolved().1, vec![]);
 }
+
+#[test]
+pub fn parse_selected_all() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+type t_str_ptr is access string;
+signal str_value_ptr : t_str_ptr;
+signal v_value : str_value_ptr.all'subtype;
+    ",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    let pos = code.s1("v_value").pos();
+    let value = root
+        .search_reference(&pos.source, pos.start())
+        .expect("Signal has no reference");
+    let typ = match value.kind() {
+        AnyEntKind::Object(o) => o.subtype.type_mark(),
+        _ => panic!("Expecting object"),
+    };
+    assert_eq!(typ.id, root.standard_types.as_ref().unwrap().string)
+}
