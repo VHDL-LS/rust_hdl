@@ -40,7 +40,7 @@ impl<'a> Region<'a> {
         self
     }
 
-    pub(crate) fn to_entity_formal(&self) -> (FormalRegion, FormalRegion) {
+    pub(crate) fn to_entity_formal(&self) -> (FormalRegion<'a>, FormalRegion<'a>) {
         // @TODO separate generics and ports
         let mut generics = Vec::with_capacity(self.entities.len());
         let mut ports = Vec::with_capacity(self.entities.len());
