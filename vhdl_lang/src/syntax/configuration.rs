@@ -378,7 +378,7 @@ end;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -407,7 +407,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -437,7 +437,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![
                     ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
                     ConfigurationDeclarativeItem::Use(code.s1("use lib2.foo.bar;").use_clause())
@@ -471,7 +471,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![ConfigurationDeclarativeItem::Use(
                     code.s1("use lib.foo.bar;").use_clause()
                 ),],
@@ -504,7 +504,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -537,7 +537,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -581,7 +581,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -592,7 +592,7 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").selected_name()
+                            component_name: code.s1("lib.pkg.comp").name()
                         },
                         bind_ind: None,
                         vunit_bind_inds: Vec::new(),
@@ -630,7 +630,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -641,11 +641,11 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").selected_name()
+                            component_name: code.s1("lib.pkg.comp").name()
                         },
                         bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
-                                code.s1("work.bar").selected_name(),
+                                code.s1("work.bar").name(),
                                 None
                             )),
                             generic_map: None,
@@ -685,7 +685,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -696,11 +696,11 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").selected_name()
+                            component_name: code.s1("lib.pkg.comp").name()
                         },
                         bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
-                                code.s1("lib.use_name").selected_name(),
+                                code.s1("lib.use_name").name(),
                                 None
                             )),
                             generic_map: None,
@@ -739,7 +739,7 @@ end configuration cfg;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
-                entity_name: code.s1("entity_name").selected_name(),
+                entity_name: code.s1("entity_name").name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
@@ -751,7 +751,7 @@ end configuration cfg;
                                 instantiation_list: InstantiationList::Labels(vec![code
                                     .s1("inst")
                                     .ident()]),
-                                component_name: code.s1("lib.pkg.comp").selected_name()
+                                component_name: code.s1("lib.pkg.comp").name()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
@@ -764,7 +764,7 @@ end configuration cfg;
                                     code.s1("inst2").ident(),
                                     code.s1("inst3").ident()
                                 ]),
-                                component_name: code.s1("lib2.pkg.comp").selected_name()
+                                component_name: code.s1("lib2.pkg.comp").name()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
@@ -773,7 +773,7 @@ end configuration cfg;
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::All,
-                                component_name: code.s1("lib3.pkg.comp").selected_name()
+                                component_name: code.s1("lib3.pkg.comp").name()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
@@ -782,7 +782,7 @@ end configuration cfg;
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::Others,
-                                component_name: code.s1("lib4.pkg.comp").selected_name()
+                                component_name: code.s1("lib4.pkg.comp").name()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
@@ -800,7 +800,7 @@ end configuration cfg;
         let code = Code::new("entity lib.foo.name");
         assert_eq!(
             code.with_stream(parse_entity_aspect),
-            EntityAspect::Entity(code.s1("lib.foo.name").selected_name(), None)
+            EntityAspect::Entity(code.s1("lib.foo.name").name(), None)
         );
     }
 
@@ -810,7 +810,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream(parse_entity_aspect),
             EntityAspect::Entity(
-                code.s1("lib.foo.name").selected_name(),
+                code.s1("lib.foo.name").name(),
                 Some(code.s1("arch").ident())
             )
         );
@@ -821,7 +821,7 @@ end configuration cfg;
         let code = Code::new("configuration lib.foo.name");
         assert_eq!(
             code.with_stream(parse_entity_aspect),
-            EntityAspect::Configuration(code.s1("lib.foo.name").selected_name())
+            EntityAspect::Configuration(code.s1("lib.foo.name").name())
         );
     }
 
@@ -841,11 +841,11 @@ end configuration cfg;
                 span: code.token_span(),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
-                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                    component_name: code.s1("lib.pkg.comp").name(),
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
-                        code.s1("work.foo").selected_name(),
+                        code.s1("work.foo").name(),
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
@@ -866,11 +866,11 @@ end configuration cfg;
                 span: code.token_span(),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
-                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                    component_name: code.s1("lib.pkg.comp").name(),
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
-                        code.s1("work.foo").selected_name(),
+                        code.s1("work.foo").name(),
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
@@ -893,11 +893,11 @@ end configuration cfg;
                 span: code.token_span(),
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
-                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                    component_name: code.s1("lib.pkg.comp").name(),
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
-                        code.s1("work.foo").selected_name(),
+                        code.s1("work.foo").name(),
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,

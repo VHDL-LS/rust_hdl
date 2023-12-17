@@ -1187,12 +1187,12 @@ mod tests {
 
     #[test]
     fn test_selected_name_single() {
-        assert_format("foo", Code::selected_name);
+        assert_format("foo", Code::name);
     }
 
     #[test]
     fn test_selected_name_multiple() {
-        assert_format("foo.bar.baz", Code::selected_name);
+        assert_format("foo.bar.baz", Code::name);
     }
 
     #[test]

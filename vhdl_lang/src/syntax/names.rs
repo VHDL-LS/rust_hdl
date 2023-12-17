@@ -807,7 +807,7 @@ mod tests {
     #[test]
     fn test_type_mark_without_subtype() {
         let code = Code::new("prefix");
-        let name = code.s1("prefix").selected_name();
+        let name = code.s1("prefix").name();
 
         assert_eq!(
             code.with_stream(parse_type_mark),
@@ -827,7 +827,7 @@ mod tests {
             WithPos {
                 pos: code.pos(),
                 item: TypeMark {
-                    name: code.s1("prefix").selected_name(),
+                    name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Subtype)
                 },
             }
@@ -843,7 +843,7 @@ mod tests {
             WithPos {
                 pos: code.pos(),
                 item: TypeMark {
-                    name: code.s1("prefix").selected_name(),
+                    name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Element)
                 },
             }

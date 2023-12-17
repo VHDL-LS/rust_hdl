@@ -1264,7 +1264,7 @@ with x(0) + 1 select
         let code = Code::new("inst: component lib.foo.bar;");
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").name()),
             generic_map: None,
             port_map: None,
             semicolon: code.s1(";").token(),
@@ -1285,7 +1285,7 @@ with x(0) + 1 select
         let code = Code::new("inst: configuration lib.foo.bar;");
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").selected_name()),
+            unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").name()),
             generic_map: None,
             port_map: None,
             semicolon: code.s1(";").token(),
@@ -1306,7 +1306,7 @@ with x(0) + 1 select
         let code = Code::new("inst: entity lib.foo.bar;");
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").selected_name(), None),
+            unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").name(), None),
             generic_map: None,
             port_map: None,
             semicolon: code.s1(";").token(),
@@ -1328,7 +1328,7 @@ with x(0) + 1 select
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(
-                code.s1("lib.foo.bar").selected_name(),
+                code.s1("lib.foo.bar").name(),
                 Some(WithRef::new(code.s1("arch").ident())),
             ),
             generic_map: None,
@@ -1360,7 +1360,7 @@ inst: component lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").name()),
             generic_map: Some(
                 code.s1("generic map (
    const => 1
@@ -1397,7 +1397,7 @@ inst: lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").name()),
             generic_map: None,
             port_map: Some(
                 code.s1("port map (
@@ -1429,7 +1429,7 @@ inst: lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").name()),
             generic_map: Some(
                 code.s1("generic map (
    const => 1
