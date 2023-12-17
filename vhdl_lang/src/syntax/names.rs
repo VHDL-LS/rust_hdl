@@ -76,17 +76,22 @@ pub fn parse_type_mark_starting_with_name(
     })
 }
 
-pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<Name>> {
-    match name.item {
-        Name::Selected(prefix, suffix) => {
-            let pos = suffix.pos.combine(&prefix.pos);
-            Ok(WithPos::from(
-                Name::Selected(Box::new(into_selected_name(*prefix)?), suffix),
-                pos,
-            ))
+impl Name {
+    pub fn expect_selected(&self) -> Result<(), String> {
+        match &self {
+            Name::Designator(_) => Ok(()),
+            Name::Selected(prefix, _) | Name::SelectedAll(prefix) => prefix.item.expect_selected(),
+            _ => Err("Expected selected name".into()),
         }
-        Name::Designator(designator) => Ok(WithPos::from(Name::Designator(designator), name.pos)),
-        _ => Err(Diagnostic::error(&name, "Expected selected name")),
+    }
+}
+
+impl WithPos<Name> {
+    pub fn expect_selected(&self) -> Result<(), Diagnostic> {
+        match self.item.expect_selected() {
+            Ok(_) => Ok(()),
+            Err(msg) => Err(Diagnostic::error(self, msg)),
+        }
     }
 }
 

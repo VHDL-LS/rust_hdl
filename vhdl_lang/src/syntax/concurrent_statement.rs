@@ -11,9 +11,7 @@ use super::expression::parse_aggregate;
 use super::expression::{parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::names::parse_name;
-use super::names::{
-    expression_to_ident, into_selected_name, parse_association_list, parse_selected_name,
-};
+use super::names::{expression_to_ident, parse_association_list, parse_selected_name};
 use super::range::parse_discrete_range;
 use super::sequential_statement::{
     parse_assert_statement, parse_labeled_sequential_statements, parse_selection,
@@ -638,7 +636,8 @@ pub fn parse_concurrent_statement(
                 let token = stream.peek_expect()?;
                 match token.kind {
                     Generic|Port => {
-                        let unit = InstantiatedUnit::Component(into_selected_name(name)?);
+                        name.expect_selected()?;
+                        let unit = InstantiatedUnit::Component(name);
                         ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
                     }
                     _ => {
