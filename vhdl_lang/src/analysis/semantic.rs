@@ -249,22 +249,8 @@ impl Diagnostic {
     }
 }
 
-impl<'a> AnyEnt<'a> {
-    pub(super) fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
-        let mut error = Diagnostic::error(
-            pos,
-            format!("Expected {}, got {}", expected, self.describe()),
-        );
-        if let Some(decl_pos) = self.decl_pos() {
-            error.add_related(decl_pos, "Defined here");
-        }
-        error
-    }
-}
-
-// TODO: duplication
 impl<'a> ResolvedName<'a> {
-    pub(super) fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
+    pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),

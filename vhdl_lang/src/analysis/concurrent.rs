@@ -261,7 +261,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match instance.unit {
             InstantiatedUnit::Entity(ref mut entity_name, ref mut architecture_name) => {
-                let Some(ent) = as_fatal(self.name_resolve(
+                let Some(resolved) = as_fatal(self.name_resolve(
                     scope,
                     &entity_name.pos,
                     &mut entity_name.item,
@@ -270,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
                 else {
                     return Ok(());
                 };
-                match ent {
+                match resolved {
                     ResolvedName::Design(ent) => match ent.kind() {
                         Design::Entity(_, ent_region) => {
                             if let Designator::Identifier(entity_ident) = ent.designator() {
@@ -320,7 +320,8 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(())
                         }
                         _ => {
-                            diagnostics.push(ent.kind_error(entity_name.suffix_pos(), "entity"));
+                            diagnostics
+                                .push(resolved.kind_error(entity_name.suffix_pos(), "entity"));
                             Ok(())
                         }
                     },
@@ -376,7 +377,7 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                     Ok(())
                 } else {
-                    diagnostics.push(ent.kind_error(component_name.suffix_pos(), "component"));
+                    diagnostics.push(resolved.kind_error(component_name.suffix_pos(), "component"));
                     Ok(())
                 }
             }
