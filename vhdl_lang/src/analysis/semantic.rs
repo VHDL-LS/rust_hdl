@@ -13,23 +13,6 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn resolve_non_overloaded_with_kind(
-        &self,
-        named_entities: NamedEntities<'a>,
-        pos: &SrcPos,
-        kind_ok: &impl Fn(&AnyEntKind) -> bool,
-        expected: &str,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
-        let ent = self.resolve_non_overloaded(named_entities, pos, expected, diagnostics)?;
-        if kind_ok(ent.actual_kind()) {
-            Ok(ent)
-        } else {
-            diagnostics.push(ent.kind_error(pos, expected));
-            Err(EvalError::Unknown)
-        }
-    }
-
     pub fn resolve_non_overloaded(
         &self,
         named_entities: NamedEntities<'a>,

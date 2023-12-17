@@ -380,27 +380,23 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
-                fn is_configuration(kind: &AnyEntKind) -> bool {
-                    matches!(kind, AnyEntKind::Design(Design::Configuration))
-                }
-
-                let Some(entities) =
-                    as_fatal(self.resolve_selected_name(scope, config_name, diagnostics))?
+                let Some(resolved) = as_fatal(self.name_resolve(
+                    scope,
+                    &config_name.pos,
+                    &mut config_name.item,
+                    diagnostics,
+                ))?
                 else {
                     return Ok(());
                 };
-                let _ = match as_fatal(self.resolve_non_overloaded_with_kind(
-                    entities,
-                    config_name.suffix_pos(),
-                    &is_configuration,
-                    "configuration",
-                    diagnostics,
-                ))? {
-                    Some(ent) => ent,
-                    None => {
+                match resolved {
+                    ResolvedName::Design(ent) if matches!(ent.kind(), Design::Configuration) => {}
+                    other => {
+                        diagnostics
+                            .push(other.kind_error(config_name.suffix_pos(), "configuration"));
                         return Ok(());
                     }
-                };
+                }
 
                 self.analyze_map_aspect(scope, &mut instance.generic_map, diagnostics)?;
                 self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)
