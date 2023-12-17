@@ -270,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
                 else {
                     return Ok(());
                 };
-                return match ent {
+                match ent {
                     ResolvedName::Design(ent) => match ent.kind() {
                         Design::Entity(_, ent_region) => {
                             if let Designator::Identifier(entity_ident) = ent.designator() {
@@ -328,7 +328,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(other.kind_error(entity_name.suffix_pos(), "entity"));
                         Ok(())
                     }
-                };
+                }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
                 let Some(resolved) = as_fatal(self.name_resolve(
