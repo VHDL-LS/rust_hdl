@@ -1622,48 +1622,6 @@ impl<'a> AnalyzeContext<'a> {
             _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }
-
-    pub fn resolve_selected_name(
-        &self,
-        scope: &Scope<'a>,
-        name: &mut WithPos<Name>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<NamedEntities<'a>> {
-        match name.item {
-            Name::Selected(ref mut prefix, ref mut suffix) => {
-                let prefix_ent = self
-                    .resolve_selected_name(scope, prefix, diagnostics)?
-                    .into_non_overloaded();
-                if let Ok(prefix_ent) = prefix_ent {
-                    let visible = catch_analysis_err(
-                        self.lookup_selected(&prefix.pos, prefix_ent, suffix),
-                        diagnostics,
-                    )?;
-                    suffix.set_reference(&visible);
-                    return Ok(visible);
-                };
-
-                diagnostics.error(&prefix.pos, "Invalid prefix for selected name");
-                Err(EvalError::Unknown)
-            }
-            Name::Designator(ref mut designator) => {
-                match scope.lookup(&name.pos, designator.designator()) {
-                    Ok(visible) => {
-                        designator.set_reference(&visible);
-                        Ok(visible)
-                    }
-                    Err(err) => {
-                        diagnostics.push(err);
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
-            _ => {
-                diagnostics.error(&name, "Expected selected name");
-                Err(EvalError::Unknown)
-            }
-        }
-    }
 }
 
 fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'static str {

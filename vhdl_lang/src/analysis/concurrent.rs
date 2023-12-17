@@ -320,12 +320,12 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(())
                         }
                         _ => {
-                            diagnostics.push(ent.kind_error(&entity_name.suffix_pos(), "entity"));
+                            diagnostics.push(ent.kind_error(entity_name.suffix_pos(), "entity"));
                             Ok(())
                         }
                     },
                     other => {
-                        diagnostics.push(other.kind_error(&entity_name.suffix_pos(), "entity"));
+                        diagnostics.push(other.kind_error(entity_name.suffix_pos(), "entity"));
                         Ok(())
                     }
                 };

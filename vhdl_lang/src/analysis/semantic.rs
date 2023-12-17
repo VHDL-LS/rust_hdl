@@ -13,20 +13,6 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn resolve_non_overloaded(
-        &self,
-        named_entities: NamedEntities<'a>,
-        pos: &SrcPos,
-        expected: &str,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
-        catch_diagnostic(
-            named_entities
-                .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name")),
-            diagnostics,
-        )
-    }
-
     pub fn resolve_type_mark(
         &self,
         scope: &Scope<'a>,
