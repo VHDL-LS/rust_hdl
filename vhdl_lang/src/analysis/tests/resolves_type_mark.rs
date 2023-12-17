@@ -339,7 +339,14 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![kind_error(&code, "bad", 2, 1, "type", "overloaded name")],
+        vec![kind_error(
+            &code,
+            "bad",
+            2,
+            1,
+            "type",
+            "function bad[return NATURAL]",
+        )],
     );
 }
 
@@ -382,7 +389,14 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![kind_error(&code, "bad", 2, 1, "type", "object alias 'bad'")],
+        vec![kind_error(
+            &code,
+            "bad",
+            2,
+            1,
+            "type",
+            "alias 'bad' of constant",
+        )],
     );
 }
 

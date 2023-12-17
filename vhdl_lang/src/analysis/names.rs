@@ -269,6 +269,23 @@ impl<'a> ResolvedName<'a> {
         }
     }
 
+    pub fn decl_pos(&self) -> Option<&SrcPos> {
+        match self {
+            ResolvedName::Library(_) => None,
+            ResolvedName::Design(design) => design.decl_pos(),
+            ResolvedName::Type(typ) => typ.decl_pos(),
+            ResolvedName::Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
+            ResolvedName::ObjectName(name) => match name.base {
+                ObjectBase::Object(ent) => ent.decl_pos(),
+                ObjectBase::DeferredConstant(ent) | ObjectBase::ObjectAlias(_, ent) => {
+                    ent.decl_pos()
+                }
+                ObjectBase::ExternalName(_) => None,
+            },
+            ResolvedName::Expression(_) | ResolvedName::Final(_) => None,
+        }
+    }
+
     fn type_mark(&self) -> Option<TypeEnt<'a>> {
         match self {
             ResolvedName::Type(typ) => Some(*typ),

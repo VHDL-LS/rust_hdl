@@ -50,17 +50,19 @@ impl<'a> AnalyzeContext<'a> {
         type_mark: &mut WithPos<Name>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        let entities = self.resolve_selected_name(scope, type_mark, diagnostics)?;
-
-        let pos = type_mark.suffix_pos();
-        let expected = "type";
-        let ent = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
-        match TypeEnt::from_any(ent) {
-            None => {
-                diagnostics.push(ent.kind_error(pos, expected));
+        match self.name_resolve(scope, &type_mark.pos, &mut type_mark.item, diagnostics)? {
+            ResolvedName::Type(typ_ent) => Ok(typ_ent),
+            other => {
+                let mut diag = Diagnostic::error(
+                    type_mark,
+                    format!("Expected type, got {}", other.describe()),
+                );
+                if let Some(pos) = other.decl_pos() {
+                    diag.add_related(pos, "Defined here");
+                }
+                diagnostics.push(diag);
                 Err(EvalError::Unknown)
             }
-            Some(type_ent) => Ok(type_ent),
         }
     }
 
