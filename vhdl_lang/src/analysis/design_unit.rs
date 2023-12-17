@@ -360,65 +360,67 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<DesignEnt> {
         let ent_name = &mut config.entity_name;
 
-        let res = match ent_name.item {
+        match ent_name.item {
             // Entitities are implicitly defined for configurations
             // configuration cfg of ent
-            Name::Designator(ref mut designator) => self.lookup_in_library(
-                self.work_library_name(),
-                &ent_name.pos,
-                &designator.item,
-            ).map(|design| {
-                designator.reference.set_unique_reference(design.into());
-                design
-                }
-            ),
+            Name::Designator(ref mut designator) => Ok(catch_analysis_err(
+                self.lookup_in_library(self.work_library_name(), &ent_name.pos, &designator.item)
+                    .map(|design| {
+                        designator.reference.set_unique_reference(design.into());
+                        design
+                    }),
+                diagnostics,
+            )?),
 
             // configuration cfg of lib.ent
             Name::Selected(ref mut prefix, ref mut designator) => {
-                self.resolve_selected_name(scope, prefix, diagnostics)?
-                    .into_non_overloaded()
-                    .map_err(|ent|
-                             AnalysisError::not_fatal_error(
-                                 &prefix.pos,
-                                 format!("{} does not denote a library", ent.first().describe()),
-                             )
-                    )
-                    .and_then(|library_ent| match library_ent.kind() {
-                        AnyEntKind::Library => {
-                            let library_name = library_ent.designator().expect_identifier();
-                            if library_name != self.work_library_name() {
-                                Err(AnalysisError::not_fatal_error(
-                                    &prefix.pos,
-                                    format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
-                                ))
-                            } else {
-                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, &designator.item.item)?;
-                                designator.item.reference.set_unique_reference(primary_ent.into());
-                                match primary_ent.kind() {
-                                    Design::Entity(..) => Ok(primary_ent),
-                                    _ => {
-                                        Err(AnalysisError::not_fatal_error(
-                                            designator,
-                                            format!("{} does not denote an entity", primary_ent.describe()),
-                                        ))
-                                    }
+                let name = self.name_resolve(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
+                match name {
+                    ResolvedName::Library(ref library_name) => {
+                        if library_name != self.work_library_name() {
+                            diagnostics.error(
+                                &prefix.pos,
+                                format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()));
+                            Err(EvalError::Unknown)
+                        } else {
+                            let primary_ent = catch_analysis_err(
+                                self.lookup_in_library(
+                                    library_name,
+                                    &designator.pos,
+                                    &designator.item.item,
+                                ),
+                                diagnostics,
+                            )?;
+                            designator
+                                .item
+                                .reference
+                                .set_unique_reference(primary_ent.into());
+                            match primary_ent.kind() {
+                                Design::Entity(..) => Ok(primary_ent),
+                                _ => {
+                                    diagnostics.error(
+                                        designator,
+                                        format!(
+                                            "{} does not denote an entity",
+                                            primary_ent.describe()
+                                        ),
+                                    );
+                                    Err(EvalError::Unknown)
                                 }
                             }
-
                         }
-                        _ => {
-                            Err(AnalysisError::not_fatal_error(
-                                &prefix.pos,
-                                format!("{} does not denote a library", library_ent.describe())
-                            ))
-                        }
-                    })
-            },
-            _ => {
-                Err(AnalysisError::not_fatal_error(&ent_name, "Expected selected name"))
+                    }
+                    other => {
+                        diagnostics.push(other.kind_error(&prefix.pos, "library"));
+                        Err(EvalError::Unknown)
+                    }
+                }
             }
-        };
-        catch_analysis_err(res, diagnostics)
+            _ => {
+                diagnostics.error(&ent_name, "Expected selected name");
+                Err(EvalError::Unknown)
+            }
+        }
     }
 
     fn resolve_context_item_prefix(
