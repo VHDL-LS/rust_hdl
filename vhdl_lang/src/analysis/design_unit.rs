@@ -413,7 +413,9 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     })
             },
-            _ => todo!()
+            _ => {
+                Err(AnalysisError::not_fatal_error(&ent_name, "Expected selected name"))
+            }
         };
         catch_analysis_err(res, diagnostics)
     }

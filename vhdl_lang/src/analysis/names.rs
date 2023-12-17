@@ -1641,7 +1641,10 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-            _ => todo!(),
+            _ => {
+                diagnostics.error(&name, "Expected selected name");
+                Err(EvalError::Unknown)
+            }
         }
     }
 }
