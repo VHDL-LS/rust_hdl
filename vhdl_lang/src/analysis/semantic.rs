@@ -47,7 +47,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_type_mark_name(
         &self,
         scope: &Scope<'a>,
-        type_mark: &mut WithPos<SelectedName>,
+        type_mark: &mut WithPos<Name>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         let entities = self.resolve_selected_name(scope, type_mark, diagnostics)?;

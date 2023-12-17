@@ -618,7 +618,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_package_instance_name(
         &self,
         scope: &Scope<'a>,
-        package_name: &mut WithPos<SelectedName>,
+        package_name: &mut WithPos<Name>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<&'a Region<'a>> {
         let decl = self.resolve_selected_name(scope, package_name, diagnostics)?;

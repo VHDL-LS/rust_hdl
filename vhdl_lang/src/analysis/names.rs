@@ -1609,11 +1609,11 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_selected_name(
         &self,
         scope: &Scope<'a>,
-        name: &mut WithPos<SelectedName>,
+        name: &mut WithPos<Name>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<NamedEntities<'a>> {
         match name.item {
-            SelectedName::Selected(ref mut prefix, ref mut suffix) => {
+            Name::Selected(ref mut prefix, ref mut suffix) => {
                 let prefix_ent = self
                     .resolve_selected_name(scope, prefix, diagnostics)?
                     .into_non_overloaded();
@@ -1629,7 +1629,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(&prefix.pos, "Invalid prefix for selected name");
                 Err(EvalError::Unknown)
             }
-            SelectedName::Designator(ref mut designator) => {
+            Name::Designator(ref mut designator) => {
                 match scope.lookup(&name.pos, designator.designator()) {
                     Ok(visible) => {
                         designator.set_reference(&visible);

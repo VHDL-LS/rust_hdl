@@ -195,8 +195,6 @@ pub enum Name {
     External(Box<ExternalName>),
 }
 
-pub type SelectedName = Name;
-
 /// LRM 9.3.4 Function calls
 #[derive(PartialEq, Debug, Clone)]
 pub struct CallOrIndexed {
@@ -364,15 +362,15 @@ pub struct RecordElementResolution {
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub enum ResolutionIndication {
-    FunctionName(WithPos<SelectedName>),
-    ArrayElement(WithPos<SelectedName>),
+    FunctionName(WithPos<Name>),
+    ArrayElement(WithPos<Name>),
     Record(Vec<RecordElementResolution>),
     Unresolved,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeMark {
-    pub name: WithPos<SelectedName>,
+    pub name: WithPos<Name>,
     pub attr: Option<TypeAttribute>,
 }
 
@@ -752,7 +750,7 @@ pub struct InterfaceObjectDeclaration {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubprogramDefault {
-    Name(WithPos<SelectedName>),
+    Name(WithPos<Name>),
     Box,
 }
 /// LRM 6.5.5 Interface package declaration
@@ -767,7 +765,7 @@ pub enum InterfacePackageGenericMapAspect {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfacePackageDeclaration {
     pub ident: WithDecl<Ident>,
-    pub package_name: WithPos<SelectedName>,
+    pub package_name: WithPos<Name>,
     pub generic_map: InterfacePackageGenericMapAspect,
 }
 
@@ -1080,9 +1078,9 @@ pub struct ConcurrentSignalAssignment {
 /// 11.7 Component instantiation statements
 #[derive(PartialEq, Debug, Clone)]
 pub enum InstantiatedUnit {
-    Component(WithPos<SelectedName>),
-    Entity(WithPos<SelectedName>, Option<WithRef<Ident>>),
-    Configuration(WithPos<SelectedName>),
+    Component(WithPos<Name>),
+    Entity(WithPos<Name>, Option<WithRef<Ident>>),
+    Configuration(WithPos<Name>),
 }
 
 impl InstantiatedUnit {
@@ -1258,7 +1256,7 @@ pub struct ContextDeclaration {
 pub struct PackageInstantiation {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub package_name: WithPos<SelectedName>,
+    pub package_name: WithPos<Name>,
     pub generic_map: Option<MapAspect>,
 }
 
@@ -1273,8 +1271,8 @@ pub enum InstantiationList {
 /// LRM 7.3.2 Binding indication
 #[derive(PartialEq, Debug, Clone)]
 pub enum EntityAspect {
-    Entity(WithPos<SelectedName>, Option<Ident>),
-    Configuration(WithPos<SelectedName>),
+    Entity(WithPos<Name>, Option<Ident>),
+    Configuration(WithPos<Name>),
     Open,
 }
 
@@ -1290,7 +1288,7 @@ pub struct BindingIndication {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentSpecification {
     pub instantiation_list: InstantiationList,
-    pub component_name: WithPos<SelectedName>,
+    pub component_name: WithPos<Name>,
 }
 
 /// LRM 7.3.4 Verification unit binding indication
@@ -1345,7 +1343,7 @@ pub struct BlockConfiguration {
 pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub entity_name: WithPos<SelectedName>,
+    pub entity_name: WithPos<Name>,
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,

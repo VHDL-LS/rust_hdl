@@ -26,17 +26,17 @@ pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>
     ))
 }
 
-pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<SelectedName>> {
+pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
     let mut name = parse_designator(stream)?
         .into_ref()
-        .map_into(SelectedName::Designator);
+        .map_into(Name::Designator);
     loop {
         if !stream.skip_if_kind(Dot) {
             break;
         }
         let suffix = parse_designator(stream)?.into_ref();
         let pos = suffix.pos.combine(&name.pos);
-        name = WithPos::from(SelectedName::Selected(Box::new(name), suffix), pos);
+        name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
     }
     Ok(name)
 }
@@ -48,7 +48,7 @@ pub fn parse_type_mark(stream: &TokenStream) -> ParseResult<WithPos<TypeMark>> {
 
 pub fn parse_type_mark_starting_with_name(
     stream: &TokenStream,
-    name: WithPos<SelectedName>,
+    name: WithPos<Name>,
 ) -> ParseResult<WithPos<TypeMark>> {
     let state = stream.state();
 
@@ -76,19 +76,16 @@ pub fn parse_type_mark_starting_with_name(
     })
 }
 
-pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedName>> {
+pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<Name>> {
     match name.item {
         Name::Selected(prefix, suffix) => {
             let pos = suffix.pos.combine(&prefix.pos);
             Ok(WithPos::from(
-                SelectedName::Selected(Box::new(into_selected_name(*prefix)?), suffix),
+                Name::Selected(Box::new(into_selected_name(*prefix)?), suffix),
                 pos,
             ))
         }
-        Name::Designator(designator) => Ok(WithPos::from(
-            SelectedName::Designator(designator),
-            name.pos,
-        )),
+        Name::Designator(designator) => Ok(WithPos::from(Name::Designator(designator), name.pos)),
         _ => Err(Diagnostic::error(&name, "Expected selected name")),
     }
 }
@@ -513,7 +510,7 @@ mod tests {
             code.with_stream(parse_selected_name),
             code.s1("foo")
                 .ident()
-                .map_into(|sym| SelectedName::Designator(Designator::Identifier(sym).into_ref()))
+                .map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()))
         );
     }
 
@@ -536,13 +533,10 @@ mod tests {
             .ident()
             .map_into(Designator::Identifier)
             .into_ref()
-            .map_into(SelectedName::Designator);
-        let foo_bar = WithPos::from(
-            SelectedName::Selected(Box::new(foo), bar),
-            code.s1("foo.bar").pos(),
-        );
+            .map_into(Name::Designator);
+        let foo_bar = WithPos::from(Name::Selected(Box::new(foo), bar), code.s1("foo.bar").pos());
         let foo_bar_baz = WithPos::from(
-            SelectedName::Selected(Box::new(foo_bar), baz),
+            Name::Selected(Box::new(foo_bar), baz),
             code.s1("foo.bar.baz").pos(),
         );
 

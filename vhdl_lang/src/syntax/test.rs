@@ -504,7 +504,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
-    pub fn selected_name(&self) -> WithPos<SelectedName> {
+    pub fn selected_name(&self) -> WithPos<Name> {
         self.parse_ok(parse_selected_name)
     }
 
