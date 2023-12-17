@@ -8,6 +8,7 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::*;
+use crate::analysis::names::ResolvedName;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
@@ -329,20 +330,21 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
-                let Some(entities) =
-                    as_fatal(self.resolve_selected_name(scope, component_name, diagnostics))?
+                let Some(resolved) = as_fatal(self.name_resolve(
+                    scope,
+                    &component_name.pos,
+                    &mut component_name.item,
+                    diagnostics,
+                ))?
                 else {
                     return Ok(());
                 };
-                let expected = "component";
-                let ent = match as_fatal(self.resolve_non_overloaded(
-                    entities,
-                    component_name.suffix_pos(),
-                    expected,
-                    diagnostics,
-                ))? {
-                    Some(ent) => ent,
-                    None => {
+
+                let ent = match resolved {
+                    ResolvedName::Final(ent) => ent,
+                    other => {
+                        diagnostics
+                            .push(other.kind_error(component_name.suffix_pos(), "component"));
                         return Ok(());
                     }
                 };
@@ -373,7 +375,7 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                     Ok(())
                 } else {
-                    diagnostics.push(ent.kind_error(component_name.suffix_pos(), expected));
+                    diagnostics.push(ent.kind_error(component_name.suffix_pos(), "component"));
                     Ok(())
                 }
             }
