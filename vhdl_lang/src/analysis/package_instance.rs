@@ -42,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
             package_ent,
             scope,
             &unit.ident.tree.pos,
-            package_region,
+            &package_region,
             generic_map,
             diagnostics,
         )

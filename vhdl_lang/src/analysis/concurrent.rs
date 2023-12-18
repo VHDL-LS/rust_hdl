@@ -8,6 +8,7 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::*;
+use crate::analysis::names::ResolvedName;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
@@ -260,89 +261,92 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match instance.unit {
             InstantiatedUnit::Entity(ref mut entity_name, ref mut architecture_name) => {
-                if let Some(entities) =
-                    as_fatal(self.resolve_selected_name(scope, entity_name, diagnostics))?
-                {
-                    let expected = "entity";
-                    let ent = match as_fatal(self.resolve_non_overloaded(
-                        entities,
-                        entity_name.suffix_pos(),
-                        expected,
-                        diagnostics,
-                    ))? {
-                        Some(ent) => ent,
-                        None => return Ok(()),
-                    };
-
-                    if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
-                        if let Designator::Identifier(entity_ident) = ent.designator() {
-                            if let Some(library_name) = ent.library_name() {
-                                if let Some(ref mut architecture_name) = architecture_name {
-                                    match self.get_architecture(
-                                        library_name,
-                                        &architecture_name.item.pos,
-                                        entity_ident,
-                                        &architecture_name.item.item,
-                                    ) {
-                                        Ok(arch) => {
-                                            architecture_name.set_unique_reference(&arch);
-                                        }
-                                        Err(err) => {
-                                            diagnostics.push(err.into_non_fatal()?);
+                let Some(resolved) = as_fatal(self.name_resolve(
+                    scope,
+                    &entity_name.pos,
+                    &mut entity_name.item,
+                    diagnostics,
+                ))?
+                else {
+                    return Ok(());
+                };
+                match resolved {
+                    ResolvedName::Design(ent) => match ent.kind() {
+                        Design::Entity(_, ent_region) => {
+                            if let Designator::Identifier(entity_ident) = ent.designator() {
+                                if let Some(library_name) = ent.library_name() {
+                                    if let Some(ref mut architecture_name) = architecture_name {
+                                        match self.get_architecture(
+                                            library_name,
+                                            &architecture_name.item.pos,
+                                            entity_ident,
+                                            &architecture_name.item.item,
+                                        ) {
+                                            Ok(arch) => {
+                                                architecture_name.set_unique_reference(&arch);
+                                            }
+                                            Err(err) => {
+                                                diagnostics.push(err.into_non_fatal()?);
+                                            }
                                         }
                                     }
                                 }
                             }
+
+                            let (generic_region, port_region) = ent_region.to_entity_formal();
+
+                            self.check_association(
+                                &entity_name.pos,
+                                &generic_region,
+                                scope,
+                                instance
+                                    .generic_map
+                                    .as_mut()
+                                    .map(|it| it.list.items.as_mut_slice())
+                                    .unwrap_or(&mut []),
+                                diagnostics,
+                            )?;
+                            self.check_association(
+                                &entity_name.pos,
+                                &port_region,
+                                scope,
+                                instance
+                                    .port_map
+                                    .as_mut()
+                                    .map(|it| it.list.items.as_mut_slice())
+                                    .unwrap_or(&mut []),
+                                diagnostics,
+                            )?;
+                            Ok(())
                         }
-
-                        let (generic_region, port_region) = ent_region.to_entity_formal();
-
-                        self.check_association(
-                            &entity_name.pos,
-                            &generic_region,
-                            scope,
-                            instance
-                                .generic_map
-                                .as_mut()
-                                .map(|it| it.list.items.as_mut_slice())
-                                .unwrap_or(&mut []),
-                            diagnostics,
-                        )?;
-                        self.check_association(
-                            &entity_name.pos,
-                            &port_region,
-                            scope,
-                            instance
-                                .port_map
-                                .as_mut()
-                                .map(|it| it.list.items.as_mut_slice())
-                                .unwrap_or(&mut []),
-                            diagnostics,
-                        )?;
-                        Ok(())
-                    } else {
-                        diagnostics.push(ent.kind_error(entity_name.suffix_pos(), expected));
+                        _ => {
+                            diagnostics
+                                .push(resolved.kind_error(entity_name.suffix_pos(), "entity"));
+                            Ok(())
+                        }
+                    },
+                    other => {
+                        diagnostics.push(other.kind_error(entity_name.suffix_pos(), "entity"));
                         Ok(())
                     }
-                } else {
-                    Ok(())
                 }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
-                let Some(entities) =
-                    as_fatal(self.resolve_selected_name(scope, component_name, diagnostics))?
+                let Some(resolved) = as_fatal(self.name_resolve(
+                    scope,
+                    &component_name.pos,
+                    &mut component_name.item,
+                    diagnostics,
+                ))?
                 else {
                     return Ok(());
                 };
-                let expected = "component";
-                let ent = match as_fatal(self.resolve_non_overloaded(
-                    entities,
-                    component_name.suffix_pos(),
-                    expected,
-                    diagnostics,
-                ))? {
-                    Some(ent) => ent,
-                    None => {
+
+                let ent = match resolved {
+                    ResolvedName::Final(ent) => ent,
+                    other => {
+                        diagnostics
+                            .push(other.kind_error(component_name.suffix_pos(), "component"));
                         return Ok(());
                     }
                 };
@@ -373,32 +377,28 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                     Ok(())
                 } else {
-                    diagnostics.push(ent.kind_error(component_name.suffix_pos(), expected));
+                    diagnostics.push(resolved.kind_error(component_name.suffix_pos(), "component"));
                     Ok(())
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
-                fn is_configuration(kind: &AnyEntKind) -> bool {
-                    matches!(kind, AnyEntKind::Design(Design::Configuration))
-                }
-
-                let Some(entities) =
-                    as_fatal(self.resolve_selected_name(scope, config_name, diagnostics))?
+                let Some(resolved) = as_fatal(self.name_resolve(
+                    scope,
+                    &config_name.pos,
+                    &mut config_name.item,
+                    diagnostics,
+                ))?
                 else {
                     return Ok(());
                 };
-                let _ = match as_fatal(self.resolve_non_overloaded_with_kind(
-                    entities,
-                    config_name.suffix_pos(),
-                    &is_configuration,
-                    "configuration",
-                    diagnostics,
-                ))? {
-                    Some(ent) => ent,
-                    None => {
+                match resolved {
+                    ResolvedName::Design(ent) if matches!(ent.kind(), Design::Configuration) => {}
+                    other => {
+                        diagnostics
+                            .push(other.kind_error(config_name.suffix_pos(), "configuration"));
                         return Ok(());
                     }
-                };
+                }
 
                 self.analyze_map_aspect(scope, &mut instance.generic_map, diagnostics)?;
                 self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)

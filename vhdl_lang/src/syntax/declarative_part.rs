@@ -179,7 +179,7 @@ package ident is new lib.foo.bar;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").decl_ident(),
-                package_name: code.s1("lib.foo.bar").selected_name(),
+                package_name: code.s1("lib.foo.bar").name(),
                 generic_map: None
             }
         );
@@ -201,7 +201,7 @@ package ident is new lib.foo.bar
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").decl_ident(),
-                package_name: code.s1("lib.foo.bar").selected_name(),
+                package_name: code.s1("lib.foo.bar").name(),
                 generic_map: Some(
                     code.s1("generic map (
     foo => bar

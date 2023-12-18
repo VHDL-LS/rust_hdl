@@ -13,86 +13,34 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn resolve_non_overloaded_with_kind(
-        &self,
-        named_entities: NamedEntities<'a>,
-        pos: &SrcPos,
-        kind_ok: &impl Fn(&AnyEntKind) -> bool,
-        expected: &str,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
-        let ent = self.resolve_non_overloaded(named_entities, pos, expected, diagnostics)?;
-        if kind_ok(ent.actual_kind()) {
-            Ok(ent)
-        } else {
-            diagnostics.push(ent.kind_error(pos, expected));
-            Err(EvalError::Unknown)
-        }
-    }
-
-    pub fn resolve_non_overloaded(
-        &self,
-        named_entities: NamedEntities<'a>,
-        pos: &SrcPos,
-        expected: &str,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
-        catch_diagnostic(
-            named_entities
-                .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name")),
-            diagnostics,
-        )
-    }
-
-    pub fn resolve_type_mark_name(
-        &self,
-        scope: &Scope<'a>,
-        type_mark: &mut WithPos<SelectedName>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<TypeEnt<'a>> {
-        let entities = self.resolve_selected_name(scope, type_mark, diagnostics)?;
-
-        let pos = type_mark.suffix_pos();
-        let expected = "type";
-        let ent = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
-        match TypeEnt::from_any(ent) {
-            None => {
-                diagnostics.push(ent.kind_error(pos, expected));
-                Err(EvalError::Unknown)
-            }
-            Some(type_ent) => Ok(type_ent),
-        }
-    }
-
     pub fn resolve_type_mark(
         &self,
         scope: &Scope<'a>,
         type_mark: &mut WithPos<TypeMark>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        if let Some(attr) = &type_mark.item.attr {
-            let entities =
-                self.resolve_selected_name(scope, &mut type_mark.item.name, diagnostics)?;
+        let name = self.name_resolve(
+            scope,
+            &type_mark.item.name.pos,
+            &mut type_mark.item.name.item,
+            diagnostics,
+        )?;
 
+        if let Some(attr) = &type_mark.item.attr {
             let pos = type_mark.item.name.suffix_pos();
 
-            let expected = if *attr == TypeAttribute::Element {
-                "type, object or alias"
-            } else {
-                "object or alias"
-            };
-
-            let named_entity = self.resolve_non_overloaded(entities, pos, expected, diagnostics)?;
-
-            let typ = match named_entity.kind() {
-                AnyEntKind::Object(obj) => obj.subtype.type_mark(),
-                AnyEntKind::ObjectAlias { type_mark, .. } => *type_mark,
-                AnyEntKind::ElementDeclaration(subtype) => subtype.type_mark(),
-                AnyEntKind::Type(_) if *attr == TypeAttribute::Element => {
-                    TypeEnt::from_any(named_entity).unwrap()
-                }
-                _ => {
-                    diagnostics.push(named_entity.kind_error(pos, expected));
+            let typ = match name {
+                ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
+                ResolvedName::ObjectName(obj) => obj.type_mark(),
+                other => {
+                    let mut diag = Diagnostic::error(
+                        type_mark,
+                        format!("Expected type, got {}", other.describe()),
+                    );
+                    if let Some(pos) = other.decl_pos() {
+                        diag.add_related(pos, "Defined here");
+                    }
+                    diagnostics.push(diag);
                     return Err(EvalError::Unknown);
                 }
             };
@@ -110,7 +58,20 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         } else {
-            self.resolve_type_mark_name(scope, &mut type_mark.item.name, diagnostics)
+            match name {
+                ResolvedName::Type(typ) => Ok(typ),
+                other => {
+                    let mut diag = Diagnostic::error(
+                        type_mark,
+                        format!("Expected type, got {}", other.describe()),
+                    );
+                    if let Some(pos) = other.decl_pos() {
+                        diag.add_related(pos, "Defined here");
+                    }
+                    diagnostics.push(diag);
+                    Err(EvalError::Unknown)
+                }
+            }
         }
     }
 
@@ -288,8 +249,8 @@ impl Diagnostic {
     }
 }
 
-impl<'a> AnyEnt<'a> {
-    pub(super) fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
+impl<'a> ResolvedName<'a> {
+    pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),

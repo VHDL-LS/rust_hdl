@@ -139,7 +139,7 @@ pub fn parse_element_resolution_indication(
     Ok(peek_token!(
         stream, token,
         Dot | RightPar => {
-            let selected_name = first_ident.map_into(|sym| SelectedName::Designator(Designator::Identifier(sym).into_ref()));
+            let selected_name = first_ident.map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()));
             stream.expect_kind(RightPar)?;
             ResolutionIndication::ArrayElement(selected_name)
         },
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: ResolutionIndication::FunctionName(code.s1("resolve").selected_name()),
+                resolution: ResolutionIndication::FunctionName(code.s1("resolve").name()),
                 type_mark: code.s1("std_logic").type_mark(),
                 constraint: None
             }
@@ -251,7 +251,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: ResolutionIndication::ArrayElement(code.s1("resolve").selected_name()),
+                resolution: ResolutionIndication::ArrayElement(code.s1("resolve").name()),
                 type_mark: code.s1("integer_vector").type_mark(),
                 constraint: None
             }
@@ -265,7 +265,7 @@ mod tests {
         let elem_resolution = RecordElementResolution {
             ident: code.s1("elem").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                code.s1("resolve").selected_name(),
+                code.s1("resolve").name(),
             )),
         };
 
@@ -287,21 +287,21 @@ mod tests {
         let elem1_resolution = RecordElementResolution {
             ident: code.s1("elem1").ident(),
             resolution: Box::new(ResolutionIndication::ArrayElement(
-                code.s1("resolve1").selected_name(),
+                code.s1("resolve1").name(),
             )),
         };
 
         let elem2_resolution = RecordElementResolution {
             ident: code.s1("elem2").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                code.s1("resolve2").selected_name(),
+                code.s1("resolve2").name(),
             )),
         };
 
         let sub_elem_resolution = RecordElementResolution {
             ident: code.s1("sub_elem").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                code.s1("sub_resolve").selected_name(),
+                code.s1("sub_resolve").name(),
             )),
         };
 
@@ -330,9 +330,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: ResolutionIndication::FunctionName(
-                    code.s1("lib.foo.resolve").selected_name()
-                ),
+                resolution: ResolutionIndication::FunctionName(code.s1("lib.foo.resolve").name()),
                 type_mark: code.s1("std_logic").type_mark(),
                 constraint: None
             }

@@ -229,15 +229,6 @@ impl Display for Name {
     }
 }
 
-impl Display for SelectedName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            SelectedName::Selected(ref prefix, ref des) => write!(f, "{}.{}", prefix, &des),
-            SelectedName::Designator(ref des) => write!(f, "{}", &des),
-        }
-    }
-}
-
 impl Display for CallOrIndexed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
@@ -1196,12 +1187,12 @@ mod tests {
 
     #[test]
     fn test_selected_name_single() {
-        assert_format("foo", Code::selected_name);
+        assert_format("foo", Code::name);
     }
 
     #[test]
     fn test_selected_name_multiple() {
-        assert_format("foo.bar.baz", Code::selected_name);
+        assert_format("foo.bar.baz", Code::name);
     }
 
     #[test]

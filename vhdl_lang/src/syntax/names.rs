@@ -26,17 +26,22 @@ pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>
     ))
 }
 
-pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<SelectedName>> {
+pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
     let mut name = parse_designator(stream)?
         .into_ref()
-        .map_into(SelectedName::Designator);
+        .map_into(Name::Designator);
     loop {
         if !stream.skip_if_kind(Dot) {
             break;
         }
-        let suffix = parse_designator(stream)?.into_ref();
-        let pos = suffix.pos.combine(&name.pos);
-        name = WithPos::from(SelectedName::Selected(Box::new(name), suffix), pos);
+        if let Some(tok) = stream.pop_if_kind(All) {
+            let pos = stream.get_pos(tok).combine(&name.pos);
+            name = WithPos::from(Name::SelectedAll(Box::new(name)), pos);
+        } else {
+            let suffix = parse_designator(stream)?.into_ref();
+            let pos = suffix.pos.combine(&name.pos);
+            name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
+        }
     }
     Ok(name)
 }
@@ -48,7 +53,7 @@ pub fn parse_type_mark(stream: &TokenStream) -> ParseResult<WithPos<TypeMark>> {
 
 pub fn parse_type_mark_starting_with_name(
     stream: &TokenStream,
-    name: WithPos<SelectedName>,
+    name: WithPos<Name>,
 ) -> ParseResult<WithPos<TypeMark>> {
     let state = stream.state();
 
@@ -76,20 +81,22 @@ pub fn parse_type_mark_starting_with_name(
     })
 }
 
-pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedName>> {
-    match name.item {
-        Name::Selected(prefix, suffix) => {
-            let pos = suffix.pos.combine(&prefix.pos);
-            Ok(WithPos::from(
-                SelectedName::Selected(Box::new(into_selected_name(*prefix)?), suffix),
-                pos,
-            ))
+impl Name {
+    pub fn expect_selected(&self) -> Result<(), String> {
+        match &self {
+            Name::Designator(_) => Ok(()),
+            Name::Selected(prefix, _) | Name::SelectedAll(prefix) => prefix.item.expect_selected(),
+            _ => Err("Expected selected name".into()),
         }
-        Name::Designator(designator) => Ok(WithPos::from(
-            SelectedName::Designator(designator),
-            name.pos,
-        )),
-        _ => Err(Diagnostic::error(&name, "Expected selected name")),
+    }
+}
+
+impl WithPos<Name> {
+    pub fn expect_selected(&self) -> Result<(), Diagnostic> {
+        match self.item.expect_selected() {
+            Ok(_) => Ok(()),
+            Err(msg) => Err(Diagnostic::error(self, msg)),
+        }
     }
 }
 
@@ -513,7 +520,7 @@ mod tests {
             code.with_stream(parse_selected_name),
             code.s1("foo")
                 .ident()
-                .map_into(|sym| SelectedName::Designator(Designator::Identifier(sym).into_ref()))
+                .map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()))
         );
     }
 
@@ -536,17 +543,27 @@ mod tests {
             .ident()
             .map_into(Designator::Identifier)
             .into_ref()
-            .map_into(SelectedName::Designator);
-        let foo_bar = WithPos::from(
-            SelectedName::Selected(Box::new(foo), bar),
-            code.s1("foo.bar").pos(),
-        );
+            .map_into(Name::Designator);
+        let foo_bar = WithPos::from(Name::Selected(Box::new(foo), bar), code.s1("foo.bar").pos());
         let foo_bar_baz = WithPos::from(
-            SelectedName::Selected(Box::new(foo_bar), baz),
+            Name::Selected(Box::new(foo_bar), baz),
             code.s1("foo.bar.baz").pos(),
         );
 
         assert_eq!(code.with_stream(parse_selected_name), foo_bar_baz);
+    }
+
+    #[test]
+    fn test_parse_selected_name_all() {
+        let code = Code::new("foo.all");
+        let foo = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .into_ref()
+            .map_into(Name::Designator);
+        let foo_all = WithPos::from(Name::SelectedAll(Box::new(foo)), code.s1("foo.all").pos());
+        assert_eq!(code.with_stream(parse_selected_name), foo_all);
     }
 
     #[test]
@@ -808,7 +825,7 @@ mod tests {
     #[test]
     fn test_type_mark_without_subtype() {
         let code = Code::new("prefix");
-        let name = code.s1("prefix").selected_name();
+        let name = code.s1("prefix").name();
 
         assert_eq!(
             code.with_stream(parse_type_mark),
@@ -828,7 +845,7 @@ mod tests {
             WithPos {
                 pos: code.pos(),
                 item: TypeMark {
-                    name: code.s1("prefix").selected_name(),
+                    name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Subtype)
                 },
             }
@@ -844,7 +861,7 @@ mod tests {
             WithPos {
                 pos: code.pos(),
                 item: TypeMark {
-                    name: code.s1("prefix").selected_name(),
+                    name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Element)
                 },
             }

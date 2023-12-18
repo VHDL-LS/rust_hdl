@@ -841,7 +841,7 @@ bar : natural)",
             InterfaceDeclaration::Subprogram(
                 code.s1("function foo return bar")
                     .subprogram_specification(),
-                Some(SubprogramDefault::Name(code.s1("lib.name").selected_name()))
+                Some(SubprogramDefault::Name(code.s1("lib.name").name()))
             )
         );
 
@@ -867,7 +867,7 @@ package foo is new lib.pkg
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
-                package_name: code.s1("lib.pkg").selected_name(),
+                package_name: code.s1("lib.pkg").name(),
                 generic_map: InterfacePackageGenericMapAspect::Map(
                     code.s1("(foo => bar)").association_list()
                 )
@@ -886,7 +886,7 @@ package foo is new lib.pkg
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
-                package_name: code.s1("lib.pkg").selected_name(),
+                package_name: code.s1("lib.pkg").name(),
                 generic_map: InterfacePackageGenericMapAspect::Box
             })
         );
@@ -903,7 +903,7 @@ package foo is new lib.pkg
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
-                package_name: code.s1("lib.pkg").selected_name(),
+                package_name: code.s1("lib.pkg").name(),
                 generic_map: InterfacePackageGenericMapAspect::Default
             })
         );

@@ -9,33 +9,6 @@ use super::*;
 use crate::data::*;
 use crate::named_entity::{Concurrent, Sequential};
 
-impl From<WithPos<SelectedName>> for WithPos<Name> {
-    fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {
-        match selected_name.item {
-            SelectedName::Designator(designator) => {
-                WithPos::from(Name::Designator(designator), selected_name.pos)
-            }
-
-            SelectedName::Selected(prefix, suffix) => {
-                let prefix: WithPos<SelectedName> = *prefix;
-                WithPos::from(
-                    Name::Selected(Box::new(prefix.into()), suffix),
-                    selected_name.pos,
-                )
-            }
-        }
-    }
-}
-
-impl WithPos<SelectedName> {
-    pub fn suffix_pos(&self) -> &SrcPos {
-        match self.item {
-            SelectedName::Designator(..) => &self.pos,
-            SelectedName::Selected(_, ref suffix) => &suffix.pos,
-        }
-    }
-}
-
 impl WithPos<Name> {
     pub fn suffix_pos(&self) -> &SrcPos {
         match self.item {

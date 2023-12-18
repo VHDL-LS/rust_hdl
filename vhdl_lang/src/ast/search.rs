@@ -566,22 +566,6 @@ impl Search for WithPos<WithRef<Designator>> {
     }
 }
 
-impl Search for WithPos<SelectedName> {
-    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
-        match self.item {
-            SelectedName::Selected(ref prefix, ref designator) => {
-                return_if_found!(prefix.search(ctx, searcher));
-                return_if_found!(designator.search(ctx, searcher));
-                NotFound
-            }
-            SelectedName::Designator(ref designator) => searcher
-                .search_designator_ref(ctx, &self.pos, designator)
-                .or_not_found(),
-        }
-    }
-}
-
 fn search_pos_name(
     pos: &SrcPos,
     name: &Name,

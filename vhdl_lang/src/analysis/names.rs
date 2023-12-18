@@ -269,6 +269,23 @@ impl<'a> ResolvedName<'a> {
         }
     }
 
+    pub fn decl_pos(&self) -> Option<&SrcPos> {
+        match self {
+            ResolvedName::Library(_) => None,
+            ResolvedName::Design(design) => design.decl_pos(),
+            ResolvedName::Type(typ) => typ.decl_pos(),
+            ResolvedName::Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
+            ResolvedName::ObjectName(name) => match name.base {
+                ObjectBase::Object(ent) => ent.decl_pos(),
+                ObjectBase::DeferredConstant(ent) | ObjectBase::ObjectAlias(_, ent) => {
+                    ent.decl_pos()
+                }
+                ObjectBase::ExternalName(_) => None,
+            },
+            ResolvedName::Expression(_) | ResolvedName::Final(_) => None,
+        }
+    }
+
     fn type_mark(&self) -> Option<TypeEnt<'a>> {
         match self {
             ResolvedName::Type(typ) => Some(*typ),
@@ -1603,44 +1620,6 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
-        }
-    }
-
-    pub fn resolve_selected_name(
-        &self,
-        scope: &Scope<'a>,
-        name: &mut WithPos<SelectedName>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<NamedEntities<'a>> {
-        match name.item {
-            SelectedName::Selected(ref mut prefix, ref mut suffix) => {
-                let prefix_ent = self
-                    .resolve_selected_name(scope, prefix, diagnostics)?
-                    .into_non_overloaded();
-                if let Ok(prefix_ent) = prefix_ent {
-                    let visible = catch_analysis_err(
-                        self.lookup_selected(&prefix.pos, prefix_ent, suffix),
-                        diagnostics,
-                    )?;
-                    suffix.set_reference(&visible);
-                    return Ok(visible);
-                };
-
-                diagnostics.error(&prefix.pos, "Invalid prefix for selected name");
-                Err(EvalError::Unknown)
-            }
-            SelectedName::Designator(ref mut designator) => {
-                match scope.lookup(&name.pos, designator.designator()) {
-                    Ok(visible) => {
-                        designator.set_reference(&visible);
-                        Ok(visible)
-                    }
-                    Err(err) => {
-                        diagnostics.push(err);
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
         }
     }
 }

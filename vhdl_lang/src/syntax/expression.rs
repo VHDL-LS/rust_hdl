@@ -308,10 +308,10 @@ pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> 
     Ok(type_mark)
 }
 
-fn name_to_selected_name(name: Name) -> Option<SelectedName> {
+fn name_to_selected_name(name: Name) -> Option<Name> {
     match name {
-        Name::Designator(d) => Some(SelectedName::Designator(d)),
-        Name::Selected(p, d) => Some(SelectedName::Selected(
+        Name::Designator(d) => Some(Name::Designator(d)),
+        Name::Selected(p, d) => Some(Name::Selected(
             Box::new(p.try_map_into(name_to_selected_name)?),
             d,
         )),

@@ -850,7 +850,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena.define(
                     &mut instance.ident,
                     parent,
-                    AnyEntKind::Design(Design::PackageInstance(package_region.clone())),
+                    AnyEntKind::Design(Design::PackageInstance(package_region)),
                 )
             }
         };

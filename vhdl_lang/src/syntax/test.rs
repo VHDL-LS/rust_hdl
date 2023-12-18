@@ -17,9 +17,7 @@ use super::design_unit::{
 };
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
-use super::names::{
-    parse_association_list, parse_designator, parse_name, parse_selected_name, parse_type_mark,
-};
+use super::names::{parse_association_list, parse_designator, parse_name, parse_type_mark};
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
 use super::separated_list::{parse_ident_list, parse_name_list};
@@ -502,10 +500,6 @@ impl Code {
 
     pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
         self.parse_ok_no_diagnostics(parse_ident_list)
-    }
-
-    pub fn selected_name(&self) -> WithPos<SelectedName> {
-        self.parse_ok(parse_selected_name)
     }
 
     pub fn type_mark(&self) -> WithPos<TypeMark> {
