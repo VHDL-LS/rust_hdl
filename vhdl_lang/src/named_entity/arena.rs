@@ -278,7 +278,6 @@ pub struct EntityId {
 static UNDEFINED_ID: usize = usize::MAX;
 
 impl EntityId {
-    #[allow(clippy::new_without_default)]
     pub(crate) fn undefined() -> Self {
         EntityId { id: UNDEFINED_ID }
     }

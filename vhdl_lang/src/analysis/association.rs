@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-#![allow(clippy::only_used_in_recursion)]
-
 use fnv::FnvHashMap;
 use itertools::Itertools;
 

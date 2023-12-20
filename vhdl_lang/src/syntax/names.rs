@@ -525,7 +525,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
     fn test_parse_selected_name_multiple() {
         let code = Code::new("foo.bar.baz");
         let baz = code
@@ -636,7 +635,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
     fn test_selected_name() {
         let code = Code::new("foo.bar.baz");
 
@@ -669,7 +667,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
     fn test_selected_name_all() {
         let code = Code::new("foo.all");
 
@@ -939,7 +936,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
     fn test_function_call_no_formal() {
         let code = Code::new("foo(0)");
 
@@ -1013,7 +1009,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
     fn test_function_call() {
         let code = Code::new("foo(arg => 0)");
 
