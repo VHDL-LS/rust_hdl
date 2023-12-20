@@ -348,7 +348,6 @@ pub fn parse_map_aspect(
     }
 }
 
-#[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,

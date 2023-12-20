@@ -4,9 +4,6 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-// These fields are better explicit than .. since we are forced to consider if new fields should be searched
-#![allow(clippy::unneeded_field_pattern)]
-
 use super::*;
 use crate::ast::*;
 use crate::data::*;

@@ -7,7 +7,6 @@
 
 // Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
 // Track here: https://github.com/rust-lang/rust/issues/29641
-#![allow(clippy::large_enum_variant)]
 
 mod display;
 mod util;

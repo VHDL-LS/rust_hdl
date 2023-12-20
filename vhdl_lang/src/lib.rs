@@ -4,9 +4,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 #![allow(clippy::upper_case_acronyms)]
-// False positives with unconditional loops
-// allow for now
-#![allow(clippy::vec_init_then_push)]
 
 #[macro_use]
 extern crate vhdl_lang_macros;

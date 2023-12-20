@@ -4,11 +4,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-// Allowing this, since there is an open issue with this lint
-// Track here: https://github.com/rust-lang/rust-clippy/issues/1981
-// Track here: https://github.com/rust-lang/rust-clippy/issues/1981
-#![allow(clippy::ptr_arg)]
-
 use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
