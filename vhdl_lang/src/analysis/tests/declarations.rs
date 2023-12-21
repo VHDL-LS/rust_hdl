@@ -46,3 +46,26 @@ end architecture;
         ],
     )
 }
+
+// Issue #242
+#[test]
+pub fn attribute_with_wrong_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity test is
+    attribute some_attr : string;
+    attribute some_attr of test : signal is \"some value\";
+end entity test;
+    ",
+    );
+    let (_, diag) = builder.get_analyzed_root();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::error(
+            code.s1("test : signal").s1("test"),
+            "entity 'test' is not of class signal",
+        )],
+    )
+}
