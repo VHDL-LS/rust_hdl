@@ -46,3 +46,52 @@ end architecture;
         ],
     )
 }
+
+// Issue #242
+#[test]
+pub fn attribute_with_wrong_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity test is
+    attribute some_attr : string;
+    attribute some_attr of test : signal is \"some value\";
+end entity test;
+    ",
+    );
+    let (_, diag) = builder.get_analyzed_root();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::error(
+            code.s1("test : signal").s1("test"),
+            "entity 'test' is not of class signal",
+        )],
+    )
+}
+
+#[test]
+pub fn attribute_sees_through_aliases() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity test is
+    port (
+        clk: in bit
+    );
+    alias aliased_clk is clk;
+    attribute some_attr : string;
+    attribute some_attr of aliased_clk : entity is \"some value\";
+end entity test;
+    ",
+    );
+    let (_, diag) = builder.get_analyzed_root();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::error(
+            code.s1("aliased_clk : entity").s1("aliased_clk"),
+            "port 'clk' : in is not of class entity",
+        )],
+    )
+}

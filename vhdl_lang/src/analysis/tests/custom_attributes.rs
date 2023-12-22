@@ -53,7 +53,7 @@ entity myent is
 end entity;
 
 architecture a of myent is
-    attribute myattr of myent : signal is true;
+    attribute myattr of myent : entity is true;
 begin
 end architecture;
         ",

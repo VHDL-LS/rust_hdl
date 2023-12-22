@@ -698,6 +698,14 @@ impl<'a> AnalyzeContext<'a> {
             // Attributes affect the underlying entity and cannot be set directly on aliases
             let ent = ent.as_actual();
 
+            if Some(*entity_class) != get_entity_class(ent) {
+                diagnostics.push(Diagnostic::error(
+                    designator,
+                    format!("{} is not of class {}", ent.describe(), entity_class),
+                ));
+                return Ok(());
+            }
+
             match entity_class {
                 EntityClass::Architecture
                 | EntityClass::Entity
@@ -731,14 +739,6 @@ impl<'a> AnalyzeContext<'a> {
                         return Ok(());
                     }
                 }
-            }
-
-            if Some(*entity_class) != get_entity_class(ent) {
-                diagnostics.push(Diagnostic::error(
-                    designator,
-                    format!("{} is not of class {}", ent.describe(), entity_class),
-                ));
-                return Ok(());
             }
 
             let res = unsafe { self.arena.add_attr(ent.id(), &designator.pos, attr_ent) };
