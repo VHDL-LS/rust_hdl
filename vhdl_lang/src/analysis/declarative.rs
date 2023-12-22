@@ -695,6 +695,9 @@ impl<'a> AnalyzeContext<'a> {
                 }
             };
 
+            // Attributes affect the underlying entity and cannot be set directly on aliases
+            let ent = ent.as_actual();
+
             if Some(*entity_class) != get_entity_class(ent) {
                 diagnostics.push(Diagnostic::error(
                     designator,
@@ -702,9 +705,6 @@ impl<'a> AnalyzeContext<'a> {
                 ));
                 return Ok(());
             }
-
-            // Attributes affect the underlying entity and cannot be set directly on aliases
-            let ent = ent.as_actual();
 
             match entity_class {
                 EntityClass::Architecture
