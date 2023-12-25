@@ -336,21 +336,14 @@ impl<'a> Searcher for RegionSearcher<'a> {
         match decl {
             FoundDeclaration::Architecture(body) => {
                 for statement in &body.statements {
-                    let span = match &statement.statement.item {
-                        ConcurrentStatement::ProcedureCall(_) => None,
-                        ConcurrentStatement::Block(blk) => Some(blk.get_span(ctx)),
-                        ConcurrentStatement::Process(proc) => Some(proc.get_span(ctx)),
-                        ConcurrentStatement::Assert(_) => None,
-                        ConcurrentStatement::Assignment(_) => None,
-                        ConcurrentStatement::Instance(instance) => Some(instance.get_span(ctx)),
-                        ConcurrentStatement::ForGenerate(for_gen) => Some(for_gen.get_span(ctx)),
-                        ConcurrentStatement::IfGenerate(if_gen) => Some(if_gen.get_span(ctx)),
-                        ConcurrentStatement::CaseGenerate(case_gen) => Some(case_gen.get_span(ctx)),
-                    };
-                    if let Some(span) = span {
-                        if span.contains(self.cursor) {
-                            return Finished(NotFound);
-                        }
+                    let pos = &statement.statement.pos;
+
+                    if pos.start() > self.cursor {
+                        break;
+                    }
+
+                    if pos.contains(self.cursor) {
+                        return Finished(NotFound);
                     }
                 }
                 if ctx

@@ -553,6 +553,10 @@ impl SrcPos {
     pub fn contains(&self, pos: Position) -> bool {
         self.range.contains(pos)
     }
+
+    pub fn end_pos(&self) -> SrcPos {
+        SrcPos::new(self.source.clone(), Range::new(self.end(), self.end()))
+    }
 }
 
 /// Denotes an item with an associated source file.

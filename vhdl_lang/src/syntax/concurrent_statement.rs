@@ -737,7 +737,9 @@ pub fn parse_labeled_concurrent_statement(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::tests::check_diagnostics;
     use crate::ast::{Alternative, AssertStatement, DelayMechanism, Selection};
+    use crate::syntax::design_unit::parse_architecture_body;
     use crate::syntax::test::Code;
     use pretty_assertions::assert_eq;
 
@@ -2042,5 +2044,27 @@ end generate gen1;",
                 code.pos_after("gen1: ")
             )
         );
+    }
+
+    #[test]
+    fn parsing_continues_when_a_statement_is_incorrect() {
+        let code = Code::new(
+            "\
+architecture arch of ent is
+begin
+foo
+b <= c;
+bar
+end arch;
+        ",
+        );
+        let (_, diag) = code.with_stream_diagnostics(parse_architecture_body);
+        check_diagnostics(
+            diag,
+            vec![
+                Diagnostic::error(code.s1("foo").pos().end_pos(), "Expected '<=' or ';'"),
+                Diagnostic::error(code.s1("bar").pos().end_pos(), "Expected '<=' or ';'"),
+            ],
+        )
     }
 }
