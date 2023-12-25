@@ -15,8 +15,9 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    kind_str, AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, EntityId, Message,
-    MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
+    kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
+    InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
+    Type,
 };
 
 #[derive(Default, Clone)]
@@ -294,6 +295,52 @@ impl VHDLServer {
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
+            vhdl_lang::CompletionItem::EntityInstantiation(ent) => {
+                let region = match ent.kind() {
+                    AnyEntKind::Design(Design::Entity(_, region)) => region,
+                    _ => return entity_to_completion_item(ent),
+                };
+                let template = if self.client_supports_snippets() {
+                    let mut line = format!(
+                        "${{1:{}_inst}}: entity {}.{}",
+                        ent.designator, "work", ent.designator
+                    );
+                    let (ports, generics) = region.ports_and_generics();
+                    let mut idx = 2;
+                    let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
+                        line += &*format!("\n {} map(\n", purpose);
+                        for (i, generic) in elements.iter().enumerate() {
+                            line += &*format!(
+                                "    {} => ${{{}:{}}}",
+                                generic.designator, idx, generic.designator
+                            );
+                            idx += 1;
+                            if i != elements.len() - 1 {
+                                line += ","
+                            }
+                            line += "\n";
+                        }
+                        line += ")";
+                    };
+                    if !generics.is_empty() {
+                        interface_ent(generics, "generic");
+                    }
+                    if !ports.is_empty() {
+                        interface_ent(ports, "port");
+                    }
+                    line += ";";
+                    line
+                } else {
+                    format!("{}", ent.designator)
+                };
+                CompletionItem {
+                    label: format!("{} instantiation", ent.designator),
+                    insert_text: Some(template),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    kind: Some(CompletionItemKind::MODULE),
+                    ..Default::default()
+                }
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::analysis::DesignRoot;
-use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
+use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, ConcurrentStatement, Designator, MapAspect, ObjectClass,
 };
@@ -7,10 +7,11 @@ use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
+use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
+use vhdl_lang::ast::search::Finished;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItem<'a> {
@@ -25,6 +26,16 @@ pub enum CompletionItem<'a> {
     Overloaded(Designator, usize),
     /// Complete a keyword
     Keyword(Kind),
+    /// Entity instantiation, i.e.,
+    /// ```vhdl
+    /// my_ent: entity work.foo
+    ///     generic map (
+    ///         -- ...
+    ///     )
+    ///     port map (
+    ///         -- ...
+    ///     );
+    EntityInstantiation(EntRef<'a>),
 }
 
 macro_rules! kind {
@@ -82,7 +93,6 @@ impl DesignRoot {
     ///
     /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
     /// while `ObjectClass::Constant` extracts constants.
-
     fn extract_port_or_generic_names(
         &self,
         id: EntityId,
@@ -168,7 +178,7 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                             ctx,
                             MapAspectKind::Generic,
                         ) {
-                            return SearchState::Finished(SearchResult::Found);
+                            return Finished(Found);
                         }
                     }
                     if let Some(map) = &inst.port_map {
@@ -178,7 +188,7 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                             ctx,
                             MapAspectKind::Port,
                         ) {
-                            return SearchState::Finished(SearchResult::Found);
+                            return Finished(Found);
                         }
                     }
                 }
@@ -191,13 +201,13 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                         ctx,
                         MapAspectKind::Generic,
                     ) {
-                        return SearchState::Finished(SearchResult::Found);
+                        return Finished(Found);
                     }
                 }
             }
             _ => {}
         }
-        SearchState::NotFinished
+        NotFinished
     }
 }
 
@@ -305,6 +315,70 @@ fn list_available_declarations<'a>(
     }
 }
 
+struct RegionSearcher<'a> {
+    root: &'a DesignRoot,
+    cursor: Position,
+    completions: Vec<CompletionItem<'a>>,
+}
+
+impl<'a> RegionSearcher<'a> {
+    pub fn new(cursor: Position, design_root: &'a DesignRoot) -> RegionSearcher<'a> {
+        RegionSearcher {
+            root: design_root,
+            cursor,
+            completions: Vec::new(),
+        }
+    }
+}
+
+impl<'a> Searcher for RegionSearcher<'a> {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+        match decl {
+            FoundDeclaration::Architecture(body) => {
+                for statement in &body.statements {
+                    let span = match &statement.statement.item {
+                        ConcurrentStatement::ProcedureCall(_) => None,
+                        ConcurrentStatement::Block(blk) => Some(blk.get_span(ctx)),
+                        ConcurrentStatement::Process(proc) => Some(proc.get_span(ctx)),
+                        ConcurrentStatement::Assert(_) => None,
+                        ConcurrentStatement::Assignment(_) => None,
+                        ConcurrentStatement::Instance(instance) => Some(instance.get_span(ctx)),
+                        ConcurrentStatement::ForGenerate(for_gen) => Some(for_gen.get_span(ctx)),
+                        ConcurrentStatement::IfGenerate(if_gen) => Some(if_gen.get_span(ctx)),
+                        ConcurrentStatement::CaseGenerate(case_gen) => Some(case_gen.get_span(ctx)),
+                    };
+                    if let Some(span) = span {
+                        if span.contains(self.cursor) {
+                            return Finished(NotFound);
+                        }
+                    }
+                }
+                if ctx
+                    .get_span(body.begin_token, body.get_end_token())
+                    .contains(self.cursor)
+                {
+                    self.completions = self
+                        .root
+                        .list_visible_entities()
+                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
+                        .collect()
+                }
+                Finished(Found)
+            }
+            _ => NotFinished,
+        }
+    }
+}
+
+impl DesignRoot {
+    pub fn list_visible_entities(&self) -> impl Iterator<Item = EntityId> + '_ {
+        self.libraries()
+            .flat_map(|lib| lib.primary_units())
+            .filter(|unit| unit.unit.get().map(|it| it.is_entity()).unwrap_or(false))
+            .filter_map(|unit| unit.unit.get().and_then(|it| it.data().ent_id()))
+    }
+}
+
 /// Main entry point for completion. Given a source-file and a cursor position,
 /// lists available completion options at the cursor position.
 pub fn list_completion_options<'a>(
@@ -331,7 +405,9 @@ pub fn list_completion_options<'a>(
             searcher.completions
         }
         _ => {
-            vec![]
+            let mut searcher = RegionSearcher::new(cursor, root);
+            let _ = root.search_source(source, &mut searcher);
+            searcher.completions
         }
     }
 }

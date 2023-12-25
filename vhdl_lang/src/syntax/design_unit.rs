@@ -68,7 +68,7 @@ pub fn parse_architecture_body(
     stream.expect_kind(Is)?;
 
     let decl = parse_declarative_part(stream, diagnostics)?;
-    stream.expect_kind(Begin)?;
+    let begin_token = stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(End)?;
@@ -81,6 +81,7 @@ pub fn parse_architecture_body(
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        begin_token,
         ident,
         entity_name: entity_name.into_ref(),
         decl,

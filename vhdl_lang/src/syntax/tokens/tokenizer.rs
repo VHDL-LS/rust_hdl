@@ -538,6 +538,10 @@ pub trait HasTokenSpan {
 
     fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token];
     fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos;
+
+    fn get_span(&self, ctx: &dyn TokenAccess) -> SrcPos {
+        ctx.get_span(self.get_start_token(), self.get_end_token())
+    }
 }
 
 /// Holds token information about an AST element.

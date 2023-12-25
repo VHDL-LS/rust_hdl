@@ -1016,6 +1016,7 @@ pub struct LabeledSequentialStatement {
 }
 
 /// LRM 11.2 Block statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockStatement {
     pub guard_condition: Option<WithPos<Expression>>,
@@ -1041,6 +1042,7 @@ pub enum SensitivityList {
 }
 
 /// LRM 11.3 Process statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcessStatement {
     pub postponed: bool,
@@ -1113,12 +1115,12 @@ impl MapAspect {
 }
 
 /// 11.7 Component instantiation statements
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InstantiationStatement {
     pub unit: InstantiatedUnit,
     pub generic_map: Option<MapAspect>,
     pub port_map: Option<MapAspect>,
-    pub semicolon: TokenId,
 }
 
 impl InstantiationStatement {
@@ -1138,6 +1140,7 @@ pub struct GenerateBody {
 }
 
 /// 11.8 Generate statements
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ForGenerateStatement {
     pub index_name: WithDecl<Ident>,
@@ -1147,11 +1150,14 @@ pub struct ForGenerateStatement {
 }
 
 /// 11.8 Generate statements
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct IfGenerateStatement {
     pub conds: Conditionals<GenerateBody>,
     pub end_label_pos: Option<SrcPos>,
 }
+
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseGenerateStatement {
     pub sels: Selection<GenerateBody>,
@@ -1369,6 +1375,7 @@ pub struct ArchitectureBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
+    pub begin_token: TokenId,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<SrcPos>,
@@ -1431,6 +1438,12 @@ pub type ContextClause = Vec<ContextItem>;
 pub enum AnyDesignUnit {
     Primary(AnyPrimaryUnit),
     Secondary(AnySecondaryUnit),
+}
+
+impl AnyDesignUnit {
+    pub fn is_entity(&self) -> bool {
+        matches!(self, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(_)))
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]

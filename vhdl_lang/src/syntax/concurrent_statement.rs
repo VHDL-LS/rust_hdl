@@ -22,6 +22,8 @@ use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::{Kind, TokenAccess};
+use crate::TokenId;
+use vhdl_lang::TokenSpan;
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
@@ -29,7 +31,7 @@ pub fn parse_block_statement(
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockStatement> {
-    stream.expect_kind(Block)?;
+    let start_tok = stream.expect_kind(Block)?;
     let token = stream.peek_expect()?;
     let guard_condition = {
         match token.kind {
@@ -50,13 +52,14 @@ pub fn parse_block_statement(
     stream.expect_kind(End)?;
     stream.expect_kind(Block)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
     Ok(BlockStatement {
         guard_condition,
         header,
         decl,
         statements,
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
+        span: TokenSpan::new(start_tok, end_tok),
     })
 }
 
@@ -175,7 +178,7 @@ pub fn parse_process_statement(
     postponed: bool,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ProcessStatement> {
-    stream.expect_kind(Process)?;
+    let start_tok = stream.expect_kind(Process)?;
     let sensitivity_list = if stream.skip_if_kind(LeftPar) {
         peek_token!(stream, token,
         All => {
@@ -228,13 +231,14 @@ pub fn parse_process_statement(
     }
     stream.expect_kind(Process)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
     Ok(ProcessStatement {
         postponed,
         sensitivity_list,
         decl,
         statements,
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
+        span: TokenSpan::new(start_tok, end_tok),
     })
 }
 
@@ -359,19 +363,20 @@ pub fn parse_generic_and_port_map(
 }
 
 pub fn parse_instantiation_statement(
+    start_tok: TokenId,
     stream: &TokenStream,
     unit: InstantiatedUnit,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<InstantiationStatement> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream, diagnostics)?;
 
-    let semi = stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
 
     let inst = InstantiationStatement {
         unit,
         generic_map,
         port_map,
-        semicolon: semi,
+        span: TokenSpan::new(start_tok, end_tok),
     };
     Ok(inst)
 }
@@ -431,7 +436,7 @@ fn parse_for_generate_statement(
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ForGenerateStatement> {
-    stream.expect_kind(For)?;
+    let start_tok = stream.expect_kind(For)?;
     let index_name = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(In)?;
     let discrete_range = parse_discrete_range(stream)?;
@@ -440,13 +445,14 @@ fn parse_for_generate_statement(
     stream.expect_kind(End)?;
     stream.expect_kind(Generate)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
 
     Ok(ForGenerateStatement {
         index_name,
         discrete_range,
         body,
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
+        span: TokenSpan::new(start_tok, end_tok),
     })
 }
 
@@ -459,7 +465,7 @@ fn parse_if_generate_statement(
     let mut conditionals = Vec::new();
     let else_branch;
 
-    stream.expect_kind(If)?;
+    let start_tok = stream.expect_kind(If)?;
     loop {
         let mut condition = parse_expression(stream)?;
         let mut alternative_label = None;
@@ -509,7 +515,7 @@ fn parse_if_generate_statement(
 
     stream.expect_kind(Generate)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
         conds: Conditionals {
@@ -517,6 +523,7 @@ fn parse_if_generate_statement(
             else_item: else_branch,
         },
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
+        span: TokenSpan::new(start_tok, end_tok),
     })
 }
 
@@ -526,7 +533,7 @@ fn parse_case_generate_statement(
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseGenerateStatement> {
-    stream.expect_kind(Case)?;
+    let start_tok = stream.expect_kind(Case)?;
     let expression = parse_expression(stream)?;
     stream.expect_kind(Generate)?;
     stream.expect_kind(When)?;
@@ -560,7 +567,7 @@ fn parse_case_generate_statement(
 
     stream.expect_kind(Generate)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
+    let end_tok = stream.expect_kind(SemiColon)?;
 
     Ok(CaseGenerateStatement {
         sels: Selection {
@@ -568,6 +575,7 @@ fn parse_case_generate_statement(
             alternatives,
         },
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
+        span: TokenSpan::new(start_tok, end_tok),
     })
 }
 
@@ -577,6 +585,7 @@ pub fn parse_concurrent_statement(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
     let token = stream.peek_expect()?;
+    let start_tok = stream.get_current_token_id();
     let statement = {
         try_init_token_kind!(
             token,
@@ -589,12 +598,12 @@ pub fn parse_concurrent_statement(
             Component => {
                 stream.skip();
                 let unit = InstantiatedUnit::Component(parse_selected_name(stream)?);
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(start_tok, stream, unit, diagnostics)?)
             },
             Configuration => {
                 stream.skip();
                 let unit = InstantiatedUnit::Configuration(parse_selected_name(stream)?);
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(start_tok, stream, unit, diagnostics)?)
             },
             Entity => {
                 stream.skip();
@@ -609,7 +618,7 @@ pub fn parse_concurrent_statement(
                     }
                 };
                 let unit = InstantiatedUnit::Entity(name, arch.map(WithRef::new));
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(start_tok, stream, unit, diagnostics)?)
             },
             For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, label, diagnostics)?),
             If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, label, diagnostics)?),
@@ -637,7 +646,7 @@ pub fn parse_concurrent_statement(
                     Generic|Port => {
                         name.expect_selected()?;
                         let unit = InstantiatedUnit::Component(name);
-                        ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
+                        ConcurrentStatement::Instance(parse_instantiation_statement(start_tok, stream, unit, diagnostics)?)
                     }
                     _ => {
                         parse_assignment_or_procedure_call(stream, name.map_into(Target::Name))?
