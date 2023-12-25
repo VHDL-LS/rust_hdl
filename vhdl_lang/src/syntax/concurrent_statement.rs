@@ -679,9 +679,18 @@ pub fn parse_labeled_concurrent_statements(
             End | Elsif | Else | When => {
                 break Ok(statements);
             }
-            _ => {
-                statements.push(parse_labeled_concurrent_statement(stream, diagnostics)?);
-            }
+            _ => match parse_labeled_concurrent_statement(stream, diagnostics) {
+                Ok(stmt) => {
+                    statements.push(stmt);
+                }
+                Err(diagnostic) => {
+                    diagnostics.push(diagnostic);
+                    stream.skip_until(|kind| {
+                        matches!(kind, SemiColon | End | Process | Block | Assert)
+                    })?;
+                    stream.pop_if_kind(SemiColon);
+                }
+            },
         }
     }
 }

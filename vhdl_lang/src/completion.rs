@@ -375,7 +375,7 @@ impl DesignRoot {
         self.libraries()
             .flat_map(|lib| lib.primary_units())
             .filter(|unit| unit.unit.get().map(|it| it.is_entity()).unwrap_or(false))
-            .filter_map(|unit| unit.unit.get().and_then(|it| it.data().ent_id()))
+            .filter_map(|unit| unit.unit.get().and_then(|it| it.ent_id()))
     }
 }
 
