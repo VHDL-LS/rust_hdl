@@ -467,7 +467,7 @@ pub struct Token {
 /// A TokenId represents a unique value that is used to access a token.
 /// A token ID cannot be created directly by the user. Instead, the value must be taken
 /// from the AST.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Ord, PartialOrd)]
 pub struct TokenId(usize);
 
 /// The TokenId represents an index into an array of tokens.
@@ -568,6 +568,20 @@ impl TokenSpan {
         TokenSpan {
             start_token: self.start_token.apply_offset(offset),
             end_token: self.end_token.apply_offset(offset),
+        }
+    }
+
+    /// Skips the stream to the token given by the offset
+    #[cfg(test)]
+    pub fn skip_to(&self, offset: TokenId) -> TokenSpan {
+        let new_token = TokenId(self.start_token.0 + offset.0);
+        debug_assert!(
+            new_token <= self.end_token,
+            "[TokenSpan::skip_to] skipping past end of the span"
+        );
+        TokenSpan {
+            start_token: new_token,
+            end_token: self.end_token,
         }
     }
 }

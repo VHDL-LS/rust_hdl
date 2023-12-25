@@ -284,6 +284,7 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
     use itertools::Itertools;
+    use vhdl_lang::TokenId;
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
@@ -618,12 +619,14 @@ end;
         ident: WithDecl<Ident>,
         entity_name: Ident,
         span: TokenSpan,
+        begin_token: TokenId,
         end_ident_pos: Option<SrcPos>,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             span,
             context_clause: ContextClause::default(),
             ident,
+            begin_token,
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
@@ -648,6 +651,7 @@ end architecture;
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
                     code.token_span(),
+                    code.s1("begin").token(),
                     None,
                 )
             )]
@@ -671,6 +675,7 @@ end architecture arch_name;
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
                     code.token_span(),
+                    code.s1("begin").token(),
                     Some(code.s("arch_name", 2).pos()),
                 )
             )]
@@ -694,6 +699,7 @@ end;
                     WithDecl::new(code.s1("arch_name").ident()),
                     code.s1("myent").ident(),
                     code.token_span(),
+                    code.s1("begin").token(),
                     None,
                 )
             )]

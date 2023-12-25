@@ -175,10 +175,10 @@ fn parse_block_header(
 pub fn parse_process_statement(
     stream: &TokenStream,
     label: Option<&Ident>,
-    postponed: bool,
+    postponed: Option<TokenId>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ProcessStatement> {
-    let start_tok = stream.expect_kind(Process)?;
+    let process_token = stream.expect_kind(Process)?;
     let sensitivity_list = if stream.skip_if_kind(LeftPar) {
         peek_token!(stream, token,
         All => {
@@ -222,7 +222,7 @@ pub fn parse_process_statement(
     stream.expect_kind(End)?;
 
     if let Some(token) = stream.pop_if_kind(Postponed) {
-        if !postponed {
+        if postponed.is_none() {
             diagnostics.push(Diagnostic::error(
                 stream.get_token(token),
                 "'postponed' at the end of non-postponed process.",
@@ -233,12 +233,12 @@ pub fn parse_process_statement(
     let end_ident = stream.pop_optional_ident();
     let end_tok = stream.expect_kind(SemiColon)?;
     Ok(ProcessStatement {
-        postponed,
+        postponed: postponed.is_some(),
         sensitivity_list,
         decl,
         statements,
         end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
-        span: TokenSpan::new(start_tok, end_tok),
+        span: TokenSpan::new(postponed.unwrap_or(process_token), end_tok),
     })
 }
 
@@ -593,7 +593,7 @@ pub fn parse_concurrent_statement(
                 ConcurrentStatement::Block(parse_block_statement(stream, label, diagnostics)?)
             },
             Process => {
-                ConcurrentStatement::Process(parse_process_statement(stream, label, false, diagnostics)?)
+                ConcurrentStatement::Process(parse_process_statement(stream, label, None, diagnostics)?)
             },
             Component => {
                 stream.skip();
@@ -625,10 +625,11 @@ pub fn parse_concurrent_statement(
             Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, label, diagnostics)?),
             Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, false)?),
             Postponed => {
+                let tok = stream.get_current_token_id();
                 stream.skip();
                 let token = stream.peek_expect()?;
                 match token.kind {
-                    Process => ConcurrentStatement::Process(parse_process_statement(stream, label, true, diagnostics)?),
+                    Process => ConcurrentStatement::Process(parse_process_statement(stream, label, Some(tok), diagnostics)?),
                     Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, true)?),
                     With => ConcurrentStatement::Assignment(parse_selected_signal_assignment(stream, true)?),
                     _ => {
@@ -826,6 +827,7 @@ end block;",
                 ),
             }],
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("block").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -854,6 +856,7 @@ end block name;",
             decl: vec![],
             statements: vec![],
             end_label_pos: Some(code.s("name", 2).pos()),
+            span: code.token_span().skip_to(code.s1("block").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -882,6 +885,7 @@ end block;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("block").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -910,6 +914,7 @@ end block;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("block").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -942,6 +947,7 @@ end block;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("block").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -965,6 +971,7 @@ end process;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -988,6 +995,7 @@ end process name;",
             decl: vec![],
             statements: vec![],
             end_label_pos: Some(code.s("name", 2).pos()),
+            span: code.token_span().skip_to(code.s1("process").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
@@ -1014,6 +1022,7 @@ end process;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1037,6 +1046,7 @@ end postponed process;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1061,6 +1071,7 @@ end postponed process;",
             decl: Vec::new(),
             statements: Vec::new(),
             end_label_pos: None,
+            span: code.token_span(),
         };
         assert_eq!(
             diagnostics,
@@ -1092,6 +1103,7 @@ end process;",
             decl: vec![],
             statements: vec![],
             end_label_pos: None,
+            span: code.token_span(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1116,6 +1128,7 @@ end process;",
             decl: Vec::new(),
             statements: Vec::new(),
             end_label_pos: None,
+            span: code.token_span(),
         };
         assert_eq!(
             diagnostics,
@@ -1150,6 +1163,7 @@ end process;",
                 code.s1("wait;").sequential_statement(),
             ],
             end_label_pos: None,
+            span: code.token_span(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1275,7 +1289,7 @@ with x(0) + 1 select
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").name()),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("component").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1296,7 +1310,7 @@ with x(0) + 1 select
             unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").name()),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("configuration").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1317,7 +1331,7 @@ with x(0) + 1 select
             unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").name(), None),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("entity").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1341,7 +1355,7 @@ with x(0) + 1 select
             ),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("entity").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1381,7 +1395,7 @@ inst: component lib.foo.bar
   )")
                     .port_map_aspect(),
             ),
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("component").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1413,7 +1427,7 @@ inst: lib.foo.bar
   )")
                     .port_map_aspect(),
             ),
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("lib").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1445,7 +1459,7 @@ inst: lib.foo.bar
                     .generic_map_aspect(),
             ),
             port_map: None,
-            semicolon: code.s1(";").token(),
+            span: code.token_span().skip_to(code.s1("lib").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1475,6 +1489,7 @@ end generate;",
                 end_label_pos: None,
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("for").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1505,6 +1520,7 @@ end generate;",
                 end_label_pos: None,
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("for").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1530,6 +1546,7 @@ end generate;",
                     end_label_pos: None,
                 },
                 end_label_pos: None,
+                span: code.token_span().skip_to(code.s1("for").token()),
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1588,6 +1605,7 @@ end generate;",
                     end_label_pos: None,
                 },
                 end_label_pos: None,
+                span: code.token_span().skip_to(code.s1("for").token()),
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1641,6 +1659,7 @@ end generate;",
                 else_item: None,
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1675,6 +1694,7 @@ end generate;",
                 else_item: None,
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1726,6 +1746,7 @@ end generate;",
                 }),
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1785,6 +1806,7 @@ end generate;",
                 }),
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1838,6 +1860,7 @@ end generate;",
                 }),
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1901,6 +1924,7 @@ end generate;",
                 }),
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("if").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1949,6 +1973,7 @@ end generate;",
                 ],
             },
             end_label_pos: None,
+            span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
@@ -1997,6 +2022,7 @@ end generate gen1;",
                 ],
             },
             end_label_pos: Some(code.s("gen1", 2).pos()),
+            span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen1").ident()));
