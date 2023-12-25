@@ -8,7 +8,6 @@ use super::*;
 use crate::ast::*;
 use crate::named_entity::overloaded::SubprogramKey;
 use fnv::FnvHashMap;
-use itertools::Itertools;
 use std::collections::hash_map::Entry;
 
 #[derive(Clone)]
@@ -214,30 +213,6 @@ impl<'a> Region<'a> {
                 }
             })
             .filter(|ent| ent.is_explicit())
-    }
-
-    pub fn ports(&self) -> impl Iterator<Item = InterfaceEnt> + '_ {
-        self.entities
-            .values()
-            .filter_map(|ent| match ent {
-                NamedEntities::Single(ent) => {
-                    InterfaceEnt::from_any(ent).filter(|&ent| ent.is_signal())
-                }
-                _ => None,
-            })
-            .sorted_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start))
-    }
-
-    pub fn generics(&self) -> impl Iterator<Item = InterfaceEnt> + '_ {
-        self.entities
-            .values()
-            .filter_map(|ent| match ent {
-                NamedEntities::Single(ent) => {
-                    InterfaceEnt::from_any(ent).filter(|&ent| !ent.is_signal())
-                }
-                _ => None,
-            })
-            .sorted_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start))
     }
 }
 

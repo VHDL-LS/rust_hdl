@@ -48,10 +48,6 @@ pub struct Visibility<'a> {
 }
 
 impl<'a> Visibility<'a> {
-    pub fn entities(&self) -> impl Iterator<Item = &EntityId> {
-        self.visible.values().flat_map(|map| map.keys())
-    }
-
     pub fn make_all_potentially_visible(
         &mut self,
         visible_pos: Option<&SrcPos>,

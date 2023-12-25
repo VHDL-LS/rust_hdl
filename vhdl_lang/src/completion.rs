@@ -338,6 +338,7 @@ impl<'a> Searcher for RegionSearcher<'a> {
                 for statement in &body.statements {
                     let pos = &statement.statement.pos;
 
+                    // Early exit. The cursor is below the current statement.
                     if pos.start() > self.cursor {
                         break;
                     }
