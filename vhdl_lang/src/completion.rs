@@ -341,6 +341,9 @@ impl<'a> Searcher for RegionSearcher<'a> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         match decl {
             FoundDeclaration::Architecture(body) => {
+                let Some(eid) = body.entity_name.reference.get() else {
+                    return Finished(NotFound);
+                };
                 for statement in &body.statements {
                     let pos = &statement.statement.pos;
 
@@ -359,7 +362,7 @@ impl<'a> Searcher for RegionSearcher<'a> {
                 {
                     self.completions = self
                         .root
-                        .list_visible_entities()
+                        .list_visible_entities_from(eid)
                         .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
                         .collect()
                 }
@@ -371,11 +374,15 @@ impl<'a> Searcher for RegionSearcher<'a> {
 }
 
 impl DesignRoot {
-    pub fn list_visible_entities(&self) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn list_visible_entities_from(
+        &self,
+        source: EntityId,
+    ) -> impl Iterator<Item = EntityId> + '_ {
         self.libraries()
             .flat_map(|lib| lib.primary_units())
             .filter(|unit| unit.unit.get().map(|it| it.is_entity()).unwrap_or(false))
             .filter_map(|unit| unit.unit.get().and_then(|it| it.ent_id()))
+            .filter(move |eid| *eid != source)
     }
 }
 
@@ -417,7 +424,7 @@ mod test {
     use super::*;
     use crate::analysis::tests::LibraryBuilder;
     use crate::completion::tokenize_input;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{assert_eq_unordered, Code};
     use assert_matches::assert_matches;
 
     #[test]
@@ -630,5 +637,47 @@ mod test {
         assert!(options.contains(&CompletionItem::Formal(x)));
         assert!(options.contains(&CompletionItem::Formal(t)));
         assert_eq!(options.len(), 3);
+    }
+
+    #[test]
+    fn complete_entities() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+entity my_ent is
+end my_ent;
+
+entity my_other_ent is
+end my_other_ent;
+
+entity my_third_ent is
+end my_third_ent;
+
+architecture arch of my_third_ent is
+begin
+end arch;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("begin").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let my_ent = root
+            .search_reference(code.source(), code.s1("my_ent").start())
+            .unwrap();
+
+        let my_other_ent = root
+            .search_reference(code.source(), code.s1("my_other_ent").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[
+                CompletionItem::EntityInstantiation(my_ent),
+                CompletionItem::EntityInstantiation(my_other_ent),
+            ],
+        );
     }
 }
