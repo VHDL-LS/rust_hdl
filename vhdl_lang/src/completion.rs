@@ -10,7 +10,7 @@ use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, ConcurrentStatement, Designator, MapAspect, ObjectClass,
 };
 use crate::data::{ContentReader, Symbol};
-use crate::named_entity::{self, AsUnique, HasEntityId, NamedEntities, Region};
+use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
@@ -344,6 +344,9 @@ impl<'a> Searcher for RegionSearcher<'a> {
                 let Some(eid) = body.entity_name.reference.get() else {
                     return Finished(NotFound);
                 };
+                let Some(ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
+                    return Finished(NotFound);
+                };
                 for statement in &body.statements {
                     let pos = &statement.statement.pos;
 
@@ -362,8 +365,9 @@ impl<'a> Searcher for RegionSearcher<'a> {
                 {
                     self.completions = self
                         .root
-                        .list_visible_entities_from(eid)
-                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
+                        .list_visible_entities_from(ent)
+                        .iter()
+                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(*eid)))
                         .collect()
                 }
                 Finished(Found)
@@ -374,15 +378,42 @@ impl<'a> Searcher for RegionSearcher<'a> {
 }
 
 impl DesignRoot {
-    pub fn list_visible_entities_from(
-        &self,
-        source: EntityId,
-    ) -> impl Iterator<Item = EntityId> + '_ {
-        self.libraries()
-            .flat_map(|lib| lib.primary_units())
-            .filter(|unit| unit.unit.get().map(|it| it.is_entity()).unwrap_or(false))
-            .filter_map(|unit| unit.unit.get().and_then(|it| it.ent_id()))
-            .filter(move |eid| *eid != source)
+    pub fn list_visible_entities_from(&self, ent: DesignEnt) -> Vec<EntityId> {
+        let mut entities: HashSet<EntityId> = HashSet::new();
+        if let Design::Entity(vis, _) = ent.kind() {
+            for ent_ref in vis.visible() {
+                match ent_ref.kind() {
+                    AnyEntKind::Design(Design::Entity(..)) => {
+                        if ent_ref.id() != ent.id() {
+                            entities.insert(ent_ref.id());
+                        }
+                    }
+                    AnyEntKind::Library => {
+                        let Some(name) = ent_ref.library_name() else {
+                            return vec![];
+                        };
+                        let Some(lib) = self.get_lib(name) else {
+                            return vec![];
+                        };
+                        for unit in lib.primary_units() {
+                            let Some(unit) = unit.unit.get() else {
+                                continue;
+                            };
+                            let design = unit.data();
+                            if !design.is_entity() {
+                                continue;
+                            }
+                            let Some(id) = design.ent_id() else { continue };
+                            if id != ent.id() {
+                                entities.insert(id);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        entities.iter().copied().collect()
     }
 }
 
@@ -422,7 +453,7 @@ pub fn list_completion_options<'a>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::analysis::tests::LibraryBuilder;
+    use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder};
     use crate::completion::tokenize_input;
     use crate::syntax::test::{assert_eq_unordered, Code};
     use assert_matches::assert_matches;
@@ -677,6 +708,86 @@ end arch;
             &[
                 CompletionItem::EntityInstantiation(my_ent),
                 CompletionItem::EntityInstantiation(my_other_ent),
+            ],
+        );
+    }
+
+    #[test]
+    fn complete_entities_from_different_libraries() {
+        let mut builder = LibraryBuilder::new();
+        let code1 = builder.code(
+            "libA",
+            "\
+entity my_ent is
+end my_ent;
+        ",
+        );
+
+        let code2 = builder.code(
+            "libB",
+            "\
+entity my_ent2 is
+end my_ent2;
+
+entity my_ent3 is
+end my_ent3;
+
+architecture arch of my_ent3 is
+begin
+
+end arch;
+
+        ",
+        );
+
+        let code3 = builder.code(
+            "libC",
+            "\
+entity my_ent2 is
+end my_ent2;
+
+library libA;
+
+entity my_ent3 is
+end my_ent3;
+
+architecture arch of my_ent3 is
+begin
+
+end arch;
+        ",
+        );
+
+        let (root, diag) = builder.get_analyzed_root();
+        check_no_diagnostics(&diag[..]);
+        let cursor = code2.s1("begin").end();
+        let options = list_completion_options(&root, code2.source(), cursor);
+
+        let my_ent2 = root
+            .search_reference(code2.source(), code2.s1("my_ent2").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[CompletionItem::EntityInstantiation(my_ent2)],
+        );
+
+        let ent1 = root
+            .search_reference(code1.source(), code2.s1("my_ent").start())
+            .unwrap();
+
+        let cursor = code3.s1("begin").end();
+        let options = list_completion_options(&root, code3.source(), cursor);
+
+        let my_ent2 = root
+            .search_reference(code3.source(), code3.s1("my_ent2").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[
+                CompletionItem::EntityInstantiation(my_ent2),
+                CompletionItem::EntityInstantiation(ent1),
             ],
         );
     }

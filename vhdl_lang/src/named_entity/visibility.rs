@@ -59,6 +59,10 @@ impl<'a> Visibility<'a> {
         });
     }
 
+    pub fn visible(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
+        self.visible.values().flatten().map(|entry| entry.1.entity)
+    }
+
     pub fn add_context_visibility(
         &mut self,
         visible_pos: Option<&SrcPos>,
