@@ -296,17 +296,27 @@ impl VHDLServer {
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::EntityInstantiation(ent) => {
+                let work_name = "work";
+
+                let library_names = if let Some(lib_name) = ent.library_name() {
+                    vec![work_name.to_string(), lib_name.name().to_string()]
+                } else {
+                    vec![work_name.to_string()]
+                };
                 let region = match ent.kind() {
                     AnyEntKind::Design(Design::Entity(_, region)) => region,
+                    // should never happen but better return some value instead of crashing
                     _ => return entity_to_completion_item(ent),
                 };
                 let template = if self.client_supports_snippets() {
                     let mut line = format!(
-                        "${{1:{}_inst}}: entity {}.{}",
-                        ent.designator, "work", ent.designator
+                        "${{1:{}_inst}}: entity ${{2|{}|}}.{}",
+                        ent.designator,
+                        library_names.join(","),
+                        ent.designator
                     );
                     let (ports, generics) = region.ports_and_generics();
-                    let mut idx = 2;
+                    let mut idx = 3;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
                         line += &*format!("\n {} map(\n", purpose);
                         for (i, generic) in elements.iter().enumerate() {
