@@ -41,6 +41,7 @@ pub enum CompletionItem<'a> {
     ///     port map (
     ///         -- ...
     ///     );
+    /// ```
     EntityInstantiation(EntRef<'a>),
 }
 
@@ -325,15 +326,15 @@ fn list_available_declarations<'a>(
 
 /// General-purpose Completion Searcher
 /// when no more accurate searcher is available.
-struct RegionSearcher<'a> {
+struct CompletionSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
 }
 
-impl<'a> RegionSearcher<'a> {
-    pub fn new(cursor: Position, design_root: &'a DesignRoot) -> RegionSearcher<'a> {
-        RegionSearcher {
+impl<'a> CompletionSearcher<'a> {
+    pub fn new(cursor: Position, design_root: &'a DesignRoot) -> CompletionSearcher<'a> {
+        CompletionSearcher {
             root: design_root,
             cursor,
             completions: Vec::new(),
@@ -341,7 +342,7 @@ impl<'a> RegionSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for RegionSearcher<'a> {
+impl<'a> Searcher for CompletionSearcher<'a> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         match decl {
             FoundDeclaration::Architecture(body) => {
@@ -448,7 +449,7 @@ pub fn list_completion_options<'a>(
             searcher.completions
         }
         _ => {
-            let mut searcher = RegionSearcher::new(cursor, root);
+            let mut searcher = CompletionSearcher::new(cursor, root);
             let _ = root.search_source(source, &mut searcher);
             searcher.completions
         }
