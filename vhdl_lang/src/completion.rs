@@ -126,16 +126,18 @@ impl DesignRoot {
     }
 }
 
-/// Visitor responsible for completions in selected AST elements
-struct AutocompletionSearcher<'a> {
+/// Searches completions for map aspects (VHDL port maps and generic maps).
+/// Currently, this only means the formal part (i.e., the left hand side of a port or generic assignment)
+/// but not the actual part.
+struct MapAspectSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
 }
 
-impl<'a> AutocompletionSearcher<'a> {
-    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionSearcher<'a> {
-        AutocompletionSearcher {
+impl<'a> MapAspectSearcher<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> MapAspectSearcher<'a> {
+        MapAspectSearcher {
             root,
             cursor,
             completions: Vec::new(),
@@ -171,7 +173,7 @@ impl<'a> AutocompletionSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for AutocompletionSearcher<'a> {
+impl<'a> Searcher for MapAspectSearcher<'a> {
     /// Visit an instantiation statement extracting completions for ports or generics.
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         match decl {
@@ -321,6 +323,8 @@ fn list_available_declarations<'a>(
     }
 }
 
+/// General-purpose Completion Searcher
+/// when no more accurate searcher is available.
 struct RegionSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
@@ -365,9 +369,8 @@ impl<'a> Searcher for RegionSearcher<'a> {
                 {
                     self.completions = self
                         .root
-                        .list_visible_entities_from(ent)
-                        .iter()
-                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(*eid)))
+                        .get_visible_entities_from_entity(ent)
+                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
                         .collect()
                 }
                 Finished(Found)
@@ -378,42 +381,44 @@ impl<'a> Searcher for RegionSearcher<'a> {
 }
 
 impl DesignRoot {
-    pub fn list_visible_entities_from(&self, ent: DesignEnt) -> Vec<EntityId> {
+    /// List all entities (entities in this context is a VHDL entity, not a `DesignEnt` or similar)
+    /// that are visible from another VHDL entity.
+    /// This could, at some point, be further generalized into a generic
+    /// 'list visible entities of some kind of some generic design entity'.
+    pub fn get_visible_entities_from_entity(
+        &self,
+        ent: DesignEnt,
+    ) -> impl Iterator<Item = EntityId> {
         let mut entities: HashSet<EntityId> = HashSet::new();
         if let Design::Entity(vis, _) = ent.kind() {
             for ent_ref in vis.visible() {
                 match ent_ref.kind() {
                     AnyEntKind::Design(Design::Entity(..)) => {
-                        if ent_ref.id() != ent.id() {
-                            entities.insert(ent_ref.id());
-                        }
+                        entities.insert(ent_ref.id());
                     }
                     AnyEntKind::Library => {
                         let Some(name) = ent_ref.library_name() else {
-                            return vec![];
+                            continue;
                         };
                         let Some(lib) = self.get_lib(name) else {
-                            return vec![];
+                            continue;
                         };
-                        for unit in lib.primary_units() {
-                            let Some(unit) = unit.unit.get() else {
-                                continue;
-                            };
-                            let design = unit.data();
-                            if !design.is_entity() {
-                                continue;
-                            }
-                            let Some(id) = design.ent_id() else { continue };
-                            if id != ent.id() {
-                                entities.insert(id);
-                            }
-                        }
+                        let itr = lib
+                            .units()
+                            .flat_map(|locked_unit| locked_unit.unit.get())
+                            .map(|read_guard| read_guard.to_owned())
+                            .filter(|design_unit| design_unit.is_entity())
+                            .flat_map(|design_unit| design_unit.ent_id());
+                        entities.extend(itr);
                     }
                     _ => {}
                 }
             }
         }
-        entities.iter().copied().collect()
+        // Remove entity that this was called from.
+        // Recursive instantiation is only possible with component instantiation.
+        entities.remove(&ent.id());
+        entities.into_iter()
     }
 }
 
@@ -438,7 +443,7 @@ pub fn list_completion_options<'a>(
             list_available_declarations(root, library, selected)
         }
         [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
-            let mut searcher = AutocompletionSearcher::new(root, cursor);
+            let mut searcher = MapAspectSearcher::new(root, cursor);
             let _ = root.search_source(source, &mut searcher);
             searcher.completions
         }

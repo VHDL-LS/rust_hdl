@@ -253,6 +253,10 @@ impl Library {
         self.id
     }
 
+    pub(crate) fn units(&self) -> impl Iterator<Item = &LockedUnit> {
+        self.units.values()
+    }
+
     pub(crate) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
         self.units.iter().filter_map(|(key, value)| match key {
             UnitKey::Primary(_) => Some(value),
