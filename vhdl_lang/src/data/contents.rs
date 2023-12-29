@@ -116,7 +116,9 @@ impl Contents {
         }
 
         let last_line_index = self.lines.len() - 1;
-        if (end.line as usize) < last_line_index && merged_content.chars().last().unwrap_or('\0') != '\n' {
+        if (end.line as usize) < last_line_index
+            && merged_content.chars().last().unwrap_or('\0') != '\n'
+        {
             merged_content.push('\n');
         }
 
