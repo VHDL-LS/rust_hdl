@@ -543,6 +543,17 @@ mod tests {
     }
 
     #[test]
+    fn change_past_end_of_line() {
+        let mut contents = new("hello\nworld");
+        assert_eq!(flatten(&contents), "hello\nworld");
+        contents.change(&Range::new(Position::new(0, 3), Position::new(0, 7)), "");
+        assert_eq!(flatten(&contents), "hel\nworld");
+        assert_eq!(contents.num_lines(), 2);
+        assert_eq!(contents.get_line(0).unwrap().to_string(), "hel\n");
+        assert_eq!(contents.get_line(1).unwrap().to_string(), "world");
+    }
+
+    #[test]
     fn change_to_more_lines() {
         let mut contents = new("hello\nworld");
         assert_eq!(flatten(&contents), "hello\nworld");
