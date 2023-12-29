@@ -115,9 +115,8 @@ impl Contents {
             }
         }
 
-        // New line should always be at the end of line, in case
-        // it's deleted by accident somehow, return it back.
-        if merged_content.chars().last().unwrap_or('\0') != '\n' {
+        let last_line_index = self.lines.len() - 1;
+        if (end.line as usize) < last_line_index && merged_content.chars().last().unwrap_or('\0') != '\n' {
             merged_content.push('\n');
         }
 
