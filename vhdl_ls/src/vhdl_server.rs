@@ -303,18 +303,23 @@ impl VHDLServer {
                 } else {
                     vec![work_name.to_string()]
                 };
-                let region = match ent.kind() {
-                    AnyEntKind::Design(Design::Entity(_, region)) => region,
+                let (region, is_component_instantiation) = match ent.kind() {
+                    AnyEntKind::Design(Design::Entity(_, region)) => (region, false),
+                    AnyEntKind::Component(region) => (region, true),
                     // should never happen but better return some value instead of crashing
                     _ => return entity_to_completion_item(ent),
                 };
                 let template = if self.client_supports_snippets() {
-                    let mut line = format!(
-                        "${{1:{}_inst}}: entity ${{2|{}|}}.{}",
-                        ent.designator,
-                        library_names.join(","),
-                        ent.designator
-                    );
+                    let mut line = if is_component_instantiation {
+                        format!("${{1:{}_inst}}: {}", ent.designator, ent.designator)
+                    } else {
+                        format!(
+                            "${{1:{}_inst}}: entity ${{2|{}|}}.{}",
+                            ent.designator,
+                            library_names.join(","),
+                            ent.designator
+                        )
+                    };
                     let (ports, generics) = region.ports_and_generics();
                     let mut idx = 3;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
