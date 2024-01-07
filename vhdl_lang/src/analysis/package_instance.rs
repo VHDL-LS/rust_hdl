@@ -347,12 +347,12 @@ impl<'a> AnalyzeContext<'a> {
             }
             AnyEntKind::Library => AnyEntKind::Library,
             AnyEntKind::Design(design) => match design {
-                Design::PackageInstance(region, is_in_interface) => {
-                    AnyEntKind::Design(Design::PackageInstance(
-                        self.map_region(parent, mapping, region)?,
-                        *is_in_interface,
-                    ))
-                }
+                Design::PackageInstance(region) => AnyEntKind::Design(Design::PackageInstance(
+                    self.map_region(parent, mapping, region)?,
+                )),
+                Design::InterfacePackageInstance(region) => AnyEntKind::Design(
+                    Design::InterfacePackageInstance(self.map_region(parent, mapping, region)?),
+                ),
                 _ => {
                     return Err(format!(
                         "Internal error, did not expect to instantiate {}",

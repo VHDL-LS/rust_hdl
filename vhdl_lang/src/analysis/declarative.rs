@@ -558,13 +558,13 @@ impl<'a> AnalyzeContext<'a> {
                 let ent = self.arena.define(
                     &mut instance.ident,
                     parent,
-                    AnyEntKind::Design(Design::PackageInstance(Region::default(), false)),
+                    AnyEntKind::Design(Design::PackageInstance(Region::default())),
                 );
 
                 if let Some(pkg_region) =
                     as_fatal(self.generic_package_instance(scope, ent, instance, diagnostics))?
                 {
-                    let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region, false));
+                    let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region));
                     unsafe {
                         ent.set_kind(kind);
                     }
@@ -850,7 +850,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena.define(
                     &mut instance.ident,
                     parent,
-                    AnyEntKind::Design(Design::PackageInstance(package_region, true)),
+                    AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
                 )
             }
         };
@@ -990,7 +990,8 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             // Should never be target of attribute
             Design::PackageBody => None,
             Design::UninstPackage(_, _) => None,
-            Design::PackageInstance(..) => None,
+            Design::PackageInstance(_) => None,
+            Design::InterfacePackageInstance(_) => None,
             Design::Context(_) => None,
         },
     }
