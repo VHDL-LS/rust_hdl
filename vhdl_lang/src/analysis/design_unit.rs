@@ -176,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
         let ent = self.arena.explicit(
             unit.name().clone(),
             self.work_library(),
-            AnyEntKind::Design(Design::PackageInstance(Region::default())),
+            AnyEntKind::Design(Design::PackageInstance(Region::default(), false)),
             Some(unit.pos()),
         );
 
@@ -189,7 +189,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(pkg_region) =
             as_fatal(self.generic_package_instance(&root_scope, ent, unit, diagnostics))?
         {
-            let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region));
+            let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region, false));
 
             unsafe {
                 ent.set_kind(kind);
@@ -596,7 +596,7 @@ impl<'a> AnalyzeContext<'a> {
                                 ));
                             }
                             Design::Package(_, ref primary_region)
-                            | Design::PackageInstance(ref primary_region) => {
+                            | Design::PackageInstance(ref primary_region, _) => {
                                 scope.make_all_potentially_visible(Some(&name.pos), primary_region);
                             }
                             _ => {

@@ -22,7 +22,13 @@ pub enum Design<'a> {
     Package(Visibility<'a>, Region<'a>),
     PackageBody,
     UninstPackage(Visibility<'a>, Region<'a>),
-    PackageInstance(Region<'a>),
+    // The second parameter of `PackageInstance` is `true`, when this package instance is
+    // part of a generic map, i.e.,
+    // generic map (
+    //     package foo is new bar generic map (<>)
+    // );
+    // otherwise, the instantiated packages appears regularly in the declarative region.
+    PackageInstance(Region<'a>, bool),
     Context(Region<'a>),
 }
 
@@ -69,7 +75,7 @@ impl<'a> DesignEnt<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         match self.kind() {
-            Design::Package(_, ref region) | Design::PackageInstance(ref region) => {
+            Design::Package(_, ref region) | Design::PackageInstance(ref region, _) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
