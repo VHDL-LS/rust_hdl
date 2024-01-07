@@ -39,6 +39,17 @@ https://github.com/Bochlin/rust_hdl_vscode
 ## Use in emacs
 VHDL LS has built-in support by emacs `lsp-mode` since 2020-01-04.
 
+It can be set up automatically by installing the package
+[`vhdl-ext`](https://github.com/gmlarumbe/vhdl-ext/) and adding the
+following snippet to your config:
+
+```elisp
+(require 'vhdl-ext)
+(vhdl-ext-mode-setup)
+(vhdl-ext-eglot-set-server 've-rust-hdl) ;`eglot' config
+(vhdl-ext-lsp-set-server 've-rust-hdl)   ; `lsp' config
+```
+
 ### Configuration
 The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 
