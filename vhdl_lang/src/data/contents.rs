@@ -115,6 +115,13 @@ impl Contents {
             }
         }
 
+        let last_line_index = self.lines.len() - 1;
+        if (end.line as usize) < last_line_index
+            && merged_content.chars().last().unwrap_or('\0') != '\n'
+        {
+            merged_content.push('\n');
+        }
+
         let end_line = std::cmp::min(self.lines.len().saturating_sub(1), end_line);
         self.lines
             .splice(start_line..=end_line, split_lines(&merged_content))
@@ -534,6 +541,17 @@ mod tests {
         assert_eq!(flatten(&contents), "helrld");
         assert_eq!(contents.num_lines(), 1);
         assert_eq!(contents.get_line(0).unwrap().to_string(), "helrld");
+    }
+
+    #[test]
+    fn change_past_end_of_line() {
+        let mut contents = new("hello\nworld");
+        assert_eq!(flatten(&contents), "hello\nworld");
+        contents.change(&Range::new(Position::new(0, 3), Position::new(0, 7)), "");
+        assert_eq!(flatten(&contents), "hel\nworld");
+        assert_eq!(contents.num_lines(), 2);
+        assert_eq!(contents.get_line(0).unwrap().to_string(), "hel\n");
+        assert_eq!(contents.get_line(1).unwrap().to_string(), "world");
     }
 
     #[test]
