@@ -165,8 +165,10 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
-            AnyEntKind::Design(_)
-            | AnyEntKind::Library
+            AnyEntKind::Design(_) => ResolvedName::Design(
+                DesignEnt::from_any(ent).expect("AnyEntKind::Design is not a design entity"),
+            ),
+            AnyEntKind::Library
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Concurrent(_)
