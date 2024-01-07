@@ -151,14 +151,14 @@ package ipkg is new work.pkg generic map(type_t => integer, value => 0);
         .search_reference(code.source(), code.s1("ipkg").start())
         .unwrap();
 
-    let instances: Vec<_> =
-        if let AnyEntKind::Design(Design::PackageInstance(region, _)) = ipkg.kind() {
-            let mut symbols: Vec<_> = region.immediates().collect();
-            symbols.sort_by_key(|ent| ent.decl_pos());
-            symbols.into_iter().map(|ent| ent.path_name()).collect()
-        } else {
-            panic!("Expected instantiated package");
-        };
+    let instances: Vec<_> = if let AnyEntKind::Design(Design::PackageInstance(region)) = ipkg.kind()
+    {
+        let mut symbols: Vec<_> = region.immediates().collect();
+        symbols.sort_by_key(|ent| ent.decl_pos());
+        symbols.into_iter().map(|ent| ent.path_name()).collect()
+    } else {
+        panic!("Expected instantiated package");
+    };
 
     assert_eq!(instances, vec!["libname.ipkg.c0", "libname.ipkg.fun0"]);
 }

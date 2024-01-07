@@ -102,7 +102,7 @@ impl<'a> GpkgInterfaceEnt<'a> {
             AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
                 GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
             ),
-            AnyEntKind::Design(Design::PackageInstance(_, is_in_interface)) if *is_in_interface => {
+            AnyEntKind::Design(Design::InterfacePackageInstance(_)) => {
                 Some(GpkgInterfaceEnt::Package(ent))
             }
             _ => None,
