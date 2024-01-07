@@ -1248,6 +1248,26 @@ impl<'a> EntHierarchy<'a> {
     }
 }
 
+fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
+    match ent.kind() {
+        AnyEntKind::Design(d) => match d {
+            Design::Entity(_, region)
+            | Design::Package(_, region)
+            | Design::UninstPackage(_, region) => Box::new(
+                region
+                    .immediates()
+                    .flat_map(|ent| std::iter::once(ent).chain(public_symbols(ent))),
+            ),
+            _ => Box::new(std::iter::empty()),
+        },
+        AnyEntKind::Type(t) => match t {
+            Type::Protected(region, is_body) if !is_body => Box::new(region.immediates()),
+            _ => Box::new(std::iter::empty()),
+        },
+        _ => Box::new(std::iter::empty()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1400,25 +1420,5 @@ end configuration;
         );
         assert_eq!(library.units.len(), 2);
         assert_eq!(library.duplicates.len(), 1);
-    }
-}
-
-fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
-    match ent.kind() {
-        AnyEntKind::Design(d) => match d {
-            Design::Entity(_, region)
-            | Design::Package(_, region)
-            | Design::UninstPackage(_, region) => Box::new(
-                region
-                    .immediates()
-                    .flat_map(|ent| std::iter::once(ent).chain(public_symbols(ent))),
-            ),
-            _ => Box::new(std::iter::empty()),
-        },
-        AnyEntKind::Type(t) => match t {
-            Type::Protected(region, is_body) if !is_body => Box::new(region.immediates()),
-            _ => Box::new(std::iter::empty()),
-        },
-        _ => Box::new(std::iter::empty()),
     }
 }
