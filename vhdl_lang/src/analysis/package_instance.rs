@@ -101,7 +101,7 @@ impl<'a> AnalyzeContext<'a> {
                                         diagnostics,
                                     )?;
                                     if let Type::Array { indexes, .. } = typ.base().kind() {
-                                        if let Some(Some(idx_typ)) = indexes.get(0) {
+                                        if let Some(Some(idx_typ)) = indexes.first() {
                                             self.drange_with_ttyp(
                                                 scope,
                                                 (*idx_typ).into(),

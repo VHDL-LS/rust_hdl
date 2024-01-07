@@ -452,6 +452,7 @@ pub enum Value {
     Character(u8),
     // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
     Text(Latin1String),
+    #[allow(clippy::enum_variant_names)]
     NoValue,
 }
 
