@@ -2088,3 +2088,52 @@ signal v_value : str_value_ptr.all'subtype;
     };
     assert_eq!(typ.id, root.standard_types.as_ref().unwrap().string)
 }
+
+#[test]
+pub fn select_package_from_other_package() {
+    let mut builder = LibraryBuilder::new();
+    let _code = builder.code(
+        "libname",
+        "package pkg1 is
+    generic(i_gen: natural);
+
+    type type1_t is array(natural range <>) of bit;
+end package pkg1;
+
+package pkg2 is
+    package pkg1 is new work.pkg1 generic map (i_gen => 5);
+end package pkg2;
+ 
+package pkg3 is
+    variable v1 : work.pkg2.pkg1.type1_t;
+end package;",
+    );
+    let (_root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+pub fn select_package_from_instantiated_package() {
+    let mut builder = LibraryBuilder::new();
+    let _code = builder.code(
+        "libname",
+        "package pkg1 is
+    generic(i_gen: natural);
+
+    type type1_t is array(natural range <>) of bit;
+end package pkg1;
+
+package pkg2 is
+    generic (i_gen : natural);
+
+    package pkg1 is new work.pkg1 generic map (i_gen);
+end package pkg2;
+
+package pkg3 is
+    package pkg2 is new work.pkg2 generic map (1);
+    variable v1 : pkg2.pkg1.type1_t;
+end package;",
+    );
+    let (_root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+}
