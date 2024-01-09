@@ -22,7 +22,18 @@ pub enum Design<'a> {
     Package(Visibility<'a>, Region<'a>),
     PackageBody,
     UninstPackage(Visibility<'a>, Region<'a>),
+    /// An instantiated Package, i.e.,
+    /// ```vhdl
+    /// package foo is new bar generic map (...);
+    /// ```
     PackageInstance(Region<'a>),
+    /// An instantiated package that is part of some generic interface, i.e.,
+    /// ```vhdl
+    /// generic (
+    ///     package foo is new bar generic map (<>)
+    /// )
+    /// ```
+    InterfacePackageInstance(Region<'a>),
     Context(Region<'a>),
 }
 
@@ -36,7 +47,7 @@ impl<'a> Design<'a> {
             Package(..) => "package",
             PackageBody => "package body",
             UninstPackage(..) => "uninstantiated package",
-            PackageInstance(..) => "package instance",
+            PackageInstance(_) | InterfacePackageInstance(_) => "package instance",
             Context(..) => "context",
         }
     }
@@ -69,7 +80,9 @@ impl<'a> DesignEnt<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         match self.kind() {
-            Design::Package(_, ref region) | Design::PackageInstance(ref region) => {
+            Design::Package(_, ref region)
+            | Design::PackageInstance(ref region)
+            | Design::InterfacePackageInstance(ref region) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
