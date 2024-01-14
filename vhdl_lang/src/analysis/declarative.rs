@@ -850,7 +850,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena.define(
                     &mut instance.ident,
                     parent,
-                    AnyEntKind::Design(Design::PackageInstance(package_region)),
+                    AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
                 )
             }
         };
@@ -991,6 +991,7 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             Design::PackageBody => None,
             Design::UninstPackage(_, _) => None,
             Design::PackageInstance(_) => None,
+            Design::InterfacePackageInstance(_) => None,
             Design::Context(_) => None,
         },
     }

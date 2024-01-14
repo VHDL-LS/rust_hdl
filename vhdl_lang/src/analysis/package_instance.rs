@@ -101,7 +101,7 @@ impl<'a> AnalyzeContext<'a> {
                                         diagnostics,
                                     )?;
                                     if let Type::Array { indexes, .. } = typ.base().kind() {
-                                        if let Some(Some(idx_typ)) = indexes.get(0) {
+                                        if let Some(Some(idx_typ)) = indexes.first() {
                                             self.drange_with_ttyp(
                                                 scope,
                                                 (*idx_typ).into(),
@@ -350,6 +350,9 @@ impl<'a> AnalyzeContext<'a> {
                 Design::PackageInstance(region) => AnyEntKind::Design(Design::PackageInstance(
                     self.map_region(parent, mapping, region)?,
                 )),
+                Design::InterfacePackageInstance(region) => AnyEntKind::Design(
+                    Design::InterfacePackageInstance(self.map_region(parent, mapping, region)?),
+                ),
                 _ => {
                     return Err(format!(
                         "Internal error, did not expect to instantiate {}",

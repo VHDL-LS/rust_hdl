@@ -846,7 +846,7 @@ fn value_to_string(value: &Value) -> String {
         },
         Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
         Value::Text(text) => String::from_utf8(text.chars().copied().collect_vec()).unwrap(),
-        Value::NoValue => "".into(),
+        Value::None => "".into(),
     }
 }
 

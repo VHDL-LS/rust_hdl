@@ -452,7 +452,7 @@ pub enum Value {
     Character(u8),
     // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
     Text(Latin1String),
-    NoValue,
+    None,
 }
 
 /// A Token
@@ -1448,7 +1448,7 @@ impl Symbols {
     fn insert_or_keyword(&self, name: &Latin1String) -> (Kind, Value) {
         let symbol = self.symtab.insert(name);
         if let Some(kind) = self.keywords.get(symbol.id) {
-            (*kind, Value::NoValue)
+            (*kind, Value::None)
         } else {
             (Identifier, Value::Identifier(symbol))
         }
@@ -1723,9 +1723,9 @@ impl<'a> Tokenizer<'a> {
             b':' => {
                 self.reader.skip();
                 if self.reader.skip_if(b'=')? {
-                    (ColonEq, Value::NoValue)
+                    (ColonEq, Value::None)
                 } else {
-                    (Colon, Value::NoValue)
+                    (Colon, Value::None)
                 }
             }
             b'\'' => {
@@ -1734,15 +1734,15 @@ impl<'a> Tokenizer<'a> {
                     if let Some(chr_lit) = parse_character_literal(&mut self.reader)? {
                         chr_lit
                     } else {
-                        (Tick, Value::NoValue)
+                        (Tick, Value::None)
                     }
                 } else {
-                    (Tick, Value::NoValue)
+                    (Tick, Value::None)
                 }
             }
             b'-' => {
                 self.reader.skip();
-                (Minus, Value::NoValue)
+                (Minus, Value::None)
             }
             b'"' => {
                 self.reader.skip();
@@ -1751,38 +1751,38 @@ impl<'a> Tokenizer<'a> {
             }
             b';' => {
                 self.reader.skip();
-                (SemiColon, Value::NoValue)
+                (SemiColon, Value::None)
             }
             b'(' => {
                 self.reader.skip();
-                (LeftPar, Value::NoValue)
+                (LeftPar, Value::None)
             }
             b')' => {
                 self.reader.skip();
-                (RightPar, Value::NoValue)
+                (RightPar, Value::None)
             }
             b'+' => {
                 self.reader.skip();
-                (Plus, Value::NoValue)
+                (Plus, Value::None)
             }
             b'.' => {
                 self.reader.skip();
-                (Dot, Value::NoValue)
+                (Dot, Value::None)
             }
             b'&' => {
                 self.reader.skip();
-                (Concat, Value::NoValue)
+                (Concat, Value::None)
             }
             b',' => {
                 self.reader.skip();
-                (Comma, Value::NoValue)
+                (Comma, Value::None)
             }
             b'=' => {
                 self.reader.skip();
                 if self.reader.skip_if(b'>')? {
-                    (RightArrow, Value::NoValue)
+                    (RightArrow, Value::None)
                 } else {
-                    (EQ, Value::NoValue)
+                    (EQ, Value::None)
                 }
             }
             b'<' => {
@@ -1790,17 +1790,17 @@ impl<'a> Tokenizer<'a> {
                 match self.reader.peek()? {
                     Some(b'=') => {
                         self.reader.skip();
-                        (LTE, Value::NoValue)
+                        (LTE, Value::None)
                     }
                     Some(b'>') => {
                         self.reader.skip();
-                        (BOX, Value::NoValue)
+                        (BOX, Value::None)
                     }
                     Some(b'<') => {
                         self.reader.skip();
-                        (LtLt, Value::NoValue)
+                        (LtLt, Value::None)
                     }
-                    _ => (LT, Value::NoValue),
+                    _ => (LT, Value::None),
                 }
             }
             b'>' => {
@@ -1808,31 +1808,31 @@ impl<'a> Tokenizer<'a> {
                 match self.reader.peek()? {
                     Some(b'=') => {
                         self.reader.skip();
-                        (GTE, Value::NoValue)
+                        (GTE, Value::None)
                     }
                     Some(b'>') => {
                         self.reader.skip();
-                        (GtGt, Value::NoValue)
+                        (GtGt, Value::None)
                     }
-                    _ => (GT, Value::NoValue),
+                    _ => (GT, Value::None),
                 }
             }
             b'/' => {
                 self.reader.skip();
 
                 if self.reader.skip_if(b'=')? {
-                    (NE, Value::NoValue)
+                    (NE, Value::None)
                 } else {
-                    (Div, Value::NoValue)
+                    (Div, Value::None)
                 }
             }
             b'*' => {
                 self.reader.skip();
 
                 if self.reader.skip_if(b'*')? {
-                    (Pow, Value::NoValue)
+                    (Pow, Value::None)
                 } else {
-                    (Times, Value::NoValue)
+                    (Times, Value::None)
                 }
             }
             b'?' => {
@@ -1840,16 +1840,16 @@ impl<'a> Tokenizer<'a> {
                 match self.reader.peek()? {
                     Some(b'?') => {
                         self.reader.skip();
-                        (QueQue, Value::NoValue)
+                        (QueQue, Value::None)
                     }
                     Some(b'=') => {
                         self.reader.skip();
-                        (QueEQ, Value::NoValue)
+                        (QueEQ, Value::None)
                     }
                     Some(b'/') => {
                         self.reader.skip();
                         if self.reader.skip_if(b'=')? {
-                            (QueNE, Value::NoValue)
+                            (QueNE, Value::None)
                         } else {
                             illegal_token!();
                         }
@@ -1857,41 +1857,41 @@ impl<'a> Tokenizer<'a> {
                     Some(b'<') => {
                         self.reader.skip();
                         if self.reader.skip_if(b'=')? {
-                            (QueLTE, Value::NoValue)
+                            (QueLTE, Value::None)
                         } else {
-                            (QueLT, Value::NoValue)
+                            (QueLT, Value::None)
                         }
                     }
                     Some(b'>') => {
                         self.reader.skip();
                         if self.reader.skip_if(b'=')? {
-                            (QueGTE, Value::NoValue)
+                            (QueGTE, Value::None)
                         } else {
-                            (QueGT, Value::NoValue)
+                            (QueGT, Value::None)
                         }
                     }
-                    _ => (Que, Value::NoValue),
+                    _ => (Que, Value::None),
                 }
             }
             b'^' => {
                 self.reader.skip();
-                (Circ, Value::NoValue)
+                (Circ, Value::None)
             }
             b'@' => {
                 self.reader.skip();
-                (CommAt, Value::NoValue)
+                (CommAt, Value::None)
             }
             b'|' => {
                 self.reader.skip();
-                (Bar, Value::NoValue)
+                (Bar, Value::None)
             }
             b'[' => {
                 self.reader.skip();
-                (LeftSquare, Value::NoValue)
+                (LeftSquare, Value::None)
             }
             b']' => {
                 self.reader.skip();
-                (RightSquare, Value::NoValue)
+                (RightSquare, Value::None)
             }
             b'\\' => {
                 self.reader.skip();
@@ -1902,7 +1902,7 @@ impl<'a> Tokenizer<'a> {
             }
             b'`' => {
                 self.reader.skip();
-                (GraveAccent, Value::NoValue)
+                (GraveAccent, Value::None)
             }
             _ => {
                 self.reader.skip();
@@ -2045,7 +2045,7 @@ end entity"
             tokens[0],
             Token {
                 kind: Entity,
-                value: Value::NoValue,
+                value: Value::None,
                 pos: code.s1("entity").pos(),
                 comments: None,
             }
@@ -2164,7 +2164,7 @@ my_other_ident",
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Integer(100))
                 ),
-                (Minus, Value::NoValue),
+                (Minus, Value::None),
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Integer(123))
@@ -2229,7 +2229,7 @@ my_other_ident",
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(0.1))
                 ),
-                (Minus, Value::NoValue),
+                (Minus, Value::None),
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(22.33))
@@ -2786,14 +2786,14 @@ comment
             vec![
                 Ok(Token {
                     kind: Begin,
-                    value: Value::NoValue,
+                    value: Value::None,
                     pos: code.s1("begin").pos(),
                     comments: None,
                 }),
                 Err(Diagnostic::error(&code.s1("!"), "Illegal token")),
                 Ok(Token {
                     kind: End,
-                    value: Value::NoValue,
+                    value: Value::None,
                     pos: code.s1("end").pos(),
                     comments: None,
                 }),
@@ -2853,7 +2853,7 @@ comment
             vec![
                 Ok(Token {
                     kind: Plus,
-                    value: Value::NoValue,
+                    value: Value::None,
                     pos: code.s1("+").pos(),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
@@ -2870,7 +2870,7 @@ comment
                 }),
                 Ok(Token {
                     kind: Minus,
-                    value: Value::NoValue,
+                    value: Value::None,
                     pos: minus_pos,
                     comments: Some(Box::new(TokenComments {
                         leading: vec![
@@ -2966,7 +2966,7 @@ entity -- €
             tokens,
             vec![Ok(Token {
                 kind: Entity,
-                value: Value::NoValue,
+                value: Value::None,
                 pos: code.s1("entity").pos(),
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {

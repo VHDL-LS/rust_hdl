@@ -1050,6 +1050,7 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
             vhdl_lang::Design::PackageBody => SymbolKind::PACKAGE,
             vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::PACKAGE,
             vhdl_lang::Design::PackageInstance(_) => SymbolKind::PACKAGE,
+            vhdl_lang::Design::InterfacePackageInstance(_) => SymbolKind::PACKAGE,
             vhdl_lang::Design::Context(_) => SymbolKind::NAMESPACE,
         },
     }
