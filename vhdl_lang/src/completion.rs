@@ -1,16 +1,23 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
+
 use crate::analysis::DesignRoot;
-use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
+use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, ConcurrentStatement, Designator, MapAspect, ObjectClass,
 };
 use crate::data::{ContentReader, Symbol};
-use crate::named_entity::{self, AsUnique, HasEntityId, NamedEntities, Region};
+use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{AnyEntKind, Design, EntRef, EntityId, Overloaded, Position, Source};
+use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
+use vhdl_lang::ast::search::Finished;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItem<'a> {
@@ -25,6 +32,17 @@ pub enum CompletionItem<'a> {
     Overloaded(Designator, usize),
     /// Complete a keyword
     Keyword(Kind),
+    /// Entity instantiation, i.e.,
+    /// ```vhdl
+    /// my_ent: entity work.foo
+    ///     generic map (
+    ///         -- ...
+    ///     )
+    ///     port map (
+    ///         -- ...
+    ///     );
+    /// ```
+    EntityInstantiation(EntRef<'a>),
 }
 
 macro_rules! kind {
@@ -82,7 +100,6 @@ impl DesignRoot {
     ///
     /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
     /// while `ObjectClass::Constant` extracts constants.
-
     fn extract_port_or_generic_names(
         &self,
         id: EntityId,
@@ -110,16 +127,18 @@ impl DesignRoot {
     }
 }
 
-/// Visitor responsible for completions in selected AST elements
-struct AutocompletionSearcher<'a> {
+/// Searches completions for map aspects (VHDL port maps and generic maps).
+/// Currently, this only means the formal part (i.e., the left hand side of a port or generic assignment)
+/// but not the actual part.
+struct MapAspectSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
 }
 
-impl<'a> AutocompletionSearcher<'a> {
-    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionSearcher<'a> {
-        AutocompletionSearcher {
+impl<'a> MapAspectSearcher<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> MapAspectSearcher<'a> {
+        MapAspectSearcher {
             root,
             cursor,
             completions: Vec::new(),
@@ -155,7 +174,7 @@ impl<'a> AutocompletionSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for AutocompletionSearcher<'a> {
+impl<'a> Searcher for MapAspectSearcher<'a> {
     /// Visit an instantiation statement extracting completions for ports or generics.
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         match decl {
@@ -168,7 +187,7 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                             ctx,
                             MapAspectKind::Generic,
                         ) {
-                            return SearchState::Finished(SearchResult::Found);
+                            return Finished(Found);
                         }
                     }
                     if let Some(map) = &inst.port_map {
@@ -178,7 +197,7 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                             ctx,
                             MapAspectKind::Port,
                         ) {
-                            return SearchState::Finished(SearchResult::Found);
+                            return Finished(Found);
                         }
                     }
                 }
@@ -191,13 +210,13 @@ impl<'a> Searcher for AutocompletionSearcher<'a> {
                         ctx,
                         MapAspectKind::Generic,
                     ) {
-                        return SearchState::Finished(SearchResult::Found);
+                        return Finished(Found);
                     }
                 }
             }
             _ => {}
         }
-        SearchState::NotFinished
+        NotFinished
     }
 }
 
@@ -305,6 +324,105 @@ fn list_available_declarations<'a>(
     }
 }
 
+/// General-purpose Completion Searcher
+/// when no more accurate searcher is available.
+struct CompletionSearcher<'a> {
+    root: &'a DesignRoot,
+    cursor: Position,
+    completions: Vec<CompletionItem<'a>>,
+}
+
+impl<'a> CompletionSearcher<'a> {
+    pub fn new(cursor: Position, design_root: &'a DesignRoot) -> CompletionSearcher<'a> {
+        CompletionSearcher {
+            root: design_root,
+            cursor,
+            completions: Vec::new(),
+        }
+    }
+}
+
+impl<'a> Searcher for CompletionSearcher<'a> {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+        match decl {
+            FoundDeclaration::Architecture(body) => {
+                let Some(eid) = body.entity_name.reference.get() else {
+                    return Finished(NotFound);
+                };
+                let Some(ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
+                    return Finished(NotFound);
+                };
+                for statement in &body.statements {
+                    let pos = &statement.statement.pos;
+
+                    // Early exit. The cursor is below the current statement.
+                    if pos.start() > self.cursor {
+                        break;
+                    }
+
+                    if pos.contains(self.cursor) {
+                        return Finished(NotFound);
+                    }
+                }
+                if ctx
+                    .get_span(body.begin_token, body.get_end_token())
+                    .contains(self.cursor)
+                {
+                    self.completions = self
+                        .root
+                        .get_visible_entities_from_entity(ent)
+                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
+                        .collect()
+                }
+                Finished(Found)
+            }
+            _ => NotFinished,
+        }
+    }
+}
+
+impl DesignRoot {
+    /// List all entities (entities in this context is a VHDL entity, not a `DesignEnt` or similar)
+    /// that are visible from another VHDL entity.
+    /// This could, at some point, be further generalized into a generic
+    /// 'list visible entities of some kind of some generic design entity'.
+    pub fn get_visible_entities_from_entity(
+        &self,
+        ent: DesignEnt,
+    ) -> impl Iterator<Item = EntityId> {
+        let mut entities: HashSet<EntityId> = HashSet::new();
+        if let Design::Entity(vis, _) = ent.kind() {
+            for ent_ref in vis.visible() {
+                match ent_ref.kind() {
+                    AnyEntKind::Design(Design::Entity(..)) => {
+                        entities.insert(ent_ref.id());
+                    }
+                    AnyEntKind::Library => {
+                        let Some(name) = ent_ref.library_name() else {
+                            continue;
+                        };
+                        let Some(lib) = self.get_lib(name) else {
+                            continue;
+                        };
+                        let itr = lib
+                            .units()
+                            .flat_map(|locked_unit| locked_unit.unit.get())
+                            .map(|read_guard| read_guard.to_owned())
+                            .filter(|design_unit| design_unit.is_entity())
+                            .flat_map(|design_unit| design_unit.ent_id());
+                        entities.extend(itr);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        // Remove entity that this was called from.
+        // Recursive instantiation is only possible with component instantiation.
+        entities.remove(&ent.id());
+        entities.into_iter()
+    }
+}
+
 /// Main entry point for completion. Given a source-file and a cursor position,
 /// lists available completion options at the cursor position.
 pub fn list_completion_options<'a>(
@@ -326,12 +444,14 @@ pub fn list_completion_options<'a>(
             list_available_declarations(root, library, selected)
         }
         [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
-            let mut searcher = AutocompletionSearcher::new(root, cursor);
+            let mut searcher = MapAspectSearcher::new(root, cursor);
             let _ = root.search_source(source, &mut searcher);
             searcher.completions
         }
         _ => {
-            vec![]
+            let mut searcher = CompletionSearcher::new(cursor, root);
+            let _ = root.search_source(source, &mut searcher);
+            searcher.completions
         }
     }
 }
@@ -339,9 +459,9 @@ pub fn list_completion_options<'a>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::analysis::tests::LibraryBuilder;
+    use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder};
     use crate::completion::tokenize_input;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{assert_eq_unordered, Code};
     use assert_matches::assert_matches;
 
     #[test]
@@ -554,5 +674,127 @@ mod test {
         assert!(options.contains(&CompletionItem::Formal(x)));
         assert!(options.contains(&CompletionItem::Formal(t)));
         assert_eq!(options.len(), 3);
+    }
+
+    #[test]
+    fn complete_entities() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+entity my_ent is
+end my_ent;
+
+entity my_other_ent is
+end my_other_ent;
+
+entity my_third_ent is
+end my_third_ent;
+
+architecture arch of my_third_ent is
+begin
+end arch;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("begin").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let my_ent = root
+            .search_reference(code.source(), code.s1("my_ent").start())
+            .unwrap();
+
+        let my_other_ent = root
+            .search_reference(code.source(), code.s1("my_other_ent").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[
+                CompletionItem::EntityInstantiation(my_ent),
+                CompletionItem::EntityInstantiation(my_other_ent),
+            ],
+        );
+    }
+
+    #[test]
+    fn complete_entities_from_different_libraries() {
+        let mut builder = LibraryBuilder::new();
+        let code1 = builder.code(
+            "libA",
+            "\
+entity my_ent is
+end my_ent;
+        ",
+        );
+
+        let code2 = builder.code(
+            "libB",
+            "\
+entity my_ent2 is
+end my_ent2;
+
+entity my_ent3 is
+end my_ent3;
+
+architecture arch of my_ent3 is
+begin
+
+end arch;
+
+        ",
+        );
+
+        let code3 = builder.code(
+            "libC",
+            "\
+entity my_ent2 is
+end my_ent2;
+
+library libA;
+
+entity my_ent3 is
+end my_ent3;
+
+architecture arch of my_ent3 is
+begin
+
+end arch;
+        ",
+        );
+
+        let (root, diag) = builder.get_analyzed_root();
+        check_no_diagnostics(&diag[..]);
+        let cursor = code2.s1("begin").end();
+        let options = list_completion_options(&root, code2.source(), cursor);
+
+        let my_ent2 = root
+            .search_reference(code2.source(), code2.s1("my_ent2").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[CompletionItem::EntityInstantiation(my_ent2)],
+        );
+
+        let ent1 = root
+            .search_reference(code1.source(), code2.s1("my_ent").start())
+            .unwrap();
+
+        let cursor = code3.s1("begin").end();
+        let options = list_completion_options(&root, code3.source(), cursor);
+
+        let my_ent2 = root
+            .search_reference(code3.source(), code3.s1("my_ent2").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options[..],
+            &[
+                CompletionItem::EntityInstantiation(my_ent2),
+                CompletionItem::EntityInstantiation(ent1),
+            ],
+        );
     }
 }

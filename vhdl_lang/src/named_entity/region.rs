@@ -41,6 +41,14 @@ impl<'a> Region<'a> {
     }
 
     pub(crate) fn to_entity_formal(&self) -> (FormalRegion<'a>, FormalRegion<'a>) {
+        let (ports, generics) = self.ports_and_generics();
+        (
+            FormalRegion::new_with(InterfaceType::Generic, generics),
+            FormalRegion::new_with(InterfaceType::Port, ports),
+        )
+    }
+
+    pub fn ports_and_generics(&self) -> (Vec<InterfaceEnt<'a>>, Vec<InterfaceEnt<'a>>) {
         // @TODO separate generics and ports
         let mut generics = Vec::with_capacity(self.entities.len());
         let mut ports = Vec::with_capacity(self.entities.len());
@@ -59,10 +67,7 @@ impl<'a> Region<'a> {
         // Sorting by source file position gives declaration order
         generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         ports.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
-        (
-            FormalRegion::new_with(InterfaceType::Generic, generics),
-            FormalRegion::new_with(InterfaceType::Port, ports),
-        )
+        (ports, generics)
     }
 
     pub(crate) fn to_package_generic(&self) -> (GpkgRegion<'a>, Vec<EntRef<'a>>) {

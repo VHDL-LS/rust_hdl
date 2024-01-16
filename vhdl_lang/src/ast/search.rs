@@ -11,6 +11,7 @@ use crate::named_entity::{EntRef, HasEntityId, Reference, Related};
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
+#[derive(PartialEq)]
 pub enum SearchResult {
     Found,
     NotFound,
@@ -486,6 +487,7 @@ impl Search for LabeledConcurrentStatement {
                     decl,
                     statements,
                     end_label_pos: _,
+                    ..
                 } = process;
                 return_if_found!(sensitivity_list.search(ctx, searcher));
                 return_if_found!(decl.search(ctx, searcher));
@@ -503,6 +505,7 @@ impl Search for LabeledConcurrentStatement {
                     discrete_range,
                     body,
                     end_label_pos: _,
+                    ..
                 } = gen;
                 return_if_found!(discrete_range.search(ctx, searcher));
                 return_if_found!(body.search(ctx, searcher));
@@ -524,6 +527,7 @@ impl Search for LabeledConcurrentStatement {
                 let ConcurrentProcedureCall {
                     postponed: _postponed,
                     call,
+                    ..
                 } = pcall;
                 return_if_finished!(searcher.search_with_pos(ctx, &call.pos));
                 return_if_found!(call.item.search(ctx, searcher));

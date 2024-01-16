@@ -110,6 +110,7 @@ impl<'a> AnalyzeContext<'a> {
                     decl,
                     statements,
                     end_label_pos: _,
+                    ..
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
                     match sensitivity_list {
@@ -130,6 +131,7 @@ impl<'a> AnalyzeContext<'a> {
                     discrete_range,
                     body,
                     end_label_pos: _,
+                    ..
                 } = gen;
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
@@ -163,6 +165,7 @@ impl<'a> AnalyzeContext<'a> {
                             ref mut alternatives,
                         },
                     end_label_pos: _,
+                    ..
                 } = gen;
 
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
