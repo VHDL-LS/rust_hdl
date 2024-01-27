@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::analysis::names::ObjectName;
 use fnv::FnvHashMap;
 use itertools::Itertools;
 
@@ -16,7 +17,7 @@ use crate::named_entity::*;
 
 #[derive(Copy, Clone)]
 struct ResolvedFormal<'a> {
-    /// Then index in the formal parameter list
+    /// The index in the formal parameter list
     idx: usize,
 
     /// The underlying interface object
@@ -447,7 +448,15 @@ impl<'a> AnalyzeContext<'a> {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
                         if let Ok(resolved_formal) = resolved_formal {
-                            // Error case is already checked in check_missing_and_duplicates
+                            if formal_region.typ == InterfaceType::Parameter {
+                                self.check_parameter_interface(
+                                    resolved_formal,
+                                    expr,
+                                    scope,
+                                    &actual.pos,
+                                    diagnostics,
+                                )?;
+                            }
                             self.expr_pos_with_ttyp(
                                 scope,
                                 resolved_formal.type_mark,
@@ -464,6 +473,83 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         Ok(())
+    }
+
+    // LRM 4.2.2.1: In a subprogram, the interface mode must match the mode of the actual designator
+    // when the interface mode is signal, variable or file. Furthermore, they must be a single name.
+    fn check_parameter_interface(
+        &self,
+        resolved_formal: &ResolvedFormal<'a>,
+        expr: &mut Expression,
+        scope: &Scope<'a>,
+        actual_pos: &SrcPos,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        match resolved_formal.iface.interface_class() {
+            InterfaceClass::Signal => {
+                let Some(name) =
+                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                else {
+                    diagnostics.error(actual_pos, "Expression must be a name denoting a signal");
+                    return Ok(());
+                };
+                if !matches!(name, ResolvedName::ObjectName(
+                                                        ObjectName { base, .. },
+                                                    ) if base.class() == ObjectClass::Signal)
+                {
+                    diagnostics.error(actual_pos, "Name must denote a signal name");
+                }
+            }
+            InterfaceClass::Variable => {
+                let Some(name) =
+                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                else {
+                    diagnostics.error(
+                        actual_pos,
+                        "Expression must be a name denoting a variable or shared variable",
+                    );
+                    return Ok(());
+                };
+                if !matches!(name, ResolvedName::ObjectName(
+                                                        ObjectName { base, .. },
+                                                    ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
+                {
+                    diagnostics.error(actual_pos, "Name must denote a variable name");
+                }
+            }
+            InterfaceClass::File => {
+                let Some(name) =
+                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                else {
+                    diagnostics.error(actual_pos, "Expression must be a name denoting a file");
+                    return Ok(());
+                };
+                if !matches!(name, ResolvedName::Final(ent) if matches!(
+                    ent.kind(),
+                    AnyEntKind::File(_)
+                )) {
+                    diagnostics.error(actual_pos, "Name must denote a file name");
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn expression_as_name(
+        &self,
+        expr: &mut Expression,
+        scope: &Scope<'a>,
+        pos: &SrcPos,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<ResolvedName> {
+        match expr {
+            Expression::Name(name) => {
+                let resolved = self.name_resolve(scope, pos, name, diagnostics)?;
+                Ok(resolved)
+            }
+            _ => Err(EvalError::Unknown),
+        }
     }
 }
 
