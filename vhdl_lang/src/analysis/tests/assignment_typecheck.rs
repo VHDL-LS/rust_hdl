@@ -580,3 +580,63 @@ end package body Test;",
         )],
     )
 }
+
+#[test]
+pub fn assignment_mode_checking() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity bar is
+end bar;
+
+architecture foo of bar is
+    signal a : integer;
+    shared variable b: integer;
+    file c: integer;
+
+    procedure proc(
+        signal f_a: integer;
+        variable f_b: integer;
+        constant f_c: integer;
+        file f_d: integer
+    ) is
+    begin
+    end proc; 
+begin
+
+    baz: process is
+        variable d: integer;
+        variable e: character;
+    begin
+        proc(d, c, a, b);
+        proc(a, b, 1 + 1, c);
+        proc(a, e, 1 + 1, c);
+    end process baz;
+
+end architecture foo;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("proc(d, c, a, b)").s1("d"),
+                "Name must denote a signal name",
+            ),
+            Diagnostic::error(
+                code.s1("proc(d, c, a, b)").s("c", 2),
+                "Name must denote a variable name",
+            ),
+            Diagnostic::error(
+                code.s1("proc(d, c, a, b)").s1("b"),
+                "Name must denote a file name",
+            ),
+            Diagnostic::error(
+                code.s1("proc(a, e, 1 + 1, c)").s1("e"),
+                "variable 'e' of type 'CHARACTER' does not match integer type 'INTEGER'",
+            ),
+        ],
+    )
+}

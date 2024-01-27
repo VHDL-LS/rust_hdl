@@ -42,7 +42,8 @@ pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 
 mod formal_region;
 pub use formal_region::{
-    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceEnt, RecordElement, RecordRegion,
+    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
+    RecordRegion,
 };
 
 pub enum AnyEntKind<'a> {
