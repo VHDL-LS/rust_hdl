@@ -1113,6 +1113,10 @@ mod tests {
         );
     }
 
+    fn expect_erroneous_config(mock: &RpcMock) {
+        mock.expect_error_contains("Error loading vhdl_ls.toml");
+    }
+
     /// Create RpcMock and VHDLServer
     fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
         let mock = Rc::new(RpcMock::new());
@@ -1312,7 +1316,7 @@ lib.files = [
 ",
         );
 
-        expect_missing_config_messages(&mock);
+        expect_erroneous_config(&mock);
         initialize_server(&mut server, root_uri);
     }
 
