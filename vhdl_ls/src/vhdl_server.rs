@@ -13,6 +13,7 @@ use vhdl_lang::ast::{Designator, ObjectClass};
 
 use crate::rpc_channel::SharedRpcChannel;
 use std::io;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
@@ -96,12 +97,16 @@ impl VHDLServer {
                 config.append(&root_config, &mut self.message_filter());
             }
             Err(ref err) => {
-                self.message(Message::error(format!(
-                    "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {err}"
-                )));
-                self.message(Message::warning(
-                    "Without library mapping semantic analysis might be incorrect",
-                ));
+                if matches!(err.kind(), ErrorKind::NotFound) {
+                    self.message(Message::error(format!(
+                        "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {err}"
+                    )));
+                    self.message(Message::warning(
+                        "Without library mapping semantic analysis might be incorrect",
+                    ));
+                } else {
+                    self.message(Message::error(format!("Error loading vhdl_ls.toml: {err}")));
+                }
             }
         };
 
@@ -1108,6 +1113,10 @@ mod tests {
         );
     }
 
+    fn expect_erroneous_config(mock: &RpcMock) {
+        mock.expect_error_contains("Error loading vhdl_ls.toml");
+    }
+
     /// Create RpcMock and VHDLServer
     fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
         let mock = Rc::new(RpcMock::new());
@@ -1307,7 +1316,7 @@ lib.files = [
 ",
         );
 
-        expect_missing_config_messages(&mock);
+        expect_erroneous_config(&mock);
         initialize_server(&mut server, root_uri);
     }
 
