@@ -51,8 +51,11 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          target: x86_64-unknown-linux-musl aarch64-apple-darwin
+          target: x86_64-unknown-linux-musl
           components: rustfmt, clippy
+
+      - name: Add Apple Silicon Dependencies
+        run: rustup target add aarch64-apple-darwin
 
       - uses: awalsh128/cache-apt-pkgs-action@v1
         if: matrix.os == 'ubuntu-latest'
@@ -68,6 +71,7 @@ jobs:
 
       - name: Test
         uses: actions-rs/cargo@v1
+        if: matrix.os != 'macos-latest' # There are no free runners for Apple Silicon available at the moment
         with:
           command: test
           args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
