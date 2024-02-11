@@ -491,6 +491,7 @@ impl<'a> AnyEnt<'a> {
     }
 
     #[allow(clippy::mut_from_ref)]
+    #[allow(invalid_reference_casting)]
     unsafe fn unsafe_ref_mut(&self) -> &mut Self {
         // NOTE: Use read_volatile to prevent compiler to optimization away assignment to the returned reference
         let const_ptr = std::ptr::read_volatile(&self) as *const Self;
