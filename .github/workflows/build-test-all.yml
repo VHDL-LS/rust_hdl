@@ -22,6 +22,7 @@ jobs:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
           - x86_64-pc-windows-msvc
+          - aarch64-apple-darwin
         rust:
           - stable
 
@@ -35,6 +36,9 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: .exe
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            ext: ""
 
     runs-on: ${{ matrix.os }}
 
@@ -156,6 +160,14 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: vhdl_ls-x86_64-pc-windows-msvc
+      - name: Get vhdl_lang macos
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_lang-aarch64-apple-darwin
+      - name: Get vhdl_ls macos
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_ls-aarch64-apple-darwin
       - name: Zip artifacts
         run: |
           zip -r vhdl_lang-x86_64-unknown-linux-gnu.zip vhdl_lang-x86_64-unknown-linux-gnu
@@ -164,9 +176,11 @@ jobs:
           zip -r vhdl_ls-x86_64-unknown-linux-musl.zip vhdl_ls-x86_64-unknown-linux-musl
           zip -r vhdl_lang-x86_64-pc-windows-msvc.zip vhdl_lang-x86_64-pc-windows-msvc
           zip -r vhdl_ls-x86_64-pc-windows-msvc.zip vhdl_ls-x86_64-pc-windows-msvc
+          zip -r vhdl_ls-aarch64-apple-darwin.zip vhdl_ls-aarch64-apple-darwin
+          zip -r vhdl_lang-aarch64-apple-darwin.zip vhdl_lang-aarch64-apple-darwin
       - name: Do release
         uses: ncipollo/release-action@v1
         with:
           draft: false
-          artifacts: "vhdl_lang-x86_64-unknown-linux-gnu.zip,vhdl_ls-x86_64-unknown-linux-gnu.zip,vhdl_lang-x86_64-unknown-linux-musl.zip,vhdl_ls-x86_64-unknown-linux-musl.zip,vhdl_lang-x86_64-pc-windows-msvc.zip,vhdl_ls-x86_64-pc-windows-msvc.zip"
+          artifacts: "vhdl_lang-x86_64-unknown-linux-gnu.zip,vhdl_ls-x86_64-unknown-linux-gnu.zip,vhdl_lang-x86_64-unknown-linux-musl.zip,vhdl_ls-x86_64-unknown-linux-musl.zip,vhdl_lang-x86_64-pc-windows-msvc.zip,vhdl_ls-x86_64-pc-windows-msvc.zip,vhdl_lang-aarch64-apple-darwin.zip,vhdl_ls-aarch64-apple-darwin.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
