@@ -204,6 +204,7 @@ impl<'a> AnalyzeContext<'a> {
                         unreachable!();
                     };
 
+                    #[allow(invalid_reference_casting)]
                     let region_ptr = unsafe {
                         let region_ptr = region_ptr as *const Region;
                         let region_ptr = region_ptr as *mut Region;
