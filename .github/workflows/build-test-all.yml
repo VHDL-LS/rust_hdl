@@ -51,7 +51,7 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
-          target: x86_64-unknown-linux-musl
+          target: x86_64-unknown-linux-musl,aarch64-apple-darwin
           components: rustfmt, clippy
 
       - uses: awalsh128/cache-apt-pkgs-action@v1
