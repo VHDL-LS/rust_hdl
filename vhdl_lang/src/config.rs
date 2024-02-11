@@ -205,7 +205,7 @@ impl Config {
             "../vhdl_libraries",
             "../../vhdl_libraries",
             "/usr/lib/rust_hdl/vhdl_libraries",
-            "../share/vhdl_libraries"
+            "../share/vhdl_libraries",
         ];
 
         for dir in search_paths.into_iter() {
