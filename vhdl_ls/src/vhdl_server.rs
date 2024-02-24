@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
     InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
-    Type,
+    Token, Type,
 };
 
 #[derive(Default, Clone)]
@@ -674,8 +674,13 @@ impl VHDLServer {
         if self.client_has_hierarchical_document_symbol_support() {
             fn to_document_symbol(
                 EntHierarchy { ent, children }: EntHierarchy,
+                ctx: &Vec<Token>,
             ) -> Option<DocumentSymbol> {
                 let decl_pos = ent.decl_pos()?;
+                let src_range = ent
+                    .src_span
+                    .map(|span| span.to_pos(ctx).range())
+                    .unwrap_or(decl_pos.range());
                 #[allow(deprecated)]
                 Some(DocumentSymbol {
                     name: ent.describe(),
@@ -683,12 +688,12 @@ impl VHDLServer {
                     tags: None,
                     detail: None,
                     selection_range: to_lsp_range(decl_pos.range),
-                    range: to_lsp_range(decl_pos.range),
+                    range: to_lsp_range(src_range),
                     children: if !children.is_empty() {
                         Some(
                             children
                                 .into_iter()
-                                .filter_map(to_document_symbol)
+                                .filter_map(|hierarchy| to_document_symbol(hierarchy, ctx))
                                 .collect(),
                         )
                     } else {
@@ -702,7 +707,7 @@ impl VHDLServer {
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .filter_map(to_document_symbol)
+                    .filter_map(|(hierarchy, tokens)| to_document_symbol(hierarchy, tokens))
                     .collect(),
             ))
         } else {
@@ -723,8 +728,7 @@ impl VHDLServer {
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .flat_map(|ent| ent.into_flat())
-                    .filter_map(to_symbol_information)
+                    .flat_map(|(a, _)| a.into_flat().into_iter().filter_map(to_symbol_information))
                     .collect(),
             ))
         }
@@ -1000,6 +1004,7 @@ fn object_kind(object: &Object) -> SymbolKind {
         object_class_kind(object.class)
     }
 }
+
 fn object_class_kind(class: ObjectClass) -> SymbolKind {
     match class {
         ObjectClass::Signal => SymbolKind::EVENT,

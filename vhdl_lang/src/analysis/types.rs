@@ -74,6 +74,7 @@ impl<'a> AnalyzeContext<'a> {
                         enum_type.into(),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(&literal.tree.pos),
+                        None,
                     );
                     literal.decl.set(literal_ent.id());
 
@@ -233,6 +234,7 @@ impl<'a> AnalyzeContext<'a> {
                             &mut elem_decl.ident,
                             type_ent.into(),
                             AnyEntKind::ElementDeclaration(subtype),
+                            None,
                         );
                         region.add(elem, diagnostics);
                         elems.add(elem);
@@ -355,6 +357,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut physical.primary_unit,
                     parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
+                    None,
                 );
 
                 unsafe {
@@ -383,6 +386,7 @@ impl<'a> AnalyzeContext<'a> {
                         secondary_unit_name,
                         parent,
                         AnyEntKind::PhysicalLiteral(phys_type),
+                        None,
                     );
                     unsafe {
                         self.arena.add_implicit(phys_type.id(), secondary_unit);

@@ -9,6 +9,7 @@ use crate::analysis::names::ResolvedName;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
+use crate::HasTokenSpan;
 use analyze::*;
 
 impl<'a> AnalyzeContext<'a> {
@@ -50,6 +51,7 @@ impl<'a> AnalyzeContext<'a> {
             self.work_library(),
             AnyEntKind::Design(Design::Entity(Visibility::default(), Region::default())),
             Some(unit.pos()),
+            Some(unit.span()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -89,6 +91,7 @@ impl<'a> AnalyzeContext<'a> {
         unit: &mut ConfigurationDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let src_span = unit.span();
         let root_region = Scope::default();
         self.add_implicit_context_clause(&root_region)?;
         self.analyze_context_clause(&root_region, &mut unit.context_clause, diagnostics)?;
@@ -117,6 +120,7 @@ impl<'a> AnalyzeContext<'a> {
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Configuration),
+            Some(src_span),
         );
 
         Ok(())
@@ -132,6 +136,7 @@ impl<'a> AnalyzeContext<'a> {
             self.work_library(),
             AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
             Some(unit.pos()),
+            Some(unit.span()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -178,6 +183,7 @@ impl<'a> AnalyzeContext<'a> {
             self.work_library(),
             AnyEntKind::Design(Design::PackageInstance(Region::default())),
             Some(unit.pos()),
+            Some(unit.span()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -207,12 +213,14 @@ impl<'a> AnalyzeContext<'a> {
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
         let scope = root_scope.nested();
+        let src_span = unit.span();
         self.analyze_context_clause(&scope, &mut unit.items, diagnostics)?;
 
         self.arena.define(
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Context(scope.into_region())),
+            Some(src_span),
         );
 
         Ok(())
@@ -223,6 +231,7 @@ impl<'a> AnalyzeContext<'a> {
         unit: &mut ArchitectureBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let src_span = unit.span();
         let primary = match self.lookup_in_library(
             self.work_library_name(),
             &unit.entity_name.item.pos,
@@ -257,6 +266,7 @@ impl<'a> AnalyzeContext<'a> {
             &mut unit.ident,
             primary.into(),
             AnyEntKind::Design(Design::Architecture(primary)),
+            Some(src_span),
         );
 
         root_scope.add(arch, diagnostics);
@@ -310,6 +320,7 @@ impl<'a> AnalyzeContext<'a> {
             Related::DeclaredBy(primary.into()),
             AnyEntKind::Design(Design::PackageBody),
             Some(unit.ident.tree.pos.clone()),
+            Some(unit.span()),
         );
         unit.ident.decl.set(body.id());
 

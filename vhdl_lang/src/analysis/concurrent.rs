@@ -49,6 +49,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     Some(label.pos()),
+                    None,
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -59,6 +60,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(parent),
                     Related::None,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    None,
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -136,7 +138,7 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
                 nested.add(
-                    index_name.define(self.arena, parent, AnyEntKind::LoopParameter(typ)),
+                    index_name.define(self.arena, parent, AnyEntKind::LoopParameter(typ), None),
                     diagnostics,
                 );
                 self.analyze_generate_body(&nested, parent, body, diagnostics)?;
@@ -239,6 +241,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena,
                 parent,
                 AnyEntKind::Concurrent(Some(Concurrent::Generate)),
+                None,
             );
             scope.add(ent, diagnostics);
             inner_parent = ent;
