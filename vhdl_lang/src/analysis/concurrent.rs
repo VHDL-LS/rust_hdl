@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-// These fields are better explicit than .. since we are forced to consider if new fields should be searched
-
 use super::*;
 use crate::analysis::names::ResolvedName;
 use crate::ast::*;
