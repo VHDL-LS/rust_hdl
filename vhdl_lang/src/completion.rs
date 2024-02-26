@@ -14,6 +14,7 @@ use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities,
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
@@ -42,7 +43,10 @@ pub enum CompletionItem<'a> {
     ///         -- ...
     ///     );
     /// ```
-    EntityInstantiation(EntRef<'a>),
+    ///
+    /// The second argument is a vector of architectures that are associated
+    /// to this entity
+    EntityInstantiation(EntRef<'a>, Vec<EntRef<'a>>),
 }
 
 macro_rules! kind {
@@ -371,13 +375,37 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                     self.completions = self
                         .root
                         .get_visible_entities_from_entity(ent)
-                        .map(|eid| CompletionItem::EntityInstantiation(self.root.get_ent(eid)))
+                        .map(|eid| {
+                            let ent = self.root.get_ent(eid);
+                            let architectures = get_architectures_for_entity(ent, self.root);
+                            CompletionItem::EntityInstantiation(
+                                self.root.get_ent(eid),
+                                architectures,
+                            )
+                        })
                         .collect()
                 }
                 Finished(Found)
             }
             _ => NotFinished,
         }
+    }
+}
+
+/// Returns a vec populated with all architectures that belong to the given entity
+fn get_architectures_for_entity<'a>(ent: EntRef<'a>, root: &'a DesignRoot) -> Vec<EntRef<'a>> {
+    if let Some(design) = DesignEnt::from_any(ent) {
+        root.public_symbols()
+            .filter(|sym| match sym.kind() {
+                AnyEntKind::Design(Design::Architecture(arch_design)) => {
+                    arch_design.id() == design.id()
+                }
+                _ => false,
+            })
+            .sorted_by_key(|a| a.decl_pos())
+            .collect_vec()
+    } else {
+        vec![]
     }
 }
 
@@ -709,11 +737,15 @@ end arch;
             .search_reference(code.source(), code.s1("my_other_ent").start())
             .unwrap();
 
+        let arch = root
+            .search_reference(code.source(), code.s1("arch ").start())
+            .unwrap();
+
         assert_eq_unordered(
             &options[..],
             &[
-                CompletionItem::EntityInstantiation(my_ent),
-                CompletionItem::EntityInstantiation(my_other_ent),
+                CompletionItem::EntityInstantiation(my_ent, vec![]),
+                CompletionItem::EntityInstantiation(my_other_ent, vec![]),
             ],
         );
     }
@@ -775,11 +807,11 @@ end arch;
 
         assert_eq_unordered(
             &options[..],
-            &[CompletionItem::EntityInstantiation(my_ent2)],
+            &[CompletionItem::EntityInstantiation(my_ent2, vec![])],
         );
 
         let ent1 = root
-            .search_reference(code1.source(), code2.s1("my_ent").start())
+            .search_reference(code1.source(), code1.s1("my_ent").start())
             .unwrap();
 
         let cursor = code3.s1("begin").end();
@@ -792,9 +824,63 @@ end arch;
         assert_eq_unordered(
             &options[..],
             &[
-                CompletionItem::EntityInstantiation(my_ent2),
-                CompletionItem::EntityInstantiation(ent1),
+                CompletionItem::EntityInstantiation(my_ent2, vec![]),
+                CompletionItem::EntityInstantiation(ent1, vec![]),
             ],
         );
+    }
+
+    #[test]
+    pub fn entity_with_two_architecture() {
+        let mut builder = LibraryBuilder::new();
+        let code1 = builder.code(
+            "libA",
+            "\
+entity my_ent is
+end my_ent;
+
+architecture arch1 of my_ent is
+begin
+end arch1;
+
+architecture arch2 of my_ent is
+begin
+end arch2;
+        ",
+        );
+        let code2 = builder.code(
+            "libA",
+            "\
+entity my_ent2 is
+end my_ent2;
+
+architecture arch of my_ent2 is
+begin
+
+end arch;
+        ",
+        );
+
+        let (root, diag) = builder.get_analyzed_root();
+        check_no_diagnostics(&diag[..]);
+        let cursor = code2.s("begin", 1).end();
+        let options = list_completion_options(&root, code2.source(), cursor);
+
+        let ent = root
+            .search_reference(code1.source(), code1.s1("my_ent").start())
+            .unwrap();
+
+        let arch1 = root
+            .search_reference(code1.source(), code1.s1("arch1").start())
+            .unwrap();
+
+        let arch2 = root
+            .search_reference(code1.source(), code1.s1("arch2").start())
+            .unwrap();
+
+        assert_eq!(
+            options,
+            vec![CompletionItem::EntityInstantiation(ent, vec![arch1, arch2])]
+        )
     }
 }

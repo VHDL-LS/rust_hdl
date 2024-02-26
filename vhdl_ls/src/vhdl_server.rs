@@ -300,7 +300,7 @@ impl VHDLServer {
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
-            vhdl_lang::CompletionItem::EntityInstantiation(ent) => {
+            vhdl_lang::CompletionItem::EntityInstantiation(ent, architectures) => {
                 let work_name = "work";
 
                 let library_names = if let Some(lib_name) = ent.library_name() {
@@ -325,8 +325,18 @@ impl VHDLServer {
                             ent.designator
                         )
                     };
+                    if architectures.len() > 1 {
+                        line.push_str("(${3|");
+                        for (i, architecture) in architectures.iter().enumerate() {
+                            line.push_str(&architecture.designator().to_string());
+                            if i != architectures.len() - 1 {
+                                line.push(',')
+                            }
+                        }
+                        line.push_str("|})");
+                    }
                     let (ports, generics) = region.ports_and_generics();
-                    let mut idx = 3;
+                    let mut idx = 4;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
                         line += &*format!("\n {} map(\n", purpose);
                         for (i, generic) in elements.iter().enumerate() {
