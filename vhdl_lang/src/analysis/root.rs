@@ -12,6 +12,7 @@ use crate::named_entity::*;
 
 use crate::ast::search::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::syntax::{Symbols, Token, TokenAccess};
 use fnv::{FnvHashMap, FnvHashSet};
@@ -173,15 +174,18 @@ impl Library {
                         "A primary unit has already been declared with name '{}' in library '{}'",
                         primary_name, &self.name
                     ),
+                    ErrorCode::DuplicateDeclaration,
                 ),
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
                     AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
                         unit.ident(),
                         format!("Duplicate architecture '{name}' of entity '{primary_name}'",),
+                        ErrorCode::DuplicateDeclaration,
                     ),
                     AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::error(
                         unit.pos(),
                         format!("Duplicate package body of package '{primary_name}'"),
+                        ErrorCode::DuplicateDeclaration,
                     ),
                     AnyKind::Primary(_) => {
                         unreachable!();
@@ -1306,10 +1310,12 @@ end package body;
 
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(code.s("pkg", 3), "Duplicate package body of package 'pkg'")
-                    .related(code.s("pkg", 2), "Previously defined here"),
-            ],
+            vec![Diagnostic::error(
+                code.s("pkg", 3),
+                "Duplicate package body of package 'pkg'",
+                ErrorCode::DuplicateDeclaration,
+            )
+            .related(code.s("pkg", 2), "Previously defined here")],
         );
     }
 
@@ -1347,18 +1353,22 @@ package pkg is new gpkg generic map (const => foo);
                 Diagnostic::error(
                     code.s("pkg", 2),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
+                    ErrorCode::DuplicateDeclaration,
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("entname", 2),
                     "A primary unit has already been declared with name 'entname' in library 'libname'",
+                    ErrorCode::DuplicateDeclaration,
                 ).related(code.s("entname", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 3),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
+                    ErrorCode::DuplicateDeclaration,
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 4),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
+                    ErrorCode::DuplicateDeclaration,
                 ).related(code.s("pkg", 1), "Previously defined here"),
             ],
         );
@@ -1389,6 +1399,7 @@ end architecture;
             vec![Diagnostic::error(
                 code.s("rtl", 2),
                 "Duplicate architecture 'rtl' of entity 'ent'",
+                ErrorCode::DuplicateDeclaration,
             )
             .related(code.s("rtl", 1), "Previously defined here")],
         );
@@ -1419,6 +1430,7 @@ end configuration;
             vec![Diagnostic::error(
                 code.s("cfg", 2),
                 "A primary unit has already been declared with name 'cfg' in library 'libname'",
+                ErrorCode::DuplicateDeclaration,
             )
             .related(code.s1("cfg"), "Previously defined here")],
         );

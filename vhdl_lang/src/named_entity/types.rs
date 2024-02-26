@@ -204,6 +204,7 @@ impl<'a> TypeEnt<'a> {
                                 "Protected type selection must be a method, got {}",
                                 ent.describe()
                             ),
+                            ErrorCode::InvalidSelected,
                         )),
                         NamedEntities::Overloaded(overloaded) => {
                             Ok(TypedSelection::ProtectedMethod(overloaded.clone()))
@@ -220,6 +221,7 @@ impl<'a> TypeEnt<'a> {
             Type::Incomplete => Err(Diagnostic::error(
                 prefix_pos,
                 "Cannot select incomplete type before full type definition",
+                ErrorCode::InvalidSelected,
             )),
             Type::Subtype(subtype) => subtype.type_mark().selected(prefix_pos, suffix),
             Type::Access(subtype, ..) => subtype.type_mark().selected(prefix_pos, suffix),

@@ -17,6 +17,7 @@ use super::context::{
 use super::declarative_part::{parse_declarative_part, parse_package_instantiation};
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 
 /// Parse an entity declaration, token is initial entity token
@@ -192,7 +193,7 @@ pub fn parse_design_file(
             Context => match parse_context(stream, diagnostics) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
                     if !context_clause.is_empty() {
-                        let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
+                        let mut diagnostic = Diagnostic::syntax_error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
                             diagnostic.add_related(context_item.get_pos(stream), context_item_message(context_item, "may not come before context declaration"));
@@ -274,6 +275,7 @@ pub fn parse_design_file(
         diagnostics.push(Diagnostic::warning(
             context_item.get_pos(stream),
             context_item_message(&context_item, "not associated with any design unit"),
+            ErrorCode::UnassociatedContext,
         ));
     }
 
@@ -380,7 +382,7 @@ end entity;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("()"),
                 "Interface list must not be empty",
             )],
@@ -437,7 +439,7 @@ end entity;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("()"),
                 "Interface list must not be empty",
             )],
@@ -870,7 +872,7 @@ end entity;
         let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("ctx"),
                 "Context declaration may not be preceeded by a context clause",
             )

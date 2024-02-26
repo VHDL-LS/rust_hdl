@@ -11,6 +11,7 @@ use super::expression::ExpressionType;
 use super::scope::*;
 use crate::ast::search::clear_references;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -99,6 +100,7 @@ impl<'a> Candidates<'a> {
                         return Err(Diagnostic::error(
                             name,
                             format!("'{}' does not match {}", name, ttyp.describe()),
+                            ErrorCode::InvalidTypeConversion,
                         ));
                     }
                 }
@@ -111,7 +113,11 @@ impl<'a> Candidates<'a> {
                 "Could not resolve"
             };
 
-            let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"));
+            let mut diag = Diagnostic::error(
+                name,
+                format!("{err_prefix} '{name}'"),
+                ErrorCode::Unresolved,
+            );
 
             rejected.sort_by(|x, y| x.ent.decl_pos().cmp(&y.ent.decl_pos()));
 
@@ -297,6 +303,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.push(Diagnostic::error(
                 call_name,
                 format!("uninstantiated subprogram {} cannot be called", call_name),
+                ErrorCode::UninstantiatedSubprogramCall,
             ));
             return Err(EvalError::Unknown);
         }
@@ -413,6 +420,7 @@ impl Diagnostic {
         let mut diag = Diagnostic::error(
             &name.pos,
             format!("Could not resolve call to '{}'", name.designator()),
+            ErrorCode::Unresolved,
         );
         diag.add_subprogram_candidates("Does not match", rejected);
         diag
@@ -504,6 +512,7 @@ function myfun(arg : integer) return integer;
             vec![Diagnostic::error(
                 call.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::InvalidTypeConversion,
             )],
         );
     }
@@ -546,7 +555,11 @@ function myfun(arg1 : integer) return integer;
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(fcall.s1("missing"), "No declaration of 'missing'"),
+                Diagnostic::error(
+                    fcall.s1("missing"),
+                    "No declaration of 'missing'",
+                    ErrorCode::MissingDeclaration,
+                ),
                 Diagnostic::error(fcall, "No association of parameter 'arg1'")
                     .related(decl.s1("arg1"), "Defined here"),
             ],

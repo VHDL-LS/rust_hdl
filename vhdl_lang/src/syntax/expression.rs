@@ -303,7 +303,7 @@ pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> 
                 attr: None,
             }),
         })
-        .ok_or_else(|| Diagnostic::error(&pos, "Expected type mark"))?;
+        .ok_or_else(|| Diagnostic::syntax_error(&pos, "Expected type mark"))?;
 
     Ok(type_mark)
 }
@@ -473,7 +473,7 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
                     pos,
                 })
             } else {
-                Err(Diagnostic::error(
+                Err(Diagnostic::syntax_error(
                     stream.pos_before(token),
                     "Expected {expression}",
                 ))
@@ -1274,7 +1274,7 @@ mod tests {
         let code = Code::new("fun(,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 &code.s1(",").pos(),
                 "Expected {expression}"
             ))
@@ -1283,7 +1283,7 @@ mod tests {
         let code = Code::new("fun(arg0,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 &code.s1(")").pos(),
                 "Expected {expression}"
             ))
@@ -1291,7 +1291,7 @@ mod tests {
         let code = Code::new("fun(arg0,,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 &code.s(",", 2).pos(),
                 "Expected {expression}"
             ))

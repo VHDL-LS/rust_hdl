@@ -13,6 +13,7 @@ use super::overloaded::DisambiguatedType;
 use super::scope::*;
 use crate::ast::Range;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -51,6 +52,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &expr.pos,
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
+                        ErrorCode::NonScalarInRange,
                     );
                     Err(EvalError::Unknown)
                 }
@@ -59,7 +61,11 @@ impl<'a> AnalyzeContext<'a> {
                 types.into_iter().filter(|typ| typ.is_scalar()).collect(),
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
-                diagnostics.error(&expr.pos, "Non-scalar expression cannot be used in a range");
+                diagnostics.error(
+                    &expr.pos,
+                    "Non-scalar expression cannot be used in a range",
+                    ErrorCode::NonScalarInRange,
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -93,6 +99,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
                         ),
+                            ErrorCode::InvalidPrefix,
                     );
                         return Err(EvalError::Unknown);
                     }
@@ -111,6 +118,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
                     ),
+                    ErrorCode::InvalidPrefix,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -141,6 +149,7 @@ impl<'a> AnalyzeContext<'a> {
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
                 ),
+                ErrorCode::InvalidPrefix,
             );
             Err(EvalError::Unknown)
         }
@@ -174,6 +183,7 @@ impl<'a> AnalyzeContext<'a> {
                                     l.base().describe(),
                                     r.base().describe()
                                 ),
+                                ErrorCode::InvalidTypeConversion,
                             );
                             return Err(EvalError::Unknown);
                         }
@@ -186,7 +196,11 @@ impl<'a> AnalyzeContext<'a> {
                         self.common_types(l, r.base())
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
-                        diagnostics.error(constraint.pos(), "Range is ambiguous");
+                        diagnostics.error(
+                            constraint.pos(),
+                            "Range is ambiguous",
+                            ErrorCode::AmbiguousExpression,
+                        );
                         return Err(EvalError::Unknown);
                     }
                 };
@@ -217,10 +231,15 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         constraint.pos(),
                         "Range type of left and right side does not match",
+                        ErrorCode::InvalidTypeConversion,
                     );
                     Err(EvalError::Unknown)
                 } else {
-                    diagnostics.error(constraint.pos(), "Range is ambiguous");
+                    diagnostics.error(
+                        constraint.pos(),
+                        "Range is ambiguous",
+                        ErrorCode::AmbiguousExpression,
+                    );
                     Err(EvalError::Unknown)
                 }
             }
@@ -256,6 +275,7 @@ impl<'a> AnalyzeContext<'a> {
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
                 ),
+                ErrorCode::KindsError,
             );
             Err(EvalError::Unknown)
         }
@@ -312,6 +332,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &signature.pos,
                         format!("Did not expect signature for '{attr} attribute"),
+                        ErrorCode::UnexpectedSignature,
                     );
                 }
 

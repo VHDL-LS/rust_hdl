@@ -65,7 +65,7 @@ fn parse_name_or_range(stream: &TokenStream) -> ParseResult<NameOrRange> {
             Ok(NameOrRange::Name(WithPos::from(*name, pos)))
         }
     } else {
-        Err(Diagnostic::error(&expr, "Expected name or range"))
+        Err(Diagnostic::syntax_error(&expr, "Expected name or range"))
     }
 }
 
@@ -75,7 +75,7 @@ fn parse_name_or_range(stream: &TokenStream) -> ParseResult<NameOrRange> {
 pub fn parse_range(stream: &TokenStream) -> ParseResult<WithPos<ast::Range>> {
     match parse_name_or_range(stream)? {
         NameOrRange::Range(range) => Ok(range),
-        NameOrRange::Name(name) => Err(Diagnostic::error(&name, "Expected range")),
+        NameOrRange::Name(name) => Err(Diagnostic::syntax_error(&name, "Expected range")),
     }
 }
 

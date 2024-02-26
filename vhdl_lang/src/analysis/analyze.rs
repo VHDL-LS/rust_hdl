@@ -7,6 +7,7 @@
 use super::root::*;
 pub(crate) use super::scope::Scope;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use crate::syntax::TokenAccess;
@@ -21,8 +22,12 @@ pub enum AnalysisError {
 }
 
 impl AnalysisError {
-    pub fn not_fatal_error(pos: impl AsRef<SrcPos>, msg: impl Into<String>) -> AnalysisError {
-        AnalysisError::NotFatal(Diagnostic::error(pos, msg))
+    pub fn not_fatal_error(
+        pos: impl AsRef<SrcPos>,
+        msg: impl Into<String>,
+        code: ErrorCode,
+    ) -> AnalysisError {
+        AnalysisError::NotFatal(Diagnostic::error(pos, msg, code))
     }
 }
 
@@ -41,7 +46,7 @@ impl CircularDependencyError {
 
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
-            diagnostics.push(Diagnostic::error(pos, "Found circular dependency"));
+            diagnostics.push(Diagnostic::circular_dependency(pos));
         }
     }
 }
@@ -368,7 +373,7 @@ impl<'a> AnalyzeContext<'a> {
                     let ent = self.arena.get(id);
                     let design = DesignEnt::from_any(ent).ok_or_else(|| {
                         // Almost impossible but better not fail silently
-                        Diagnostic::error(
+                        Diagnostic::internal(
                             pos,
                             format!(
                                 "Found non-design {} unit within library {}",
@@ -387,6 +392,7 @@ impl<'a> AnalyzeContext<'a> {
             format!(
                 "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
             ),
+            ErrorCode::NoArchForEnt,
         )))
     }
 
@@ -404,7 +410,7 @@ impl<'a> AnalyzeContext<'a> {
                         let ent = self.arena.get(id);
                         let design = DesignEnt::from_any(ent).ok_or_else(|| {
                             // Almost impossible but better not fail silently
-                            Diagnostic::error(
+                            Diagnostic::internal(
                                 pos,
                                 format!(
                                     "Found non-design {} unit within library {}",
@@ -422,6 +428,7 @@ impl<'a> AnalyzeContext<'a> {
         Err(AnalysisError::NotFatal(Diagnostic::error(
             pos,
             format!("No primary unit '{primary_name}' within library '{library_name}'"),
+            ErrorCode::NoPrimaryUnit,
         )))
     }
 

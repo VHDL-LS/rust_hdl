@@ -103,7 +103,7 @@ pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDecla
     // LRM 6.4.2.5
     if open_info.is_some() && file_name.is_none() {
         if let Some(ident) = idents.first() {
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 ident,
                 "file_declaration must have a file name specified if the file open expression is specified as well",
             ));
@@ -240,7 +240,7 @@ mod tests {
         let code = Code::new("file foo : text open write_mode;");
         assert_eq!(
             code.with_stream_err(parse_file_declaration),
-            Diagnostic::error(
+            Diagnostic::syntax_error(
                 code.s1("foo"),
                 "file_declaration must have a file name specified if the file open expression is specified as well",
             )

@@ -351,9 +351,10 @@ pub fn parse_configuration_specification(
                 })
             }
         }
-        ComponentSpecificationOrName::Name(name) => {
-            Err(Diagnostic::error(name, "Expected component specification"))
-        }
+        ComponentSpecificationOrName::Name(name) => Err(Diagnostic::syntax_error(
+            name,
+            "Expected component specification",
+        )),
     }
 }
 

@@ -9,6 +9,7 @@
 use super::*;
 use crate::analysis::names::ResolvedName;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use analyze::*;
@@ -432,6 +433,7 @@ impl<'a> AnalyzeContext<'a> {
                 &name.pos,
                 &mut name.item,
                 "is not a signal and cannot be in a sensitivity list",
+                ErrorCode::DisallowedInSensitivityList,
                 diagnostics,
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
@@ -441,6 +443,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} is not a signal and cannot be in a sensitivity list",
                             object_name.base.describe_class()
                         ),
+                        ErrorCode::DisallowedInSensitivityList,
                     )
                 } else if object_name.base.mode() == Some(Mode::Out) && !object_name.base.is_port()
                 {
@@ -450,6 +453,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} cannot be in a sensitivity list",
                             object_name.base.describe_class()
                         ),
+                        ErrorCode::DisallowedInSensitivityList,
                     )
                 }
             }

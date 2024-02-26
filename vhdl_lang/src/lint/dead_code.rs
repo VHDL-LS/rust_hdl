@@ -11,6 +11,7 @@ use crate::ast::search::Search;
 use crate::ast::search::SearchState;
 use crate::ast::search::Searcher;
 use crate::ast::UnitId;
+use crate::data::error_codes::ErrorCode;
 use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
 use crate::named_entity::{HasEntityId, Reference, Related};
@@ -236,6 +237,7 @@ impl UnusedDeclarationsLinter {
                             Some(Diagnostic::warning(
                                 ent.decl_pos()?,
                                 format!("Unused declaration of {}", ent.describe()),
+                                ErrorCode::UnusedDeclaration,
                             ))
                         })
                         .collect_vec()

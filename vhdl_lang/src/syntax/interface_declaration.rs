@@ -13,6 +13,7 @@ use super::tokens::{Kind::*, *};
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>>> {
     let token = stream.peek_expect()?;
@@ -63,7 +64,7 @@ fn parse_interface_file_declaration(
 
     if stream.next_kind_is(Open) {
         if let Some(ident) = idents.first() {
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 ident,
                 "interface_file_declaration may not have file open information",
             ));
@@ -71,7 +72,7 @@ fn parse_interface_file_declaration(
     }
     if stream.next_kind_is(Is) {
         if let Some(ident) = idents.first() {
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 ident,
                 "interface_file_declaration may not have file name",
             ));
@@ -126,7 +127,7 @@ fn parse_interface_object_declaration(
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode != Mode::In {
             let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 pos,
                 "Interface constant declaration may only have mode=in",
             ));
@@ -134,7 +135,7 @@ fn parse_interface_object_declaration(
 
         if list_type == InterfaceType::Port && object_class != ObjectClass::Signal {
             let pos = object_class_pos.unwrap_or(&ident.pos);
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 pos,
                 "Port list only allows signal object class",
             ));
@@ -142,7 +143,7 @@ fn parse_interface_object_declaration(
 
         if list_type == InterfaceType::Generic && object_class != ObjectClass::Constant {
             let pos = object_class_pos.unwrap_or(&ident.pos);
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 pos,
                 "Generic list only allows constant object class",
             ));
@@ -259,7 +260,7 @@ fn parse_semicolon_separator(stream: &TokenStream) -> ParseResult<()> {
         SemiColon => {
             stream.skip();
             if stream.next_kind_is(RightPar) {
-                return Err(Diagnostic::error(&token.pos,
+                return Err(Diagnostic::syntax_error(&token.pos,
                         format!("Last interface element may not end with {}",
                         kinds_str(&[SemiColon]))));
             }
@@ -297,6 +298,7 @@ fn parse_interface_list(
                     diagnostics.error(
                         stream.get_pos(left_par).combine(token),
                         "Interface list must not be empty",
+                        ErrorCode::SyntaxError,
                     );
                 }
                 stream.skip();
@@ -479,7 +481,7 @@ mod tests {
             code.with_stream_diagnostics(parse_parameter_list),
             (
                 vec![],
-                vec![Diagnostic::error(
+                vec![Diagnostic::syntax_error(
                     code.s1("foo"),
                     "interface_file_declaration may not have file open information"
                 )]
@@ -494,7 +496,7 @@ mod tests {
             code.with_stream_diagnostics(parse_parameter_list),
             (
                 vec![],
-                vec![Diagnostic::error(
+                vec![Diagnostic::syntax_error(
                     code.s1("foo"),
                     "interface_file_declaration may not have file name"
                 )]
@@ -513,11 +515,11 @@ mod tests {
                     subtype_indication: code.s("text", 2).subtype_indication()
                 })],
                 vec![
-                    Diagnostic::error(
+                    Diagnostic::syntax_error(
                         code.s1("with_name"),
                         "interface_file_declaration may not have file name"
                     ),
-                    Diagnostic::error(
+                    Diagnostic::syntax_error(
                         code.s1("open_info"),
                         "interface_file_declaration may not have file open information"
                     )
@@ -631,7 +633,7 @@ mod tests {
         let code = Code::new("foo : out boolean");
         assert_eq!(
             code.with_partial_stream(parse_generic),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 &code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
@@ -674,7 +676,7 @@ bar : natural)",
         );
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s(";", 2),
                 "Last interface element may not end with ';'"
             )]
@@ -745,7 +747,7 @@ bar : natural)",
         let (_, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("signal"),
                 "Generic list only allows constant object class"
             )]
@@ -758,7 +760,7 @@ bar : natural)",
         let (_, diagnostics) = code.with_stream_diagnostics(parse_port_interface_list);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("constant"),
                 "Port list only allows signal object class"
             )]
@@ -919,7 +921,7 @@ function foo() return bit;
         let (res, diag) = code.with_partial_stream_diagnostics(parse_subprogram_declaration);
         check_diagnostics(
             diag,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("()"),
                 "Interface list must not be empty",
             )],

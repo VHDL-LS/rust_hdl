@@ -37,14 +37,14 @@ impl<'a> TokenStream<'a> {
         match tokenizer.pop() {
             Ok(Some(tok)) => {
                 if tok.kind != Identifier {
-                    diagnostics.error(tok, "Expecting identifier");
+                    diagnostics.push(Diagnostic::syntax_error(tok, "Expecting identifier"));
                     let _ = tokenizer.text_until_newline(); // skip potentially invalid tokens
                     return;
                 }
             }
             Err(err) => diagnostics.push(err),
             Ok(None) => {
-                diagnostics.error(start_pos, "Expecting identifier");
+                diagnostics.push(Diagnostic::syntax_error(start_pos, "Expecting identifier"));
                 return;
             }
         }
@@ -120,7 +120,7 @@ impl<'a> TokenStream<'a> {
 
     fn eof_error(&self) -> Diagnostic {
         let end = self.tokenizer.source.contents().end();
-        Diagnostic::error(
+        Diagnostic::syntax_error(
             self.tokenizer.source.pos(end, end.next_char()),
             "Unexpected EOF",
         )
@@ -434,7 +434,7 @@ mod tests {
         stream.skip();
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
+            Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
@@ -459,7 +459,7 @@ mod tests {
 
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
+            Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
@@ -471,7 +471,7 @@ mod tests {
         stream.skip();
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
+            Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
@@ -483,7 +483,7 @@ mod tests {
         stream.skip();
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
+            Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
@@ -515,7 +515,10 @@ mod tests {
         new_stream!(code, _stream, diagnostics);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(code.s1("123"), "Expecting identifier")]
+            vec![Diagnostic::syntax_error(
+                code.s1("123"),
+                "Expecting identifier"
+            )]
         )
     }
 
@@ -526,7 +529,10 @@ mod tests {
         new_stream!(code, _stream, diagnostics);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(code.s1("`"), "Expecting identifier")]
+            vec![Diagnostic::syntax_error(
+                code.s1("`"),
+                "Expecting identifier"
+            )]
         )
     }
 

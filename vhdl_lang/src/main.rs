@@ -78,7 +78,7 @@ fn main() {
     let duration = start.elapsed().unwrap() / iterations;
 
     if args.no_hint {
-        diagnostics.retain(|diag| diag.severity != Severity::Hint);
+        diagnostics.retain(|diag| diag.default_severity != Severity::Hint);
     }
 
     show_diagnostics(&diagnostics);

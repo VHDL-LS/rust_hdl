@@ -469,7 +469,7 @@ fn parse_assignment_or_procedure_call(
                         }, target.pos))
                 }
                 Target::Aggregate(..) => {
-                    return Err(Diagnostic::error(target, "Expected procedure call, got aggregate"));
+                    return Err(Diagnostic::syntax_error(target, "Expected procedure call, got aggregate"));
                 }
             }
         }

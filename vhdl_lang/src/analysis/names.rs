@@ -13,6 +13,7 @@ use super::overloaded::DisambiguatedType;
 use super::overloaded::SubprogramKind;
 use super::scope::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -132,7 +133,7 @@ pub enum ResolvedName<'a> {
 
 impl<'a> ResolvedName<'a> {
     /// The name was selected out of a design unit
-    fn from_design_not_overloaded(ent: &'a AnyEnt) -> Result<Self, String> {
+    fn from_design_not_overloaded(ent: &'a AnyEnt) -> Result<Self, (String, ErrorCode)> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
                 base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
@@ -157,9 +158,10 @@ impl<'a> ResolvedName<'a> {
             }),
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             AnyEntKind::Overloaded(_) => {
-                return Err(
+                return Err((
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
-                )
+                    ErrorCode::Internal,
+                ))
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -174,9 +176,12 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::Concurrent(_)
             | AnyEntKind::Sequential(_)
             | AnyEntKind::LoopParameter(_) => {
-                return Err(format!(
-                    "{} cannot be selected from design unit",
-                    ent.kind().describe()
+                return Err((
+                    format!(
+                        "{} cannot be selected from design unit",
+                        ent.kind().describe()
+                    ),
+                    ErrorCode::InvalidSelected,
                 ))
             }
         };
@@ -185,7 +190,7 @@ impl<'a> ResolvedName<'a> {
     }
 
     /// The name was looked up from the current scope
-    fn from_scope_not_overloaded(ent: &'a AnyEnt) -> Result<Self, String> {
+    fn from_scope_not_overloaded(ent: &'a AnyEnt) -> Result<Self, (String, ErrorCode)> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
                 base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
@@ -214,10 +219,11 @@ impl<'a> ResolvedName<'a> {
                 ResolvedName::Library(ent.designator().as_identifier().cloned().unwrap())
             }
             AnyEntKind::Overloaded(_) => {
-                return Err(
+                return Err((
                     "Internal error. Unreachable as overloded is handled outside this function"
                         .to_string(),
-                )
+                    ErrorCode::Internal,
+                ))
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -227,9 +233,12 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::LoopParameter(_)
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => {
-                return Err(format!(
-                    "{} should never be looked up from the current scope",
-                    ent.kind().describe()
+                return Err((
+                    format!(
+                        "{} should never be looked up from the current scope",
+                        ent.kind().describe()
+                    ),
+                    ErrorCode::Internal,
                 ))
             }
         };
@@ -332,6 +341,7 @@ impl<'a> ResolvedName<'a> {
                 attr.attr,
                 self.describe()
             ),
+            ErrorCode::InvalidPrefix,
         );
         Err(EvalError::Unknown)
     }
@@ -461,6 +471,7 @@ impl<'a> AnalyzeContext<'a> {
                 Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
+                    ErrorCode::KindsError,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -475,6 +486,7 @@ impl<'a> AnalyzeContext<'a> {
                 _ => Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
+                    ErrorCode::KindsError,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -509,6 +521,7 @@ impl<'a> AnalyzeContext<'a> {
                 Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
+                    ErrorCode::KindsError,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -519,6 +532,7 @@ impl<'a> AnalyzeContext<'a> {
                 _ => Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
+                    ErrorCode::KindsError,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -609,6 +623,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(Diagnostic::error(
                         expr_pos,
                         format!("{} cannot be used as a discrete range", typ.describe()),
+                        ErrorCode::KindsError,
                     )
                     .into())
                 };
@@ -659,6 +674,7 @@ impl<'a> AnalyzeContext<'a> {
                                 indexes.len(),
                                 typ.describe()
                             ),
+                            ErrorCode::KindsError,
                         )
                     }
                 }
@@ -741,7 +757,11 @@ impl<'a> AnalyzeContext<'a> {
             {
                 idx as usize
             } else {
-                diagnostics.error(&expr.pos, "Expected an integer literal");
+                diagnostics.error(
+                    &expr.pos,
+                    "Expected an integer literal",
+                    ErrorCode::InvalidTypeConversion,
+                );
                 return Err(EvalError::Unknown);
             }
         } else {
@@ -759,7 +779,7 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"));
+                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::ArrayDimensionOutOfRange);
             }
             Err(EvalError::Unknown)
         }
@@ -977,6 +997,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             &attr.attr.pos,
                             format!("Unknown attribute '{}", attr.attr.item),
+                            ErrorCode::Unresolved,
                         );
                         Err(EvalError::Unknown)
                     }
@@ -987,12 +1008,17 @@ impl<'a> AnalyzeContext<'a> {
                             "{} may not be the prefix of a user defined attribute",
                             prefix.describe()
                         ),
+                        ErrorCode::InvalidPrefix,
                     );
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Range(_) => {
-                diagnostics.error(name_pos, "Range cannot be used as an expression");
+                diagnostics.error(
+                    name_pos,
+                    "Range cannot be used as an expression",
+                    ErrorCode::KindsError,
+                );
                 Err(EvalError::Unknown)
             }
             AttributeDesignator::Type(attr) => self
@@ -1025,6 +1051,7 @@ impl<'a> AnalyzeContext<'a> {
                     suffix,
                     prefix.describe()
                 ),
+                ErrorCode::IllegalAttribute,
             );
             return Err(EvalError::Unknown);
         };
@@ -1037,6 +1064,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         pos,
                         "The element attribute can only be used for array types",
+                        ErrorCode::IllegalAttribute,
                     );
                     Err(EvalError::Unknown)
                 }
@@ -1075,7 +1103,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         catch_diagnostic(
                             ResolvedName::from_scope_not_overloaded(ent)
-                                .map_err(|e| Diagnostic::error(name_pos, e)),
+                                .map_err(|(e, code)| Diagnostic::error(name_pos, e, code)),
                             diagnostics,
                         )?
                     }
@@ -1136,6 +1164,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
+                                    ErrorCode::KindsError,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1150,6 +1179,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
+                                    ErrorCode::KindsError,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1210,6 +1240,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
+                                    ErrorCode::KindsError,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1224,6 +1255,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
+                                    ErrorCode::KindsError,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1337,8 +1369,9 @@ impl<'a> AnalyzeContext<'a> {
                             designator.set_reference(&name);
 
                             catch_diagnostic(
-                                ResolvedName::from_design_not_overloaded(named_entity)
-                                    .map_err(|e| Diagnostic::error(&designator.pos, e)),
+                                ResolvedName::from_design_not_overloaded(named_entity).map_err(
+                                    |(e, code)| Diagnostic::error(&designator.pos, e, code),
+                                ),
                                 diagnostics,
                             )?
                         }
@@ -1386,6 +1419,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         err_msg: &'static str,
+        error_code: ErrorCode,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ObjectName<'a>> {
         let resolved = self.name_resolve(scope, name_pos, name, diagnostics)?;
@@ -1397,7 +1431,11 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
-                diagnostics.error(name_pos, format!("{} {}", resolved.describe(), err_msg));
+                diagnostics.error(
+                    name_pos,
+                    format!("{} {}", resolved.describe(), err_msg),
+                    error_code,
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -1422,6 +1460,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     name_pos,
                     format!("Expected type name, got {}", resolved.describe()),
+                    ErrorCode::KindsError,
                 );
                 Err(EvalError::Unknown)
             }
@@ -1447,6 +1486,7 @@ impl<'a> AnalyzeContext<'a> {
                                 ctyp.describe(),
                                 typ.describe()
                             ),
+                            ErrorCode::InvalidTypeConversion,
                         )
                     }
                 }
@@ -1459,6 +1499,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} cannot be the argument of type conversion",
                         types.describe()
                     ),
+                    ErrorCode::KindsError,
                 ),
             }
         }
@@ -1570,6 +1611,7 @@ impl<'a> AnalyzeContext<'a> {
             Err(Diagnostic::error(
                 suffix_pos,
                 format!("{} cannot be indexed", type_mark.describe()),
+                ErrorCode::KindsError,
             )
             .into())
         }
@@ -1608,7 +1650,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             AnyEntKind::Design(_) => {
                 let design = DesignEnt::from_any(prefix).ok_or_else(|| {
-                    Diagnostic::error(
+                    Diagnostic::internal(
                         &suffix.pos,
                         format!(
                             "Internal error when expecting design unit, got {}",
@@ -1688,7 +1730,11 @@ impl Diagnostic {
             resolved.describe_type()
         };
 
-        Diagnostic::error(prefix_pos, format!("{name_desc} cannot be {suffix_desc}"))
+        Diagnostic::error(
+            prefix_pos,
+            format!("{name_desc} cannot be {suffix_desc}"),
+            ErrorCode::CannotBePrefixed,
+        )
     }
 
     fn cannot_be_prefix_of_attribute(
@@ -1703,6 +1749,7 @@ impl Diagnostic {
                 resolved.describe_type(),
                 attr.attr
             ),
+            ErrorCode::CannotBePrefixed,
         )
     }
 
@@ -1712,7 +1759,11 @@ impl Diagnostic {
         got: usize,
         expected: usize,
     ) -> Diagnostic {
-        let mut diag = Diagnostic::error(pos, "Number of indexes does not match array dimension");
+        let mut diag = Diagnostic::error(
+            pos,
+            "Number of indexes does not match array dimension",
+            ErrorCode::ArrayDimensionOutOfRange,
+        );
 
         if let Some(decl_pos) = base_type.decl_pos() {
             diag.add_related(
@@ -1733,7 +1784,11 @@ impl Diagnostic {
 
     /// An internal logic error that we want to show to the user to get bug reports
     fn unreachable(pos: &SrcPos, expected: &str) -> Diagnostic {
-        Diagnostic::warning(pos, format!("Internal error, unreachable code {expected}"))
+        Diagnostic::warning(
+            pos,
+            format!("Internal error, unreachable code {expected}"),
+            ErrorCode::Internal,
+        )
     }
 
     pub fn ambiguous_call<'a>(
@@ -1743,6 +1798,7 @@ impl Diagnostic {
         let mut diag = Diagnostic::error(
             &call_name.pos,
             format!("Ambiguous call to {}", call_name.item.describe()),
+            ErrorCode::AmbiguousCall,
         );
         diag.add_subprogram_candidates("Might be", candidates);
         diag
@@ -1754,6 +1810,7 @@ fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn Diagno
         diagnostics.error(
             &expr.pos,
             format!("'{} attribute does not take an argument", suffix.attr),
+            ErrorCode::ExtraneousArgument,
         )
     }
 }
@@ -1767,6 +1824,7 @@ fn check_no_sattr_argument(
         diagnostics.error(
             &expr.pos,
             format!("'{attr} attribute does not take an argument"),
+            ErrorCode::ExtraneousArgument,
         )
     }
 }
@@ -1782,6 +1840,7 @@ fn check_single_argument<'a>(
         diagnostics.error(
             pos,
             format!("'{} attribute requires a single argument", suffix.attr),
+            ErrorCode::MissingArguments,
         );
         None
     }
@@ -1898,6 +1957,7 @@ variable thevar : integer;
             vec![Diagnostic::error(
                 code.s1("thevar'element"),
                 "The element attribute can only be used for array types",
+                ErrorCode::IllegalAttribute,
             )],
         )
     }
@@ -1921,6 +1981,7 @@ type my_type is array(natural range<>) of integer;
             vec![Diagnostic::error(
                 code.s1("my_type'subtype"),
                 "The subtype attribute can only be used on objects, not array type 'my_type'",
+                ErrorCode::IllegalAttribute,
             )],
         )
     }
@@ -1944,6 +2005,7 @@ variable x: integer;
             vec![Diagnostic::error(
                 code.s1("x'subtype'subtype"),
                 "The subtype attribute can only be used on objects, not integer type 'INTEGER'",
+                ErrorCode::IllegalAttribute,
             )],
         )
     }
@@ -2016,6 +2078,7 @@ variable c0 : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::InvalidTypeConversion,
             )],
         )
     }
@@ -2040,6 +2103,7 @@ variable c0 : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 &code.s1("c0"),
                 "variable 'c0' cannot be called as a function",
+                ErrorCode::KindsError,
             )],
         );
     }
@@ -2123,6 +2187,7 @@ procedure proc(arg: natural);
             vec![Diagnostic::error(
                 code.s1("proc"),
                 "Procedure calls are not valid in names and expressions",
+                ErrorCode::KindsError,
             )],
         );
     }
@@ -2288,6 +2353,7 @@ variable c0 : integer_vector(0 to 6);
             vec![Diagnostic::error(
                 code.s1("real"),
                 "real type 'REAL' cannot be used as a discrete range",
+                ErrorCode::KindsError,
             )],
         )
     }

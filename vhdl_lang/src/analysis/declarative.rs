@@ -7,6 +7,7 @@
 use super::names::*;
 use super::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
 use crate::{ast, named_entity, HasTokenSpan};
@@ -118,7 +119,8 @@ impl<'a> AnalyzeContext<'a> {
             if !decl.is_allowed_in_context(parent.kind()) {
                 diagnostics.error(
                     decl.get_pos(self.ctx),
-                    format!("{} declaration not allowed here", decl.describe(),),
+                    format!("{} declaration not allowed here", decl.describe()),
+                    ErrorCode::DeclarationNotAllowed,
                 )
             }
 
@@ -139,6 +141,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "Missing full type declaration of incomplete type '{}'",
                                             type_decl.ident.name()
                                         ),
+                                            ErrorCode::MissingDeclaration,
                                         );
                                         error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
@@ -259,6 +262,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &name.pos,
                         format!("{} cannot be aliased", resolved_name.describe_type()),
+                        ErrorCode::CannotBeAliased,
                     );
                     return Err(EvalError::Unknown);
                 }
@@ -625,6 +629,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &ident.item.pos,
                         format!("{} is not an attribute", ent.describe()),
+                        ErrorCode::NotAnAttribute,
                     );
                     return Ok(());
                 }
@@ -633,6 +638,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     &ident.item.pos,
                     format!("Overloaded name '{}' is not an attribute", ident.item),
+                    ErrorCode::NotAnAttribute,
                 );
                 return Ok(());
             }
@@ -702,6 +708,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.push(Diagnostic::error(
                     designator,
                     format!("{} is not of class {}", ent.describe(), entity_class),
+                    ErrorCode::MismatchedEntityClass,
                 ));
                 return Ok(());
             }
@@ -715,6 +722,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
+                            ErrorCode::AttributeSpecNotInImmediateDeclarativePart,
                         ));
                         return Ok(());
                     }
@@ -735,6 +743,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
+                            ErrorCode::AttributeSpecNotInImmediateDeclarativePart,
                         ));
                         return Ok(());
                     }
@@ -921,6 +930,7 @@ impl Diagnostic {
                 "Could not find declaration of {} with given signature",
                 des.describe()
             ),
+            ErrorCode::NoOverloadedWithSignature,
         );
         diagnostic.add_subprogram_candidates("Found", overloaded.entities());
         diagnostic
@@ -930,6 +940,7 @@ impl Diagnostic {
         Diagnostic::error(
             pos,
             format!("{prefix} should only have a signature for subprograms and enum literals"),
+            ErrorCode::ShouldNotHaveSignature,
         )
     }
 
@@ -937,6 +948,7 @@ impl Diagnostic {
         Diagnostic::error(
             pos,
             "Signature required for alias of subprogram and enum literals",
+            ErrorCode::SignatureRequired,
         )
     }
 }

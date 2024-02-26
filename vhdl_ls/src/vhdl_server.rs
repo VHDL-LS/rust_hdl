@@ -944,7 +944,7 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
-    let severity = match diagnostic.severity {
+    let severity = match diagnostic.default_severity {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
         Severity::Info => DiagnosticSeverity::INFORMATION,

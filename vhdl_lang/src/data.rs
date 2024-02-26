@@ -7,6 +7,7 @@
 
 mod contents;
 mod diagnostic;
+pub mod error_codes;
 mod latin_1;
 mod message;
 mod source;

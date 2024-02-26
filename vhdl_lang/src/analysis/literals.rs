@@ -9,6 +9,7 @@ use super::analyze::*;
 use super::scope::*;
 use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -29,6 +30,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("{} does not define character {}", elem_type.describe(), chr),
+                        ErrorCode::InvalidLiteral,
                     ));
                     break;
                 }
@@ -37,6 +39,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.push(Diagnostic::error(
                 pos,
                 format!("string literal does not match {}", target_type.describe()),
+                ErrorCode::InvalidLiteral,
             ));
         }
     }
@@ -61,6 +64,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
+                            ErrorCode::InvalidLiteral,
                         ));
                     }
                 }
@@ -69,6 +73,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
+                            ErrorCode::InvalidLiteral,
                         ));
                     }
                 }
@@ -82,6 +87,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "character literal does not match {}",
                                 target_type.describe()
                             ),
+                            ErrorCode::InvalidLiteral,
                         ));
                     }
                 }
@@ -92,6 +98,7 @@ impl<'a> AnalyzeContext<'a> {
                             "character literal does not match {}",
                             target_type.describe()
                         ),
+                        ErrorCode::InvalidLiteral,
                     ));
                 }
             },
@@ -122,6 +129,7 @@ impl<'a> AnalyzeContext<'a> {
                                         "Illegal digit '{}' for base 10",
                                         bit_string.value.bytes[rel_pos] as char,
                                     ),
+                                    ErrorCode::InvalidLiteral,
                                 )
                             }
                             BitStringConversionError::IllegalTruncate(_, _) => {
@@ -131,10 +139,15 @@ impl<'a> AnalyzeContext<'a> {
                                         "Truncating vector to length {} would lose information",
                                         bit_string.length.unwrap() // Safe as this error can only happen when there is a length
                                     ),
+                                    ErrorCode::InvalidLiteral,
                                 );
                             }
                             BitStringConversionError::EmptySignedExpansion => {
-                                diagnostics.error(pos, "Cannot expand an empty signed bit string");
+                                diagnostics.error(
+                                    pos,
+                                    "Cannot expand an empty signed bit string",
+                                    ErrorCode::InvalidLiteral,
+                                );
                             }
                         }
                     }
@@ -161,6 +174,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
+                        ErrorCode::InvalidLiteral,
                     ));
                 }
             }
@@ -185,12 +199,14 @@ impl<'a> AnalyzeContext<'a> {
                     Err(Diagnostic::error(
                         &unit.item.pos,
                         format!("{} is not a physical unit", unit_ent.describe()),
+                        ErrorCode::InvalidLiteral,
                     ))
                 }
             }
             NamedEntities::Overloaded(_) => Err(Diagnostic::error(
                 &unit.item.pos,
                 "Overloaded name may not be physical unit",
+                ErrorCode::KindsError,
             )),
         }
     }
