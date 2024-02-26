@@ -737,10 +737,6 @@ end arch;
             .search_reference(code.source(), code.s1("my_other_ent").start())
             .unwrap();
 
-        let arch = root
-            .search_reference(code.source(), code.s1("arch ").start())
-            .unwrap();
-
         assert_eq_unordered(
             &options[..],
             &[
