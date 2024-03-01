@@ -8,6 +8,7 @@
 
 use crate::data::*;
 use fnv::FnvHashMap;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -102,6 +103,8 @@ impl LibraryConfig {
 
 impl Config {
     pub fn from_str(string: &str, parent: &Path) -> Result<Config, String> {
+        let env_vars: HashMap<String, String> = std::env::vars().collect();
+
         let config = string.parse::<Value>().map_err(|err| err.to_string())?;
         let mut libraries = FnvHashMap::default();
 
@@ -130,6 +133,8 @@ impl Config {
                 let file = file
                     .as_str()
                     .ok_or_else(|| format!("not a string {file}"))?;
+
+                let file = substitute_environment_variables(file, &env_vars);
 
                 let path = parent.join(file);
                 let path = path
@@ -276,6 +281,34 @@ impl Config {
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }
+}
+
+fn substitute_environment_variables(s: &str, replace: &HashMap<String, String>) -> String {
+    let mut result = String::new();
+
+    let mut left = s;
+    while let Some(start) = left.find('$') {
+        // keep non-env var piece as-is
+        result.push_str(&left[..start]);
+        left = &left[start + 1..];
+
+        // replace env var
+        let env_name_len = left
+            .find(|c: char| !(c == '_' || c.is_ascii_alphanumeric()))
+            .unwrap_or(left.len());
+        let env_name = &left[..env_name_len];
+
+        let replacement = replace.get(env_name).map(String::as_ref).unwrap_or("");
+        result.push_str(replacement);
+
+        // skip past env var
+        left = &left[env_name_len..];
+    }
+
+    // keep remaining string
+    result.push_str(left);
+
+    result
 }
 
 /// Returns true if the pattern is a plain file name and not a glob pattern
@@ -540,5 +573,36 @@ work.files = [
             parent,
         );
         assert_eq!(config.expect_err("Expected erroneous config"), "The 'work' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'")
+    }
+
+    #[test]
+    fn substitute() {
+        let mut map = HashMap::new();
+        map.insert("A".to_owned(), "a".to_owned());
+        map.insert("ABCD".to_owned(), "abcd".to_owned());
+        map.insert("A_0".to_owned(), "a0".to_owned());
+        map.insert("_".to_owned(), "u".to_owned());
+        map.insert("PATH".to_owned(), "some/path".to_owned());
+
+        // simple pattern tests
+        assert_eq!("test", substitute_environment_variables("test", &map));
+        assert_eq!("a", substitute_environment_variables("$A", &map));
+        assert_eq!("abcd", substitute_environment_variables("$ABCD", &map));
+        assert_eq!("a0", substitute_environment_variables("$A_0", &map));
+        assert_eq!("u", substitute_environment_variables("$_", &map));
+        assert_eq!("some/path", substitute_environment_variables("$PATH", &map));
+
+        // embedded in longer string
+        assert_eq!(
+            "test/a/test",
+            substitute_environment_variables("test/$A/test", &map)
+        );
+        assert_eq!("test/a", substitute_environment_variables("test/$A", &map));
+        assert_eq!("a/test", substitute_environment_variables("$A/test", &map));
+
+        assert_eq!(
+            "test/some/path/test",
+            substitute_environment_variables("test/$PATH/test", &map)
+        );
     }
 }
