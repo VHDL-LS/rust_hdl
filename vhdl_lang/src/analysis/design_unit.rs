@@ -232,16 +232,14 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let src_span = unit.span();
-        let primary = match self.lookup_in_library(
+        let Some(primary) = as_fatal(self.lookup_in_library(
+            diagnostics,
             self.work_library_name(),
             &unit.entity_name.item.pos,
             &Designator::Identifier(unit.entity_name.item.item.clone()),
-        ) {
-            Ok(primary) => primary,
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                return Ok(());
-            }
+        ))?
+        else {
+            return Ok(());
         };
         unit.entity_name.set_unique_reference(primary.into());
         self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
@@ -288,16 +286,14 @@ impl<'a> AnalyzeContext<'a> {
         unit: &mut PackageBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        let primary = match self.lookup_in_library(
+        let Some(primary) = as_fatal(self.lookup_in_library(
+            diagnostics,
             self.work_library_name(),
             &unit.ident.tree.pos,
             &Designator::Identifier(unit.ident.tree.item.clone()),
-        ) {
-            Ok(primary) => primary,
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                return Ok(());
-            }
+        ))?
+        else {
+            return Ok(());
         };
 
         let (visibility, region) = match primary.kind() {
@@ -374,14 +370,17 @@ impl<'a> AnalyzeContext<'a> {
         match ent_name.item {
             // Entitities are implicitly defined for configurations
             // configuration cfg of ent
-            Name::Designator(ref mut designator) => Ok(catch_analysis_err(
-                self.lookup_in_library(self.work_library_name(), &ent_name.pos, &designator.item)
-                    .map(|design| {
-                        designator.reference.set_unique_reference(design.into());
-                        design
-                    }),
-                diagnostics,
-            )?),
+            Name::Designator(ref mut designator) => Ok(self
+                .lookup_in_library(
+                    diagnostics,
+                    self.work_library_name(),
+                    &ent_name.pos,
+                    &designator.item,
+                )
+                .map(|design| {
+                    designator.reference.set_unique_reference(design.into());
+                    design
+                })?),
 
             // configuration cfg of lib.ent
             Name::Selected(ref mut prefix, ref mut designator) => {
@@ -394,13 +393,11 @@ impl<'a> AnalyzeContext<'a> {
                                 format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()));
                             Err(EvalError::Unknown)
                         } else {
-                            let primary_ent = catch_analysis_err(
-                                self.lookup_in_library(
-                                    library_name,
-                                    &designator.pos,
-                                    &designator.item.item,
-                                ),
+                            let primary_ent = self.lookup_in_library(
                                 diagnostics,
+                                library_name,
+                                &designator.pos,
+                                &designator.item.item,
                             )?;
                             designator
                                 .item
@@ -436,40 +433,52 @@ impl<'a> AnalyzeContext<'a> {
 
     fn resolve_context_item_prefix(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         scope: &Scope<'a>,
         prefix: &mut WithPos<Name>,
-    ) -> AnalysisResult<EntRef<'a>> {
-        match self.resolve_context_item_name(scope, prefix)? {
-            UsedNames::Single(visible) => visible.into_non_overloaded().map_err(|_| {
-                AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
-            }),
-            UsedNames::AllWithin(..) => Err(AnalysisError::not_fatal_error(
-                &prefix,
-                "'.all' may not be the prefix of a selected name",
-            )),
+    ) -> EvalResult<EntRef<'a>> {
+        match self.resolve_context_item_name(diagnostics, scope, prefix)? {
+            UsedNames::Single(visible) => match visible.into_non_overloaded() {
+                Ok(ent_ref) => Ok(ent_ref),
+                Err(_) => {
+                    bail!(
+                        diagnostics,
+                        Diagnostic::error(&prefix, "Invalid prefix of a selected name")
+                    );
+                }
+            },
+            UsedNames::AllWithin(..) => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::error(&prefix, "'.all' may not be the prefix of a selected name",)
+                );
+            }
         }
     }
 
     fn resolve_context_item_name(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         scope: &Scope<'a>,
         name: &mut WithPos<Name>,
-    ) -> AnalysisResult<UsedNames<'a>> {
+    ) -> EvalResult<UsedNames<'a>> {
         match &mut name.item {
             Name::Selected(ref mut prefix, ref mut suffix) => {
-                let prefix_ent = self.resolve_context_item_prefix(scope, prefix)?;
+                let prefix_ent = self.resolve_context_item_prefix(diagnostics, scope, prefix)?;
 
-                let visible = self.lookup_selected(&prefix.pos, prefix_ent, suffix)?;
+                let visible = self.lookup_selected(diagnostics, &prefix.pos, prefix_ent, suffix)?;
                 suffix.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
 
             Name::SelectedAll(prefix) => {
-                let prefix_ent = self.resolve_context_item_prefix(scope, prefix)?;
+                let prefix_ent = self.resolve_context_item_prefix(diagnostics, scope, prefix)?;
                 Ok(UsedNames::AllWithin(prefix.pos.clone(), prefix_ent))
             }
             Name::Designator(designator) => {
-                let visible = scope.lookup(&name.pos, designator.designator())?;
+                let visible = scope
+                    .lookup(&name.pos, designator.designator())
+                    .into_eval_result(diagnostics)?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
@@ -477,10 +486,12 @@ impl<'a> AnalyzeContext<'a> {
             Name::Slice(..)
             | Name::Attribute(..)
             | Name::CallOrIndexed(..)
-            | Name::External(..) => Err(AnalysisError::not_fatal_error(
-                &name.pos,
-                "Invalid selected name",
-            )),
+            | Name::External(..) => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::error(&name.pos, "Invalid selected name",)
+                );
+            }
         }
     }
 
@@ -531,8 +542,14 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
 
-                        match self.resolve_context_item_name(scope, name) {
-                            Ok(UsedNames::Single(visible)) => {
+                        let Some(context_item) =
+                            as_fatal(self.resolve_context_item_name(diagnostics, scope, name))?
+                        else {
+                            continue;
+                        };
+
+                        match context_item {
+                            UsedNames::Single(visible) => {
                                 let ent = visible.first();
                                 match ent.kind() {
                                     // OK
@@ -555,11 +572,8 @@ impl<'a> AnalyzeContext<'a> {
                                     }
                                 }
                             }
-                            Ok(UsedNames::AllWithin(..)) => {
+                            UsedNames::AllWithin(..) => {
                                 // Handled above
-                            }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
                             }
                         }
                     }
@@ -589,48 +603,47 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            match self.resolve_context_item_name(scope, name) {
-                Ok(UsedNames::Single(visible)) => {
+            let Some(context_item) =
+                as_fatal(self.resolve_context_item_name(diagnostics, scope, name))?
+            else {
+                continue;
+            };
+            match context_item {
+                UsedNames::Single(visible) => {
                     visible.make_potentially_visible_in(Some(&name.pos), scope);
                 }
-                Ok(UsedNames::AllWithin(visibility_pos, named_entity)) => {
-                    match named_entity.kind() {
-                        AnyEntKind::Library => {
-                            let library_name = named_entity.designator().expect_identifier();
-                            self.use_all_in_library(&name.pos, library_name, scope)?;
+                UsedNames::AllWithin(visibility_pos, named_entity) => match named_entity.kind() {
+                    AnyEntKind::Library => {
+                        let library_name = named_entity.designator().expect_identifier();
+                        self.use_all_in_library(&name.pos, library_name, scope)?;
+                    }
+                    AnyEntKind::Design(design) => match design {
+                        Design::UninstPackage(..) => {
+                            diagnostics.push(Diagnostic::invalid_selected_name_prefix(
+                                named_entity,
+                                &visibility_pos,
+                            ));
                         }
-                        AnyEntKind::Design(design) => match design {
-                            Design::UninstPackage(..) => {
-                                diagnostics.push(Diagnostic::invalid_selected_name_prefix(
-                                    named_entity,
-                                    &visibility_pos,
-                                ));
-                            }
-                            Design::Package(_, ref primary_region)
-                            | Design::PackageInstance(ref primary_region) => {
-                                scope.make_all_potentially_visible(Some(&name.pos), primary_region);
-                            }
-                            _ => {
-                                diagnostics
-                                    .error(visibility_pos, "Invalid prefix for selected name");
-                            }
-                        },
-
+                        Design::Package(_, ref primary_region)
+                        | Design::PackageInstance(ref primary_region) => {
+                            scope.make_all_potentially_visible(Some(&name.pos), primary_region);
+                        }
                         _ => {
                             diagnostics.error(visibility_pos, "Invalid prefix for selected name");
                         }
+                    },
+
+                    _ => {
+                        diagnostics.error(visibility_pos, "Invalid prefix for selected name");
                     }
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+                },
             }
         }
 
         Ok(())
     }
 
-    /// Returns a reference to the the uninstantiated package
+    /// Returns a reference to the uninstantiated package
     pub fn analyze_package_instance_name(
         &self,
         scope: &Scope<'a>,

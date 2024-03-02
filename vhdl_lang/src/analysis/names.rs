@@ -557,7 +557,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<Option<TypeEnt<'a>>> {
         if !could_be_indexed_name(assocs) {
             return Ok(None);
         }
@@ -581,7 +581,7 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<Option<TypeEnt<'a>>> {
         if let Expression::Name(name) = expr {
             if let Name::Attribute(ref mut attr) = name.as_mut() {
                 if attr.as_range().is_some() {
@@ -606,11 +606,13 @@ impl<'a> AnalyzeContext<'a> {
                 return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer) {
                     Ok(Some(typ))
                 } else {
-                    Err(Diagnostic::error(
-                        expr_pos,
-                        format!("{} cannot be used as a discrete range", typ.describe()),
-                    )
-                    .into())
+                    bail!(
+                        diagnostics,
+                        Diagnostic::error(
+                            expr_pos,
+                            format!("{} cannot be used as a discrete range", typ.describe()),
+                        )
+                    );
                 };
             }
         }
@@ -628,10 +630,13 @@ impl<'a> AnalyzeContext<'a> {
         prefix_typ: TypeEnt<'a>,
         suffix: &mut Suffix,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeOrMethod<'a>>> {
+    ) -> EvalResult<Option<TypeOrMethod<'a>>> {
         match suffix {
-            Suffix::Selected(suffix) => {
-                Ok(Some(match prefix_typ.selected(prefix_pos, suffix)? {
+            Suffix::Selected(suffix) => Ok(Some(
+                match prefix_typ
+                    .selected(prefix_pos, suffix)
+                    .into_eval_result(diagnostics)?
+                {
                     TypedSelection::RecordElement(elem) => {
                         suffix.set_unique_reference(&elem);
                         TypeOrMethod::Type(elem.type_mark())
@@ -640,8 +645,8 @@ impl<'a> AnalyzeContext<'a> {
                         WithPos::new(suffix.item.item.clone(), suffix.pos.clone()),
                         name,
                     ),
-                }))
-            }
+                },
+            )),
             Suffix::All => Ok(prefix_typ.accessed_type().map(TypeOrMethod::Type)),
             Suffix::Slice(drange) => Ok(if let Some(typ) = prefix_typ.sliced_as() {
                 if let Type::Array { indexes, .. } = typ.kind() {
@@ -708,13 +713,15 @@ impl<'a> AnalyzeContext<'a> {
 
                         let num_indexes = indexes.len();
                         if assocs.len() != num_indexes {
-                            Err(Diagnostic::dimension_mismatch(
-                                name_pos,
-                                prefix_typ,
-                                assocs.len(),
-                                num_indexes,
-                            )
-                            .into())
+                            bail!(
+                                diagnostics,
+                                Diagnostic::dimension_mismatch(
+                                    name_pos,
+                                    prefix_typ,
+                                    assocs.len(),
+                                    num_indexes,
+                                )
+                            );
                         } else {
                             Ok(Some(TypeOrMethod::Type(elem_type)))
                         }
@@ -1067,17 +1074,16 @@ impl<'a> AnalyzeContext<'a> {
         let prefix;
         let mut resolved = match SplitName::from_name(name) {
             SplitName::Designator(designator) => {
-                let name =
-                    catch_diagnostic(scope.lookup(name_pos, designator.designator()), diagnostics)?;
+                let name = scope
+                    .lookup(name_pos, designator.designator())
+                    .into_eval_result(diagnostics)?;
                 return Ok(match name {
                     NamedEntities::Single(ent) => {
                         designator.set_unique_reference(ent);
 
-                        catch_diagnostic(
-                            ResolvedName::from_scope_not_overloaded(ent)
-                                .map_err(|e| Diagnostic::error(name_pos, e)),
-                            diagnostics,
-                        )?
+                        ResolvedName::from_scope_not_overloaded(ent)
+                            .map_err(|e| Diagnostic::error(name_pos, e))
+                            .into_eval_result(diagnostics)?
                     }
                     NamedEntities::Overloaded(overloaded) => ResolvedName::Overloaded(
                         WithPos::new(designator.item.clone(), name_pos.clone()),
@@ -1111,17 +1117,16 @@ impl<'a> AnalyzeContext<'a> {
         // Any other suffix must collapse overloaded
         if !matches!(suffix, Suffix::CallOrIndexed(_)) {
             if let ResolvedName::Overloaded(ref des, ref overloaded) = resolved {
-                let disambiguated = catch_diagnostic(
-                    self.disambiguate_no_actuals(
+                let disambiguated = self
+                    .disambiguate_no_actuals(
                         des,
                         {
                             // @TODO must be disambiguated with suffixes
                             None
                         },
                         overloaded,
-                    ),
-                    diagnostics,
-                )?;
+                    )
+                    .into_eval_result(diagnostics)?;
 
                 if let Some(disambiguated) = disambiguated {
                     match disambiguated {
@@ -1241,15 +1246,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ResolvedName::ObjectName(oname) => {
-                match catch_analysis_err(
-                    self.resolve_typed_suffix(
-                        scope,
-                        &prefix.pos,
-                        name_pos,
-                        oname.type_mark(),
-                        &mut suffix,
-                        diagnostics,
-                    ),
+                match self.resolve_typed_suffix(
+                    scope,
+                    &prefix.pos,
+                    name_pos,
+                    oname.type_mark(),
+                    &mut suffix,
                     diagnostics,
                 )? {
                     Some(TypeOrMethod::Type(typ)) => {
@@ -1270,15 +1272,12 @@ impl<'a> AnalyzeContext<'a> {
             }
             ResolvedName::Expression(ref typ) => match typ {
                 DisambiguatedType::Unambiguous(typ) => {
-                    match catch_analysis_err(
-                        self.resolve_typed_suffix(
-                            scope,
-                            &prefix.pos,
-                            name_pos,
-                            *typ,
-                            &mut suffix,
-                            diagnostics,
-                        ),
+                    match self.resolve_typed_suffix(
+                        scope,
+                        &prefix.pos,
+                        name_pos,
+                        *typ,
+                        &mut suffix,
                         diagnostics,
                     )? {
                         Some(TypeOrMethod::Type(typ)) => {
@@ -1307,13 +1306,11 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Library(ref library_name) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
                     resolved = ResolvedName::Design(
-                        catch_analysis_err(
-                            self.lookup_in_library(
-                                library_name,
-                                &designator.pos,
-                                &designator.item.item,
-                            ),
+                        self.lookup_in_library(
                             diagnostics,
+                            library_name,
+                            &designator.pos,
+                            &designator.item.item,
                         )
                         .map(|design| {
                             designator
@@ -1330,17 +1327,16 @@ impl<'a> AnalyzeContext<'a> {
             }
             ResolvedName::Design(ref ent) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
-                    let name =
-                        catch_diagnostic(ent.selected(&prefix.pos, designator), diagnostics)?;
+                    let name = ent
+                        .selected(&prefix.pos, designator)
+                        .into_eval_result(diagnostics)?;
                     resolved = match name {
                         NamedEntities::Single(named_entity) => {
                             designator.set_reference(&name);
 
-                            catch_diagnostic(
-                                ResolvedName::from_design_not_overloaded(named_entity)
-                                    .map_err(|e| Diagnostic::error(&designator.pos, e)),
-                                diagnostics,
-                            )?
+                            ResolvedName::from_design_not_overloaded(named_entity)
+                                .map_err(|e| Diagnostic::error(&designator.pos, e))
+                                .into_eval_result(diagnostics)?
                         }
                         NamedEntities::Overloaded(overloaded) => {
                             // Could be used for an alias of a subprogram
@@ -1537,7 +1533,7 @@ impl<'a> AnalyzeContext<'a> {
         type_mark: TypeEnt<'a>,
         indexes: &mut [Index],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<TypeEnt<'a>> {
+    ) -> EvalResult<TypeEnt<'a>> {
         let base_type = type_mark.base_type();
 
         let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
@@ -1567,25 +1563,32 @@ impl<'a> AnalyzeContext<'a> {
 
             Ok(*elem_type)
         } else {
-            Err(Diagnostic::error(
-                suffix_pos,
-                format!("{} cannot be indexed", type_mark.describe()),
-            )
-            .into())
+            bail!(
+                diagnostics,
+                Diagnostic::error(
+                    suffix_pos,
+                    format!("{} cannot be indexed", type_mark.describe()),
+                )
+            );
         }
     }
 
     pub fn lookup_selected(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         prefix_pos: &SrcPos,
         prefix: EntRef<'a>,
         suffix: &mut WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<NamedEntities<'a>> {
+    ) -> EvalResult<NamedEntities<'a>> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
-                let named_entity =
-                    self.lookup_in_library(library_name, &suffix.pos, &suffix.item.item)?;
+                let named_entity = self.lookup_in_library(
+                    diagnostics,
+                    library_name,
+                    &suffix.pos,
+                    &suffix.item.item,
+                )?;
                 suffix
                     .item
                     .reference
@@ -1595,33 +1598,47 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Object(ref object) => Ok(object
                 .subtype
                 .type_mark()
-                .selected(prefix_pos, suffix)?
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
                 .into_any()),
-            AnyEntKind::ObjectAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
-            }
-            AnyEntKind::ExternalAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
-            }
-            AnyEntKind::ElementDeclaration(ref subtype) => {
-                Ok(subtype.type_mark().selected(prefix_pos, suffix)?.into_any())
-            }
+            AnyEntKind::ObjectAlias { ref type_mark, .. } => Ok(type_mark
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
+            AnyEntKind::ExternalAlias { ref type_mark, .. } => Ok(type_mark
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
+            AnyEntKind::ElementDeclaration(ref subtype) => Ok(subtype
+                .type_mark()
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
             AnyEntKind::Design(_) => {
-                let design = DesignEnt::from_any(prefix).ok_or_else(|| {
-                    Diagnostic::error(
-                        &suffix.pos,
-                        format!(
-                            "Internal error when expecting design unit, got {}",
-                            prefix.describe()
-                        ),
-                    )
-                })?;
+                let design = DesignEnt::from_any(prefix)
+                    .ok_or_else(|| {
+                        Diagnostic::error(
+                            &suffix.pos,
+                            format!(
+                                "Internal error when expecting design unit, got {}",
+                                prefix.describe()
+                            ),
+                        )
+                    })
+                    .into_eval_result(diagnostics)?;
 
-                let named = design.selected(prefix_pos, suffix)?;
+                let named = design
+                    .selected(prefix_pos, suffix)
+                    .into_eval_result(diagnostics)?;
                 Ok(named)
             }
 
-            _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
+            _ => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos)
+                );
+            }
         }
     }
 }
