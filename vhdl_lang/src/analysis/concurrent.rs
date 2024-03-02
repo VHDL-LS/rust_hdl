@@ -278,18 +278,14 @@ impl<'a> AnalyzeContext<'a> {
                             if let Designator::Identifier(entity_ident) = ent.designator() {
                                 if let Some(library_name) = ent.library_name() {
                                     if let Some(ref mut architecture_name) = architecture_name {
-                                        match self.get_architecture(
+                                        if let Some(arch) = as_fatal(self.get_architecture(
+                                            diagnostics,
                                             library_name,
                                             &architecture_name.item.pos,
                                             entity_ident,
                                             &architecture_name.item.item,
-                                        ) {
-                                            Ok(arch) => {
-                                                architecture_name.set_unique_reference(&arch);
-                                            }
-                                            Err(err) => {
-                                                diagnostics.push(err.into_non_fatal()?);
-                                            }
+                                        ))? {
+                                            architecture_name.set_unique_reference(&arch);
                                         }
                                     }
                                 }

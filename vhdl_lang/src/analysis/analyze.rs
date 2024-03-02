@@ -20,12 +20,6 @@ pub enum AnalysisError {
     NotFatal(Diagnostic),
 }
 
-impl AnalysisError {
-    pub fn not_fatal_error(pos: impl AsRef<SrcPos>, msg: impl Into<String>) -> AnalysisError {
-        AnalysisError::NotFatal(Diagnostic::error(pos, msg))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[must_use]
 pub struct CircularDependencyError {
@@ -84,6 +78,18 @@ pub fn catch_analysis_err<T>(
     }
 }
 
+/// Pushes the diagnostic to the provided handler and returns
+/// with an `EvalError::Unknown` result.
+///
+/// This macro can be used for the common case of encountering an analysis error and
+/// immediately returning as the error is not recoverable.
+macro_rules! bail {
+    ($diagnostics:expr, $error:expr) => {
+        $diagnostics.push($error);
+        return Err(EvalError::Unknown);
+    };
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvalError {
     // A circular dependency was found
@@ -114,14 +120,23 @@ impl From<Diagnostic> for AnalysisError {
     }
 }
 
-impl AnalysisError {
-    // Add Non-fatal error to diagnostics or return fatal error
-    pub fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalResult {
-        let diag = self.into_non_fatal()?;
-        diagnostics.push(diag);
-        Ok(())
-    }
+pub trait IntoEvalResult<T> {
+    /// Transforms `Self` into an `EvalResult`, provided a diagnostic handler.
+    fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T>;
+}
 
+impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
+    fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T> {
+        match self {
+            Ok(value) => Ok(value),
+            Err(diagnostic) => {
+                bail!(diagnostics, diagnostic);
+            }
+        }
+    }
+}
+
+impl AnalysisError {
     pub fn into_non_fatal(self) -> FatalResult<Diagnostic> {
         match self {
             AnalysisError::Fatal(err) => Err(err),
@@ -354,56 +369,36 @@ impl<'a> AnalyzeContext<'a> {
         None
     }
 
+    /// Given an Entity, returns a reference to the architecture denoted by `architecture_name`.
+    /// If this architecture cannot be found, pushes an appropriate error to the diagnostics-handler
+    /// and returns `EvalError::Unknown`.
+    ///
+    /// # Arguments
+    ///
+    /// * `diagnostics` Reference to the diagnostic handler
+    /// * `library_name` The name of the library where the entity resides
+    /// * `pos` The position where the architecture name was declared
+    /// * `entity_name` Name of the entity
+    /// * `architecture_name` Name of the architecture to be resolved
     pub(super) fn get_architecture(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         library_name: &Symbol,
         pos: &SrcPos,
         entity_name: &Symbol,
         architecture_name: &Symbol,
-    ) -> AnalysisResult<DesignEnt<'a>> {
+    ) -> EvalResult<DesignEnt<'a>> {
         if let Some(unit) = self.get_secondary_unit(library_name, entity_name, architecture_name) {
             let data = self.get_analysis(Some(pos), unit)?;
             if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) = data.deref() {
                 if let Some(id) = arch.ident.decl.get() {
                     let ent = self.arena.get(id);
-                    let design = DesignEnt::from_any(ent).ok_or_else(|| {
+                    if let Some(design) = DesignEnt::from_any(ent) {
+                        return Ok(design);
+                    } else {
                         // Almost impossible but better not fail silently
-                        Diagnostic::error(
-                            pos,
-                            format!(
-                                "Found non-design {} unit within library {}",
-                                ent.describe(),
-                                library_name
-                            ),
-                        )
-                    })?;
-                    return Ok(design);
-                }
-            }
-        }
-
-        Err(AnalysisError::NotFatal(Diagnostic::error(
-            pos,
-            format!(
-                "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
-            ),
-        )))
-    }
-
-    pub fn lookup_in_library(
-        &self,
-        library_name: &Symbol,
-        pos: &SrcPos,
-        primary_name: &Designator,
-    ) -> AnalysisResult<DesignEnt<'a>> {
-        if let Designator::Identifier(ref primary_name) = primary_name {
-            if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
-                let data = self.get_analysis(Some(pos), unit)?;
-                if let AnyDesignUnit::Primary(primary) = data.deref() {
-                    if let Some(id) = primary.ent_id() {
-                        let ent = self.arena.get(id);
-                        let design = DesignEnt::from_any(ent).ok_or_else(|| {
-                            // Almost impossible but better not fail silently
+                        bail!(
+                            diagnostics,
                             Diagnostic::error(
                                 pos,
                                 format!(
@@ -412,20 +407,66 @@ impl<'a> AnalyzeContext<'a> {
                                     library_name
                                 ),
                             )
-                        })?;
-                        return Ok(design);
+                        );
                     }
                 }
             }
         }
 
-        Err(AnalysisError::NotFatal(Diagnostic::error(
-            pos,
-            format!("No primary unit '{primary_name}' within library '{library_name}'"),
-        )))
+        bail!(
+            diagnostics,
+            Diagnostic::error(
+                pos,
+                format!(
+                "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
+            ),
+            )
+        );
     }
 
-    // Returns None when analyzing the standard package itsel
+    pub fn lookup_in_library(
+        &self,
+        diagnostics: &mut dyn DiagnosticHandler,
+        library_name: &Symbol,
+        pos: &SrcPos,
+        primary_name: &Designator,
+    ) -> EvalResult<DesignEnt<'a>> {
+        if let Designator::Identifier(ref primary_name) = primary_name {
+            if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
+                let data = self.get_analysis(Some(pos), unit)?;
+                if let AnyDesignUnit::Primary(primary) = data.deref() {
+                    if let Some(id) = primary.ent_id() {
+                        let ent = self.arena.get(id);
+                        if let Some(design) = DesignEnt::from_any(ent) {
+                            return Ok(design);
+                        } else {
+                            bail!(
+                                diagnostics,
+                                Diagnostic::error(
+                                    pos,
+                                    format!(
+                                        "Found non-design {} unit within library {}",
+                                        ent.describe(),
+                                        library_name
+                                    ),
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        bail!(
+            diagnostics,
+            Diagnostic::error(
+                pos,
+                format!("No primary unit '{primary_name}' within library '{library_name}'"),
+            )
+        );
+    }
+
+    // Returns None when analyzing the standard package itself
     fn standard_package_region(&self) -> Option<&'a Region<'a>> {
         if let Some(pkg) = self.root.standard_pkg_id.as_ref() {
             self.arena.link(self.root.standard_arena.as_ref().unwrap());

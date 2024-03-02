@@ -1307,13 +1307,11 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Library(ref library_name) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
                     resolved = ResolvedName::Design(
-                        catch_analysis_err(
-                            self.lookup_in_library(
-                                library_name,
-                                &designator.pos,
-                                &designator.item.item,
-                            ),
+                        self.lookup_in_library(
                             diagnostics,
+                            library_name,
+                            &designator.pos,
+                            &designator.item.item,
                         )
                         .map(|design| {
                             designator
@@ -1577,15 +1575,20 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn lookup_selected(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         prefix_pos: &SrcPos,
         prefix: EntRef<'a>,
         suffix: &mut WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<NamedEntities<'a>> {
+    ) -> EvalResult<NamedEntities<'a>> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
-                let named_entity =
-                    self.lookup_in_library(library_name, &suffix.pos, &suffix.item.item)?;
+                let named_entity = self.lookup_in_library(
+                    diagnostics,
+                    library_name,
+                    &suffix.pos,
+                    &suffix.item.item,
+                )?;
                 suffix
                     .item
                     .reference
@@ -1595,33 +1598,47 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Object(ref object) => Ok(object
                 .subtype
                 .type_mark()
-                .selected(prefix_pos, suffix)?
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
                 .into_any()),
-            AnyEntKind::ObjectAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
-            }
-            AnyEntKind::ExternalAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
-            }
-            AnyEntKind::ElementDeclaration(ref subtype) => {
-                Ok(subtype.type_mark().selected(prefix_pos, suffix)?.into_any())
-            }
+            AnyEntKind::ObjectAlias { ref type_mark, .. } => Ok(type_mark
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
+            AnyEntKind::ExternalAlias { ref type_mark, .. } => Ok(type_mark
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
+            AnyEntKind::ElementDeclaration(ref subtype) => Ok(subtype
+                .type_mark()
+                .selected(prefix_pos, suffix)
+                .into_eval_result(diagnostics)?
+                .into_any()),
             AnyEntKind::Design(_) => {
-                let design = DesignEnt::from_any(prefix).ok_or_else(|| {
-                    Diagnostic::error(
-                        &suffix.pos,
-                        format!(
-                            "Internal error when expecting design unit, got {}",
-                            prefix.describe()
-                        ),
-                    )
-                })?;
+                let design = DesignEnt::from_any(prefix)
+                    .ok_or_else(|| {
+                        Diagnostic::error(
+                            &suffix.pos,
+                            format!(
+                                "Internal error when expecting design unit, got {}",
+                                prefix.describe()
+                            ),
+                        )
+                    })
+                    .into_eval_result(diagnostics)?;
 
-                let named = design.selected(prefix_pos, suffix)?;
+                let named = design
+                    .selected(prefix_pos, suffix)
+                    .into_eval_result(diagnostics)?;
                 Ok(named)
             }
 
-            _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
+            _ => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos)
+                );
+            }
         }
     }
 }
