@@ -14,9 +14,35 @@ use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
 
+/// Indicates that a circular dependency is found at the position denoted by `reference`.
+///
+/// A circular dependency occurs when module A uses module B, which in turn
+/// (either directly or indirectly via other modules) uses module A again.
+///
+/// ## Example
+///
+/// ```vhdl
+/// use work.bar;
+///
+/// package foo is
+/// end package;
+///
+/// use work.foo;
+///
+/// package bar is
+/// end package;
+/// ```
+/// In this example, the package `bar` uses the package `foo` which in turn uses package `bar` –
+/// making the dependency chain cyclic.
+///
+/// Commonly, two or more `CircularDependencyError`s are pushed to indicate what modules
+/// the error affects.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[must_use]
 pub struct CircularDependencyError {
+    /// The position where the circular dependency was found.
+    /// Is `None` when the circular dependency is found in the standard library.
+    /// This should, in practice, never happen.
     reference: Option<SrcPos>,
 }
 
@@ -27,6 +53,7 @@ impl CircularDependencyError {
         }
     }
 
+    /// Pushes this error into a diagnostic handler.
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
             diagnostics.error(pos, "Found circular dependency");
@@ -34,15 +61,18 @@ impl CircularDependencyError {
     }
 }
 
+/// A `FatalResult` is a result that is either OK or contains a `CircularDependencyError`.
+/// If this type contains the error case, most other errors encountered during analysis are ignored
+/// as analysis cannot continue (resp. no further analysis is pursued)
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvalError {
-    // A circular dependency was found
+    /// A circular dependency was found, see [CircularDependencyError](CircularDependencyError)
     Circular(CircularDependencyError),
-    // Evaluation is no longer possible, for example if encountering illegal code
-    // Typically functions returning Unknown will have published diagnostics on the side-channel
-    // And the unknown is returned to stop further upstream analysis
+    /// Indicates that evaluation is no longer possible, for example if encountering illegal code.
+    /// Typically, functions returning Unknown will have published diagnostics on the side-channel
+    /// and the unknown is returned to stop further upstream analysis
     Unknown,
 }
 
@@ -82,14 +112,6 @@ pub trait IntoEvalResult<T> {
     fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T>;
 }
 
-pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
-    match res {
-        Ok(val) => Ok(Some(val)),
-        Err(EvalError::Unknown) => Ok(None),
-        Err(EvalError::Circular(circ)) => Err(circ),
-    }
-}
-
 impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
     fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T> {
         match self {
@@ -101,6 +123,14 @@ impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
     }
 }
 
+pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
+    match res {
+        Ok(val) => Ok(Some(val)),
+        Err(EvalError::Unknown) => Ok(None),
+        Err(EvalError::Circular(circ)) => Err(circ),
+    }
+}
+
 pub(super) struct AnalyzeContext<'a> {
     pub(super) root: &'a DesignRoot,
 
@@ -109,7 +139,7 @@ pub(super) struct AnalyzeContext<'a> {
     standard_sym: Symbol,
     pub(super) is_std_logic_1164: bool,
 
-    // Record dependencies and sensitivies when
+    // Record dependencies and sensitives when
     // analyzing design units
     //
     // Dependencies define the order in which design units must be analyzed
