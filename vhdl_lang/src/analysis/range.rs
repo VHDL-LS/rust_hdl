@@ -77,10 +77,9 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Type(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
             ResolvedName::Overloaded(ref des, ref overloaded) => {
-                let disamb = catch_diagnostic(
-                    self.disambiguate_no_actuals(des, None, overloaded),
-                    diagnostics,
-                )?;
+                let disamb = self
+                    .disambiguate_no_actuals(des, None, overloaded)
+                    .into_eval_result(diagnostics)?;
 
                 if let Some(disamb) = disamb {
                     if let Disambiguated::Unambiguous(ref ent) = disamb {

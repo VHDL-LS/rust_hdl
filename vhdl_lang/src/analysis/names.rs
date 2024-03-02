@@ -1074,17 +1074,16 @@ impl<'a> AnalyzeContext<'a> {
         let prefix;
         let mut resolved = match SplitName::from_name(name) {
             SplitName::Designator(designator) => {
-                let name =
-                    catch_diagnostic(scope.lookup(name_pos, designator.designator()), diagnostics)?;
+                let name = scope
+                    .lookup(name_pos, designator.designator())
+                    .into_eval_result(diagnostics)?;
                 return Ok(match name {
                     NamedEntities::Single(ent) => {
                         designator.set_unique_reference(ent);
 
-                        catch_diagnostic(
-                            ResolvedName::from_scope_not_overloaded(ent)
-                                .map_err(|e| Diagnostic::error(name_pos, e)),
-                            diagnostics,
-                        )?
+                        ResolvedName::from_scope_not_overloaded(ent)
+                            .map_err(|e| Diagnostic::error(name_pos, e))
+                            .into_eval_result(diagnostics)?
                     }
                     NamedEntities::Overloaded(overloaded) => ResolvedName::Overloaded(
                         WithPos::new(designator.item.clone(), name_pos.clone()),
@@ -1118,17 +1117,16 @@ impl<'a> AnalyzeContext<'a> {
         // Any other suffix must collapse overloaded
         if !matches!(suffix, Suffix::CallOrIndexed(_)) {
             if let ResolvedName::Overloaded(ref des, ref overloaded) = resolved {
-                let disambiguated = catch_diagnostic(
-                    self.disambiguate_no_actuals(
+                let disambiguated = self
+                    .disambiguate_no_actuals(
                         des,
                         {
                             // @TODO must be disambiguated with suffixes
                             None
                         },
                         overloaded,
-                    ),
-                    diagnostics,
-                )?;
+                    )
+                    .into_eval_result(diagnostics)?;
 
                 if let Some(disambiguated) = disambiguated {
                     match disambiguated {
@@ -1329,17 +1327,16 @@ impl<'a> AnalyzeContext<'a> {
             }
             ResolvedName::Design(ref ent) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
-                    let name =
-                        catch_diagnostic(ent.selected(&prefix.pos, designator), diagnostics)?;
+                    let name = ent
+                        .selected(&prefix.pos, designator)
+                        .into_eval_result(diagnostics)?;
                     resolved = match name {
                         NamedEntities::Single(named_entity) => {
                             designator.set_reference(&name);
 
-                            catch_diagnostic(
-                                ResolvedName::from_design_not_overloaded(named_entity)
-                                    .map_err(|e| Diagnostic::error(&designator.pos, e)),
-                                diagnostics,
-                            )?
+                            ResolvedName::from_design_not_overloaded(named_entity)
+                                .map_err(|e| Diagnostic::error(&designator.pos, e))
+                                .into_eval_result(diagnostics)?
                         }
                         NamedEntities::Overloaded(overloaded) => {
                             // Could be used for an alias of a subprogram

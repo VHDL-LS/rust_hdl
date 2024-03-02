@@ -14,12 +14,6 @@ use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum AnalysisError {
-    Fatal(CircularDependencyError),
-    NotFatal(Diagnostic),
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[must_use]
 pub struct CircularDependencyError {
@@ -35,33 +29,38 @@ impl CircularDependencyError {
 
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
-            diagnostics.push(Diagnostic::error(pos, "Found circular dependency"));
+            diagnostics.error(pos, "Found circular dependency");
         }
     }
 }
 
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
 
-pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
-    match res {
-        Ok(val) => Ok(Some(val)),
-        Err(EvalError::Unknown) => Ok(None),
-        Err(EvalError::Circular(circ)) => Err(circ),
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvalError {
+    // A circular dependency was found
+    Circular(CircularDependencyError),
+    // Evaluation is no longer possible, for example if encountering illegal code
+    // Typically functions returning Unknown will have published diagnostics on the side-channel
+    // And the unknown is returned to stop further upstream analysis
+    Unknown,
+}
+
+impl From<CircularDependencyError> for EvalError {
+    fn from(err: CircularDependencyError) -> EvalError {
+        EvalError::Circular(err)
     }
 }
 
-pub fn catch_diagnostic<T>(
-    res: Result<T, Diagnostic>,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> EvalResult<T> {
-    match res {
-        Ok(val) => Ok(val),
-        Err(diag) => {
-            diagnostics.push(diag);
-            Err(EvalError::Unknown)
-        }
-    }
-}
+/// The result of the evaluation of an AST element.
+/// The result has either a value of `Ok(T)`, indicating a successful evaluation of
+/// the AST and returning the result of that evaluation, or `Err(EvalError)`, indicating
+/// an error during evaluation.
+///
+/// Most of the time, the error will be `EvalError::Unknown`. This means that the evaluation
+/// step has pushed found problems in the code to some side-channel and simply returns an error,
+/// signifying that some problem was found without further specifying that problem.
+pub type EvalResult<T = ()> = Result<T, EvalError>;
 
 /// Pushes the diagnostic to the provided handler and returns
 /// with an `EvalError::Unknown` result.
@@ -75,39 +74,20 @@ macro_rules! bail {
     };
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum EvalError {
-    // A circular dependency was found
-    Circular(CircularDependencyError),
-    // Evaluation is no longer possible, for example if encountering illegal code
-    // Typically functions returning Unknown will have published diagnostics on the side-channel
-    // And the unknown is returned to stop further upstream analysis
-    Unknown,
-}
-
-pub type EvalResult<T = ()> = Result<T, EvalError>;
-
-impl From<CircularDependencyError> for AnalysisError {
-    fn from(err: CircularDependencyError) -> AnalysisError {
-        AnalysisError::Fatal(err)
-    }
-}
-
-impl From<CircularDependencyError> for EvalError {
-    fn from(err: CircularDependencyError) -> EvalError {
-        EvalError::Circular(err)
-    }
-}
-
-impl From<Diagnostic> for AnalysisError {
-    fn from(diagnostic: Diagnostic) -> AnalysisError {
-        AnalysisError::NotFatal(diagnostic)
-    }
-}
-
 pub trait IntoEvalResult<T> {
-    /// Transforms `Self` into an `EvalResult`, provided a diagnostic handler.
+    /// Transforms `Self` into an `EvalResult`.
+    ///
+    /// If `Self` has any severe errors, these should be pushed to the provided handler
+    /// and an `Err(EvalError::Unknown)` should be returned.
     fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T>;
+}
+
+pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
+    match res {
+        Ok(val) => Ok(Some(val)),
+        Err(EvalError::Unknown) => Ok(None),
+        Err(EvalError::Circular(circ)) => Err(circ),
+    }
 }
 
 impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
