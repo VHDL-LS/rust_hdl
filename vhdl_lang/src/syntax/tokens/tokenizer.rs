@@ -166,9 +166,8 @@ pub enum Kind {
     Comma,
     ColonEq,
     RightArrow,
-    GraveAccent,
-    // `
-    Text, // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
+    GraveAccent, // `
+    Text,        // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
 }
 
 use self::Kind::*;
@@ -622,9 +621,6 @@ pub trait TokenAccess {
 
 impl TokenAccess for Vec<Token> {
     fn get_token(&self, id: TokenId) -> &Token {
-        if id.0 >= self.len() {
-            eprintln!("Last token: {:?}", self.last());
-        }
         &self[id.0]
     }
 
