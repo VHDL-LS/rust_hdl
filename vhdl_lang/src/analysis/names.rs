@@ -1536,7 +1536,7 @@ impl<'a> AnalyzeContext<'a> {
         type_mark: TypeEnt<'a>,
         indexes: &mut [Index],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<TypeEnt<'a>> {
+    ) -> EvalResult<TypeEnt<'a>> {
         let base_type = type_mark.base_type();
 
         let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
@@ -1566,11 +1566,13 @@ impl<'a> AnalyzeContext<'a> {
 
             Ok(*elem_type)
         } else {
-            Err(Diagnostic::error(
-                suffix_pos,
-                format!("{} cannot be indexed", type_mark.describe()),
-            )
-            .into())
+            bail!(
+                diagnostics,
+                Diagnostic::error(
+                    suffix_pos,
+                    format!("{} cannot be indexed", type_mark.describe()),
+                )
+            );
         }
     }
 

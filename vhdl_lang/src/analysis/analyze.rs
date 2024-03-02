@@ -40,7 +40,6 @@ impl CircularDependencyError {
     }
 }
 
-pub type AnalysisResult<T> = Result<T, AnalysisError>;
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
 
 pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
@@ -118,15 +117,6 @@ impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
             Err(diagnostic) => {
                 bail!(diagnostics, diagnostic);
             }
-        }
-    }
-}
-
-impl AnalysisError {
-    pub fn into_non_fatal(self) -> FatalResult<Diagnostic> {
-        match self {
-            AnalysisError::Fatal(err) => Err(err),
-            AnalysisError::NotFatal(diag) => Ok(diag),
         }
     }
 }
