@@ -6,14 +6,17 @@
 
 //! Configuration of the design hierarchy and other settings
 
-use crate::data::*;
-use fnv::FnvHashMap;
 use std::env;
+use std::env::VarError;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
+
+use fnv::FnvHashMap;
 use toml::Value;
+
+use crate::data::*;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
@@ -130,6 +133,17 @@ impl Config {
                 let file = file
                     .as_str()
                     .ok_or_else(|| format!("not a string {file}"))?;
+
+                let file = substitute_environment_variables(file, |v| std::env::var(v)).map_err(
+                    |(var, e)| match e {
+                        VarError::NotPresent => {
+                            format!("environment variable '{var}' is not defined")
+                        }
+                        VarError::NotUnicode(_) => format!(
+                            "environment variable '{var}' does not contain valid unicode data"
+                        ),
+                    },
+                )?;
 
                 let path = parent.join(file);
                 let path = path
@@ -278,6 +292,37 @@ impl Config {
     }
 }
 
+fn substitute_environment_variables(
+    s: &str,
+    lookup: impl Fn(&str) -> Result<String, VarError>,
+) -> Result<String, (String, VarError)> {
+    let mut result = String::new();
+
+    let mut left = s;
+    while let Some(start) = left.find('$') {
+        // keep non-env var piece as-is
+        result.push_str(&left[..start]);
+        left = &left[start + 1..];
+
+        // replace env var
+        let env_name_len = left
+            .find(|c: char| !(c == '_' || c.is_ascii_alphanumeric()))
+            .unwrap_or(left.len());
+        let env_name = &left[..env_name_len];
+
+        let replacement = lookup(env_name).map_err(|e| (env_name.to_owned(), e))?;
+        result.push_str(&replacement);
+
+        // skip past env var
+        left = &left[env_name_len..];
+    }
+
+    // keep remaining string
+    result.push_str(left);
+
+    Ok(result)
+}
+
 /// Returns true if the pattern is a plain file name and not a glob pattern
 fn is_literal(pattern: &str) -> bool {
     for chr in pattern.chars() {
@@ -293,8 +338,12 @@ fn is_literal(pattern: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::collections::HashMap;
+    use std::ffi::OsString;
+
     use pretty_assertions::assert_eq;
+
+    use super::*;
 
     /// Utility function to create an empty file in parent folder
     fn touch(parent: &Path, file_name: &str) -> PathBuf {
@@ -501,6 +550,7 @@ lib.files = [
         assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
+
     #[test]
     fn test_warning_on_emtpy_glob_pattern() {
         let parent = Path::new("parent_folder");
@@ -540,5 +590,70 @@ work.files = [
             parent,
         );
         assert_eq!(config.expect_err("Expected erroneous config"), "The 'work' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'")
+    }
+
+    #[test]
+    fn substitute() {
+        let mut map = HashMap::new();
+        map.insert("A".to_owned(), Ok("a".to_owned()));
+        map.insert("ABCD".to_owned(), Ok("abcd".to_owned()));
+        map.insert("A_0".to_owned(), Ok("a0".to_owned()));
+        map.insert("_".to_owned(), Ok("u".to_owned()));
+        map.insert("PATH".to_owned(), Ok("some/path".to_owned()));
+        map.insert(
+            "not_unicode".to_owned(),
+            Err(VarError::NotUnicode(OsString::new())),
+        );
+        // note: "not_present" is not in the map
+
+        let lookup = |v: &str| map.get(v).unwrap_or(&Err(VarError::NotPresent)).clone();
+
+        // simple pattern tests
+        assert_eq!(
+            Ok("test".to_owned()),
+            substitute_environment_variables("test", lookup)
+        );
+        assert_eq!(
+            Ok("a".to_owned()),
+            substitute_environment_variables("$A", lookup)
+        );
+        assert_eq!(
+            Ok("abcd".to_owned()),
+            substitute_environment_variables("$ABCD", lookup)
+        );
+        assert_eq!(
+            Ok("a0".to_owned()),
+            substitute_environment_variables("$A_0", lookup)
+        );
+        assert_eq!(
+            Ok("u".to_owned()),
+            substitute_environment_variables("$_", lookup)
+        );
+        assert_eq!(
+            Ok("some/path".to_owned()),
+            substitute_environment_variables("$PATH", lookup)
+        );
+
+        // embedded in longer string
+        assert_eq!(
+            Ok("test/a/test".to_owned()),
+            substitute_environment_variables("test/$A/test", lookup)
+        );
+        assert_eq!(
+            Ok("test/a".to_owned()),
+            substitute_environment_variables("test/$A", lookup)
+        );
+        assert_eq!(
+            Ok("a/test".to_owned()),
+            substitute_environment_variables("$A/test", lookup)
+        );
+        assert_eq!(
+            Ok("test/some/path/test".to_owned()),
+            substitute_environment_variables("test/$PATH/test", lookup)
+        );
+
+        // error cases
+        assert!(substitute_environment_variables("$not_present", lookup).is_err());
+        assert!(substitute_environment_variables("$not_unicode", lookup).is_err());
     }
 }
