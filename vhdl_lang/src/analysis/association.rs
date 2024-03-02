@@ -536,7 +536,7 @@ impl<'a> AnalyzeContext<'a> {
                 };
                 if !matches!(name, ResolvedName::Final(ent) if matches!(
                     ent.kind(),
-                    AnyEntKind::File(_)
+                    AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
                     diagnostics.error(actual_pos, "Name must denote a file name");
                 }
