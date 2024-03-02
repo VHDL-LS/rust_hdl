@@ -64,20 +64,6 @@ pub fn catch_diagnostic<T>(
     }
 }
 
-pub fn catch_analysis_err<T>(
-    res: AnalysisResult<T>,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> EvalResult<T> {
-    match res {
-        Ok(val) => Ok(val),
-        Err(AnalysisError::Fatal(err)) => Err(EvalError::Circular(err)),
-        Err(AnalysisError::NotFatal(diag)) => {
-            diagnostics.push(diag);
-            Err(EvalError::Unknown)
-        }
-    }
-}
-
 /// Pushes the diagnostic to the provided handler and returns
 /// with an `EvalError::Unknown` result.
 ///

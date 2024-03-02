@@ -557,7 +557,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<Option<TypeEnt<'a>>> {
         if !could_be_indexed_name(assocs) {
             return Ok(None);
         }
@@ -581,7 +581,7 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<Option<TypeEnt<'a>>> {
         if let Expression::Name(name) = expr {
             if let Name::Attribute(ref mut attr) = name.as_mut() {
                 if attr.as_range().is_some() {
@@ -606,11 +606,13 @@ impl<'a> AnalyzeContext<'a> {
                 return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer) {
                     Ok(Some(typ))
                 } else {
-                    Err(Diagnostic::error(
-                        expr_pos,
-                        format!("{} cannot be used as a discrete range", typ.describe()),
-                    )
-                    .into())
+                    bail!(
+                        diagnostics,
+                        Diagnostic::error(
+                            expr_pos,
+                            format!("{} cannot be used as a discrete range", typ.describe()),
+                        )
+                    );
                 };
             }
         }
@@ -628,10 +630,13 @@ impl<'a> AnalyzeContext<'a> {
         prefix_typ: TypeEnt<'a>,
         suffix: &mut Suffix,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<TypeOrMethod<'a>>> {
+    ) -> EvalResult<Option<TypeOrMethod<'a>>> {
         match suffix {
-            Suffix::Selected(suffix) => {
-                Ok(Some(match prefix_typ.selected(prefix_pos, suffix)? {
+            Suffix::Selected(suffix) => Ok(Some(
+                match prefix_typ
+                    .selected(prefix_pos, suffix)
+                    .into_eval_result(diagnostics)?
+                {
                     TypedSelection::RecordElement(elem) => {
                         suffix.set_unique_reference(&elem);
                         TypeOrMethod::Type(elem.type_mark())
@@ -640,8 +645,8 @@ impl<'a> AnalyzeContext<'a> {
                         WithPos::new(suffix.item.item.clone(), suffix.pos.clone()),
                         name,
                     ),
-                }))
-            }
+                },
+            )),
             Suffix::All => Ok(prefix_typ.accessed_type().map(TypeOrMethod::Type)),
             Suffix::Slice(drange) => Ok(if let Some(typ) = prefix_typ.sliced_as() {
                 if let Type::Array { indexes, .. } = typ.kind() {
@@ -708,13 +713,15 @@ impl<'a> AnalyzeContext<'a> {
 
                         let num_indexes = indexes.len();
                         if assocs.len() != num_indexes {
-                            Err(Diagnostic::dimension_mismatch(
-                                name_pos,
-                                prefix_typ,
-                                assocs.len(),
-                                num_indexes,
-                            )
-                            .into())
+                            bail!(
+                                diagnostics,
+                                Diagnostic::dimension_mismatch(
+                                    name_pos,
+                                    prefix_typ,
+                                    assocs.len(),
+                                    num_indexes,
+                                )
+                            );
                         } else {
                             Ok(Some(TypeOrMethod::Type(elem_type)))
                         }
@@ -1241,15 +1248,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ResolvedName::ObjectName(oname) => {
-                match catch_analysis_err(
-                    self.resolve_typed_suffix(
-                        scope,
-                        &prefix.pos,
-                        name_pos,
-                        oname.type_mark(),
-                        &mut suffix,
-                        diagnostics,
-                    ),
+                match self.resolve_typed_suffix(
+                    scope,
+                    &prefix.pos,
+                    name_pos,
+                    oname.type_mark(),
+                    &mut suffix,
                     diagnostics,
                 )? {
                     Some(TypeOrMethod::Type(typ)) => {
@@ -1270,15 +1274,12 @@ impl<'a> AnalyzeContext<'a> {
             }
             ResolvedName::Expression(ref typ) => match typ {
                 DisambiguatedType::Unambiguous(typ) => {
-                    match catch_analysis_err(
-                        self.resolve_typed_suffix(
-                            scope,
-                            &prefix.pos,
-                            name_pos,
-                            *typ,
-                            &mut suffix,
-                            diagnostics,
-                        ),
+                    match self.resolve_typed_suffix(
+                        scope,
+                        &prefix.pos,
+                        name_pos,
+                        *typ,
+                        &mut suffix,
                         diagnostics,
                     )? {
                         Some(TypeOrMethod::Type(typ)) => {

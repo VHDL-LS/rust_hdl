@@ -1110,8 +1110,8 @@ impl<'a> AnalyzeContext<'a> {
                                 &choice.pos,
                                 index_expr,
                                 diagnostics,
-                            ) {
-                                Ok(Some(typ)) => {
+                            )? {
+                                Some(typ) => {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
@@ -1124,7 +1124,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                     can_be_array = true;
                                 }
-                                Ok(None) => {
+                                None => {
                                     if let Some(index_type) = index_type {
                                         self.expr_pos_with_ttyp(
                                             scope,
@@ -1135,10 +1135,6 @@ impl<'a> AnalyzeContext<'a> {
                                         )?;
                                     }
                                     can_be_array = false;
-                                }
-                                Err(err) => {
-                                    diagnostics.push(err.into_non_fatal()?);
-                                    return Ok(());
                                 }
                             }
                         }
