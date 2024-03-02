@@ -632,7 +632,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    /// Returns a reference to the the uninstantiated package
+    /// Returns a reference to the uninstantiated package
     pub fn analyze_package_instance_name(
         &self,
         scope: &Scope<'a>,
