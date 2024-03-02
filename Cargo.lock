@@ -925,7 +925,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "vhdl_lang"
-version = "0.77.0"
+version = "0.78.0"
 dependencies = [
  "assert_matches",
  "brunch",
@@ -947,7 +947,7 @@ dependencies = [
 
 [[package]]
 name = "vhdl_lang_macros"
-version = "0.77.0"
+version = "0.78.0"
 dependencies = [
  "quote",
  "syn 2.0.22",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "vhdl_ls"
-version = "0.77.0"
+version = "0.78.0"
 dependencies = [
  "clap",
  "env_logger",
