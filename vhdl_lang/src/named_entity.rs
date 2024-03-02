@@ -13,43 +13,25 @@ use crate::ast::{
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
-
 mod types;
-
 use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
-
 mod overloaded;
-
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
-
 mod object;
-
 pub use object::{Object, ObjectEnt, ObjectInterface};
-
 mod design;
-
 pub use design::{Design, DesignEnt};
-
 mod attribute;
-
 pub use attribute::AttributeEnt;
-
 mod arena;
-
 pub use arena::{Arena, ArenaId, EntityId, FinalArena, Reference};
-
 mod visibility;
-
 pub use visibility::{Visibility, Visible};
-
 mod region;
-
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
-
 mod formal_region;
-
 use crate::TokenSpan;
 pub use formal_region::{
     FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
