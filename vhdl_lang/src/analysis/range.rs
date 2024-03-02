@@ -275,7 +275,7 @@ impl<'a> AnalyzeContext<'a> {
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
                 ),
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }

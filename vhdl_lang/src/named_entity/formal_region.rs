@@ -192,7 +192,7 @@ impl<'a> FormalRegion<'a> {
         Err(Diagnostic::error(
             pos,
             format!("No declaration of '{designator}'"),
-            ErrorCode::MissingDeclaration,
+            ErrorCode::NotDeclared,
         ))
     }
 
@@ -329,7 +329,7 @@ impl<'a> GpkgRegion<'a> {
         Err(Diagnostic::error(
             pos,
             format!("No declaration of '{designator}'"),
-            ErrorCode::MissingDeclaration,
+            ErrorCode::NotDeclared,
         ))
     }
 

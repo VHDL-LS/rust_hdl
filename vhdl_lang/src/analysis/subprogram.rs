@@ -310,7 +310,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
                             ),
-                            ErrorCode::MissingDeclaration,
+                            ErrorCode::NotDeclared,
                         );
                         return Err(EvalError::Unknown);
                     }

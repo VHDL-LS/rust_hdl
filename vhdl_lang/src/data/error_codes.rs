@@ -120,7 +120,7 @@ pub enum ErrorCode {
     /// function foo(a, b: integer) return bit;
     /// constant bar: bit := foo(1, 2, 3);
     /// ```
-    ExtraneousArgument,
+    TooManyArguments,
     /// A formal parameter wasn't associated in a function call
     ///
     /// # Example
@@ -128,7 +128,7 @@ pub enum ErrorCode {
     /// function foo(a, b: integer) return bit;
     /// constant bar: bit := foo(a => 1);
     /// ```
-    MissingArguments,
+    Unassociated,
     /// A formal element has already been associated
     ///
     /// # Example
@@ -244,9 +244,9 @@ pub enum ErrorCode {
     ///   end process;
     /// end architecture;
     /// ```
-    IllegalAssignmentTarget,
+    IllegalTarget,
     /// No declaration of some designator was found
-    MissingDeclaration,
+    NotDeclared,
     /// A declaration was already declared previously
     DuplicateDeclaration,
     /// A designator is hidden by a conflicting use clause
@@ -288,7 +288,7 @@ pub enum ErrorCode {
     ///
     /// This is different from a type error. When a type error occurs,
     /// the kinds already match.
-    KindsError,
+    MismatchedKinds,
     /// An extra index constraint is present
     TooManyConstraints,
     /// There are not enough constraints
@@ -303,7 +303,7 @@ pub enum ErrorCode {
     /// A prefix is invalid in a certain context
     InvalidPrefix,
     /// An index that is out of range for an N-Dimensional array
-    ArrayDimensionOutOfRange,
+    IndexOutOfRange,
     /// A literal that cannot be assigned to its target type
     InvalidLiteral,
     /// An Architecture was declared before an entity

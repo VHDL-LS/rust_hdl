@@ -158,7 +158,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             type_decl.ident.pos(),
                             format!("No declaration of protected type '{}'", &type_decl.ident),
-                            ErrorCode::MissingDeclaration,
+                            ErrorCode::NotDeclared,
                         ));
                     }
                 };

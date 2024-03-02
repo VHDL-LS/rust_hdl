@@ -206,7 +206,7 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntities::Overloaded(_) => Err(Diagnostic::error(
                 &unit.item.pos,
                 "Overloaded name may not be physical unit",
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             )),
         }
     }

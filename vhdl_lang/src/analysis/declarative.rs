@@ -141,7 +141,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "Missing full type declaration of incomplete type '{}'",
                                             type_decl.ident.name()
                                         ),
-                                            ErrorCode::MissingDeclaration,
+                                            ErrorCode::NotDeclared,
                                         );
                                         error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);

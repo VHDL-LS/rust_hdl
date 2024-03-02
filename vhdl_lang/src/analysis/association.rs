@@ -321,7 +321,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(Diagnostic::error(
                         &actual.pos,
                         "Unexpected extra argument",
-                        ErrorCode::ExtraneousArgument,
+                        ErrorCode::TooManyArguments,
                     )),
                 ));
             };
@@ -379,7 +379,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut diagnostic = Diagnostic::error(
                     error_pos,
                     format!("No association of {}", formal.describe()),
-                    ErrorCode::MissingArguments,
+                    ErrorCode::Unassociated,
                 );
 
                 if let Some(decl_pos) = formal.decl_pos() {

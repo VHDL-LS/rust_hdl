@@ -558,10 +558,14 @@ function myfun(arg1 : integer) return integer;
                 Diagnostic::error(
                     fcall.s1("missing"),
                     "No declaration of 'missing'",
-                    ErrorCode::MissingDeclaration,
+                    ErrorCode::NotDeclared,
                 ),
-                Diagnostic::error(fcall, "No association of parameter 'arg1'")
-                    .related(decl.s1("arg1"), "Defined here"),
+                Diagnostic::error(
+                    fcall,
+                    "No association of parameter 'arg1'",
+                    ErrorCode::Unassociated,
+                )
+                .related(decl.s1("arg1"), "Defined here"),
             ],
         );
     }
@@ -581,17 +585,19 @@ function myfun(arg2 : integer) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[INTEGER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[INTEGER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[INTEGER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[INTEGER return CHARACTER]",
+            )],
         );
     }
 
@@ -654,17 +660,19 @@ function myfun(arg1 : character) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[CHARACTER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[CHARACTER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[CHARACTER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[CHARACTER return CHARACTER]",
+            )],
         );
     }
 
@@ -709,17 +717,19 @@ function myfun(arg1 : integer) return character;
 
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[INTEGER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[INTEGER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[INTEGER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[INTEGER return CHARACTER]",
+            )],
         )
     }
 

@@ -244,7 +244,7 @@ impl<'a> AnalyzeContext<'a> {
                 (visibility, region)
             } else {
                 let mut diagnostic =
-                    Diagnostic::error(unit.pos(), "Expected an entity", ErrorCode::KindsError);
+                    Diagnostic::error(unit.pos(), "Expected an entity", ErrorCode::MismatchedKinds);
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -298,7 +298,7 @@ impl<'a> AnalyzeContext<'a> {
             | Design::UninstPackage(ref visibility, ref region) => (visibility, region),
             _ => {
                 let mut diagnostic =
-                    Diagnostic::error(unit.pos(), "Expected a package", ErrorCode::KindsError);
+                    Diagnostic::error(unit.pos(), "Expected a package", ErrorCode::MismatchedKinds);
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -409,7 +409,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "{} does not denote an entity",
                                             primary_ent.describe()
                                         ),
-                                        ErrorCode::KindsError,
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     Err(EvalError::Unknown)
                                 }
@@ -423,7 +423,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             _ => {
-                diagnostics.error(&ent_name, "Expected selected name", ErrorCode::KindsError);
+                diagnostics.error(
+                    &ent_name,
+                    "Expected selected name",
+                    ErrorCode::MismatchedKinds,
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -554,7 +558,7 @@ impl<'a> AnalyzeContext<'a> {
                                                     "{} does not denote a context declaration",
                                                     ent.describe()
                                                 ),
-                                                ErrorCode::KindsError,
+                                                ErrorCode::MismatchedKinds,
                                             ));
                                         }
                                     }
@@ -664,7 +668,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics.error(
             &package_name.pos,
             format!("'{package_name}' is not an uninstantiated generic package"),
-            ErrorCode::KindsError,
+            ErrorCode::MismatchedKinds,
         );
         Err(EvalError::Unknown)
     }

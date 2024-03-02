@@ -77,7 +77,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &formal.pos,
                         "Expected simple name for package generic formal",
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     );
                     continue;
                 }
@@ -87,7 +87,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     &assoc.actual.pos,
                     "Extra actual for generic map",
-                    ErrorCode::ExtraneousArgument,
+                    ErrorCode::TooManyArguments,
                 );
                 continue;
             };
@@ -142,7 +142,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &assoc.actual.pos,
                                 "Cannot map expression to type generic",
-                                ErrorCode::KindsError,
+                                ErrorCode::MismatchedKinds,
                             );
                             continue;
                         };
@@ -178,7 +178,7 @@ impl<'a> AnalyzeContext<'a> {
                                             target.designator(),
                                             signature.key().describe()
                                         ),
-                                        ErrorCode::KindsError,
+                                        ErrorCode::MismatchedKinds,
                                     );
 
                                     diag.add_subprogram_candidates(
@@ -195,7 +195,7 @@ impl<'a> AnalyzeContext<'a> {
                                         "Cannot map {} to subprogram generic",
                                         resolved.describe()
                                     ),
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 )
                             }
                         }
@@ -211,7 +211,7 @@ impl<'a> AnalyzeContext<'a> {
                         _ => diagnostics.error(
                             &assoc.actual.pos,
                             "Cannot map expression to subprogram generic",
-                            ErrorCode::KindsError,
+                            ErrorCode::MismatchedKinds,
                         ),
                     },
                     GpkgInterfaceEnt::Package(_) => match expr {
@@ -221,7 +221,7 @@ impl<'a> AnalyzeContext<'a> {
                         _ => diagnostics.error(
                             &assoc.actual.pos,
                             "Cannot map expression to package generic",
-                            ErrorCode::KindsError,
+                            ErrorCode::MismatchedKinds,
                         ),
                     },
                 },

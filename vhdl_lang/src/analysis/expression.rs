@@ -528,7 +528,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "Character literal cannot denote procedure symbol {}",
                                             ent.describe(),
                                         ),
-                                        ErrorCode::KindsError,
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     Err(EvalError::Unknown)
                                 }
@@ -860,7 +860,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         expr_pos,
                         format!("composite does not match {}", target_type.describe()),
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     );
                 }
             },
@@ -942,7 +942,7 @@ impl<'a> AnalyzeContext<'a> {
                                     diagnostics.error(
                                         &choice.pos,
                                         "Record aggregate choice must be a simple name",
-                                        ErrorCode::KindsError,
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     None
                                 }
@@ -952,7 +952,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &choice.pos,
                                     "Record aggregate choice must be a simple name",
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 None
                             }
@@ -970,7 +970,7 @@ impl<'a> AnalyzeContext<'a> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::KindsError);
+                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::MismatchedKinds);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1026,7 +1026,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &pos,
                                 "Record aggregate choice must be a simple name",
-                                ErrorCode::KindsError,
+                                ErrorCode::MismatchedKinds,
                             );
                         }
                         None
@@ -1081,7 +1081,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "Missing association of record element '{}'",
                                 elem.designator()
                             ),
-                            ErrorCode::MissingArguments,
+                            ErrorCode::Unassociated,
                         )
                         .opt_related(
                             elem.decl_pos(),
@@ -1465,7 +1465,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
-                ErrorCode::MissingDeclaration,
+                ErrorCode::NotDeclared,
             )],
         );
     }

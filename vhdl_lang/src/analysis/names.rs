@@ -471,7 +471,7 @@ impl<'a> AnalyzeContext<'a> {
                 Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -486,7 +486,7 @@ impl<'a> AnalyzeContext<'a> {
                 _ => Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -521,7 +521,7 @@ impl<'a> AnalyzeContext<'a> {
                 Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -532,7 +532,7 @@ impl<'a> AnalyzeContext<'a> {
                 _ => Err(Diagnostic::error(
                     pos,
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -623,7 +623,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(Diagnostic::error(
                         expr_pos,
                         format!("{} cannot be used as a discrete range", typ.describe()),
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     )
                     .into())
                 };
@@ -674,7 +674,7 @@ impl<'a> AnalyzeContext<'a> {
                                 indexes.len(),
                                 typ.describe()
                             ),
-                            ErrorCode::KindsError,
+                            ErrorCode::MismatchedKinds,
                         )
                     }
                 }
@@ -779,7 +779,7 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::ArrayDimensionOutOfRange);
+                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::IndexOutOfRange);
             }
             Err(EvalError::Unknown)
         }
@@ -1017,7 +1017,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     name_pos,
                     "Range cannot be used as an expression",
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 );
                 Err(EvalError::Unknown)
             }
@@ -1164,7 +1164,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1179,7 +1179,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1240,7 +1240,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1255,7 +1255,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
-                                    ErrorCode::KindsError,
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -1460,7 +1460,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     name_pos,
                     format!("Expected type name, got {}", resolved.describe()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 );
                 Err(EvalError::Unknown)
             }
@@ -1499,7 +1499,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} cannot be the argument of type conversion",
                         types.describe()
                     ),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 ),
             }
         }
@@ -1611,7 +1611,7 @@ impl<'a> AnalyzeContext<'a> {
             Err(Diagnostic::error(
                 suffix_pos,
                 format!("{} cannot be indexed", type_mark.describe()),
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             )
             .into())
         }
@@ -1762,7 +1762,7 @@ impl Diagnostic {
         let mut diag = Diagnostic::error(
             pos,
             "Number of indexes does not match array dimension",
-            ErrorCode::ArrayDimensionOutOfRange,
+            ErrorCode::IndexOutOfRange,
         );
 
         if let Some(decl_pos) = base_type.decl_pos() {
@@ -1810,7 +1810,7 @@ fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn Diagno
         diagnostics.error(
             &expr.pos,
             format!("'{} attribute does not take an argument", suffix.attr),
-            ErrorCode::ExtraneousArgument,
+            ErrorCode::TooManyArguments,
         )
     }
 }
@@ -1824,7 +1824,7 @@ fn check_no_sattr_argument(
         diagnostics.error(
             &expr.pos,
             format!("'{attr} attribute does not take an argument"),
-            ErrorCode::ExtraneousArgument,
+            ErrorCode::TooManyArguments,
         )
     }
 }
@@ -1840,7 +1840,7 @@ fn check_single_argument<'a>(
         diagnostics.error(
             pos,
             format!("'{} attribute requires a single argument", suffix.attr),
-            ErrorCode::MissingArguments,
+            ErrorCode::Unassociated,
         );
         None
     }
@@ -2103,7 +2103,7 @@ variable c0 : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 &code.s1("c0"),
                 "variable 'c0' cannot be called as a function",
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             )],
         );
     }
@@ -2187,7 +2187,7 @@ procedure proc(arg: natural);
             vec![Diagnostic::error(
                 code.s1("proc"),
                 "Procedure calls are not valid in names and expressions",
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             )],
         );
     }
@@ -2353,7 +2353,7 @@ variable c0 : integer_vector(0 to 6);
             vec![Diagnostic::error(
                 code.s1("real"),
                 "real type 'REAL' cannot be used as a discrete range",
-                ErrorCode::KindsError,
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -2375,6 +2375,7 @@ variable c0 : arr_t;
             vec![Diagnostic::error(
                 code.s1("c0(0 to 1)"),
                 "Cannot slice 2-dimensional array type 'arr_t'",
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -2464,6 +2465,7 @@ type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of intege
             vec![Diagnostic::error(
                 code.s1("3"),
                 "Index 3 out of range for array with 2 dimensions, expected 1 to 2",
+                ErrorCode::IndexOutOfRange,
             )],
         );
 
@@ -2478,6 +2480,7 @@ type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of intege
             vec![Diagnostic::error(
                 code.s1("1+1"),
                 "Expected an integer literal",
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -2574,6 +2577,7 @@ constant c0 : arr_t := (others => 0);
             vec![Diagnostic::error(
                 code.pos(),
                 "'image attribute requires a single argument",
+                ErrorCode::Unassociated,
             )],
         )
     }
@@ -2595,6 +2599,7 @@ constant c0 : arr_t := (others => 0);
             vec![Diagnostic::error(
                 code.s1("0"),
                 "'low attribute does not take an argument",
+                ErrorCode::TooManyArguments,
             )],
         )
     }
@@ -2645,6 +2650,7 @@ constant c0 : arr_t := (others => 0);
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match type universal_integer",
+                ErrorCode::MismatchedKinds,
             )],
         );
 
@@ -2727,6 +2733,7 @@ variable thevar : integer;
             vec![Diagnostic::error(
                 code.s1("thevar"),
                 "Expected signal prefix for 'delayed attribute, got variable 'thevar'",
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -2856,6 +2863,7 @@ variable thevar : integer;
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "Unknown attribute 'missing",
+                ErrorCode::IllegalAttribute,
             )],
         )
     }
@@ -2879,6 +2887,7 @@ variable thevar : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 code,
                 "Range cannot be used as an expression",
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -2951,6 +2960,7 @@ signal thesig : integer;
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "type 'CHARACTER' cannot be converted to integer type 'INTEGER'",
+                ErrorCode::InvalidTypeConversion,
             )],
         );
 
@@ -2968,6 +2978,7 @@ signal thesig : integer;
             vec![Diagnostic::error(
                 code.s1("false"),
                 "type 'BOOLEAN' cannot be converted to real type 'REAL'",
+                ErrorCode::InvalidTypeConversion,
             )],
         );
     }
@@ -3012,6 +3023,7 @@ type character_vector_2d is array (natural range 0 to 1, natural range 0 to 2) o
             vec![Diagnostic::error(
                 code.s1("string'(\"01\")"),
                 "array type 'STRING' cannot be converted to array type 'character_vector_2d'",
+                ErrorCode::InvalidTypeConversion,
             )],
         );
 
@@ -3029,6 +3041,7 @@ type character_vector_2d is array (natural range 0 to 1, natural range 0 to 2) o
             vec![Diagnostic::error(
                 code.s1("string'(\"01\")"),
                 "array type 'STRING' cannot be converted to array type 'INTEGER_VECTOR'",
+                ErrorCode::InvalidTypeConversion,
             )],
         );
     }
@@ -3113,17 +3126,19 @@ type enum_t is (alpha, beta);
         );
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
-                    .related(
-                        decl.s("myfun", 1),
-                        "Might be function myfun[INTEGER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Might be function myfun[CHARACTER return INTEGER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                code.s1("myfun"),
+                "Ambiguous call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s("myfun", 1),
+                "Might be function myfun[INTEGER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Might be function myfun[CHARACTER return INTEGER]",
+            )],
         )
     }
 
@@ -3152,17 +3167,19 @@ type enum_t is (alpha, beta);
         );
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
-                    .related(
-                        decl.s("myfun", 1),
-                        "Might be function myfun[INTEGER return rec1_t]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Might be function myfun[INTEGER return rec2_t]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                code.s1("myfun"),
+                "Ambiguous call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s("myfun", 1),
+                "Might be function myfun[INTEGER return rec1_t]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Might be function myfun[INTEGER return rec2_t]",
+            )],
         )
     }
 }

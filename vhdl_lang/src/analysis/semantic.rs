@@ -37,7 +37,7 @@ impl<'a> AnalyzeContext<'a> {
                     let mut diag = Diagnostic::error(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     );
                     if let Some(pos) = other.decl_pos() {
                         diag.add_related(pos, "Defined here");
@@ -56,7 +56,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             pos,
                             format!("array type expected for '{attr} attribute",),
-                            ErrorCode::KindsError,
+                            ErrorCode::MismatchedKinds,
                         );
                         Err(EvalError::Unknown)
                     }
@@ -69,7 +69,7 @@ impl<'a> AnalyzeContext<'a> {
                     let mut diag = Diagnostic::error(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     );
                     if let Some(pos) = other.decl_pos() {
                         diag.add_related(pos, "Defined here");
@@ -166,7 +166,7 @@ impl<'a> AnalyzeContext<'a> {
                             let mut diagnostic = Diagnostic::error(
                                 &name.pos,
                                 "Invalid procedure call",
-                                ErrorCode::KindsError,
+                                ErrorCode::MismatchedKinds,
                             );
                             for ent in names.sorted_entities() {
                                 if let Some(decl_pos) = ent.decl_pos() {
@@ -210,7 +210,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         &name.pos,
                         format!("{} is not a procedure", resolved.describe_type()),
-                        ErrorCode::KindsError,
+                        ErrorCode::MismatchedKinds,
                     ));
                     self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                 }
@@ -219,7 +219,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.push(Diagnostic::error(
                     &name.pos,
                     format!("{} is not a procedure", resolved.describe_type()),
-                    ErrorCode::KindsError,
+                    ErrorCode::MismatchedKinds,
                 ));
                 self.analyze_assoc_elems(scope, parameters, diagnostics)?;
             }
@@ -266,7 +266,7 @@ impl<'a> ResolvedName<'a> {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),
-            ErrorCode::KindsError,
+            ErrorCode::MismatchedKinds,
         );
         if let Some(decl_pos) = self.decl_pos() {
             error.add_related(decl_pos, "Defined here");
@@ -310,7 +310,7 @@ impl Diagnostic {
                 suffix,
                 named_entity.describe(),
             ),
-            ErrorCode::MissingDeclaration,
+            ErrorCode::NotDeclared,
         )
     }
 }
