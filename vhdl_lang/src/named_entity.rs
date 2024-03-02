@@ -13,34 +13,26 @@ use crate::ast::{
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
-
 mod types;
 use fnv::FnvHashMap;
 pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
-
 mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
-
 mod object;
 pub use object::{Object, ObjectEnt, ObjectInterface};
-
 mod design;
 pub use design::{Design, DesignEnt};
-
 mod attribute;
 pub use attribute::AttributeEnt;
-
 mod arena;
 pub use arena::{Arena, ArenaId, EntityId, FinalArena, Reference};
-
 mod visibility;
 pub use visibility::{Visibility, Visible};
-
 mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
-
 mod formal_region;
+use crate::TokenSpan;
 pub use formal_region::{
     FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
     RecordRegion,
@@ -153,6 +145,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
             designator,
             kind,
             decl_pos,
+            src_span,
             attrs,
         } = self;
 
@@ -164,6 +157,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
         s.field(stringify!(designator), designator);
         s.field(stringify!(kind), kind);
         s.field(stringify!(decl_pos), decl_pos);
+        s.field(stringify!(src_span), src_span);
         s.field(stringify!(attrs), attrs);
         s.finish()
     }
@@ -194,6 +188,7 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
+    pub src_span: Option<TokenSpan>,
 
     /// Custom attributes on this entity
     pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
@@ -206,6 +201,7 @@ impl Arena {
         designator: impl Into<Designator>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -213,6 +209,7 @@ impl Arena {
             Related::ImplicitOf(of_ent),
             kind,
             decl_pos.cloned(),
+            src_span,
         )
     }
 
@@ -221,12 +218,14 @@ impl Arena {
         decl: &mut WithDecl<T>,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         let ent = self.explicit(
             decl.tree.name().clone(),
             parent,
             kind,
             Some(decl.tree.pos()),
+            src_span,
         );
         decl.decl.set(ent.id());
         ent
@@ -238,6 +237,7 @@ impl Arena {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -245,6 +245,7 @@ impl Arena {
             Related::None,
             kind,
             decl_pos.cloned(),
+            src_span,
         )
     }
 }
@@ -689,12 +690,14 @@ impl WithDecl<Ident> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.name().clone(),
             parent,
             kind,
             Some(self.tree.pos()),
+            src_span,
         );
         self.decl.set(ent.id());
         ent
@@ -707,8 +710,15 @@ impl WithDecl<WithPos<Designator>> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
-        let ent = arena.explicit(self.tree.item.clone(), parent, kind, Some(&self.tree.pos));
+        let ent = arena.explicit(
+            self.tree.item.clone(),
+            parent,
+            kind,
+            Some(&self.tree.pos),
+            src_span,
+        );
         self.decl.set(ent.id());
         ent
     }

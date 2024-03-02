@@ -111,6 +111,7 @@ impl Library {
             Related::None,
             AnyEntKind::Library,
             None,
+            None,
         );
 
         Library {
@@ -245,7 +246,7 @@ impl Library {
         result
     }
 
-    pub(crate) fn get_unit<'a>(&'a self, key: &UnitKey) -> Option<&'a LockedUnit> {
+    pub(crate) fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
 
@@ -410,11 +411,7 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn item_at_cursor<'a>(
-        &'a self,
-        source: &Source,
-        cursor: Position,
-    ) -> Option<(SrcPos, EntRef<'a>)> {
+    pub fn item_at_cursor(&self, source: &Source, cursor: Position) -> Option<(SrcPos, EntRef)> {
         let mut searcher = ItemAtCursor::new(self, cursor);
 
         for unit in self.units_by_source(source) {
@@ -431,7 +428,7 @@ impl DesignRoot {
         None
     }
 
-    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<EntRef> {
         let (_, ent) = self.item_at_cursor(source, cursor)?;
         Some(ent)
     }
@@ -563,23 +560,34 @@ impl DesignRoot {
         &'a self,
         library_name: &Symbol,
         source: &Source,
-    ) -> Vec<EntHierarchy<'a>> {
-        let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit() && !ent.is_anonymous());
+    ) -> Vec<(EntHierarchy<'a>, &'a Vec<Token>)> {
+        let Some(library) = self.libraries.get(library_name) else {
+            return vec![];
+        };
 
-        if let Some(library) = self.libraries.get(library_name) {
-            if let Some(unit_ids) = library.units_by_source.get(source) {
-                for unit_id in unit_ids {
-                    let unit = library.units.get(unit_id.key()).unwrap();
-                    let _ = unit
-                        .unit
-                        .expect_analyzed()
-                        .search(&unit.tokens, &mut searcher);
-                }
-            }
+        let Some(unit_ids) = library.units_by_source.get(source) else {
+            return vec![];
+        };
+
+        let mut result = Vec::new();
+
+        for unit_id in unit_ids {
+            let locked_unit = library.units.get(unit_id.key()).unwrap();
+            let unit = locked_unit.unit.expect_analyzed();
+            let Some(ent_id) = unit.data().ent_id() else {
+                continue;
+            };
+            let primary_ent = self.get_ent(ent_id);
+
+            let mut searcher =
+                FindAllEnt::new(self, |ent| ent.is_explicit() && !ent.is_anonymous());
+            let _ = unit.search(&locked_unit.tokens, &mut searcher);
+            searcher.result.sort_by_key(|ent| ent.decl_pos());
+            let hierarchy = EntHierarchy::from_parent(primary_ent, searcher.result);
+            result.push((hierarchy, &locked_unit.tokens))
         }
-
-        searcher.result.sort_by_key(|ent| ent.decl_pos());
-        EntHierarchy::from_vec(searcher.result)
+        result.sort_by_key(|(hierarchy, _)| &hierarchy.ent.decl_pos);
+        result
     }
 
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
@@ -780,7 +788,7 @@ impl DesignRoot {
         }
     }
 
-    pub(super) fn get_unit<'a>(&'a self, unit_id: &UnitId) -> Option<&'a LockedUnit> {
+    pub(super) fn get_unit(&self, unit_id: &UnitId) -> Option<&LockedUnit> {
         self.libraries
             .get(unit_id.library_name())
             .and_then(|library| library.units.get(unit_id.key()))
@@ -995,6 +1003,7 @@ impl DesignRoot {
                 // Will be overwritten below
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
                 Some(std_package.ident.pos()),
+                None,
             )
         };
 
@@ -1080,7 +1089,7 @@ impl DesignRoot {
 
     /// Analyze ieee std_logic_1164 package library sequentially
     /// The matching operators such as ?= are implicitly defined for arrays with std_ulogic element
-    /// So these types are blessed by the lanaguage and we need global access to them
+    /// So these types are blessed by the language and we need global access to them
     fn analyze_std_logic_1164(&mut self) {
         if let Some(lib) = self.libraries.get(&self.symbol_utf8("ieee")) {
             if let Some(unit) = lib.get_unit(&UnitKey::Primary(self.symbol_utf8("std_logic_1164")))
@@ -1129,7 +1138,7 @@ impl DesignRoot {
         self.arenas.clear();
 
         // Analyze standard package first sequentially since everything else in the
-        // language depends on it and we want to save a reference to all types there
+        // language depends on it, and we want to save a reference to all types there
         self.analyze_standard_package();
 
         if let Some(std_arena) = self.standard_arena.as_ref() {
@@ -1207,7 +1216,7 @@ pub struct EntHierarchy<'a> {
 }
 
 impl<'a> EntHierarchy<'a> {
-    fn from_vec(mut symbols: Vec<EntRef<'a>>) -> Vec<EntHierarchy<'a>> {
+    fn from_parent(parent: EntRef<'a>, mut symbols: Vec<EntRef<'a>>) -> EntHierarchy<'a> {
         let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
 
         symbols.retain(|ent| {
@@ -1218,10 +1227,7 @@ impl<'a> EntHierarchy<'a> {
                 true
             }
         });
-        symbols
-            .into_iter()
-            .map(|ent| Self::from_ent(ent, &by_parent))
-            .collect()
+        Self::from_ent(parent, &by_parent)
     }
 
     fn from_ent(

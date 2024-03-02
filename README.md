@@ -9,6 +9,10 @@ I very much appreciate help from other people especially regarding semantic anal
 [![Chat](https://img.shields.io/matrix/VHDL-LS:matrix.org)](https://matrix.to/#/#VHDL-LS:matrix.org)
 [![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
 
+## Contributors
+- Maintainer: [Lukas Scheller](https://github.com/Schottkyc137)
+- Founder: [Olof Kraigher](https://github.com/kraigher)
+ 
 # Projects
 ## VHDL Language Server
 [![vhdl ls crate](https://img.shields.io/crates/v/vhdl_ls.svg)](https://crates.io/crates/vhdl_ls)
@@ -27,8 +31,6 @@ I very much appreciate help from other people especially regarding semantic anal
 - Rename symbol
 - Find workspace symbols
 - View/find document symbols
-
-
 
 ## Trying it out
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I know about are listed here.

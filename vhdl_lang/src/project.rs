@@ -16,6 +16,7 @@ use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::Path;
+use vhdl_lang::Token;
 
 pub struct Project {
     parser: VHDLParser,
@@ -252,21 +253,17 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn find_definition<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+    pub fn find_definition(&self, source: &Source, cursor: Position) -> Option<EntRef> {
         let ent = self.root.search_reference(source, cursor)?;
         self.root.find_definition_of(ent)
     }
 
-    pub fn find_declaration<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+    pub fn find_declaration(&self, source: &Source, cursor: Position) -> Option<EntRef> {
         let ent = self.root.search_reference(source, cursor)?;
         Some(ent.declaration())
     }
 
-    pub fn item_at_cursor<'a>(
-        &'a self,
-        source: &Source,
-        cursor: Position,
-    ) -> Option<(SrcPos, EntRef<'a>)> {
+    pub fn item_at_cursor(&self, source: &Source, cursor: Position) -> Option<(SrcPos, EntRef)> {
         self.root.item_at_cursor(source, cursor)
     }
 
@@ -284,11 +281,11 @@ impl Project {
         &'a self,
         library_name: &Symbol,
         source: &Source,
-    ) -> Vec<EntHierarchy<'a>> {
+    ) -> Vec<(EntHierarchy<'a>, &Vec<Token>)> {
         self.root.document_symbols(library_name, source)
     }
 
-    pub fn find_implementation<'a>(&'a self, source: &Source, cursor: Position) -> Vec<EntRef<'a>> {
+    pub fn find_implementation(&self, source: &Source, cursor: Position) -> Vec<EntRef> {
         if let Some(ent) = self.find_declaration(source, cursor) {
             self.root.find_implementation(ent)
         } else {
@@ -330,7 +327,7 @@ impl Project {
     }
 }
 
-/// Multiply clonable value by cloning
+/// Multiply cloneable value by cloning
 /// Avoid clone for n=1
 fn multiply<T: Clone>(value: T, n: usize) -> Vec<T> {
     if n == 0 {
@@ -489,7 +486,7 @@ use_lib.files = ['use_file.vhd']
     }
 
     fn update(project: &mut Project, source: &mut Source, contents: &str) {
-        std::fs::write(std::path::Path::new(source.file_name()), contents).unwrap();
+        std::fs::write(Path::new(source.file_name()), contents).unwrap();
         *source = Source::from_latin1_file(source.file_name()).unwrap();
         project.update_source(source);
     }
