@@ -104,6 +104,7 @@ impl<'a> TypeEnt<'a> {
                     related,
                     AnyEntKind::Type(kind),
                     Some(ident.tree.pos.clone()),
+                    None,
                 )
             }
         } else {
@@ -113,6 +114,7 @@ impl<'a> TypeEnt<'a> {
                 related,
                 AnyEntKind::Type(kind),
                 Some(ident.tree.pos.clone()),
+                None,
             )
         };
 

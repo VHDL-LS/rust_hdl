@@ -159,7 +159,7 @@ impl<'a> ResolvedName<'a> {
             AnyEntKind::Overloaded(_) => {
                 return Err(
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
-                )
+                );
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -177,7 +177,7 @@ impl<'a> ResolvedName<'a> {
                 return Err(format!(
                     "{} cannot be selected from design unit",
                     ent.kind().describe()
-                ))
+                ));
             }
         };
 
@@ -217,7 +217,7 @@ impl<'a> ResolvedName<'a> {
                 return Err(
                     "Internal error. Unreachable as overloded is handled outside this function"
                         .to_string(),
-                )
+                );
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -230,7 +230,7 @@ impl<'a> ResolvedName<'a> {
                 return Err(format!(
                     "{} should never be looked up from the current scope",
                     ent.kind().describe()
-                ))
+                ));
             }
         };
 

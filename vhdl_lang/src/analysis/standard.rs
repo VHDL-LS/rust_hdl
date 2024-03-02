@@ -28,6 +28,7 @@ impl UniversalTypes {
             standard_pkg,
             AnyEntKind::Type(Type::Universal(UniversalType::Integer)),
             standard_pkg.decl_pos(),
+            standard_pkg.src_span,
         );
 
         let real = arena.explicit(
@@ -35,6 +36,7 @@ impl UniversalTypes {
             standard_pkg,
             AnyEntKind::Type(Type::Universal(UniversalType::Real)),
             standard_pkg.decl_pos(),
+            standard_pkg.src_span,
         );
 
         Self {
@@ -86,6 +88,7 @@ impl StandardTypes {
                         Related::None,
                         AnyEntKind::Type(Type::Incomplete),
                         Some(type_decl.ident.tree.pos.clone()),
+                        None,
                     )
                     .id();
                 let name = type_decl.ident.tree.item.name();
@@ -303,12 +306,13 @@ impl<'a> AnalyzeContext<'a> {
                 return_type,
             ))),
             implicit_of.decl_pos(),
+            implicit_of.src_span,
         );
 
         for (name, kind) in formals.into_iter() {
             region.add(
                 self.arena
-                    .explicit(name, subpgm_ent, kind, implicit_of.decl_pos()),
+                    .explicit(name, subpgm_ent, kind, implicit_of.decl_pos(), None),
             );
         }
 
@@ -1044,6 +1048,7 @@ impl<'a> AnalyzeContext<'a> {
                     OverloadedEnt::from_any(to_string).unwrap(),
                 )),
                 to_string.decl_pos().cloned(),
+                to_string.src_span,
             );
 
             let to_binary_string = self.arena.alloc(
@@ -1054,6 +1059,7 @@ impl<'a> AnalyzeContext<'a> {
                     OverloadedEnt::from_any(to_string).unwrap(),
                 )),
                 to_string.decl_pos().cloned(),
+                to_string.src_span,
             );
 
             let to_ostring = self.to_x_string("TO_OSTRING", typ);
@@ -1066,6 +1072,7 @@ impl<'a> AnalyzeContext<'a> {
                     OverloadedEnt::from_any(to_ostring).unwrap(),
                 )),
                 to_string.decl_pos().cloned(),
+                to_string.src_span,
             );
 
             let to_hstring = self.to_x_string("TO_HSTRING", typ);
@@ -1077,6 +1084,7 @@ impl<'a> AnalyzeContext<'a> {
                     OverloadedEnt::from_any(to_hstring).unwrap(),
                 )),
                 to_string.decl_pos().cloned(),
+                to_string.src_span,
             );
 
             let implicits = [
