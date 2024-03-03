@@ -32,6 +32,12 @@ I very much appreciate help from other people especially regarding semantic anal
 - Find workspace symbols
 - View/find document symbols
 
+## When Installing it from Crate
+
+When installing the VHDL_LS from [crates.io](https://crates.io/crates/vhdl_ls) the required  
+[vhdl_libraries](https://github.com/VHDL-LS/rust_hdl/tree/master/vhdl_libraries) directory will not be installed automatically and  
+will need to be copied into the parent directory of the VHDL_LS binary manually.  
+
 ## Trying it out
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I know about are listed here.
 
