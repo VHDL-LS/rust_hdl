@@ -52,6 +52,29 @@ following snippet to your config:
 (vhdl-ext-lsp-set-server 've-rust-hdl)   ; `lsp' config
 ```
 
+## Use in Neovim
+
+Neovim provides an LSP client to the VHDL_LS language server. Install the VHDL_LS  
+binary e.g. via Cargo. The binary must be on the path and executable (if you  
+can run "vhdl_ls -h" in the terminal then you're good). Put the "vhdl_libraries"  
+directory into the parent directory of the VHDL_LS binary. 
+
+In your Neovim config.lua add the following:  
+
+```lua
+function STARTVHDLLS()
+  vim.lsp.start({
+    name = 'vhdl_ls',
+    cmd = {'vhdl_ls'},
+  })
+end
+vim.api.nvim_set_keymap('n', '<F5>', ':lua STARTVHDLLS()<CR>', { noremap = true, silent = true })
+```
+
+This is just one example, there are many ways to run the language server. Anyway  
+when you are inside a buffer you can now hit F5 to start VHDL_LS. For more info  
+and options, have a look at the [Neovim LSP documentation](https://neovim.io/doc/user/lsp.html).
+
 ### Configuration
 The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 
