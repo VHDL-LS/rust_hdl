@@ -608,3 +608,29 @@ end package;
         vec![code.s("sub_t", 1).pos(), code.s("sub_t", 3).pos(),]
     );
 }
+
+#[test]
+pub fn using_all_from_generic_package() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package foo is
+  generic (
+    x: natural := 1
+  );
+end package;
+
+package bar is
+  generic (
+    package foo0 is new work.foo
+        generic map (<>)
+  );
+  use foo0.all;
+end package;
+  ",
+    );
+
+    let diag = builder.analyze();
+    check_no_diagnostics(&diag);
+}

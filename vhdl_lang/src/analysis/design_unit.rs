@@ -625,7 +625,8 @@ impl<'a> AnalyzeContext<'a> {
                             ));
                         }
                         Design::Package(_, ref primary_region)
-                        | Design::PackageInstance(ref primary_region) => {
+                        | Design::PackageInstance(ref primary_region)
+                        | Design::InterfacePackageInstance(ref primary_region) => {
                             scope.make_all_potentially_visible(Some(&name.pos), primary_region);
                         }
                         _ => {
