@@ -1097,6 +1097,7 @@ mod tests {
             workspace_folders: None,
             client_info: None,
             locale: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
         server.initialize_request(initialize_params);
