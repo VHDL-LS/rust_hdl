@@ -280,7 +280,7 @@ impl Diagnostic {
         Diagnostic::error(
             pos,
             format!("{} does not match {}", desc, expected_type.describe(),),
-            ErrorCode::InvalidTypeConversion,
+            ErrorCode::TypeMismatch,
         )
     }
 

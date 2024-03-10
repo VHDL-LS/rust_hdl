@@ -869,8 +869,8 @@ mod tests {
     fn check_diagnostics_ok() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
         )
     }
 
@@ -879,12 +879,12 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("foo"), "hello"),
-                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("foo"), "hello"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
             ],
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("foo"), "hello"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("foo"), "hello"),
             ],
         )
     }
@@ -894,8 +894,8 @@ mod tests {
     fn check_diagnostics_not_ok_mismatch() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
         )
     }
 
@@ -905,10 +905,10 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
             ],
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
         )
     }
 
@@ -917,10 +917,10 @@ mod tests {
     fn check_diagnostics_not_ok_missing() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "missing"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "missing"),
             ],
         )
     }
@@ -931,10 +931,10 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "unexpected"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "unexpected"),
             ],
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
         )
     }
 }

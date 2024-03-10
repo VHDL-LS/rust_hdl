@@ -610,7 +610,7 @@ impl Diagnostic {
                 from.describe(),
                 to.describe()
             ),
-            ErrorCode::InvalidTypeConversion,
+            ErrorCode::TypeMismatch,
         )
     }
 }

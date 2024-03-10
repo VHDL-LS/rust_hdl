@@ -5,6 +5,7 @@
 // Copyright (c) 2020, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn secondary_units_share_root_region_and_visibility_in_extended_region() {
@@ -35,6 +36,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("pkg2", 3),
             "No declaration of 'pkg2'",
+            ErrorCode::NotDeclared,
         )],
     )
 }
@@ -204,10 +206,12 @@ end entity;
             Diagnostic::error(
                 code.s("const1", 3),
                 "No declaration of 'const1' within package 'pkg'",
+                ErrorCode::NotDeclared,
             ),
             Diagnostic::error(
                 code.s("const2", 3),
                 "No declaration of 'const2' within package 'pkg'",
+                ErrorCode::NotDeclared,
             ),
         ],
     );
@@ -511,6 +515,7 @@ pub fn hidden_error(
     let mut error = Diagnostic::error(
         code.s(name, occ),
         format!("Name '{name}' is hidden by conflicting use clause"),
+        ErrorCode::ConflictingUseClause,
     );
 
     for (code, substr, occ, declared) in related.iter() {
@@ -778,6 +783,10 @@ fn generics_are_visible_in_procedures_but_not_outside() {
     let (_, diagnostics) = builder.get_analyzed_root();
     assert_eq!(
         diagnostics,
-        vec![Diagnostic::error(code.s("T", 4), "No declaration of 'T'")]
+        vec![Diagnostic::error(
+            code.s("T", 4),
+            "No declaration of 'T'",
+            ErrorCode::NotDeclared
+        )]
     )
 }

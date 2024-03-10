@@ -760,7 +760,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     &expr.pos,
                     "Expected an integer literal",
-                    ErrorCode::InvalidTypeConversion,
+                    ErrorCode::TypeMismatch,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -1486,7 +1486,7 @@ impl<'a> AnalyzeContext<'a> {
                                 ctyp.describe(),
                                 typ.describe()
                             ),
-                            ErrorCode::InvalidTypeConversion,
+                            ErrorCode::TypeMismatch,
                         )
                     }
                 }
@@ -2078,7 +2078,7 @@ variable c0 : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         )
     }
@@ -2960,7 +2960,7 @@ signal thesig : integer;
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "type 'CHARACTER' cannot be converted to integer type 'INTEGER'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
 
@@ -2978,7 +2978,7 @@ signal thesig : integer;
             vec![Diagnostic::error(
                 code.s1("false"),
                 "type 'BOOLEAN' cannot be converted to real type 'REAL'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -3023,7 +3023,7 @@ type character_vector_2d is array (natural range 0 to 1, natural range 0 to 2) o
             vec![Diagnostic::error(
                 code.s1("string'(\"01\")"),
                 "array type 'STRING' cannot be converted to array type 'character_vector_2d'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
 
@@ -3041,7 +3041,7 @@ type character_vector_2d is array (natural range 0 to 1, natural range 0 to 2) o
             vec![Diagnostic::error(
                 code.s1("string'(\"01\")"),
                 "array type 'STRING' cannot be converted to array type 'INTEGER_VECTOR'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
     }

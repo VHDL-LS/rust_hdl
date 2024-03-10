@@ -11,6 +11,7 @@
 // definition; no constraints are allowed in this subtype indication.
 
 use super::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::SrcPos;
 
 #[test]
@@ -172,6 +173,7 @@ fn missing_full_error(pos: &impl AsRef<SrcPos>) -> Diagnostic {
     let mut error = Diagnostic::error(
         pos,
         "Missing full type declaration of incomplete type 'rec_t'",
+        ErrorCode::MissingFullTypeDeclaration,
     );
     error.add_related(
         pos,

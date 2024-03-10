@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn test_integer_literal_expression_typecheck() {
@@ -29,10 +30,12 @@ constant bad_b : my_bool := 4;
             Diagnostic::error(
                 code.s1("3"),
                 "integer literal does not match type 'BOOLEAN'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("4"),
                 "integer literal does not match subtype 'my_bool'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -55,6 +58,7 @@ constant bad : alias_t := false;
         vec![Diagnostic::error(
             code.s1("false"),
             "'false' does not match alias 'alias_t'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -75,6 +79,7 @@ constant bad : natural := 'b';
         vec![Diagnostic::error(
             code.s1("'b'"),
             "character literal does not match subtype 'NATURAL'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -96,6 +101,7 @@ constant bad : enum_t := 'c';
         vec![Diagnostic::error(
             code.s1("'c'"),
             "character literal does not match type 'enum_t'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -130,6 +136,7 @@ signal bad : natural := \"110\";
         vec![Diagnostic::error(
             code.s1("\"110\""),
             "string literal does not match subtype 'NATURAL'",
+            ErrorCode::TypeMismatch,
         )],
     )
 }
@@ -159,18 +166,25 @@ signal bad5 : enum_vec3_t(1 to 1) := \"a\";
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("\"2\""), "type 'BIT' does not define character '2'"),
+            Diagnostic::error(
+                code.s1("\"2\""),
+                "type 'BIT' does not define character '2'",
+                ErrorCode::TypeMismatch,
+            ),
             Diagnostic::error(
                 code.s1("\"b\""),
                 "type 'enum_t' does not define character 'b'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s("\"a\"", 2),
                 "string literal does not match array type 'enum_vec2_t'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s("\"a\"", 3),
                 "string literal does not match array type 'enum_vec3_t'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     )
@@ -193,18 +207,25 @@ constant f: bit_vector := 2SX\"\";
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
+            Diagnostic::error(
+                code.s1("D\"1AFFE\""),
+                "Illegal digit 'A' for base 10",
+                ErrorCode::InvalidLiteral,
+            ),
             Diagnostic::error(
                 code.s1("8SX\"0FF\""),
                 "Truncating vector to length 8 would lose information",
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s1("X\"G\""),
                 "type 'BIT' does not define character 'G'",
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s1("2SX\"\""),
                 "Cannot expand an empty signed bit string",
+                ErrorCode::InvalidLiteral,
             ),
         ],
     )
@@ -241,10 +262,12 @@ constant bad_b : my_bool := rval.elem;
             Diagnostic::error(
                 code.s("ival", 3),
                 "constant 'ival' of integer type 'INTEGER' does not match type 'BOOLEAN'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s("rval.elem", 2),
                 "subtype 'NATURAL' does not match subtype 'my_bool'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -272,10 +295,12 @@ constant bad_b : character := false;
             Diagnostic::error(
                 code.s("true", 2),
                 "'true' does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s("false", 2),
                 "'false' does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -304,17 +329,19 @@ constant bad : character := fun1;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
-                .related(
-                    code.s("fun1", 1),
-                    "Does not match return type of function fun1[return NATURAL]",
-                )
-                .related(
-                    code.s("fun1", 2),
-                    "Does not match return type of function fun1[return BOOLEAN]",
-                ),
-        ],
+        vec![Diagnostic::error(
+            code.s("fun1", 4),
+            "Could not resolve 'fun1'",
+            ErrorCode::AmbiguousExpression,
+        )
+        .related(
+            code.s("fun1", 1),
+            "Does not match return type of function fun1[return NATURAL]",
+        )
+        .related(
+            code.s("fun1", 2),
+            "Does not match return type of function fun1[return BOOLEAN]",
+        )],
     );
 
     assert_eq!(
@@ -346,17 +373,19 @@ constant bad : character := fun1;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
-                .related(
-                    code.s("fun1", 1),
-                    "Does not match return type of function fun1[NATURAL return NATURAL]",
-                )
-                .related(
-                    code.s("fun1", 2),
-                    "Does not match return type of function fun1[return BOOLEAN]",
-                ),
-        ],
+        vec![Diagnostic::error(
+            code.s("fun1", 4),
+            "Could not resolve 'fun1'",
+            ErrorCode::AmbiguousExpression,
+        )
+        .related(
+            code.s("fun1", 1),
+            "Does not match return type of function fun1[NATURAL return NATURAL]",
+        )
+        .related(
+            code.s("fun1", 2),
+            "Does not match return type of function fun1[return BOOLEAN]",
+        )],
     );
 }
 
@@ -388,17 +417,19 @@ constant bad: integer := fun1;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous call to 'fun1'")
-                .related(
-                    code.s("fun1", 1),
-                    "Might be function fun1[NATURAL return NATURAL]",
-                )
-                .related(
-                    code.s("fun1", 2),
-                    "Might be function fun1[BOOLEAN return NATURAL]",
-                ),
-        ],
+        vec![Diagnostic::error(
+            code.s1(":= fun1").s1("fun1"),
+            "Ambiguous call to 'fun1'",
+            ErrorCode::AmbiguousExpression,
+        )
+        .related(
+            code.s("fun1", 1),
+            "Might be function fun1[NATURAL return NATURAL]",
+        )
+        .related(
+            code.s("fun1", 2),
+            "Might be function fun1[BOOLEAN return NATURAL]",
+        )],
     );
 }
 
@@ -418,6 +449,7 @@ constant bar : natural := foo(0);
         vec![Diagnostic::error(
             code.s("foo", 2),
             "constant 'foo' of subtype 'NATURAL' cannot be indexed",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -438,6 +470,7 @@ constant bar : natural := foo(0 to 0);
         vec![Diagnostic::error(
             code.s("foo", 2),
             "constant 'foo' of subtype 'NATURAL' cannot be sliced",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }

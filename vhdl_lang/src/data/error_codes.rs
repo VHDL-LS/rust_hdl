@@ -91,7 +91,7 @@ pub enum ErrorCode {
     /// ```vhdl
     /// constant x : integer := integer('a');
     /// ```
-    InvalidTypeConversion,
+    TypeMismatch,
     NoFunctionAccepting,
     /// There are multiple functions that a call could address.
     /// All methods to disambiguate are exhausted.
@@ -306,8 +306,9 @@ pub enum ErrorCode {
     IndexOutOfRange,
     /// A literal that cannot be assigned to its target type
     InvalidLiteral,
-    /// An Architecture was declared before an entity
-    ArchBeforeEntity,
+    /// A Design Unit (such as an architecture) was declared before another
+    ///Design Unit (such as an entity) which is illegal.
+    DeclaredBefore,
     /// A configuration was found that is not in the same library as the entity
     ConfigNotInSameLibrary,
     /// Library not found
@@ -326,6 +327,9 @@ pub enum ErrorCode {
     NonScalarInRange,
     /// A signature appeared that was not expected
     UnexpectedSignature,
+    /// A deferred constant is missing its full constant declaration in the package body
+    MissingDeferredDeclaration,
+    MissingFullTypeDeclaration,
     // Linting
     /// A declaration that is unused
     UnusedDeclaration = 4096,

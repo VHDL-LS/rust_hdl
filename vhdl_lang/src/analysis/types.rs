@@ -150,7 +150,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(Diagnostic::error(
                                 type_decl.ident.pos(),
                                 format!("'{}' is not a protected type", &type_decl.ident),
-                                ErrorCode::InvalidTypeConversion,
+                                ErrorCode::TypeMismatch,
                             ));
                         }
                     }
@@ -376,7 +376,7 @@ impl<'a> AnalyzeContext<'a> {
                                         secondary_unit_type.designator(),
                                         phys_type.describe()
                                     ),
-                                    ErrorCode::InvalidTypeConversion,
+                                    ErrorCode::TypeMismatch,
                                 )
                             }
                         }
@@ -419,7 +419,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             &range.pos(),
                             "Expected real or integer range",
-                            ErrorCode::InvalidTypeConversion,
+                            ErrorCode::TypeMismatch,
                         );
                         return Ok(());
                     }

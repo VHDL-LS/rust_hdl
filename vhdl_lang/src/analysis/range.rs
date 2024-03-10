@@ -183,7 +183,7 @@ impl<'a> AnalyzeContext<'a> {
                                     l.base().describe(),
                                     r.base().describe()
                                 ),
-                                ErrorCode::InvalidTypeConversion,
+                                ErrorCode::TypeMismatch,
                             );
                             return Err(EvalError::Unknown);
                         }
@@ -231,7 +231,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         constraint.pos(),
                         "Range type of left and right side does not match",
-                        ErrorCode::InvalidTypeConversion,
+                        ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
@@ -389,6 +389,7 @@ mod tests {
     use crate::analysis::tests::TestSetup;
     use crate::ast::search::check_no_unresolved;
     use crate::ast::Range;
+    use crate::data::error_codes::ErrorCode;
     use crate::data::DiagnosticHandler;
     use crate::data::NoDiagnostics;
     use crate::named_entity::BaseType;
@@ -456,7 +457,7 @@ mod tests {
         assert_eq!(
             test.ctx()
                 .drange_type(&test.scope, &mut code.discrete_range(), &mut diagnostics),
-            Err(crate::analysis::analyze::EvalError::Unknown)
+            Err(EvalError::Unknown)
         );
 
         check_diagnostics(
@@ -464,6 +465,7 @@ mod tests {
             vec![Diagnostic::error(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
+                ErrorCode::NonScalarInRange,
             )],
         )
     }
@@ -475,7 +477,7 @@ mod tests {
         let mut diagnostics = Vec::new();
         assert_eq!(
             test.range_type(&code, &mut diagnostics),
-            Err(crate::analysis::analyze::EvalError::Unknown)
+            Err(EvalError::Unknown)
         );
 
         check_diagnostics(
@@ -483,6 +485,7 @@ mod tests {
             vec![Diagnostic::error(
                 code.s1("(0, 0)"),
                 "Non-scalar expression cannot be used in a range",
+                ErrorCode::NonScalarInRange,
             )],
         )
     }
@@ -531,6 +534,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("0 to false"),
                 "Range type mismatch, left is type universal_integer, right is type 'BOOLEAN'",
+                ErrorCode::NonScalarInRange,
             )],
         );
     }
@@ -558,6 +562,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("f1 to false"),
                 "Range type of left and right side does not match",
+                ErrorCode::NonScalarInRange,
             )],
         );
     }
@@ -582,7 +587,11 @@ function f1 return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(code.s1("f1 to f1"), "Range is ambiguous")],
+            vec![Diagnostic::error(
+                code.s1("f1 to f1"),
+                "Range is ambiguous",
+                ErrorCode::NonScalarInRange,
+            )],
         );
     }
 
@@ -623,6 +632,7 @@ function myfun return arr_t;
             vec![Diagnostic::error(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
+                ErrorCode::NonScalarInRange,
             )],
         );
     }

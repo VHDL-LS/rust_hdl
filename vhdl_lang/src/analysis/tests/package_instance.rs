@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn package_name_must_be_visible_in_package_instance() {
@@ -29,8 +30,16 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("gpkg", 2), "No declaration of 'gpkg'"),
-            Diagnostic::error(code.s("gpkg", 4), "No declaration of 'gpkg'"),
+            Diagnostic::error(
+                code.s("gpkg", 2),
+                "No declaration of 'gpkg'",
+                ErrorCode::NotDeclared,
+            ),
+            Diagnostic::error(
+                code.s("gpkg", 4),
+                "No declaration of 'gpkg'",
+                ErrorCode::NotDeclared,
+            ),
         ],
     );
 }
@@ -59,10 +68,12 @@ end package;
             Diagnostic::error(
                 code.s1("work.pkg"),
                 "'work.pkg' is not an uninstantiated generic package",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s1("work.pkg.const"),
                 "'work.pkg.const' is not an uninstantiated generic package",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -99,8 +110,16 @@ package ipkg3 is new work.gpkg
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("missing", 1), "No declaration of 'missing'"),
-            Diagnostic::error(code.s("missing", 2), "No declaration of 'missing'"),
+            Diagnostic::error(
+                code.s("missing", 1),
+                "No declaration of 'missing'",
+                ErrorCode::NotDeclared,
+            ),
+            Diagnostic::error(
+                code.s("missing", 2),
+                "No declaration of 'missing'",
+                ErrorCode::NotDeclared,
+            ),
         ],
     );
 
@@ -155,14 +174,17 @@ package bad_pkg2 is new work.gpkg
             Diagnostic::error(
                 code.s("16#bad#", 1),
                 "Cannot map expression to type generic",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s1("natural"),
                 "subtype 'NATURAL' cannot be used in an expression",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s1("=> work").s1("work"),
                 "Expected type name, got library libname",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );

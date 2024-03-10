@@ -1446,7 +1446,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("x'subtype"),
                 "integer type 'INTEGER' cannot be used in an expression",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
     }

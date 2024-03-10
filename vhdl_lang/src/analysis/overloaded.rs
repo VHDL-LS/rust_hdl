@@ -100,7 +100,7 @@ impl<'a> Candidates<'a> {
                         return Err(Diagnostic::error(
                             name,
                             format!("'{}' does not match {}", name, ttyp.describe()),
-                            ErrorCode::InvalidTypeConversion,
+                            ErrorCode::TypeMismatch,
                         ));
                     }
                 }
@@ -512,7 +512,7 @@ function myfun(arg : integer) return integer;
             vec![Diagnostic::error(
                 call.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             )],
         );
     }

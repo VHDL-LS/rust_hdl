@@ -394,6 +394,7 @@ end architecture;
     let expected = vec![Diagnostic::error(
         code.s("foo", 2),
         "signal 'foo' of subtype 'NATURAL' cannot be indexed",
+        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();
@@ -420,6 +421,7 @@ end architecture;
     let expected = vec![Diagnostic::error(
         code.s("foo", 2),
         "signal 'foo' of subtype 'NATURAL' cannot be sliced",
+        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();
@@ -659,7 +661,7 @@ end architecture foo;
             Diagnostic::error(
                 code.s1("proc(a, e, 1 + 1, c)").s1("e"),
                 "variable 'e' of type 'CHARACTER' does not match integer type 'INTEGER'",
-                ErrorCode::InvalidTypeConversion,
+                ErrorCode::TypeMismatch,
             ),
         ],
     )

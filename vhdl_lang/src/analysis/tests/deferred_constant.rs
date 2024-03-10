@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn allows_deferred_constant() {
@@ -65,6 +66,7 @@ end package body;
         vec![Diagnostic::error(
             &code.s1("a1"),
             "Deferred constants are only allowed in package declarations (not body)",
+            ErrorCode::DeferredConstantNotAllowed,
         )],
     );
 }
@@ -88,9 +90,11 @@ end package;
         vec![Diagnostic::error(
             &code.s("a1", 1),
             "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
+            ErrorCode::MissingDeferredDeclaration
         ),Diagnostic::error(
             &code.s("a1", 2),
             "Full declaration of deferred constant is only allowed in a package body",
+            ErrorCode::MissingDeferredDeclaration
         )],
     );
 }
@@ -121,10 +125,12 @@ end package body;
             Diagnostic::error(
                 &code.s1("a1"),
                 "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
+                ErrorCode::MissingDeferredDeclaration
             ),
             Diagnostic::error(
                 &code.s1("b1"),
                 "Deferred constant 'b1' lacks corresponding full constant declaration in package body",
+                ErrorCode::MissingDeferredDeclaration
             ),
         ],
     );

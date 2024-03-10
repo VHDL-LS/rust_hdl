@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::data::error_codes::ErrorCode;
 
 #[test]
 fn allows_unique_names() {
@@ -656,8 +657,12 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    let error = Diagnostic::error(code.s("alpha", 2), "Duplicate declaration of 'alpha'")
-        .related(code.s("alias_t", 1), "Previously defined here");
+    let error = Diagnostic::error(
+        code.s("alpha", 2),
+        "Duplicate declaration of 'alpha'",
+        ErrorCode::DuplicateDeclaration,
+    )
+    .related(code.s("alias_t", 1), "Previously defined here");
     check_diagnostics(diagnostics, vec![error]);
 }
 
@@ -848,6 +853,7 @@ end package;
             Diagnostic::error(
                 code.s("10 bangs", 2).s1("bangs"),
                 "Physical unit of type 'phys_t' does not match physical type 'phys2_t'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -964,11 +970,13 @@ end package body;
             Diagnostic::error(
                 code.s("name1", 2),
                 "Duplicate declaration of 'name1' with signature [return NATURAL]",
+                ErrorCode::DuplicateDeclaration,
             )
             .related(code.s("name1", 1), "Previously defined here"),
             Diagnostic::error(
                 code.s("name2", 2),
                 "Duplicate declaration of 'name2' with signature [STRING return BOOLEAN]",
+                ErrorCode::DuplicateDeclaration,
             )
             .related(code.s("name2", 1), "Previously defined here"),
         ],
@@ -1026,6 +1034,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("homo1", 2),
             "Duplicate declaration of 'homo1' with signature [return NATURAL]",
+            ErrorCode::DuplicateDeclaration,
         )
         .related(code.s("homo1", 1), "Previously defined here")],
     );

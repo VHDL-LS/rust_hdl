@@ -234,7 +234,7 @@ constant x: natural := 5;
 
         assert_eq!(
             msgs,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("var").pos(),
                 "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
                  'function', 'procedure', 'package', 'for', 'file', \

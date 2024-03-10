@@ -135,15 +135,14 @@ impl<'a> AnalyzeContext<'a> {
                                 let decl_pos = match full_definiton {
                                     Some(full_decl) => full_decl.ident.pos(),
                                     None => {
-                                        let mut error = Diagnostic::error(
+                                        let error = Diagnostic::error(
                                             type_decl.ident.pos(),
                                             format!(
                                             "Missing full type declaration of incomplete type '{}'",
                                             type_decl.ident.name()
                                         ),
-                                            ErrorCode::NotDeclared,
-                                        );
-                                        error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
+                                            ErrorCode::MissingFullTypeDeclaration,
+                                        ).related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
                                         type_decl.ident.pos()
                                     }

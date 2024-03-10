@@ -109,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.current_unit_id().describe(),
                             named_entity.describe()
                         )),
-                        ErrorCode::ArchBeforeEntity,
+                        ErrorCode::DeclaredBefore,
                     ));
                 }
             }
@@ -351,7 +351,7 @@ impl<'a> AnalyzeContext<'a> {
                         capitalize(&self.current_unit_id().describe()),
                         primary.describe(),
                     ),
-                    ErrorCode::ArchBeforeEntity,
+                    ErrorCode::DeclaredBefore,
                 ));
             }
         }

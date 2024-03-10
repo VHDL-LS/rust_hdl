@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use crate::analysis::tests::{check_diagnostics, LibraryBuilder};
+use crate::data::error_codes::ErrorCode;
 use crate::Diagnostic;
 
 #[test]
@@ -38,10 +39,12 @@ end architecture;
             Diagnostic::error(
                 code.s1("signal x : bit;"),
                 "signal declaration not allowed here",
+                ErrorCode::DeclarationNotAllowed,
             ),
             Diagnostic::error(
                 code.s1("variable y: natural;"),
                 "variable declaration not allowed here",
+                ErrorCode::DeclarationNotAllowed,
             ),
         ],
     )
@@ -66,6 +69,7 @@ end entity test;
         vec![Diagnostic::error(
             code.s1("test : signal").s1("test"),
             "entity 'test' is not of class signal",
+            ErrorCode::MismatchedEntityClass,
         )],
     )
 }
@@ -92,6 +96,7 @@ end entity test;
         vec![Diagnostic::error(
             code.s1("aliased_clk : entity").s1("aliased_clk"),
             "port 'clk' : in is not of class entity",
+            ErrorCode::MismatchedEntityClass,
         )],
     )
 }

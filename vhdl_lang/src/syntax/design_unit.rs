@@ -835,14 +835,17 @@ context lib.ctx;
                 Diagnostic::warning(
                     code.s1("library lib;"),
                     "Library clause not associated with any design unit",
+                    ErrorCode::UnassociatedContext,
                 ),
                 Diagnostic::warning(
                     code.s1("use lib.foo;"),
                     "Use clause not associated with any design unit",
+                    ErrorCode::UnassociatedContext,
                 ),
                 Diagnostic::warning(
                     code.s1("context lib.ctx;"),
                     "Context reference not associated with any design unit",
+                    ErrorCode::UnassociatedContext,
                 ),
             ],
         );
