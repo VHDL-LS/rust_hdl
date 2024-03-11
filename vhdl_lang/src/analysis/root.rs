@@ -265,10 +265,11 @@ impl Library {
         })
     }
 
+    // @TODO optimize O() complexity
     pub(crate) fn secondary_units<'a>(
         &'a self,
         primary: &'a Symbol,
-    ) -> impl Iterator<Item = &'a LockedUnit> {
+    ) -> impl Iterator<Item = &'a LockedUnit> + 'a {
         self.units.iter().filter_map(move |(key, value)| match key {
             UnitKey::Secondary(sym, _) if primary == sym => Some(value),
             _ => None,

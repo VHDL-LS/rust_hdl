@@ -28,6 +28,9 @@ mod subprogram;
 mod target;
 mod types;
 
+// @TODO consider moving facade into analysis
+pub(crate) use {lock::ReadGuard, root::AnalysisData};
+
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) use root::{Library, LockedUnit};
