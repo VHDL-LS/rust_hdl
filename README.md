@@ -42,7 +42,12 @@ will need to be copied into the parent directory of the VHDL_LS binary manually.
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I know about are listed here.
 
 ## Use in VSCode
+
+### VHDL-LS
 https://github.com/Bochlin/rust_hdl_vscode
+
+### VHDL by HGB
+https://github.com/HSD-ESD/VHDL-by-HGB
 
 ## Use in emacs
 VHDL LS has built-in support by emacs `lsp-mode` since 2020-01-04.
