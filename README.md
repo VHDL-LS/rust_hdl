@@ -55,9 +55,18 @@ will need to be copied into the parent directory of the VHDL_LS binary manually.
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I
 know about are listed here.
 
-## Use in VSCode
+## Use in VS Code
 
-https://github.com/Bochlin/rust_hdl_vscode
+### VHDL-LS
+Official client from [VHDL-LS](https://github.com/VHDL-LS):
+- Github: [rust_hdl_vscode](https://github.com/Bochlin/rust_hdl_vscode)
+- Visual Studio Marketplace: [VHDL LS](https://marketplace.visualstudio.com/items?itemName=hbohlin.vhdl-ls)
+
+### VHDL by HGB
+Client from the University of Applied Sciences Upper Austria - [Campus Hagenberg](https://fh-ooe.at/en/campus-hagenberg):
+- Github: [VHDL-by-HGB](https://github.com/HSD-ESD/VHDL-by-HGB)
+- Visual Studio Marketplace: [VHDL by HGB](https://marketplace.visualstudio.com/items?itemName=P2L2.vhdl-by-hgb)
+- Open VSX: [VHDL by HGB](https://open-vsx.org/extension/p2l2/vhdl-by-hgb)
 
 ## Use in emacs
 
