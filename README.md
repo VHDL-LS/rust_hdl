@@ -77,7 +77,7 @@ lspconfig['vhdl_ls'].setup({
 })
 ```
 
-### Manual Configuration
+### Manual Configuration using Neovim's built in client
 Neovim provides an LSP client to the VHDL_LS language server. Download the  
 VHDL_LS release. The binary must be on the path and executable (if you can run  
 "vhdl_ls -h" in the terminal then you're good).
