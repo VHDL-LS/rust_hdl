@@ -622,9 +622,10 @@ work.files = [
         assert!(substitute_environment_variables("$not_unicode", &map).is_err());
     }
 
+    // Issue #278
     #[test]
     #[cfg(windows)]
-    fn substitute_ok_paths() {
+    fn substitute_ok_windows_paths() {
         let map: HashMap<String, String> = HashMap::default();
         let str = r#"\\networklocation\cad$\apps\xilinx_vitis\Vivado_2020.2\Vivado\2020.2\data\vhdl\src\unisims\unisim_VCOMP.vhd"#;
         let res = substitute_environment_variables(str, &map);
