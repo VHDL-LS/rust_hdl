@@ -660,6 +660,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ee073c9e4cd00e28217186dbe12796d692868f432bf2e97ee73bed0c56dfa01"
 
 [[package]]
+name = "subst"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca1318e5d6716d6541696727c88d9b8dfc8cfe6afd6908e186546fd4af7f5b98"
+dependencies = [
+ "memchr",
+ "unicode-width",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -813,6 +823,7 @@ dependencies = [
  "pinned_vec",
  "pretty_assertions",
  "rayon",
+ "subst",
  "tempfile",
  "toml",
  "vhdl_lang_macros",

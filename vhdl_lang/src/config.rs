@@ -7,13 +7,13 @@
 //! Configuration of the design hierarchy and other settings
 
 use std::env;
-use std::env::VarError;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
 use fnv::FnvHashMap;
+use subst::VariableMap;
 use toml::Value;
 
 use crate::data::*;
@@ -134,16 +134,7 @@ impl Config {
                     .as_str()
                     .ok_or_else(|| format!("not a string {file}"))?;
 
-                let file = substitute_environment_variables(file, |v| std::env::var(v)).map_err(
-                    |(var, e)| match e {
-                        VarError::NotPresent => {
-                            format!("environment variable '{var}' is not defined")
-                        }
-                        VarError::NotUnicode(_) => format!(
-                            "environment variable '{var}' does not contain valid unicode data"
-                        ),
-                    },
-                )?;
+                let file = substitute_environment_variables(file, &subst::Env)?;
 
                 let path = parent.join(file);
                 let path = path
@@ -187,7 +178,7 @@ impl Config {
         Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
     }
 
-    pub fn get_library<'a>(&'a self, name: &str) -> Option<&'a LibraryConfig> {
+    pub fn get_library(&self, name: &str) -> Option<&LibraryConfig> {
         self.libraries.get(name)
     }
 
@@ -292,35 +283,16 @@ impl Config {
     }
 }
 
-fn substitute_environment_variables(
-    s: &str,
-    lookup: impl Fn(&str) -> Result<String, VarError>,
-) -> Result<String, (String, VarError)> {
-    let mut result = String::new();
-
-    let mut left = s;
-    while let Some(start) = left.find('$') {
-        // keep non-env var piece as-is
-        result.push_str(&left[..start]);
-        left = &left[start + 1..];
-
-        // replace env var
-        let env_name_len = left
-            .find(|c: char| !(c == '_' || c.is_ascii_alphanumeric()))
-            .unwrap_or(left.len());
-        let env_name = &left[..env_name_len];
-
-        let replacement = lookup(env_name).map_err(|e| (env_name.to_owned(), e))?;
-        result.push_str(&replacement);
-
-        // skip past env var
-        left = &left[env_name_len..];
+fn substitute_environment_variables<'a, M>(s: &str, map: &'a M) -> Result<String, String>
+where
+    M: VariableMap<'a> + ?Sized,
+    M::Value: AsRef<str>,
+{
+    if cfg!(windows) {
+        Ok(s.to_string())
+    } else {
+        subst::substitute(s, map).map_err(|err| err.to_string())
     }
-
-    // keep remaining string
-    result.push_str(left);
-
-    Ok(result)
 }
 
 /// Returns true if the pattern is a plain file name and not a glob pattern
@@ -339,7 +311,6 @@ fn is_literal(pattern: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::ffi::OsString;
 
     use pretty_assertions::assert_eq;
 
@@ -593,67 +564,71 @@ work.files = [
     }
 
     #[test]
+    #[cfg(unix)]
     fn substitute() {
         let mut map = HashMap::new();
-        map.insert("A".to_owned(), Ok("a".to_owned()));
-        map.insert("ABCD".to_owned(), Ok("abcd".to_owned()));
-        map.insert("A_0".to_owned(), Ok("a0".to_owned()));
-        map.insert("_".to_owned(), Ok("u".to_owned()));
-        map.insert("PATH".to_owned(), Ok("some/path".to_owned()));
-        map.insert(
-            "not_unicode".to_owned(),
-            Err(VarError::NotUnicode(OsString::new())),
-        );
-        // note: "not_present" is not in the map
-
-        let lookup = |v: &str| map.get(v).unwrap_or(&Err(VarError::NotPresent)).clone();
+        map.insert("A".to_owned(), "a".to_owned());
+        map.insert("ABCD".to_owned(), "abcd".to_owned());
+        map.insert("A_0".to_owned(), "a0".to_owned());
+        map.insert("_".to_owned(), "u".to_owned());
+        map.insert("PATH".to_owned(), "some/path".to_owned());
 
         // simple pattern tests
         assert_eq!(
             Ok("test".to_owned()),
-            substitute_environment_variables("test", lookup)
+            substitute_environment_variables("test", &map)
         );
         assert_eq!(
             Ok("a".to_owned()),
-            substitute_environment_variables("$A", lookup)
+            substitute_environment_variables("$A", &map)
         );
         assert_eq!(
             Ok("abcd".to_owned()),
-            substitute_environment_variables("$ABCD", lookup)
+            substitute_environment_variables("$ABCD", &map)
         );
         assert_eq!(
             Ok("a0".to_owned()),
-            substitute_environment_variables("$A_0", lookup)
+            substitute_environment_variables("$A_0", &map)
         );
         assert_eq!(
             Ok("u".to_owned()),
-            substitute_environment_variables("$_", lookup)
+            substitute_environment_variables("$_", &map)
         );
         assert_eq!(
             Ok("some/path".to_owned()),
-            substitute_environment_variables("$PATH", lookup)
+            substitute_environment_variables("$PATH", &map)
         );
 
         // embedded in longer string
         assert_eq!(
             Ok("test/a/test".to_owned()),
-            substitute_environment_variables("test/$A/test", lookup)
+            substitute_environment_variables("test/$A/test", &map)
         );
         assert_eq!(
             Ok("test/a".to_owned()),
-            substitute_environment_variables("test/$A", lookup)
+            substitute_environment_variables("test/$A", &map)
         );
         assert_eq!(
             Ok("a/test".to_owned()),
-            substitute_environment_variables("$A/test", lookup)
+            substitute_environment_variables("$A/test", &map)
         );
         assert_eq!(
             Ok("test/some/path/test".to_owned()),
-            substitute_environment_variables("test/$PATH/test", lookup)
+            substitute_environment_variables("test/$PATH/test", &map)
         );
 
         // error cases
-        assert!(substitute_environment_variables("$not_present", lookup).is_err());
-        assert!(substitute_environment_variables("$not_unicode", lookup).is_err());
+        assert!(substitute_environment_variables("$not_present", &map).is_err());
+        assert!(substitute_environment_variables("$not_unicode", &map).is_err());
+    }
+
+    // Issue #278
+    #[test]
+    #[cfg(windows)]
+    fn substitute_ok_windows_paths() {
+        let map: HashMap<String, String> = HashMap::default();
+        let str = r#"\\networklocation\cad$\apps\xilinx_vitis\Vivado_2020.2\Vivado\2020.2\data\vhdl\src\unisims\unisim_VCOMP.vhd"#;
+        let res = substitute_environment_variables(str, &map);
+        assert_eq!(res, Ok(str.to_owned()));
     }
 }
