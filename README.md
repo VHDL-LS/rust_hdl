@@ -58,8 +58,26 @@ following snippet to your config:
 (vhdl-ext-lsp-set-server 've-rust-hdl)   ; `lsp' config
 ```
 
-## Manual Installation for Neovim
+## Installation for Neovim
 
+### Automatic Installation
+You can install `rust_hdl` automatically in Neovim using [`:Mason`](https://github.com/williamboman/mason.nvim), in Mason the package is called `rust_hdl`. If you don't have `:Mason`, you can simply install the binary as previously described.
+
+### Automatic Configuration using `nvim-lspconfig`
+
+[`nvim-lspconfig`](https://github.com/neovim/nvim-lspconfig) has a built in configuration for [`vhdl_ls`](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#vhdl_ls)
+
+In order to configure it, simply add 
+
+```lua
+lspconfig = require('lspconfig')
+lspconfig['vhdl_ls'].setup({
+  on_attach = on_attach,
+  capabilities = capabilities
+})
+```
+
+### Manual Configuration using Neovim's built in client
 Neovim provides an LSP client to the VHDL_LS language server. Download the  
 VHDL_LS release. The binary must be on the path and executable (if you can run  
 "vhdl_ls -h" in the terminal then you're good).
@@ -80,7 +98,7 @@ Using the example above, pressing F5 while inside Neovim starts the language
 server. There are also other options, like automatically starting it when  
 opening a certain file type, see the [Neovim LSP documentation](https://neovim.io/doc/user/lsp.html) for more.
 
-### Configuration
+## Configuration
 The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 
 `vhdl_ls` will load configuration files in the following order of priority (first to last):
