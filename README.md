@@ -61,7 +61,7 @@ following snippet to your config:
 ## Installation for Neovim
 
 ### Automatic Installation
-You can install `rust_hdl` automatically in Neovim using [`:Mason`](https://github.com/williamboman/mason.nvim), in Mason the package is called `rust_hdl`. If you don't have `:Mason`, you can simply install the binary as previously described.
+You can install `rust_hdl` automatically in Neovim using [`:Mason`](https://github.com/williamboman/mason.nvim). Within Mason, the package is called `rust_hdl`. If you don't have `:Mason`, you can simply install the binary as previously described.
 
 ### Automatic Configuration using `nvim-lspconfig`
 
