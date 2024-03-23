@@ -289,9 +289,48 @@ where
     M::Value: AsRef<str>,
 {
     if cfg!(windows) {
-        Ok(s.to_string())
+        substitute_variables_windows(s, map)
     } else {
         subst::substitute(s, map).map_err(|err| err.to_string())
+    }
+}
+
+fn substitute_variables_windows<'a, M>(s: &str, map: &'a M) -> Result<String, String>
+where
+    M: VariableMap<'a> + ?Sized,
+    M::Value: AsRef<str>,
+{
+    let mut output: Vec<char> = Vec::with_capacity(s.len());
+    let mut var_buf: Vec<char> = Vec::new();
+
+    let mut var_found = false;
+
+    for ch in s.chars() {
+        if ch == '%' {
+            if var_found {
+                let var_name = String::from_iter(var_buf);
+                var_buf = Vec::new();
+                match map.get(&var_name) {
+                    None => {
+                        return Err(format!("Variable '{var_name}' not found"));
+                    }
+                    Some(value) => {
+                        output.extend(value.as_ref().chars());
+                    }
+                }
+            }
+            var_found = !var_found;
+        } else if !var_found {
+            output.push(ch);
+        } else {
+            var_buf.push(ch)
+        }
+    }
+
+    if var_found {
+        Err("Unterminated variable".into())
+    } else {
+        Ok(String::from_iter(output))
     }
 }
 
@@ -620,6 +659,67 @@ work.files = [
         // error cases
         assert!(substitute_environment_variables("$not_present", &map).is_err());
         assert!(substitute_environment_variables("$not_unicode", &map).is_err());
+    }
+
+    #[test]
+    fn windows_variable_names() {
+        let mut map = HashMap::new();
+        map.insert("A".to_owned(), "a".to_owned());
+        map.insert("ABCD".to_owned(), "abcd".to_owned());
+        map.insert("A_0".to_owned(), "a0".to_owned());
+        map.insert("_".to_owned(), "u".to_owned());
+        map.insert("PATH".to_owned(), r#"some\path"#.to_owned());
+
+        assert_eq!(Ok("".to_owned()), substitute_variables_windows("", &map));
+        assert_eq!(
+            Ok("test".to_owned()),
+            substitute_variables_windows("test", &map)
+        );
+        assert_eq!(
+            Ok("a".to_owned()),
+            substitute_variables_windows("%A%", &map)
+        );
+        assert_eq!(
+            Ok("abcd".to_owned()),
+            substitute_variables_windows("%ABCD%", &map)
+        );
+        assert_eq!(
+            Ok("a0".to_owned()),
+            substitute_variables_windows("%A_0%", &map)
+        );
+        assert_eq!(
+            Ok("u".to_owned()),
+            substitute_variables_windows("%_%", &map)
+        );
+        assert_eq!(
+            Ok(r#"some\path"#.to_owned()),
+            substitute_variables_windows("%PATH%", &map)
+        );
+
+        // embedded in longer string
+        assert_eq!(
+            Ok(r#"test\a\test"#.to_owned()),
+            substitute_variables_windows(r#"test\%A%\test"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"test\a"#.to_owned()),
+            substitute_variables_windows(r#"test\%A%"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"a\test"#.to_owned()),
+            substitute_variables_windows(r#"%A%\test"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"C:\test\some\path\test"#.to_owned()),
+            substitute_variables_windows(r#"C:\test\%PATH%\test"#, &map)
+        );
+
+        // error cases
+        assert_eq!(
+            substitute_variables_windows("%not_present%", &map),
+            Err("Variable 'not_present' not found".into())
+        );
+        assert!(substitute_variables_windows("%not_unicode%", &map).is_err());
     }
 
     // Issue #278
