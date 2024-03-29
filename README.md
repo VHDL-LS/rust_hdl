@@ -160,7 +160,8 @@ UNISIM.is_third_party = true
 ```
 
 Paths in the `vhdl_ls.toml` can contain glob patterns (i.e., `.../*/`).
-On Unix machines, they can also contain environment variables using the default `$NAME` or `${NAME}` syntax.
+On Unix machines, they can contain environment variables using the `$NAME` or `${NAME}` syntax.
+On Windows machines, use the `%NAME%` syntax to substitute environment variables.
 
 ## As an LSP-client developer how should I integrate VHDL-LS?
 
