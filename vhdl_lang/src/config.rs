@@ -16,12 +16,14 @@ use fnv::FnvHashMap;
 use subst::VariableMap;
 use toml::Value;
 
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
+    error_codes: FnvHashMap<ErrorCode, Severity>,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -165,7 +167,26 @@ impl Config {
             );
         }
 
-        Ok(Config { libraries })
+        let mut error_code_overwrites = FnvHashMap::default();
+
+        if let Some(error_codes) = config.get("error_codes") {
+            let error_codes = error_codes
+                .as_table()
+                .ok_or("error_codes must be a table")?;
+            for (name, severity) in error_codes.iter() {
+                let error_code = ErrorCode::try_from(name.as_str())
+                    .map_err(|_| format!("'{name}' is not a valid error code"))?;
+                let severity =
+                    Severity::try_from(severity.as_str().ok_or("Severity must be a string")?)
+                        .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
+                error_code_overwrites.insert(error_code, severity);
+            }
+        }
+
+        Ok(Config {
+            libraries,
+            error_codes: error_code_overwrites,
+        })
     }
 
     pub fn read_file_path(file_name: &Path) -> io::Result<Config> {
@@ -403,6 +424,9 @@ lib1.files = [
   'pkg1.vhd',
   'tb_ent.vhd'
 ]
+
+[error_codes]
+unused = 'error'
 ",
                 absolute_vhd.to_str().unwrap()
             ),
@@ -424,6 +448,10 @@ lib1.files = [
         assert_files_eq(&lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
         assert_files_eq(&lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
         assert_eq!(messages, vec![]);
+
+        let mut expected_map = FnvHashMap::default();
+        expected_map.insert(ErrorCode::Unused, Severity::Error);
+        assert_eq!(config.error_codes, expected_map)
     }
 
     #[test]

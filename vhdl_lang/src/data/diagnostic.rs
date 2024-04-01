@@ -7,8 +7,10 @@
 use super::SrcPos;
 use crate::data::error_codes::ErrorCode;
 use std::convert::{AsRef, Into};
+use strum::{EnumString, IntoStaticStr};
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum Severity {
     Hint,
     Info,
@@ -115,12 +117,7 @@ impl Diagnostic {
             result.push_str(&pos.show(&format!("related: {message}")));
             result.push('\n');
         }
-        let severity = match self.default_severity {
-            Severity::Error => &"error",
-            Severity::Warning => &"warning",
-            Severity::Info => &"info",
-            Severity::Hint => &"hint",
-        };
+        let severity: &str = self.default_severity.into();
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
         result
     }

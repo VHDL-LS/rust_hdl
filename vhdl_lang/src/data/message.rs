@@ -5,8 +5,10 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use std::path::Path;
+use strum::AsRefStr;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, AsRefStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum MessageType {
     Error,
     Warning,
@@ -65,17 +67,6 @@ impl Message {
 impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.message_type.as_ref(), self.message)
-    }
-}
-
-impl AsRef<str> for MessageType {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Error => "error",
-            Self::Warning => "warning",
-            Self::Info => "info",
-            Self::Log => "log",
-        }
     }
 }
 

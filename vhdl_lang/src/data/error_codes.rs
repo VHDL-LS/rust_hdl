@@ -1,8 +1,9 @@
 use crate::{Diagnostic, Severity, SrcPos};
+use enum_map::{enum_map, Enum, EnumMap};
 use std::fmt::{Display, Formatter};
 use strum::{EnumString, IntoStaticStr};
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr, Enum)]
 #[strum(serialize_all = "snake_case")]
 pub enum ErrorCode {
     /// A syntax error happens during tokenization or parsing.
@@ -410,6 +411,71 @@ pub enum ErrorCode {
     /// A related error message. This error code is never generated directly and only used
     /// as 'drop-in' when related messages are drained from a bigger error message
     Related,
+}
+
+impl ErrorCode {
+    pub fn default_severity_map() -> EnumMap<ErrorCode, Severity> {
+        use ErrorCode::*;
+        use Severity::*;
+        enum_map! {
+            SyntaxError => Error,
+            CircularDependency => Error,
+            InvalidFormal => Error,
+            InvalidFormalConversion => Error,
+            TypeMismatch => Error,
+            AmbiguousCall => Error,
+            NamedBeforePositional => Error,
+            TooManyArguments => Error,
+            Unassociated => Error,
+            AlreadyAssociated => Error,
+            InterfaceModeMismatch => Error,
+            DisallowedInSensitivityList => Error,
+            DeclarationNotAllowed => Error,
+            MismatchedEntityClass => Error,
+            MisplacedAttributeSpec => Error,
+            NoOverloadedWithSignature => Error,
+            IllegalSignature => Error,
+            SignatureRequired => Error,
+            AmbiguousExpression => Error,
+            Duplicate => Error,
+            ConflictingUseClause => Error,
+            MissingProtectedBodyType => Error,
+            IllegalDeferredConstant => Error,
+            SignatureMismatch => Error,
+            AmbiguousInstantiation => Error,
+            MismatchedSubprogramInstantiation => Error,
+            VoidReturn => Error,
+            NonVoidReturn => Error,
+            IllegalReturn => Error,
+            ExitOutsideLoop => Error,
+            NextOutsideLoop => Error,
+            InvalidLoopLabel => Error,
+            MismatchedKinds => Error,
+            TooManyConstraints => Error,
+            TooFewConstraints => Error,
+            IllegalConstraint => Error,
+            InvalidOperatorSymbol => Error,
+            Unresolved => Error,
+            DimensionMismatch => Error,
+            InvalidLiteral => Error,
+            DeclaredBefore => Error,
+            ConfigNotInSameLibrary => Error,
+            NoImplicitConversion => Error,
+            ExpectedSubAggregate => Error,
+            IllegalAttribute => Error,
+            CannotBePrefixed => Error,
+            NonScalarInRange => Error,
+            UnexpectedSignature => Error,
+            MissingDeferredDeclaration => Error,
+            MissingFullTypeDeclaration => Error,
+            InvalidCall => Error,
+            Unused => Warning,
+            UnnecessaryWorkLibrary => Warning,
+            UnassociatedContext => Warning,
+            Internal => Error,
+            Related => Info
+        }
+    }
 }
 
 impl ErrorCode {
