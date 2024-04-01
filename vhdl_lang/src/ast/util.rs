@@ -34,7 +34,7 @@ pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
             item: ident,
             pos: name.pos,
         }),
-        _ => Err(Diagnostic::error(
+        _ => Err(Diagnostic::new(
             &name,
             "Expected simple name",
             ErrorCode::SyntaxError,

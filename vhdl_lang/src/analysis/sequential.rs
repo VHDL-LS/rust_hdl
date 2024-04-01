@@ -116,7 +116,7 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some(ref mut expression) = expression {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
-                            diagnostics.error(
+                            diagnostics.add(
                                 &statement.statement.pos,
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
@@ -125,7 +125,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
-                            diagnostics.error(
+                            diagnostics.add(
                                 &statement.statement.pos,
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
@@ -133,7 +133,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     SequentialRoot::Process => {
-                        diagnostics.error(
+                        diagnostics.add(
                             &statement.statement.pos,
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
@@ -185,7 +185,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(loop_label) = loop_label {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
-                    diagnostics.error(
+                    diagnostics.add(
                         &statement.statement.pos,
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
@@ -205,7 +205,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(loop_label) = loop_label {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
-                    diagnostics.error(
+                    diagnostics.add(
                         &statement.statement.pos,
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
@@ -337,21 +337,21 @@ impl<'a> AnalyzeContext<'a> {
                 label.set_unique_reference(ent);
                 if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
                     if !find_outer_loop(parent, Some(label.item.name())) {
-                        diagnostics.error(
+                        diagnostics.add(
                             &label.item.pos,
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
                             ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         &label.item.pos,
                         format!("Expected loop label, got {}", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
                 }
             }
-            Ok(NamedEntities::Overloaded(_)) => diagnostics.error(
+            Ok(NamedEntities::Overloaded(_)) => diagnostics.add(
                 &label.item.pos,
                 format!(
                     "Expected loop label, got overloaded name {}",

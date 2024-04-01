@@ -657,7 +657,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    let error = Diagnostic::error(
+    let error = Diagnostic::new(
         code.s("alpha", 2),
         "Duplicate declaration of 'alpha'",
         ErrorCode::Duplicate,
@@ -850,7 +850,7 @@ end package;
             // Secondary units
             duplicate(&code, "bugs", 1, 2),
             duplicate(&code, "bugs", 1, 3),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("10 bangs", 2).s1("bangs"),
                 "Physical unit of type 'phys_t' does not match physical type 'phys2_t'",
                 ErrorCode::TypeMismatch,
@@ -967,13 +967,13 @@ end package body;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("name1", 2),
                 "Duplicate declaration of 'name1' with signature [return NATURAL]",
                 ErrorCode::Duplicate,
             )
             .related(code.s("name1", 1), "Previously defined here"),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("name2", 2),
                 "Duplicate declaration of 'name2' with signature [STRING return BOOLEAN]",
                 ErrorCode::Duplicate,
@@ -1031,7 +1031,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("homo1", 2),
             "Duplicate declaration of 'homo1' with signature [return NATURAL]",
             ErrorCode::Duplicate,

@@ -189,7 +189,7 @@ impl<'a> FormalRegion<'a> {
                 return Ok((idx, *ent));
             }
         }
-        Err(Diagnostic::error(
+        Err(Diagnostic::new(
             pos,
             format!("No declaration of '{designator}'"),
             ErrorCode::Unresolved,
@@ -326,7 +326,7 @@ impl<'a> GpkgRegion<'a> {
                 return Ok((idx, *ent));
             }
         }
-        Err(Diagnostic::error(
+        Err(Diagnostic::new(
             pos,
             format!("No declaration of '{designator}'"),
             ErrorCode::Unresolved,

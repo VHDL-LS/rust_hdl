@@ -413,68 +413,68 @@ pub enum ErrorCode {
     Related,
 }
 
-impl ErrorCode {
-    pub fn default_severity_map() -> EnumMap<ErrorCode, Severity> {
-        use ErrorCode::*;
-        use Severity::*;
-        enum_map! {
-            SyntaxError => Error,
-            CircularDependency => Error,
-            InvalidFormal => Error,
-            InvalidFormalConversion => Error,
-            TypeMismatch => Error,
-            AmbiguousCall => Error,
-            NamedBeforePositional => Error,
-            TooManyArguments => Error,
-            Unassociated => Error,
-            AlreadyAssociated => Error,
-            InterfaceModeMismatch => Error,
-            DisallowedInSensitivityList => Error,
-            DeclarationNotAllowed => Error,
-            MismatchedEntityClass => Error,
-            MisplacedAttributeSpec => Error,
-            NoOverloadedWithSignature => Error,
-            IllegalSignature => Error,
-            SignatureRequired => Error,
-            AmbiguousExpression => Error,
-            Duplicate => Error,
-            ConflictingUseClause => Error,
-            MissingProtectedBodyType => Error,
-            IllegalDeferredConstant => Error,
-            SignatureMismatch => Error,
-            AmbiguousInstantiation => Error,
-            MismatchedSubprogramInstantiation => Error,
-            VoidReturn => Error,
-            NonVoidReturn => Error,
-            IllegalReturn => Error,
-            ExitOutsideLoop => Error,
-            NextOutsideLoop => Error,
-            InvalidLoopLabel => Error,
-            MismatchedKinds => Error,
-            TooManyConstraints => Error,
-            TooFewConstraints => Error,
-            IllegalConstraint => Error,
-            InvalidOperatorSymbol => Error,
-            Unresolved => Error,
-            DimensionMismatch => Error,
-            InvalidLiteral => Error,
-            DeclaredBefore => Error,
-            ConfigNotInSameLibrary => Error,
-            NoImplicitConversion => Error,
-            ExpectedSubAggregate => Error,
-            IllegalAttribute => Error,
-            CannotBePrefixed => Error,
-            NonScalarInRange => Error,
-            UnexpectedSignature => Error,
-            MissingDeferredDeclaration => Error,
-            MissingFullTypeDeclaration => Error,
-            InvalidCall => Error,
-            Unused => Warning,
-            UnnecessaryWorkLibrary => Warning,
-            UnassociatedContext => Warning,
-            Internal => Error,
-            Related => Info
-        }
+pub type SeverityMap = EnumMap<ErrorCode, Severity>;
+
+pub fn default_severity_map() -> SeverityMap {
+    use ErrorCode::*;
+    use Severity::*;
+    enum_map! {
+        SyntaxError => Error,
+        CircularDependency => Error,
+        InvalidFormal => Error,
+        InvalidFormalConversion => Error,
+        TypeMismatch => Error,
+        AmbiguousCall => Error,
+        NamedBeforePositional => Error,
+        TooManyArguments => Error,
+        Unassociated => Error,
+        AlreadyAssociated => Error,
+        InterfaceModeMismatch => Error,
+        DisallowedInSensitivityList => Error,
+        DeclarationNotAllowed => Error,
+        MismatchedEntityClass => Error,
+        MisplacedAttributeSpec => Error,
+        NoOverloadedWithSignature => Error,
+        IllegalSignature => Error,
+        SignatureRequired => Error,
+        AmbiguousExpression => Error,
+        Duplicate => Error,
+        ConflictingUseClause => Error,
+        MissingProtectedBodyType => Error,
+        IllegalDeferredConstant => Error,
+        SignatureMismatch => Error,
+        AmbiguousInstantiation => Error,
+        MismatchedSubprogramInstantiation => Error,
+        VoidReturn => Error,
+        NonVoidReturn => Error,
+        IllegalReturn => Error,
+        ExitOutsideLoop => Error,
+        NextOutsideLoop => Error,
+        InvalidLoopLabel => Error,
+        MismatchedKinds => Error,
+        TooManyConstraints => Error,
+        TooFewConstraints => Error,
+        IllegalConstraint => Error,
+        InvalidOperatorSymbol => Error,
+        Unresolved => Error,
+        DimensionMismatch => Error,
+        InvalidLiteral => Error,
+        DeclaredBefore => Error,
+        ConfigNotInSameLibrary => Error,
+        NoImplicitConversion => Error,
+        ExpectedSubAggregate => Error,
+        IllegalAttribute => Error,
+        CannotBePrefixed => Error,
+        NonScalarInRange => Error,
+        UnexpectedSignature => Error,
+        MissingDeferredDeclaration => Error,
+        MissingFullTypeDeclaration => Error,
+        InvalidCall => Error,
+        Unused => Warning,
+        UnnecessaryWorkLibrary => Warning,
+        UnassociatedContext => Warning,
+        Internal => Error,
+        Related => Hint
     }
 }
 
@@ -517,20 +517,19 @@ fn serialize_to_string() {
 /// Specialized diagnostics with pre-defined messages and error codes
 impl Diagnostic {
     pub fn syntax_error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
-        Self::new(item, msg, Severity::Error, ErrorCode::SyntaxError)
+        Self::new(item, msg, ErrorCode::SyntaxError)
     }
 
     pub fn circular_dependency(item: impl AsRef<SrcPos>) -> Diagnostic {
         Self::new(
             item,
             "Found circular dependency",
-            Severity::Error,
             ErrorCode::CircularDependency,
         )
     }
 
     pub fn internal(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
-        Self::new(item, msg, Severity::Error, ErrorCode::Internal)
+        Self::new(item, msg, ErrorCode::Internal)
     }
 }
 

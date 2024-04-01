@@ -295,7 +295,7 @@ fn parse_interface_list(
         match token.kind {
             RightPar => {
                 if interface_list.is_empty() {
-                    diagnostics.error(
+                    diagnostics.add(
                         stream.get_pos(left_par).combine(token),
                         "Interface list must not be empty",
                         ErrorCode::SyntaxError,

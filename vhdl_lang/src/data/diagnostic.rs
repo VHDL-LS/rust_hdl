@@ -5,9 +5,12 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::SrcPos;
-use crate::data::error_codes::ErrorCode;
+use crate::data::error_codes::{ErrorCode, SeverityMap};
 use std::convert::{AsRef, Into};
 use strum::{EnumString, IntoStaticStr};
+
+#[cfg(test)]
+use crate::data::error_codes::default_severity_map;
 
 #[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
@@ -23,52 +26,24 @@ pub enum Severity {
 pub struct Diagnostic {
     pub pos: SrcPos,
     pub message: String,
-    pub default_severity: Severity,
     pub related: Vec<(SrcPos, String)>,
     pub code: ErrorCode,
 }
 
 impl Diagnostic {
-    pub fn new(
-        item: impl AsRef<SrcPos>,
-        msg: impl Into<String>,
-        severity: Severity,
-        code: ErrorCode,
-    ) -> Diagnostic {
+    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) -> Diagnostic {
         Diagnostic {
             pos: item.as_ref().clone(),
             message: msg.into(),
-            default_severity: severity,
             related: vec![],
             code,
         }
-    }
-
-    pub fn error(item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) -> Diagnostic {
-        Self::new(item, msg, Severity::Error, code)
-    }
-
-    pub fn warning(
-        item: impl AsRef<SrcPos>,
-        msg: impl Into<String>,
-        code: ErrorCode,
-    ) -> Diagnostic {
-        Self::new(item, msg, Severity::Warning, code)
-    }
-
-    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) -> Diagnostic {
-        Self::new(item, msg, Severity::Hint, code)
-    }
-
-    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) -> Diagnostic {
-        Self::new(item, msg, Severity::Info, code)
     }
 
     pub fn when(self, message: impl AsRef<str>) -> Diagnostic {
         Diagnostic {
             message: format!("{}, when {}", &self.message, message.as_ref()),
             pos: self.pos,
-            default_severity: self.default_severity,
             related: vec![],
             code: self.code,
         }
@@ -104,22 +79,26 @@ impl Diagnostic {
             diagnostics.push(Diagnostic::new(
                 pos,
                 format!("related: {msg}"),
-                Severity::Hint,
                 ErrorCode::Related,
             ));
         }
         diagnostics
     }
 
-    pub fn show(&self) -> String {
+    pub fn show(&self, severities: &SeverityMap) -> String {
         let mut result = String::new();
         for (pos, message) in self.related.iter() {
             result.push_str(&pos.show(&format!("related: {message}")));
             result.push('\n');
         }
-        let severity: &str = self.default_severity.into();
+        let severity: &str = severities[self.code].into();
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
         result
+    }
+
+    #[cfg(test)]
+    pub fn show_default(&self) -> String {
+        self.show(&default_severity_map())
     }
 }
 
@@ -130,20 +109,8 @@ pub trait DiagnosticHandler {
 }
 
 impl<'a> dyn DiagnosticHandler + 'a {
-    pub fn error(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
-        self.push(Diagnostic::error(item, msg, code));
-    }
-
-    pub fn warning(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
-        self.push(Diagnostic::warning(item, msg, code));
-    }
-
-    pub fn hint(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
-        self.push(Diagnostic::hint(item, msg, code));
-    }
-
-    pub fn info(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
-        self.push(Diagnostic::info(item, msg, code));
+    pub fn add(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
+        self.push(Diagnostic::new(item, msg, code))
     }
 
     pub fn push_result<T>(&mut self, diagnostic: Result<T, Diagnostic>) {
@@ -185,7 +152,7 @@ pub struct NoDiagnostics;
 #[cfg(test)]
 impl DiagnosticHandler for NoDiagnostics {
     fn push(&mut self, diagnostic: Diagnostic) {
-        panic!("{}", diagnostic.show())
+        panic!("{}", diagnostic.show(&default_severity_map()))
     }
 }
 
@@ -199,7 +166,7 @@ mod tests {
     fn show_warning() {
         let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
         assert_eq!(
-            Diagnostic::warning(code.s1("world"), "Greetings", ErrorCode::SyntaxError).show(),
+            Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::Unused).show_default(),
             "\
 warning: Greetings
   --> {unknown file}:2
@@ -216,7 +183,7 @@ warning: Greetings
     fn show_error() {
         let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
         assert_eq!(
-            Diagnostic::error(code.s1("world"), "Greetings", ErrorCode::SyntaxError).show(),
+            Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::SyntaxError).show_default(),
             "\
 error: Greetings
   --> {unknown file}:2
@@ -233,11 +200,11 @@ error: Greetings
     fn show_related() {
         let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
 
-        let err = Diagnostic::error(code.s1("line"), "Greetings", ErrorCode::SyntaxError)
+        let err = Diagnostic::new(code.s1("line"), "Greetings", ErrorCode::SyntaxError)
             .related(code.s1("hello"), "From here");
 
         assert_eq!(
-            err.show(),
+            err.show_default(),
             "\
 related: From here
   --> {unknown file}:1

@@ -205,7 +205,7 @@ pub fn parse_association_list_no_leftpar(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {
-        diagnostics.error(
+        diagnostics.add(
             stream.get_span(left_par, right_par),
             "Association list cannot be empty",
             ErrorCode::SyntaxError,

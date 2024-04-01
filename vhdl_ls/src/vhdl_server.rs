@@ -16,9 +16,9 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
-    InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
-    Token, Type,
+    default_severity_map, kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic,
+    EntHierarchy, EntRef, EntityId, InterfaceEnt, Message, MessageHandler, Object, Overloaded,
+    Project, Severity, SeverityMap, Source, SrcPos, Token, Type,
 };
 
 #[derive(Default, Clone)]
@@ -36,6 +36,7 @@ pub struct VHDLServer {
     files_with_notifications: FnvHashMap<Url, ()>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
+    severity_map: SeverityMap,
 }
 
 impl VHDLServer {
@@ -48,6 +49,7 @@ impl VHDLServer {
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,
+            severity_map: default_severity_map(),
         }
     }
 
@@ -61,6 +63,7 @@ impl VHDLServer {
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,
+            severity_map: default_severity_map(),
         }
     }
 
@@ -504,7 +507,7 @@ impl VHDLServer {
         for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
             let mut lsp_diagnostics = Vec::new();
             for diagnostic in diagnostics {
-                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic));
+                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic, &self.severity_map));
             }
 
             let publish_diagnostics = PublishDiagnosticsParams {
@@ -958,8 +961,8 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
     uri.to_file_path().unwrap()
 }
 
-fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
-    let severity = match diagnostic.default_severity {
+fn to_lsp_diagnostic(diagnostic: Diagnostic, severity_map: &SeverityMap) -> lsp_types::Diagnostic {
+    let severity = match severity_map[diagnostic.code] {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
         Severity::Info => DiagnosticSeverity::INFORMATION,

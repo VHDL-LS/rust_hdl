@@ -159,7 +159,7 @@ impl<'a> ScopeInner<'a> {
 
         match result {
             Some(visible) => Ok(visible),
-            None => Err(Diagnostic::error(
+            None => Err(Diagnostic::new(
                 pos,
                 match designator {
                     Designator::Identifier(ident) => {
@@ -365,7 +365,7 @@ impl Diagnostic {
         pos: &SrcPos,
         prev_pos: Option<&SrcPos>,
     ) -> Diagnostic {
-        let mut diagnostic = Diagnostic::error(
+        let mut diagnostic = Diagnostic::new(
             pos,
             format!("Duplicate declaration of '{name}'"),
             ErrorCode::Duplicate,

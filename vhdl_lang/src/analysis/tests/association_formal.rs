@@ -36,7 +36,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No declaration of 'missing'",
             ErrorCode::Unresolved,
@@ -72,7 +72,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No declaration of 'missing'",
             ErrorCode::Unresolved,
@@ -189,23 +189,23 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("theport", 2),
                 "No declaration of 'theport'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("work.ent_inst"),
                 "No association of port 'theport' : in",
                 ErrorCode::Unassociated,
             )
             .related(code.s1("theport"), "Defined here"),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("thegeneric", 2),
                 "No declaration of 'thegeneric'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("work.ent_inst"),
                 "No association of generic 'thegeneric'",
                 ErrorCode::Unassociated,
@@ -380,7 +380,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("fun1(theport, 2)"),
             "Invalid formal conversion",
             ErrorCode::InvalidFormalConversion,
@@ -425,7 +425,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("fun1(arg => theport)"),
             "Invalid formal conversion",
             ErrorCode::InvalidFormalConversion,
@@ -556,12 +556,12 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("missing"),
                 "No declaration of 'missing'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("work.ent_inst"),
                 "No association of port 'prt0' : in",
                 ErrorCode::Unassociated,

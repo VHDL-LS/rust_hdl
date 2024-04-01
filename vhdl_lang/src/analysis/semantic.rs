@@ -34,7 +34,7 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
                 ResolvedName::ObjectName(obj) => obj.type_mark(),
                 other => {
-                    let mut diag = Diagnostic::error(
+                    let mut diag = Diagnostic::new(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
@@ -53,7 +53,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some((elem_type, _)) = typ.array_type() {
                         Ok(elem_type)
                     } else {
-                        diagnostics.error(
+                        diagnostics.add(
                             pos,
                             format!("array type expected for '{attr} attribute",),
                             ErrorCode::TypeMismatch,
@@ -66,7 +66,7 @@ impl<'a> AnalyzeContext<'a> {
             match name {
                 ResolvedName::Type(typ) => Ok(typ),
                 other => {
-                    let mut diag = Diagnostic::error(
+                    let mut diag = Diagnostic::new(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
@@ -163,7 +163,7 @@ impl<'a> AnalyzeContext<'a> {
                         name.set_unique_reference(&ent);
 
                         if !ent.is_procedure() {
-                            let mut diagnostic = Diagnostic::error(
+                            let mut diagnostic = Diagnostic::new(
                                 &name.pos,
                                 "Invalid procedure call",
                                 ErrorCode::InvalidCall,
@@ -178,7 +178,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                             diagnostics.push(diagnostic);
                         } else if ent.is_uninst_subprogram_body() {
-                            diagnostics.error(
+                            diagnostics.add(
                                 &name.pos,
                                 format!("uninstantiated {} cannot be called", ent.describe()),
                                 ErrorCode::InvalidCall,
@@ -207,20 +207,20 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     )?;
                 } else {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.add(
                         &name.pos,
                         format!("{} is not a procedure", resolved.describe_type()),
                         ErrorCode::MismatchedKinds,
-                    ));
+                    );
                     self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                 }
             }
             resolved => {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.add(
                     &name.pos,
                     format!("{} is not a procedure", resolved.describe_type()),
                     ErrorCode::MismatchedKinds,
-                ));
+                );
                 self.analyze_assoc_elems(scope, parameters, diagnostics)?;
             }
         };
@@ -263,7 +263,7 @@ impl Diagnostic {
 
 impl<'a> ResolvedName<'a> {
     pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
-        let mut error = Diagnostic::error(
+        let mut error = Diagnostic::new(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),
             ErrorCode::MismatchedKinds,
@@ -277,7 +277,7 @@ impl<'a> ResolvedName<'a> {
 
 impl Diagnostic {
     pub(crate) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             format!("{} does not match {}", desc, expected_type.describe(),),
             ErrorCode::TypeMismatch,
@@ -288,7 +288,7 @@ impl Diagnostic {
         named_entity: &AnyEnt,
         prefix: &SrcPos,
     ) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             prefix,
             capitalize(&format!(
                 "{} may not be the prefix of a selected name",
@@ -303,7 +303,7 @@ impl Diagnostic {
         pos: &SrcPos,
         suffix: &Designator,
     ) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             format!(
                 "No declaration of '{}' within {}",

@@ -27,20 +27,20 @@ impl<'a> AnalyzeContext<'a> {
             for chr in string_lit.chars() {
                 let chr = Designator::Character(*chr);
                 if !literals.contains(&chr) {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.add(
                         pos,
                         format!("{} does not define character {}", elem_type.describe(), chr),
                         ErrorCode::InvalidLiteral,
-                    ));
+                    );
                     break;
                 }
             }
         } else {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.add(
                 pos,
                 format!("string literal does not match {}", target_type.describe()),
                 ErrorCode::TypeMismatch,
-            ));
+            );
         }
     }
 
@@ -61,45 +61,45 @@ impl<'a> AnalyzeContext<'a> {
                 AbstractLiteral::Integer(_) => {
                     if !self.can_be_target_type(self.universal_integer().into(), target_type.base())
                     {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
                             ErrorCode::TypeMismatch,
-                        ));
+                        );
                     }
                 }
                 AbstractLiteral::Real(_) => {
                     if !self.can_be_target_type(self.universal_real().into(), target_type.base()) {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
                             ErrorCode::TypeMismatch,
-                        ));
+                        );
                     }
                 }
             },
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(literals) => {
                     if !literals.contains(&Designator::Character(*char)) {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             pos,
                             format!(
                                 "character literal does not match {}",
                                 target_type.describe()
                             ),
                             ErrorCode::TypeMismatch,
-                        ));
+                        );
                     }
                 }
                 _ => {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.add(
                         pos,
                         format!(
                             "character literal does not match {}",
                             target_type.describe()
                         ),
                         ErrorCode::TypeMismatch,
-                    ));
+                    );
                 }
             },
             Literal::String(string_lit) => {
@@ -123,7 +123,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(err) => {
                         match err {
                             BitStringConversionError::IllegalDecimalCharacter(rel_pos) => {
-                                diagnostics.error(
+                                diagnostics.add(
                                     pos,
                                     format!(
                                         "Illegal digit '{}' for base 10",
@@ -133,7 +133,7 @@ impl<'a> AnalyzeContext<'a> {
                                 )
                             }
                             BitStringConversionError::IllegalTruncate(_, _) => {
-                                diagnostics.error(
+                                diagnostics.add(
                                     pos,
                                     format!(
                                         "Truncating vector to length {} would lose information",
@@ -143,7 +143,7 @@ impl<'a> AnalyzeContext<'a> {
                                 );
                             }
                             BitStringConversionError::EmptySignedExpansion => {
-                                diagnostics.error(
+                                diagnostics.add(
                                     pos,
                                     "Cannot expand an empty signed bit string",
                                     ErrorCode::InvalidLiteral,
@@ -171,11 +171,11 @@ impl<'a> AnalyzeContext<'a> {
             }
             Literal::Null => {
                 if !matches!(target_base.kind(), Type::Access(_)) {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.add(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
                         ErrorCode::TypeMismatch,
-                    ));
+                    );
                 }
             }
         };
@@ -196,14 +196,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let AnyEntKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {
                     Ok(*physical_ent)
                 } else {
-                    Err(Diagnostic::error(
+                    Err(Diagnostic::new(
                         &unit.item.pos,
                         format!("{} is not a physical unit", unit_ent.describe()),
                         ErrorCode::InvalidLiteral,
                     ))
                 }
             }
-            NamedEntities::Overloaded(_) => Err(Diagnostic::error(
+            NamedEntities::Overloaded(_) => Err(Diagnostic::new(
                 &unit.item.pos,
                 "Overloaded name may not be physical unit",
                 ErrorCode::MismatchedKinds,

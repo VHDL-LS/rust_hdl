@@ -30,12 +30,12 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("gpkg", 2),
                 "No declaration of 'gpkg'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("gpkg", 4),
                 "No declaration of 'gpkg'",
                 ErrorCode::Unresolved,
@@ -65,12 +65,12 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("work.pkg"),
                 "'work.pkg' is not an uninstantiated generic package",
                 ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("work.pkg.const"),
                 "'work.pkg.const' is not an uninstantiated generic package",
                 ErrorCode::MismatchedKinds,
@@ -110,12 +110,12 @@ package ipkg3 is new work.gpkg
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 1),
                 "No declaration of 'missing'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 2),
                 "No declaration of 'missing'",
                 ErrorCode::Unresolved,
@@ -171,17 +171,17 @@ package bad_pkg2 is new work.gpkg
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("16#bad#", 1),
                 "Cannot map expression to type generic",
                 ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("natural"),
                 "subtype 'NATURAL' cannot be used in an expression",
                 ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("=> work").s1("work"),
                 "Expected type name, got library libname",
                 ErrorCode::MismatchedKinds,
@@ -294,7 +294,7 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("character"),
             "Cannot map type 'CHARACTER' to subprogram generic",
             ErrorCode::MismatchedKinds,
@@ -330,7 +330,7 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.sa("to_string => ", "my_to_string"),
             "Cannot map 'my_to_string' to subprogram generic to_string[INTEGER return STRING]",
             ErrorCode::MismatchedKinds,
@@ -373,7 +373,7 @@ end package;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("\"invalid\""),
             "Invalid operator symbol",
             ErrorCode::InvalidOperatorSymbol,
@@ -451,7 +451,7 @@ end package;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("ipkg.type_t").s1("type_t"),
             "No declaration of 'type_t' within package instance 'ipkg'",
             ErrorCode::Unresolved,

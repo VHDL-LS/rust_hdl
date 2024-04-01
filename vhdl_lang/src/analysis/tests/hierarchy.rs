@@ -350,12 +350,12 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("exit;"),
                 "Exit can only be used inside a loop",
                 ErrorCode::ExitOutsideLoop,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("next;"),
                 "Next can only be used inside a loop",
                 ErrorCode::NextOutsideLoop,
@@ -403,12 +403,12 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.sa("exit ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
                 ErrorCode::InvalidLoopLabel,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.sa("next ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
                 ErrorCode::InvalidLoopLabel,

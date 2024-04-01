@@ -1083,7 +1083,7 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("[return integer]"),
             "Alias should only have a signature for subprograms and enum literals",
             ErrorCode::IllegalSignature,
@@ -1113,7 +1113,7 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("subpgm", 2),
             "Signature required for alias of subprogram and enum literals",
             ErrorCode::SignatureRequired,
@@ -1256,22 +1256,22 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 1),
                 "No declaration of 'missing' within record type 'rec1_t'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 2),
                 "No declaration of 'missing' within record type 'rec2_t'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 3),
                 "No declaration of 'missing' within record type 'rec1_t'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 4),
                 "No declaration of 'missing' within record type 'rec2_t'",
                 ErrorCode::Unresolved,
@@ -1342,7 +1342,7 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("missing", 1),
             "No declaration of 'missing' within record type 'rec_t'",
             ErrorCode::Unresolved,
@@ -1384,7 +1384,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("missing", 1),
             "No declaration of 'missing' within record type 'rec_t'",
             ErrorCode::Unresolved,
@@ -1433,7 +1433,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("missing", 1),
             "No declaration of 'missing' within protected type 'prot_t'",
             ErrorCode::Unresolved,
@@ -1481,12 +1481,12 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 1),
                 "No declaration of 'missing' within record type 'rec_t'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 2),
                 "No declaration of 'missing' within record type 'rec_t'",
                 ErrorCode::Unresolved,
@@ -1566,7 +1566,7 @@ constant bad : rec_t := (missing => 0);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No declaration of 'missing' within record type 'rec_t'",
             ErrorCode::Unresolved,
@@ -1699,17 +1699,17 @@ attribute ram_style of ram : signal is missing3;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("missing1"),
                 "No declaration of 'missing1'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("missing2"),
                 "No declaration of 'missing2'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("missing3"),
                 "No declaration of 'missing3'",
                 ErrorCode::Unresolved,
@@ -1732,7 +1732,7 @@ attribute bad of ram : signal is 0;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("attribute bad").s1("bad"),
             "constant 'bad' is not an attribute",
             ErrorCode::MismatchedKinds,
@@ -1903,7 +1903,7 @@ end architecture;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.sa("work.ent1(", "a3"),
             "No architecture 'a3' for entity 'libname.ent1'",
             ErrorCode::Unresolved,

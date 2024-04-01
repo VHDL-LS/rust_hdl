@@ -400,7 +400,7 @@ impl<'a> AnyEnt<'a> {
         code: ErrorCode,
     ) {
         if let Some(ref pos) = self.decl_pos {
-            diagnostics.push(Diagnostic::error(pos, message, code));
+            diagnostics.add(pos, message, code);
         }
     }
 
@@ -437,7 +437,7 @@ impl<'a> AnyEnt<'a> {
         match self.attrs.entry(ent.name().clone()) {
             Entry::Occupied(entry) => {
                 let last_pos = entry.get().0.clone();
-                Err(Diagnostic::error(
+                Err(Diagnostic::new(
                     pos,
                     format!(
                         "Duplicate specification of attribute '{}' for {}",

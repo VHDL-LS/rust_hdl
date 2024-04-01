@@ -29,12 +29,12 @@ end context;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("ctx1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("ctx2", 1),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -65,12 +65,12 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg2", 1),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -101,12 +101,12 @@ package pkg2 is new work.gpkg generic map(c => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("pkg2"),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -138,12 +138,12 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("pkg2"),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("gpkg", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -178,17 +178,17 @@ package pkg3 is new work.pkg2;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("pkg3"),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("gpkg", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg2", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -219,12 +219,12 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("pkg2"),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -258,12 +258,12 @@ package pkg2 is new work.gpkg generic map (g => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("pkg2"),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
@@ -294,12 +294,12 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("pkg1", 2),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("work.all", 1),
                 "Found circular dependency",
                 ErrorCode::CircularDependency,

@@ -27,7 +27,7 @@ end entity;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("cfg", 1),
             "Configuration 'cfg' declared before entity 'ent'",
             ErrorCode::DeclaredBefore,
@@ -50,7 +50,7 @@ end configuration;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("ent", 1),
             "No primary unit 'ent' within library 'libname'",
             ErrorCode::Unresolved,
@@ -111,7 +111,7 @@ end configuration;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("lib2", 2),
             "Configuration must be within the same library 'libname' as the corresponding entity",
             ErrorCode::ConfigNotInSameLibrary,
@@ -153,7 +153,7 @@ end architecture;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
             ErrorCode::Unresolved,
@@ -179,7 +179,7 @@ end entity;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("aname", 1),
             "Architecture 'aname' of 'ent' declared before entity 'ent'",
             ErrorCode::DeclaredBefore,
@@ -200,7 +200,7 @@ end package body;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
             ErrorCode::Unresolved,
@@ -225,7 +225,7 @@ end package;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("pkg", 1),
             "Package body 'pkg' declared before package 'pkg'",
             ErrorCode::DeclaredBefore,
@@ -287,7 +287,7 @@ end architecture;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No primary unit 'missing' within library 'libname'",
             ErrorCode::Unresolved,
