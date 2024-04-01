@@ -276,11 +276,12 @@ impl<'a> AnalyzeContext<'a> {
 
                 if op_candidates.is_empty() {
                     bail!(
-                        diagnostics,Diagnostic::error(
-                        op_pos,
-                        format!("Found no match for {}", designator.describe()),
-                        ErrorCode::Unresolved,
-                    )
+                        diagnostics,
+                        Diagnostic::error(
+                            op_pos,
+                            format!("Found no match for {}", designator.describe()),
+                            ErrorCode::Unresolved,
+                        )
                     );
                 } else {
                     Ok(op_candidates)

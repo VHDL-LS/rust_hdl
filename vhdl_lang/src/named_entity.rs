@@ -32,8 +32,8 @@ mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 mod formal_region;
-use crate::TokenSpan;
 use crate::data::error_codes::ErrorCode;
+use crate::TokenSpan;
 pub use formal_region::{
     FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
     RecordRegion,

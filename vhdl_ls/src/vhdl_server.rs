@@ -1079,7 +1079,6 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
 
 #[cfg(test)]
 mod tests {
-    use lsp_server::ErrorCode;
     use std::rc::Rc;
 
     use super::*;

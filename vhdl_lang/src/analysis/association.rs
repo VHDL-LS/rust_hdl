@@ -175,10 +175,7 @@ impl<'a> AnalyzeContext<'a> {
                             )?,
                         )
                     } else {
-                        bail!(
-                            diagnostics,
-                            Diagnostic::invalid_formal_conversion(name_pos)
-                        );
+                        bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
                     };
 
                     let converted_typ = match as_fatal(self.name_resolve(
@@ -192,11 +189,7 @@ impl<'a> AnalyzeContext<'a> {
                             if !typ.base().is_closely_related(ctyp) {
                                 bail!(
                                     diagnostics,
-                                    Diagnostic::invalid_type_conversion(
-                                        pos,
-                                            ctyp,
-                                            typ
-                                        ).into()
+                                    Diagnostic::invalid_type_conversion(pos, ctyp, typ)
                                 );
                             }
                             typ
@@ -216,29 +209,28 @@ impl<'a> AnalyzeContext<'a> {
 
                             if candidates.len() > 1 {
                                 // Ambiguous call
-                                bail!(diagnostics, Diagnostic::ambiguous_call(&des, candidates).into());
+                                bail!(diagnostics, Diagnostic::ambiguous_call(&des, candidates));
                             } else if let Some(ent) = candidates.pop() {
                                 fcall.name.set_unique_reference(&ent);
                                 ent.return_type().unwrap()
                             } else {
                                 // No match
                                 bail!(
-                                    diagnostics,Diagnostic::error(
-                                    &fcall.name.pos,
-                                    format!(
-                                        "No function '{}' accepting {}",
-                                        fcall.name,
-                                        resolved_formal.type_mark.describe()
-                                    ),
-                                    ErrorCode::Unresolved,
-                                )
+                                    diagnostics,
+                                    Diagnostic::error(
+                                        &fcall.name.pos,
+                                        format!(
+                                            "No function '{}' accepting {}",
+                                            fcall.name,
+                                            resolved_formal.type_mark.describe()
+                                        ),
+                                        ErrorCode::Unresolved,
+                                    )
                                 );
                             }
                         }
                         _ => {
-                            bail!(
-                                diagnostics,Diagnostic::invalid_formal_conversion(name_pos)
-                            );
+                            bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
                         }
                     };
 
@@ -335,7 +327,11 @@ impl<'a> AnalyzeContext<'a> {
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
                 result.push((&actual.pos, Some(formal)));
             } else {
-                diagnostics.error(&actual.pos, "Unexpected extra argument", ErrorCode::TooManyArguments);
+                diagnostics.error(
+                    &actual.pos,
+                    "Unexpected extra argument",
+                    ErrorCode::TooManyArguments,
+                );
                 result.push((&actual.pos, None));
             };
         }
