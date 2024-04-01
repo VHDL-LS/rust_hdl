@@ -1,8 +1,8 @@
 use crate::{Diagnostic, Severity, SrcPos};
 use std::fmt::{Display, Formatter};
-use strum::EnumString;
+use strum::{EnumString, IntoStaticStr};
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum ErrorCode {
     /// A syntax error happens during tokenization or parsing.
@@ -16,7 +16,7 @@ pub enum ErrorCode {
     ///     );
     /// end entity;
     /// ```
-    SyntaxError = 0,
+    SyntaxError,
 
     // Analysis
     /// A circular dependency was found where one module depends on another module which
@@ -34,7 +34,7 @@ pub enum ErrorCode {
     /// package bar is
     /// end package;
     /// ```
-    CircularDependency = 1,
+    CircularDependency,
 
     /// A formal parameter is invalid / malformed in a certain context
     ///
@@ -336,7 +336,7 @@ pub enum ErrorCode {
 
     // Linting
     /// A declaration that is unused
-    UnusedDeclaration = 4096,
+    UnusedDeclaration,
 
     /// The declaration
     /// ```vhdl
@@ -357,11 +357,17 @@ pub enum ErrorCode {
     UnassociatedContext,
 
     /// An internal error that signifies that some precondition within vhdl_lang wasn't met.
-    Internal = -1,
+    Internal,
 
     /// A related error message. This error code is never generated directly and only used
     /// as 'drop-in' when related messages are drained from a bigger error message
-    Related = -2,
+    Related,
+}
+
+impl ErrorCode {
+    pub fn as_str(&self) -> &str {
+        self.into()
+    }
 }
 
 #[test]
@@ -382,6 +388,16 @@ fn serialize_from_string() {
         ErrorCode::try_from("not_an_error_code"),
         Err(strum::ParseError::VariantNotFound)
     );
+}
+
+#[test]
+fn serialize_to_string() {
+    assert_eq!(ErrorCode::VoidReturn.as_str(), "void_return");
+    assert_eq!(
+        ErrorCode::AttributeSpecNotInImmediateDeclarativePart.as_str(),
+        "attribute_spec_not_in_immediate_declarative_part"
+    );
+    assert_eq!(ErrorCode::SyntaxError.as_str(), "syntax_error");
 }
 
 /// Specialized diagnostics with pre-defined messages and error codes
@@ -406,6 +422,6 @@ impl Diagnostic {
 
 impl Display for ErrorCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "E{:0>3}", *self as u32)
+        write!(f, "{}", self.as_str())
     }
 }
