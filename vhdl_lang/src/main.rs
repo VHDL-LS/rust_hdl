@@ -8,8 +8,8 @@ use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
 use vhdl_lang::{
-    default_severity_map, Config, Diagnostic, MessagePrinter, NullMessages, Project, Severity,
-    SeverityMap,
+    severity_map_with_overwrites, Config, Diagnostic, MessagePrinter, NullMessages, Project,
+    Severity, SeverityMap,
 };
 
 /// Run vhdl analysis
@@ -76,8 +76,8 @@ fn main() {
         1
     };
 
+    let severity_map = severity_map_with_overwrites(config.error_codes().clone());
     let mut project = Project::from_config(config, &mut msg_printer);
-    let severity_map = default_severity_map();
     let mut diagnostics = project.analyse();
     let duration = start.elapsed().unwrap() / iterations;
 

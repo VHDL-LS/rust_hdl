@@ -16,9 +16,9 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    default_severity_map, kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic,
-    EntHierarchy, EntRef, EntityId, InterfaceEnt, Message, MessageHandler, Object, Overloaded,
-    Project, Severity, SeverityMap, Source, SrcPos, Token, Type,
+    default_severity_map, kind_str, severity_map_with_overwrites, AnyEntKind, Concurrent, Config,
+    Design, Diagnostic, EntHierarchy, EntRef, EntityId, InterfaceEnt, Message, MessageHandler,
+    Object, Overloaded, Project, Severity, SeverityMap, Source, SrcPos, Token, Type,
 };
 
 #[derive(Default, Clone)]
@@ -119,6 +119,7 @@ impl VHDLServer {
     pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
         self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
+        self.severity_map = severity_map_with_overwrites(config.error_codes().clone());
         self.project = Project::from_config(config, &mut self.message_filter());
         self.project.enable_unused_declaration_detection();
         self.init_params = Some(init_params);

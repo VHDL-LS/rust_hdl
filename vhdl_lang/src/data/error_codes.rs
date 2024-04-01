@@ -1,5 +1,6 @@
 use crate::{Diagnostic, Severity, SrcPos};
 use enum_map::{enum_map, Enum, EnumMap};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use strum::{EnumString, IntoStaticStr};
 
@@ -413,6 +414,8 @@ pub enum ErrorCode {
     Related,
 }
 
+// Using an `EnumMap` ensures that each error code is mapped to exactly one severity.
+// Additionally, this allows efficient implementation using an array internally.
 pub type SeverityMap = EnumMap<ErrorCode, Severity>;
 
 pub fn default_severity_map() -> SeverityMap {
@@ -476,6 +479,14 @@ pub fn default_severity_map() -> SeverityMap {
         Internal => Error,
         Related => Hint
     }
+}
+
+pub fn severity_map_with_overwrites<T>(overwrites: HashMap<ErrorCode, Severity, T>) -> SeverityMap {
+    let mut map = default_severity_map();
+    for (key, value) in overwrites.into_iter() {
+        map[key] = value;
+    }
+    map
 }
 
 impl ErrorCode {

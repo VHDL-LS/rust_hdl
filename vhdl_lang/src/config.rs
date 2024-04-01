@@ -223,6 +223,7 @@ impl Config {
                 self.libraries.insert(library.name.clone(), library.clone());
             }
         }
+        self.error_codes.extend(config.error_codes())
     }
 
     /// Load configuration file from installation folder
@@ -301,6 +302,10 @@ impl Config {
         self.load_installed_config(messages);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
+    }
+
+    pub fn error_codes(&self) -> &FnvHashMap<ErrorCode, Severity> {
+        &self.error_codes
     }
 }
 

@@ -24,9 +24,9 @@ mod completion;
 
 pub use crate::config::Config;
 pub use crate::data::{
-    default_severity_map, Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter,
-    MessageType, NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source,
-    SrcPos,
+    default_severity_map, severity_map_with_overwrites, Diagnostic, Latin1String, Message,
+    MessageHandler, MessagePrinter, MessageType, NullDiagnostics, NullMessages, Position, Range,
+    Severity, SeverityMap, Source, SrcPos,
 };
 
 pub use crate::analysis::EntHierarchy;
