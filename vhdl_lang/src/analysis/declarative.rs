@@ -732,7 +732,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
-                            ErrorCode::AttributeSpecNotInImmediateDeclarativePart,
+                            ErrorCode::MisplacedAttributeSpec,
                         ));
                         return Ok(());
                     }
@@ -753,7 +753,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
-                            ErrorCode::AttributeSpecNotInImmediateDeclarativePart,
+                            ErrorCode::MisplacedAttributeSpec,
                         ));
                         return Ok(());
                     }
@@ -954,7 +954,7 @@ impl Diagnostic {
         Diagnostic::error(
             pos,
             format!("{prefix} should only have a signature for subprograms and enum literals"),
-            ErrorCode::ShouldNotHaveSignature,
+            ErrorCode::IllegalSignature,
         )
     }
 

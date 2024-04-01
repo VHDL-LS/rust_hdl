@@ -140,7 +140,7 @@ impl<'a> Region<'a> {
             ent.error(
                 diagnostics,
                 "Deferred constants are only allowed in package declarations (not body)",
-                ErrorCode::DeferredConstantNotAllowed,
+                ErrorCode::IllegalDeferredConstant,
             );
             return;
         };
@@ -161,7 +161,7 @@ impl<'a> Region<'a> {
                                 ent.error(
                                     diagnostics,
                                     "Full declaration of deferred constant is only allowed in a package body",
-                                    ErrorCode::DeferredConstantNotAllowed
+                                    ErrorCode::IllegalDeferredConstant
                                 );
                             } else {
                                 *prev_ent = ent;
@@ -300,7 +300,7 @@ impl<'a> OverloadedName<'a> {
                         ent.designator(),
                         ent.signature().describe()
                     ),
-                    ErrorCode::DuplicateDeclaration,
+                    ErrorCode::Duplicate,
                 );
                 if let Some(old_pos) = old_ent.decl_pos() {
                     diagnostic.add_related(old_pos, "Previously defined here");

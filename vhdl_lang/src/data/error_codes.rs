@@ -44,7 +44,7 @@ pub enum ErrorCode {
     /// ```
     InvalidFormal,
 
-    /// Converting from a formal parameter is invalid
+    /// Invalid conversion from a formal parameter
     ///
     /// # Example
     /// ```vhdl
@@ -64,11 +64,11 @@ pub enum ErrorCode {
     /// ```
     InvalidFormalConversion,
 
-    /// Something of type A cannot be converted to type B
+    /// Issued when two types don't match in a context where they should.
     ///
     /// # Example
     /// ```vhdl
-    /// constant x : integer := integer('a');
+    /// constant x : integer := 'a';
     /// ```
     TypeMismatch,
 
@@ -92,9 +92,9 @@ pub enum ErrorCode {
     /// function foo(a, b: integer) return bit;
     /// constant bar: bit := foo(a => 1, 2);
     /// ```
-    NamedArgumentsBeforePositional,
+    NamedBeforePositional,
 
-    /// More arguments than are expected are passed to a function
+    /// When calling a function, more arguments are passed to that function than it can accept.
     ///
     /// # Example
     /// ```vhdl
@@ -148,8 +148,9 @@ pub enum ErrorCode {
     DisallowedInSensitivityList,
 
     /// A declaration is not allowed in a certain context.
-    /// For example, variables cannot be declared in an architecture declarative part
-    /// `signal`s, `constant`s or `shared variable`s could be declared, however.
+    /// For example, in an architecture declarative part,
+    /// `signal`s, `constant`s or `shared variable`s can be declared.
+    /// However, variables may not be declared in that context.
     ///
     /// # Example
     /// ```vhdl
@@ -160,7 +161,7 @@ pub enum ErrorCode {
     /// ```
     DeclarationNotAllowed,
 
-    /// The class of an attribute does not match the declared
+    /// The entity class of an attribute does not match the declared
     ///
     /// # Example
     /// ```vhdl
@@ -186,41 +187,88 @@ pub enum ErrorCode {
     /// begin
     /// end architecture;
     /// ```
-    AttributeSpecNotInImmediateDeclarativePart,
+    MisplacedAttributeSpec,
 
-    /// There is no overloaded function with the provided signature available
+    /// There is no overloaded function with an explicitly provided signature available
+    ///
+    /// # Example
+    ///
+    /// ```vhdl
+    /// function foo return natural;
+    /// attribute bar : natural;
+    ///
+    /// attribute bar of foo[return boolean] : function is 0;
+    /// ```
     NoOverloadedWithSignature,
 
-    /// A prefix should only have a signature for subprograms and enum literals
-    ShouldNotHaveSignature,
+    /// An explicit signature is used in a context where no signature is expected.
+    ///
+    /// # Example
+    /// ```vhdl
+    /// type enum_t is (alpha, beta);
+    /// alias alias_t is enum_t[return integer];
+    /// ```
+    IllegalSignature,
 
     /// A signature is required to disambiguate
+    ///
+    /// # Example
+    /// ```vhdl
+    /// procedure foo(arg: natural);
+    /// alias bar is subpgm;
+    /// ```
     SignatureRequired,
 
     /// The value of an expression is ambiguous
     AmbiguousExpression,
 
     /// A declaration was already declared previously
-    DuplicateDeclaration,
+    ///
+    /// # Example
+    /// ```vhdl
+    /// constant foo: bit := '0';
+    /// constant foo: bit := '1';
+    /// ```
+    Duplicate,
 
     /// A designator is hidden by a conflicting use clause
     ConflictingUseClause,
 
     /// A protected type that does not have a body
+    ///
+    /// # Example
+    ///
+    /// ```vhdl
+    /// type a1 is protected
+    /// end protected;
+    ///
+    /// -- No `type a1 is protected body ... follows`
+    /// ```
     MissingProtectedBodyType,
 
     /// A deferred constant is not allowed in the given context
-    DeferredConstantNotAllowed,
+    IllegalDeferredConstant,
 
     /// The signature between an uninstantiated subprogram and it's instantiated
     /// counterpart does not match
+    ///
+    /// # Example
+    /// ```vhdl
+    /// procedure foo
+    ///     generic (type T)
+    ///     parameter (x : bit)
+    /// is begin
+    /// end foo;
+    ///
+    /// procedure proc is new foo [bit, bit];
+    /// ```
     SignatureMismatch,
 
     /// When instantiating an uninstantiated subprogram, no distinct subprogram is available
     AmbiguousInstantiation,
 
     /// Instantiating a function as procedure or vice-versa
-    MismatchedInstantiationType,
+    MismatchedSubprogramInstantiation,
 
     /// Function returns without a value
     VoidReturn,
@@ -259,10 +307,7 @@ pub enum ErrorCode {
     ///     exit bad0;
     /// end loop;
     /// ```
-    InvalidLoopLabelPosition,
-
-    /// A call to an uninstantiated subprogram was made
-    UninstantiatedSubprogramCall,
+    InvalidLoopLabel,
 
     /// Got something (a named entity such as a type, procedure, e.t.c.)
     /// while expecting another thing. For example, got something that names a procedure while
@@ -336,7 +381,7 @@ pub enum ErrorCode {
 
     // Linting
     /// A declaration that is unused
-    UnusedDeclaration,
+    Unused,
 
     /// The declaration
     /// ```vhdl
@@ -356,7 +401,10 @@ pub enum ErrorCode {
     /// ```
     UnassociatedContext,
 
+    // Misc
     /// An internal error that signifies that some precondition within vhdl_lang wasn't met.
+    /// If an error with this error code occurs,
+    /// please file an issue at https://github.com/VHDL-LS/rust_hdl/issues
     Internal,
 
     /// A related error message. This error code is never generated directly and only used
@@ -377,8 +425,8 @@ fn serialize_from_string() {
         Ok(ErrorCode::VoidReturn)
     );
     assert_eq!(
-        ErrorCode::try_from("attribute_spec_not_in_immediate_declarative_part"),
-        Ok(ErrorCode::AttributeSpecNotInImmediateDeclarativePart)
+        ErrorCode::try_from("misplaced_attribute_spec"),
+        Ok(ErrorCode::MisplacedAttributeSpec)
     );
     assert_eq!(
         ErrorCode::try_from("syntax_error"),
@@ -394,8 +442,8 @@ fn serialize_from_string() {
 fn serialize_to_string() {
     assert_eq!(ErrorCode::VoidReturn.as_str(), "void_return");
     assert_eq!(
-        ErrorCode::AttributeSpecNotInImmediateDeclarativePart.as_str(),
-        "attribute_spec_not_in_immediate_declarative_part"
+        ErrorCode::MisplacedAttributeSpec.as_str(),
+        "misplaced_attribute_spec"
     );
     assert_eq!(ErrorCode::SyntaxError.as_str(), "syntax_error");
 }

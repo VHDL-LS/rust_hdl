@@ -283,7 +283,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         formal,
                         "Named arguments are not allowed before positional arguments",
-                        ErrorCode::NamedArgumentsBeforePositional,
+                        ErrorCode::NamedBeforePositional,
                     ));
                 }
             } else {

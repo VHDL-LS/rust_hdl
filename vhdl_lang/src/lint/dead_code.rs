@@ -237,7 +237,7 @@ impl UnusedDeclarationsLinter {
                             Some(Diagnostic::warning(
                                 ent.decl_pos()?,
                                 format!("Unused declaration of {}", ent.describe()),
-                                ErrorCode::UnusedDeclaration,
+                                ErrorCode::Unused,
                             ))
                         })
                         .collect_vec()

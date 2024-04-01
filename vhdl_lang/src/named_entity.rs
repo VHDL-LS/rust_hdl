@@ -444,7 +444,7 @@ impl<'a> AnyEnt<'a> {
                         ent.name(),
                         self.describe()
                     ),
-                    ErrorCode::DuplicateDeclaration,
+                    ErrorCode::Duplicate,
                 )
                 .related(last_pos, "Previously specified here"))
             }

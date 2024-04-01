@@ -1086,7 +1086,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("[return integer]"),
             "Alias should only have a signature for subprograms and enum literals",
-            ErrorCode::ShouldNotHaveSignature,
+            ErrorCode::IllegalSignature,
         )],
     );
 }

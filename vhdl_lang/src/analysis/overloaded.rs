@@ -110,7 +110,7 @@ impl<'a> Candidates<'a> {
                 // Provide better error for unique function name
                 ("Invalid call to", ErrorCode::InvalidCall)
             } else {
-                ("Could not resolve", ErrorCode::AmbiguousExpression)
+                ("Could not resolve", ErrorCode::Unresolved)
             };
 
             let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"), code);
@@ -299,7 +299,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.push(Diagnostic::error(
                 call_name,
                 format!("uninstantiated subprogram {} cannot be called", call_name),
-                ErrorCode::UninstantiatedSubprogramCall,
+                ErrorCode::InvalidCall,
             ));
             return Err(EvalError::Unknown);
         }

@@ -368,7 +368,7 @@ impl Diagnostic {
         let mut diagnostic = Diagnostic::error(
             pos,
             format!("Duplicate declaration of '{name}'"),
-            ErrorCode::DuplicateDeclaration,
+            ErrorCode::Duplicate,
         );
 
         if let Some(prev_pos) = prev_pos {

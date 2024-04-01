@@ -326,7 +326,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("arg1", 2),
             "Named arguments are not allowed before positional arguments",
-            ErrorCode::NamedArgumentsBeforePositional,
+            ErrorCode::NamedBeforePositional,
         )],
     );
 }

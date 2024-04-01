@@ -660,7 +660,7 @@ end package;
     let error = Diagnostic::error(
         code.s("alpha", 2),
         "Duplicate declaration of 'alpha'",
-        ErrorCode::DuplicateDeclaration,
+        ErrorCode::Duplicate,
     )
     .related(code.s("alias_t", 1), "Previously defined here");
     check_diagnostics(diagnostics, vec![error]);
@@ -970,13 +970,13 @@ end package body;
             Diagnostic::error(
                 code.s("name1", 2),
                 "Duplicate declaration of 'name1' with signature [return NATURAL]",
-                ErrorCode::DuplicateDeclaration,
+                ErrorCode::Duplicate,
             )
             .related(code.s("name1", 1), "Previously defined here"),
             Diagnostic::error(
                 code.s("name2", 2),
                 "Duplicate declaration of 'name2' with signature [STRING return BOOLEAN]",
-                ErrorCode::DuplicateDeclaration,
+                ErrorCode::Duplicate,
             )
             .related(code.s("name2", 1), "Previously defined here"),
         ],
@@ -1034,7 +1034,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("homo1", 2),
             "Duplicate declaration of 'homo1' with signature [return NATURAL]",
-            ErrorCode::DuplicateDeclaration,
+            ErrorCode::Duplicate,
         )
         .related(code.s("homo1", 1), "Previously defined here")],
     );

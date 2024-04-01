@@ -332,7 +332,7 @@ constant bad : character := fun1;
         vec![Diagnostic::error(
             code.s("fun1", 4),
             "Could not resolve 'fun1'",
-            ErrorCode::AmbiguousExpression,
+            ErrorCode::Unresolved,
         )
         .related(
             code.s("fun1", 1),
@@ -376,7 +376,7 @@ constant bad : character := fun1;
         vec![Diagnostic::error(
             code.s("fun1", 4),
             "Could not resolve 'fun1'",
-            ErrorCode::AmbiguousExpression,
+            ErrorCode::Unresolved,
         )
         .related(
             code.s("fun1", 1),
@@ -1417,7 +1417,7 @@ attribute ram_style of bad_fun2[return boolean] : function is 0;
         vec![Diagnostic::error(
             code.s1("[return integer]"),
             "Attribute specification should only have a signature for subprograms and enum literals",
-            ErrorCode::ShouldNotHaveSignature
+            ErrorCode::IllegalSignature
         ),
         Diagnostic::error(
             code.s1("bad_fun1 : function").s1("bad_fun1"),

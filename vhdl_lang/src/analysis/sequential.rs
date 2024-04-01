@@ -340,7 +340,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             &label.item.pos,
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
-                            ErrorCode::InvalidLoopLabelPosition,
+                            ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {

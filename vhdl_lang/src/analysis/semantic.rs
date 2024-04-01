@@ -181,7 +181,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &name.pos,
                                 format!("uninstantiated {} cannot be called", ent.describe()),
-                                ErrorCode::UninstantiatedSubprogramCall,
+                                ErrorCode::InvalidCall,
                             )
                         }
                     }

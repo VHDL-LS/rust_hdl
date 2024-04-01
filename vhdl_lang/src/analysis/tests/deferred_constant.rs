@@ -66,7 +66,7 @@ end package body;
         vec![Diagnostic::error(
             &code.s1("a1"),
             "Deferred constants are only allowed in package declarations (not body)",
-            ErrorCode::DeferredConstantNotAllowed,
+            ErrorCode::IllegalDeferredConstant,
         )],
     );
 }
@@ -94,7 +94,7 @@ end package;
         ),Diagnostic::error(
             &code.s("a1", 2),
             "Full declaration of deferred constant is only allowed in a package body",
-            ErrorCode::DeferredConstantNotAllowed
+            ErrorCode::IllegalDeferredConstant
         )],
     );
 }

@@ -385,7 +385,7 @@ impl<'a> AnalyzeContext<'a> {
             let mut err = Diagnostic::error(
                 self.ctx.get_pos(instance.get_start_token()),
                 msg,
-                ErrorCode::MismatchedInstantiationType,
+                ErrorCode::MismatchedSubprogramInstantiation,
             );
             if let Some(pos) = ent.decl_pos() {
                 err.add_related(pos, format!("{} declared here", ent.describe()));

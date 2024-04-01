@@ -178,7 +178,7 @@ function func is new prok;
         vec![Diagnostic::error(
             code.s1("function"),
             "Instantiating procedure as function",
-            ErrorCode::MismatchedInstantiationType,
+            ErrorCode::MismatchedSubprogramInstantiation,
         )
         .related(code.s1("prok"), "procedure prok[] declared here")],
     );
@@ -200,7 +200,7 @@ procedure proc is new funk;
         vec![Diagnostic::error(
             code.s1("procedure"),
             "Instantiating function as procedure",
-            ErrorCode::MismatchedInstantiationType,
+            ErrorCode::MismatchedSubprogramInstantiation,
         )
         .related(code.s1("funk"), "function funk[return BIT] declared here")],
     );
@@ -281,7 +281,7 @@ end architecture arch;
         vec![Diagnostic::error(
             code.s1("begin\n    proc;").s1("proc").pos(),
             "uninstantiated procedure proc[] cannot be called",
-            ErrorCode::UninstantiatedSubprogramCall,
+            ErrorCode::InvalidCall,
         )],
     )
 }

@@ -406,12 +406,12 @@ end architecture;
             Diagnostic::error(
                 code.sa("exit ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
-                ErrorCode::InvalidLoopLabelPosition,
+                ErrorCode::InvalidLoopLabel,
             ),
             Diagnostic::error(
                 code.sa("next ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
-                ErrorCode::InvalidLoopLabelPosition,
+                ErrorCode::InvalidLoopLabel,
             ),
         ],
     );
