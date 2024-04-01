@@ -94,7 +94,7 @@ end package;
         ),Diagnostic::error(
             &code.s("a1", 2),
             "Full declaration of deferred constant is only allowed in a package body",
-            ErrorCode::MissingDeferredDeclaration
+            ErrorCode::DeferredConstantNotAllowed
         )],
     );
 }

@@ -443,13 +443,13 @@ impl<'a> AnalyzeContext<'a> {
                 AnalysisError::not_fatal_error(
                     &prefix,
                     "Invalid prefix of a selected name",
-                    ErrorCode::InvalidPrefix,
+                    ErrorCode::MismatchedKinds,
                 )
             }),
             UsedNames::AllWithin(..) => Err(AnalysisError::not_fatal_error(
                 &prefix,
                 "'.all' may not be the prefix of a selected name",
-                ErrorCode::InvalidPrefix,
+                ErrorCode::MismatchedKinds,
             )),
         }
     }
@@ -484,7 +484,7 @@ impl<'a> AnalyzeContext<'a> {
             | Name::External(..) => Err(AnalysisError::not_fatal_error(
                 &name.pos,
                 "Invalid selected name",
-                ErrorCode::InvalidSelected,
+                ErrorCode::MismatchedKinds,
             )),
         }
     }
@@ -515,7 +515,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(Diagnostic::error(
                                 &library_name.item,
                                 format!("No such library '{}'", library_name.item),
-                                ErrorCode::NoSuchLibrary,
+                                ErrorCode::Unresolved,
                             ));
                         }
                     }
@@ -533,7 +533,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.push(Diagnostic::error(
                                     &name.pos,
                                     "Context reference must be a selected name",
-                                    ErrorCode::NotASelectedName,
+                                    ErrorCode::MismatchedKinds,
                                 ));
                                 continue;
                             }
@@ -593,7 +593,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         &name.pos,
                         "Use clause must be a selected name",
-                        ErrorCode::NotASelectedName,
+                        ErrorCode::MismatchedKinds,
                     ));
                     continue;
                 }
@@ -624,7 +624,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     visibility_pos,
                                     "Invalid prefix for selected name",
-                                    ErrorCode::InvalidPrefix,
+                                    ErrorCode::MismatchedKinds,
                                 );
                             }
                         },
@@ -633,7 +633,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 visibility_pos,
                                 "Invalid prefix for selected name",
-                                ErrorCode::InvalidPrefix,
+                                ErrorCode::MismatchedKinds,
                             );
                         }
                     }

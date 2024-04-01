@@ -173,7 +173,7 @@ impl<'a> ScopeInner<'a> {
                     }
                     Designator::Anonymous(_) => "No declaration of <anonymous>".to_owned(),
                 },
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             )),
         }
     }

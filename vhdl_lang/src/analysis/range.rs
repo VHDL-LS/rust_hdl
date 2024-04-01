@@ -99,7 +99,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
                         ),
-                            ErrorCode::InvalidPrefix,
+                            ErrorCode::MismatchedKinds,
                     );
                         return Err(EvalError::Unknown);
                     }
@@ -118,7 +118,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
                     ),
-                    ErrorCode::InvalidPrefix,
+                    ErrorCode::MismatchedKinds,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -149,7 +149,7 @@ impl<'a> AnalyzeContext<'a> {
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
                 ),
-                ErrorCode::InvalidPrefix,
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }
@@ -199,7 +199,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             constraint.pos(),
                             "Range is ambiguous",
-                            ErrorCode::AmbiguousExpression,
+                            ErrorCode::TypeMismatch,
                         );
                         return Err(EvalError::Unknown);
                     }
@@ -238,7 +238,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         constraint.pos(),
                         "Range is ambiguous",
-                        ErrorCode::AmbiguousExpression,
+                        ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 }
@@ -465,7 +465,7 @@ mod tests {
             vec![Diagnostic::error(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
-                ErrorCode::NonScalarInRange,
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -534,7 +534,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("0 to false"),
                 "Range type mismatch, left is type universal_integer, right is type 'BOOLEAN'",
-                ErrorCode::NonScalarInRange,
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -562,7 +562,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("f1 to false"),
                 "Range type of left and right side does not match",
-                ErrorCode::NonScalarInRange,
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -590,7 +590,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("f1 to f1"),
                 "Range is ambiguous",
-                ErrorCode::NonScalarInRange,
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -632,7 +632,7 @@ function myfun return arr_t;
             vec![Diagnostic::error(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
-                ErrorCode::NonScalarInRange,
+                ErrorCode::MismatchedKinds,
             )],
         );
     }

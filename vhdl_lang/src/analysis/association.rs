@@ -212,7 +212,7 @@ impl<'a> AnalyzeContext<'a> {
                                         fcall.name,
                                         resolved_formal.type_mark.describe()
                                     ),
-                                    ErrorCode::NoFunctionAccepting,
+                                    ErrorCode::Unresolved,
                                 )
                                 .into());
                             }

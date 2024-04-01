@@ -53,7 +53,7 @@ end configuration;
         vec![Diagnostic::error(
             code.s("ent", 1),
             "No primary unit 'ent' within library 'libname'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -156,7 +156,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -203,7 +203,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -290,7 +290,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No primary unit 'missing' within library 'libname'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 

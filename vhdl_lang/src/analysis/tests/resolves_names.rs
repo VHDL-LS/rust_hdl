@@ -6,6 +6,7 @@
 
 use super::*;
 use pretty_assertions::assert_eq;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn resolves_names_in_object_decl_init_expressions() {
@@ -1085,6 +1086,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("[return integer]"),
             "Alias should only have a signature for subprograms and enum literals",
+            ErrorCode::ShouldNotHaveSignature,
         )],
     );
 }
@@ -1114,6 +1116,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("subpgm", 2),
             "Signature required for alias of subprogram and enum literals",
+            ErrorCode::SignatureRequired,
         )],
     );
 }
@@ -1256,18 +1259,22 @@ end package;
             Diagnostic::error(
                 code.s("missing", 1),
                 "No declaration of 'missing' within record type 'rec1_t'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing", 2),
                 "No declaration of 'missing' within record type 'rec2_t'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing", 3),
                 "No declaration of 'missing' within record type 'rec1_t'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing", 4),
                 "No declaration of 'missing' within record type 'rec2_t'",
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -1338,6 +1345,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No declaration of 'missing' within record type 'rec_t'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -1379,6 +1387,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No declaration of 'missing' within record type 'rec_t'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -1427,6 +1436,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No declaration of 'missing' within protected type 'prot_t'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -1474,10 +1484,12 @@ end architecture;
             Diagnostic::error(
                 code.s("missing", 1),
                 "No declaration of 'missing' within record type 'rec_t'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing", 2),
                 "No declaration of 'missing' within record type 'rec_t'",
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -1557,6 +1569,7 @@ constant bad : rec_t := (missing => 0);
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing' within record type 'rec_t'",
+            ErrorCode::Unresolved,
         )],
     );
     let field = root
@@ -1686,9 +1699,21 @@ attribute ram_style of ram : signal is missing3;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("missing1"), "No declaration of 'missing1'"),
-            Diagnostic::error(code.s1("missing2"), "No declaration of 'missing2'"),
-            Diagnostic::error(code.s1("missing3"), "No declaration of 'missing3'"),
+            Diagnostic::error(
+                code.s1("missing1"),
+                "No declaration of 'missing1'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::error(
+                code.s1("missing2"),
+                "No declaration of 'missing2'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::error(
+                code.s1("missing3"),
+                "No declaration of 'missing3'",
+                ErrorCode::Unresolved,
+            ),
         ],
     );
 }
@@ -1710,6 +1735,7 @@ attribute bad of ram : signal is 0;
         vec![Diagnostic::error(
             code.s1("attribute bad").s1("bad"),
             "constant 'bad' is not an attribute",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -1880,6 +1906,7 @@ end architecture;
         vec![Diagnostic::error(
             code.sa("work.ent1(", "a3"),
             "No architecture 'a3' for entity 'libname.ent1'",
+            ErrorCode::Unresolved,
         )],
     );
 

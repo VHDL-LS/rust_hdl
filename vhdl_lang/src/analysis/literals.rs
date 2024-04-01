@@ -39,7 +39,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.push(Diagnostic::error(
                 pos,
                 format!("string literal does not match {}", target_type.describe()),
-                ErrorCode::InvalidLiteral,
+                ErrorCode::TypeMismatch,
             ));
         }
     }
@@ -64,7 +64,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
-                            ErrorCode::InvalidLiteral,
+                            ErrorCode::TypeMismatch,
                         ));
                     }
                 }
@@ -73,7 +73,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
-                            ErrorCode::InvalidLiteral,
+                            ErrorCode::TypeMismatch,
                         ));
                     }
                 }
@@ -87,7 +87,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "character literal does not match {}",
                                 target_type.describe()
                             ),
-                            ErrorCode::InvalidLiteral,
+                            ErrorCode::TypeMismatch,
                         ));
                     }
                 }
@@ -98,7 +98,7 @@ impl<'a> AnalyzeContext<'a> {
                             "character literal does not match {}",
                             target_type.describe()
                         ),
-                        ErrorCode::InvalidLiteral,
+                        ErrorCode::TypeMismatch,
                     ));
                 }
             },
@@ -174,7 +174,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
-                        ErrorCode::InvalidLiteral,
+                        ErrorCode::TypeMismatch,
                     ));
                 }
             }

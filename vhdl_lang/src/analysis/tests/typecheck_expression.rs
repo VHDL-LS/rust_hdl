@@ -169,12 +169,12 @@ signal bad5 : enum_vec3_t(1 to 1) := \"a\";
             Diagnostic::error(
                 code.s1("\"2\""),
                 "type 'BIT' does not define character '2'",
-                ErrorCode::TypeMismatch,
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s1("\"b\""),
                 "type 'enum_t' does not define character 'b'",
-                ErrorCode::TypeMismatch,
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s("\"a\"", 2),
@@ -420,7 +420,7 @@ constant bad: integer := fun1;
         vec![Diagnostic::error(
             code.s1(":= fun1").s1("fun1"),
             "Ambiguous call to 'fun1'",
-            ErrorCode::AmbiguousExpression,
+            ErrorCode::AmbiguousCall,
         )
         .related(
             code.s("fun1", 1),
@@ -570,6 +570,7 @@ constant bar4 : natural := foo2(0, 1);
             Diagnostic::error(
                 code.s("foo1(0, 1)", 1),
                 "Number of indexes does not match array dimension",
+                ErrorCode::DimensionMismatch,
             )
             .related(
                 code.s("arr1_t", 1),
@@ -578,6 +579,7 @@ constant bar4 : natural := foo2(0, 1);
             Diagnostic::error(
                 code.s("foo2(0)", 1),
                 "Number of indexes does not match array dimension",
+                ErrorCode::DimensionMismatch,
             )
             .related(
                 code.s("arr2_t", 1),
@@ -603,6 +605,7 @@ constant bar : natural := foo(arg => 0);
         vec![Diagnostic::error(
             code.s("foo", 2),
             "constant 'foo' cannot be called as a function",
+            ErrorCode::InvalidCall,
         )],
     );
 }
@@ -623,6 +626,7 @@ signal sig2 : sig0'subtype := (others => 0); -- ok
         vec![Diagnostic::error(
             code.s1("false"),
             "'false' does not match array type 'INTEGER_VECTOR'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -657,18 +661,22 @@ subtype bad2_t is integer'element;
             Diagnostic::error(
                 code.s1("(0, 0)"),
                 "composite does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("good2'element").s1("good2"),
                 "array type expected for 'element attribute",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("integer'element").s1("integer"),
                 "array type expected for 'element attribute",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -691,10 +699,12 @@ signal bad2 : natural := string'(\"hello\");
             Diagnostic::error(
                 code.s1("(\"hello\")"),
                 "string literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("string'(\"hello\")"),
                 "array type 'STRING' does not match subtype 'NATURAL'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -725,10 +735,12 @@ constant const : natural := thefun('c');
             Diagnostic::error(
                 code.s1("theproc(arg)").s1("arg"),
                 "constant 'arg' of integer type 'INTEGER' does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("thefun('c')").s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -754,10 +766,12 @@ constant ibad : integer := 5.6;
             Diagnostic::error(
                 code.s1("3"),
                 "integer literal does not match real type 'REAL'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("5.6"),
                 "real literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -791,22 +805,27 @@ constant bad5 : arr0_t := x\"6\";
             Diagnostic::error(
                 code.s1("x\"2\""),
                 "string literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("x\"3\""),
                 "string literal does not match array type 'INTEGER_VECTOR'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("x\"4\""),
                 "type 'enum_t' does not define character '0'",
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s1("x\"D\""),
                 "type 'enum_t' does not define character '1'",
+                ErrorCode::InvalidLiteral,
             ),
             Diagnostic::error(
                 code.s1("x\"6\""),
                 "type 'enum0_t' does not define character '1'",
+                ErrorCode::InvalidLiteral,
             ),
         ],
     );
@@ -833,6 +852,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("null", 2),
             "null literal does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -858,6 +878,7 @@ constant bad1 : integer := (3, 4, 5);
         vec![Diagnostic::error(
             code.s1("(3, 4, 5)"),
             "composite does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -886,10 +907,12 @@ constant bad2 : arr2_t := (others => a1);
             Diagnostic::error(
                 code.s1("1 & 1"),
                 "Expected sub-aggregate for target array type 'arr2_t'",
+                ErrorCode::ExpectedSubAggregate,
             ),
             Diagnostic::error(
                 code.s1("=> a1").s1("a1"),
                 "Expected sub-aggregate for target array type 'arr2_t'",
+                ErrorCode::ExpectedSubAggregate,
             ),
         ],
     );
@@ -918,14 +941,17 @@ constant bad3 : rec_t := (field | 0 => 0);
             Diagnostic::error(
                 code.s1("field(0)"),
                 "Record aggregate choice must be a simple name",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s1("0 to 1"),
                 "Record aggregate choice must be a simple name",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s1("field | 0"),
                 "Record aggregate choice must be a simple name",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -952,11 +978,13 @@ constant bad2 : rec_t := (0, 33);
             Diagnostic::error(
                 code.s1("field => 0").s1("field"),
                 "Record element 'field' has already been associated",
+                ErrorCode::AlreadyAssociated,
             )
             .related(code.s1("(0, ").s1("0"), "Previously associated here"),
             Diagnostic::error(
                 code.s1("33"),
-                "Unexpected positional assoctiation for record 'rec_t'",
+                "Unexpected positional association for record 'rec_t'",
+                ErrorCode::TooManyArguments,
             )
             .related(code.s1("rec_t"), "Record 'rec_t' defined here"),
         ],
@@ -983,6 +1011,7 @@ constant bad : rec_t := (field => 0);
         vec![Diagnostic::error(
             code.s1("(field => 0)"),
             "Missing association of record element 'missing'",
+            ErrorCode::Unassociated,
         )
         .related(code.s1("missing"), "Record element 'missing' defined here")],
     );
@@ -1014,10 +1043,12 @@ constant bad3 : rec_t := ('a', 0, 0, others => 3);
             Diagnostic::error(
                 code.s1("others => 'c'").s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("(others => 0)").s1("others"),
                 "Other elements of record 'rec_t' are not of the same type",
+                ErrorCode::TypeMismatch,
             )
             .related(code.s1("f1"), "Element 'f1' has type 'CHARACTER'")
             .related(code.s1("f2"), "Element 'f2' has integer type 'INTEGER'")
@@ -1025,6 +1056,7 @@ constant bad3 : rec_t := ('a', 0, 0, others => 3);
             Diagnostic::error(
                 code.s1("others => 3)").s1("others"),
                 "All elements of record 'rec_t' are already associated",
+                ErrorCode::AlreadyAssociated,
             )
             .related(code.s1("rec_t"), "Record 'rec_t' defined here"),
         ],
@@ -1060,18 +1092,22 @@ constant bad4 : rec_t := (field => 'f');
             Diagnostic::error(
                 code.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'d'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'e'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'f'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -1095,14 +1131,17 @@ constant bad2 : integer_vector := ('a' to 'z' => 0);
             Diagnostic::error(
                 code.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'z'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -1144,6 +1183,7 @@ constant bad : integer_vector := (csub_t => 0);
         vec![Diagnostic::error(
             code.s1("csub_t =>").s1("csub_t"),
             "subtype 'csub_t' does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -1191,10 +1231,12 @@ constant bad2 : character := - 'a';
             Diagnostic::error(
                 code.s1("character := - i0").s1("- i0"),
                 "integer type 'INTEGER' does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("character := - 'a'").s1("-"),
                 "Found no match for operator \"-\"",
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -1229,10 +1271,12 @@ constant bad2 : character := 'a' + 'b';
             Diagnostic::error(
                 code.s1("character := i0 + i0").s1("i0 + i0"),
                 "integer type 'INTEGER' does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("character := 'a' + 'b'").s1("+"),
                 "Found no match for operator \"+\"",
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -1336,6 +1380,7 @@ attribute ram_style of bad : signal is 'c';
         vec![Diagnostic::error(
             code.s1("'c'"),
             "character literal does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
         )],
     );
 }
@@ -1372,14 +1417,17 @@ attribute ram_style of bad_fun2[return boolean] : function is 0;
         vec![Diagnostic::error(
             code.s1("[return integer]"),
             "Attribute specification should only have a signature for subprograms and enum literals",
+            ErrorCode::ShouldNotHaveSignature
         ),
         Diagnostic::error(
             code.s1("bad_fun1 : function").s1("bad_fun1"),
             "Signature required for alias of subprogram and enum literals",
+            ErrorCode::SignatureRequired
         ),
         Diagnostic::error(
             code.s1("bad_fun2[return boolean]").s1("bad_fun2"),
             "Could not find declaration of 'bad_fun2' with given signature",
+            ErrorCode::NoOverloadedWithSignature
         ).related(code.s1("bad_fun2"), "Found function bad_fun2[return NATURAL]")],
     );
 }
@@ -1420,12 +1468,18 @@ end;
             Diagnostic::error(
                 code.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("return;"),
                 "Functions cannot return without a value",
+                ErrorCode::VoidReturn,
             ),
-            Diagnostic::error(code.s1("return 1;"), "Procedures cannot return a value"),
+            Diagnostic::error(
+                code.s1("return 1;"),
+                "Procedures cannot return a value",
+                ErrorCode::NonVoidReturn,
+            ),
         ],
     );
 }
@@ -1455,10 +1509,12 @@ end;
             Diagnostic::error(
                 code.s1("16#bad#"),
                 "integer literal does not match array type 'STRING'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("\"bad\""),
                 "string literal does not match type 'SEVERITY_LEVEL'",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );
@@ -1488,14 +1544,17 @@ end;
             Diagnostic::error(
                 code.s1("16#bad#"),
                 "integer literal does not match array type 'STRING'",
+                ErrorCode::TypeMismatch
             ),
             Diagnostic::error(
                 code.s1("\"bad\""),
                 "string literal does not match type 'SEVERITY_LEVEL'",
+                ErrorCode::TypeMismatch
             ),
             Diagnostic::error(
                 code.s1("123"),
-                "type universal_integer cannot be implictly converted to type 'BOOLEAN'. Operator ?? is not defined for this type.",
+                "type universal_integer cannot be implicitly converted to type 'BOOLEAN'. Operator ?? is not defined for this type.",
+                ErrorCode::NoImplicitConversion
             ),
         ],
     );
@@ -1592,6 +1651,7 @@ end;
         vec![Diagnostic::error(
             code.s1("assert alpha").s1("alpha"),
             "Ambiguous use of implicit boolean conversion ??",
+            ErrorCode::AmbiguousCall,
         )
         .related(code.s1("typ1_t"), "Could be type 'typ1_t'")
         .related(code.s1("typ2_t"), "Could be type 'typ2_t'")],
@@ -1619,6 +1679,7 @@ end;
         vec![Diagnostic::error(
             code.s1("assert alpha").s1("alpha"),
             "Cannot disambiguate expression to type 'BOOLEAN'",
+            ErrorCode::AmbiguousExpression,
         )
         .related(
             code.s1("typ1_t"),
@@ -1649,14 +1710,17 @@ subtype bad2_t is string range 2 to 3;
             Diagnostic::error(
                 code.s1("2"),
                 "integer literal does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("3"),
                 "integer literal does not match type 'CHARACTER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("string"),
                 "Scalar constraint cannot be used for array type 'STRING'",
+                ErrorCode::IllegalConstraint,
             ),
         ],
     );
@@ -1684,22 +1748,27 @@ subtype bad4_t is arr2d_t(4 to 5);
             Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'b'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("integer(").s1("integer"),
                 "Array constraint cannot be used for integer type 'INTEGER'",
+                ErrorCode::IllegalConstraint,
             ),
             Diagnostic::error(
                 code.s1("6 to 7"),
                 "Got extra index constraint for array type 'INTEGER_VECTOR'",
+                ErrorCode::TooManyConstraints,
             ),
             Diagnostic::error(
                 code.s1("arr2d_t(").s1("arr2d_t"),
                 "Too few index constraints for array type 'arr2d_t'. Got 1 but expected 2",
+                ErrorCode::TooFewConstraints,
             ),
         ],
     );
@@ -1728,14 +1797,17 @@ subtype bad2_t is sarr_t('g' to 'h')('i' to 'j');
             Diagnostic::error(
                 code.s1("'e'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'f'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("('i' to 'j')"),
                 "Array constraint cannot be used for integer type 'INTEGER'",
+                ErrorCode::IllegalConstraint,
             ),
         ],
     );
@@ -1765,18 +1837,22 @@ subtype bad3_t is integer(bad('a' to 'b'));
             Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'b'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing' within record type 'rec_t'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s1("integer(").s1("integer"),
                 "Record constraint cannot be used for integer type 'INTEGER'",
+                ErrorCode::IllegalConstraint,
             ),
         ],
     );
@@ -1822,10 +1898,12 @@ end units;
             Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match type universal_integer",
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("'b'"),
                 "character literal does not match type universal_integer",
+                ErrorCode::TypeMismatch,
             ),
         ],
     );

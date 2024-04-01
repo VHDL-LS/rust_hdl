@@ -361,7 +361,7 @@ end architecture;
             Diagnostic::error(
                 code.s1("next;"),
                 "Next can only be used inside a loop",
-                ErrorCode::ExitOutsideLoop,
+                ErrorCode::NextOutsideLoop,
             ),
         ],
     );
@@ -409,12 +409,12 @@ end architecture;
             Diagnostic::error(
                 code.sa("exit ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
-                ErrorCode::ExitOutsideLoop,
+                ErrorCode::InvalidLoopLabelPosition,
             ),
             Diagnostic::error(
                 code.sa("next ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
-                ErrorCode::ExitOutsideLoop,
+                ErrorCode::InvalidLoopLabelPosition,
             ),
         ],
     );

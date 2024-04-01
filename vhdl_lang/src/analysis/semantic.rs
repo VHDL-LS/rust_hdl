@@ -56,7 +56,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             pos,
                             format!("array type expected for '{attr} attribute",),
-                            ErrorCode::MismatchedKinds,
+                            ErrorCode::TypeMismatch,
                         );
                         Err(EvalError::Unknown)
                     }
@@ -166,7 +166,7 @@ impl<'a> AnalyzeContext<'a> {
                             let mut diagnostic = Diagnostic::error(
                                 &name.pos,
                                 "Invalid procedure call",
-                                ErrorCode::MismatchedKinds,
+                                ErrorCode::InvalidCall,
                             );
                             for ent in names.sorted_entities() {
                                 if let Some(decl_pos) = ent.decl_pos() {
@@ -294,7 +294,7 @@ impl Diagnostic {
                 "{} may not be the prefix of a selected name",
                 named_entity.describe(),
             )),
-            ErrorCode::InvalidSelected,
+            ErrorCode::MismatchedKinds,
         )
     }
 
@@ -310,7 +310,7 @@ impl Diagnostic {
                 suffix,
                 named_entity.describe(),
             ),
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )
     }
 }

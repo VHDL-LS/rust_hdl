@@ -77,12 +77,12 @@ end package body;
             Diagnostic::error(
                 &code.s1("a1"),
                 "No declaration of protected type 'a1'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 &code.s1("b1"),
                 "No declaration of protected type 'b1'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 &code.s("b1", 2),
@@ -226,7 +226,7 @@ end package body;
         Diagnostic::error(
             &code.s("b1", 2),
             "'b1' is not a protected type",
-            ErrorCode::MismatchedKinds,
+            ErrorCode::TypeMismatch,
         ),
     ];
     check_diagnostics(diagnostics, expected);

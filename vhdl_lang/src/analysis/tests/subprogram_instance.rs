@@ -28,7 +28,7 @@ procedure proc is new foo;
         vec![Diagnostic::error(
             code.s1("foo").pos(),
             "No declaration of 'foo'",
-            ErrorCode::NotDeclared
+            ErrorCode::Unresolved
         )]
     );
 }
@@ -178,7 +178,7 @@ function func is new prok;
         vec![Diagnostic::error(
             code.s1("function"),
             "Instantiating procedure as function",
-            ErrorCode::MismatchedKinds,
+            ErrorCode::MismatchedInstantiationType,
         )
         .related(code.s1("prok"), "procedure prok[] declared here")],
     );
@@ -200,7 +200,7 @@ procedure proc is new funk;
         vec![Diagnostic::error(
             code.s1("procedure"),
             "Instantiating function as procedure",
-            ErrorCode::MismatchedKinds,
+            ErrorCode::MismatchedInstantiationType,
         )
         .related(code.s1("funk"), "function funk[return BIT] declared here")],
     );

@@ -39,7 +39,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -75,7 +75,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -192,7 +192,7 @@ end architecture;
             Diagnostic::error(
                 code.s("theport", 2),
                 "No declaration of 'theport'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),
@@ -203,7 +203,7 @@ end architecture;
             Diagnostic::error(
                 code.s("thegeneric", 2),
                 "No declaration of 'thegeneric'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),
@@ -559,7 +559,7 @@ end architecture;
             Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),

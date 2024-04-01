@@ -37,12 +37,12 @@ end architecture;
         Diagnostic::error(
             code.s("foo1", 2),
             "function foo1[return NATURAL] may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo2", 2),
             "foo2[return enum_t] may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -73,7 +73,7 @@ end architecture;
     let expected = vec![Diagnostic::error(
         code.s("foo'stable", 1),
         "Expression may not be the target of an assignment",
-        ErrorCode::IllegalTarget,
+        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();
@@ -121,22 +121,22 @@ end architecture;
         Diagnostic::error(
             code.s1("work.pkg.foo1(2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s1("foo2(2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s1("work.pkg.foo1(arg => 2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s1("foo2(arg => 2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -170,12 +170,12 @@ end architecture;
         Diagnostic::error(
             code.s("foo1", 3),
             "constant 'foo1' may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo2", 2),
             "alias 'foo2' of constant may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -303,12 +303,12 @@ end architecture;
         Diagnostic::error(
             code.s("foo1", 2),
             "interface constant 'foo1' may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo2", 2),
             "interface variable 'foo2' of mode in may not be the target of an assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -351,22 +351,22 @@ end architecture;
         Diagnostic::error(
             code.s("foo1", 2),
             "interface signal 'foo1' of mode out may not be the target of a variable assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo2", 2),
             "interface variable 'foo2' of mode out may not be the target of a signal assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo3", 2),
             "signal 'foo3' may not be the target of a variable assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
         Diagnostic::error(
             code.s("foo4", 2),
             "variable 'foo4' may not be the target of a signal assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -457,7 +457,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("foo1(0 to 1)", 2),
             "signal 'foo1' may not be the target of a variable assignment",
-            ErrorCode::IllegalTarget,
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -559,7 +559,7 @@ end architecture;
             Diagnostic::error(
                 code.s1("vptr.all := vptr").s("vptr", 2),
                 "variable 'vptr' of access type 'ptr_t' does not match record type 'rec_t'",
-                ErrorCode::MismatchedKinds,
+                ErrorCode::TypeMismatch,
             ),
             Diagnostic::error(
                 code.s1("vptr.all.all").s1("vptr.all"),
@@ -598,7 +598,7 @@ end package body Test;",
         vec![Diagnostic::error(
             code.s1("kConst"),
             "No declaration of 'kConst'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -646,17 +646,17 @@ end architecture foo;
             Diagnostic::error(
                 code.s1("proc(d, c, a, b)").s1("d"),
                 "Name must denote a signal name",
-                ErrorCode::MismatchedEntityClass,
+                ErrorCode::InterfaceModeMismatch,
             ),
             Diagnostic::error(
                 code.s1("proc(d, c, a, b)").s("c", 2),
                 "Name must denote a variable name",
-                ErrorCode::MismatchedEntityClass,
+                ErrorCode::InterfaceModeMismatch,
             ),
             Diagnostic::error(
                 code.s1("proc(d, c, a, b)").s1("b"),
                 "Name must denote a file name",
-                ErrorCode::MismatchedEntityClass,
+                ErrorCode::InterfaceModeMismatch,
             ),
             Diagnostic::error(
                 code.s1("proc(a, e, 1 + 1, c)").s1("e"),

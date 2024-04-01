@@ -261,7 +261,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &name.pos,
                         format!("{} cannot be aliased", resolved_name.describe_type()),
-                        ErrorCode::CannotBeAliased,
+                        ErrorCode::MismatchedKinds,
                     );
                     return Err(EvalError::Unknown);
                 }
@@ -628,7 +628,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &ident.item.pos,
                         format!("{} is not an attribute", ent.describe()),
-                        ErrorCode::NotAnAttribute,
+                        ErrorCode::MismatchedKinds,
                     );
                     return Ok(());
                 }
@@ -637,7 +637,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     &ident.item.pos,
                     format!("Overloaded name '{}' is not an attribute", ident.item),
-                    ErrorCode::NotAnAttribute,
+                    ErrorCode::MismatchedKinds,
                 );
                 return Ok(());
             }

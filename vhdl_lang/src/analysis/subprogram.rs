@@ -270,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()
                         ),
-                        ErrorCode::NotInstantiable,
+                        ErrorCode::MismatchedKinds,
                     );
                     return Err(EvalError::Unknown);
                 } else if choices.len() == 1 {
@@ -310,7 +310,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
                             ),
-                            ErrorCode::NotDeclared,
+                            ErrorCode::Unresolved,
                         );
                         return Err(EvalError::Unknown);
                     }
@@ -338,7 +338,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} does not denote an uninstantiated subprogram",
                         name.describe()
                     ),
-                    ErrorCode::NotInstantiable,
+                    ErrorCode::MismatchedKinds,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -349,7 +349,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.error(
                 &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
-                ErrorCode::NotInstantiable,
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }

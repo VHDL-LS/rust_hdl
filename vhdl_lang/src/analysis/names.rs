@@ -181,7 +181,7 @@ impl<'a> ResolvedName<'a> {
                         "{} cannot be selected from design unit",
                         ent.kind().describe()
                     ),
-                    ErrorCode::InvalidSelected,
+                    ErrorCode::MismatchedKinds,
                 ))
             }
         };
@@ -341,7 +341,7 @@ impl<'a> ResolvedName<'a> {
                 attr.attr,
                 self.describe()
             ),
-            ErrorCode::InvalidPrefix,
+            ErrorCode::MismatchedKinds,
         );
         Err(EvalError::Unknown)
     }
@@ -760,7 +760,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                     &expr.pos,
                     "Expected an integer literal",
-                    ErrorCode::TypeMismatch,
+                    ErrorCode::MismatchedKinds,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -779,7 +779,7 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::IndexOutOfRange);
+                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
             }
             Err(EvalError::Unknown)
         }
@@ -1008,7 +1008,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} may not be the prefix of a user defined attribute",
                             prefix.describe()
                         ),
-                        ErrorCode::InvalidPrefix,
+                        ErrorCode::MismatchedKinds,
                     );
                     Err(EvalError::Unknown)
                 }
@@ -1722,18 +1722,18 @@ impl Diagnostic {
             }
         };
 
-        let name_desc = if matches!(suffix, Suffix::CallOrIndexed(ref assoc) if !could_be_indexed_name(assoc) )
+        let (name_desc, error_code) = if matches!(suffix, Suffix::CallOrIndexed(ref assoc) if !could_be_indexed_name(assoc) )
         {
             // When something cannot be called as a function the type is not relevant
-            resolved.describe()
+            (resolved.describe(), ErrorCode::InvalidCall)
         } else {
-            resolved.describe_type()
+            (resolved.describe_type(), ErrorCode::MismatchedKinds)
         };
 
         Diagnostic::error(
             prefix_pos,
             format!("{name_desc} cannot be {suffix_desc}"),
-            ErrorCode::CannotBePrefixed,
+            error_code,
         )
     }
 
@@ -1762,7 +1762,7 @@ impl Diagnostic {
         let mut diag = Diagnostic::error(
             pos,
             "Number of indexes does not match array dimension",
-            ErrorCode::IndexOutOfRange,
+            ErrorCode::DimensionMismatch,
         );
 
         if let Some(decl_pos) = base_type.decl_pos() {
@@ -2103,7 +2103,7 @@ variable c0 : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 &code.s1("c0"),
                 "variable 'c0' cannot be called as a function",
-                ErrorCode::MismatchedKinds,
+                ErrorCode::InvalidCall,
             )],
         );
     }
@@ -2465,7 +2465,7 @@ type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of intege
             vec![Diagnostic::error(
                 code.s1("3"),
                 "Index 3 out of range for array with 2 dimensions, expected 1 to 2",
-                ErrorCode::IndexOutOfRange,
+                ErrorCode::DimensionMismatch,
             )],
         );
 
@@ -2650,7 +2650,7 @@ constant c0 : arr_t := (others => 0);
             vec![Diagnostic::error(
                 code.s1("'a'"),
                 "character literal does not match type universal_integer",
-                ErrorCode::MismatchedKinds,
+                ErrorCode::TypeMismatch,
             )],
         );
 
@@ -2863,7 +2863,7 @@ variable thevar : integer;
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "Unknown attribute 'missing",
-                ErrorCode::IllegalAttribute,
+                ErrorCode::Unresolved,
             )],
         )
     }

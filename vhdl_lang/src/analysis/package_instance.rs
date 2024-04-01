@@ -122,7 +122,7 @@ impl<'a> AnalyzeContext<'a> {
                                                 "Array constraint cannot be used for {}",
                                                 typ.describe()
                                             ),
-                                            ErrorCode::IllegalConstraint,
+                                            ErrorCode::TypeMismatch,
                                         );
                                     }
                                     typ

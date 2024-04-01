@@ -1,6 +1,7 @@
 use crate::{Diagnostic, Severity, SrcPos};
+use std::fmt::{Display, Formatter};
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
 pub enum ErrorCode {
     /// A syntax error happens during tokenization or parsing.
     ///
@@ -31,34 +32,6 @@ pub enum ErrorCode {
     /// end package;
     /// ```
     CircularDependency = 1,
-    /// No architecture was found for an entity while instantiating that entity.
-    ///
-    /// # Example
-    /// ```vhdl
-    /// entity foo is
-    /// end foo;
-    ///
-    /// architecture bar of foo is
-    /// begin
-    /// end bar;
-    ///
-    /// -- In some other library
-    /// foo_inst: entity work.foo(baz)
-    ///                           ~~~ No architecture named 'baz' for entity 'foo'
-    /// ```
-    NoArchForEnt,
-    /// No primary unit exists within a library
-    ///
-    /// # Example
-    /// ```vhdl
-    /// entity foo is
-    /// end entity foo;
-    ///
-    /// architecture baz of bar is
-    /// begin               ~~~ Does not exist within the current library
-    /// end architecture;
-    /// ```
-    NoPrimaryUnit,
     /// A formal parameter is invalid / malformed in a certain context
     ///
     /// # Example
@@ -92,7 +65,6 @@ pub enum ErrorCode {
     /// constant x : integer := integer('a');
     /// ```
     TypeMismatch,
-    NoFunctionAccepting,
     /// There are multiple functions that a call could address.
     /// All methods to disambiguate are exhausted.
     ///
@@ -102,7 +74,7 @@ pub enum ErrorCode {
     /// function foo return character;
     /// function bar(arg: integer) return integer;
     /// function bar(arg: character) return integer;
-    /// constant baz: integer := myfun(f1);
+    /// constant baz: integer := bar(foo);
     /// ```
     AmbiguousCall,
     /// Named arguments appear before positional arguments when calling a function
@@ -137,12 +109,13 @@ pub enum ErrorCode {
     /// constant bar: bit := foo(a => 1, a => 2);
     /// ```
     AlreadyAssociated,
-    /// The interface mode of a formal parameter of a function does not match the declared more
+    /// The interface mode of a formal parameter (i.e., `signal`, `variable`, ...)
+    /// of a function does not match the declared more
     ///
     /// # Example
     /// ```vhdl
     /// function foo(signal a: integer) return bit;
-    /// constant bar: bit := foo(a => 1);
+    /// constant bar: bit := foo(a => 1); -- a must be associated to a signal, not a constant
     /// ```
     InterfaceModeMismatch,
     /// An element is not allowed inside a sensitivity list
@@ -161,6 +134,8 @@ pub enum ErrorCode {
     /// ```
     DisallowedInSensitivityList,
     /// A declaration is not allowed in a certain context.
+    /// For example, variables cannot be declared in an architecture declarative part
+    /// `signal`s, `constant`s or `shared variable`s could be declared, however.
     ///
     /// # Example
     /// ```vhdl
@@ -170,35 +145,13 @@ pub enum ErrorCode {
     /// end architecture;
     /// ```
     DeclarationNotAllowed,
-    /// An element of certain kind cannot be aliased
-    ///
-    /// # Example
-    /// ```vhdl
-    /// library ieee;
-    ///
-    /// alias ieee2 : bit is ieee;
-    /// ```
-    CannotBeAliased,
-    /// An element is not an attribute when attaching an attribute to a certain kind // TODO
-    ///
-    /// # Example
-    /// ```vhdl
-    /// architecture foo of bar is
-    ///     signal bar: bit;
-    ///     attribute foo of bar : signal is '1';
-    /// begin
-    /// end architecture;
-    /// ```
-    NotAnAttribute,
     /// The class of an attribute does not match the declared
     ///
     /// # Example
     /// ```vhdl
-    /// architecture foo of bar is
-    ///     attribute bar : bit;
-    ///     attribute bar of foo : signal is '1';
-    /// begin
-    /// end architecture;
+    /// signal bad : boolean;
+    /// attribute foo : boolean;
+    /// attribute foo of bad : variable is true; -- should be signal, not variable
     /// ```
     MismatchedEntityClass,
     /// The attribute specification is not in the immediate declarative part
@@ -219,11 +172,6 @@ pub enum ErrorCode {
     /// ```
     AttributeSpecNotInImmediateDeclarativePart,
     /// There is no overloaded function with the provided signature available
-    ///
-    /// # Example
-    /// ```vhdl
-    ///
-    /// ```
     NoOverloadedWithSignature,
     /// A prefix should only have a signature for subprograms and enum literals
     ShouldNotHaveSignature,
@@ -231,22 +179,6 @@ pub enum ErrorCode {
     SignatureRequired,
     /// The value of an expression is ambiguous
     AmbiguousExpression,
-    /// An object may not be the target of an assignment
-    ///
-    /// # Example
-    /// ```vhdl
-    /// architecture a of ent is
-    ///   signal foo : boolean;
-    /// begin
-    ///   main : process
-    ///   begin
-    ///     foo'stable := 1;
-    ///   end process;
-    /// end architecture;
-    /// ```
-    IllegalTarget,
-    /// No declaration of some designator was found
-    NotDeclared,
     /// A declaration was already declared previously
     DuplicateDeclaration,
     /// A designator is hidden by a conflicting use clause
@@ -255,8 +187,6 @@ pub enum ErrorCode {
     MissingProtectedBodyType,
     /// A deferred constant is not allowed in the given context
     DeferredConstantNotAllowed,
-    /// An invalid named entity was selected
-    InvalidSelected,
     /// The signature between an uninstantiated subprogram and it's instantiated
     /// counterpart does not match
     SignatureMismatch,
@@ -298,12 +228,16 @@ pub enum ErrorCode {
     /// A string or symbol was used in a context where an operator was expected but there
     /// is no operator for that string.
     InvalidOperatorSymbol,
-    /// Could not resolve a call to a function
+    /// An unresolved name was used
+    ///
+    /// # Example
+    /// ```vhdl
+    ///  -- There is nothing named 'bar' in this scope
+    /// variable foo: integer = bar;
+    /// ```
     Unresolved,
-    /// A prefix is invalid in a certain context
-    InvalidPrefix,
     /// An index that is out of range for an N-Dimensional array
-    IndexOutOfRange,
+    DimensionMismatch,
     /// A literal that cannot be assigned to its target type
     InvalidLiteral,
     /// A Design Unit (such as an architecture) was declared before another
@@ -311,10 +245,6 @@ pub enum ErrorCode {
     DeclaredBefore,
     /// A configuration was found that is not in the same library as the entity
     ConfigNotInSameLibrary,
-    /// Library not found
-    NoSuchLibrary,
-    /// Something should be a selected name but isn't
-    NotASelectedName,
     /// No implicit conversion is possible
     NoImplicitConversion,
     /// Expected sub-aggregate
@@ -330,6 +260,8 @@ pub enum ErrorCode {
     /// A deferred constant is missing its full constant declaration in the package body
     MissingDeferredDeclaration,
     MissingFullTypeDeclaration,
+    /// Calling a name like a function or procedure where that is not applicable
+    InvalidCall,
     // Linting
     /// A declaration that is unused
     UnusedDeclaration = 4096,
@@ -373,5 +305,11 @@ impl Diagnostic {
 
     pub fn internal(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, Severity::Error, ErrorCode::Internal)
+    }
+}
+
+impl Display for ErrorCode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "E{:0>3}", *self as u32)
     }
 }

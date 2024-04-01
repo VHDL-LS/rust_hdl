@@ -777,7 +777,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                     println!("-------------------------------------------------------");
                     println!("Got right diagnostic but wrong count {got_count}, expected {count}");
                     println!("-------------------------------------------------------");
-                    println!("{}", diagnostic.show());
+                    print!("{}: ", diagnostic.code);
+                    println!("{:?}", diagnostic);
                 }
             }
             None => {
@@ -785,7 +786,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                 println!("-------------------------------------------------------");
                 println!("Got no diagnostic, expected {count}");
                 println!("-------------------------------------------------------");
-                println!("{}", diagnostic.show());
+                print!("{}: ", diagnostic.code);
+                println!("{:?}", diagnostic);
             }
         }
     }
@@ -795,7 +797,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
         println!("-------------------------------------------------------");
         println!("Got unexpected diagnostic");
         println!("-------------------------------------------------------");
-        println!("{}", diagnostic.show());
+        print!("{}: ", diagnostic.code);
+        println!("{:?}", diagnostic);
     }
 
     if found_errors {

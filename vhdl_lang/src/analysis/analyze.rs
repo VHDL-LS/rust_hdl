@@ -392,7 +392,7 @@ impl<'a> AnalyzeContext<'a> {
             format!(
                 "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
             ),
-            ErrorCode::NoArchForEnt,
+            ErrorCode::Unresolved,
         )))
     }
 
@@ -428,7 +428,7 @@ impl<'a> AnalyzeContext<'a> {
         Err(AnalysisError::NotFatal(Diagnostic::error(
             pos,
             format!("No primary unit '{primary_name}' within library '{library_name}'"),
-            ErrorCode::NoPrimaryUnit,
+            ErrorCode::Unresolved,
         )))
     }
 

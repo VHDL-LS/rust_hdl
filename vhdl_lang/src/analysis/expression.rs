@@ -401,7 +401,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.error(
                 &op.pos,
                 format!("Found no match for {}", designator.describe()),
-                ErrorCode::AmbiguousCall,
+                ErrorCode::Unresolved,
             );
 
             Err(EvalError::Unknown)
@@ -694,7 +694,7 @@ impl<'a> AnalyzeContext<'a> {
                                         "Cannot disambiguate expression to {}",
                                         self.boolean().describe()
                                     ),
-                                    ErrorCode::Unresolved,
+                                    ErrorCode::AmbiguousExpression,
                                 );
                                 diag.add_type_candididates(
                                     "Implicit boolean conversion operator ?? is not defined for",
@@ -860,7 +860,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         expr_pos,
                         format!("composite does not match {}", target_type.describe()),
-                        ErrorCode::MismatchedKinds,
+                        ErrorCode::TypeMismatch,
                     );
                 }
             },
@@ -970,7 +970,7 @@ impl<'a> AnalyzeContext<'a> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::MismatchedKinds);
+                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1058,7 +1058,7 @@ impl<'a> AnalyzeContext<'a> {
                                     "Unexpected positional association for record '{}'",
                                     record_type.designator()
                                 ),
-                                ErrorCode::AlreadyAssociated,
+                                ErrorCode::TooManyArguments,
                             )
                             .opt_related(
                                 record_type.decl_pos(),
@@ -1427,7 +1427,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("and"),
                 "Found no match for operator \"and\"",
-                ErrorCode::NoOverloadedWithSignature,
+                ErrorCode::Unresolved,
             )],
         );
     }
@@ -1446,7 +1446,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("x'subtype"),
                 "integer type 'INTEGER' cannot be used in an expression",
-                ErrorCode::TypeMismatch,
+                ErrorCode::MismatchedKinds,
             )],
         );
     }
@@ -1465,7 +1465,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             )],
         );
     }

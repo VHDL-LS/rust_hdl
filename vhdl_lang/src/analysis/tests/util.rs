@@ -156,7 +156,7 @@ pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
     Diagnostic::error(
         code.s(name, occ),
         format!("No declaration of '{name}'"),
-        ErrorCode::NotDeclared,
+        ErrorCode::Unresolved,
     )
 }
 

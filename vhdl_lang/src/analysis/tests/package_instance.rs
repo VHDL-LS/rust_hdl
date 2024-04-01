@@ -33,12 +33,12 @@ end package;
             Diagnostic::error(
                 code.s("gpkg", 2),
                 "No declaration of 'gpkg'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("gpkg", 4),
                 "No declaration of 'gpkg'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -113,12 +113,12 @@ package ipkg3 is new work.gpkg
             Diagnostic::error(
                 code.s("missing", 1),
                 "No declaration of 'missing'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing", 2),
                 "No declaration of 'missing'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -297,6 +297,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("character"),
             "Cannot map type 'CHARACTER' to subprogram generic",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -332,6 +333,7 @@ end package;
         vec![Diagnostic::error(
             code.sa("to_string => ", "my_to_string"),
             "Cannot map 'my_to_string' to subprogram generic to_string[INTEGER return STRING]",
+            ErrorCode::MismatchedKinds,
         )
         .related(
             code.s1("my_to_string"),
@@ -374,6 +376,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("\"invalid\""),
             "Invalid operator symbol",
+            ErrorCode::InvalidOperatorSymbol,
         )],
     );
 }
@@ -451,6 +454,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("ipkg.type_t").s1("type_t"),
             "No declaration of 'type_t' within package instance 'ipkg'",
+            ErrorCode::Unresolved,
         )],
     );
 }

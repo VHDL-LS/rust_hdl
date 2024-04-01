@@ -441,7 +441,7 @@ end entity;
         vec![Diagnostic::error(
             code.s("pkg", 2),
             "package 'pkg' does not denote a context declaration",
-            ErrorCode::Unresolved,
+            ErrorCode::MismatchedKinds,
         )],
     )
 }

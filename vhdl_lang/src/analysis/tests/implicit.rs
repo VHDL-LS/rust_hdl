@@ -81,7 +81,7 @@ end package;
         vec![Diagnostic::error(
             code.sa("bad_to_string is ", "to_string"),
             "Could not find declaration of 'to_string' with given signature",
-            ErrorCode::Unresolved,
+            ErrorCode::NoOverloadedWithSignature,
         )],
     )
 }

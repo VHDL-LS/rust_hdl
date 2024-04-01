@@ -36,7 +36,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("pkg2", 3),
             "No declaration of 'pkg2'",
-            ErrorCode::NotDeclared,
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -206,12 +206,12 @@ end entity;
             Diagnostic::error(
                 code.s("const1", 3),
                 "No declaration of 'const1' within package 'pkg'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("const2", 3),
                 "No declaration of 'const2' within package 'pkg'",
-                ErrorCode::NotDeclared,
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -786,7 +786,7 @@ fn generics_are_visible_in_procedures_but_not_outside() {
         vec![Diagnostic::error(
             code.s("T", 4),
             "No declaration of 'T'",
-            ErrorCode::NotDeclared
+            ErrorCode::Unresolved
         )]
     )
 }
