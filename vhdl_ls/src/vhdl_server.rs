@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
     InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
-    Type,
+    Token, Type,
 };
 
 #[derive(Default, Clone)]
@@ -155,6 +155,7 @@ impl VHDLServer {
 
     /// Extract path of workspace root configuration file from InitializeParams
     fn root_uri_config_file(&self, params: &InitializeParams) -> Option<PathBuf> {
+        #[allow(deprecated)]
         match params.root_uri.clone() {
             Some(root_uri) => root_uri
                 .to_file_path()
@@ -300,7 +301,7 @@ impl VHDLServer {
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
-            vhdl_lang::CompletionItem::EntityInstantiation(ent) => {
+            vhdl_lang::CompletionItem::EntityInstantiation(ent, architectures) => {
                 let work_name = "work";
 
                 let library_names = if let Some(lib_name) = ent.library_name() {
@@ -325,8 +326,18 @@ impl VHDLServer {
                             ent.designator
                         )
                     };
+                    if architectures.len() > 1 {
+                        line.push_str("(${3|");
+                        for (i, architecture) in architectures.iter().enumerate() {
+                            line.push_str(&architecture.designator().to_string());
+                            if i != architectures.len() - 1 {
+                                line.push(',')
+                            }
+                        }
+                        line.push_str("|})");
+                    }
                     let (ports, generics) = region.ports_and_generics();
-                    let mut idx = 3;
+                    let mut idx = 4;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
                         line += &*format!("\n {} map(\n", purpose);
                         for (i, generic) in elements.iter().enumerate() {
@@ -674,8 +685,13 @@ impl VHDLServer {
         if self.client_has_hierarchical_document_symbol_support() {
             fn to_document_symbol(
                 EntHierarchy { ent, children }: EntHierarchy,
+                ctx: &Vec<Token>,
             ) -> Option<DocumentSymbol> {
                 let decl_pos = ent.decl_pos()?;
+                let src_range = ent
+                    .src_span
+                    .map(|span| span.to_pos(ctx).range())
+                    .unwrap_or(decl_pos.range());
                 #[allow(deprecated)]
                 Some(DocumentSymbol {
                     name: ent.describe(),
@@ -683,12 +699,12 @@ impl VHDLServer {
                     tags: None,
                     detail: None,
                     selection_range: to_lsp_range(decl_pos.range),
-                    range: to_lsp_range(decl_pos.range),
+                    range: to_lsp_range(src_range),
                     children: if !children.is_empty() {
                         Some(
                             children
                                 .into_iter()
-                                .filter_map(to_document_symbol)
+                                .filter_map(|hierarchy| to_document_symbol(hierarchy, ctx))
                                 .collect(),
                         )
                     } else {
@@ -702,7 +718,7 @@ impl VHDLServer {
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .filter_map(to_document_symbol)
+                    .filter_map(|(hierarchy, tokens)| to_document_symbol(hierarchy, tokens))
                     .collect(),
             ))
         } else {
@@ -723,8 +739,7 @@ impl VHDLServer {
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .flat_map(|ent| ent.into_flat())
-                    .filter_map(to_symbol_information)
+                    .flat_map(|(a, _)| a.into_flat().into_iter().filter_map(to_symbol_information))
                     .collect(),
             ))
         }
@@ -1000,6 +1015,7 @@ fn object_kind(object: &Object) -> SymbolKind {
         object_class_kind(object.class)
     }
 }
+
 fn object_class_kind(class: ObjectClass) -> SymbolKind {
     match class {
         ObjectClass::Signal => SymbolKind::EVENT,
@@ -1082,6 +1098,7 @@ mod tests {
             workspace_folders: None,
             client_info: None,
             locale: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
         server.initialize_request(initialize_params);

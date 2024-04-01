@@ -15,25 +15,35 @@ use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum AnalysisError {
-    Fatal(CircularDependencyError),
-    NotFatal(Diagnostic),
-}
-
-impl AnalysisError {
-    pub fn not_fatal_error(
-        pos: impl AsRef<SrcPos>,
-        msg: impl Into<String>,
-        code: ErrorCode,
-    ) -> AnalysisError {
-        AnalysisError::NotFatal(Diagnostic::error(pos, msg, code))
-    }
-}
-
+/// Indicates that a circular dependency is found at the position denoted by `reference`.
+///
+/// A circular dependency occurs when module A uses module B, which in turn
+/// (either directly or indirectly via other modules) uses module A again.
+///
+/// ## Example
+///
+/// ```vhdl
+/// use work.bar;
+///
+/// package foo is
+/// end package;
+///
+/// use work.foo;
+///
+/// package bar is
+/// end package;
+/// ```
+/// In this example, the package `bar` uses the package `foo` which in turn uses package `bar` –
+/// making the dependency chain cyclic.
+///
+/// Commonly, two or more `CircularDependencyError`s are pushed to indicate what modules
+/// the error affects.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[must_use]
 pub struct CircularDependencyError {
+    /// The position where the circular dependency was found.
+    /// Is `None` when the circular dependency is found in the standard library.
+    /// This should, in practice, never happen.
     reference: Option<SrcPos>,
 }
 
@@ -44,6 +54,7 @@ impl CircularDependencyError {
         }
     }
 
+    /// Pushes this error into a diagnostic handler.
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
             diagnostics.push(Diagnostic::circular_dependency(pos));
@@ -51,60 +62,19 @@ impl CircularDependencyError {
     }
 }
 
-pub type AnalysisResult<T> = Result<T, AnalysisError>;
+/// A `FatalResult` is a result that is either OK or contains a `CircularDependencyError`.
+/// If this type contains the error case, most other errors encountered during analysis are ignored
+/// as analysis cannot continue (resp. no further analysis is pursued)
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
-
-pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
-    match res {
-        Ok(val) => Ok(Some(val)),
-        Err(EvalError::Unknown) => Ok(None),
-        Err(EvalError::Circular(circ)) => Err(circ),
-    }
-}
-
-pub fn catch_diagnostic<T>(
-    res: Result<T, Diagnostic>,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> EvalResult<T> {
-    match res {
-        Ok(val) => Ok(val),
-        Err(diag) => {
-            diagnostics.push(diag);
-            Err(EvalError::Unknown)
-        }
-    }
-}
-
-pub fn catch_analysis_err<T>(
-    res: AnalysisResult<T>,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> EvalResult<T> {
-    match res {
-        Ok(val) => Ok(val),
-        Err(AnalysisError::Fatal(err)) => Err(EvalError::Circular(err)),
-        Err(AnalysisError::NotFatal(diag)) => {
-            diagnostics.push(diag);
-            Err(EvalError::Unknown)
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvalError {
-    // A circular dependency was found
+    /// A circular dependency was found, see [CircularDependencyError](CircularDependencyError)
     Circular(CircularDependencyError),
-    // Evaluation is no longer possible, for example if encountering illegal code
-    // Typically functions returning Unknown will have published diagnostics on the side-channel
-    // And the unknown is returned to stop further upstream analysis
+    /// Indicates that evaluation is no longer possible, for example if encountering illegal code.
+    /// Typically, functions returning Unknown will have published diagnostics on the side-channel
+    /// and the unknown is returned to stop further upstream analysis
     Unknown,
-}
-
-pub type EvalResult<T = ()> = Result<T, EvalError>;
-
-impl From<CircularDependencyError> for AnalysisError {
-    fn from(err: CircularDependencyError) -> AnalysisError {
-        AnalysisError::Fatal(err)
-    }
 }
 
 impl From<CircularDependencyError> for EvalError {
@@ -113,25 +83,52 @@ impl From<CircularDependencyError> for EvalError {
     }
 }
 
-impl From<Diagnostic> for AnalysisError {
-    fn from(diagnostic: Diagnostic) -> AnalysisError {
-        AnalysisError::NotFatal(diagnostic)
+/// The result of the evaluation of an AST element.
+/// The result has either a value of `Ok(T)`, indicating a successful evaluation of
+/// the AST and returning the result of that evaluation, or `Err(EvalError)`, indicating
+/// an error during evaluation.
+///
+/// Most of the time, the error will be `EvalError::Unknown`. This means that the evaluation
+/// step has pushed found problems in the code to some side-channel and simply returns an error,
+/// signifying that some problem was found without further specifying that problem.
+pub type EvalResult<T = ()> = Result<T, EvalError>;
+
+/// Pushes the diagnostic to the provided handler and returns
+/// with an `EvalError::Unknown` result.
+///
+/// This macro can be used for the common case of encountering an analysis error and
+/// immediately returning as the error is not recoverable.
+macro_rules! bail {
+    ($diagnostics:expr, $error:expr) => {
+        $diagnostics.push($error);
+        return Err(EvalError::Unknown);
+    };
+}
+
+pub trait IntoEvalResult<T> {
+    /// Transforms `Self` into an `EvalResult`.
+    ///
+    /// If `Self` has any severe errors, these should be pushed to the provided handler
+    /// and an `Err(EvalError::Unknown)` should be returned.
+    fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T>;
+}
+
+impl<T> IntoEvalResult<T> for Result<T, Diagnostic> {
+    fn into_eval_result(self, diagnostics: &mut dyn DiagnosticHandler) -> EvalResult<T> {
+        match self {
+            Ok(value) => Ok(value),
+            Err(diagnostic) => {
+                bail!(diagnostics, diagnostic);
+            }
+        }
     }
 }
 
-impl AnalysisError {
-    // Add Non-fatal error to diagnostics or return fatal error
-    pub fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalResult {
-        let diag = self.into_non_fatal()?;
-        diagnostics.push(diag);
-        Ok(())
-    }
-
-    pub fn into_non_fatal(self) -> FatalResult<Diagnostic> {
-        match self {
-            AnalysisError::Fatal(err) => Err(err),
-            AnalysisError::NotFatal(diag) => Ok(diag),
-        }
+pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
+    match res {
+        Ok(val) => Ok(Some(val)),
+        Err(EvalError::Unknown) => Ok(None),
+        Err(EvalError::Circular(circ)) => Err(circ),
     }
 }
 
@@ -143,7 +140,7 @@ pub(super) struct AnalyzeContext<'a> {
     standard_sym: Symbol,
     pub(super) is_std_logic_1164: bool,
 
-    // Record dependencies and sensitivies when
+    // Record dependencies and sensitives when
     // analyzing design units
     //
     // Dependencies define the order in which design units must be analyzed
@@ -359,19 +356,33 @@ impl<'a> AnalyzeContext<'a> {
         None
     }
 
+    /// Given an Entity, returns a reference to the architecture denoted by `architecture_name`.
+    /// If this architecture cannot be found, pushes an appropriate error to the diagnostics-handler
+    /// and returns `EvalError::Unknown`.
+    ///
+    /// # Arguments
+    ///
+    /// * `diagnostics` Reference to the diagnostic handler
+    /// * `library_name` The name of the library where the entity resides
+    /// * `pos` The position where the architecture name was declared
+    /// * `entity_name` Name of the entity
+    /// * `architecture_name` Name of the architecture to be resolved
     pub(super) fn get_architecture(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         library_name: &Symbol,
         pos: &SrcPos,
         entity_name: &Symbol,
         architecture_name: &Symbol,
-    ) -> AnalysisResult<DesignEnt<'a>> {
+    ) -> EvalResult<DesignEnt<'a>> {
         if let Some(unit) = self.get_secondary_unit(library_name, entity_name, architecture_name) {
             let data = self.get_analysis(Some(pos), unit)?;
             if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) = data.deref() {
                 if let Some(id) = arch.ident.decl.get() {
                     let ent = self.arena.get(id);
-                    let design = DesignEnt::from_any(ent).ok_or_else(|| {
+                    if let Some(design) = DesignEnt::from_any(ent) {
+                        return Ok(design);
+                    } else {
                         // Almost impossible but better not fail silently
                         Diagnostic::internal(
                             pos,
@@ -387,52 +398,61 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        Err(AnalysisError::NotFatal(Diagnostic::error(
-            pos,
-            format!(
+        bail!(
+            diagnostics,
+            Diagnostic::error(
+                pos,
+                format!(
                 "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
             ),
             ErrorCode::Unresolved,
         )))
+            )
+        );
     }
 
     pub fn lookup_in_library(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
-    ) -> AnalysisResult<DesignEnt<'a>> {
+    ) -> EvalResult<DesignEnt<'a>> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
                 if let AnyDesignUnit::Primary(primary) = data.deref() {
                     if let Some(id) = primary.ent_id() {
                         let ent = self.arena.get(id);
-                        let design = DesignEnt::from_any(ent).ok_or_else(|| {
-                            // Almost impossible but better not fail silently
-                            Diagnostic::internal(
-                                pos,
-                                format!(
-                                    "Found non-design {} unit within library {}",
-                                    ent.describe(),
-                                    library_name
-                                ),
-                            )
-                        })?;
-                        return Ok(design);
+                        if let Some(design) = DesignEnt::from_any(ent) {
+                            return Ok(design);
+                        } else {
+                            bail!(
+                                diagnostics,
+                                Diagnostic::internal(
+                                    pos,
+                                    format!(
+                                        "Found non-design {} unit within library {}",
+                                        ent.describe(),
+                                        library_name
+                                    ),
+                                )
+                            );
+                        }
                     }
                 }
             }
         }
 
-        Err(AnalysisError::NotFatal(Diagnostic::error(
+        bail!(
+            diagnostics,Diagnostic::error(
             pos,
             format!("No primary unit '{primary_name}' within library '{library_name}'"),
             ErrorCode::Unresolved,
-        )))
+        ));
     }
 
-    // Returns None when analyzing the standard package itsel
+    // Returns None when analyzing the standard package itself
     fn standard_package_region(&self) -> Option<&'a Region<'a>> {
         if let Some(pkg) = self.root.standard_pkg_id.as_ref() {
             self.arena.link(self.root.standard_arena.as_ref().unwrap());

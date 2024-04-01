@@ -91,7 +91,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<ResolvedFormal<'a>> {
+    ) -> EvalResult<ResolvedFormal<'a>> {
         match name {
             Name::Selected(prefix, suffix) => {
                 let resolved_prefix = self.resolve_formal(
@@ -102,7 +102,10 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
 
-                let suffix_ent = resolved_prefix.type_mark.selected(&prefix.pos, suffix)?;
+                let suffix_ent = resolved_prefix
+                    .type_mark
+                    .selected(&prefix.pos, suffix)
+                    .into_eval_result(diagnostics)?;
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
                     if let Some(resolved_formal) =
@@ -110,16 +113,20 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         Ok(resolved_formal)
                     } else {
-                        Err(Diagnostic::invalid_formal(name_pos).into())
+                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                     }
                 } else {
-                    Err(Diagnostic::invalid_formal(name_pos).into())
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
             }
 
-            Name::SelectedAll(_) => Err(Diagnostic::invalid_formal(name_pos).into()),
+            Name::SelectedAll(_) => {
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+            }
             Name::Designator(designator) => {
-                let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
+                let (idx, ent) = formal_region
+                    .lookup(name_pos, designator.designator())
+                    .into_eval_result(diagnostics)?;
                 designator.set_unique_reference(ent.inner());
                 Ok(ResolvedFormal::new_basic(idx, ent))
             }
@@ -134,18 +141,20 @@ impl<'a> AnalyzeContext<'a> {
 
                 if resolved_prefix.is_converted {
                     // Converted formals may not be further selected
-                    return Err(Diagnostic::invalid_formal(name_pos).into());
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
 
                 self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
                 Ok(resolved_prefix.partial())
             }
-            Name::Attribute(..) => Err(Diagnostic::invalid_formal(name_pos).into()),
+            Name::Attribute(..) => {
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+            }
             Name::CallOrIndexed(ref mut fcall) => {
                 let prefix = if let Some(prefix) = fcall.name.item.prefix() {
                     prefix
                 } else {
-                    return Err(Diagnostic::invalid_formal(name_pos).into());
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 };
 
                 if formal_region.lookup(name_pos, prefix.designator()).is_err() {
@@ -166,7 +175,10 @@ impl<'a> AnalyzeContext<'a> {
                             )?,
                         )
                     } else {
-                        return Err(Diagnostic::invalid_formal_conversion(name_pos).into());
+                        bail!(
+                            diagnostics,
+                            Diagnostic::invalid_formal_conversion(name_pos)
+                        );
                     };
 
                     let converted_typ = match as_fatal(self.name_resolve(
@@ -178,8 +190,13 @@ impl<'a> AnalyzeContext<'a> {
                         Some(ResolvedName::Type(typ)) => {
                             let ctyp = resolved_formal.type_mark.base();
                             if !typ.base().is_closely_related(ctyp) {
-                                return Err(
-                                    Diagnostic::invalid_type_conversion(pos, ctyp, typ).into()
+                                bail!(
+                                    diagnostics,
+                                    Diagnostic::invalid_type_conversion(
+                                        pos,
+                                            ctyp,
+                                            typ
+                                        ).into()
                                 );
                             }
                             typ
@@ -199,13 +216,14 @@ impl<'a> AnalyzeContext<'a> {
 
                             if candidates.len() > 1 {
                                 // Ambiguous call
-                                return Err(Diagnostic::ambiguous_call(&des, candidates).into());
+                                bail!(diagnostics, Diagnostic::ambiguous_call(&des, candidates).into());
                             } else if let Some(ent) = candidates.pop() {
                                 fcall.name.set_unique_reference(&ent);
                                 ent.return_type().unwrap()
                             } else {
                                 // No match
-                                return Err(Diagnostic::error(
+                                bail!(
+                                    diagnostics,Diagnostic::error(
                                     &fcall.name.pos,
                                     format!(
                                         "No function '{}' accepting {}",
@@ -214,11 +232,13 @@ impl<'a> AnalyzeContext<'a> {
                                     ),
                                     ErrorCode::Unresolved,
                                 )
-                                .into());
+                                );
                             }
                         }
                         _ => {
-                            return Err(Diagnostic::invalid_formal_conversion(name_pos).into());
+                            bail!(
+                                diagnostics,Diagnostic::invalid_formal_conversion(name_pos)
+                            );
                         }
                     };
 
@@ -244,13 +264,15 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(resolved_formal) = resolved_prefix.partial_with_typ(new_typ) {
                         Ok(resolved_formal)
                     } else {
-                        Err(Diagnostic::invalid_formal(name_pos).into())
+                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                     }
                 } else {
-                    Err(Diagnostic::invalid_formal(name_pos).into())
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
             }
-            Name::External(..) => Err(Diagnostic::invalid_formal(name_pos).into()),
+            Name::External(..) => {
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+            }
         }
     }
 
@@ -290,40 +312,31 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<(&'e SrcPos, Result<ResolvedFormal<'a>, Diagnostic>)>> {
+    ) -> EvalResult<Vec<(&'e SrcPos, Option<ResolvedFormal<'a>>)>> {
         self.check_positional_before_named(elems, diagnostics)?;
 
         // Formal region index => actual position, resolved formal
-        let mut result: Vec<(&SrcPos, Result<ResolvedFormal, Diagnostic>)> = Vec::default();
+        let mut result = Vec::default();
 
         for (actual_idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
             if let Some(ref mut formal) = formal {
                 // Named argument
-                let resolved_formal = match self.resolve_formal(
+                let resolved_formal = as_fatal(self.resolve_formal(
                     formal_region,
                     scope,
                     &formal.pos,
                     &mut formal.item,
                     diagnostics,
-                ) {
-                    Err(err) => Err(err.into_non_fatal()?),
-                    Ok(resolved_formal) => Ok(resolved_formal),
-                };
+                ))?;
 
                 result.push((&formal.pos, resolved_formal));
             } else if let Some(formal) = formal_region.nth(actual_idx) {
                 // Actual index is same as formal index for positional argument
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
-                result.push((&actual.pos, Ok(formal)));
+                result.push((&actual.pos, Some(formal)));
             } else {
-                result.push((
-                    &actual.pos,
-                    Err(Diagnostic::error(
-                        &actual.pos,
-                        "Unexpected extra argument",
-                        ErrorCode::TooManyArguments,
-                    )),
-                ));
+                diagnostics.error(&actual.pos, "Unexpected extra argument", ErrorCode::TooManyArguments);
+                result.push((&actual.pos, None));
             };
         }
         Ok(result)
@@ -332,7 +345,7 @@ impl<'a> AnalyzeContext<'a> {
     fn check_missing_and_duplicates<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
-        resolved_pairs: &[(&'e SrcPos, Result<ResolvedFormal<'a>, Diagnostic>)],
+        resolved_pairs: &[(&'e SrcPos, Option<ResolvedFormal<'a>>)],
         formal_region: &FormalRegion<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<TypeEnt<'a>>> {
@@ -342,7 +355,7 @@ impl<'a> AnalyzeContext<'a> {
         let mut associated: FnvHashMap<usize, (&SrcPos, ResolvedFormal)> = Default::default();
         for (actual_pos, resolved_formal) in resolved_pairs.iter() {
             match resolved_formal {
-                Ok(resolved_formal) => {
+                Some(resolved_formal) => {
                     if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
                         if !(resolved_formal.is_partial && prev_formal.is_partial) {
                             let mut diag = Diagnostic::error(
@@ -362,9 +375,8 @@ impl<'a> AnalyzeContext<'a> {
                     result.push(resolved_formal.type_mark);
                     associated.insert(resolved_formal.idx, (actual_pos, *resolved_formal));
                 }
-                Err(diagnostic) => {
+                None => {
                     is_error = true;
-                    diagnostics.push(diagnostic.clone());
                 }
             }
         }
@@ -376,15 +388,12 @@ impl<'a> AnalyzeContext<'a> {
                 // Output ports are allowed to be unconnected
                 || (formal_region.typ == InterfaceType::Port && formal.is_out_or_inout_signal()))
             {
-                let mut diagnostic = Diagnostic::error(
+                let diagnostic = Diagnostic::error(
                     error_pos,
                     format!("No association of {}", formal.describe()),
                     ErrorCode::Unassociated,
-                );
-
-                if let Some(decl_pos) = formal.decl_pos() {
-                    diagnostic.add_related(decl_pos, "Defined here");
-                }
+                )
+                .opt_related(formal.decl_pos(), "Defined here");
 
                 is_error = true;
                 diagnostics.push(diagnostic);
@@ -441,7 +450,7 @@ impl<'a> AnalyzeContext<'a> {
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        if let Ok(resolved_formal) = resolved_formal {
+                        if let Some(resolved_formal) = resolved_formal {
                             if formal_region.typ == InterfaceType::Parameter {
                                 self.check_parameter_interface(
                                     resolved_formal,
@@ -537,7 +546,7 @@ impl<'a> AnalyzeContext<'a> {
                 };
                 if !matches!(name, ResolvedName::Final(ent) if matches!(
                     ent.kind(),
-                    AnyEntKind::File(_)
+                    AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
                     diagnostics.error(
                         actual_pos,

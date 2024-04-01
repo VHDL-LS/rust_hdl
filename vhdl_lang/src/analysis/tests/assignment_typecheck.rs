@@ -666,3 +666,34 @@ end architecture foo;
         ],
     )
 }
+
+#[test]
+fn legal_file_names() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "\
+use std.textio.all;
+
+package foo is
+    procedure tee(
+      file     file_handle : text;
+      variable my_line     : inout line
+    );
+end package foo;
+
+package body foo is
+    procedure tee(
+      file     file_handle : text;
+      variable my_line     : inout line
+    ) is
+      variable v_line : line;
+    begin
+      write(v_line, my_line.all);
+      writeline(file_handle, v_line);
+    end procedure tee;
+end package body;
+   ",
+    );
+    check_no_diagnostics(&builder.analyze())
+}

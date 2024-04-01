@@ -48,22 +48,18 @@ end architecture;
     check_no_diagnostics(&diagnostics);
     assert_eq!(
         get_hierarchy(&root, "libname", code.source()),
-        vec![nested(
-            "ent",
-            vec![
-                single("g0"),
-                single("p0"),
-                nested(
-                    "a",
-                    vec![
-                        single("s0"),
-                        // @TODO add tree for anonymous block and process
-                        single("v0"),
-                        single("loop0"),
-                    ]
-                ),
-            ]
-        )]
+        vec![
+            nested("ent", vec![single("g0"), single("p0"),]),
+            nested(
+                "a",
+                vec![
+                    single("s0"),
+                    // @TODO add tree for anonymous block and process
+                    single("v0"),
+                    single("loop0"),
+                ]
+            )
+        ]
     );
 }
 
@@ -274,6 +270,7 @@ impl<'a> From<EntHierarchy<'a>> for NameHierarchy {
 fn get_hierarchy(root: &DesignRoot, libname: &str, source: &Source) -> Vec<NameHierarchy> {
     root.document_symbols(&root.symbol_utf8(libname), source)
         .into_iter()
+        .map(|item| item.0)
         .map(NameHierarchy::from)
         .collect()
 }

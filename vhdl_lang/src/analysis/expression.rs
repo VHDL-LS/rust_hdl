@@ -243,23 +243,29 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn lookup_operator(
         &self,
+        diagnostics: &mut dyn DiagnosticHandler,
         scope: &Scope<'a>,
         op_pos: &SrcPos,
         op: Operator,
         arity: usize,
-    ) -> AnalysisResult<Vec<OverloadedEnt<'a>>> {
+    ) -> EvalResult<Vec<OverloadedEnt<'a>>> {
         let designator = Designator::OperatorSymbol(op);
-        match scope.lookup(op_pos, &designator)? {
+        match scope
+            .lookup(op_pos, &designator)
+            .into_eval_result(diagnostics)?
+        {
             NamedEntities::Single(ent) => {
                 // Should never happen but better know if it does
-                Err(Diagnostic::internal(
-                    op_pos,
-                    format!(
-                        "Operator symbol cannot denote non-overloaded symbol {}",
-                        ent.describe(),
-                    ),
-                )
-                .into())
+                bail!(
+                    diagnostics,
+                    Diagnostic::internal(
+                        op_pos,
+                        format!(
+                            "Operator symbol cannot denote non-overloaded symbol {}",
+                            ent.describe(),
+                        ),
+                    )
+                );
             }
             NamedEntities::Overloaded(overloaded) => {
                 // Candidates that match arity of operator
@@ -269,12 +275,13 @@ impl<'a> AnalyzeContext<'a> {
                     .collect();
 
                 if op_candidates.is_empty() {
-                    Err(Diagnostic::error(
+                    bail!(
+                        diagnostics,Diagnostic::error(
                         op_pos,
                         format!("Found no match for {}", designator.describe()),
                         ErrorCode::Unresolved,
                     )
-                    .into())
+                    );
                 } else {
                     Ok(op_candidates)
                 }
@@ -429,13 +436,8 @@ impl<'a> AnalyzeContext<'a> {
         exprs: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ExpressionType<'a>> {
-        let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, exprs.len()) {
-            Ok(candidates) => candidates,
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                return Err(EvalError::Unknown);
-            }
-        };
+        let op_candidates =
+            self.lookup_operator(diagnostics, scope, &op.pos, op.item.item, exprs.len())?;
 
         match self.disambiguate_op(scope, None, op, op_candidates, exprs, diagnostics)? {
             Disambiguated::Unambiguous(overloaded) => Ok(ExpressionType::Unambiguous(
@@ -754,12 +756,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
-                let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, 2) {
-                    Ok(candidates) => candidates,
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
-                        return Ok(());
-                    }
+                let op_candidates = match as_fatal(self.lookup_operator(
+                    diagnostics,
+                    scope,
+                    &op.pos,
+                    op.item.item,
+                    2,
+                ))? {
+                    Some(candidates) => candidates,
+                    None => return Ok(()),
                 };
 
                 match as_fatal(self.disambiguate_op(
@@ -792,10 +797,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
-                let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, 1) {
-                    Ok(candidates) => candidates,
-                    Err(err) => {
-                        diagnostics.push(err.into_non_fatal()?);
+                let op_candidates = match as_fatal(self.lookup_operator(
+                    diagnostics,
+                    scope,
+                    &op.pos,
+                    op.item.item,
+                    1,
+                ))? {
+                    Some(candidates) => candidates,
+                    None => {
                         return Ok(());
                     }
                 };
@@ -1117,8 +1127,8 @@ impl<'a> AnalyzeContext<'a> {
                                 &choice.pos,
                                 index_expr,
                                 diagnostics,
-                            ) {
-                                Ok(Some(typ)) => {
+                            )? {
+                                Some(typ) => {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
@@ -1131,7 +1141,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                     can_be_array = true;
                                 }
-                                Ok(None) => {
+                                None => {
                                     if let Some(index_type) = index_type {
                                         self.expr_pos_with_ttyp(
                                             scope,
@@ -1142,10 +1152,6 @@ impl<'a> AnalyzeContext<'a> {
                                         )?;
                                     }
                                     can_be_array = false;
-                                }
-                                Err(err) => {
-                                    diagnostics.push(err.into_non_fatal()?);
-                                    return Ok(());
                                 }
                             }
                         }

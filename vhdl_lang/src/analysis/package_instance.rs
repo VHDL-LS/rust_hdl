@@ -292,6 +292,7 @@ impl<'a> AnalyzeContext<'a> {
             Related::InstanceOf(uninst),
             AnyEntKind::Library, // Will be immediately overwritten below
             decl_pos,
+            uninst.src_span,
         );
         let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
         unsafe {

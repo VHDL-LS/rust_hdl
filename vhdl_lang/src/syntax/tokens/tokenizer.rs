@@ -169,6 +169,7 @@ pub enum Kind {
     GraveAccent, // `
     Text,        // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
 }
+
 use self::Kind::*;
 
 /// Expect any number of token kind patterns, return on no match with
@@ -213,7 +214,7 @@ macro_rules! expect_token {
                         $tokens.skip();
                         $result
                     }
-                ),*,
+                ),*
                 _ => {
                     let kinds = vec![
                         $(
@@ -542,12 +543,16 @@ pub trait HasTokenSpan {
     fn get_span(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.get_start_token(), self.get_end_token())
     }
+
+    fn span(&self) -> TokenSpan {
+        TokenSpan::new(self.get_start_token(), self.get_end_token())
+    }
 }
 
 /// Holds token information about an AST element.
 /// Since the different pieces may be gathered in different locations,
 /// the fields are gated behind accessor functions which also check some invariants every time they are called.
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct TokenSpan {
     pub start_token: TokenId,
     pub end_token: TokenId,
@@ -583,6 +588,10 @@ impl TokenSpan {
             start_token: new_token,
             end_token: self.end_token,
         }
+    }
+
+    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+        ctx.get_span(self.start_token, self.end_token)
     }
 }
 
@@ -2199,12 +2208,12 @@ my_other_ident",
             vec![
                 Err(Diagnostic::syntax_error(
                     &code.s1("€"),
-                    "Found invalid latin-1 character '€'"
+                    "Found invalid latin-1 character '€'",
                 )),
                 Err(Diagnostic::syntax_error(
                     &code.s1("\u{1F4A3}"),
-                    "Found invalid latin-1 character '\u{1F4A3}'"
-                ))
+                    "Found invalid latin-1 character '\u{1F4A3}'",
+                )),
             ]
         );
     }
@@ -2218,7 +2227,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Integer literals may not have negative exponent"
+                "Integer literals may not have negative exponent",
             ))]
         );
     }
@@ -2256,7 +2265,7 @@ my_other_ident",
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(2500.0))
-                )
+                ),
             ]
         );
     }
@@ -2371,7 +2380,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Reached EOF before end quote"
+                "Reached EOF before end quote",
             ))]
         );
     }
@@ -2430,7 +2439,7 @@ my_other_ident",
                             value: Value::BitString(ast::BitString {
                                 length: length_opt,
                                 base,
-                                value: Latin1String::from_utf8_unchecked(value.as_str())
+                                value: Latin1String::from_utf8_unchecked(value.as_str()),
                             }),
                             pos: code.pos(),
                             comments: None,
@@ -2449,7 +2458,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Invalid bit string literal"
+                "Invalid bit string literal",
             ))]
         );
 
@@ -2459,7 +2468,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Invalid bit string literal"
+                "Invalid bit string literal",
             ))]
         );
     }
@@ -2498,7 +2507,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("k"),
-                "Invalid integer character 'k'"
+                "Invalid integer character 'k'",
             ))]
         );
     }
@@ -2512,7 +2521,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("1"),
-                "Base must be at least 2 and at most 16, got 1"
+                "Base must be at least 2 and at most 16, got 1",
             ))]
         );
         let code = Code::new("17#f#");
@@ -2521,7 +2530,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("17"),
-                "Base must be at least 2 and at most 16, got 17"
+                "Base must be at least 2 and at most 16, got 17",
             ))]
         );
         // May not use digit larger than or equal base
@@ -2531,7 +2540,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s("3", 2),
-                "Illegal digit '3' for base 3"
+                "Illegal digit '3' for base 3",
             ))]
         );
         let code = Code::new("15#f#");
@@ -2540,7 +2549,7 @@ my_other_ident",
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("f"),
-                "Illegal digit 'f' for base 15"
+                "Illegal digit 'f' for base 15",
             ))]
         );
     }
@@ -2719,7 +2728,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Integer too large for 64-bit unsigned"
+                "Integer too large for 64-bit unsigned",
             ))]
         );
 
@@ -2730,7 +2739,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Integer too large for 64-bit unsigned"
+                "Integer too large for 64-bit unsigned",
             ))]
         );
 
@@ -2742,7 +2751,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1(&exponent_str),
-                "Exponent too large for 32-bits signed"
+                "Exponent too large for 32-bits signed",
             ))]
         );
 
@@ -2754,7 +2763,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1(&exponent_str),
-                "Exponent too large for 32-bits signed"
+                "Exponent too large for 32-bits signed",
             ))]
         );
 
@@ -2765,7 +2774,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.pos(),
-                "Integer too large for 64-bit unsigned"
+                "Integer too large for 64-bit unsigned",
             ))]
         );
 
@@ -2817,7 +2826,7 @@ comment
             vec![Comment {
                 value: "final".to_string(),
                 range: code.s1("--final").pos().range(),
-                multi_line: false
+                multi_line: false,
             },]
         );
     }
@@ -2830,7 +2839,7 @@ comment
             tokens,
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("/* final"),
-                "Incomplete multi-line comment"
+                "Incomplete multi-line comment",
             ))]
         );
 
@@ -2865,12 +2874,12 @@ comment
                         leading: vec![Comment {
                             value: "this is a plus".to_string(),
                             range: code.s1("--this is a plus").pos().range(),
-                            multi_line: false
+                            multi_line: false,
                         },],
                         trailing: Some(Comment {
                             range: code.s1("--this is still a plus").pos().range(),
                             value: "this is still a plus".to_string(),
-                            multi_line: false
+                            multi_line: false,
                         }),
                     })),
                 }),
@@ -2883,18 +2892,18 @@ comment
                             Comment {
                                 value: "- this is not a minus".to_string(),
                                 range: code.s1("--- this is not a minus").pos().range(),
-                                multi_line: false
+                                multi_line: false,
                             },
                             Comment {
                                 value: " Neither is this".to_string(),
                                 range: code.s1("-- Neither is this").pos().range(),
-                                multi_line: false
+                                multi_line: false,
                             },
                         ],
                         trailing: Some(Comment {
                             range: code.s1("-- this is a minus").pos().range(),
                             value: " this is a minus".to_string(),
-                            multi_line: false
+                            multi_line: false,
                         }),
                     })),
                 }),
@@ -2906,12 +2915,12 @@ comment
                 Comment {
                     value: " a comment at the end of the file".to_string(),
                     range: code.s1("-- a comment at the end of the file").pos().range(),
-                    multi_line: false
+                    multi_line: false,
                 },
                 Comment {
                     value: " and another one".to_string(),
                     range: code.s1("-- and another one").pos().range(),
-                    multi_line: false
+                    multi_line: false,
                 },
             ]
         );
@@ -2942,7 +2951,7 @@ bar*/
                     leading: vec![Comment {
                         value: "foo\ncom*ment\nbar".to_string(),
                         range: code.s1("/*foo\ncom*ment\nbar*/").pos().range(),
-                        multi_line: true
+                        multi_line: true,
                     },],
                     trailing: None,
                 })),
@@ -2953,7 +2962,7 @@ bar*/
             vec![Comment {
                 value: "final".to_string(),
                 range: code.s1("/*final*/").pos().range(),
-                multi_line: true
+                multi_line: true,
             },]
         );
     }
@@ -2978,12 +2987,12 @@ entity -- €
                     leading: vec![Comment {
                         value: " € ".to_string(),
                         range: code.s1("/* € */").pos().range(),
-                        multi_line: true
+                        multi_line: true,
                     },],
                     trailing: Some(Comment {
                         value: " €".to_string(),
                         range: code.s1("-- €").pos().range(),
-                        multi_line: false
+                        multi_line: false,
                     }),
                 })),
             })]

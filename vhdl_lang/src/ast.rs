@@ -5,9 +5,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-// Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
-// Track here: https://github.com/rust-lang/rust/issues/29641
-
 mod display;
 mod util;
 
@@ -315,7 +312,6 @@ pub enum Direction {
 /// range ::=
 ///     range_attribute_name
 ///   | simple_expression direction simple_expression
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum DiscreteRange {
     Discrete(WithPos<TypeMark>, Option<Range>),
@@ -751,6 +747,7 @@ pub enum SubprogramDefault {
     Name(WithPos<Name>),
     Box,
 }
+
 /// LRM 6.5.5 Interface package declaration
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfacePackageGenericMapAspect {
@@ -1096,7 +1093,8 @@ impl InstantiatedUnit {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct MapAspect {
-    pub start: TokenId, // `generic` or `map`
+    // `generic` or `map`
+    pub start: TokenId,
     pub list: SeparatedList<AssociationElement>,
     pub closing_paren: TokenId,
 }
@@ -1317,6 +1315,7 @@ pub enum ConfigurationDeclarativeItem {
     // @TODO attribute
     // @TODO group
 }
+
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentConfiguration {

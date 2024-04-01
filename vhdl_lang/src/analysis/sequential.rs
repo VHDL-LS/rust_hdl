@@ -27,6 +27,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     Some(label.pos()),
+                    None,
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -38,6 +39,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(parent),
                     Related::None,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
+                    None,
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -256,7 +258,7 @@ impl<'a> AnalyzeContext<'a> {
                         let region = scope.nested();
                         region.add(
                             self.arena
-                                .define(index, parent, AnyEntKind::LoopParameter(typ)),
+                                .define(index, parent, AnyEntKind::LoopParameter(typ), None),
                             diagnostics,
                         );
                         self.analyze_sequential_part(&region, parent, statements, diagnostics)?;

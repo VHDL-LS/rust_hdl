@@ -12,6 +12,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use fnv::FnvHashMap;
+use vhdl_lang::TokenSpan;
 
 use crate::ast::Designator;
 use crate::Diagnostic;
@@ -159,6 +160,7 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         let ent = AnyEnt {
             id: EntityId::undefined(),
@@ -168,6 +170,7 @@ impl Arena {
             designator,
             kind,
             decl_pos,
+            src_span,
             attrs: Default::default(),
         };
 
@@ -177,6 +180,7 @@ impl Arena {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn update<'a>(
         &'a self,
         id: EntityId,
@@ -185,6 +189,7 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
+        src_span: Option<TokenSpan>,
     ) -> EntRef<'a> {
         unsafe {
             let local = self.local.borrow_mut();
@@ -199,6 +204,7 @@ impl Arena {
                 designator,
                 kind,
                 decl_pos,
+                src_span,
                 attrs: Default::default(),
             };
             &*eref as EntRef<'a>

@@ -30,6 +30,9 @@ mod util;
 mod visibility;
 
 use std::cell::RefCell;
+use std::path::PathBuf;
+use vhdl_lang::syntax::Kind;
+use vhdl_lang::TokenAccess;
 
 pub use self::util::*;
 use crate::ast::Designator;
@@ -37,19 +40,51 @@ use crate::ast::UnitId;
 pub use crate::data::Diagnostic;
 use crate::data::NoDiagnostics;
 pub use crate::syntax::test::*;
-use crate::syntax::Token;
+use crate::syntax::{Token, Value};
 
 use super::analyze::AnalyzeContext;
 use super::scope::*;
 use super::DesignRoot;
 use crate::named_entity::*;
+use crate::{Position, Range, Source, SrcPos, TokenId};
 
 pub(super) struct TestSetup<'a> {
     builder: RefCell<LibraryBuilder>,
     root: DesignRoot,
     arena: Arena,
     pub scope: Scope<'a>,
-    tokens: Vec<Token>,
+    tokens: MockTokenAccess,
+}
+
+#[cfg(test)]
+struct MockTokenAccess {
+    token: Token,
+}
+
+impl MockTokenAccess {
+    pub fn new() -> MockTokenAccess {
+        MockTokenAccess {
+            token: Token {
+                pos: SrcPos::new(
+                    Source::inline(PathBuf::default().as_path(), ""),
+                    Range::new(Position::default(), Position::default()),
+                ),
+                value: Value::None,
+                kind: Kind::Xnor,
+                comments: None,
+            },
+        }
+    }
+}
+
+impl TokenAccess for MockTokenAccess {
+    fn get_token(&self, _id: TokenId) -> &Token {
+        &self.token
+    }
+
+    fn get_token_slice(&self, _start_id: TokenId, _end_id: TokenId) -> &[Token] {
+        unimplemented!()
+    }
 }
 
 impl<'a> TestSetup<'a> {
@@ -64,7 +99,7 @@ impl<'a> TestSetup<'a> {
             root,
             builder: RefCell::new(builder),
             scope: Scope::new(Region::default()),
-            tokens: vec![],
+            tokens: MockTokenAccess::new(),
         }
     }
 
@@ -93,6 +128,7 @@ impl<'a> TestSetup<'a> {
             None,
             Related::None,
             AnyEntKind::Library,
+            None,
             None,
         );
         self.ctx()

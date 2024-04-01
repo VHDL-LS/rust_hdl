@@ -6,14 +6,17 @@
 
 //! Configuration of the design hierarchy and other settings
 
-use crate::data::*;
-use fnv::FnvHashMap;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
+
+use fnv::FnvHashMap;
+use subst::VariableMap;
 use toml::Value;
+
+use crate::data::*;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
@@ -131,6 +134,8 @@ impl Config {
                     .as_str()
                     .ok_or_else(|| format!("not a string {file}"))?;
 
+                let file = substitute_environment_variables(file, &subst::Env)?;
+
                 let path = parent.join(file);
                 let path = path
                     .to_str()
@@ -173,7 +178,7 @@ impl Config {
         Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
     }
 
-    pub fn get_library<'a>(&'a self, name: &str) -> Option<&'a LibraryConfig> {
+    pub fn get_library(&self, name: &str) -> Option<&LibraryConfig> {
         self.libraries.get(name)
     }
 
@@ -278,6 +283,57 @@ impl Config {
     }
 }
 
+fn substitute_environment_variables<'a, M>(s: &str, map: &'a M) -> Result<String, String>
+where
+    M: VariableMap<'a> + ?Sized,
+    M::Value: AsRef<str>,
+{
+    if cfg!(windows) {
+        substitute_variables_windows(s, map)
+    } else {
+        subst::substitute(s, map).map_err(|err| err.to_string())
+    }
+}
+
+fn substitute_variables_windows<'a, M>(s: &str, map: &'a M) -> Result<String, String>
+where
+    M: VariableMap<'a> + ?Sized,
+    M::Value: AsRef<str>,
+{
+    let mut output: Vec<char> = Vec::with_capacity(s.len());
+    let mut var_buf: Vec<char> = Vec::new();
+
+    let mut var_found = false;
+
+    for ch in s.chars() {
+        if ch == '%' {
+            if var_found {
+                let var_name = String::from_iter(var_buf);
+                var_buf = Vec::new();
+                match map.get(&var_name) {
+                    None => {
+                        return Err(format!("Variable '{var_name}' not found"));
+                    }
+                    Some(value) => {
+                        output.extend(value.as_ref().chars());
+                    }
+                }
+            }
+            var_found = !var_found;
+        } else if !var_found {
+            output.push(ch);
+        } else {
+            var_buf.push(ch)
+        }
+    }
+
+    if var_found {
+        Err("Unterminated variable".into())
+    } else {
+        Ok(String::from_iter(output))
+    }
+}
+
 /// Returns true if the pattern is a plain file name and not a glob pattern
 fn is_literal(pattern: &str) -> bool {
     for chr in pattern.chars() {
@@ -293,8 +349,11 @@ fn is_literal(pattern: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::collections::HashMap;
+
     use pretty_assertions::assert_eq;
+
+    use super::*;
 
     /// Utility function to create an empty file in parent folder
     fn touch(parent: &Path, file_name: &str) -> PathBuf {
@@ -501,6 +560,7 @@ lib.files = [
         assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
+
     #[test]
     fn test_warning_on_emtpy_glob_pattern() {
         let parent = Path::new("parent_folder");
@@ -540,5 +600,135 @@ work.files = [
             parent,
         );
         assert_eq!(config.expect_err("Expected erroneous config"), "The 'work' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'")
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn substitute() {
+        let mut map = HashMap::new();
+        map.insert("A".to_owned(), "a".to_owned());
+        map.insert("ABCD".to_owned(), "abcd".to_owned());
+        map.insert("A_0".to_owned(), "a0".to_owned());
+        map.insert("_".to_owned(), "u".to_owned());
+        map.insert("PATH".to_owned(), "some/path".to_owned());
+
+        // simple pattern tests
+        assert_eq!(
+            Ok("test".to_owned()),
+            substitute_environment_variables("test", &map)
+        );
+        assert_eq!(
+            Ok("a".to_owned()),
+            substitute_environment_variables("$A", &map)
+        );
+        assert_eq!(
+            Ok("abcd".to_owned()),
+            substitute_environment_variables("$ABCD", &map)
+        );
+        assert_eq!(
+            Ok("a0".to_owned()),
+            substitute_environment_variables("$A_0", &map)
+        );
+        assert_eq!(
+            Ok("u".to_owned()),
+            substitute_environment_variables("$_", &map)
+        );
+        assert_eq!(
+            Ok("some/path".to_owned()),
+            substitute_environment_variables("$PATH", &map)
+        );
+
+        // embedded in longer string
+        assert_eq!(
+            Ok("test/a/test".to_owned()),
+            substitute_environment_variables("test/$A/test", &map)
+        );
+        assert_eq!(
+            Ok("test/a".to_owned()),
+            substitute_environment_variables("test/$A", &map)
+        );
+        assert_eq!(
+            Ok("a/test".to_owned()),
+            substitute_environment_variables("$A/test", &map)
+        );
+        assert_eq!(
+            Ok("test/some/path/test".to_owned()),
+            substitute_environment_variables("test/$PATH/test", &map)
+        );
+
+        // error cases
+        assert!(substitute_environment_variables("$not_present", &map).is_err());
+        assert!(substitute_environment_variables("$not_unicode", &map).is_err());
+    }
+
+    #[test]
+    fn windows_variable_names() {
+        let mut map = HashMap::new();
+        map.insert("A".to_owned(), "a".to_owned());
+        map.insert("ABCD".to_owned(), "abcd".to_owned());
+        map.insert("A_0".to_owned(), "a0".to_owned());
+        map.insert("_".to_owned(), "u".to_owned());
+        map.insert("PATH".to_owned(), r#"some\path"#.to_owned());
+
+        assert_eq!(Ok("".to_owned()), substitute_variables_windows("", &map));
+        assert_eq!(
+            Ok("test".to_owned()),
+            substitute_variables_windows("test", &map)
+        );
+        assert_eq!(
+            Ok("a".to_owned()),
+            substitute_variables_windows("%A%", &map)
+        );
+        assert_eq!(
+            Ok("abcd".to_owned()),
+            substitute_variables_windows("%ABCD%", &map)
+        );
+        assert_eq!(
+            Ok("a0".to_owned()),
+            substitute_variables_windows("%A_0%", &map)
+        );
+        assert_eq!(
+            Ok("u".to_owned()),
+            substitute_variables_windows("%_%", &map)
+        );
+        assert_eq!(
+            Ok(r#"some\path"#.to_owned()),
+            substitute_variables_windows("%PATH%", &map)
+        );
+
+        // embedded in longer string
+        assert_eq!(
+            Ok(r#"test\a\test"#.to_owned()),
+            substitute_variables_windows(r#"test\%A%\test"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"test\a"#.to_owned()),
+            substitute_variables_windows(r#"test\%A%"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"a\test"#.to_owned()),
+            substitute_variables_windows(r#"%A%\test"#, &map)
+        );
+        assert_eq!(
+            Ok(r#"C:\test\some\path\test"#.to_owned()),
+            substitute_variables_windows(r#"C:\test\%PATH%\test"#, &map)
+        );
+
+        // error cases
+        assert_eq!(
+            substitute_variables_windows("%not_present%", &map),
+            Err("Variable 'not_present' not found".into())
+        );
+        assert!(substitute_variables_windows("%not_unicode%", &map).is_err());
+    }
+
+    // Issue #278
+    #[test]
+    #[cfg(windows)]
+    fn substitute_ok_windows_paths() {
+        let map: HashMap<String, String> = HashMap::default();
+        let str = r#"\\networklocation\cad$\apps\xilinx_vitis\Vivado_2020.2\Vivado\2020.2\data\vhdl\src\unisims\unisim_VCOMP.vhd"#;
+        let res = substitute_environment_variables(str, &map);
+        assert_eq!(res, Ok(str.to_owned()));
     }
 }

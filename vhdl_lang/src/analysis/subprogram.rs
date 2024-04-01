@@ -52,6 +52,7 @@ impl<'a> AnalyzeContext<'a> {
             parent,
             AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
             Some(&subprogram.subpgm_designator().pos),
+            None,
         );
 
         let (signature, generic_map) = match subprogram {

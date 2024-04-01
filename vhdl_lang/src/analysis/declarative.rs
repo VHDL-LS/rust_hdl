@@ -132,19 +132,21 @@ impl<'a> AnalyzeContext<'a> {
                                 let full_definiton =
                                     find_full_type_definition(type_decl.ident.name(), remaining);
 
-                                let decl_pos = match full_definiton {
-                                    Some(full_decl) => full_decl.ident.pos(),
+                                let (decl_pos, span) = match full_definiton {
+                                    Some(full_decl) => {
+                                        (full_decl.ident.pos(), Some(full_decl.span))
+                                    }
                                     None => {
                                         let error = Diagnostic::error(
                                             type_decl.ident.pos(),
                                             format!(
-                                            "Missing full type declaration of incomplete type '{}'",
-                                            type_decl.ident.name()
-                                        ),
+                                                "Missing full type declaration of incomplete type '{}'",
+                                                type_decl.ident.name()
+                                            ),
                                             ErrorCode::MissingFullTypeDeclaration,
                                         ).related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
-                                        type_decl.ident.pos()
+                                        (type_decl.ident.pos(), None)
                                     }
                                 };
 
@@ -157,6 +159,7 @@ impl<'a> AnalyzeContext<'a> {
                                     parent,
                                     AnyEntKind::Type(Type::Incomplete),
                                     Some(decl_pos),
+                                    span,
                                 );
                                 reference.set_unique_reference(ent);
 
@@ -215,7 +218,7 @@ impl<'a> AnalyzeContext<'a> {
             name,
             subtype_indication,
             signature,
-            span: _,
+            span,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
@@ -301,7 +304,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
-        Ok(designator.define(self.arena, parent, kind))
+        Ok(designator.define(self.arena, parent, kind, Some(*span)))
     }
 
     pub(crate) fn analyze_declaration(
@@ -311,6 +314,7 @@ impl<'a> AnalyzeContext<'a> {
         decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let src_span = decl.span();
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ent) =
@@ -326,6 +330,7 @@ impl<'a> AnalyzeContext<'a> {
                                     implicit.designator().clone(),
                                     AnyEntKind::Overloaded(Overloaded::Alias(implicit)),
                                     ent.decl_pos(),
+                                    ent.src_span,
                                 );
                                 scope.add(impicit_alias, diagnostics);
                             }
@@ -392,6 +397,7 @@ impl<'a> AnalyzeContext<'a> {
                         },
                         kind,
                         Some(object_decl.ident.tree.pos().clone()),
+                        Some(src_span),
                     );
                     object_decl.ident.decl.set(object_ent.id());
 
@@ -422,7 +428,8 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(subtype) = subtype {
                     scope.add(
-                        self.arena.define(ident, parent, AnyEntKind::File(subtype)),
+                        self.arena
+                            .define(ident, parent, AnyEntKind::File(subtype), Some(src_span)),
                         diagnostics,
                     );
                 }
@@ -433,6 +440,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut component.ident,
                     parent,
                     AnyEntKind::Component(Region::default()),
+                    Some(src_span),
                 );
                 self.analyze_interface_list(
                     &nested,
@@ -461,6 +469,7 @@ impl<'a> AnalyzeContext<'a> {
                                 &mut attr_decl.ident,
                                 parent,
                                 AnyEntKind::Attribute(typ),
+                                Some(src_span),
                             ),
                             diagnostics,
                         );
@@ -530,6 +539,7 @@ impl<'a> AnalyzeContext<'a> {
                         FormalRegion::new_params(),
                         None,
                     ))),
+                    Some(src_span),
                 );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
@@ -562,6 +572,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
+                    Some(src_span),
                 );
 
                 if let Some(pkg_region) =
@@ -777,6 +788,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut file_decl.ident,
                     parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
+                    None,
                 )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
@@ -813,6 +825,7 @@ impl<'a> AnalyzeContext<'a> {
                         subtype,
                         has_default: object_decl.expression.is_some(),
                     }),
+                    None,
                 )
             }
             InterfaceDeclaration::Type(ref mut ident) => {
@@ -820,6 +833,7 @@ impl<'a> AnalyzeContext<'a> {
                     ident,
                     parent,
                     AnyEntKind::Type(Type::Interface),
+                    None,
                 ))
                 .unwrap();
 
@@ -859,6 +873,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
+                    None,
                 )
             }
         };

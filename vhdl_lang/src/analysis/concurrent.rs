@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-// These fields are better explicit than .. since we are forced to consider if new fields should be searched
-
 use super::*;
 use crate::analysis::names::ResolvedName;
 use crate::ast::*;
@@ -50,6 +48,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     Some(label.pos()),
+                    None,
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -60,6 +59,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(parent),
                     Related::None,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    None,
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -137,7 +137,7 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
                 nested.add(
-                    index_name.define(self.arena, parent, AnyEntKind::LoopParameter(typ)),
+                    index_name.define(self.arena, parent, AnyEntKind::LoopParameter(typ), None),
                     diagnostics,
                 );
                 self.analyze_generate_body(&nested, parent, body, diagnostics)?;
@@ -240,6 +240,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena,
                 parent,
                 AnyEntKind::Concurrent(Some(Concurrent::Generate)),
+                None,
             );
             scope.add(ent, diagnostics);
             inner_parent = ent;
@@ -279,18 +280,14 @@ impl<'a> AnalyzeContext<'a> {
                             if let Designator::Identifier(entity_ident) = ent.designator() {
                                 if let Some(library_name) = ent.library_name() {
                                     if let Some(ref mut architecture_name) = architecture_name {
-                                        match self.get_architecture(
+                                        if let Some(arch) = as_fatal(self.get_architecture(
+                                            diagnostics,
                                             library_name,
                                             &architecture_name.item.pos,
                                             entity_ident,
                                             &architecture_name.item.item,
-                                        ) {
-                                            Ok(arch) => {
-                                                architecture_name.set_unique_reference(&arch);
-                                            }
-                                            Err(err) => {
-                                                diagnostics.push(err.into_non_fatal()?);
-                                            }
+                                        ))? {
+                                            architecture_name.set_unique_reference(&arch);
                                         }
                                     }
                                 }

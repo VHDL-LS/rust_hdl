@@ -944,6 +944,7 @@ impl Search for ObjectDeclaration {
         }
     }
 }
+
 impl Search for Signature {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self {
@@ -1558,6 +1559,7 @@ fn is_reference(ent: EntRef, other: EntRef) -> bool {
 
     false
 }
+
 impl<'a> FindAllReferences<'a> {
     pub fn new(root: &'a DesignRoot, ent: EntRef<'a>) -> FindAllReferences<'a> {
         FindAllReferences {
