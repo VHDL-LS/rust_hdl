@@ -383,17 +383,18 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(design) = DesignEnt::from_any(ent) {
                         return Ok(design);
                     } else {
-                        // Almost impossible but better not fail silently
-                        Diagnostic::internal(
-                            pos,
-                            format!(
-                                "Found non-design {} unit within library {}",
-                                ent.describe(),
-                                library_name
-                            ),
-                        )
-                    })?;
-                    return Ok(design);
+                        bail!(
+                            diagnostics,
+                            Diagnostic::internal(
+                                pos,
+                                format!(
+                                    "Found non-design {} unit within library {}",
+                                    ent.describe(),
+                                    library_name
+                                )
+                            )
+                        );
+                    }
                 }
             }
         }
@@ -402,11 +403,8 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics,
             Diagnostic::error(
                 pos,
-                format!(
-                "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
-            ),
-            ErrorCode::Unresolved,
-        )))
+                format!("No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"),
+                ErrorCode::Unresolved,
             )
         );
     }
@@ -445,11 +443,13 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         bail!(
-            diagnostics,Diagnostic::error(
-            pos,
-            format!("No primary unit '{primary_name}' within library '{library_name}'"),
-            ErrorCode::Unresolved,
-        ));
+            diagnostics,
+            Diagnostic::error(
+                pos,
+                format!("No primary unit '{primary_name}' within library '{library_name}'"),
+                ErrorCode::Unresolved,
+            )
+        );
     }
 
     // Returns None when analyzing the standard package itself

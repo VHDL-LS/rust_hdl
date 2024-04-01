@@ -453,14 +453,22 @@ impl<'a> AnalyzeContext<'a> {
                 Err(_) => {
                     bail!(
                         diagnostics,
-                        Diagnostic::error(&prefix, "Invalid prefix of a selected name", ErrorCode::MismatchedKinds)
+                        Diagnostic::error(
+                            &prefix,
+                            "Invalid prefix of a selected name",
+                            ErrorCode::MismatchedKinds
+                        )
                     );
                 }
             },
             UsedNames::AllWithin(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::error(&prefix, "'.all' may not be the prefix of a selected name", ErrorCode::MismatchedKinds)
+                    Diagnostic::error(
+                        &prefix,
+                        "'.all' may not be the prefix of a selected name",
+                        ErrorCode::MismatchedKinds
+                    )
                 );
             }
         }
@@ -499,9 +507,12 @@ impl<'a> AnalyzeContext<'a> {
             | Name::External(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::error(&name.pos, "Invalid selected name",)
-                ErrorCode::MismatchedKinds,
-            );
+                    Diagnostic::error(
+                        &name.pos,
+                        "Invalid selected name",
+                        ErrorCode::MismatchedKinds
+                    )
+                );
             }
         }
     }
@@ -647,15 +658,19 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         _ => {
                             diagnostics.error(
-                                    visibility_pos,
-                                    "Invalid prefix for selected name",
-                                    ErrorCode::MismatchedKinds,
-                                );
+                                visibility_pos,
+                                "Invalid prefix for selected name",
+                                ErrorCode::MismatchedKinds,
+                            );
                         }
                     },
 
                     _ => {
-                        diagnostics.error(visibility_pos, "Invalid prefix for selected name", ErrorCode::MismatchedKinds);
+                        diagnostics.error(
+                            visibility_pos,
+                            "Invalid prefix for selected name",
+                            ErrorCode::MismatchedKinds,
+                        );
                     }
                 },
             }

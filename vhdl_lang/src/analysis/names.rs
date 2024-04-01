@@ -160,8 +160,8 @@ impl<'a> ResolvedName<'a> {
             AnyEntKind::Overloaded(_) => {
                 return Err((
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
-                    ErrorCode::Internal
-                );
+                    ErrorCode::Internal,
+                ))
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -222,8 +222,8 @@ impl<'a> ResolvedName<'a> {
                 return Err((
                     "Internal error. Unreachable as overloded is handled outside this function"
                         .to_string(),
-                    ErrorCode::Internal
-                );
+                    ErrorCode::Internal,
+                ));
             }
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
@@ -621,11 +621,12 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(Some(typ))
                 } else {
                     bail!(
-                        diagnostics,Diagnostic::error(
-                        expr_pos,
-                        format!("{} cannot be used as a discrete range", typ.describe()),
-                        ErrorCode::MismatchedKinds,
-                    )
+                        diagnostics,
+                        Diagnostic::error(
+                            expr_pos,
+                            format!("{} cannot be used as a discrete range", typ.describe()),
+                            ErrorCode::MismatchedKinds,
+                        )
                     );
                 };
             }
@@ -1365,10 +1366,8 @@ impl<'a> AnalyzeContext<'a> {
                         NamedEntities::Single(named_entity) => {
                             designator.set_reference(&name);
 
-
-                                ResolvedName::from_design_not_overloaded(named_entity).map_err(
-                                    |(e, code)| Diagnostic::error(&designator.pos, e, code),
-                                )
+                            ResolvedName::from_design_not_overloaded(named_entity)
+                                .map_err(|(e, code)| Diagnostic::error(&designator.pos, e, code))
                                 .into_eval_result(diagnostics)?
                         }
                         NamedEntities::Overloaded(overloaded) => {
@@ -1605,11 +1604,12 @@ impl<'a> AnalyzeContext<'a> {
             Ok(*elem_type)
         } else {
             bail!(
-                diagnostics,Diagnostic::error(
-                suffix_pos,
-                format!("{} cannot be indexed", type_mark.describe()),
-                ErrorCode::MismatchedKinds,
-            )
+                diagnostics,
+                Diagnostic::error(
+                    suffix_pos,
+                    format!("{} cannot be indexed", type_mark.describe()),
+                    ErrorCode::MismatchedKinds,
+                )
             );
         }
     }

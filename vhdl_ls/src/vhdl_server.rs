@@ -1079,6 +1079,7 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
 
 #[cfg(test)]
 mod tests {
+    use lsp_server::ErrorCode;
     use std::rc::Rc;
 
     use super::*;
@@ -1214,7 +1215,7 @@ end entity ent2;
                         character: "end entity ent2".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("E000".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "End identifier mismatch, expected ent".to_owned(),
@@ -1306,7 +1307,7 @@ lib.files = [
                         character: "architecture rtl of ent2".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("E038".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
@@ -1531,7 +1532,7 @@ lib.files = [
                         character: "architecture rtl of ent".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("E038".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent\' within library \'lib\'".to_owned(),
