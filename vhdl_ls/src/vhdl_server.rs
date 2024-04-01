@@ -971,7 +971,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic {
         range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
-        code: None,
+        code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
         source: Some("vhdl ls".to_owned()),
         message: diagnostic.message,
         related_information,
