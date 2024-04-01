@@ -192,23 +192,40 @@ pub enum ErrorCode {
     SignatureMismatch,
     /// When instantiating an uninstantiated subprogram, no distinct subprogram is available
     AmbiguousInstantiation,
-    /// Attempt to instantiate something that is not an uninstantiated subprogram
-    NotInstantiable,
     /// Instantiating a function as procedure or vice-versa
     MismatchedInstantiationType,
     /// Function returns without a value
     VoidReturn,
     /// Procedure returns with value
     NonVoidReturn,
-    /// Return statement in processes
+    /// Illegal return statement, for example in a process
+    ///
+    /// # Example
+    ///
+    /// ```vhdl
+    /// process (clk)
+    /// begin
+    ///     if rising_edge(clk) then
+    ///         return;
+    ///     end if;
+    /// end process;
+    /// ```
     IllegalReturn,
-    /// Exit call outside a loop
+    /// Exit statement called outside a loop
     ExitOutsideLoop,
-    /// Next call outside a loop
+    /// Next statement called outside a loop
     NextOutsideLoop,
-    /// Got something other than a loop label when expecting a loop label
-    MismatchedLoopLabel,
-    /// A loop label was found where it shouldn't be
+    /// A loop label was found at a position where it shouldn't be
+    ///
+    /// # Example
+    /// ```vhdl
+    /// bad0: loop
+    /// end loop;
+    ///
+    /// loop
+    ///     exit bad0;
+    /// end loop;
+    /// ```
     InvalidLoopLabelPosition,
     /// A call to an uninstantiated subprogram was made
     UninstantiatedSubprogramCall,
@@ -245,7 +262,7 @@ pub enum ErrorCode {
     DeclaredBefore,
     /// A configuration was found that is not in the same library as the entity
     ConfigNotInSameLibrary,
-    /// No implicit conversion is possible
+    /// No implicit conversion using the `??` operator is possible
     NoImplicitConversion,
     /// Expected sub-aggregate
     ExpectedSubAggregate,
@@ -259,6 +276,7 @@ pub enum ErrorCode {
     UnexpectedSignature,
     /// A deferred constant is missing its full constant declaration in the package body
     MissingDeferredDeclaration,
+    /// A deferred type declaration is missing its full declaration
     MissingFullTypeDeclaration,
     /// Calling a name like a function or procedure where that is not applicable
     InvalidCall,

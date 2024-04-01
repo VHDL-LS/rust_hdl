@@ -345,7 +345,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &label.item.pos,
                         format!("Expected loop label, got {}", ent.describe()),
-                        ErrorCode::MismatchedLoopLabel,
+                        ErrorCode::MismatchedKinds,
                     );
                 }
             }
@@ -355,7 +355,7 @@ impl<'a> AnalyzeContext<'a> {
                     "Expected loop label, got overloaded name {}",
                     &label.item.item
                 ),
-                ErrorCode::MismatchedLoopLabel,
+                ErrorCode::MismatchedKinds,
             ),
             Err(diag) => {
                 diagnostics.push(diag);
