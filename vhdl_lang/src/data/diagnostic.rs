@@ -85,20 +85,22 @@ impl Diagnostic {
         diagnostics
     }
 
-    pub fn show(&self, severities: &SeverityMap) -> String {
+    pub fn show(&self, severities: &SeverityMap) -> Option<String> {
+        let severity = severities[self.code]?;
         let mut result = String::new();
         for (pos, message) in self.related.iter() {
             result.push_str(&pos.show(&format!("related: {message}")));
             result.push('\n');
         }
-        let severity: &str = severities[self.code].into();
+        let severity: &str = severity.into();
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
-        result
+        Some(result)
     }
 
     #[cfg(test)]
     pub fn show_default(&self) -> String {
         self.show(&default_severity_map())
+            .expect("All severities should be defined in the default severity map")
     }
 }
 
@@ -152,7 +154,7 @@ pub struct NoDiagnostics;
 #[cfg(test)]
 impl DiagnosticHandler for NoDiagnostics {
     fn push(&mut self, diagnostic: Diagnostic) {
-        panic!("{}", diagnostic.show(&default_severity_map()))
+        panic!("{}", diagnostic.show_default())
     }
 }
 

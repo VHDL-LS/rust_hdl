@@ -506,10 +506,10 @@ impl VHDLServer {
 
         let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
         for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
-            let mut lsp_diagnostics = Vec::new();
-            for diagnostic in diagnostics {
-                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic, &self.severity_map));
-            }
+            let lsp_diagnostics = diagnostics
+                .into_iter()
+                .filter_map(|diag| to_lsp_diagnostic(diag, &self.severity_map))
+                .collect();
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
@@ -962,8 +962,11 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
     uri.to_file_path().unwrap()
 }
 
-fn to_lsp_diagnostic(diagnostic: Diagnostic, severity_map: &SeverityMap) -> lsp_types::Diagnostic {
-    let severity = match severity_map[diagnostic.code] {
+fn to_lsp_diagnostic(
+    diagnostic: Diagnostic,
+    severity_map: &SeverityMap,
+) -> Option<lsp_types::Diagnostic> {
+    let severity = match severity_map[diagnostic.code]? {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
         Severity::Info => DiagnosticSeverity::INFORMATION,
@@ -987,7 +990,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic, severity_map: &SeverityMap) -> lsp_
         None
     };
 
-    lsp_types::Diagnostic {
+    Some(lsp_types::Diagnostic {
         range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
         code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
@@ -995,7 +998,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic, severity_map: &SeverityMap) -> lsp_
         message: diagnostic.message,
         related_information,
         ..Default::default()
-    }
+    })
 }
 
 fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {

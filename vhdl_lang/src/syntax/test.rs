@@ -349,7 +349,7 @@ impl Code {
         match self.parse(parse_fun) {
             Ok(res) => res,
             Err(diagnostic) => {
-                panic!("{}", diagnostic.show(&default_severity_map()));
+                panic!("{}", diagnostic.show_default());
             }
         }
     }
@@ -375,7 +375,7 @@ impl Code {
             match result {
                 Err(err) => {
                     println!("{err:#?}");
-                    println!("{}", err.show(&default_severity_map()));
+                    println!("{}", err.show_default());
                     panic!("Got Err()");
                 }
                 Ok(result) => {
@@ -729,7 +729,7 @@ fn forward(stream: &TokenStream, start: Position) {
 /// Check that no errors where found
 pub fn check_no_diagnostics(diagnostics: &[Diagnostic]) {
     for err in diagnostics.iter() {
-        println!("{}", err.show(&default_severity_map()));
+        println!("{}", err.show_default());
     }
     if !diagnostics.is_empty() {
         panic!("Found errors");

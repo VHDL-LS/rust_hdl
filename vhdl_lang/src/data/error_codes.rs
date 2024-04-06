@@ -416,72 +416,74 @@ pub enum ErrorCode {
 
 // Using an `EnumMap` ensures that each error code is mapped to exactly one severity.
 // Additionally, this allows efficient implementation using an array internally.
-pub type SeverityMap = EnumMap<ErrorCode, Severity>;
+pub type SeverityMap = EnumMap<ErrorCode, Option<Severity>>;
 
 pub fn default_severity_map() -> SeverityMap {
     use ErrorCode::*;
     use Severity::*;
     enum_map! {
-        SyntaxError => Error,
-        CircularDependency => Error,
-        InvalidFormal => Error,
-        InvalidFormalConversion => Error,
-        TypeMismatch => Error,
-        AmbiguousCall => Error,
-        NamedBeforePositional => Error,
-        TooManyArguments => Error,
-        Unassociated => Error,
-        AlreadyAssociated => Error,
-        InterfaceModeMismatch => Error,
-        DisallowedInSensitivityList => Error,
-        DeclarationNotAllowed => Error,
-        MismatchedEntityClass => Error,
-        MisplacedAttributeSpec => Error,
-        NoOverloadedWithSignature => Error,
-        IllegalSignature => Error,
-        SignatureRequired => Error,
-        AmbiguousExpression => Error,
-        Duplicate => Error,
-        ConflictingUseClause => Error,
-        MissingProtectedBodyType => Error,
-        IllegalDeferredConstant => Error,
-        SignatureMismatch => Error,
-        AmbiguousInstantiation => Error,
-        MismatchedSubprogramInstantiation => Error,
-        VoidReturn => Error,
-        NonVoidReturn => Error,
-        IllegalReturn => Error,
-        ExitOutsideLoop => Error,
-        NextOutsideLoop => Error,
-        InvalidLoopLabel => Error,
-        MismatchedKinds => Error,
-        TooManyConstraints => Error,
-        TooFewConstraints => Error,
-        IllegalConstraint => Error,
-        InvalidOperatorSymbol => Error,
-        Unresolved => Error,
-        DimensionMismatch => Error,
-        InvalidLiteral => Error,
-        DeclaredBefore => Error,
-        ConfigNotInSameLibrary => Error,
-        NoImplicitConversion => Error,
-        ExpectedSubAggregate => Error,
-        IllegalAttribute => Error,
-        CannotBePrefixed => Error,
-        NonScalarInRange => Error,
-        UnexpectedSignature => Error,
-        MissingDeferredDeclaration => Error,
-        MissingFullTypeDeclaration => Error,
-        InvalidCall => Error,
-        Unused => Warning,
-        UnnecessaryWorkLibrary => Warning,
-        UnassociatedContext => Warning,
-        Internal => Error,
-        Related => Hint
+        SyntaxError
+        | CircularDependency
+        | InvalidFormal
+        | InvalidFormalConversion
+        | TypeMismatch
+        | AmbiguousCall
+        | NamedBeforePositional
+        | TooManyArguments
+        | Unassociated
+        | AlreadyAssociated
+        | InterfaceModeMismatch
+        | DisallowedInSensitivityList
+        | DeclarationNotAllowed
+        | MismatchedEntityClass
+        | MisplacedAttributeSpec
+        | NoOverloadedWithSignature
+        | IllegalSignature
+        | SignatureRequired
+        | AmbiguousExpression
+        | Duplicate
+        | ConflictingUseClause
+        | MissingProtectedBodyType
+        | IllegalDeferredConstant
+        | SignatureMismatch
+        | AmbiguousInstantiation
+        | MismatchedSubprogramInstantiation
+        | VoidReturn
+        | NonVoidReturn
+        | IllegalReturn
+        | ExitOutsideLoop
+        | NextOutsideLoop
+        | InvalidLoopLabel
+        | MismatchedKinds
+        | TooManyConstraints
+        | TooFewConstraints
+        | IllegalConstraint
+        | InvalidOperatorSymbol
+        | Unresolved
+        | DimensionMismatch
+        | InvalidLiteral
+        | DeclaredBefore
+        | ConfigNotInSameLibrary
+        | NoImplicitConversion
+        | ExpectedSubAggregate
+        | IllegalAttribute
+        | CannotBePrefixed
+        | NonScalarInRange
+        | UnexpectedSignature
+        | MissingDeferredDeclaration
+        | MissingFullTypeDeclaration
+        | InvalidCall => Some(Error),
+        Unused
+        | UnnecessaryWorkLibrary
+        | UnassociatedContext => Some(Warning),
+        Internal => Some(Error),
+        Related => Some(Hint)
     }
 }
 
-pub fn severity_map_with_overwrites<T>(overwrites: HashMap<ErrorCode, Severity, T>) -> SeverityMap {
+pub fn severity_map_with_overwrites<T>(
+    overwrites: HashMap<ErrorCode, Option<Severity>, T>,
+) -> SeverityMap {
     let mut map = default_severity_map();
     for (key, value) in overwrites.into_iter() {
         map[key] = value;

@@ -23,7 +23,7 @@ use crate::data::*;
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
-    error_codes: FnvHashMap<ErrorCode, Severity>,
+    error_codes: FnvHashMap<ErrorCode, Option<Severity>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -176,10 +176,20 @@ impl Config {
             for (name, severity) in error_codes.iter() {
                 let error_code = ErrorCode::try_from(name.as_str())
                     .map_err(|_| format!("'{name}' is not a valid error code"))?;
-                let severity =
-                    Severity::try_from(severity.as_str().ok_or("Severity must be a string")?)
+                match severity.as_bool() {
+                    Some(value) => {
+                        if value {
+                            error_code_overwrites.insert(error_code, None);
+                        }
+                    }
+                    None => {
+                        let severity = Severity::try_from(
+                            severity.as_str().ok_or("Severity must be a string")?,
+                        )
                         .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
-                error_code_overwrites.insert(error_code, severity);
+                        error_code_overwrites.insert(error_code, Some(severity));
+                    }
+                }
             }
         }
 
@@ -304,7 +314,7 @@ impl Config {
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }
 
-    pub fn error_codes(&self) -> &FnvHashMap<ErrorCode, Severity> {
+    pub fn error_codes(&self) -> &FnvHashMap<ErrorCode, Option<Severity>> {
         &self.error_codes
     }
 }
@@ -432,6 +442,7 @@ lib1.files = [
 
 [error_codes]
 unused = 'error'
+duplicate = false
 ",
                 absolute_vhd.to_str().unwrap()
             ),
@@ -455,7 +466,7 @@ unused = 'error'
         assert_eq!(messages, vec![]);
 
         let mut expected_map = FnvHashMap::default();
-        expected_map.insert(ErrorCode::Unused, Severity::Error);
+        expected_map.insert(ErrorCode::Unused, Some(Severity::Error));
         assert_eq!(config.error_codes, expected_map)
     }
 

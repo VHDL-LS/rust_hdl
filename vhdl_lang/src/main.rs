@@ -82,7 +82,7 @@ fn main() {
     let duration = start.elapsed().unwrap() / iterations;
 
     if args.no_hint {
-        diagnostics.retain(|diag| severity_map[diag.code] != Severity::Hint);
+        diagnostics.retain(|diag| severity_map[diag.code] != Some(Severity::Hint));
     }
 
     show_diagnostics(&diagnostics, &severity_map);
@@ -124,7 +124,9 @@ fn main() {
 
 fn show_diagnostics(diagnostics: &[Diagnostic], severity_map: &SeverityMap) {
     for diagnostic in diagnostics {
-        println!("{}", diagnostic.show(severity_map));
+        if let Some(str) = diagnostic.show(severity_map) {
+            println!("{str}");
+        }
     }
 
     if !diagnostics.is_empty() {
