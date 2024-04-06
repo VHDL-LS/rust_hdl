@@ -346,7 +346,17 @@ pub enum ErrorCode {
     InvalidLiteral,
 
     /// A Design Unit (such as an architecture) was declared before another
-    ///Design Unit (such as an entity) which is illegal.
+    /// Design Unit (such as an entity) which is illegal.
+    ///
+    /// # Example
+    /// ```vhdl
+    /// architecture foo of bar is
+    /// begin    
+    /// end architecture;
+    ///
+    /// entity bar is
+    /// end entity;
+    /// ```
     DeclaredBefore,
 
     /// A configuration was found that is not in the same library as the entity
@@ -377,10 +387,25 @@ pub enum ErrorCode {
     MissingFullTypeDeclaration,
 
     /// Calling a name like a function or procedure where that is not applicable
+    ///
+    /// # Example
+    /// ```vhdl
+    /// procedure foo;
+    /// constant x: bit := foo; -- 'foo' is a procedure and cannot be called here
+    /// ```
     InvalidCall,
 
     // Linting
     /// A declaration that is unused
+    ///
+    /// # Example
+    /// ```vhdl
+    /// entity foo is
+    ///     port (
+    ///         bar : in bit -- 'bar' is never used
+    ///     );
+    /// end entity;
+    /// ```
     Unused,
 
     /// The declaration
