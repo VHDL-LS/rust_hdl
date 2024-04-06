@@ -169,10 +169,8 @@ impl Config {
 
         let mut error_code_overwrites = FnvHashMap::default();
 
-        if let Some(error_codes) = config.get("error_codes") {
-            let error_codes = error_codes
-                .as_table()
-                .ok_or("error_codes must be a table")?;
+        if let Some(error_codes) = config.get("lint") {
+            let error_codes = error_codes.as_table().ok_or("lint must be a table")?;
             for (name, severity) in error_codes.iter() {
                 let error_code = ErrorCode::try_from(name.as_str())
                     .map_err(|_| format!("'{name}' is not a valid error code"))?;
