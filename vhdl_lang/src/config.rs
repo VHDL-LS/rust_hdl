@@ -438,7 +438,7 @@ lib1.files = [
   'tb_ent.vhd'
 ]
 
-[error_codes]
+[lint]
 unused = 'error'
 duplicate = false
 ",
