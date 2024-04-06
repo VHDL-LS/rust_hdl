@@ -177,8 +177,8 @@ impl Config {
                 let error_code = ErrorCode::try_from(name.as_str())
                     .map_err(|_| format!("'{name}' is not a valid error code"))?;
                 match severity.as_bool() {
-                    Some(value) => {
-                        if value {
+                    Some(should_show) => {
+                        if !should_show {
                             error_code_overwrites.insert(error_code, None);
                         }
                     }

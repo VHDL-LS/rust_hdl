@@ -265,6 +265,7 @@ impl VHDLServer {
                     "Configuration file has changed, reloading project...",
                 ));
                 let config = self.load_config();
+                self.severity_map = severity_map_with_overwrites(config.error_codes().clone());
 
                 self.project
                     .update_config(config, &mut self.message_filter());
@@ -524,7 +525,7 @@ impl VHDLServer {
         }
 
         for (file_uri, _) in files_with_notifications.drain() {
-            // File has no longer any diagnosics, publish empty notification to clear them
+            // File has no longer any diagnostics, publish empty notification to clear them
             if !self.files_with_notifications.contains_key(&file_uri) {
                 let publish_diagnostics = PublishDiagnosticsParams {
                     uri: file_uri.clone(),
