@@ -467,6 +467,7 @@ duplicate = false
 
         let mut expected_map = FnvHashMap::default();
         expected_map.insert(ErrorCode::Unused, Some(Severity::Error));
+        expected_map.insert(ErrorCode::Duplicate, None);
         assert_eq!(config.error_codes, expected_map)
     }
 
