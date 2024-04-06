@@ -7,6 +7,7 @@
 use super::*;
 use crate::analysis::names::ResolvedName;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use crate::HasTokenSpan;
@@ -111,6 +112,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.current_unit_id().describe(),
                             named_entity.describe()
                         )),
+                        ErrorCode::DeclaredBefore,
                     ));
                 }
             }
@@ -248,7 +250,8 @@ impl<'a> AnalyzeContext<'a> {
             if let Design::Entity(ref visibility, ref region) = primary.kind() {
                 (visibility, region)
             } else {
-                let mut diagnostic = Diagnostic::error(unit.pos(), "Expected an entity");
+                let mut diagnostic =
+                    Diagnostic::error(unit.pos(), "Expected an entity", ErrorCode::MismatchedKinds);
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -300,7 +303,8 @@ impl<'a> AnalyzeContext<'a> {
             Design::Package(ref visibility, ref region)
             | Design::UninstPackage(ref visibility, ref region) => (visibility, region),
             _ => {
-                let mut diagnostic = Diagnostic::error(unit.pos(), "Expected a package");
+                let mut diagnostic =
+                    Diagnostic::error(unit.pos(), "Expected a package", ErrorCode::MismatchedKinds);
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -354,6 +358,7 @@ impl<'a> AnalyzeContext<'a> {
                         capitalize(&self.current_unit_id().describe()),
                         primary.describe(),
                     ),
+                    ErrorCode::DeclaredBefore,
                 ));
             }
         }
@@ -368,7 +373,7 @@ impl<'a> AnalyzeContext<'a> {
         let ent_name = &mut config.entity_name;
 
         match ent_name.item {
-            // Entitities are implicitly defined for configurations
+            // Entities are implicitly defined for configurations
             // configuration cfg of ent
             Name::Designator(ref mut designator) => Ok(self
                 .lookup_in_library(
@@ -390,7 +395,7 @@ impl<'a> AnalyzeContext<'a> {
                         if library_name != self.work_library_name() {
                             diagnostics.error(
                                 &prefix.pos,
-                                format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()));
+                                format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()), ErrorCode::ConfigNotInSameLibrary);
                             Err(EvalError::Unknown)
                         } else {
                             let primary_ent = self.lookup_in_library(
@@ -412,6 +417,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "{} does not denote an entity",
                                             primary_ent.describe()
                                         ),
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     Err(EvalError::Unknown)
                                 }
@@ -425,7 +431,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             _ => {
-                diagnostics.error(&ent_name, "Expected selected name");
+                diagnostics.error(
+                    &ent_name,
+                    "Expected selected name",
+                    ErrorCode::MismatchedKinds,
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -443,14 +453,22 @@ impl<'a> AnalyzeContext<'a> {
                 Err(_) => {
                     bail!(
                         diagnostics,
-                        Diagnostic::error(&prefix, "Invalid prefix of a selected name")
+                        Diagnostic::error(
+                            &prefix,
+                            "Invalid prefix of a selected name",
+                            ErrorCode::MismatchedKinds
+                        )
                     );
                 }
             },
             UsedNames::AllWithin(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::error(&prefix, "'.all' may not be the prefix of a selected name",)
+                    Diagnostic::error(
+                        &prefix,
+                        "'.all' may not be the prefix of a selected name",
+                        ErrorCode::MismatchedKinds
+                    )
                 );
             }
         }
@@ -489,7 +507,11 @@ impl<'a> AnalyzeContext<'a> {
             | Name::External(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::error(&name.pos, "Invalid selected name",)
+                    Diagnostic::error(
+                        &name.pos,
+                        "Invalid selected name",
+                        ErrorCode::MismatchedKinds
+                    )
                 );
             }
         }
@@ -512,6 +534,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(Diagnostic::hint(
                                 &library_name.item,
                                 "Library clause not necessary for current working library",
+                                ErrorCode::UnnecessaryWorkLibrary,
                             ))
                         } else if let Some(library) = self.get_library(&library_name.item.item) {
                             library_name.set_unique_reference(library);
@@ -520,6 +543,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(Diagnostic::error(
                                 &library_name.item,
                                 format!("No such library '{}'", library_name.item),
+                                ErrorCode::Unresolved,
                             ));
                         }
                     }
@@ -537,6 +561,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.push(Diagnostic::error(
                                     &name.pos,
                                     "Context reference must be a selected name",
+                                    ErrorCode::MismatchedKinds,
                                 ));
                                 continue;
                             }
@@ -567,6 +592,7 @@ impl<'a> AnalyzeContext<'a> {
                                                     "{} does not denote a context declaration",
                                                     ent.describe()
                                                 ),
+                                                ErrorCode::MismatchedKinds,
                                             ));
                                         }
                                     }
@@ -598,6 +624,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         &name.pos,
                         "Use clause must be a selected name",
+                        ErrorCode::MismatchedKinds,
                     ));
                     continue;
                 }
@@ -630,12 +657,20 @@ impl<'a> AnalyzeContext<'a> {
                             scope.make_all_potentially_visible(Some(&name.pos), primary_region);
                         }
                         _ => {
-                            diagnostics.error(visibility_pos, "Invalid prefix for selected name");
+                            diagnostics.error(
+                                visibility_pos,
+                                "Invalid prefix for selected name",
+                                ErrorCode::MismatchedKinds,
+                            );
                         }
                     },
 
                     _ => {
-                        diagnostics.error(visibility_pos, "Invalid prefix for selected name");
+                        diagnostics.error(
+                            visibility_pos,
+                            "Invalid prefix for selected name",
+                            ErrorCode::MismatchedKinds,
+                        );
                     }
                 },
             }
@@ -665,6 +700,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics.error(
             &package_name.pos,
             format!("'{package_name}' is not an uninstantiated generic package"),
+            ErrorCode::MismatchedKinds,
         );
         Err(EvalError::Unknown)
     }

@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
 use analyze::*;
@@ -150,6 +151,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(Diagnostic::error(
                                 type_decl.ident.pos(),
                                 format!("'{}' is not a protected type", &type_decl.ident),
+                                ErrorCode::TypeMismatch,
                             ));
                         }
                     }
@@ -157,6 +159,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             type_decl.ident.pos(),
                             format!("No declaration of protected type '{}'", &type_decl.ident),
+                            ErrorCode::Unresolved,
                         ));
                     }
                 };
@@ -376,6 +379,7 @@ impl<'a> AnalyzeContext<'a> {
                                         secondary_unit_type.designator(),
                                         phys_type.describe()
                                     ),
+                                    ErrorCode::TypeMismatch,
                                 )
                             }
                         }
@@ -416,7 +420,11 @@ impl<'a> AnalyzeContext<'a> {
                     } else if range_typ.is_any_real() {
                         UniversalType::Real
                     } else {
-                        diagnostics.error(&range.pos(), "Expected real or integer range");
+                        diagnostics.error(
+                            &range.pos(),
+                            "Expected real or integer range",
+                            ErrorCode::TypeMismatch,
+                        );
                         return Ok(());
                     }
                 } else {
@@ -521,6 +529,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 drange.pos(),
                                 format!("Got extra index constraint for {}", base_type.describe()),
+                                ErrorCode::TooManyConstraints,
                             );
                         }
                     }
@@ -535,6 +544,7 @@ impl<'a> AnalyzeContext<'a> {
                                 dranges.len(),
                                 indexes.len()
                             ),
+                            ErrorCode::TooFewConstraints,
                         );
                     }
 
@@ -554,6 +564,7 @@ impl<'a> AnalyzeContext<'a> {
                             "Array constraint cannot be used for {}",
                             base_type.describe()
                         ),
+                        ErrorCode::IllegalConstraint,
                     );
                 }
             }
@@ -567,6 +578,7 @@ impl<'a> AnalyzeContext<'a> {
                             "Scalar constraint cannot be used for {}",
                             base_type.describe()
                         ),
+                        ErrorCode::IllegalConstraint,
                     );
                 }
             }
@@ -596,6 +608,7 @@ impl<'a> AnalyzeContext<'a> {
                             "Record constraint cannot be used for {}",
                             base_type.describe()
                         ),
+                        ErrorCode::IllegalConstraint,
                     );
                 }
             }

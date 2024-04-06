@@ -11,6 +11,7 @@ use super::expression::ExpressionType;
 use super::scope::*;
 use crate::ast::search::clear_references;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -99,19 +100,20 @@ impl<'a> Candidates<'a> {
                         return Err(Diagnostic::error(
                             name,
                             format!("'{}' does not match {}", name, ttyp.describe()),
+                            ErrorCode::TypeMismatch,
                         ));
                     }
                 }
             }
 
-            let err_prefix = if rejected.len() == 1 {
+            let (err_prefix, code) = if rejected.len() == 1 {
                 // Provide better error for unique function name
-                "Invalid call to"
+                ("Invalid call to", ErrorCode::InvalidCall)
             } else {
-                "Could not resolve"
+                ("Could not resolve", ErrorCode::Unresolved)
             };
 
-            let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"));
+            let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"), code);
 
             rejected.sort_by(|x, y| x.ent.decl_pos().cmp(&y.ent.decl_pos()));
 
@@ -282,7 +284,7 @@ impl<'a> AnalyzeContext<'a> {
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_kind.is_empty() {
-            diagnostics.push(Diagnostic::could_not_resolve(call_name, all_overloaded));
+            diagnostics.push(Diagnostic::ambiguous(call_name, all_overloaded));
             return Err(EvalError::Unknown);
         }
 
@@ -297,6 +299,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.push(Diagnostic::error(
                 call_name,
                 format!("uninstantiated subprogram {} cannot be called", call_name),
+                ErrorCode::InvalidCall,
             ));
             return Err(EvalError::Unknown);
         }
@@ -310,7 +313,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_formals.is_empty() {
             // No candidate matched actual/formal profile
-            diagnostics.push(Diagnostic::could_not_resolve(call_name, ok_kind));
+            diagnostics.push(Diagnostic::ambiguous(call_name, ok_kind));
             return Err(EvalError::Unknown);
         }
 
@@ -325,7 +328,7 @@ impl<'a> AnalyzeContext<'a> {
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_assoc_types.is_empty() {
-            diagnostics.push(Diagnostic::could_not_resolve(
+            diagnostics.push(Diagnostic::ambiguous(
                 call_name,
                 ok_formals.into_iter().map(|resolved| resolved.subpgm),
             ));
@@ -343,7 +346,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
                 return Ok(Disambiguated::Unambiguous(ent));
             } else if ok_return_type.is_empty() {
-                diagnostics.push(Diagnostic::could_not_resolve(
+                diagnostics.push(Diagnostic::ambiguous(
                     call_name,
                     ok_assoc_types.into_iter().map(|resolved| resolved.subpgm),
                 ));
@@ -406,13 +409,14 @@ impl<'a> AnalyzeContext<'a> {
 }
 
 impl Diagnostic {
-    fn could_not_resolve<'a>(
+    fn ambiguous<'a>(
         name: &WithPos<Designator>,
         rejected: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Self {
         let mut diag = Diagnostic::error(
             &name.pos,
             format!("Could not resolve call to '{}'", name.designator()),
+            ErrorCode::AmbiguousCall,
         );
         diag.add_subprogram_candidates("Does not match", rejected);
         diag
@@ -504,6 +508,7 @@ function myfun(arg : integer) return integer;
             vec![Diagnostic::error(
                 call.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -546,9 +551,17 @@ function myfun(arg1 : integer) return integer;
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(fcall.s1("missing"), "No declaration of 'missing'"),
-                Diagnostic::error(fcall, "No association of parameter 'arg1'")
-                    .related(decl.s1("arg1"), "Defined here"),
+                Diagnostic::error(
+                    fcall.s1("missing"),
+                    "No declaration of 'missing'",
+                    ErrorCode::Unresolved,
+                ),
+                Diagnostic::error(
+                    fcall,
+                    "No association of parameter 'arg1'",
+                    ErrorCode::Unassociated,
+                )
+                .related(decl.s1("arg1"), "Defined here"),
             ],
         );
     }
@@ -568,17 +581,19 @@ function myfun(arg2 : integer) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[INTEGER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[INTEGER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[INTEGER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[INTEGER return CHARACTER]",
+            )],
         );
     }
 
@@ -641,17 +656,19 @@ function myfun(arg1 : character) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[CHARACTER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[CHARACTER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[CHARACTER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[CHARACTER return CHARACTER]",
+            )],
         );
     }
 
@@ -696,17 +713,19 @@ function myfun(arg1 : integer) return character;
 
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
-                    .related(
-                        decl.s1("myfun"),
-                        "Does not match function myfun[INTEGER return INTEGER]",
-                    )
-                    .related(
-                        decl.s("myfun", 2),
-                        "Does not match function myfun[INTEGER return CHARACTER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                fcall.s1("myfun"),
+                "Could not resolve call to 'myfun'",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decl.s1("myfun"),
+                "Does not match function myfun[INTEGER return INTEGER]",
+            )
+            .related(
+                decl.s("myfun", 2),
+                "Does not match function myfun[INTEGER return CHARACTER]",
+            )],
         )
     }
 

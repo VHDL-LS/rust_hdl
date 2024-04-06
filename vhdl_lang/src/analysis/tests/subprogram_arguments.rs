@@ -5,6 +5,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn wrong_number_of_arguments() {
@@ -23,10 +24,12 @@ signal bad : natural := subpgm;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s1("subpgm;").s1("subpgm"), "Invalid call to 'subpgm'")
-                .related(code.s1("subpgm"), "Missing association of parameter 'arg'"),
-        ],
+        vec![Diagnostic::error(
+            code.s1("subpgm;").s1("subpgm"),
+            "Invalid call to 'subpgm'",
+            ErrorCode::InvalidCall,
+        )
+        .related(code.s1("subpgm"), "Missing association of parameter 'arg'")],
     );
 }
 
@@ -62,13 +65,19 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("subpgm", 2), "Invalid procedure call").related(
+            Diagnostic::error(
+                code.s("subpgm", 2),
+                "Invalid procedure call",
+                ErrorCode::InvalidCall,
+            )
+            .related(
                 code.s("subpgm", 1),
                 "function subpgm[NATURAL return NATURAL] is not a procedure",
             ),
             Diagnostic::error(
                 code.s("thesig", 2),
                 "signal 'thesig' of array type 'INTEGER_VECTOR' is not a procedure",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -121,10 +130,15 @@ constant bad : integer := subpgm(arg2 => 1);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("arg2"), "No declaration of 'arg2'"),
+            Diagnostic::error(
+                code.s1("arg2"),
+                "No declaration of 'arg2'",
+                ErrorCode::Unresolved,
+            ),
             Diagnostic::error(
                 code.s1("subpgm(arg2 => 1)"),
                 "No association of parameter 'arg1'",
+                ErrorCode::Unassociated,
             )
             .related(code.s1("arg1"), "Defined here"),
         ],
@@ -183,10 +197,12 @@ signal bad : natural := subpgm(0);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s1("subpgm(0)"), "No association of parameter 'arg2'")
-                .related(code.s1("arg2"), "Defined here"),
-        ],
+        vec![Diagnostic::error(
+            code.s1("subpgm(0)"),
+            "No association of parameter 'arg2'",
+            ErrorCode::Unassociated,
+        )
+        .related(code.s1("arg2"), "Defined here")],
     );
 
     assert_eq!(
@@ -214,6 +230,7 @@ signal bad : natural := subpgm(1111, 2222);
         vec![Diagnostic::error(
             code.s1("2222"),
             "Unexpected extra argument",
+            ErrorCode::TooManyArguments,
         )],
     );
 
@@ -309,6 +326,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("arg1", 2),
             "Named arguments are not allowed before positional arguments",
+            ErrorCode::NamedBeforePositional,
         )],
     );
 }
@@ -335,6 +353,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("arg", 2),
             "parameter 'arg' has already been associated",
+            ErrorCode::AlreadyAssociated,
         )
         .related(code.s1("theproc(0, ").s1("0"), "Previously associated here")],
     );
@@ -362,6 +381,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("arg", 3),
             "parameter 'arg' has already been associated",
+            ErrorCode::AlreadyAssociated,
         )
         .related(code.s("arg", 2), "Previously associated here")],
     );
@@ -409,6 +429,7 @@ end procedure;
         vec![Diagnostic::error(
             code.s("arg", 3),
             "parameter 'arg' has already been associated",
+            ErrorCode::AlreadyAssociated,
         )
         .related(code.s1("arg(0)"), "Previously associated here")],
     );

@@ -959,7 +959,7 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
-    let severity = match diagnostic.severity {
+    let severity = match diagnostic.default_severity {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
         Severity::Info => DiagnosticSeverity::INFORMATION,
@@ -986,7 +986,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic {
         range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
-        code: None,
+        code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
         source: Some("vhdl ls".to_owned()),
         message: diagnostic.message,
         related_information,
@@ -1214,7 +1214,7 @@ end entity ent2;
                         character: "end entity ent2".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("syntax_error".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "End identifier mismatch, expected ent".to_owned(),
@@ -1306,7 +1306,7 @@ lib.files = [
                         character: "architecture rtl of ent2".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("unresolved".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
@@ -1531,7 +1531,7 @@ lib.files = [
                         character: "architecture rtl of ent".len() as u32,
                     },
                 },
-                code: None,
+                code: Some(NumberOrString::String("unresolved".to_owned())),
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent\' within library \'lib\'".to_owned(),

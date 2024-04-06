@@ -40,10 +40,10 @@ pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>
         if ident.item == end_ident.item {
             return Some(end_ident.pos);
         } else {
-            diagnostics.error(
+            diagnostics.push(Diagnostic::syntax_error(
                 &end_ident.pos,
                 format!("End identifier mismatch, expected {}", ident.item),
-            );
+            ));
         }
     }
     None
@@ -59,20 +59,20 @@ pub fn check_label_identifier_mismatch(
             if ident.item == end_ident.item {
                 return Some(end_ident.pos);
             } else {
-                diagnostics.error(
+                diagnostics.push(Diagnostic::syntax_error(
                     &end_ident.pos,
                     format!("End label mismatch, expected {}", ident.item),
-                );
+                ));
             }
         }
     } else if let Some(end_ident) = end_ident {
-        diagnostics.error(
+        diagnostics.push(Diagnostic::syntax_error(
             &end_ident.pos,
             format!(
                 "End label '{}' found for unlabeled statement",
                 end_ident.item
             ),
-        );
+        ));
     }
     None
 }

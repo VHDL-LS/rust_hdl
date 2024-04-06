@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn check_library_clause_library_exists() {
@@ -26,6 +27,7 @@ end entity;
         vec![Diagnostic::error(
             code.s1("missing_lib"),
             "No such library 'missing_lib'",
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -128,6 +130,7 @@ end context;
         vec![Diagnostic::error(
             code.s1("missing_lib"),
             "No such library 'missing_lib'",
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -227,6 +230,7 @@ end entity;
         vec![Diagnostic::hint(
             code.s1("work"),
             "Library clause not necessary for current working library",
+            ErrorCode::UnnecessaryWorkLibrary,
         )],
     )
 }
@@ -287,10 +291,12 @@ end entity;
             Diagnostic::error(
                 code.s("missing_pkg", 1),
                 "No primary unit 'missing_pkg' within library 'libname'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("missing_pkg", 2),
                 "No primary unit 'missing_pkg' within library 'libname'",
+                ErrorCode::Unresolved,
             ),
         ],
     )
@@ -319,6 +325,7 @@ end entity;
         vec![Diagnostic::error(
             code.s("libname", 1),
             "No declaration of 'libname'",
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -366,14 +373,17 @@ end architecture;
             Diagnostic::error(
                 code.s("pkg1", 1),
                 "No primary unit 'pkg1' within library 'libname'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("pkg1", 2),
                 "No primary unit 'pkg1' within library 'libname'",
+                ErrorCode::Unresolved,
             ),
             Diagnostic::error(
                 code.s("pkg1", 3),
                 "No primary unit 'pkg1' within library 'libname'",
+                ErrorCode::Unresolved,
             ),
         ],
     )
@@ -403,6 +413,7 @@ end entity;
         vec![Diagnostic::error(
             code.s1("missing_ctx"),
             "No primary unit 'missing_ctx' within library 'libname'",
+            ErrorCode::Unresolved,
         )],
     )
 }
@@ -430,6 +441,7 @@ end entity;
         vec![Diagnostic::error(
             code.s("pkg", 2),
             "package 'pkg' does not denote a context declaration",
+            ErrorCode::MismatchedKinds,
         )],
     )
 }
@@ -462,13 +474,27 @@ end entity;
             Diagnostic::error(
                 code.s("libname", 2),
                 "Context reference must be a selected name",
+                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::error(code.s1("work"), "Use clause must be a selected name"),
-            Diagnostic::error(code.s("libname", 3), "Use clause must be a selected name"),
-            Diagnostic::error(code.s1("work.pkg(0)"), "Use clause must be a selected name"),
+            Diagnostic::error(
+                code.s1("work"),
+                "Use clause must be a selected name",
+                ErrorCode::MismatchedKinds,
+            ),
+            Diagnostic::error(
+                code.s("libname", 3),
+                "Use clause must be a selected name",
+                ErrorCode::MismatchedKinds,
+            ),
+            Diagnostic::error(
+                code.s1("work.pkg(0)"),
+                "Use clause must be a selected name",
+                ErrorCode::MismatchedKinds,
+            ),
             Diagnostic::error(
                 code.s1("work.ctx'range"),
                 "Context reference must be a selected name",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -499,6 +525,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("const2"),
             "No declaration of 'const2' within package 'pkg'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -526,6 +553,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("const2"),
             "No declaration of 'const2' within package 'pkg'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -561,6 +589,7 @@ end package;
             Diagnostic::error(
                 code.s1("const2"),
                 "No declaration of 'const2' within package instance 'ipkg'",
+                ErrorCode::Unresolved,
             ),
         ],
     );
@@ -590,10 +619,12 @@ end entity;
             Diagnostic::error(
                 code.s("work.all", 1),
                 "'.all' may not be the prefix of a selected name",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s("work.all", 2),
                 "'.all' may not be the prefix of a selected name",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -623,10 +654,12 @@ end package;
             Diagnostic::error(
                 code.s("work.gpkg", 1),
                 "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s("work.gpkg", 2),
                 "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -657,10 +690,12 @@ end package;
             Diagnostic::error(
                 code.s("work.pkg.enum_t", 1),
                 "Type 'enum_t' may not be the prefix of a selected name",
+                ErrorCode::MismatchedKinds,
             ),
             Diagnostic::error(
                 code.s("work.pkg.const", 1),
                 "Invalid prefix for selected name",
+                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -748,6 +783,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -780,6 +816,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -809,6 +846,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing' within package instance 'ipkg'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -840,6 +878,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -872,6 +911,7 @@ end package;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -899,6 +939,7 @@ end package;
         vec![Diagnostic::error(
             code.s("work.pkg1.typ_t", 1),
             "Subtype 'typ_t' may not be the prefix of a selected name",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }

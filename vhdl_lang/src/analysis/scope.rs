@@ -8,6 +8,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
 
+use crate::data::error_codes::ErrorCode;
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -172,6 +173,7 @@ impl<'a> ScopeInner<'a> {
                     }
                     Designator::Anonymous(_) => "No declaration of <anonymous>".to_owned(),
                 },
+                ErrorCode::Unresolved,
             )),
         }
     }
@@ -363,7 +365,11 @@ impl Diagnostic {
         pos: &SrcPos,
         prev_pos: Option<&SrcPos>,
     ) -> Diagnostic {
-        let mut diagnostic = Diagnostic::error(pos, format!("Duplicate declaration of '{name}'"));
+        let mut diagnostic = Diagnostic::error(
+            pos,
+            format!("Duplicate declaration of '{name}'"),
+            ErrorCode::Duplicate,
+        );
 
         if let Some(prev_pos) = prev_pos {
             diagnostic.add_related(prev_pos, "Previously defined here");

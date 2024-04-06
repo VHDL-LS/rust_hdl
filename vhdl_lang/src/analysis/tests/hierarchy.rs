@@ -5,6 +5,7 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::data::error_codes::ErrorCode;
 use crate::EntHierarchy;
 use crate::Source;
 use pretty_assertions::assert_eq;
@@ -349,8 +350,16 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("exit;"), "Exit can only be used inside a loop"),
-            Diagnostic::error(code.s1("next;"), "Next can only be used inside a loop"),
+            Diagnostic::error(
+                code.s1("exit;"),
+                "Exit can only be used inside a loop",
+                ErrorCode::ExitOutsideLoop,
+            ),
+            Diagnostic::error(
+                code.s1("next;"),
+                "Next can only be used inside a loop",
+                ErrorCode::NextOutsideLoop,
+            ),
         ],
     );
 }
@@ -397,10 +406,12 @@ end architecture;
             Diagnostic::error(
                 code.sa("exit ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
+                ErrorCode::InvalidLoopLabel,
             ),
             Diagnostic::error(
                 code.sa("next ", "bad0"),
                 "Cannot be used outside of loop 'bad0'",
+                ErrorCode::InvalidLoopLabel,
             ),
         ],
     );

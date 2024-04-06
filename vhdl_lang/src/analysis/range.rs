@@ -13,6 +13,7 @@ use super::overloaded::DisambiguatedType;
 use super::scope::*;
 use crate::ast::Range;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -51,6 +52,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &expr.pos,
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
+                        ErrorCode::NonScalarInRange,
                     );
                     Err(EvalError::Unknown)
                 }
@@ -59,7 +61,11 @@ impl<'a> AnalyzeContext<'a> {
                 types.into_iter().filter(|typ| typ.is_scalar()).collect(),
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
-                diagnostics.error(&expr.pos, "Non-scalar expression cannot be used in a range");
+                diagnostics.error(
+                    &expr.pos,
+                    "Non-scalar expression cannot be used in a range",
+                    ErrorCode::NonScalarInRange,
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -92,6 +98,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
                         ),
+                            ErrorCode::MismatchedKinds,
                     );
                         return Err(EvalError::Unknown);
                     }
@@ -110,6 +117,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
                     ),
+                    ErrorCode::MismatchedKinds,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -140,6 +148,7 @@ impl<'a> AnalyzeContext<'a> {
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
                 ),
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }
@@ -173,6 +182,7 @@ impl<'a> AnalyzeContext<'a> {
                                     l.base().describe(),
                                     r.base().describe()
                                 ),
+                                ErrorCode::TypeMismatch,
                             );
                             return Err(EvalError::Unknown);
                         }
@@ -185,7 +195,11 @@ impl<'a> AnalyzeContext<'a> {
                         self.common_types(l, r.base())
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
-                        diagnostics.error(constraint.pos(), "Range is ambiguous");
+                        diagnostics.error(
+                            constraint.pos(),
+                            "Range is ambiguous",
+                            ErrorCode::TypeMismatch,
+                        );
                         return Err(EvalError::Unknown);
                     }
                 };
@@ -216,10 +230,15 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         constraint.pos(),
                         "Range type of left and right side does not match",
+                        ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
-                    diagnostics.error(constraint.pos(), "Range is ambiguous");
+                    diagnostics.error(
+                        constraint.pos(),
+                        "Range is ambiguous",
+                        ErrorCode::TypeMismatch,
+                    );
                     Err(EvalError::Unknown)
                 }
             }
@@ -255,6 +274,7 @@ impl<'a> AnalyzeContext<'a> {
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
                 ),
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }
@@ -311,6 +331,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &signature.pos,
                         format!("Did not expect signature for '{attr} attribute"),
+                        ErrorCode::UnexpectedSignature,
                     );
                 }
 
@@ -367,6 +388,7 @@ mod tests {
     use crate::analysis::tests::TestSetup;
     use crate::ast::search::check_no_unresolved;
     use crate::ast::Range;
+    use crate::data::error_codes::ErrorCode;
     use crate::data::DiagnosticHandler;
     use crate::data::NoDiagnostics;
     use crate::named_entity::BaseType;
@@ -434,7 +456,7 @@ mod tests {
         assert_eq!(
             test.ctx()
                 .drange_type(&test.scope, &mut code.discrete_range(), &mut diagnostics),
-            Err(crate::analysis::analyze::EvalError::Unknown)
+            Err(EvalError::Unknown)
         );
 
         check_diagnostics(
@@ -442,6 +464,7 @@ mod tests {
             vec![Diagnostic::error(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
+                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -453,7 +476,7 @@ mod tests {
         let mut diagnostics = Vec::new();
         assert_eq!(
             test.range_type(&code, &mut diagnostics),
-            Err(crate::analysis::analyze::EvalError::Unknown)
+            Err(EvalError::Unknown)
         );
 
         check_diagnostics(
@@ -461,6 +484,7 @@ mod tests {
             vec![Diagnostic::error(
                 code.s1("(0, 0)"),
                 "Non-scalar expression cannot be used in a range",
+                ErrorCode::NonScalarInRange,
             )],
         )
     }
@@ -509,6 +533,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("0 to false"),
                 "Range type mismatch, left is type universal_integer, right is type 'BOOLEAN'",
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -536,6 +561,7 @@ function f1 return integer;
             vec![Diagnostic::error(
                 code.s1("f1 to false"),
                 "Range type of left and right side does not match",
+                ErrorCode::TypeMismatch,
             )],
         );
     }
@@ -560,7 +586,11 @@ function f1 return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(code.s1("f1 to f1"), "Range is ambiguous")],
+            vec![Diagnostic::error(
+                code.s1("f1 to f1"),
+                "Range is ambiguous",
+                ErrorCode::TypeMismatch,
+            )],
         );
     }
 
@@ -601,6 +631,7 @@ function myfun return arr_t;
             vec![Diagnostic::error(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
+                ErrorCode::MismatchedKinds,
             )],
         );
     }

@@ -1,3 +1,4 @@
+use vhdl_lang::data::error_codes::ErrorCode;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -26,7 +27,8 @@ procedure proc is new foo;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("foo").pos(),
-            "No declaration of 'foo'"
+            "No declaration of 'foo'",
+            ErrorCode::Unresolved
         )]
     );
 }
@@ -47,7 +49,8 @@ function proc is new x;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("new x").s1("x"),
-            "signal 'x' does not denote an uninstantiated subprogram"
+            "signal 'x' does not denote an uninstantiated subprogram",
+            ErrorCode::MismatchedKinds
         )]
     )
 }
@@ -79,6 +82,7 @@ procedure proc is new foo;
         vec![Diagnostic::error(
             code.s1("new foo").s1("foo"),
             "Ambiguous instantiation of 'foo'",
+            ErrorCode::AmbiguousInstantiation,
         )
         .related(code.s("foo", 1), "Might be procedure foo[BIT]")
         .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")],
@@ -132,6 +136,7 @@ procedure proc is new foo [bit, bit];
         vec![Diagnostic::error(
             code.s1("[bit, bit]").pos(),
             "Signature does not match the the signature of procedure foo[BIT]",
+            ErrorCode::SignatureMismatch,
         )],
     );
 }
@@ -170,10 +175,12 @@ function func is new prok;
 
     check_diagnostics(
         builder.analyze(),
-        vec![
-            Diagnostic::error(code.s1("function"), "Instantiating procedure as function")
-                .related(code.s1("prok"), "procedure prok[] declared here"),
-        ],
+        vec![Diagnostic::error(
+            code.s1("function"),
+            "Instantiating procedure as function",
+            ErrorCode::MismatchedSubprogramInstantiation,
+        )
+        .related(code.s1("prok"), "procedure prok[] declared here")],
     );
 
     let mut builder = LibraryBuilder::new();
@@ -190,10 +197,12 @@ procedure proc is new funk;
 
     check_diagnostics(
         builder.analyze(),
-        vec![
-            Diagnostic::error(code.s1("procedure"), "Instantiating function as procedure")
-                .related(code.s1("funk"), "function funk[return BIT] declared here"),
-        ],
+        vec![Diagnostic::error(
+            code.s1("procedure"),
+            "Instantiating function as procedure",
+            ErrorCode::MismatchedSubprogramInstantiation,
+        )
+        .related(code.s1("funk"), "function funk[return BIT] declared here")],
     );
 
     let mut builder = LibraryBuilder::new();
@@ -241,6 +250,7 @@ procedure proc is new proc;
         vec![Diagnostic::error(
             code.s1("procedure proc is new").s("proc", 2).pos(),
             "procedure proc[] does not denote an uninstantiated subprogram",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -271,6 +281,7 @@ end architecture arch;
         vec![Diagnostic::error(
             code.s1("begin\n    proc;").s1("proc").pos(),
             "uninstantiated procedure proc[] cannot be called",
+            ErrorCode::InvalidCall,
         )],
     )
 }
@@ -476,6 +487,7 @@ subtype x is resolved bit;
         vec![Diagnostic::error(
             code.s1("subtype x is resolved bit").s1("resolved"),
             "uninstantiated function resolved[F] return F cannot be used as resolution function",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -501,6 +513,7 @@ function foo generic (type F) parameter (x: bit) return bit;
         vec![Diagnostic::error(
             code.s1("foo"),
             "uninstantiated function foo[F] return F cannot be used as conversion",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }

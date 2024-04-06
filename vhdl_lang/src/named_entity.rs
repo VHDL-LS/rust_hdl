@@ -32,6 +32,7 @@ mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 mod formal_region;
+use crate::data::error_codes::ErrorCode;
 use crate::TokenSpan;
 pub use formal_region::{
     FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
@@ -392,9 +393,14 @@ impl<'a> AnyEnt<'a> {
         &self.kind
     }
 
-    pub fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
+    pub fn error(
+        &self,
+        diagnostics: &mut dyn DiagnosticHandler,
+        message: impl Into<String>,
+        code: ErrorCode,
+    ) {
         if let Some(ref pos) = self.decl_pos {
-            diagnostics.push(Diagnostic::error(pos, message));
+            diagnostics.push(Diagnostic::error(pos, message, code));
         }
     }
 
@@ -438,6 +444,7 @@ impl<'a> AnyEnt<'a> {
                         ent.name(),
                         self.describe()
                     ),
+                    ErrorCode::Duplicate,
                 )
                 .related(last_pos, "Previously specified here"))
             }

@@ -6,6 +6,7 @@
 
 use super::*;
 use pretty_assertions::assert_eq;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn resolves_type_mark_in_subtype_indications() {
@@ -55,7 +56,13 @@ end package;",
     );
 
     let expected = (0..9)
-        .map(|idx| Diagnostic::error(code.s("missing", 1 + idx), "No declaration of 'missing'"))
+        .map(|idx| {
+            Diagnostic::error(
+                code.s("missing", 1 + idx),
+                "No declaration of 'missing'",
+                ErrorCode::Unresolved,
+            )
+        })
         .collect();
 
     let diagnostics = builder.analyze();
@@ -80,6 +87,7 @@ end package;",
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -102,6 +110,7 @@ end package;",
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -280,7 +289,13 @@ end package;",
 
     let num_missing = 2;
     let expected = (1..=num_missing)
-        .map(|idx| Diagnostic::error(code.s("missing_t", idx), "No declaration of 'missing_t'"))
+        .map(|idx| {
+            Diagnostic::error(
+                code.s("missing_t", idx),
+                "No declaration of 'missing_t'",
+                ErrorCode::Unresolved,
+            )
+        })
         .collect();
     check_diagnostics(diagnostics, expected);
 
@@ -493,6 +508,10 @@ pub fn kind_error(
     expected: &str,
     got: &str,
 ) -> Diagnostic {
-    Diagnostic::error(code.s(name, occ), format!("Expected {expected}, got {got}"))
-        .related(code.s(name, occ_decl), "Defined here")
+    Diagnostic::error(
+        code.s(name, occ),
+        format!("Expected {expected}, got {got}"),
+        ErrorCode::MismatchedKinds,
+    )
+    .related(code.s(name, occ_decl), "Defined here")
 }

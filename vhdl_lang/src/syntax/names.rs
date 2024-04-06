@@ -12,6 +12,7 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::{Literal, *};
+use crate::data::error_codes::ErrorCode;
 use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
@@ -95,7 +96,7 @@ impl WithPos<Name> {
     pub fn expect_selected(&self) -> Result<(), Diagnostic> {
         match self.item.expect_selected() {
             Ok(_) => Ok(()),
-            Err(msg) => Err(Diagnostic::error(self, msg)),
+            Err(msg) => Err(Diagnostic::syntax_error(self, msg)),
         }
     }
 }
@@ -129,34 +130,37 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
                     pos: expr.pos,
                 })
             } else {
-                Err(Diagnostic::error(expr.pos, "Invalid operator symbol"))
+                Err(Diagnostic::syntax_error(
+                    expr.pos,
+                    "Invalid operator symbol",
+                ))
             }
         }
         Expression::Literal(Literal::Character(val)) => Ok(WithPos {
             item: Name::Designator(Designator::Character(val).into_ref()),
             pos: expr.pos,
         }),
-        _ => Err(Diagnostic::error(&expr, "Expected name")),
+        _ => Err(Diagnostic::syntax_error(&expr, "Expected name")),
     }
 }
 
 fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expression>> {
     match actual.item {
         ActualPart::Expression(expr) => Ok(WithPos::from(expr, actual.pos)),
-        _ => Err(Diagnostic::error(&actual, "Expected expression")),
+        _ => Err(Diagnostic::syntax_error(&actual, "Expected expression")),
     }
 }
 
 fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Name>> {
     match actual.item {
         ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
-        _ => Err(Diagnostic::error(&actual, "Expected name")),
+        _ => Err(Diagnostic::syntax_error(&actual, "Expected name")),
     }
 }
 
 fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Expression>> {
     match assoc.formal {
-        Some(name) => Err(Diagnostic::error(&name, "Expected expression")),
+        Some(name) => Err(Diagnostic::syntax_error(&name, "Expected expression")),
         None => actual_to_expression(assoc.actual),
     }
 }
@@ -204,6 +208,7 @@ pub fn parse_association_list_no_leftpar(
         diagnostics.error(
             stream.get_span(left_par, right_par),
             "Association list cannot be empty",
+            ErrorCode::SyntaxError,
         );
         return Ok((SeparatedList::default(), right_par));
     }
@@ -361,7 +366,7 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
                     WithPos::from(Name::Designator(designator.into_ref()), suffix.pos)
                 }
                 DesignatorOrAll::All => {
-                    return Err(Diagnostic::error(
+                    return Err(Diagnostic::syntax_error(
                         suffix.pos,
                         "Illegal prefix 'all' for name",
                     ));
@@ -416,7 +421,7 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
             LeftPar => {
                 stream.skip();
                 if let Some(right_par) = stream.pop_if_kind(RightPar) {
-                    return Err(Diagnostic::error(
+                    return Err(Diagnostic::syntax_error(
                         token.pos.combine(stream.get_pos(right_par)),
                         "Association list cannot be empty",
                     ));
@@ -1175,7 +1180,7 @@ mod tests {
         let code = Code::new("all");
         assert_eq!(
             code.with_partial_stream(parse_name),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 code.s1("all"),
                 "Illegal prefix 'all' for name"
             ))
@@ -1187,7 +1192,7 @@ mod tests {
         let code = Code::new("all.foo");
         assert_eq!(
             code.with_partial_stream(parse_name),
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 code.s1("all"),
                 "Illegal prefix 'all' for name"
             ))
@@ -1200,7 +1205,7 @@ mod tests {
         let (list, diag) = code.with_stream_diagnostics(parse_association_list);
         assert_eq!(
             diag,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Association list cannot be empty"
             )]
@@ -1215,7 +1220,7 @@ mod tests {
         let res = code.parse(parse_name);
         assert_eq!(
             res,
-            Err(Diagnostic::error(
+            Err(Diagnostic::syntax_error(
                 code.s1("()"),
                 "Association list cannot be empty"
             ))
@@ -1228,7 +1233,7 @@ mod tests {
         let (list, diag) = code.with_stream_diagnostics(parse_association_list);
         assert_eq!(
             diag,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1(")").pos(),
                 "Expected {expression}"
             )]

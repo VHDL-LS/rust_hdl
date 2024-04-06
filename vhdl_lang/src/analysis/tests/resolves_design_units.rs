@@ -6,6 +6,7 @@
 
 use super::resolves_type_mark::kind_error;
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn error_on_configuration_before_entity_in_same_file() {
@@ -29,6 +30,7 @@ end entity;
         vec![Diagnostic::error(
             code.s("cfg", 1),
             "Configuration 'cfg' declared before entity 'ent'",
+            ErrorCode::DeclaredBefore,
         )],
     );
 }
@@ -51,6 +53,7 @@ end configuration;
         vec![Diagnostic::error(
             code.s("ent", 1),
             "No primary unit 'ent' within library 'libname'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -111,6 +114,7 @@ end configuration;
         vec![Diagnostic::error(
             code.s("lib2", 2),
             "Configuration must be within the same library 'libname' as the corresponding entity",
+            ErrorCode::ConfigNotInSameLibrary,
         )],
     );
 }
@@ -152,6 +156,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -177,6 +182,7 @@ end entity;
         vec![Diagnostic::error(
             code.s("aname", 1),
             "Architecture 'aname' of 'ent' declared before entity 'ent'",
+            ErrorCode::DeclaredBefore,
         )],
     );
 }
@@ -197,6 +203,7 @@ end package body;
         vec![Diagnostic::error(
             code.s("missing", 1),
             "No primary unit 'missing' within library 'libname'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -221,6 +228,7 @@ end package;
         vec![Diagnostic::error(
             code.s("pkg", 1),
             "Package body 'pkg' declared before package 'pkg'",
+            ErrorCode::DeclaredBefore,
         )],
     );
 }
@@ -282,6 +290,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No primary unit 'missing' within library 'libname'",
+            ErrorCode::Unresolved,
         )],
     );
 

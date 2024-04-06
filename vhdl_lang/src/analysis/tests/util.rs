@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::DesignRoot;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::syntax::test::*;
 use crate::syntax::Symbols;
@@ -152,13 +153,18 @@ pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
 }
 
 pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
-    Diagnostic::error(code.s(name, occ), format!("No declaration of '{name}'"))
+    Diagnostic::error(
+        code.s(name, occ),
+        format!("No declaration of '{name}'"),
+        ErrorCode::Unresolved,
+    )
 }
 
 pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
     Diagnostic::error(
         code.s(name, occ2),
         format!("Duplicate declaration of '{}'", &name),
+        ErrorCode::Duplicate,
     )
     .related(code.s(name, occ1), "Previously defined here")
 }
@@ -178,6 +184,7 @@ pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec
             Diagnostic::error(
                 code2.s1(name),
                 format!("Duplicate declaration of '{}'", &name),
+                ErrorCode::Duplicate,
             )
             .related(code1.s1(name), "Previously defined here"),
         )

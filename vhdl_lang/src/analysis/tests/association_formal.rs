@@ -6,6 +6,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 use super::*;
 use pretty_assertions::assert_eq;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn missing_port_name() {
@@ -38,6 +39,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -73,6 +75,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("missing"),
             "No declaration of 'missing'",
+            ErrorCode::Unresolved,
         )],
     );
 }
@@ -186,16 +189,26 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("theport", 2), "No declaration of 'theport'"),
+            Diagnostic::error(
+                code.s("theport", 2),
+                "No declaration of 'theport'",
+                ErrorCode::Unresolved,
+            ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),
                 "No association of port 'theport' : in",
+                ErrorCode::Unassociated,
             )
             .related(code.s1("theport"), "Defined here"),
-            Diagnostic::error(code.s("thegeneric", 2), "No declaration of 'thegeneric'"),
+            Diagnostic::error(
+                code.s("thegeneric", 2),
+                "No declaration of 'thegeneric'",
+                ErrorCode::Unresolved,
+            ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),
                 "No association of generic 'thegeneric'",
+                ErrorCode::Unassociated,
             )
             .related(code.s1("thegeneric"), "Defined here"),
         ],
@@ -370,6 +383,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("fun1(theport, 2)"),
             "Invalid formal conversion",
+            ErrorCode::InvalidFormalConversion,
         )],
     );
 }
@@ -414,6 +428,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("fun1(arg => theport)"),
             "Invalid formal conversion",
+            ErrorCode::InvalidFormalConversion,
         )],
     );
 }
@@ -541,10 +556,15 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("missing"), "No declaration of 'missing'"),
+            Diagnostic::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+                ErrorCode::Unresolved,
+            ),
             Diagnostic::error(
                 code.s1("work.ent_inst"),
                 "No association of port 'prt0' : in",
+                ErrorCode::Unassociated,
             )
             .related(code.s1("prt0"), "Defined here"),
         ],

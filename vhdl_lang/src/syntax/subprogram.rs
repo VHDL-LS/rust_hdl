@@ -112,7 +112,7 @@ pub fn parse_subprogram_instantiation(
         Procedure => SubprogramKind::Procedure,
         Function => SubprogramKind::Function,
         _ => {
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::syntax_error(
                 tok.pos.clone(),
                 "Expecting 'function' or 'procedure'",
             ))
@@ -571,7 +571,7 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[foo.type_mark, return");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            Diagnostic::error(code.s1("return"), "Expected '{identifier}'"),
+            Diagnostic::syntax_error(code.s1("return"), "Expected '{identifier}'"),
         );
     }
 
@@ -610,13 +610,19 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[return bar.type_mark return");
         assert_eq!(
             code.with_partial_stream(parse_signature),
-            Err(Diagnostic::error(code.s("return", 2), "Expected ']'"))
+            Err(Diagnostic::syntax_error(
+                code.s("return", 2),
+                "Expected ']'"
+            ))
         );
 
         let code = Code::new("[foo return bar.type_mark return");
         assert_eq!(
             code.with_partial_stream(parse_signature),
-            Err(Diagnostic::error(code.s("return", 2), "Expected ']'"))
+            Err(Diagnostic::syntax_error(
+                code.s("return", 2),
+                "Expected ']'"
+            ))
         );
     }
 

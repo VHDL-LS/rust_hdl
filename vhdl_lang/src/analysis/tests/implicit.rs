@@ -1,4 +1,5 @@
 use super::*;
+use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
 fn adds_to_string_for_standard_types() {
@@ -80,6 +81,7 @@ end package;
         vec![Diagnostic::error(
             code.sa("bad_to_string is ", "to_string"),
             "Could not find declaration of 'to_string' with given signature",
+            ErrorCode::NoOverloadedWithSignature,
         )],
     )
 }

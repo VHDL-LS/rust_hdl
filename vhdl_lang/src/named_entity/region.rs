@@ -108,7 +108,7 @@ impl<'a> Region<'a> {
             RegionKind::PackageDeclaration | RegionKind::PackageBody => {
                 for ent in self.entities.values() {
                     if let AnyEntKind::DeferredConstant(..) = ent.first_kind() {
-                        ent.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", ent.designator()));
+                        ent.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", ent.designator()), ErrorCode::MissingDeferredDeclaration);
                     }
                 }
             }
@@ -123,6 +123,7 @@ impl<'a> Region<'a> {
                     ent.first().error(
                         diagnostics,
                         format!("Missing body for protected type '{}'", ent.designator()),
+                        ErrorCode::MissingProtectedBodyType,
                     );
                 }
             }
@@ -139,6 +140,7 @@ impl<'a> Region<'a> {
             ent.error(
                 diagnostics,
                 "Deferred constants are only allowed in package declarations (not body)",
+                ErrorCode::IllegalDeferredConstant,
             );
             return;
         };
@@ -159,6 +161,7 @@ impl<'a> Region<'a> {
                                 ent.error(
                                     diagnostics,
                                     "Full declaration of deferred constant is only allowed in a package body",
+                                    ErrorCode::IllegalDeferredConstant
                                 );
                             } else {
                                 *prev_ent = ent;
@@ -297,6 +300,7 @@ impl<'a> OverloadedName<'a> {
                         ent.designator(),
                         ent.signature().describe()
                     ),
+                    ErrorCode::Duplicate,
                 );
                 if let Some(old_pos) = old_ent.decl_pos() {
                     diagnostic.add_related(old_pos, "Previously defined here");
@@ -347,32 +351,6 @@ impl<'a> NamedEntities<'a> {
         match self {
             Self::Single(ent) => Ok(ent),
             Self::Overloaded(ent_vec) => Err(ent_vec),
-        }
-    }
-
-    pub fn expect_non_overloaded(
-        self,
-        pos: &SrcPos,
-        message: impl FnOnce() -> String,
-    ) -> Result<EntRef<'a>, Diagnostic> {
-        match self {
-            Self::Single(ent) => Ok(ent),
-            Self::Overloaded(overloaded) => {
-                let mut error = Diagnostic::error(pos, message());
-                for ent in overloaded.entities() {
-                    if let Some(decl_pos) = ent.decl_pos() {
-                        error.add_related(decl_pos, "Defined here");
-                    }
-                }
-                Err(error)
-            }
-        }
-    }
-
-    pub fn as_non_overloaded(&self) -> Option<EntRef<'a>> {
-        match self {
-            Self::Single(ent) => Some(ent),
-            Self::Overloaded(..) => None,
         }
     }
 

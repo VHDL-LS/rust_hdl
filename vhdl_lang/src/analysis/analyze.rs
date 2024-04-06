@@ -7,6 +7,7 @@
 use super::root::*;
 pub(crate) use super::scope::Scope;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use crate::syntax::TokenAccess;
@@ -56,7 +57,7 @@ impl CircularDependencyError {
     /// Pushes this error into a diagnostic handler.
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
-            diagnostics.error(pos, "Found circular dependency");
+            diagnostics.push(Diagnostic::circular_dependency(pos));
         }
     }
 }
@@ -382,16 +383,15 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(design) = DesignEnt::from_any(ent) {
                         return Ok(design);
                     } else {
-                        // Almost impossible but better not fail silently
                         bail!(
                             diagnostics,
-                            Diagnostic::error(
+                            Diagnostic::internal(
                                 pos,
                                 format!(
                                     "Found non-design {} unit within library {}",
                                     ent.describe(),
                                     library_name
-                                ),
+                                )
                             )
                         );
                     }
@@ -403,9 +403,8 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics,
             Diagnostic::error(
                 pos,
-                format!(
-                "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
-            ),
+                format!("No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"),
+                ErrorCode::Unresolved,
             )
         );
     }
@@ -428,7 +427,7 @@ impl<'a> AnalyzeContext<'a> {
                         } else {
                             bail!(
                                 diagnostics,
-                                Diagnostic::error(
+                                Diagnostic::internal(
                                     pos,
                                     format!(
                                         "Found non-design {} unit within library {}",
@@ -448,6 +447,7 @@ impl<'a> AnalyzeContext<'a> {
             Diagnostic::error(
                 pos,
                 format!("No primary unit '{primary_name}' within library '{library_name}'"),
+                ErrorCode::Unresolved,
             )
         );
     }

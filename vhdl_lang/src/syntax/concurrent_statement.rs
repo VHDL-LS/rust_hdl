@@ -80,17 +80,17 @@ fn parse_block_header(
                 stream.skip();
                 if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_some() || port_map.is_some() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             stream.get_token(map_token),
                             "Generic map must come before port clause and port map",
                         ));
                     } else if generic_clause.is_none() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             stream.get_token(map_token),
                             "Generic map declared without preceding generic clause",
                         ));
                     } else if generic_map.is_some() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             stream.get_token(map_token),
                             "Duplicate generic map",
                         ));
@@ -106,12 +106,13 @@ fn parse_block_header(
                     }
                 } else {
                     if generic_map.is_some() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             token,
                             "Generic clause must come before generic map",
                         ));
                     } else if generic_clause.is_some() {
-                        diagnostics.push(Diagnostic::error(token, "Duplicate generic clause"));
+                        diagnostics
+                            .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                     }
                     let parsed_generic_list = parse_generic_interface_list(stream, diagnostics)?;
                     stream.expect_kind(SemiColon)?;
@@ -124,12 +125,12 @@ fn parse_block_header(
                 stream.skip();
                 if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_none() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             stream.get_token(map_token),
                             "Port map declared without preceeding port clause",
                         ));
                     } else if port_map.is_some() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             stream.get_token(map_token),
                             "Duplicate port map",
                         ));
@@ -145,12 +146,12 @@ fn parse_block_header(
                     }
                 } else {
                     if port_map.is_some() {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.push(Diagnostic::syntax_error(
                             token,
                             "Port clause declared after port map",
                         ));
                     } else if port_clause.is_some() {
-                        diagnostics.push(Diagnostic::error(token, "Duplicate port clause"));
+                        diagnostics.push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                     }
                     let parsed_port_list = parse_port_interface_list(stream, diagnostics)?;
                     stream.expect_kind(SemiColon)?;
@@ -189,7 +190,7 @@ pub fn parse_process_statement(
         RightPar => {
             stream.skip();
             diagnostics.push(
-                Diagnostic::error(token, "Processes with sensitivity lists must contain at least one element.")
+                Diagnostic::syntax_error(token, "Processes with sensitivity lists must contain at least one element.")
             );
             Some(SensitivityList::Names(Vec::new()))
         },
@@ -223,7 +224,7 @@ pub fn parse_process_statement(
 
     if let Some(token) = stream.pop_if_kind(Postponed) {
         if postponed.is_none() {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.push(Diagnostic::syntax_error(
                 stream.get_token(token),
                 "'postponed' at the end of non-postponed process.",
             ));
@@ -261,7 +262,7 @@ fn to_procedure_call(
                 target.pos,
             ),
         }),
-        Target::Aggregate(..) => Err(Diagnostic::error(
+        Target::Aggregate(..) => Err(Diagnostic::syntax_error(
             target,
             "Expected procedure call, got aggregate",
         )),
@@ -1086,7 +1087,7 @@ end postponed process;",
         };
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("postponed"),
                 "'postponed' at the end of non-postponed process."
             )]
@@ -1143,7 +1144,7 @@ end process;",
         };
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1(")"),
                 "Processes with sensitivity lists must contain at least one element."
             )]
@@ -1885,11 +1886,11 @@ end generate;",
         assert_eq!(
             diagnostics,
             vec![
-                Diagnostic::error(
+                Diagnostic::syntax_error(
                     code.s1("alt2"),
                     "End label 'alt2' found for unlabeled statement"
                 ),
-                Diagnostic::error(code.s1("alt4"), "End label mismatch, expected alt3")
+                Diagnostic::syntax_error(code.s1("alt4"), "End label mismatch, expected alt3")
             ]
         );
     }
@@ -2062,8 +2063,8 @@ end arch;
         check_diagnostics(
             diag,
             vec![
-                Diagnostic::error(code.s1("foo").pos().end_pos(), "Expected '<=' or ';'"),
-                Diagnostic::error(code.s1("bar").pos().end_pos(), "Expected '<=' or ';'"),
+                Diagnostic::syntax_error(code.s1("foo").pos().end_pos(), "Expected '<=' or ';'"),
+                Diagnostic::syntax_error(code.s1("bar").pos().end_pos(), "Expected '<=' or ';'"),
             ],
         )
     }

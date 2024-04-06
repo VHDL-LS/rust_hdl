@@ -13,6 +13,7 @@ use super::overloaded::DisambiguatedType;
 use super::overloaded::ResolvedCall;
 use super::scope::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -233,6 +234,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(
                 &expr.pos,
                 "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+                    ErrorCode::AmbiguousExpression,
             );
                 Err(EvalError::Unknown)
             }
@@ -256,7 +258,7 @@ impl<'a> AnalyzeContext<'a> {
                 // Should never happen but better know if it does
                 bail!(
                     diagnostics,
-                    Diagnostic::error(
+                    Diagnostic::internal(
                         op_pos,
                         format!(
                             "Operator symbol cannot denote non-overloaded symbol {}",
@@ -278,6 +280,7 @@ impl<'a> AnalyzeContext<'a> {
                         Diagnostic::error(
                             op_pos,
                             format!("Found no match for {}", designator.describe()),
+                            ErrorCode::Unresolved,
                         )
                     );
                 } else {
@@ -406,6 +409,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.error(
                 &op.pos,
                 format!("Found no match for {}", designator.describe()),
+                ErrorCode::Unresolved,
             );
 
             Err(EvalError::Unknown)
@@ -511,6 +515,7 @@ impl<'a> AnalyzeContext<'a> {
                                     "Character literal cannot denote non-overloaded symbol {}",
                                     ent.describe(),
                                 ),
+                                ErrorCode::Internal,
                             );
                             Err(EvalError::Unknown)
                         }
@@ -526,6 +531,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "Character literal cannot denote procedure symbol {}",
                                             ent.describe(),
                                         ),
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     Err(EvalError::Unknown)
                                 }
@@ -650,10 +656,11 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &expr.pos,
                                 format!(
-                                    "{} cannot be implictly converted to {}. Operator ?? is not defined for this type.",
+                                    "{} cannot be implicitly converted to {}. Operator ?? is not defined for this type.",
                                     typ.describe(),
                                     self.boolean().describe()
                                 ),
+                                ErrorCode::NoImplicitConversion
                             );
                         }
                     }
@@ -677,6 +684,7 @@ impl<'a> AnalyzeContext<'a> {
                                 let mut diag = Diagnostic::error(
                                     &expr.pos,
                                     "Ambiguous use of implicit boolean conversion ??",
+                                    ErrorCode::AmbiguousCall,
                                 );
                                 diag.add_type_candididates("Could be", implicit_bool_types);
                                 diagnostics.push(diag);
@@ -689,6 +697,7 @@ impl<'a> AnalyzeContext<'a> {
                                         "Cannot disambiguate expression to {}",
                                         self.boolean().describe()
                                     ),
+                                    ErrorCode::AmbiguousExpression,
                                 );
                                 diag.add_type_candididates(
                                     "Implicit boolean conversion operator ?? is not defined for",
@@ -862,6 +871,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         expr_pos,
                         format!("composite does not match {}", target_type.describe()),
+                        ErrorCode::TypeMismatch,
                     );
                 }
             },
@@ -943,6 +953,7 @@ impl<'a> AnalyzeContext<'a> {
                                     diagnostics.error(
                                         &choice.pos,
                                         "Record aggregate choice must be a simple name",
+                                        ErrorCode::MismatchedKinds,
                                     );
                                     None
                                 }
@@ -952,6 +963,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     &choice.pos,
                                     "Record aggregate choice must be a simple name",
+                                    ErrorCode::MismatchedKinds,
                                 );
                                 None
                             }
@@ -969,7 +981,7 @@ impl<'a> AnalyzeContext<'a> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()));
+                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -993,6 +1005,7 @@ impl<'a> AnalyzeContext<'a> {
                                             "All elements of record '{}' are already associated",
                                             record_type.designator()
                                         ),
+                                            ErrorCode::AlreadyAssociated,
                                         )
                                         .opt_related(
                                             record_type.decl_pos(),
@@ -1021,8 +1034,11 @@ impl<'a> AnalyzeContext<'a> {
                         if let (Some(first), Some(last)) = (choices.first(), choices.last()) {
                             is_ok_so_far = false;
                             let pos = first.pos.combine(&last.pos);
-                            diagnostics
-                                .error(&pos, "Record aggregate choice must be a simple name");
+                            diagnostics.error(
+                                &pos,
+                                "Record aggregate choice must be a simple name",
+                                ErrorCode::MismatchedKinds,
+                            );
                         }
                         None
                     };
@@ -1050,9 +1066,10 @@ impl<'a> AnalyzeContext<'a> {
                             Diagnostic::error(
                                 &expr.pos,
                                 format!(
-                                    "Unexpected positional assoctiation for record '{}'",
+                                    "Unexpected positional association for record '{}'",
                                     record_type.designator()
                                 ),
+                                ErrorCode::TooManyArguments,
                             )
                             .opt_related(
                                 record_type.decl_pos(),
@@ -1075,6 +1092,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "Missing association of record element '{}'",
                                 elem.designator()
                             ),
+                            ErrorCode::Unassociated,
                         )
                         .opt_related(
                             elem.decl_pos(),
@@ -1180,6 +1198,7 @@ impl<'a> AnalyzeContext<'a> {
                         "Expected sub-aggregate for target {}",
                         array_type.describe()
                     ),
+                    ErrorCode::ExpectedSubAggregate,
                 );
             }
         } else if can_be_array {
@@ -1214,6 +1233,7 @@ impl Diagnostic {
                 "ambiguous use of {}",
                 Designator::OperatorSymbol(op).describe()
             ),
+            ErrorCode::AmbiguousCall,
         );
         diag.add_subprogram_candidates("might be", candidates);
         diag
@@ -1238,6 +1258,7 @@ impl<'a> RecordAssociations<'a> {
                         "Record element '{}' has already been associated",
                         elem.designator()
                     ),
+                    ErrorCode::AlreadyAssociated,
                 )
                 .related(prev_pos, "Previously associated here"),
             );
@@ -1413,6 +1434,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("and"),
                 "Found no match for operator \"and\"",
+                ErrorCode::Unresolved,
             )],
         );
     }
@@ -1431,6 +1453,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("x'subtype"),
                 "integer type 'INTEGER' cannot be used in an expression",
+                ErrorCode::MismatchedKinds,
             )],
         );
     }
@@ -1449,6 +1472,7 @@ mod test {
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
+                ErrorCode::Unresolved,
             )],
         );
     }
@@ -1515,17 +1539,19 @@ function \"-\"(arg : string) return integer;
         test.expr_with_ttyp(&code, test.lookup_type("INTEGER"), &mut diagnostics);
         check_diagnostics(
             diagnostics,
-            vec![
-                Diagnostic::error(code.s1("-"), "ambiguous use of operator \"-\"")
-                    .related(
-                        decls.s("\"-\"", 1),
-                        "might be operator \"-\"[BIT_VECTOR return INTEGER]",
-                    )
-                    .related(
-                        decls.s("\"-\"", 2),
-                        "might be operator \"-\"[STRING return INTEGER]",
-                    ),
-            ],
+            vec![Diagnostic::error(
+                code.s1("-"),
+                "ambiguous use of operator \"-\"",
+                ErrorCode::AmbiguousCall,
+            )
+            .related(
+                decls.s("\"-\"", 1),
+                "might be operator \"-\"[BIT_VECTOR return INTEGER]",
+            )
+            .related(
+                decls.s("\"-\"", 2),
+                "might be operator \"-\"[STRING return INTEGER]",
+            )],
         );
     }
 

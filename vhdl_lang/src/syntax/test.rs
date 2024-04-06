@@ -777,7 +777,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                     println!("-------------------------------------------------------");
                     println!("Got right diagnostic but wrong count {got_count}, expected {count}");
                     println!("-------------------------------------------------------");
-                    println!("{}", diagnostic.show());
+                    print!("{}: ", diagnostic.code);
+                    println!("{:?}", diagnostic);
                 }
             }
             None => {
@@ -785,7 +786,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                 println!("-------------------------------------------------------");
                 println!("Got no diagnostic, expected {count}");
                 println!("-------------------------------------------------------");
-                println!("{}", diagnostic.show());
+                print!("{}: ", diagnostic.code);
+                println!("{:?}", diagnostic);
             }
         }
     }
@@ -795,7 +797,8 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
         println!("-------------------------------------------------------");
         println!("Got unexpected diagnostic");
         println!("-------------------------------------------------------");
-        println!("{}", diagnostic.show());
+        print!("{}: ", diagnostic.code);
+        println!("{:?}", diagnostic);
     }
 
     if found_errors {
@@ -869,8 +872,8 @@ mod tests {
     fn check_diagnostics_ok() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
         )
     }
 
@@ -879,12 +882,12 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("foo"), "hello"),
-                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("foo"), "hello"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
             ],
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("foo"), "hello"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("foo"), "hello"),
             ],
         )
     }
@@ -894,8 +897,8 @@ mod tests {
     fn check_diagnostics_not_ok_mismatch() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
-            vec![Diagnostic::error(code.s1("foo"), "hello")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("foo"), "hello")],
         )
     }
 
@@ -905,10 +908,10 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
             ],
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
         )
     }
 
@@ -917,10 +920,10 @@ mod tests {
     fn check_diagnostics_not_ok_missing() {
         let code = Code::new("foo bar");
         check_diagnostics(
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "missing"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "missing"),
             ],
         )
     }
@@ -931,10 +934,10 @@ mod tests {
         let code = Code::new("foo bar");
         check_diagnostics(
             vec![
-                Diagnostic::error(code.s1("bar"), "msg"),
-                Diagnostic::error(code.s1("bar"), "unexpected"),
+                Diagnostic::syntax_error(code.s1("bar"), "msg"),
+                Diagnostic::syntax_error(code.s1("bar"), "unexpected"),
             ],
-            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::syntax_error(code.s1("bar"), "msg")],
         )
     }
 }

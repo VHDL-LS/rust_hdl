@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::data::error_codes::ErrorCode;
 
 #[test]
 fn context() {
@@ -28,8 +29,16 @@ end context;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("ctx1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s("ctx2", 1), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("ctx1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("ctx2", 1),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -56,8 +65,16 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s("pkg2", 1), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("pkg2", 1),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -84,8 +101,16 @@ package pkg2 is new work.gpkg generic map(c => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s1("pkg2"),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -113,8 +138,16 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
-            Diagnostic::error(code.s("gpkg", 2), "Found circular dependency"),
+            Diagnostic::error(
+                code.s1("pkg2"),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("gpkg", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -145,9 +178,21 @@ package pkg3 is new work.pkg2;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("pkg3"), "Found circular dependency"),
-            Diagnostic::error(code.s("gpkg", 2), "Found circular dependency"),
-            Diagnostic::error(code.s("pkg2", 2), "Found circular dependency"),
+            Diagnostic::error(
+                code.s1("pkg3"),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("gpkg", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("pkg2", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -174,8 +219,16 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s1("pkg2"),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -205,8 +258,16 @@ package pkg2 is new work.gpkg generic map (g => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s1("pkg2"),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }
@@ -233,8 +294,16 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
-            Diagnostic::error(code.s("work.all", 1), "Found circular dependency"),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
+            Diagnostic::error(
+                code.s("work.all", 1),
+                "Found circular dependency",
+                ErrorCode::CircularDependency,
+            ),
         ],
     );
 }

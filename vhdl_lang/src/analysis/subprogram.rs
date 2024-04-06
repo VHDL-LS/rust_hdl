@@ -6,6 +6,7 @@
 use super::names::*;
 use super::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
 use crate::{ast, HasTokenSpan};
@@ -227,8 +228,8 @@ impl<'a> AnalyzeContext<'a> {
                     uninstantiated_subprogram.signature(),
                 ) {
                     Ok(signature) => Ok(signature),
-                    Err(err) => {
-                        let mut diag = Diagnostic::error(&instance.ident.tree.pos, err);
+                    Err((err, code)) => {
+                        let mut diag = Diagnostic::error(&instance.ident.tree.pos, err, code);
                         if let Some(pos) = uninstantiated_subprogram.decl_pos() {
                             diag.add_related(pos, "When instantiating this declaration");
                         }
@@ -270,6 +271,7 @@ impl<'a> AnalyzeContext<'a> {
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()
                         ),
+                        ErrorCode::MismatchedKinds,
                     );
                     return Err(EvalError::Unknown);
                 } else if choices.len() == 1 {
@@ -286,6 +288,7 @@ impl<'a> AnalyzeContext<'a> {
                                         "Signature does not match the the signature of {}",
                                         ent.describe()
                                     ),
+                                    ErrorCode::SignatureMismatch,
                                 );
                                 return Err(EvalError::Unknown);
                             }
@@ -308,6 +311,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
                             ),
+                            ErrorCode::Unresolved,
                         );
                         return Err(EvalError::Unknown);
                     }
@@ -317,6 +321,7 @@ impl<'a> AnalyzeContext<'a> {
                     let mut err = Diagnostic::error(
                         &instantiation.subprogram_name.pos,
                         format!("Ambiguous instantiation of '{}'", overloaded.designator()),
+                        ErrorCode::AmbiguousInstantiation,
                     );
                     for ent in choices {
                         if let Some(pos) = &ent.decl_pos {
@@ -334,6 +339,7 @@ impl<'a> AnalyzeContext<'a> {
                         "{} does not denote an uninstantiated subprogram",
                         name.describe()
                     ),
+                    ErrorCode::MismatchedKinds,
                 );
                 return Err(EvalError::Unknown);
             }
@@ -344,6 +350,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics.error(
                 &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
+                ErrorCode::MismatchedKinds,
             );
             Err(EvalError::Unknown)
         }
@@ -375,7 +382,11 @@ impl<'a> AnalyzeContext<'a> {
             None
         };
         if let Some(msg) = err_msg {
-            let mut err = Diagnostic::error(self.ctx.get_pos(instance.get_start_token()), msg);
+            let mut err = Diagnostic::error(
+                self.ctx.get_pos(instance.get_start_token()),
+                msg,
+                ErrorCode::MismatchedSubprogramInstantiation,
+            );
             if let Some(pos) = ent.decl_pos() {
                 err.add_related(pos, format!("{} declared here", ent.describe()));
             }
@@ -413,7 +424,7 @@ impl<'a> AnalyzeContext<'a> {
             // Note: This does not work in common circumstances with a generic type parameter
             // since the parameters of the declared subprogram and the subprogram with body
             // point to two different type-ID's. For example:
-            // function foo generic (type F);
+            // function foo generic (type F) return F;
             //                            ^-- F has EntityId X
             // function foo generic (type F) return F is ... end function foo;
             //                            ^-- F has EntityId Y

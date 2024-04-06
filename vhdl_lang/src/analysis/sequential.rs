@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use analyze::*;
@@ -118,6 +119,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &statement.statement.pos,
                                 "Functions cannot return without a value",
+                                ErrorCode::VoidReturn,
                             );
                         }
                     }
@@ -126,11 +128,16 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &statement.statement.pos,
                                 "Procedures cannot return a value",
+                                ErrorCode::NonVoidReturn,
                             );
                         }
                     }
                     SequentialRoot::Process => {
-                        diagnostics.error(&statement.statement.pos, "Cannot return from a process");
+                        diagnostics.error(
+                            &statement.statement.pos,
+                            "Cannot return from a process",
+                            ErrorCode::IllegalReturn,
+                        );
                     }
                 }
             }
@@ -181,6 +188,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &statement.statement.pos,
                         "Exit can only be used inside a loop",
+                        ErrorCode::ExitOutsideLoop,
                     )
                 }
 
@@ -200,6 +208,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &statement.statement.pos,
                         "Next can only be used inside a loop",
+                        ErrorCode::NextOutsideLoop,
                     )
                 }
 
@@ -331,12 +340,14 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.error(
                             &label.item.pos,
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
+                            ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {
                     diagnostics.error(
                         &label.item.pos,
                         format!("Expected loop label, got {}", ent.describe()),
+                        ErrorCode::MismatchedKinds,
                     );
                 }
             }
@@ -346,6 +357,7 @@ impl<'a> AnalyzeContext<'a> {
                     "Expected loop label, got overloaded name {}",
                     &label.item.item
                 ),
+                ErrorCode::MismatchedKinds,
             ),
             Err(diag) => {
                 diagnostics.push(diag);

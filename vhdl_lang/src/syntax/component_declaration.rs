@@ -25,7 +25,7 @@ pub fn parse_optional_generic_list(
                 let new_list = parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    diagnostics.push(Diagnostic::error(token, "Duplicate generic clause"));
+                    diagnostics.push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -50,7 +50,7 @@ pub fn parse_optional_port_list(
                 let new_list = parse_port_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    diagnostics.push(Diagnostic::error(token, "Duplicate port clause"));
+                    diagnostics.push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -59,7 +59,7 @@ pub fn parse_optional_port_list(
                 stream.skip();
                 parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
-                diagnostics.push(Diagnostic::error(
+                diagnostics.push(Diagnostic::syntax_error(
                     token,
                     "Generic clause must come before port clause",
                 ));
@@ -242,7 +242,7 @@ end
             code.with_partial_stream_diagnostics(parse_optional_generic_list);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 &code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
@@ -266,7 +266,7 @@ end
         let (result, diagnostics) = code.with_partial_stream_diagnostics(parse_optional_port_list);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s("port", 2),
                 "Duplicate port clause"
             )]
@@ -290,7 +290,7 @@ end
         let (result, diagnostics) = code.with_partial_stream_diagnostics(parse_optional_port_list);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("generic"),
                 "Generic clause must come before port clause"
             )]

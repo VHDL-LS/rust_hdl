@@ -9,6 +9,7 @@ use super::overloaded::Disambiguated;
 use super::overloaded::SubprogramKind;
 use super::scope::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -36,6 +37,7 @@ impl<'a> AnalyzeContext<'a> {
                     let mut diag = Diagnostic::error(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
+                        ErrorCode::MismatchedKinds,
                     );
                     if let Some(pos) = other.decl_pos() {
                         diag.add_related(pos, "Defined here");
@@ -51,8 +53,11 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some((elem_type, _)) = typ.array_type() {
                         Ok(elem_type)
                     } else {
-                        diagnostics
-                            .error(pos, format!("array type expected for '{attr} attribute",));
+                        diagnostics.error(
+                            pos,
+                            format!("array type expected for '{attr} attribute",),
+                            ErrorCode::TypeMismatch,
+                        );
                         Err(EvalError::Unknown)
                     }
                 }
@@ -64,6 +69,7 @@ impl<'a> AnalyzeContext<'a> {
                     let mut diag = Diagnostic::error(
                         type_mark,
                         format!("Expected type, got {}", other.describe()),
+                        ErrorCode::MismatchedKinds,
                     );
                     if let Some(pos) = other.decl_pos() {
                         diag.add_related(pos, "Defined here");
@@ -157,8 +163,11 @@ impl<'a> AnalyzeContext<'a> {
                         name.set_unique_reference(&ent);
 
                         if !ent.is_procedure() {
-                            let mut diagnostic =
-                                Diagnostic::error(&name.pos, "Invalid procedure call");
+                            let mut diagnostic = Diagnostic::error(
+                                &name.pos,
+                                "Invalid procedure call",
+                                ErrorCode::InvalidCall,
+                            );
                             for ent in names.sorted_entities() {
                                 if let Some(decl_pos) = ent.decl_pos() {
                                     diagnostic.add_related(
@@ -172,6 +181,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.error(
                                 &name.pos,
                                 format!("uninstantiated {} cannot be called", ent.describe()),
+                                ErrorCode::InvalidCall,
                             )
                         }
                     }
@@ -200,6 +210,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         &name.pos,
                         format!("{} is not a procedure", resolved.describe_type()),
+                        ErrorCode::MismatchedKinds,
                     ));
                     self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                 }
@@ -208,6 +219,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.push(Diagnostic::error(
                     &name.pos,
                     format!("{} is not a procedure", resolved.describe_type()),
+                    ErrorCode::MismatchedKinds,
                 ));
                 self.analyze_assoc_elems(scope, parameters, diagnostics)?;
             }
@@ -254,6 +266,7 @@ impl<'a> ResolvedName<'a> {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),
+            ErrorCode::MismatchedKinds,
         );
         if let Some(decl_pos) = self.decl_pos() {
             error.add_related(decl_pos, "Defined here");
@@ -266,7 +279,8 @@ impl Diagnostic {
     pub(crate) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
         Diagnostic::error(
             pos,
-            format!("{} does not match {}", desc, expected_type.describe()),
+            format!("{} does not match {}", desc, expected_type.describe(),),
+            ErrorCode::TypeMismatch,
         )
     }
 
@@ -280,6 +294,7 @@ impl Diagnostic {
                 "{} may not be the prefix of a selected name",
                 named_entity.describe(),
             )),
+            ErrorCode::MismatchedKinds,
         )
     }
 
@@ -295,6 +310,7 @@ impl Diagnostic {
                 suffix,
                 named_entity.describe(),
             ),
+            ErrorCode::Unresolved,
         )
     }
 }

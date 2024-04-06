@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::data::error_codes::ErrorCode;
 use itertools::Itertools;
 
 use super::*;
@@ -37,6 +38,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("bad", 2),
             "Attribute specification must be in the immediate declarative part",
+            ErrorCode::MisplacedAttributeSpec,
         )],
     );
 }
@@ -65,6 +67,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("myent", 4),
             "Attribute specification must be in the immediate declarative part",
+            ErrorCode::MisplacedAttributeSpec,
         )],
     );
 }
@@ -94,6 +97,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("bad", 2),
             "Attribute specification must be in the immediate declarative part",
+            ErrorCode::MisplacedAttributeSpec,
         )],
     );
 }
@@ -185,6 +189,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("std'myattr"),
             "library std may not be the prefix of a user defined attribute",
+            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -215,6 +220,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("bad", 2),
             "signal 'bad' is not of class variable",
+            ErrorCode::MismatchedEntityClass,
         )],
     );
 }
@@ -247,6 +253,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("bad", 2),
             "type 'bad' is not of class subtype",
+            ErrorCode::MismatchedEntityClass,
         )],
     );
 }
@@ -276,6 +283,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s("mysig", 3),
             "Duplicate specification of attribute 'myattr' for signal 'mysig'",
+            ErrorCode::Duplicate,
         )
         .related(code.s("mysig", 2), "Previously specified here")],
     );
@@ -312,6 +320,7 @@ end architecture;
         vec![Diagnostic::error(
             code.s1("mysig : signal").s1("mysig"),
             "Duplicate specification of attribute 'myattr' for signal 'mysig'",
+            ErrorCode::Duplicate,
         )
         .related(
             code.s1("myalias : signal").s1("myalias"),

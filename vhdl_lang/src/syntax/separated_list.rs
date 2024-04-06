@@ -10,6 +10,7 @@ use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::Comma;
 use crate::syntax::{kind_str, Kind, TokenAccess, TokenStream};
+use crate::Diagnostic;
 
 /// Skip extraneous tokens of kind `separator`.
 /// When there are any extra tokens of that kind, mark all the positions of these tokens as erroneous
@@ -24,10 +25,10 @@ fn skip_extraneous_tokens(
         while let Some(separator_tok) = stream.pop_if_kind(separator) {
             end_pos = stream.get_pos(separator_tok)
         }
-        diagnostics.error(
+        diagnostics.push(Diagnostic::syntax_error(
             start_pos.combine(end_pos),
             format!("Extraneous '{}'", kind_str(separator)),
-        );
+        ));
     }
 }
 
@@ -118,7 +119,7 @@ mod test {
         let (res, diagnostics) = code.with_partial_stream_diagnostics(parse_ident_list);
         assert_eq!(
             res,
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
+            Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
         );
         assert!(diagnostics.is_empty());
     }
@@ -177,7 +178,10 @@ mod test {
         );
         assert_eq!(
             diag,
-            vec![Diagnostic::error(code.s(",", 2).pos(), "Extraneous ','")]
+            vec![Diagnostic::syntax_error(
+                code.s(",", 2).pos(),
+                "Extraneous ','"
+            )]
         )
     }
 
@@ -198,7 +202,10 @@ mod test {
         );
         assert_eq!(
             diag,
-            vec![Diagnostic::error(code.s(",,,", 2).pos(), "Extraneous ','")]
+            vec![Diagnostic::syntax_error(
+                code.s(",,,", 2).pos(),
+                "Extraneous ','"
+            )]
         )
     }
 
@@ -228,7 +235,10 @@ mod test {
         );
         assert_eq!(
             diag,
-            vec![Diagnostic::error(code.s1(")"), "Expected {expression}")]
+            vec![Diagnostic::syntax_error(
+                code.s1(")"),
+                "Expected {expression}"
+            )]
         );
     }
 
@@ -241,7 +251,7 @@ mod test {
             .expect_err("Should not parse OK");
         assert_eq!(
             diag,
-            Diagnostic::error(code.s1("1"), "Expected '{identifier}'")
+            Diagnostic::syntax_error(code.s1("1"), "Expected '{identifier}'")
         );
     }
 }

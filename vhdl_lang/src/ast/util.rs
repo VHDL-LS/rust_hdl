@@ -6,6 +6,7 @@
 
 //! Name conversions
 use super::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Concurrent, Sequential};
 
@@ -33,7 +34,11 @@ pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
             item: ident,
             pos: name.pos,
         }),
-        _ => Err(Diagnostic::error(&name, "Expected simple name")),
+        _ => Err(Diagnostic::error(
+            &name,
+            "Expected simple name",
+            ErrorCode::SyntaxError,
+        )),
     }
 }
 

@@ -17,6 +17,7 @@ use crate::ast::Name;
 use crate::ast::Operator;
 use crate::ast::PackageInstantiation;
 use crate::ast::{ActualPart, MapAspect};
+use crate::data::error_codes::ErrorCode;
 use crate::data::DiagnosticHandler;
 use crate::named_entity::*;
 use crate::Diagnostic;
@@ -76,13 +77,18 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         &formal.pos,
                         "Expected simple name for package generic formal",
+                        ErrorCode::MismatchedKinds,
                     );
                     continue;
                 }
             } else if let Some(ent) = generics.nth(idx) {
                 ent
             } else {
-                diagnostics.error(&assoc.actual.pos, "Extra actual for generic map");
+                diagnostics.error(
+                    &assoc.actual.pos,
+                    "Extra actual for generic map",
+                    ErrorCode::TooManyArguments,
+                );
                 continue;
             };
 
@@ -116,6 +122,7 @@ impl<'a> AnalyzeContext<'a> {
                                                 "Array constraint cannot be used for {}",
                                                 typ.describe()
                                             ),
+                                            ErrorCode::TypeMismatch,
                                         );
                                     }
                                     typ
@@ -132,8 +139,11 @@ impl<'a> AnalyzeContext<'a> {
                                 _ => self.type_name(scope, &assoc.actual.pos, name, diagnostics)?,
                             }
                         } else {
-                            diagnostics
-                                .error(&assoc.actual.pos, "Cannot map expression to type generic");
+                            diagnostics.error(
+                                &assoc.actual.pos,
+                                "Cannot map expression to type generic",
+                                ErrorCode::MismatchedKinds,
+                            );
                             continue;
                         };
 
@@ -168,6 +178,7 @@ impl<'a> AnalyzeContext<'a> {
                                             target.designator(),
                                             signature.key().describe()
                                         ),
+                                        ErrorCode::MismatchedKinds,
                                     );
 
                                     diag.add_subprogram_candidates(
@@ -184,17 +195,23 @@ impl<'a> AnalyzeContext<'a> {
                                         "Cannot map {} to subprogram generic",
                                         resolved.describe()
                                     ),
+                                    ErrorCode::MismatchedKinds,
                                 )
                             }
                         }
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
-                                diagnostics.error(&assoc.actual.pos, "Invalid operator symbol");
+                                diagnostics.error(
+                                    &assoc.actual.pos,
+                                    "Invalid operator symbol",
+                                    ErrorCode::InvalidOperatorSymbol,
+                                );
                             }
                         }
                         _ => diagnostics.error(
                             &assoc.actual.pos,
                             "Cannot map expression to subprogram generic",
+                            ErrorCode::MismatchedKinds,
                         ),
                     },
                     GpkgInterfaceEnt::Package(_) => match expr {
@@ -204,6 +221,7 @@ impl<'a> AnalyzeContext<'a> {
                         _ => diagnostics.error(
                             &assoc.actual.pos,
                             "Cannot map expression to package generic",
+                            ErrorCode::MismatchedKinds,
                         ),
                     },
                 },
@@ -245,8 +263,8 @@ impl<'a> AnalyzeContext<'a> {
                     // They can collide if there are more than one interface type that map to the same actual type
                     nested.add(inst, &mut NullDiagnostics);
                 }
-                Err(err) => {
-                    let mut diag = Diagnostic::error(decl_pos, err);
+                Err((err, code)) => {
+                    let mut diag = Diagnostic::error(decl_pos, err, code);
                     if let Some(pos) = uninst.decl_pos() {
                         diag.add_related(pos, "When instantiating this declaration");
                     }
@@ -263,7 +281,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         uninst: EntRef<'a>,
-    ) -> Result<EntRef<'a>, String> {
+    ) -> Result<EntRef<'a>, (String, ErrorCode)> {
         let designator = uninst.designator().clone();
 
         let decl_pos = uninst.decl_pos().cloned();
@@ -298,7 +316,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         kind: &'a AnyEntKind<'a>,
-    ) -> Result<AnyEntKind<'a>, String> {
+    ) -> Result<AnyEntKind<'a>, (String, ErrorCode)> {
         Ok(match kind {
             AnyEntKind::ExternalAlias { class, type_mark } => AnyEntKind::ExternalAlias {
                 class: *class,
@@ -313,13 +331,14 @@ impl<'a> AnalyzeContext<'a> {
                 {
                     obj
                 } else {
-                    return Err(
-                        "Internal error, expected instantiated object to be object".to_owned()
-                    );
+                    return Err((
+                        "Internal error, expected instantiated object to be object".to_owned(),
+                        ErrorCode::Internal,
+                    ));
                 },
                 type_mark: self.map_type_ent(mapping, *type_mark),
             },
-            AnyEntKind::File(subtype) => AnyEntKind::File(self.map_subtype(mapping, *subtype)?),
+            AnyEntKind::File(subtype) => AnyEntKind::File(self.map_subtype(mapping, *subtype)),
             AnyEntKind::InterfaceFile(typ) => {
                 AnyEntKind::InterfaceFile(self.map_type_ent(mapping, *typ))
             }
@@ -332,11 +351,11 @@ impl<'a> AnalyzeContext<'a> {
             }
             AnyEntKind::Type(typ) => AnyEntKind::Type(self.map_type(parent, mapping, typ)?),
             AnyEntKind::ElementDeclaration(subtype) => {
-                AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype)?)
+                AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype))
             }
             AnyEntKind::Sequential(s) => AnyEntKind::Sequential(*s),
             AnyEntKind::Concurrent(c) => AnyEntKind::Concurrent(*c),
-            AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)?),
+            AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)),
             AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(
                 typ.map(|typ| self.map_type_ent(mapping, typ.into()).base()),
             ),
@@ -344,7 +363,7 @@ impl<'a> AnalyzeContext<'a> {
                 AnyEntKind::PhysicalLiteral(self.map_type_ent(mapping, *typ))
             }
             AnyEntKind::DeferredConstant(subtype) => {
-                AnyEntKind::DeferredConstant(self.map_subtype(mapping, *subtype)?)
+                AnyEntKind::DeferredConstant(self.map_subtype(mapping, *subtype))
             }
             AnyEntKind::Library => AnyEntKind::Library,
             AnyEntKind::Design(design) => match design {
@@ -355,9 +374,12 @@ impl<'a> AnalyzeContext<'a> {
                     Design::InterfacePackageInstance(self.map_region(parent, mapping, region)?),
                 ),
                 _ => {
-                    return Err(format!(
-                        "Internal error, did not expect to instantiate {}",
-                        design.describe()
+                    return Err((
+                        format!(
+                            "Internal error, did not expect to instantiate {}",
+                            design.describe()
+                        ),
+                        ErrorCode::Internal,
                     ));
                 }
             },
@@ -369,7 +391,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         overloaded: &'a Overloaded<'a>,
-    ) -> Result<Overloaded<'a>, String> {
+    ) -> Result<Overloaded<'a>, (String, ErrorCode)> {
         Ok(match overloaded {
             Overloaded::SubprogramDecl(signature) => {
                 Overloaded::SubprogramDecl(self.map_signature(parent, mapping, signature)?)
@@ -399,10 +421,11 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(overloaded) = OverloadedEnt::from_any(alias_inst) {
                     Overloaded::Alias(overloaded)
                 } else {
-                    return Err(
+                    return Err((
                         "Internal error, expected overloaded when instantiating overloaded entity"
                             .to_owned(),
-                    );
+                        ErrorCode::Internal,
+                    ));
                 }
             }
         })
@@ -413,7 +436,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         signature: &'a Signature<'a>,
-    ) -> Result<Signature<'a>, String> {
+    ) -> Result<Signature<'a>, (String, ErrorCode)> {
         let Signature {
             formals,
             return_type,
@@ -431,9 +454,10 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(inst) = InterfaceEnt::from_any(inst) {
                 inst_entities.push(inst);
             } else {
-                return Err(
+                return Err((
                     "Internal error, expected interface to be instantiated as interface".to_owned(),
-                );
+                    ErrorCode::Internal,
+                ));
             }
         }
 
@@ -451,7 +475,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         region: &'a Region<'a>,
-    ) -> Result<Region<'a>, String> {
+    ) -> Result<Region<'a>, (String, ErrorCode)> {
         let Region {
             entities: uninst_entities,
             kind,
@@ -486,7 +510,7 @@ impl<'a> AnalyzeContext<'a> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         typ: &'a Type<'a>,
-    ) -> Result<Type<'a>, String> {
+    ) -> Result<Type<'a>, (String, ErrorCode)> {
         Ok(match typ {
             Type::Array { indexes, elem_type } => {
                 let mut mapped_indexes = Vec::with_capacity(indexes.len());
@@ -506,7 +530,7 @@ impl<'a> AnalyzeContext<'a> {
             Type::Integer => Type::Integer,
             Type::Real => Type::Real,
             Type::Physical => Type::Physical,
-            Type::Access(subtype) => Type::Access(self.map_subtype(mapping, *subtype)?),
+            Type::Access(subtype) => Type::Access(self.map_subtype(mapping, *subtype)),
             Type::Record(region) => {
                 let mut elems = Vec::with_capacity(region.elems.len());
                 for uninst in region.elems.iter() {
@@ -515,12 +539,12 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(inst) = RecordElement::from_any(inst) {
                         elems.push(inst);
                     } else {
-                        return Err("Internal error, expected instantiated record element to be record element".to_owned());
+                        return Err(("Internal error, expected instantiated record element to be record element".to_owned(), ErrorCode::Internal));
                     }
                 }
                 Type::Record(RecordRegion { elems })
             }
-            Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype)?),
+            Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype)),
             Type::Protected(region, is_body) => {
                 Type::Protected(self.map_region(parent, mapping, region)?, *is_body)
             }
@@ -536,7 +560,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         obj: &Object<'a>,
-    ) -> Result<Object<'a>, String> {
+    ) -> Object<'a> {
         let Object {
             class,
             iface,
@@ -544,12 +568,12 @@ impl<'a> AnalyzeContext<'a> {
             has_default,
         } = obj;
 
-        Ok(Object {
+        Object {
             class: *class,
             iface: *iface,
-            subtype: self.map_subtype(mapping, *subtype)?,
+            subtype: self.map_subtype(mapping, *subtype),
             has_default: *has_default,
-        })
+        }
     }
 
     fn map_type_ent(
@@ -564,11 +588,11 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         subtype: Subtype<'a>,
-    ) -> Result<Subtype<'a>, String> {
+    ) -> Subtype<'a> {
         let Subtype { type_mark } = subtype;
 
-        Ok(Subtype {
+        Subtype {
             type_mark: self.map_type_ent(mapping, type_mark),
-        })
+        }
     }
 }

@@ -231,7 +231,7 @@ end context ident2;
         let (context, diagnostics) = code.with_stream_diagnostics(parse_context);
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::syntax_error(
                 code.s1("ident2"),
                 "End identifier mismatch, expected ident",
             )]

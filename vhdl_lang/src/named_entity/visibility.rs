@@ -202,6 +202,7 @@ impl<'a> Visible<'a> {
             let mut error = Diagnostic::error(
                 pos,
                 format!("Name '{designator}' is hidden by conflicting use clause"),
+                ErrorCode::ConflictingUseClause,
             );
 
             fn last_visible_pos(visible_entity: &VisibleEntity) -> u32 {

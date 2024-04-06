@@ -12,6 +12,7 @@ use super::analyze::*;
 use super::names::ResolvedName;
 use super::scope::*;
 use crate::ast::*;
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
@@ -112,15 +113,15 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         Ok(resolved_formal)
                     } else {
-                        bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                     }
                 } else {
-                    bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
             }
 
             Name::SelectedAll(_) => {
-                bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
             }
             Name::Designator(designator) => {
                 let (idx, ent) = formal_region
@@ -140,20 +141,20 @@ impl<'a> AnalyzeContext<'a> {
 
                 if resolved_prefix.is_converted {
                     // Converted formals may not be further selected
-                    bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
 
                 self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
                 Ok(resolved_prefix.partial())
             }
             Name::Attribute(..) => {
-                bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
             }
             Name::CallOrIndexed(ref mut fcall) => {
                 let prefix = if let Some(prefix) = fcall.name.item.prefix() {
                     prefix
                 } else {
-                    bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 };
 
                 if formal_region.lookup(name_pos, prefix.designator()).is_err() {
@@ -174,10 +175,7 @@ impl<'a> AnalyzeContext<'a> {
                             )?,
                         )
                     } else {
-                        bail!(
-                            diagnostics,
-                            Diagnostic::error(name_pos, "Invalid formal conversion")
-                        );
+                        bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
                     };
 
                     let converted_typ = match as_fatal(self.name_resolve(
@@ -191,14 +189,7 @@ impl<'a> AnalyzeContext<'a> {
                             if !typ.base().is_closely_related(ctyp) {
                                 bail!(
                                     diagnostics,
-                                    Diagnostic::error(
-                                        pos,
-                                        format!(
-                                            "{} cannot be converted to {}",
-                                            ctyp.describe(),
-                                            typ.describe()
-                                        ),
-                                    )
+                                    Diagnostic::invalid_type_conversion(pos, ctyp, typ)
                                 );
                             }
                             typ
@@ -218,14 +209,7 @@ impl<'a> AnalyzeContext<'a> {
 
                             if candidates.len() > 1 {
                                 // Ambiguous call
-                                let mut diagnostic = Diagnostic::error(
-                                    &fcall.name.pos,
-                                    format!("Ambiguous call to function '{des}'"),
-                                );
-
-                                diagnostic.add_subprogram_candidates("might be", candidates);
-
-                                bail!(diagnostics, diagnostic);
+                                bail!(diagnostics, Diagnostic::ambiguous_call(&des, candidates));
                             } else if let Some(ent) = candidates.pop() {
                                 fcall.name.set_unique_reference(&ent);
                                 ent.return_type().unwrap()
@@ -240,15 +224,13 @@ impl<'a> AnalyzeContext<'a> {
                                             fcall.name,
                                             resolved_formal.type_mark.describe()
                                         ),
+                                        ErrorCode::Unresolved,
                                     )
                                 );
                             }
                         }
                         _ => {
-                            bail!(
-                                diagnostics,
-                                Diagnostic::error(name_pos, "Invalid formal conversion")
-                            );
+                            bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
                         }
                     };
 
@@ -274,14 +256,14 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(resolved_formal) = resolved_prefix.partial_with_typ(new_typ) {
                         Ok(resolved_formal)
                     } else {
-                        bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                     }
                 } else {
-                    bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
                 }
             }
             Name::External(..) => {
-                bail!(diagnostics, Diagnostic::error(name_pos, "Invalid formal"));
+                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
             }
         }
     }
@@ -301,6 +283,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(
                         formal,
                         "Named arguments are not allowed before positional arguments",
+                        ErrorCode::NamedBeforePositional,
                     ));
                 }
             } else {
@@ -344,7 +327,11 @@ impl<'a> AnalyzeContext<'a> {
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
                 result.push((&actual.pos, Some(formal)));
             } else {
-                diagnostics.error(&actual.pos, "Unexpected extra argument");
+                diagnostics.error(
+                    &actual.pos,
+                    "Unexpected extra argument",
+                    ErrorCode::TooManyArguments,
+                );
                 result.push((&actual.pos, None));
             };
         }
@@ -371,8 +358,9 @@ impl<'a> AnalyzeContext<'a> {
                                 actual_pos,
                                 format!(
                                     "{} has already been associated",
-                                    resolved_formal.iface.describe()
+                                    resolved_formal.iface.describe(),
                                 ),
+                                ErrorCode::AlreadyAssociated,
                             );
 
                             diag.add_related(prev_pos, "Previously associated here");
@@ -399,6 +387,7 @@ impl<'a> AnalyzeContext<'a> {
                 let diagnostic = Diagnostic::error(
                     error_pos,
                     format!("No association of {}", formal.describe()),
+                    ErrorCode::Unassociated,
                 )
                 .opt_related(formal.decl_pos(), "Defined here");
 
@@ -500,14 +489,22 @@ impl<'a> AnalyzeContext<'a> {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
-                    diagnostics.error(actual_pos, "Expression must be a name denoting a signal");
+                    diagnostics.error(
+                        actual_pos,
+                        "Expression must be a name denoting a signal",
+                        ErrorCode::InterfaceModeMismatch,
+                    );
                     return Ok(());
                 };
                 if !matches!(name, ResolvedName::ObjectName(
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Signal)
                 {
-                    diagnostics.error(actual_pos, "Name must denote a signal name");
+                    diagnostics.error(
+                        actual_pos,
+                        "Name must denote a signal name",
+                        ErrorCode::InterfaceModeMismatch,
+                    );
                 }
             }
             InterfaceClass::Variable => {
@@ -517,6 +514,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(
                         actual_pos,
                         "Expression must be a name denoting a variable or shared variable",
+                        ErrorCode::InterfaceModeMismatch,
                     );
                     return Ok(());
                 };
@@ -524,21 +522,33 @@ impl<'a> AnalyzeContext<'a> {
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
                 {
-                    diagnostics.error(actual_pos, "Name must denote a variable name");
+                    diagnostics.error(
+                        actual_pos,
+                        "Name must denote a variable name",
+                        ErrorCode::InterfaceModeMismatch,
+                    );
                 }
             }
             InterfaceClass::File => {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
-                    diagnostics.error(actual_pos, "Expression must be a name denoting a file");
+                    diagnostics.error(
+                        actual_pos,
+                        "Expression must be a name denoting a file",
+                        ErrorCode::InterfaceModeMismatch,
+                    );
                     return Ok(());
                 };
                 if !matches!(name, ResolvedName::Final(ent) if matches!(
                     ent.kind(),
                     AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
-                    diagnostics.error(actual_pos, "Name must denote a file name");
+                    diagnostics.error(
+                        actual_pos,
+                        "Name must denote a file name",
+                        ErrorCode::InterfaceModeMismatch,
+                    );
                 }
             }
             _ => {}
@@ -578,4 +588,34 @@ fn to_formal_conversion_argument(
         }
     }
     None
+}
+
+impl Diagnostic {
+    pub fn invalid_formal(pos: impl AsRef<SrcPos>) -> Diagnostic {
+        Diagnostic::error(pos, "Invalid formal", ErrorCode::InvalidFormal)
+    }
+
+    pub fn invalid_formal_conversion(pos: impl AsRef<SrcPos>) -> Diagnostic {
+        Diagnostic::error(
+            pos,
+            "Invalid formal conversion",
+            ErrorCode::InvalidFormalConversion,
+        )
+    }
+
+    pub fn invalid_type_conversion(
+        pos: impl AsRef<SrcPos>,
+        from: BaseType,
+        to: TypeEnt,
+    ) -> Diagnostic {
+        Diagnostic::error(
+            pos,
+            format!(
+                "{} cannot be converted to {}",
+                from.describe(),
+                to.describe()
+            ),
+            ErrorCode::TypeMismatch,
+        )
+    }
 }
