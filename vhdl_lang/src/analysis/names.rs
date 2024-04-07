@@ -825,7 +825,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(EvalError::Unknown)
                 }
             }
-            AttributeDesignator::Ascending | AttributeDesignator::Descending => {
+            AttributeDesignator::Ascending => {
                 let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
@@ -2552,14 +2552,6 @@ constant c0 : arr_t := (others => 0);
         );
 
         let code = test.snippet("c0'ascending");
-        assert_eq!(
-            test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
-            )))
-        );
-
-        let code = test.snippet("arr_t'descending");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(

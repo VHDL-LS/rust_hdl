@@ -21,6 +21,7 @@ mod project;
 mod syntax;
 
 mod completion;
+mod version;
 
 pub use crate::config::Config;
 pub use crate::data::{

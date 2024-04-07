@@ -890,8 +890,8 @@ end package;
         assert_eq!(
             type_decl_strings[0],
             vec![
-                "subtype", "negative", "is", "integer", "range", "minus", "2", "**", "31", "to",
-                "minus", "1", ";"
+                "subtype", "negative", "is", "integer", "range", "-", "2", "**", "31", "to", "-",
+                "1", ";"
             ],
         );
         assert_eq!(type_decl_strings[1], vec!["type", "incomplete", ";"],);
@@ -904,7 +904,7 @@ end package;
                 "range",
                 "100",
                 "downto",
-                "minus",
+                "-",
                 "100",
                 ";"
             ],
