@@ -191,8 +191,8 @@ mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
-    use crate::VHDLStandard::VHDL2008;
+    use crate::syntax::test::{check_diagnostics, Code};
+    use crate::VHDLStandard::{VHDL2008, VHDL2019};
 
     #[test]
     fn package_instantiation() {
@@ -282,5 +282,46 @@ constant x: natural := 5;
             parse_declarative_part(stream, diagnostics, VHDL2008)
         });
         assert!(decl.is_err());
+    }
+
+    #[test]
+    fn parse_declarative_part_vhdl2008_vs_vhdl2019() {
+        let code = Code::new(
+            "\
+var not_a_var: broken;
+",
+        );
+        let (_, diag) = code.with_partial_stream_diagnostics(|stream, diagnostics| {
+            parse_declarative_part(stream, diagnostics, VHDL2008)
+        });
+        check_diagnostics(
+            diag,
+            vec![Diagnostic::syntax_error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use' or 'alias'",
+            )],
+        );
+
+        let code = Code::new(
+            "\
+var not_a_var: broken;
+",
+        );
+        let (_, diag) = code.with_partial_stream_diagnostics(|stream, diagnostics| {
+            parse_declarative_part(stream, diagnostics, VHDL2019)
+        });
+        check_diagnostics(
+            diag,
+            vec![Diagnostic::syntax_error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use', 'alias' or 'view'",
+            )],
+        )
     }
 }
