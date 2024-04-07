@@ -229,7 +229,7 @@ impl<'a> AnalyzeContext<'a> {
                 ) {
                     Ok(signature) => Ok(signature),
                     Err((err, code)) => {
-                        let mut diag = Diagnostic::error(&instance.ident.tree.pos, err, code);
+                        let mut diag = Diagnostic::new(&instance.ident.tree.pos, err, code);
                         if let Some(pos) = uninstantiated_subprogram.decl_pos() {
                             diag.add_related(pos, "When instantiating this declaration");
                         }
@@ -265,7 +265,7 @@ impl<'a> AnalyzeContext<'a> {
                     .filter(|ent| ent.is_uninst_subprogram())
                     .collect_vec();
                 if choices.is_empty() {
-                    diagnostics.error(
+                    diagnostics.add(
                         &instantiation.ident.tree.pos,
                         format!(
                             "{} does not denote an uninstantiated subprogram",
@@ -282,7 +282,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some((key, pos)) = signature_key {
                         match overloaded.get(&SubprogramKey::Uninstantiated(key)) {
                             None => {
-                                diagnostics.error(
+                                diagnostics.add(
                                     pos.clone(),
                                     format!(
                                         "Signature does not match the the signature of {}",
@@ -305,7 +305,7 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         resolved_ent
                     } else {
-                        diagnostics.error(
+                        diagnostics.add(
                             &instantiation.subprogram_name.pos,
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
@@ -318,7 +318,7 @@ impl<'a> AnalyzeContext<'a> {
                 } else {
                     // There are multiple candidates
                     // and there is no signature to resolve
-                    let mut err = Diagnostic::error(
+                    let mut err = Diagnostic::new(
                         &instantiation.subprogram_name.pos,
                         format!("Ambiguous instantiation of '{}'", overloaded.designator()),
                         ErrorCode::AmbiguousInstantiation,
@@ -333,7 +333,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             _ => {
-                diagnostics.error(
+                diagnostics.add(
                     &instantiation.subprogram_name.pos,
                     format!(
                         "{} does not denote an uninstantiated subprogram",
@@ -347,7 +347,7 @@ impl<'a> AnalyzeContext<'a> {
         if overloaded_ent.is_uninst_subprogram() {
             Ok(overloaded_ent)
         } else {
-            diagnostics.error(
+            diagnostics.add(
                 &instantiation.subprogram_name.pos,
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
                 ErrorCode::MismatchedKinds,
@@ -382,7 +382,7 @@ impl<'a> AnalyzeContext<'a> {
             None
         };
         if let Some(msg) = err_msg {
-            let mut err = Diagnostic::error(
+            let mut err = Diagnostic::new(
                 self.ctx.get_pos(instance.get_start_token()),
                 msg,
                 ErrorCode::MismatchedSubprogramInstantiation,

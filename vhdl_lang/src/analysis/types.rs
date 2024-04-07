@@ -148,19 +148,19 @@ impl<'a> AnalyzeContext<'a> {
                         };
 
                         if !is_ok {
-                            diagnostics.push(Diagnostic::error(
+                            diagnostics.add(
                                 type_decl.ident.pos(),
                                 format!("'{}' is not a protected type", &type_decl.ident),
                                 ErrorCode::TypeMismatch,
-                            ));
+                            );
                         }
                     }
                     None => {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             type_decl.ident.pos(),
                             format!("No declaration of protected type '{}'", &type_decl.ident),
                             ErrorCode::Unresolved,
-                        ));
+                        );
                     }
                 };
             }
@@ -372,7 +372,7 @@ impl<'a> AnalyzeContext<'a> {
                     match self.resolve_physical_unit(scope, &mut value.unit) {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != phys_type {
-                                diagnostics.error(
+                                diagnostics.add(
                                     &value.unit.item.pos,
                                     format!(
                                         "Physical unit of type '{}' does not match {}",
@@ -420,7 +420,7 @@ impl<'a> AnalyzeContext<'a> {
                     } else if range_typ.is_any_real() {
                         UniversalType::Real
                     } else {
-                        diagnostics.error(
+                        diagnostics.add(
                             &range.pos(),
                             "Expected real or integer range",
                             ErrorCode::TypeMismatch,
@@ -526,7 +526,7 @@ impl<'a> AnalyzeContext<'a> {
                                 self.drange_unknown_type(scope, drange, diagnostics)?;
                             }
                         } else {
-                            diagnostics.error(
+                            diagnostics.add(
                                 drange.pos(),
                                 format!("Got extra index constraint for {}", base_type.describe()),
                                 ErrorCode::TooManyConstraints,
@@ -536,7 +536,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     // empty dranges means (open)
                     if dranges.len() < indexes.len() && !dranges.is_empty() {
-                        diagnostics.error(
+                        diagnostics.add(
                             pos,
                             format!(
                                 "Too few index constraints for {}. Got {} but expected {}",
@@ -558,7 +558,7 @@ impl<'a> AnalyzeContext<'a> {
                         )?;
                     }
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         pos,
                         format!(
                             "Array constraint cannot be used for {}",
@@ -572,7 +572,7 @@ impl<'a> AnalyzeContext<'a> {
                 if base_type.is_scalar() {
                     self.range_with_ttyp(scope, base_type.into(), range, diagnostics)?;
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         pos,
                         format!(
                             "Scalar constraint cannot be used for {}",
@@ -602,7 +602,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         pos,
                         format!(
                             "Record constraint cannot be used for {}",

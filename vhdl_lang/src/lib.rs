@@ -26,7 +26,7 @@ mod version;
 pub use crate::config::Config;
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
-    NullDiagnostics, NullMessages, Position, Range, Severity, Source, SrcPos,
+    NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source, SrcPos,
 };
 
 pub use crate::analysis::EntHierarchy;

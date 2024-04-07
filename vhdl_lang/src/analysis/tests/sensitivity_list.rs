@@ -29,7 +29,7 @@ end package body;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("wait on proc").s1("proc"),
             "procedure proc[BIT] is not a signal and cannot be in a sensitivity list",
             ErrorCode::DisallowedInSensitivityList,
@@ -60,7 +60,7 @@ end package body;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("wait on c0").s1("c0"),
             "constant 'c0' is not a signal and cannot be in a sensitivity list",
             ErrorCode::DisallowedInSensitivityList,
@@ -89,7 +89,7 @@ end package body;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("wait on bad").s1("bad"),
             "interface signal 'bad' of mode out cannot be in a sensitivity list",
             ErrorCode::DisallowedInSensitivityList,

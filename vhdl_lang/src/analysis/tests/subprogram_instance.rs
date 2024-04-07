@@ -25,7 +25,7 @@ procedure proc is new foo;
     let diagnostics = builder.analyze();
     assert_eq!(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("foo").pos(),
             "No declaration of 'foo'",
             ErrorCode::Unresolved
@@ -47,7 +47,7 @@ function proc is new x;
     let diagnostics = builder.analyze();
     assert_eq!(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("new x").s1("x"),
             "signal 'x' does not denote an uninstantiated subprogram",
             ErrorCode::MismatchedKinds
@@ -79,7 +79,7 @@ procedure proc is new foo;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("new foo").s1("foo"),
             "Ambiguous instantiation of 'foo'",
             ErrorCode::AmbiguousInstantiation,
@@ -133,7 +133,7 @@ procedure proc is new foo [bit, bit];
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("[bit, bit]").pos(),
             "Signature does not match the the signature of procedure foo[BIT]",
             ErrorCode::SignatureMismatch,
@@ -175,7 +175,7 @@ function func is new prok;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("function"),
             "Instantiating procedure as function",
             ErrorCode::MismatchedSubprogramInstantiation,
@@ -197,7 +197,7 @@ procedure proc is new funk;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("procedure"),
             "Instantiating function as procedure",
             ErrorCode::MismatchedSubprogramInstantiation,
@@ -247,7 +247,7 @@ procedure proc is new proc;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("procedure proc is new").s("proc", 2).pos(),
             "procedure proc[] does not denote an uninstantiated subprogram",
             ErrorCode::MismatchedKinds,
@@ -278,7 +278,7 @@ end architecture arch;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("begin\n    proc;").s1("proc").pos(),
             "uninstantiated procedure proc[] cannot be called",
             ErrorCode::InvalidCall,
@@ -484,7 +484,7 @@ subtype x is resolved bit;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("subtype x is resolved bit").s1("resolved"),
             "uninstantiated function resolved[F] return F cannot be used as resolution function",
             ErrorCode::MismatchedKinds,
@@ -510,7 +510,7 @@ function foo generic (type F) parameter (x: bit) return bit;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("foo"),
             "uninstantiated function foo[F] return F cannot be used as conversion",
             ErrorCode::MismatchedKinds,

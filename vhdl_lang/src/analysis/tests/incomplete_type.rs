@@ -170,7 +170,7 @@ end package;
 }
 
 fn missing_full_error(pos: &impl AsRef<SrcPos>) -> Diagnostic {
-    let mut error = Diagnostic::error(
+    let mut error = Diagnostic::new(
         pos,
         "Missing full type declaration of incomplete type 'rec_t'",
         ErrorCode::MissingFullTypeDeclaration,

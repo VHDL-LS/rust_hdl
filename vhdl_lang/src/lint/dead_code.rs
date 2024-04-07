@@ -234,7 +234,7 @@ impl UnusedDeclarationsLinter {
                     find_unused_declarations(root, library, unit.primary_name())
                         .into_iter()
                         .filter_map(|ent| {
-                            Some(Diagnostic::warning(
+                            Some(Diagnostic::new(
                                 ent.decl_pos()?,
                                 format!("Unused declaration of {}", ent.describe()),
                                 ErrorCode::Unused,

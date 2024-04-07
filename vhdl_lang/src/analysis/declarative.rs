@@ -117,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
             let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
 
             if !decl.is_allowed_in_context(parent.kind()) {
-                diagnostics.error(
+                diagnostics.add(
                     decl.get_pos(self.ctx),
                     format!("{} declaration not allowed here", decl.describe()),
                     ErrorCode::DeclarationNotAllowed,
@@ -137,7 +137,7 @@ impl<'a> AnalyzeContext<'a> {
                                         (full_decl.ident.pos(), Some(full_decl.span))
                                     }
                                     None => {
-                                        let error = Diagnostic::error(
+                                        let error = Diagnostic::new(
                                             type_decl.ident.pos(),
                                             format!(
                                                 "Missing full type declaration of incomplete type '{}'",
@@ -261,7 +261,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(ref signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
                     }
-                    diagnostics.error(
+                    diagnostics.add(
                         &name.pos,
                         format!("{} cannot be aliased", resolved_name.describe_type()),
                         ErrorCode::MismatchedKinds,
@@ -636,7 +636,7 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                     attr_ent
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         &ident.item.pos,
                         format!("{} is not an attribute", ent.describe()),
                         ErrorCode::MismatchedKinds,
@@ -645,7 +645,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Ok(NamedEntities::Overloaded(_)) => {
-                diagnostics.error(
+                diagnostics.add(
                     &ident.item.pos,
                     format!("Overloaded name '{}' is not an attribute", ident.item),
                     ErrorCode::MismatchedKinds,
@@ -715,11 +715,11 @@ impl<'a> AnalyzeContext<'a> {
             let ent = ent.as_actual();
 
             if Some(*entity_class) != get_entity_class(ent) {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.add(
                     designator,
                     format!("{} is not of class {}", ent.describe(), entity_class),
                     ErrorCode::MismatchedEntityClass,
-                ));
+                );
                 return Ok(());
             }
 
@@ -729,11 +729,11 @@ impl<'a> AnalyzeContext<'a> {
                 | EntityClass::Package
                 | EntityClass::Configuration => {
                     if ent != parent {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
                             ErrorCode::MisplacedAttributeSpec,
-                        ));
+                        );
                         return Ok(());
                     }
                 }
@@ -750,11 +750,11 @@ impl<'a> AnalyzeContext<'a> {
                 | EntityClass::File
                 | EntityClass::Label => {
                     if ent.parent != Some(parent) {
-                        diagnostics.push(Diagnostic::error(
+                        diagnostics.add(
                             designator,
                             "Attribute specification must be in the immediate declarative part",
                             ErrorCode::MisplacedAttributeSpec,
-                        ));
+                        );
                         return Ok(());
                     }
                 }
@@ -938,7 +938,7 @@ impl Diagnostic {
         des: &Designator,
         overloaded: &OverloadedName,
     ) -> Diagnostic {
-        let mut diagnostic = Diagnostic::error(
+        let mut diagnostic = Diagnostic::new(
             pos,
             format!(
                 "Could not find declaration of {} with given signature",
@@ -951,7 +951,7 @@ impl Diagnostic {
     }
 
     fn should_not_have_signature(prefix: &str, pos: impl AsRef<SrcPos>) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             format!("{prefix} should only have a signature for subprograms and enum literals"),
             ErrorCode::IllegalSignature,
@@ -959,7 +959,7 @@ impl Diagnostic {
     }
 
     fn signature_required(pos: impl AsRef<SrcPos>) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             "Signature required for alias of subprogram and enum literals",
             ErrorCode::SignatureRequired,

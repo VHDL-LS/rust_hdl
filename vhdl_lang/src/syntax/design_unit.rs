@@ -272,11 +272,11 @@ pub fn parse_design_file(
     }
 
     for context_item in context_clause {
-        diagnostics.push(Diagnostic::warning(
+        diagnostics.add(
             context_item.get_pos(stream),
             context_item_message(&context_item, "not associated with any design unit"),
             ErrorCode::UnassociatedContext,
-        ));
+        );
     }
 
     Ok(DesignFile { design_units })
@@ -832,17 +832,17 @@ context lib.ctx;
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::warning(
+                Diagnostic::new(
                     code.s1("library lib;"),
                     "Library clause not associated with any design unit",
                     ErrorCode::UnassociatedContext,
                 ),
-                Diagnostic::warning(
+                Diagnostic::new(
                     code.s1("use lib.foo;"),
                     "Use clause not associated with any design unit",
                     ErrorCode::UnassociatedContext,
                 ),
-                Diagnostic::warning(
+                Diagnostic::new(
                     code.s1("context lib.ctx;"),
                     "Context reference not associated with any design unit",
                     ErrorCode::UnassociatedContext,

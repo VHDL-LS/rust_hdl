@@ -199,7 +199,7 @@ impl<'a> Visible<'a> {
             Ok(Some(NamedEntities::new(named_entities.pop().unwrap())))
         } else {
             // Duplicate visible items hide each other
-            let mut error = Diagnostic::error(
+            let mut error = Diagnostic::new(
                 pos,
                 format!("Name '{designator}' is hidden by conflicting use clause"),
                 ErrorCode::ConflictingUseClause,

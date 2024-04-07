@@ -7,7 +7,7 @@
 use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project, Severity};
+use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project, Severity, SeverityMap};
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
@@ -73,15 +73,16 @@ fn main() {
         1
     };
 
+    let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
     let mut diagnostics = project.analyse();
     let duration = start.elapsed().unwrap() / iterations;
 
     if args.no_hint {
-        diagnostics.retain(|diag| diag.default_severity != Severity::Hint);
+        diagnostics.retain(|diag| severity_map[diag.code] != Some(Severity::Hint));
     }
 
-    show_diagnostics(&diagnostics);
+    show_diagnostics(&diagnostics, &severity_map);
 
     if args.perf || args.bench {
         let mut num_files = 0;
@@ -118,9 +119,11 @@ fn main() {
     std::process::exit(0);
 }
 
-fn show_diagnostics(diagnostics: &[Diagnostic]) {
+fn show_diagnostics(diagnostics: &[Diagnostic], severity_map: &SeverityMap) {
     for diagnostic in diagnostics {
-        println!("{}", diagnostic.show());
+        if let Some(str) = diagnostic.show(severity_map) {
+            println!("{str}");
+        }
     }
 
     if !diagnostics.is_empty() {

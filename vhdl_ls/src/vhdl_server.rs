@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
     InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
-    Token, Type, VHDLStandard,
+    Token, Type, SeverityMap, VHDLStandard
 };
 
 #[derive(Default, Clone)]
@@ -36,6 +36,7 @@ pub struct VHDLServer {
     files_with_notifications: FnvHashMap<Url, ()>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
+    severity_map: SeverityMap,
 }
 
 impl VHDLServer {
@@ -48,6 +49,7 @@ impl VHDLServer {
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,
+            severity_map: SeverityMap::default(),
         }
     }
 
@@ -61,6 +63,7 @@ impl VHDLServer {
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,
+            severity_map: SeverityMap::default(),
         }
     }
 
@@ -116,6 +119,7 @@ impl VHDLServer {
     pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
         self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
+        self.severity_map = *config.severities();
         self.project = Project::from_config(config, &mut self.message_filter());
         self.project.enable_unused_declaration_detection();
         self.init_params = Some(init_params);
@@ -261,6 +265,7 @@ impl VHDLServer {
                     "Configuration file has changed, reloading project...",
                 ));
                 let config = self.load_config();
+                self.severity_map = *config.severities();
 
                 self.project
                     .update_config(config, &mut self.message_filter());
@@ -502,10 +507,10 @@ impl VHDLServer {
 
         let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
         for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
-            let mut lsp_diagnostics = Vec::new();
-            for diagnostic in diagnostics {
-                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic));
-            }
+            let lsp_diagnostics = diagnostics
+                .into_iter()
+                .filter_map(|diag| to_lsp_diagnostic(diag, &self.severity_map))
+                .collect();
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
@@ -520,7 +525,7 @@ impl VHDLServer {
         }
 
         for (file_uri, _) in files_with_notifications.drain() {
-            // File has no longer any diagnosics, publish empty notification to clear them
+            // File has no longer any diagnostics, publish empty notification to clear them
             if !self.files_with_notifications.contains_key(&file_uri) {
                 let publish_diagnostics = PublishDiagnosticsParams {
                     uri: file_uri.clone(),
@@ -958,8 +963,11 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
     uri.to_file_path().unwrap()
 }
 
-fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
-    let severity = match diagnostic.default_severity {
+fn to_lsp_diagnostic(
+    diagnostic: Diagnostic,
+    severity_map: &SeverityMap,
+) -> Option<lsp_types::Diagnostic> {
+    let severity = match severity_map[diagnostic.code]? {
         Severity::Error => DiagnosticSeverity::ERROR,
         Severity::Warning => DiagnosticSeverity::WARNING,
         Severity::Info => DiagnosticSeverity::INFORMATION,
@@ -983,7 +991,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
         None
     };
 
-    lsp_types::Diagnostic {
+    Some(lsp_types::Diagnostic {
         range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
         code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
@@ -991,7 +999,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
         message: diagnostic.message,
         related_information,
         ..Default::default()
-    }
+    })
 }
 
 fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {

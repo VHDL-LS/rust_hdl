@@ -32,12 +32,12 @@ end package body;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 &code.s1("a1"),
                 "Missing body for protected type 'a1'",
                 ErrorCode::MissingProtectedBodyType,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 &code.s1("b1"),
                 "Missing body for protected type 'b1'",
                 ErrorCode::MissingProtectedBodyType,
@@ -74,17 +74,17 @@ end package body;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 &code.s1("a1"),
                 "No declaration of protected type 'a1'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 &code.s1("b1"),
                 "No declaration of protected type 'b1'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 &code.s("b1", 2),
                 "Missing body for protected type 'b1'",
                 ErrorCode::MissingProtectedBodyType,
@@ -223,7 +223,7 @@ end package body;
     let diagnostics = builder.analyze();
     let expected = vec![
         duplicate(&code, "a1", 1, 2),
-        Diagnostic::error(
+        Diagnostic::new(
             &code.s("b1", 2),
             "'b1' is not a protected type",
             ErrorCode::TypeMismatch,

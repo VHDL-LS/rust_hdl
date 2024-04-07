@@ -36,12 +36,12 @@ end architecture;
     check_diagnostics(
         builder.analyze(),
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("signal x : bit;"),
                 "signal declaration not allowed here",
                 ErrorCode::DeclarationNotAllowed,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("variable y: natural;"),
                 "variable declaration not allowed here",
                 ErrorCode::DeclarationNotAllowed,
@@ -66,7 +66,7 @@ end entity test;
     let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
         diag,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("test : signal").s1("test"),
             "entity 'test' is not of class signal",
             ErrorCode::MismatchedEntityClass,
@@ -93,7 +93,7 @@ end entity test;
     let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
         diag,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("aliased_clk : entity").s1("aliased_clk"),
             "port 'clk' : in is not of class entity",
             ErrorCode::MismatchedEntityClass,

@@ -28,6 +28,7 @@ pinned_vec = "0"
 itertools = "0"
 subst = "0.3.0"
 strum = { version = "0.26.2", features = ["derive"] }
+enum-map = "2.7.3"
 
 [dev-dependencies]
 tempfile = "3"

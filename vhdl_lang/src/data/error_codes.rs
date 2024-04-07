@@ -1,8 +1,16 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
+
 use crate::{Diagnostic, Severity, SrcPos};
+use enum_map::{enum_map, Enum, EnumMap};
 use std::fmt::{Display, Formatter};
+use std::ops::{Index, IndexMut};
 use strum::{EnumString, IntoStaticStr};
 
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr, Enum)]
 #[strum(serialize_all = "snake_case")]
 pub enum ErrorCode {
     /// A syntax error happens during tokenization or parsing.
@@ -346,17 +354,7 @@ pub enum ErrorCode {
     InvalidLiteral,
 
     /// A Design Unit (such as an architecture) was declared before another
-    /// Design Unit (such as an entity) which is illegal.
-    ///
-    /// # Example
-    /// ```vhdl
-    /// architecture foo of bar is
-    /// begin    
-    /// end architecture;
-    ///
-    /// entity bar is
-    /// end entity;
-    /// ```
+    ///Design Unit (such as an entity) which is illegal.
     DeclaredBefore,
 
     /// A configuration was found that is not in the same library as the entity
@@ -387,25 +385,10 @@ pub enum ErrorCode {
     MissingFullTypeDeclaration,
 
     /// Calling a name like a function or procedure where that is not applicable
-    ///
-    /// # Example
-    /// ```vhdl
-    /// procedure foo;
-    /// constant x: bit := foo; -- 'foo' is a procedure and cannot be called here
-    /// ```
     InvalidCall,
 
     // Linting
     /// A declaration that is unused
-    ///
-    /// # Example
-    /// ```vhdl
-    /// entity foo is
-    ///     port (
-    ///         bar : in bit -- 'bar' is never used
-    ///     );
-    /// end entity;
-    /// ```
     Unused,
 
     /// The declaration
@@ -435,6 +418,101 @@ pub enum ErrorCode {
     /// A related error message. This error code is never generated directly and only used
     /// as 'drop-in' when related messages are drained from a bigger error message
     Related,
+}
+
+/// The `SeverityMap` maps error codes to severities.
+///
+/// Implementations for `Index` and `IndexMut` are provided, so elements within the map can
+/// be accessed using the `[]` operator.
+/// The value returned by indexing into the severity map has the following meaning:
+/// * If the value is `Some(Severity)`,
+///   a diagnostic with the given error code should be displayed with that severity
+/// * If the value is `None`, a diagnostic with that severity should not be displayed
+#[derive(Clone, PartialEq, Eq, Debug, Copy)]
+pub struct SeverityMap {
+    // Using an `EnumMap` ensures that each error code is mapped to exactly one severity.
+    // Additionally, this allows efficient implementation using an array internally.
+    inner: EnumMap<ErrorCode, Option<Severity>>,
+}
+
+impl Default for SeverityMap {
+    fn default() -> Self {
+        use ErrorCode::*;
+        use Severity::*;
+        let map = enum_map! {
+            SyntaxError
+            | CircularDependency
+            | InvalidFormal
+            | InvalidFormalConversion
+            | TypeMismatch
+            | AmbiguousCall
+            | NamedBeforePositional
+            | TooManyArguments
+            | Unassociated
+            | AlreadyAssociated
+            | InterfaceModeMismatch
+            | DisallowedInSensitivityList
+            | DeclarationNotAllowed
+            | MismatchedEntityClass
+            | MisplacedAttributeSpec
+            | NoOverloadedWithSignature
+            | IllegalSignature
+            | SignatureRequired
+            | AmbiguousExpression
+            | Duplicate
+            | ConflictingUseClause
+            | MissingProtectedBodyType
+            | IllegalDeferredConstant
+            | SignatureMismatch
+            | AmbiguousInstantiation
+            | MismatchedSubprogramInstantiation
+            | VoidReturn
+            | NonVoidReturn
+            | IllegalReturn
+            | ExitOutsideLoop
+            | NextOutsideLoop
+            | InvalidLoopLabel
+            | MismatchedKinds
+            | TooManyConstraints
+            | TooFewConstraints
+            | IllegalConstraint
+            | InvalidOperatorSymbol
+            | Unresolved
+            | DimensionMismatch
+            | InvalidLiteral
+            | DeclaredBefore
+            | ConfigNotInSameLibrary
+            | NoImplicitConversion
+            | ExpectedSubAggregate
+            | IllegalAttribute
+            | CannotBePrefixed
+            | NonScalarInRange
+            | UnexpectedSignature
+            | MissingDeferredDeclaration
+            | MissingFullTypeDeclaration
+            | InvalidCall => Some(Error),
+            Unused
+            | UnnecessaryWorkLibrary
+            | UnassociatedContext => Some(Warning),
+            Internal => Some(Error),
+            Related => Some(Hint)
+        };
+        SeverityMap { inner: map }
+    }
+}
+
+impl Index<ErrorCode> for SeverityMap {
+    type Output = Option<Severity>;
+
+    fn index(&self, key: ErrorCode) -> &Self::Output {
+        self.inner.index(key)
+    }
+}
+
+impl IndexMut<ErrorCode> for SeverityMap {
+    fn index_mut(&mut self, key: ErrorCode) -> &mut Self::Output {
+        self.inner.index_mut(key)
+    }
 }
 
 impl ErrorCode {
@@ -476,20 +554,19 @@ fn serialize_to_string() {
 /// Specialized diagnostics with pre-defined messages and error codes
 impl Diagnostic {
     pub fn syntax_error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
-        Self::new(item, msg, Severity::Error, ErrorCode::SyntaxError)
+        Self::new(item, msg, ErrorCode::SyntaxError)
     }
 
     pub fn circular_dependency(item: impl AsRef<SrcPos>) -> Diagnostic {
         Self::new(
             item,
             "Found circular dependency",
-            Severity::Error,
             ErrorCode::CircularDependency,
         )
     }
 
     pub fn internal(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
-        Self::new(item, msg, Severity::Error, ErrorCode::Internal)
+        Self::new(item, msg, ErrorCode::Internal)
     }
 }
 

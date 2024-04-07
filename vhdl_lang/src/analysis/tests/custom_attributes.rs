@@ -35,7 +35,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("bad", 2),
             "Attribute specification must be in the immediate declarative part",
             ErrorCode::MisplacedAttributeSpec,
@@ -64,7 +64,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("myent", 4),
             "Attribute specification must be in the immediate declarative part",
             ErrorCode::MisplacedAttributeSpec,
@@ -94,7 +94,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("bad", 2),
             "Attribute specification must be in the immediate declarative part",
             ErrorCode::MisplacedAttributeSpec,
@@ -186,7 +186,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("std'myattr"),
             "library std may not be the prefix of a user defined attribute",
             ErrorCode::MismatchedKinds,
@@ -217,7 +217,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("bad", 2),
             "signal 'bad' is not of class variable",
             ErrorCode::MismatchedEntityClass,
@@ -250,7 +250,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("bad", 2),
             "type 'bad' is not of class subtype",
             ErrorCode::MismatchedEntityClass,
@@ -280,7 +280,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("mysig", 3),
             "Duplicate specification of attribute 'myattr' for signal 'mysig'",
             ErrorCode::Duplicate,
@@ -317,7 +317,7 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("mysig : signal").s1("mysig"),
             "Duplicate specification of attribute 'myattr' for signal 'mysig'",
             ErrorCode::Duplicate,

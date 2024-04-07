@@ -153,7 +153,7 @@ pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
 }
 
 pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
-    Diagnostic::error(
+    Diagnostic::new(
         code.s(name, occ),
         format!("No declaration of '{name}'"),
         ErrorCode::Unresolved,
@@ -161,7 +161,7 @@ pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
 }
 
 pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
-    Diagnostic::error(
+    Diagnostic::new(
         code.s(name, occ2),
         format!("Duplicate declaration of '{}'", &name),
         ErrorCode::Duplicate,
@@ -181,7 +181,7 @@ pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec
     let mut diagnostics = Vec::new();
     for name in names {
         diagnostics.push(
-            Diagnostic::error(
+            Diagnostic::new(
                 code2.s1(name),
                 format!("Duplicate declaration of '{}'", &name),
                 ErrorCode::Duplicate,

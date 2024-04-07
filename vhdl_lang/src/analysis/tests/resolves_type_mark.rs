@@ -57,7 +57,7 @@ end package;",
 
     let expected = (0..9)
         .map(|idx| {
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing", 1 + idx),
                 "No declaration of 'missing'",
                 ErrorCode::Unresolved,
@@ -84,7 +84,7 @@ end package;",
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No declaration of 'missing'",
             ErrorCode::Unresolved,
@@ -107,7 +107,7 @@ end package;",
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("missing"),
             "No declaration of 'missing'",
             ErrorCode::Unresolved,
@@ -290,7 +290,7 @@ end package;",
     let num_missing = 2;
     let expected = (1..=num_missing)
         .map(|idx| {
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("missing_t", idx),
                 "No declaration of 'missing_t'",
                 ErrorCode::Unresolved,
@@ -508,7 +508,7 @@ pub fn kind_error(
     expected: &str,
     got: &str,
 ) -> Diagnostic {
-    Diagnostic::error(
+    Diagnostic::new(
         code.s(name, occ),
         format!("Expected {expected}, got {got}"),
         ErrorCode::MismatchedKinds,

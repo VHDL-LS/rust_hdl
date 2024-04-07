@@ -200,7 +200,7 @@ impl<'a> TypeEnt<'a> {
             Type::Protected(region, _) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     match decl {
-                        NamedEntities::Single(ent) => Err(Diagnostic::error(
+                        NamedEntities::Single(ent) => Err(Diagnostic::new(
                             &suffix.pos,
                             format!(
                                 "Protected type selection must be a method, got {}",
@@ -220,7 +220,7 @@ impl<'a> TypeEnt<'a> {
                     ))
                 }
             }
-            Type::Incomplete => Err(Diagnostic::error(
+            Type::Incomplete => Err(Diagnostic::new(
                 prefix_pos,
                 "Cannot select incomplete type before full type definition",
                 ErrorCode::MismatchedKinds,

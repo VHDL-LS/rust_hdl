@@ -14,8 +14,9 @@ use std::path::Path;
 
 use fnv::FnvHashMap;
 use subst::VariableMap;
-use toml::Value;
+use toml::{Table, Value};
 
+use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::version::VHDLStandard;
 
@@ -24,6 +25,8 @@ pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
     standard: VHDLStandard,
+    // Defines the severity that diagnostics are displayed with
+    severities: SeverityMap,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -175,10 +178,40 @@ impl Config {
             );
         }
 
+        let severities = if let Some(lint) = config.get("lint") {
+            Self::read_severity_overwrites(lint.as_table().ok_or("lint must be a table")?)?
+        } else {
+            SeverityMap::default()
+        };
+
         Ok(Config {
             libraries,
+            severities,
             standard,
         })
+    }
+
+    fn read_severity_overwrites(severity_overwrites: &Table) -> Result<SeverityMap, String> {
+        let mut severities = SeverityMap::default();
+
+        for (name, severity) in severity_overwrites {
+            let error_code = ErrorCode::try_from(name.as_str())
+                .map_err(|_| format!("'{name}' is not a valid error code"))?;
+            match severity {
+                Value::String(severity) => {
+                    let severity = Severity::try_from(severity.as_str())
+                        .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
+                    severities[error_code] = Some(severity);
+                }
+                Value::Boolean(should_show) => {
+                    if !should_show {
+                        severities[error_code] = None
+                    }
+                }
+                _ => return Err("severity must be a string or boolean".to_string()),
+            }
+        }
+        Ok(severities)
     }
 
     pub fn read_file_path(file_name: &Path) -> io::Result<Config> {
@@ -216,6 +249,7 @@ impl Config {
                 self.libraries.insert(library.name.clone(), library.clone());
             }
         }
+        self.severities = config.severities;
     }
 
     /// Load configuration file from installation folder
@@ -294,6 +328,10 @@ impl Config {
         self.load_installed_config(messages);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
+    }
+
+    pub fn severities(&self) -> &SeverityMap {
+        &self.severities
     }
 
     /// The VHDL standard to use if no more specific config is present.
@@ -423,6 +461,10 @@ lib1.files = [
   'pkg1.vhd',
   'tb_ent.vhd'
 ]
+
+[lint]
+unused = 'error'
+duplicate = false
 ",
                 absolute_vhd.to_str().unwrap()
             ),
@@ -444,6 +486,11 @@ lib1.files = [
         assert_files_eq(&lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
         assert_files_eq(&lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
         assert_eq!(messages, vec![]);
+
+        let mut expected_map = SeverityMap::default();
+        expected_map[ErrorCode::Unused] = Some(Severity::Error);
+        expected_map[ErrorCode::Duplicate] = None;
+        assert_eq!(config.severities, expected_map)
     }
 
     #[test]

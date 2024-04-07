@@ -33,7 +33,7 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("pkg2", 3),
             "No declaration of 'pkg2'",
             ErrorCode::Unresolved,
@@ -203,12 +203,12 @@ end entity;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("const1", 3),
                 "No declaration of 'const1' within package 'pkg'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("const2", 3),
                 "No declaration of 'const2' within package 'pkg'",
                 ErrorCode::Unresolved,
@@ -512,7 +512,7 @@ pub fn hidden_error(
     occ: usize,
     related: &[(&Code, &str, usize, bool)],
 ) -> Diagnostic {
-    let mut error = Diagnostic::error(
+    let mut error = Diagnostic::new(
         code.s(name, occ),
         format!("Name '{name}' is hidden by conflicting use clause"),
         ErrorCode::ConflictingUseClause,
@@ -783,7 +783,7 @@ fn generics_are_visible_in_procedures_but_not_outside() {
     let (_, diagnostics) = builder.get_analyzed_root();
     assert_eq!(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("T", 4),
             "No declaration of 'T'",
             ErrorCode::Unresolved

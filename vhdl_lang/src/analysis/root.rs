@@ -169,7 +169,7 @@ impl Library {
     fn append_duplicate_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for (prev_pos, unit) in self.duplicates.iter() {
             let diagnostic = match unit.key() {
-                UnitKey::Primary(ref primary_name) => Diagnostic::error(
+                UnitKey::Primary(ref primary_name) => Diagnostic::new(
                     unit.pos(),
                     format!(
                         "A primary unit has already been declared with name '{}' in library '{}'",
@@ -178,12 +178,12 @@ impl Library {
                     ErrorCode::Duplicate,
                 ),
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
-                    AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
+                    AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::new(
                         unit.ident(),
                         format!("Duplicate architecture '{name}' of entity '{primary_name}'",),
                         ErrorCode::Duplicate,
                     ),
-                    AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::error(
+                    AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::new(
                         unit.pos(),
                         format!("Duplicate package body of package '{primary_name}'"),
                         ErrorCode::Duplicate,
@@ -1316,7 +1316,7 @@ end package body;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s("pkg", 3),
                 "Duplicate package body of package 'pkg'",
                 ErrorCode::Duplicate,
@@ -1356,22 +1356,22 @@ package pkg is new gpkg generic map (const => foo);
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(
+                Diagnostic::new(
                     code.s("pkg", 2),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
                     ErrorCode::Duplicate,
                 ).related(code.s("pkg", 1), "Previously defined here"),
-                Diagnostic::error(
+                Diagnostic::new(
                     code.s("entname", 2),
                     "A primary unit has already been declared with name 'entname' in library 'libname'",
                     ErrorCode::Duplicate,
                 ).related(code.s("entname", 1), "Previously defined here"),
-                Diagnostic::error(
+                Diagnostic::new(
                     code.s("pkg", 3),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
                     ErrorCode::Duplicate,
                 ).related(code.s("pkg", 1), "Previously defined here"),
-                Diagnostic::error(
+                Diagnostic::new(
                     code.s("pkg", 4),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'",
                     ErrorCode::Duplicate,
@@ -1402,7 +1402,7 @@ end architecture;
         assert_eq!(library.duplicates.len(), 1);
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s("rtl", 2),
                 "Duplicate architecture 'rtl' of entity 'ent'",
                 ErrorCode::Duplicate,
@@ -1433,7 +1433,7 @@ end configuration;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s("cfg", 2),
                 "A primary unit has already been declared with name 'cfg' in library 'libname'",
                 ErrorCode::Duplicate,
