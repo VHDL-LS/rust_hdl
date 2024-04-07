@@ -42,25 +42,28 @@ pub fn parse_package_instantiation(
     })
 }
 
-pub fn is_declarative_part(stream: &TokenStream, begin_is_end: bool) -> ParseResult<bool> {
-    Ok(check_declarative_part(stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
-}
-
-fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
-    match token.kind {
-        Use | Type | Subtype | Shared | Constant | Signal | Variable | File | Component
-        | Attribute | Alias | Impure | Pure | Function | Procedure | Package | For => Ok(()),
-        Begin if may_begin => Ok(()),
-        End if may_end => Ok(()),
-        _ => {
-            let decl_kinds = [
-                Use, Type, Subtype, Shared, Constant, Signal, Variable, File, Component, Attribute,
-                Alias, Impure, Pure, Function, Procedure, Package, For,
-            ];
-
-            Err(token.kinds_error(&decl_kinds))
-        }
-    }
+pub fn is_declarative_part(stream: &TokenStream) -> ParseResult<bool> {
+    Ok(matches!(
+        stream.peek_expect()?.kind,
+        Use | Type
+            | Subtype
+            | Shared
+            | Constant
+            | Signal
+            | Variable
+            | File
+            | Component
+            | Attribute
+            | Alias
+            | Impure
+            | Pure
+            | Function
+            | Procedure
+            | Package
+            | For
+            | View
+            | Begin
+    ))
 }
 
 pub fn parse_declarative_part(

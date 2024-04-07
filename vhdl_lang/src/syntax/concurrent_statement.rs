@@ -389,7 +389,7 @@ fn parse_optional_declarative_part(
     diagnostics: &mut dyn DiagnosticHandler,
     standard: VHDLStandard,
 ) -> ParseResult<Option<Vec<Declaration>>> {
-    if is_declarative_part(stream, true)? {
+    if is_declarative_part(stream)? {
         let decls = parse_declarative_part(stream, diagnostics, standard)?;
         stream.expect_kind(Begin)?;
         Ok(Some(decls))

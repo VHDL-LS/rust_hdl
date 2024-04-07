@@ -20,6 +20,7 @@ impl Declaration {
         use Declaration::*;
         use ObjectClass::*;
         match parent {
+            // LRM: block_declarative_item
             AnyEntKind::Design(Design::Architecture(..))
             | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate)) => matches!(
                 self,
@@ -37,10 +38,13 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | Configuration(_)
+                    | View(_)
             ),
+            // LRM: configuration_declarative_item
             AnyEntKind::Design(Design::Configuration) => {
                 matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
             }
+            // LRM: entity_declarative_item
             AnyEntKind::Design(Design::Entity(..)) => matches!(
                 self,
                 Object(_)
@@ -53,7 +57,9 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | View(_)
             ),
+            // LRM: package_body_declarative_item
             AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
             | AnyEntKind::Overloaded(
                 Overloaded::SubprogramDecl(_)
@@ -77,6 +83,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
             ),
+            // LRM: package_declarative_item
             AnyEntKind::Design(Design::Package(..)) => matches!(
                 self,
                 Object(_)
@@ -89,6 +96,7 @@ impl Declaration {
                     | SubprogramInstantiation(_)
                     | Use(_)
                     | Package(_)
+                    | View(_)
             ),
             _ => {
                 // AnyEntKind::Library is used in tests for a generic declarative region
