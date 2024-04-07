@@ -9,9 +9,6 @@ use crate::data::error_codes::{ErrorCode, SeverityMap};
 use std::convert::{AsRef, Into};
 use strum::{EnumString, IntoStaticStr};
 
-#[cfg(test)]
-use crate::data::error_codes::default_severity_map;
-
 #[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum Severity {
@@ -99,7 +96,7 @@ impl Diagnostic {
 
     #[cfg(test)]
     pub fn show_default(&self) -> String {
-        self.show(&default_severity_map())
+        self.show(&SeverityMap::default())
             .expect("All severities should be defined in the default severity map")
     }
 }

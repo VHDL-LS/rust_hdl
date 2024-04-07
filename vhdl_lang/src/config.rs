@@ -19,11 +19,11 @@ use toml::Value;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 
-#[derive(Clone, PartialEq, Eq, Default, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
-    error_codes: FnvHashMap<ErrorCode, Option<Severity>>,
+    severities: SeverityMap,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -167,7 +167,7 @@ impl Config {
             );
         }
 
-        let mut error_code_overwrites = FnvHashMap::default();
+        let mut severities = SeverityMap::default();
 
         if let Some(error_codes) = config.get("lint") {
             let error_codes = error_codes.as_table().ok_or("lint must be a table")?;
@@ -177,7 +177,7 @@ impl Config {
                 match severity.as_bool() {
                     Some(should_show) => {
                         if !should_show {
-                            error_code_overwrites.insert(error_code, None);
+                            severities[error_code] = None
                         }
                     }
                     None => {
@@ -185,7 +185,7 @@ impl Config {
                             severity.as_str().ok_or("Severity must be a string")?,
                         )
                         .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
-                        error_code_overwrites.insert(error_code, Some(severity));
+                        severities[error_code] = Some(severity);
                     }
                 }
             }
@@ -193,7 +193,7 @@ impl Config {
 
         Ok(Config {
             libraries,
-            error_codes: error_code_overwrites,
+            severities,
         })
     }
 
@@ -231,7 +231,7 @@ impl Config {
                 self.libraries.insert(library.name.clone(), library.clone());
             }
         }
-        self.error_codes.extend(config.error_codes())
+        self.severities = config.severities;
     }
 
     /// Load configuration file from installation folder
@@ -312,8 +312,8 @@ impl Config {
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }
 
-    pub fn error_codes(&self) -> &FnvHashMap<ErrorCode, Option<Severity>> {
-        &self.error_codes
+    pub fn severities(&self) -> &SeverityMap {
+        &self.severities
     }
 }
 
@@ -463,10 +463,10 @@ duplicate = false
         assert_files_eq(&lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
         assert_eq!(messages, vec![]);
 
-        let mut expected_map = FnvHashMap::default();
-        expected_map.insert(ErrorCode::Unused, Some(Severity::Error));
-        expected_map.insert(ErrorCode::Duplicate, None);
-        assert_eq!(config.error_codes, expected_map)
+        let mut expected_map = SeverityMap::default();
+        expected_map[ErrorCode::Unused] = Some(Severity::Error);
+        expected_map[ErrorCode::Duplicate] = None;
+        assert_eq!(config.severities, expected_map)
     }
 
     #[test]

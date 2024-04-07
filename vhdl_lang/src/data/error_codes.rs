@@ -1,7 +1,7 @@
 use crate::{Diagnostic, Severity, SrcPos};
 use enum_map::{enum_map, Enum, EnumMap};
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ops::{Index, IndexMut};
 use strum::{EnumString, IntoStaticStr};
 
 #[derive(PartialEq, Debug, Clone, Copy, Eq, Hash, EnumString, IntoStaticStr, Enum)]
@@ -414,81 +414,91 @@ pub enum ErrorCode {
     Related,
 }
 
-// Using an `EnumMap` ensures that each error code is mapped to exactly one severity.
-// Additionally, this allows efficient implementation using an array internally.
-pub type SeverityMap = EnumMap<ErrorCode, Option<Severity>>;
+#[derive(Clone, PartialEq, Eq, Debug, Copy)]
+pub struct SeverityMap {
+    // Using an `EnumMap` ensures that each error code is mapped to exactly one severity.
+    // Additionally, this allows efficient implementation using an array internally.
+    inner: EnumMap<ErrorCode, Option<Severity>>,
+}
 
-pub fn default_severity_map() -> SeverityMap {
-    use ErrorCode::*;
-    use Severity::*;
-    enum_map! {
-        SyntaxError
-        | CircularDependency
-        | InvalidFormal
-        | InvalidFormalConversion
-        | TypeMismatch
-        | AmbiguousCall
-        | NamedBeforePositional
-        | TooManyArguments
-        | Unassociated
-        | AlreadyAssociated
-        | InterfaceModeMismatch
-        | DisallowedInSensitivityList
-        | DeclarationNotAllowed
-        | MismatchedEntityClass
-        | MisplacedAttributeSpec
-        | NoOverloadedWithSignature
-        | IllegalSignature
-        | SignatureRequired
-        | AmbiguousExpression
-        | Duplicate
-        | ConflictingUseClause
-        | MissingProtectedBodyType
-        | IllegalDeferredConstant
-        | SignatureMismatch
-        | AmbiguousInstantiation
-        | MismatchedSubprogramInstantiation
-        | VoidReturn
-        | NonVoidReturn
-        | IllegalReturn
-        | ExitOutsideLoop
-        | NextOutsideLoop
-        | InvalidLoopLabel
-        | MismatchedKinds
-        | TooManyConstraints
-        | TooFewConstraints
-        | IllegalConstraint
-        | InvalidOperatorSymbol
-        | Unresolved
-        | DimensionMismatch
-        | InvalidLiteral
-        | DeclaredBefore
-        | ConfigNotInSameLibrary
-        | NoImplicitConversion
-        | ExpectedSubAggregate
-        | IllegalAttribute
-        | CannotBePrefixed
-        | NonScalarInRange
-        | UnexpectedSignature
-        | MissingDeferredDeclaration
-        | MissingFullTypeDeclaration
-        | InvalidCall => Some(Error),
-        Unused
-        | UnnecessaryWorkLibrary
-        | UnassociatedContext => Some(Warning),
-        Internal => Some(Error),
-        Related => Some(Hint)
+impl Default for SeverityMap {
+    fn default() -> Self {
+        use ErrorCode::*;
+        use Severity::*;
+        let map = enum_map! {
+            SyntaxError
+            | CircularDependency
+            | InvalidFormal
+            | InvalidFormalConversion
+            | TypeMismatch
+            | AmbiguousCall
+            | NamedBeforePositional
+            | TooManyArguments
+            | Unassociated
+            | AlreadyAssociated
+            | InterfaceModeMismatch
+            | DisallowedInSensitivityList
+            | DeclarationNotAllowed
+            | MismatchedEntityClass
+            | MisplacedAttributeSpec
+            | NoOverloadedWithSignature
+            | IllegalSignature
+            | SignatureRequired
+            | AmbiguousExpression
+            | Duplicate
+            | ConflictingUseClause
+            | MissingProtectedBodyType
+            | IllegalDeferredConstant
+            | SignatureMismatch
+            | AmbiguousInstantiation
+            | MismatchedSubprogramInstantiation
+            | VoidReturn
+            | NonVoidReturn
+            | IllegalReturn
+            | ExitOutsideLoop
+            | NextOutsideLoop
+            | InvalidLoopLabel
+            | MismatchedKinds
+            | TooManyConstraints
+            | TooFewConstraints
+            | IllegalConstraint
+            | InvalidOperatorSymbol
+            | Unresolved
+            | DimensionMismatch
+            | InvalidLiteral
+            | DeclaredBefore
+            | ConfigNotInSameLibrary
+            | NoImplicitConversion
+            | ExpectedSubAggregate
+            | IllegalAttribute
+            | CannotBePrefixed
+            | NonScalarInRange
+            | UnexpectedSignature
+            | MissingDeferredDeclaration
+            | MissingFullTypeDeclaration
+            | InvalidCall => Some(Error),
+            Unused
+            | UnnecessaryWorkLibrary
+            | UnassociatedContext => Some(Warning),
+            Internal => Some(Error),
+            Related => Some(Hint)
+        };
+        SeverityMap { inner: map }
     }
 }
 
-pub fn severity_map_with_overwrites<T>(
-    overwrites: HashMap<ErrorCode, Option<Severity>, T>,
-) -> SeverityMap {
-    let mut map = default_severity_map();
-    for (key, value) in overwrites.into_iter() {
-        map[key] = value;
+impl Index<ErrorCode> for SeverityMap {
+    type Output = Option<Severity>;
+
+    fn index(&self, key: ErrorCode) -> &Self::Output {
+        self.inner.index(key)
     }
-    map
+}
+
+impl IndexMut<ErrorCode> for SeverityMap {
+    fn index_mut(&mut self, key: ErrorCode) -> &mut Self::Output {
+        self.inner.index_mut(key)
+    }
 }
 
 impl ErrorCode {
