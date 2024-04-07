@@ -48,16 +48,16 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics,
         )?;
         if !is_valid_assignment_target(&object_name.base) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.add(
                 target_pos,
                 format!(
                     "{} may not be the target of an assignment",
                     object_name.base.describe_class()
                 ),
                 ErrorCode::MismatchedKinds,
-            ));
+            );
         } else if !is_valid_assignment_type(&object_name.base, assignment_type) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.add(
                 target_pos,
                 format!(
                     "{} may not be the target of a {} assignment",
@@ -65,7 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                     assignment_type.to_str()
                 ),
                 ErrorCode::MismatchedKinds,
-            ));
+            );
         }
         Ok(object_name.type_mark())
     }

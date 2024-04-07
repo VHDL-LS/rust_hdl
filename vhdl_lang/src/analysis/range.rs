@@ -49,7 +49,7 @@ impl<'a> AnalyzeContext<'a> {
                 if typ.base().is_scalar() {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         &expr.pos,
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
                         ErrorCode::NonScalarInRange,
@@ -61,7 +61,7 @@ impl<'a> AnalyzeContext<'a> {
                 types.into_iter().filter(|typ| typ.is_scalar()).collect(),
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
-                diagnostics.error(
+                diagnostics.add(
                     &expr.pos,
                     "Non-scalar expression cannot be used in a range",
                     ErrorCode::NonScalarInRange,
@@ -92,7 +92,7 @@ impl<'a> AnalyzeContext<'a> {
                         attr.name.set_unique_reference(ent);
                         ent.return_type().unwrap()
                     } else {
-                        diagnostics.error(
+                        diagnostics.add(
                         &attr.name.pos,
                         format!(
                             "{} cannot be prefix of range attribute, array type or object is required",
@@ -111,7 +111,7 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Final(_)
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
-                diagnostics.error(
+                diagnostics.add(
                     &attr.name.pos,
                     format!(
                         "{} cannot be prefix of range attribute, array type or object is required",
@@ -142,7 +142,7 @@ impl<'a> AnalyzeContext<'a> {
                 Err(EvalError::Unknown)
             }
         } else {
-            diagnostics.error(
+            diagnostics.add(
                 &attr.name.pos,
                 format!(
                     "{} cannot be prefix of range attribute, array type or object is required",
@@ -175,7 +175,7 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some(typ) = self.common_type(l.base(), r.base()) {
                             return Ok(typ);
                         } else {
-                            diagnostics.error(
+                            diagnostics.add(
                                 constraint.pos(),
                                 format!(
                                     "Range type mismatch, left is {}, right is {}",
@@ -195,7 +195,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.common_types(l, r.base())
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
-                        diagnostics.error(
+                        diagnostics.add(
                             constraint.pos(),
                             "Range is ambiguous",
                             ErrorCode::TypeMismatch,
@@ -227,14 +227,14 @@ impl<'a> AnalyzeContext<'a> {
 
                     Ok(typ)
                 } else if types.is_empty() {
-                    diagnostics.error(
+                    diagnostics.add(
                         constraint.pos(),
                         "Range type of left and right side does not match",
                         ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         constraint.pos(),
                         "Range is ambiguous",
                         ErrorCode::TypeMismatch,
@@ -268,7 +268,7 @@ impl<'a> AnalyzeContext<'a> {
         if typ.is_discrete() {
             Ok(typ)
         } else {
-            diagnostics.error(
+            diagnostics.add(
                 &drange.pos(),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
@@ -328,7 +328,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
 
                 if let Some(ref mut signature) = signature {
-                    diagnostics.error(
+                    diagnostics.add(
                         &signature.pos,
                         format!("Did not expect signature for '{attr} attribute"),
                         ErrorCode::UnexpectedSignature,
@@ -461,7 +461,7 @@ mod tests {
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
                 ErrorCode::MismatchedKinds,
@@ -481,7 +481,7 @@ mod tests {
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("(0, 0)"),
                 "Non-scalar expression cannot be used in a range",
                 ErrorCode::NonScalarInRange,
@@ -530,7 +530,7 @@ function f1 return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("0 to false"),
                 "Range type mismatch, left is type universal_integer, right is type 'BOOLEAN'",
                 ErrorCode::TypeMismatch,
@@ -558,7 +558,7 @@ function f1 return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("f1 to false"),
                 "Range type of left and right side does not match",
                 ErrorCode::TypeMismatch,
@@ -586,7 +586,7 @@ function f1 return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("f1 to f1"),
                 "Range is ambiguous",
                 ErrorCode::TypeMismatch,
@@ -628,7 +628,7 @@ function myfun return arr_t;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
                 ErrorCode::MismatchedKinds,

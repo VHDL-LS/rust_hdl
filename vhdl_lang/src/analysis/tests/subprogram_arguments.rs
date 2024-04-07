@@ -24,7 +24,7 @@ signal bad : natural := subpgm;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("subpgm;").s1("subpgm"),
             "Invalid call to 'subpgm'",
             ErrorCode::InvalidCall,
@@ -65,7 +65,7 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("subpgm", 2),
                 "Invalid procedure call",
                 ErrorCode::InvalidCall,
@@ -74,7 +74,7 @@ end architecture;
                 code.s("subpgm", 1),
                 "function subpgm[NATURAL return NATURAL] is not a procedure",
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s("thesig", 2),
                 "signal 'thesig' of array type 'INTEGER_VECTOR' is not a procedure",
                 ErrorCode::MismatchedKinds,
@@ -130,12 +130,12 @@ constant bad : integer := subpgm(arg2 => 1);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("arg2"),
                 "No declaration of 'arg2'",
                 ErrorCode::Unresolved,
             ),
-            Diagnostic::error(
+            Diagnostic::new(
                 code.s1("subpgm(arg2 => 1)"),
                 "No association of parameter 'arg1'",
                 ErrorCode::Unassociated,
@@ -197,7 +197,7 @@ signal bad : natural := subpgm(0);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("subpgm(0)"),
             "No association of parameter 'arg2'",
             ErrorCode::Unassociated,
@@ -227,7 +227,7 @@ signal bad : natural := subpgm(1111, 2222);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s1("2222"),
             "Unexpected extra argument",
             ErrorCode::TooManyArguments,
@@ -323,7 +323,7 @@ end procedure;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("arg1", 2),
             "Named arguments are not allowed before positional arguments",
             ErrorCode::NamedBeforePositional,
@@ -350,7 +350,7 @@ end procedure;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("arg", 2),
             "parameter 'arg' has already been associated",
             ErrorCode::AlreadyAssociated,
@@ -378,7 +378,7 @@ end procedure;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("arg", 3),
             "parameter 'arg' has already been associated",
             ErrorCode::AlreadyAssociated,
@@ -426,7 +426,7 @@ end procedure;
     let (_, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
+        vec![Diagnostic::new(
             code.s("arg", 3),
             "parameter 'arg' has already been associated",
             ErrorCode::AlreadyAssociated,

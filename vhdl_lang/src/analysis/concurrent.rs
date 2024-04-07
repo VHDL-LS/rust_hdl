@@ -434,7 +434,7 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics,
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
-                    diagnostics.error(
+                    diagnostics.add(
                         &name.pos,
                         format!(
                             "{} is not a signal and cannot be in a sensitivity list",
@@ -444,7 +444,7 @@ impl<'a> AnalyzeContext<'a> {
                     )
                 } else if object_name.base.mode() == Some(Mode::Out) && !object_name.base.is_port()
                 {
-                    diagnostics.error(
+                    diagnostics.add(
                         &name.pos,
                         format!(
                             "{} cannot be in a sensitivity list",

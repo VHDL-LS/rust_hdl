@@ -97,7 +97,7 @@ impl<'a> Candidates<'a> {
                     {
                         // Special case to get better error for single rejected enumeration literal
                         // For example when assigning true to an integer.
-                        return Err(Diagnostic::error(
+                        return Err(Diagnostic::new(
                             name,
                             format!("'{}' does not match {}", name, ttyp.describe()),
                             ErrorCode::TypeMismatch,
@@ -113,7 +113,7 @@ impl<'a> Candidates<'a> {
                 ("Could not resolve", ErrorCode::Unresolved)
             };
 
-            let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"), code);
+            let mut diag = Diagnostic::new(name, format!("{err_prefix} '{name}'"), code);
 
             rejected.sort_by(|x, y| x.ent.decl_pos().cmp(&y.ent.decl_pos()));
 
@@ -296,11 +296,11 @@ impl<'a> AnalyzeContext<'a> {
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_kind.is_empty() {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.add(
                 call_name,
                 format!("uninstantiated subprogram {} cannot be called", call_name),
                 ErrorCode::InvalidCall,
-            ));
+            );
             return Err(EvalError::Unknown);
         }
 
@@ -413,7 +413,7 @@ impl Diagnostic {
         name: &WithPos<Designator>,
         rejected: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Self {
-        let mut diag = Diagnostic::error(
+        let mut diag = Diagnostic::new(
             &name.pos,
             format!("Could not resolve call to '{}'", name.designator()),
             ErrorCode::AmbiguousCall,
@@ -505,7 +505,7 @@ function myfun(arg : integer) return integer;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 call.s1("'c'"),
                 "character literal does not match integer type 'INTEGER'",
                 ErrorCode::TypeMismatch,
@@ -551,12 +551,12 @@ function myfun(arg1 : integer) return integer;
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(
+                Diagnostic::new(
                     fcall.s1("missing"),
                     "No declaration of 'missing'",
                     ErrorCode::Unresolved,
                 ),
-                Diagnostic::error(
+                Diagnostic::new(
                     fcall,
                     "No association of parameter 'arg1'",
                     ErrorCode::Unassociated,
@@ -581,7 +581,7 @@ function myfun(arg2 : integer) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 fcall.s1("myfun"),
                 "Could not resolve call to 'myfun'",
                 ErrorCode::AmbiguousCall,
@@ -656,7 +656,7 @@ function myfun(arg1 : character) return character;
         assert_eq!(test.disambiguate(&fcall, None, &mut diagnostics), None);
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 fcall.s1("myfun"),
                 "Could not resolve call to 'myfun'",
                 ErrorCode::AmbiguousCall,
@@ -713,7 +713,7 @@ function myfun(arg1 : integer) return character;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(
+            vec![Diagnostic::new(
                 fcall.s1("myfun"),
                 "Could not resolve call to 'myfun'",
                 ErrorCode::AmbiguousCall,

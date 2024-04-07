@@ -293,7 +293,7 @@ impl<'a> OverloadedName<'a> {
                 // @TODO only libraries have decl_pos=None
                 let pos = ent.decl_pos().unwrap();
 
-                let mut diagnostic = Diagnostic::error(
+                let mut diagnostic = Diagnostic::new(
                     pos,
                     format!(
                         "Duplicate declaration of '{}' with signature {}",

@@ -74,7 +74,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 } else {
-                    diagnostics.error(
+                    diagnostics.add(
                         &formal.pos,
                         "Expected simple name for package generic formal",
                         ErrorCode::MismatchedKinds,
@@ -84,7 +84,7 @@ impl<'a> AnalyzeContext<'a> {
             } else if let Some(ent) = generics.nth(idx) {
                 ent
             } else {
-                diagnostics.error(
+                diagnostics.add(
                     &assoc.actual.pos,
                     "Extra actual for generic map",
                     ErrorCode::TooManyArguments,
@@ -116,7 +116,7 @@ impl<'a> AnalyzeContext<'a> {
                                             )?;
                                         }
                                     } else {
-                                        diagnostics.error(
+                                        diagnostics.add(
                                             &assoc.actual.pos,
                                             format!(
                                                 "Array constraint cannot be used for {}",
@@ -139,7 +139,7 @@ impl<'a> AnalyzeContext<'a> {
                                 _ => self.type_name(scope, &assoc.actual.pos, name, diagnostics)?,
                             }
                         } else {
-                            diagnostics.error(
+                            diagnostics.add(
                                 &assoc.actual.pos,
                                 "Cannot map expression to type generic",
                                 ErrorCode::MismatchedKinds,
@@ -170,7 +170,7 @@ impl<'a> AnalyzeContext<'a> {
                                 if let Some(ent) = overloaded.get(&signature) {
                                     name.set_unique_reference(&ent);
                                 } else {
-                                    let mut diag = Diagnostic::error(
+                                    let mut diag = Diagnostic::new(
                                         &assoc.actual.pos,
                                         format!(
                                             "Cannot map '{}' to subprogram generic {}{}",
@@ -189,7 +189,7 @@ impl<'a> AnalyzeContext<'a> {
                                     diagnostics.push(diag)
                                 }
                             } else {
-                                diagnostics.error(
+                                diagnostics.add(
                                     &assoc.actual.pos,
                                     format!(
                                         "Cannot map {} to subprogram generic",
@@ -201,14 +201,14 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
-                                diagnostics.error(
+                                diagnostics.add(
                                     &assoc.actual.pos,
                                     "Invalid operator symbol",
                                     ErrorCode::InvalidOperatorSymbol,
                                 );
                             }
                         }
-                        _ => diagnostics.error(
+                        _ => diagnostics.add(
                             &assoc.actual.pos,
                             "Cannot map expression to subprogram generic",
                             ErrorCode::MismatchedKinds,
@@ -218,7 +218,7 @@ impl<'a> AnalyzeContext<'a> {
                         Expression::Name(name) => {
                             self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
                         }
-                        _ => diagnostics.error(
+                        _ => diagnostics.add(
                             &assoc.actual.pos,
                             "Cannot map expression to package generic",
                             ErrorCode::MismatchedKinds,
@@ -264,7 +264,7 @@ impl<'a> AnalyzeContext<'a> {
                     nested.add(inst, &mut NullDiagnostics);
                 }
                 Err((err, code)) => {
-                    let mut diag = Diagnostic::error(decl_pos, err, code);
+                    let mut diag = Diagnostic::new(decl_pos, err, code);
                     if let Some(pos) = uninst.decl_pos() {
                         diag.add_related(pos, "When instantiating this declaration");
                     }

@@ -217,7 +217,7 @@ impl<'a> AnalyzeContext<'a> {
                                 // No match
                                 bail!(
                                     diagnostics,
-                                    Diagnostic::error(
+                                    Diagnostic::new(
                                         &fcall.name.pos,
                                         format!(
                                             "No function '{}' accepting {}",
@@ -280,11 +280,11 @@ impl<'a> AnalyzeContext<'a> {
                 if is_positional {
                     fail = true;
 
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.add(
                         formal,
                         "Named arguments are not allowed before positional arguments",
                         ErrorCode::NamedBeforePositional,
-                    ));
+                    );
                 }
             } else {
                 is_positional = true;
@@ -327,7 +327,7 @@ impl<'a> AnalyzeContext<'a> {
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
                 result.push((&actual.pos, Some(formal)));
             } else {
-                diagnostics.error(
+                diagnostics.add(
                     &actual.pos,
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
@@ -354,7 +354,7 @@ impl<'a> AnalyzeContext<'a> {
                 Some(resolved_formal) => {
                     if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
                         if !(resolved_formal.is_partial && prev_formal.is_partial) {
-                            let mut diag = Diagnostic::error(
+                            let mut diag = Diagnostic::new(
                                 actual_pos,
                                 format!(
                                     "{} has already been associated",
@@ -384,7 +384,7 @@ impl<'a> AnalyzeContext<'a> {
                 // Output ports are allowed to be unconnected
                 || (formal_region.typ == InterfaceType::Port && formal.is_out_or_inout_signal()))
             {
-                let diagnostic = Diagnostic::error(
+                let diagnostic = Diagnostic::new(
                     error_pos,
                     format!("No association of {}", formal.describe()),
                     ErrorCode::Unassociated,
@@ -489,7 +489,7 @@ impl<'a> AnalyzeContext<'a> {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Expression must be a name denoting a signal",
                         ErrorCode::InterfaceModeMismatch,
@@ -500,7 +500,7 @@ impl<'a> AnalyzeContext<'a> {
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Signal)
                 {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Name must denote a signal name",
                         ErrorCode::InterfaceModeMismatch,
@@ -511,7 +511,7 @@ impl<'a> AnalyzeContext<'a> {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Expression must be a name denoting a variable or shared variable",
                         ErrorCode::InterfaceModeMismatch,
@@ -522,7 +522,7 @@ impl<'a> AnalyzeContext<'a> {
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
                 {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Name must denote a variable name",
                         ErrorCode::InterfaceModeMismatch,
@@ -533,7 +533,7 @@ impl<'a> AnalyzeContext<'a> {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Expression must be a name denoting a file",
                         ErrorCode::InterfaceModeMismatch,
@@ -544,7 +544,7 @@ impl<'a> AnalyzeContext<'a> {
                     ent.kind(),
                     AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
-                    diagnostics.error(
+                    diagnostics.add(
                         actual_pos,
                         "Name must denote a file name",
                         ErrorCode::InterfaceModeMismatch,
@@ -592,11 +592,11 @@ fn to_formal_conversion_argument(
 
 impl Diagnostic {
     pub fn invalid_formal(pos: impl AsRef<SrcPos>) -> Diagnostic {
-        Diagnostic::error(pos, "Invalid formal", ErrorCode::InvalidFormal)
+        Diagnostic::new(pos, "Invalid formal", ErrorCode::InvalidFormal)
     }
 
     pub fn invalid_formal_conversion(pos: impl AsRef<SrcPos>) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             "Invalid formal conversion",
             ErrorCode::InvalidFormalConversion,
@@ -608,7 +608,7 @@ impl Diagnostic {
         from: BaseType,
         to: TypeEnt,
     ) -> Diagnostic {
-        Diagnostic::error(
+        Diagnostic::new(
             pos,
             format!(
                 "{} cannot be converted to {}",

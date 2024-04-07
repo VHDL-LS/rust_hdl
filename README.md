@@ -157,7 +157,18 @@ UNISIM.files = [
     'C:\Xilinx\Vivado\2023.1\data\vhdl\src\unisims\unisim_VCOMP.vhd',
 ]
 UNISIM.is_third_party = true
+
+[lint]
+unused = 'error' # Upgrade the 'unused' diagnostic to the 'error' severity
+unnecessary_work_library = false # Disable linting for the 'library work;' statement
 ```
+
+Using the `lint` table, you can configure the severity of diagnostics or turn of diagnostics altogether.
+
+> [!WARNING]
+> You can overwrite every diagnostic error code including syntax or analysis errors using the lint table.
+> However, the intended use-case is for lints only.
+> Overwriting syntax or analysis errors (e.g., error codes `unused` or `syntax`) can cause unwanted side effects
 
 Paths in the `vhdl_ls.toml` can contain glob patterns (i.e., `.../*/`).
 On Unix machines, they can contain environment variables using the `$NAME` or `${NAME}` syntax.

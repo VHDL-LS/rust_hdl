@@ -401,7 +401,7 @@ impl<'a> AnalyzeContext<'a> {
 
         bail!(
             diagnostics,
-            Diagnostic::error(
+            Diagnostic::new(
                 pos,
                 format!("No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"),
                 ErrorCode::Unresolved,
@@ -444,7 +444,7 @@ impl<'a> AnalyzeContext<'a> {
 
         bail!(
             diagnostics,
-            Diagnostic::error(
+            Diagnostic::new(
                 pos,
                 format!("No primary unit '{primary_name}' within library '{library_name}'"),
                 ErrorCode::Unresolved,

@@ -15,6 +15,7 @@ mod symbol_table;
 
 pub use contents::*;
 pub use diagnostic::*;
+pub use error_codes::*;
 pub use latin_1::*;
 pub use message::*;
 pub use source::*;
