@@ -1,7 +1,7 @@
 use crate::ast::{AttributeDesignator, RangeAttribute, SignalAttribute, TypeAttribute};
 use crate::syntax::Kind;
 use crate::syntax::Kind::*;
-use crate::version::VhdlVersion;
+use crate::version::VHDLStandard;
 
 const KEYWORDS_1993: &[Kind] = &[
     Abs,
@@ -449,22 +449,22 @@ const ATTRIBUTES_2019: &[AttributeDesignator] = &[
     AttributeDesignator::PathName,
 ];
 
-impl VhdlVersion {
+impl VHDLStandard {
     /// Get all keywords that this VHDL standard defines
     pub fn keywords(&self) -> &'static [Kind] {
         match self {
-            VhdlVersion::VHDL1993 => KEYWORDS_1993,
-            VhdlVersion::VHDL2008 => KEYWORDS_2008,
-            VhdlVersion::VHDL2019 => KEYWORDS_2019,
+            VHDLStandard::VHDL1993 => KEYWORDS_1993,
+            VHDLStandard::VHDL2008 => KEYWORDS_2008,
+            VHDLStandard::VHDL2019 => KEYWORDS_2019,
         }
     }
 
     /// Get all builtin attributes that this VHDL standard defines
     pub fn builtin_attributes(&self) -> &'static [AttributeDesignator] {
         match self {
-            VhdlVersion::VHDL1993 => ATTRIBUTES_1993,
-            VhdlVersion::VHDL2008 => ATTRIBUTES_2008,
-            VhdlVersion::VHDL2019 => ATTRIBUTES_2019,
+            VHDLStandard::VHDL1993 => ATTRIBUTES_1993,
+            VHDLStandard::VHDL2008 => ATTRIBUTES_2008,
+            VHDLStandard::VHDL2019 => ATTRIBUTES_2019,
         }
     }
 }

@@ -1,14 +1,21 @@
-pub enum VhdlVersion {
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Ord, PartialOrd)]
+pub enum VHDLStandard {
     VHDL1993,
+    #[default]
     VHDL2008,
     VHDL2019,
 }
 
-impl TryFrom<&str> for VhdlVersion {
+#[test]
+fn order_of_standards() {
+    assert!(VHDLStandard::VHDL2008 > VHDLStandard::VHDL1993);
+}
+
+impl TryFrom<&str> for VHDLStandard {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        use VhdlVersion::*;
+        use VHDLStandard::*;
         Ok(match value {
             "1993" => VHDL1993,
             "2008" => VHDL2008,
@@ -18,9 +25,9 @@ impl TryFrom<&str> for VhdlVersion {
     }
 }
 
-impl AsRef<str> for VhdlVersion {
+impl AsRef<str> for VHDLStandard {
     fn as_ref(&self) -> &str {
-        use VhdlVersion::*;
+        use VHDLStandard::*;
         match self {
             VHDL1993 => "1993",
             VHDL2008 => "2008",

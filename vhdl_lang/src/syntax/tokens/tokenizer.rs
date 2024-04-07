@@ -568,7 +568,7 @@ pub struct Comment {
     pub multi_line: bool,
 }
 
-use crate::version::VhdlVersion;
+use crate::version::VHDLStandard;
 use std::convert::AsRef;
 use strum::IntoStaticStr;
 
@@ -1384,7 +1384,7 @@ impl Symbols {
         }
     }
 
-    fn from_version(version: VhdlVersion) -> Symbols {
+    pub fn from_standard(version: VHDLStandard) -> Symbols {
         let symtab = SymbolTable::default();
         let kw = version.keywords();
         let mut keywords = Vec::with_capacity(kw.len());
@@ -1414,7 +1414,7 @@ impl Symbols {
 
 impl std::default::Default for Symbols {
     fn default() -> Symbols {
-        Self::from_version(VhdlVersion::VHDL2008)
+        Self::from_standard(VHDLStandard::default())
     }
 }
 
@@ -1752,6 +1752,7 @@ impl<'a> Tokenizer<'a> {
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
+    use itertools::Itertools;
     use pretty_assertions::assert_eq;
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
@@ -2746,6 +2747,30 @@ entity -- €
                     }),
                 })),
             })]
+        );
+    }
+
+    #[test]
+    fn tokenize_different_versions() {
+        let code_str = "view x";
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL2008);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![Identifier, Identifier]
+        );
+
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL2019);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![View, Identifier]
         );
     }
 }

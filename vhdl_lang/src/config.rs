@@ -17,11 +17,13 @@ use subst::VariableMap;
 use toml::Value;
 
 use crate::data::*;
+use crate::version::VHDLStandard;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
+    standard: VHDLStandard,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -108,6 +110,14 @@ impl Config {
         let config = string.parse::<Value>().map_err(|err| err.to_string())?;
         let mut libraries = FnvHashMap::default();
 
+        let standard = if let Some(std) = config.get("standard") {
+            let std_str = std.as_str().ok_or("standard must be a string")?;
+            VHDLStandard::try_from(std_str)
+                .map_err(|_| format!("Unsupported standard '{std_str}'"))?
+        } else {
+            VHDLStandard::default()
+        };
+
         let libs = config
             .get("libraries")
             .ok_or("missing field libraries")?
@@ -165,7 +175,10 @@ impl Config {
             );
         }
 
-        Ok(Config { libraries })
+        Ok(Config {
+            libraries,
+            standard,
+        })
     }
 
     pub fn read_file_path(file_name: &Path) -> io::Result<Config> {
@@ -280,6 +293,12 @@ impl Config {
         self.load_installed_config(messages);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
+    }
+
+    /// The VHDL standard to use if no more specific config is present.
+    /// By default, VHDL 2008 is assumed
+    pub fn standard(&self) -> VHDLStandard {
+        self.standard
     }
 }
 

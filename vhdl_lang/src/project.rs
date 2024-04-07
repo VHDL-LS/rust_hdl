@@ -58,7 +58,7 @@ impl Project {
     /// The design state is reset, new files are added and parsed. Existing source files will be
     /// kept and parsed from in-memory source (required for incremental document updates).
     pub fn update_config(&mut self, config: Config, messages: &mut dyn MessageHandler) {
-        self.parser = VHDLParser::default();
+        self.parser = VHDLParser::new(config.standard());
         self.root = DesignRoot::new(self.parser.symbols.clone());
 
         // Reset library associations for known files,
