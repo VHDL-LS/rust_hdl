@@ -12,7 +12,6 @@ use crate::version::VHDLStandard;
 use std::io;
 use std::sync::Arc;
 
-#[derive(Default)]
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
 }

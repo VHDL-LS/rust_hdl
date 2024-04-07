@@ -41,3 +41,4 @@ pub use crate::syntax::{
 };
 
 pub use completion::{list_completion_options, CompletionItem};
+pub use version::VHDLStandard;

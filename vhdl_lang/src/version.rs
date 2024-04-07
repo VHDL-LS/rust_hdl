@@ -17,9 +17,9 @@ impl TryFrom<&str> for VHDLStandard {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         use VHDLStandard::*;
         Ok(match value {
-            "1993" => VHDL1993,
-            "2008" => VHDL2008,
-            "2019" => VHDL2019,
+            "1993" | "93" => VHDL1993,
+            "2008" | "08" => VHDL2008,
+            "2019" | "19" => VHDL2019,
             _ => return Err(()),
         })
     }

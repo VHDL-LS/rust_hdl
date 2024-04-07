@@ -203,6 +203,7 @@ impl Config {
     ///
     /// In case of conflict the appended config takes precedence
     pub fn append(&mut self, config: &Config, messages: &mut dyn MessageHandler) {
+        self.standard = config.standard;
         for library in config.iter_libraries() {
             if let Some(parent_library) = self.libraries.get_mut(&library.name) {
                 *parent_library = library.clone();

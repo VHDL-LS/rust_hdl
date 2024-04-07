@@ -12,6 +12,7 @@ use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
 use crate::named_entity::{AnyEnt, EntRef};
 use crate::syntax::VHDLParser;
+use crate::version::VHDLStandard;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
@@ -28,8 +29,8 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new() -> Project {
-        let parser = VHDLParser::default();
+    pub fn new(vhdl_standard: VHDLStandard) -> Project {
+        let parser = VHDLParser::new(vhdl_standard);
         Project {
             root: DesignRoot::new(parser.symbols.clone()),
             files: FnvHashMap::default(),
@@ -47,7 +48,7 @@ impl Project {
     /// Create instance from given configuration.
     /// Files referred by configuration are parsed into corresponding libraries.
     pub fn from_config(config: Config, messages: &mut dyn MessageHandler) -> Project {
-        let mut project = Project::new();
+        let mut project = Project::new(config.standard());
         let files = project.load_files_from_config(&config, messages);
         project.parse_and_add_files(files, messages);
         project.config = config;
@@ -341,12 +342,6 @@ fn multiply<T: Clone>(value: T, n: usize) -> Vec<T> {
         }
         res.push(value);
         res
-    }
-}
-
-impl Default for Project {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
