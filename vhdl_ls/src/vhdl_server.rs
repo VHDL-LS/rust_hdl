@@ -17,8 +17,8 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
-    InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos,
-    Token, Type, SeverityMap, VHDLStandard
+    InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, SeverityMap,
+    Source, SrcPos, Token, Type, VHDLStandard,
 };
 
 #[derive(Default, Clone)]
