@@ -223,4 +223,16 @@ error: Greetings
 "
         );
     }
+
+    #[test]
+    fn do_not_show_ignored_errors() {
+        let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
+        let mut severity_map = SeverityMap::default();
+        severity_map[ErrorCode::Unused] = None;
+
+        assert_eq!(
+            Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::Unused).show(&severity_map),
+            None
+        );
+    }
 }
