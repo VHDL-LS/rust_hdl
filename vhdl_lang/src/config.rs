@@ -14,15 +14,16 @@ use std::path::Path;
 
 use fnv::FnvHashMap;
 use subst::VariableMap;
-use toml::Value;
+use toml::{Table, Value};
 
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 
-#[derive(Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
+    // Defines the severity that diagnostics are displayed with
     severities: SeverityMap,
 }
 
@@ -167,34 +168,39 @@ impl Config {
             );
         }
 
-        let mut severities = SeverityMap::default();
-
-        if let Some(error_codes) = config.get("lint") {
-            let error_codes = error_codes.as_table().ok_or("lint must be a table")?;
-            for (name, severity) in error_codes.iter() {
-                let error_code = ErrorCode::try_from(name.as_str())
-                    .map_err(|_| format!("'{name}' is not a valid error code"))?;
-                match severity.as_bool() {
-                    Some(should_show) => {
-                        if !should_show {
-                            severities[error_code] = None
-                        }
-                    }
-                    None => {
-                        let severity = Severity::try_from(
-                            severity.as_str().ok_or("Severity must be a string")?,
-                        )
-                        .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
-                        severities[error_code] = Some(severity);
-                    }
-                }
-            }
-        }
+        let severities = if let Some(lint) = config.get("lint") {
+            Self::read_severity_overwrites(lint.as_table().ok_or("lint must be a table")?)?
+        } else {
+            SeverityMap::default()
+        };
 
         Ok(Config {
             libraries,
             severities,
         })
+    }
+
+    fn read_severity_overwrites(severity_overwrites: &Table) -> Result<SeverityMap, String> {
+        let mut severities = SeverityMap::default();
+
+        for (name, severity) in severity_overwrites {
+            let error_code = ErrorCode::try_from(name.as_str())
+                .map_err(|_| format!("'{name}' is not a valid error code"))?;
+            match severity {
+                Value::String(severity) => {
+                    let severity = Severity::try_from(severity.as_str())
+                        .map_err(|_| format!("'{severity}' is not a valid severity level"))?;
+                    severities[error_code] = Some(severity);
+                }
+                Value::Boolean(should_show) => {
+                    if !should_show {
+                        severities[error_code] = None
+                    }
+                }
+                _ => return Err("severity must be a string or boolean".to_string()),
+            }
+        }
+        Ok(severities)
     }
 
     pub fn read_file_path(file_name: &Path) -> io::Result<Config> {
