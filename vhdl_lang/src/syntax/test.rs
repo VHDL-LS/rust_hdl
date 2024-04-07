@@ -37,6 +37,7 @@ use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
+use crate::syntax::view::{parse_element_mode_indication, parse_mode_view_element_definition};
 use crate::syntax::{kind_str, TokenAccess, TokenId, TokenSpan};
 use crate::version::VHDLStandard;
 use std::collections::hash_map::DefaultHasher;
@@ -45,6 +46,16 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
+
+#[macro_export]
+macro_rules! vhd_08 {
+    ($fun:ident) => {
+        |stream, diagnostics| $fun(stream, diagnostics, vhdl_lang::VHDLStandard::VHDL2008)
+    };
+    ($fun:ident, $diagnostics:expr) => {
+        |stream| $fun(stream, $diagnostics, vhdl_lang::VHDLStandard::VHDL2008)
+    };
+}
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
@@ -459,7 +470,7 @@ impl Code {
 
     pub fn declarative_part(&self) -> Vec<Declaration> {
         let mut diagnostics = Vec::new();
-        let res = self.parse_ok(|stream| parse_declarative_part(stream, &mut diagnostics));
+        let res = self.parse_ok(vhd_08!(parse_declarative_part, &mut diagnostics));
         check_no_diagnostics(&diagnostics);
         res
     }
@@ -527,7 +538,7 @@ impl Code {
     }
 
     pub fn type_decl(&self) -> TypeDeclaration {
-        self.with_stream_no_diagnostics(parse_type_declaration)
+        self.with_stream_no_diagnostics(vhd_08!(parse_type_declaration))
     }
 
     pub fn object_decl(&self) -> ObjectDeclaration {
@@ -547,11 +558,19 @@ impl Code {
     }
 
     pub fn entity_decl(&self) -> EntityDeclaration {
-        self.with_stream_no_diagnostics(parse_entity_declaration)
+        self.with_stream_no_diagnostics(vhd_08!(parse_entity_declaration))
     }
 
     pub fn subtype_indication(&self) -> SubtypeIndication {
         self.parse_ok(parse_subtype_indication)
+    }
+
+    pub fn element_mode(&self) -> ElementMode {
+        self.parse_ok(parse_element_mode_indication)
+    }
+
+    pub fn mode_view_element(&self) -> ModeViewElement {
+        self.parse_ok_no_diagnostics(parse_mode_view_element_definition)
     }
 
     pub fn port(&self) -> InterfaceDeclaration {
@@ -598,7 +617,7 @@ impl Code {
     }
 
     pub fn concurrent_statement(&self) -> LabeledConcurrentStatement {
-        self.parse_ok_no_diagnostics(parse_labeled_concurrent_statement)
+        self.parse_ok_no_diagnostics(vhd_08!(parse_labeled_concurrent_statement))
     }
 
     pub fn association_list(&self) -> SeparatedList<AssociationElement> {
@@ -655,15 +674,15 @@ impl Code {
     }
 
     pub fn package_declaration(&self) -> PackageDeclaration {
-        self.parse_ok_no_diagnostics(parse_package_declaration)
+        self.parse_ok_no_diagnostics(vhd_08!(parse_package_declaration))
     }
 
     pub fn design_file(&self) -> DesignFile {
-        self.parse_ok_no_diagnostics(parse_design_file)
+        self.parse_ok_no_diagnostics(vhd_08!(parse_design_file))
     }
 
     pub fn architecture_body(&self) -> ArchitectureBody {
-        self.parse_ok_no_diagnostics(parse_architecture_body)
+        self.parse_ok_no_diagnostics(vhd_08!(parse_architecture_body))
     }
 
     pub fn subprogram_specification(&self) -> SubprogramSpecification {

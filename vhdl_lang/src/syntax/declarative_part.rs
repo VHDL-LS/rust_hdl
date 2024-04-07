@@ -18,6 +18,8 @@ use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::view::parse_mode_view_declaration;
+use crate::VHDLStandard;
 
 pub fn parse_package_instantiation(
     stream: &TokenStream,
@@ -64,6 +66,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
 pub fn parse_declarative_part(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
@@ -84,6 +87,7 @@ pub fn parse_declarative_part(
                 | Signal
                 | Variable
                 | Attribute
+                | View
                 | Use
                 | Alias
                 | Begin
@@ -96,12 +100,13 @@ pub fn parse_declarative_part(
             Begin | End => break,
             Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For => {
                 let decl = match token.kind {
-                    Type | Subtype => {
-                        parse_type_declaration(stream, diagnostics).map(Declaration::Type)?
-                    }
+                    Type | Subtype => parse_type_declaration(stream, diagnostics, standard)
+                        .map(Declaration::Type)?,
                     Component => parse_component_declaration(stream, diagnostics)
                         .map(Declaration::Component)?,
-                    Impure | Pure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
+                    Impure | Pure | Function | Procedure => {
+                        parse_subprogram(stream, diagnostics, standard)?
+                    }
                     Package => parse_package_instantiation(stream, diagnostics)
                         .map(Declaration::Package)?,
                     For => parse_configuration_specification(stream, diagnostics)
@@ -145,11 +150,33 @@ pub fn parse_declarative_part(
                 }
             }
 
+            View => {
+                match parse_mode_view_declaration(stream, diagnostics).or_recover_until(
+                    stream,
+                    diagnostics,
+                    is_recover_token,
+                ) {
+                    Ok(decl) => declarations.push(Declaration::View(decl)),
+                    Err(err) => {
+                        diagnostics.push(err);
+                        continue;
+                    }
+                }
+            }
+
             _ => {
-                diagnostics.push(token.kinds_error(&[
-                    Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
-                    File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
-                ]));
+                use crate::VHDLStandard::*;
+                let expected: &[Kind] = match standard {
+                    VHDL2008 | VHDL1993 => &[
+                        Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
+                        File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                    ],
+                    VHDL2019 => &[
+                        Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
+                        File, Shared, Constant, Signal, Variable, Attribute, Use, Alias, View,
+                    ],
+                };
+                diagnostics.push(token.kinds_error(expected));
                 stream.skip_until(is_recover_token)?;
                 continue;
             }
@@ -165,6 +192,7 @@ mod tests {
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
     use crate::syntax::test::Code;
+    use crate::VHDLStandard::VHDL2008;
 
     #[test]
     fn package_instantiation() {
@@ -220,7 +248,9 @@ var invalid: broken;
 constant x: natural := 5;
 ",
         );
-        let (decls, msgs) = code.with_partial_stream_diagnostics(parse_declarative_part);
+        let (decls, msgs) = code.with_partial_stream_diagnostics(|stream, diagnostics| {
+            parse_declarative_part(stream, diagnostics, VHDL2008)
+        });
         assert_eq!(
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
@@ -248,7 +278,9 @@ constant x: natural := 5;
     fn parse_declarative_part_error() {
         // Just checking that there is not an infinite loop
         let code = Code::new("invalid");
-        let (decl, _) = code.with_partial_stream_diagnostics(parse_declarative_part);
+        let (decl, _) = code.with_partial_stream_diagnostics(|stream, diagnostics| {
+            parse_declarative_part(stream, diagnostics, VHDL2008)
+        });
         assert!(decl.is_err());
     }
 }

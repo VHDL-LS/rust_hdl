@@ -15,6 +15,7 @@ use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::interface_declaration::parse_generic_interface_list;
 use crate::syntax::names::parse_name;
+use crate::VHDLStandard;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
@@ -219,6 +220,7 @@ pub fn parse_subprogram_body(
     specification_start_token: TokenId,
     specification: SubprogramSpecification,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<SubprogramBody> {
     let end_kind = {
         match specification {
@@ -226,7 +228,7 @@ pub fn parse_subprogram_body(
             SubprogramSpecification::Function(..) => Function,
         }
     };
-    let declarations = parse_declarative_part(stream, diagnostics)?;
+    let declarations = parse_declarative_part(stream, diagnostics, standard)?;
     stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
@@ -257,6 +259,7 @@ pub fn parse_subprogram_body(
 pub fn parse_subprogram(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<Declaration> {
     if stream.next_kinds_are(&[Procedure, Identifier, Is, New])
         || stream.next_kinds_are(&[Function, Identifier, Is, New])
@@ -271,7 +274,7 @@ pub fn parse_subprogram(
         stream,
         token,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, start_token, specification, diagnostics)?))
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, start_token, specification, diagnostics, standard)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(SubprogramDeclaration{
@@ -289,7 +292,7 @@ mod tests {
     use super::*;
 
     use crate::syntax::test::{token_to_string, Code};
-    use crate::{HasTokenSpan, Token};
+    use crate::{vhd_08, HasTokenSpan, Token};
 
     fn check_token_span(tokens: &[Token], expected_str: &str) {
         assert_eq!(
@@ -650,7 +653,7 @@ end function;
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramBody(body)
         );
     }
@@ -666,7 +669,7 @@ function foo(arg : natural) return natural;
             .s1("function foo(arg : natural) return natural;")
             .subprogram_decl();
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramDeclaration(specification)
         );
     }
@@ -691,7 +694,7 @@ end function foo;
             end_ident_pos: Some(code.s("foo", 2).pos()),
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramBody(body)
         );
     }
@@ -716,7 +719,7 @@ end function \"+\";
             end_ident_pos: Some(code.s("\"+\"", 2).pos()),
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramBody(body)
         );
     }
@@ -853,7 +856,7 @@ end function;
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramBody(body)
         );
     }
@@ -889,7 +892,7 @@ end procedure swap;
             end_ident_pos: Some(code.s("swap", 2).pos()),
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_subprogram),
+            code.with_stream_no_diagnostics(vhd_08!(parse_subprogram)),
             Declaration::SubprogramBody(body)
         );
     }
@@ -971,7 +974,7 @@ end procedure swap;
     #[test]
     pub fn subprogram_declaration() {
         let code = Code::new("procedure my_proc is new proc;");
-        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        let inst = code.parse_ok_no_diagnostics(vhd_08!(parse_subprogram));
         assert_eq!(
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {
@@ -985,7 +988,7 @@ end procedure swap;
         );
 
         let code = Code::new("function my_func is new func;");
-        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        let inst = code.parse_ok_no_diagnostics(vhd_08!(parse_subprogram));
         assert_eq!(
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {

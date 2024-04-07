@@ -19,12 +19,14 @@ use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
+use crate::VHDLStandard;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
 pub fn parse_entity_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<EntityDeclaration> {
     let start_token = stream.expect_kind(Entity)?;
 
@@ -34,10 +36,10 @@ pub fn parse_entity_declaration(
     let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
     let port_clause = parse_optional_port_list(stream, diagnostics)?;
 
-    let decl = parse_declarative_part(stream, diagnostics)?;
+    let decl = parse_declarative_part(stream, diagnostics, standard)?;
 
     let statements = if stream.skip_if_kind(Begin) {
-        parse_labeled_concurrent_statements(stream, diagnostics)?
+        parse_labeled_concurrent_statements(stream, diagnostics, standard)?
     } else {
         Vec::new()
     };
@@ -61,6 +63,7 @@ pub fn parse_entity_declaration(
 pub fn parse_architecture_body(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<ArchitectureBody> {
     let start_token = stream.expect_kind(Architecture)?;
     let ident = WithDecl::new(stream.expect_ident()?);
@@ -68,10 +71,10 @@ pub fn parse_architecture_body(
     let entity_name = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
-    let decl = parse_declarative_part(stream, diagnostics)?;
+    let decl = parse_declarative_part(stream, diagnostics, standard)?;
     let begin_token = stream.expect_kind(Begin)?;
 
-    let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
+    let statements = parse_labeled_concurrent_statements(stream, diagnostics, standard)?;
     stream.expect_kind(End)?;
     stream.pop_if_kind(Architecture);
 
@@ -94,6 +97,7 @@ pub fn parse_architecture_body(
 pub fn parse_package_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<PackageDeclaration> {
     let start_token = stream.expect_kind(Package)?;
     let ident = WithDecl::new(stream.expect_ident()?);
@@ -108,7 +112,7 @@ pub fn parse_package_declaration(
             None
         }
     };
-    let decl = parse_declarative_part(stream, diagnostics)?;
+    let decl = parse_declarative_part(stream, diagnostics, standard)?;
     stream.expect_kind(End)?;
     stream.pop_if_kind(Package);
     let end_ident = stream.pop_optional_ident();
@@ -127,13 +131,14 @@ pub fn parse_package_declaration(
 pub fn parse_package_body(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<PackageBody> {
     let start_token = stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
     let ident = stream.expect_ident()?;
 
     stream.expect_kind(Is)?;
-    let decl = parse_declarative_part(stream, diagnostics)?;
+    let decl = parse_declarative_part(stream, diagnostics, standard)?;
     stream.expect_kind(End)?;
     if stream.skip_if_kind(Package) {
         stream.expect_kind(Body)?;
@@ -167,6 +172,7 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
 pub fn parse_design_file(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
@@ -212,7 +218,7 @@ pub fn parse_design_file(
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
-            Entity => match parse_entity_declaration(stream, diagnostics) {
+            Entity => match parse_entity_declaration(stream, diagnostics, standard) {
                 Ok(mut entity) => {
                     let tokens = stream.slice_tokens();
                     entity.context_clause = take_context_clause(&mut context_clause);
@@ -221,7 +227,7 @@ pub fn parse_design_file(
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
-            Architecture => match parse_architecture_body(stream, diagnostics) {
+            Architecture => match parse_architecture_body(stream, diagnostics, standard) {
                 Ok(mut architecture) => {
                     let tokens = stream.slice_tokens();
                     architecture.context_clause = take_context_clause(&mut context_clause);
@@ -240,7 +246,7 @@ pub fn parse_design_file(
             },
             Package => {
                 if stream.next_kinds_are(&[Package, Body]) {
-                    match parse_package_body(stream, diagnostics) {
+                    match parse_package_body(stream, diagnostics, standard) {
                         Ok(mut package_body) => {
                             let tokens = stream.slice_tokens();
                             package_body.context_clause = take_context_clause(&mut context_clause);
@@ -258,7 +264,7 @@ pub fn parse_design_file(
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     }
                 } else {
-                    match parse_package_declaration(stream, diagnostics) {
+                    match parse_package_declaration(stream, diagnostics, standard) {
                         Ok(mut package) => {
                             let tokens = stream.slice_tokens();
                             package.context_clause = take_context_clause(&mut context_clause);
@@ -291,11 +297,12 @@ mod tests {
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
     use crate::syntax::{HasTokenSpan, TokenAccess};
+    use crate::vhd_08;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
         let mut diagnostics = vec![];
-        let design_file = code.with_stream(|stream| parse_design_file(stream, &mut diagnostics));
+        let design_file = code.with_stream(vhd_08!(parse_design_file, &mut diagnostics));
         (code, design_file, diagnostics)
     }
 
@@ -717,7 +724,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_package_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -740,7 +747,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_package_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -770,7 +777,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_package_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -828,7 +835,7 @@ use lib.foo;
 context lib.ctx;
     ",
         );
-        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
+        let (design_file, diagnostics) = code.with_stream_diagnostics(vhd_08!(parse_design_file));
         check_diagnostics(
             diagnostics,
             vec![
@@ -872,7 +879,7 @@ entity ent is
 end entity;
     ",
         );
-        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
+        let (design_file, diagnostics) = code.with_stream_diagnostics(vhd_08!(parse_design_file));
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::syntax_error(

@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
+    standard: VHDLStandard,
 }
 
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;
@@ -22,6 +23,7 @@ impl VHDLParser {
     pub fn new(vhdl_standard: VHDLStandard) -> VHDLParser {
         VHDLParser {
             symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
+            standard: vhdl_standard,
         }
     }
 
@@ -38,7 +40,7 @@ impl VHDLParser {
         let tokenizer = Tokenizer::new(&self.symbols, source, ContentReader::new(&contents));
         let stream = TokenStream::new(tokenizer, diagnostics);
 
-        match parse_design_file(&stream, diagnostics) {
+        match parse_design_file(&stream, diagnostics, self.standard) {
             Ok(design_file) => design_file,
             Err(diagnostic) => {
                 diagnostics.push(diagnostic);

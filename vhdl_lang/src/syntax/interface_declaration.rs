@@ -15,7 +15,7 @@ use crate::ast::*;
 use crate::data::*;
 use vhdl_lang::data::error_codes::ErrorCode;
 
-fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>>> {
+pub(crate) fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>>> {
     let token = stream.peek_expect()?;
     let mode = match token.kind {
         In => Mode::In,

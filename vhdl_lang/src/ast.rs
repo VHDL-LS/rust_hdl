@@ -880,6 +880,7 @@ pub enum Declaration {
     Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
+    View(ModeViewDeclaration),
 }
 
 /// LRM 10.2 Wait statement
@@ -1228,6 +1229,30 @@ pub struct CaseGenerateStatement {
     pub end_label_pos: Option<SrcPos>,
 }
 
+/// LRM 6.5.2 Interface Object Declarations - Mode view declarations
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewDeclaration {
+    pub ident: WithDecl<Ident>,
+    pub typ: SubtypeIndication,
+    pub elements: Vec<ModeViewElement>,
+    pub end_ident_pos: Option<SrcPos>,
+}
+
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewElement {
+    pub names: IdentList,
+    pub mode: ElementMode,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ElementMode {
+    Simple(WithPos<Mode>),
+    Record(WithPos<Name>),
+    Array(WithPos<Name>),
+}
+
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConcurrentStatement {
@@ -1319,7 +1344,7 @@ pub struct ContextDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
-/// LRM 4.9 Package instatiation declaration
+/// LRM 4.9 Package instantiation declaration
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {

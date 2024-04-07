@@ -17,6 +17,7 @@ use crate::ast::{AbstractLiteral, Range};
 use crate::data::DiagnosticHandler;
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
+use crate::VHDLStandard;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
@@ -191,6 +192,7 @@ fn parse_physical_type_definition(
 pub fn parse_type_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
+    standard: VHDLStandard,
 ) -> ParseResult<TypeDeclaration> {
     let start_token = stream.get_current_token_id();
     peek_token!(
@@ -245,7 +247,7 @@ pub fn parse_type_declaration(
 
         Protected => {
             if stream.skip_if_kind(Body) {
-                let decl = parse_declarative_part(stream, diagnostics)?;
+                let decl = parse_declarative_part(stream, diagnostics, standard)?;
                 stream.expect_kind(End)?;
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
@@ -289,7 +291,7 @@ mod tests {
 
     use super::*;
 
-    use crate::HasTokenSpan;
+    use crate::{vhd_08, HasTokenSpan};
 
     use crate::ast::{DiscreteRange, Ident};
     use crate::syntax::test::{token_to_string, Code};
@@ -306,7 +308,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -331,7 +333,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -356,7 +358,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -381,7 +383,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -403,7 +405,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -426,7 +428,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -449,7 +451,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -471,7 +473,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -490,7 +492,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -514,7 +516,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -541,7 +543,7 @@ end record;",
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -579,7 +581,7 @@ end foo;",
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             type_decl
         );
     }
@@ -589,7 +591,7 @@ end foo;",
         let code = Code::new("subtype vec_t is integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("vec_t").decl_ident(),
@@ -606,7 +608,7 @@ end foo;",
         let code = Code::new("type ptr_t is access integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("ptr_t").decl_ident(),
@@ -623,7 +625,7 @@ end foo;",
         let code = Code::new("type incomplete;");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("incomplete").decl_ident(),
@@ -638,7 +640,7 @@ end foo;",
         let code = Code::new("type foo is file of character;");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
@@ -671,7 +673,7 @@ end protected;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             protected_decl(code.s1("foo").ident(), code.token_span(), vec![], None)
         )
     }
@@ -685,7 +687,7 @@ end protected foo;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             protected_decl(
                 code.s1("foo").ident(),
                 code.token_span(),
@@ -713,7 +715,7 @@ end protected;
         ];
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             protected_decl(code.s1("foo").ident(), code.token_span(), items, None)
         )
     }
@@ -741,7 +743,7 @@ end protected body;
 
         let ident = code.s1("foo").decl_ident();
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident,
@@ -762,7 +764,7 @@ end units phys;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),
@@ -788,7 +790,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),
@@ -820,7 +822,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(parse_type_declaration),
+            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),

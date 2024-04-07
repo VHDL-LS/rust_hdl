@@ -66,6 +66,7 @@ pub enum FoundDeclaration<'a> {
     GenerateBody(&'a WithDecl<Ident>),
     ConcurrentStatement(&'a LabeledConcurrentStatement),
     SequentialStatement(&'a LabeledSequentialStatement),
+    View(&'a ModeViewDeclaration),
 }
 
 pub trait Searcher {
@@ -1073,6 +1074,31 @@ impl Search for Declaration {
             Declaration::Configuration(_) => {
                 // @TODO
             }
+            Declaration::View(view) => {
+                return_if_found!(searcher
+                    .search_decl(ctx, FoundDeclaration::View(view))
+                    .or_not_found());
+                let ModeViewDeclaration {
+                    ident: _,
+                    typ,
+                    elements,
+                    span: _,
+                    end_ident_pos: _,
+                } = view;
+                return_if_found!(typ.search(ctx, searcher));
+                return_if_found!(elements.search(ctx, searcher));
+            }
+        }
+        NotFound
+    }
+}
+
+impl Search for ModeViewElement {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        for name in self.names.items.iter() {
+            return_if_found!(searcher
+                .search_pos_with_ref(ctx, &name.item.pos, &name.reference)
+                .or_not_found());
         }
         NotFound
     }
@@ -1635,6 +1661,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::ConcurrentStatement(..) => None,
             FoundDeclaration::SequentialStatement(..) => None,
             FoundDeclaration::SubprogramInstantiation(_) => None,
+            FoundDeclaration::View(view) => view.end_ident_pos.as_ref(),
         }
     }
 
@@ -1669,6 +1696,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::GenerateBody(value) => &value.decl,
             FoundDeclaration::ConcurrentStatement(value) => &value.label.decl,
             FoundDeclaration::SequentialStatement(value) => &value.label.decl,
+            FoundDeclaration::View(value) => &value.ident.decl,
         }
     }
 }
@@ -1790,6 +1818,7 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                     write!(f, "<anonymous statement>")
                 }
             }
+            FoundDeclaration::View(value) => write!(f, "view {} of {}", value.ident, value.typ),
         }
     }
 }

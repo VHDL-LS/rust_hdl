@@ -586,6 +586,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::Configuration(..) => {}
+            Declaration::View(..) => {}
             Declaration::Type(..) => unreachable!("Handled elsewhere"),
         };
 
