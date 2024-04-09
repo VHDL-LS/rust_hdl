@@ -141,25 +141,6 @@ pub enum SignalAttribute {
     DrivingValue,
 }
 
-impl SignalAttribute {
-    pub fn to_str(&self) -> &str {
-        use SignalAttribute::*;
-        match self {
-            Delayed => "delayed",
-            Stable => "stable",
-            Quiet => "quiet",
-            Transaction => "transaction",
-            Event => "event",
-            Active => "active",
-            LastEvent => "last_event",
-            LastActive => "last_active",
-            LastValue => "last_value",
-            Driving => "driving",
-            DrivingValue => "driving_value",
-        }
-    }
-}
-
 /// LRM 8.7 External names
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ExternalObjectClass {
