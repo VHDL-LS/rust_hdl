@@ -1401,7 +1401,7 @@ impl Symbols {
         let attributes = version
             .builtin_attributes()
             .iter()
-            .map(|attr| (symtab.insert_utf8(attr.to_static_str()), attr.clone()))
+            .map(|attr| (symtab.insert_utf8(format!("{attr}").as_str()), attr.clone()))
             .collect();
 
         Symbols {

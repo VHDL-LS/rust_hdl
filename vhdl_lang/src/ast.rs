@@ -95,30 +95,10 @@ pub enum TypeAttribute {
     Element,
 }
 
-impl TypeAttribute {
-    pub fn to_str(&self) -> &str {
-        use TypeAttribute::*;
-        match self {
-            Subtype => "subtype",
-            Element => "element",
-        }
-    }
-}
-
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub enum RangeAttribute {
     Range,
     ReverseRange,
-}
-
-impl RangeAttribute {
-    pub fn to_str(&self) -> &str {
-        use RangeAttribute::*;
-        match self {
-            Range => "range",
-            ReverseRange => "reverse_range",
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Eq)]
@@ -144,35 +124,6 @@ pub enum AttributeDesignator {
     SimpleName,
     InstanceName,
     PathName,
-}
-
-impl AttributeDesignator {
-    pub fn to_static_str(&self) -> &str {
-        use AttributeDesignator::*;
-        match self {
-            Type(typ) => typ.to_str(),
-            Range(range) => range.to_str(),
-            Ident(_) => "{ident}",
-            Signal(signal) => signal.to_str(),
-            Ascending => "ascending",
-            Left => "left",
-            Right => "right",
-            High => "high",
-            Low => "low",
-            Length => "length",
-            Image => "image",
-            Value => "value",
-            Pos => "pos",
-            Val => "val",
-            Succ => "succ",
-            Pred => "pred",
-            LeftOf => "leftof",
-            RightOf => "rightof",
-            SimpleName => "simple_name",
-            InstanceName => "instance_name",
-            PathName => "path_name",
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
