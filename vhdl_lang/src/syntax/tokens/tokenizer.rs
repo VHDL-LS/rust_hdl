@@ -2752,8 +2752,8 @@ entity -- €
 
     #[test]
     fn tokenize_different_versions() {
-        let code_str = "view x";
-        let code = Code::with_standard(code_str, VHDLStandard::VHDL2008);
+        let code_str = "view default";
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL1993);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens
@@ -2763,6 +2763,16 @@ entity -- €
             vec![Identifier, Identifier]
         );
 
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL2008);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![Identifier, Default]
+        );
+
         let code = Code::with_standard(code_str, VHDLStandard::VHDL2019);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
@@ -2770,7 +2780,7 @@ entity -- €
                 .into_iter()
                 .map(|tok| tok.unwrap().kind)
                 .collect_vec(),
-            vec![View, Identifier]
+            vec![View, Default]
         );
     }
 }
