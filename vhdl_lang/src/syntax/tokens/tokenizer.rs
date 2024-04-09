@@ -568,7 +568,7 @@ pub struct Comment {
     pub multi_line: bool,
 }
 
-use crate::version::VHDLStandard;
+use crate::standard::VHDLStandard;
 use std::convert::AsRef;
 use strum::IntoStaticStr;
 
