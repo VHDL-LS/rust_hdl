@@ -11,6 +11,7 @@ use crate::completion::{list_completion_options, CompletionItem};
 use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
 use crate::named_entity::{AnyEnt, EntRef};
+use crate::standard::VHDLStandard;
 use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
@@ -28,8 +29,8 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new() -> Project {
-        let parser = VHDLParser::default();
+    pub fn new(vhdl_standard: VHDLStandard) -> Project {
+        let parser = VHDLParser::new(vhdl_standard);
         Project {
             root: DesignRoot::new(parser.symbols.clone()),
             files: FnvHashMap::default(),
@@ -47,7 +48,7 @@ impl Project {
     /// Create instance from given configuration.
     /// Files referred by configuration are parsed into corresponding libraries.
     pub fn from_config(config: Config, messages: &mut dyn MessageHandler) -> Project {
-        let mut project = Project::new();
+        let mut project = Project::new(config.standard());
         let files = project.load_files_from_config(&config, messages);
         project.parse_and_add_files(files, messages);
         project.config = config;
@@ -58,7 +59,7 @@ impl Project {
     /// The design state is reset, new files are added and parsed. Existing source files will be
     /// kept and parsed from in-memory source (required for incremental document updates).
     pub fn update_config(&mut self, config: Config, messages: &mut dyn MessageHandler) {
-        self.parser = VHDLParser::default();
+        self.parser = VHDLParser::new(config.standard());
         self.root = DesignRoot::new(self.parser.symbols.clone());
 
         // Reset library associations for known files,
@@ -341,12 +342,6 @@ fn multiply<T: Clone>(value: T, n: usize) -> Vec<T> {
         }
         res.push(value);
         res
-    }
-}
-
-impl Default for Project {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

@@ -8,10 +8,10 @@ use super::design_unit::parse_design_file;
 use super::tokens::{Symbols, TokenStream, Tokenizer};
 use crate::ast::DesignFile;
 use crate::data::*;
+use crate::standard::VHDLStandard;
 use std::io;
 use std::sync::Arc;
 
-#[derive(Default)]
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
 }
@@ -19,6 +19,12 @@ pub struct VHDLParser {
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;
 
 impl VHDLParser {
+    pub fn new(vhdl_standard: VHDLStandard) -> VHDLParser {
+        VHDLParser {
+            symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
+        }
+    }
+
     pub fn symbol(&self, name: &Latin1String) -> Symbol {
         self.symbols.symtab().insert(name)
     }

@@ -11,7 +11,8 @@ use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
 /// The kind of a Token
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum Kind {
     // Keywords
     Architecture,
@@ -97,14 +98,38 @@ pub enum Kind {
     Vunit,
     Parameter,
     Literal,
+    Bus,
+    Disconnect,
+    Group,
+    Guarded,
+    Register,
+    Assume,
+    #[strum(serialize = "assume_guarantee")]
+    AssumeGuarantee,
+    Cover,
+    Fairness,
+    Property,
+    Restrict,
+    #[strum(serialize = "restrict_guarantee")]
+    RestrictGuarantee,
+    Sequence,
+    Strong,
+    Vmode,
+    Vprop,
+    Private,
+    View,
+    Vpkg,
 
     // Unary operators
     Abs,
     Not,
 
     // Unary and binary operators
+    #[strum(serialize = "+")]
     Plus,
+    #[strum(serialize = "-")]
     Minus,
+    #[strum(serialize = "??")]
     QueQue,
 
     // Binary operators
@@ -124,50 +149,97 @@ pub enum Kind {
     Mod,
     Rem,
 
+    #[strum(serialize = "=")]
     EQ,
+    #[strum(serialize = "/=")]
     NE,
+    #[strum(serialize = "<")]
     LT,
+    #[strum(serialize = "<=")]
     LTE,
+    #[strum(serialize = ">")]
     GT,
+    #[strum(serialize = ">=")]
     GTE,
 
+    #[strum(serialize = "?=")]
     QueEQ,
+    #[strum(serialize = "?/=")]
     QueNE,
+    #[strum(serialize = "?<")]
     QueLT,
+    #[strum(serialize = "?<=")]
     QueLTE,
+    #[strum(serialize = "?>")]
     QueGT,
+    #[strum(serialize = "?>=")]
     QueGTE,
+    #[strum(serialize = "?")]
     Que,
 
+    #[strum(serialize = "*")]
     Times,
+    #[strum(serialize = "**")]
     Pow,
+    #[strum(serialize = "/")]
     Div,
 
+    #[strum(serialize = "{identifier}")]
     Identifier,
+    #[strum(serialize = "{abstract_literal}")]
     AbstractLiteral,
+    #[strum(serialize = "{string}")]
     StringLiteral,
+    #[strum(serialize = "{bit_string}")]
     BitString,
+    #[strum(serialize = "{character}")]
     Character,
+    #[strum(serialize = "'")]
     Tick,
+    #[strum(serialize = "(")]
     LeftPar,
+    #[strum(serialize = ")")]
     RightPar,
+    #[strum(serialize = "[")]
     LeftSquare,
+    #[strum(serialize = "]")]
     RightSquare,
+    #[strum(serialize = ";")]
     SemiColon,
+    #[strum(serialize = ":")]
     Colon,
+    #[strum(serialize = "|")]
     Bar,
+    #[strum(serialize = ".")]
     Dot,
+    #[strum(serialize = "<>")]
     BOX,
+    #[strum(serialize = "<<")]
     LtLt,
+    #[strum(serialize = ">>")]
     GtGt,
+    #[strum(serialize = "^")]
     Circ,
+    #[strum(serialize = "@")]
     CommAt,
+    #[strum(serialize = "&")]
     Concat,
+    #[strum(serialize = ",")]
     Comma,
+    #[strum(serialize = ":=")]
     ColonEq,
+    #[strum(serialize = "=>")]
     RightArrow,
-    GraveAccent, // `
-    Text,        // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
+    #[strum(serialize = "`")]
+    GraveAccent,
+    #[strum(serialize = "{text}")]
+    Text, // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
+}
+
+impl Kind {
+    pub fn as_str(&self) -> &str {
+        self.into()
+    }
 }
 
 use self::Kind::*;
@@ -266,163 +338,7 @@ macro_rules! try_init_token_kind {
 }
 
 pub fn kind_str(kind: Kind) -> &'static str {
-    match kind {
-        // Keywords
-        Architecture => "architecture",
-        Entity => "entity",
-        Configuration => "configuration",
-        Package => "package",
-        Block => "block",
-        Process => "process",
-        Generate => "generate",
-        Postponed => "postponed",
-        Library => "library",
-        Label => "label",
-        Use => "use",
-        Context => "context",
-        Body => "body",
-        Component => "component",
-        Is => "is",
-        Return => "return",
-        Null => "null",
-        Of => "of",
-        On => "on",
-        Generic => "generic",
-        Map => "map",
-        Default => "default",
-        Port => "port",
-        Attribute => "attribute",
-        Begin => "begin",
-        If => "if",
-        Loop => "loop",
-        While => "while",
-        Case => "case",
-        Else => "else",
-        Elsif => "elsif",
-        Then => "then",
-        When => "when",
-        With => "with",
-        Select => "select",
-        Next => "next",
-        Exit => "exit",
-        For => "for",
-        Force => "force",
-        Release => "release",
-        Assert => "assert",
-        Report => "report",
-        Severity => "severity",
-        Wait => "wait",
-        After => "after",
-        Transport => "transport",
-        Inertial => "inertial",
-        Reject => "reject",
-        Unaffected => "unaffected",
-        Until => "until",
-        End => "end",
-        All => "all",
-        Range => "range",
-        Downto => "downto",
-        To => "to",
-        In => "in",
-        Out => "out",
-        InOut => "inout",
-        Buffer => "buffer",
-        Linkage => "linkage",
-        Signal => "signal",
-        Constant => "constant",
-        Variable => "variable",
-        File => "file",
-        Open => "open",
-        Alias => "alias",
-        Shared => "shared",
-        Others => "others",
-        Record => "record",
-        Type => "type",
-        Subtype => "subtype",
-        Access => "access",
-        Units => "units",
-        New => "new",
-        Array => "array",
-        Protected => "protected",
-        Pure => "pure",
-        Impure => "impure",
-        Function => "function",
-        Procedure => "procedure",
-        Vunit => "vunit",
-        Parameter => "parameter",
-        Literal => "literal",
-
-        // Unary operators
-        Abs => "abs",
-        Not => "not",
-
-        // Unary and binary operators
-        Plus => "plus",
-        Minus => "minus",
-        QueQue => "??",
-
-        // Binary operators
-        And => "and",
-        Or => "or",
-        Nand => "nand",
-        Nor => "nor",
-        Xor => "xor",
-        Xnor => "xnor",
-        SLL => "sll",
-        SRL => "srl",
-        SLA => "sla",
-        SRA => "sra",
-        ROL => "rol",
-        ROR => "ror",
-
-        Mod => "mod",
-        Rem => "rem",
-
-        EQ => "=",
-        NE => "/=",
-        LT => "<",
-        LTE => "<=",
-        GT => ">",
-        GTE => ">=",
-
-        QueEQ => "?=",
-        QueNE => "?/=",
-        QueLT => "?<",
-        QueLTE => "?<=",
-        QueGT => "?>",
-        QueGTE => "?>=",
-        Que => "?",
-
-        Times => "*",
-        Pow => "**",
-        Div => "/",
-
-        Identifier => "{identifier}",
-        AbstractLiteral => "{abstract_literal}",
-        StringLiteral => "{string}",
-        BitString => "{bit_string}",
-        Character => "{character}",
-        Tick => "'",
-        LeftPar => "(",
-        RightPar => ")",
-        LeftSquare => "[",
-        RightSquare => "]",
-        SemiColon => ";",
-        Colon => ":",
-        Bar => "|",
-        Dot => ".",
-        BOX => "<>",
-        LtLt => "<<",
-        GtGt => ">>",
-        Circ => "^",
-        CommAt => "@",
-        Concat => "&",
-        Comma => ",",
-        ColonEq => ":=",
-        RightArrow => "=>",
-        GraveAccent => "`",
-        Text => "{text}",
-    }
+    kind.into()
 }
 
 /// Create s string representation of the kinds separated by a separator
@@ -652,7 +568,9 @@ pub struct Comment {
     pub multi_line: bool,
 }
 
+use crate::standard::VHDLStandard;
 use std::convert::AsRef;
+use strum::IntoStaticStr;
 
 impl AsRef<SrcPos> for Token {
     fn as_ref(&self) -> &SrcPos {
@@ -1465,199 +1383,25 @@ impl Symbols {
             (Identifier, Value::Identifier(symbol))
         }
     }
-}
 
-impl std::default::Default for Symbols {
-    fn default() -> Symbols {
-        let keywords_init = [
-            ("architecture", Architecture),
-            ("entity", Entity),
-            ("configuration", Configuration),
-            ("package", Package),
-            ("block", Block),
-            ("process", Process),
-            ("generate", Generate),
-            ("postponed", Postponed),
-            ("library", Library),
-            ("label", Label),
-            ("use", Use),
-            ("context", Context),
-            ("body", Body),
-            ("component", Component),
-            ("is", Is),
-            ("return", Return),
-            ("null", Null),
-            ("of", Of),
-            ("on", On),
-            ("generic", Generic),
-            ("map", Map),
-            ("default", Default),
-            ("port", Port),
-            ("attribute", Attribute),
-            ("begin", Begin),
-            ("end", End),
-            ("if", If),
-            ("loop", Loop),
-            ("while", While),
-            ("case", Case),
-            ("else", Else),
-            ("elsif", Elsif),
-            ("then", Then),
-            ("when", When),
-            ("with", With),
-            ("select", Select),
-            ("next", Next),
-            ("exit", Exit),
-            ("for", For),
-            ("force", Force),
-            ("release", Release),
-            ("assert", Assert),
-            ("report", Report),
-            ("severity", Severity),
-            ("wait", Wait),
-            ("after", After),
-            ("transport", Transport),
-            ("inertial", Inertial),
-            ("reject", Reject),
-            ("unaffected", Unaffected),
-            ("until", Until),
-            ("all", All),
-            ("range", Range),
-            ("downto", Downto),
-            ("to", To),
-            ("in", In),
-            ("out", Out),
-            ("inout", InOut),
-            ("buffer", Buffer),
-            ("linkage", Linkage),
-            ("signal", Signal),
-            ("constant", Constant),
-            ("variable", Variable),
-            ("file", File),
-            ("open", Open),
-            ("alias", Alias),
-            ("shared", Shared),
-            ("others", Others),
-            ("record", Record),
-            ("type", Type),
-            ("subtype", Subtype),
-            ("access", Access),
-            ("units", Units),
-            ("new", New),
-            ("array", Array),
-            ("protected", Protected),
-            ("pure", Pure),
-            ("impure", Impure),
-            ("function", Function),
-            ("procedure", Procedure),
-            ("abs", Abs),
-            ("not", Not),
-            ("and", And),
-            ("or", Or),
-            ("nand", Nand),
-            ("nor", Nor),
-            ("xor", Xor),
-            ("xnor", Xnor),
-            ("sll", SLL),
-            ("srl", SRL),
-            ("sla", SLA),
-            ("sra", SRA),
-            ("rol", ROL),
-            ("ror", ROR),
-            ("mod", Mod),
-            ("rem", Rem),
-            ("vunit", Vunit),
-            ("parameter", Parameter),
-        ];
-
-        let attributes = [
-            (
-                "reverse_range",
-                AttributeDesignator::Range(ast::RangeAttribute::ReverseRange),
-            ),
-            (
-                "element",
-                AttributeDesignator::Type(ast::TypeAttribute::Element),
-            ),
-            ("ascending", AttributeDesignator::Ascending),
-            ("descending", AttributeDesignator::Descending),
-            ("high", AttributeDesignator::High),
-            ("low", AttributeDesignator::Low),
-            ("left", AttributeDesignator::Left),
-            ("right", AttributeDesignator::Right),
-            ("length", AttributeDesignator::Length),
-            ("image", AttributeDesignator::Image),
-            ("value", AttributeDesignator::Value),
-            ("pos", AttributeDesignator::Pos),
-            ("val", AttributeDesignator::Val),
-            ("succ", AttributeDesignator::Succ),
-            ("pred", AttributeDesignator::Pred),
-            ("leftof", AttributeDesignator::LeftOf),
-            ("rightof", AttributeDesignator::RightOf),
-            (
-                "delayed",
-                AttributeDesignator::Signal(ast::SignalAttribute::Delayed),
-            ),
-            (
-                "active",
-                AttributeDesignator::Signal(ast::SignalAttribute::Active),
-            ),
-            (
-                "event",
-                AttributeDesignator::Signal(ast::SignalAttribute::Event),
-            ),
-            (
-                "quiet",
-                AttributeDesignator::Signal(ast::SignalAttribute::Quiet),
-            ),
-            (
-                "stable",
-                AttributeDesignator::Signal(ast::SignalAttribute::Stable),
-            ),
-            (
-                "transaction",
-                AttributeDesignator::Signal(ast::SignalAttribute::Transaction),
-            ),
-            (
-                "last_event",
-                AttributeDesignator::Signal(ast::SignalAttribute::LastEvent),
-            ),
-            (
-                "last_active",
-                AttributeDesignator::Signal(ast::SignalAttribute::LastActive),
-            ),
-            (
-                "last_value",
-                AttributeDesignator::Signal(ast::SignalAttribute::LastValue),
-            ),
-            (
-                "driving",
-                AttributeDesignator::Signal(ast::SignalAttribute::Driving),
-            ),
-            (
-                "driving_value",
-                AttributeDesignator::Signal(ast::SignalAttribute::DrivingValue),
-            ),
-            ("simple_name", AttributeDesignator::SimpleName),
-            ("instance_name", AttributeDesignator::InstanceName),
-            ("path_name", AttributeDesignator::PathName),
-        ];
-
+    pub fn from_standard(version: VHDLStandard) -> Symbols {
         let symtab = SymbolTable::default();
-        let mut keywords = Vec::with_capacity(keywords_init.len());
+        let kw = version.keywords();
+        let mut keywords = Vec::with_capacity(kw.len());
 
         let mut latin1 = Latin1String::empty();
-        for (keyword, kind) in keywords_init.iter() {
+        for kind in kw {
             latin1.bytes.clear();
-            latin1.bytes.extend_from_slice(keyword.as_bytes());
+            latin1.bytes.extend_from_slice(kind.as_str().as_bytes());
             let symbol = symtab.insert(&latin1);
             assert_eq!(symbol.id, keywords.len());
             keywords.push(*kind);
         }
 
-        let attributes = attributes
-            .into_iter()
-            .map(|(name, des)| (symtab.insert_utf8(name), des))
+        let attributes = version
+            .builtin_attributes()
+            .iter()
+            .map(|attr| (symtab.insert_utf8(format!("{attr}").as_str()), attr.clone()))
             .collect();
 
         Symbols {
@@ -1665,6 +1409,12 @@ impl std::default::Default for Symbols {
             keywords,
             attributes,
         }
+    }
+}
+
+impl std::default::Default for Symbols {
+    fn default() -> Symbols {
+        Self::from_standard(VHDLStandard::default())
     }
 }
 
@@ -2002,6 +1752,7 @@ impl<'a> Tokenizer<'a> {
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
+    use itertools::Itertools;
     use pretty_assertions::assert_eq;
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
@@ -2996,6 +2747,40 @@ entity -- €
                     }),
                 })),
             })]
+        );
+    }
+
+    #[test]
+    fn tokenize_different_versions() {
+        let code_str = "view default";
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL1993);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![Identifier, Identifier]
+        );
+
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL2008);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![Identifier, Default]
+        );
+
+        let code = Code::with_standard(code_str, VHDLStandard::VHDL2019);
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens
+                .into_iter()
+                .map(|tok| tok.unwrap().kind)
+                .collect_vec(),
+            vec![View, Default]
         );
     }
 }

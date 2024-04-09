@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use vhdl_lang::{
     kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
     InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, SeverityMap,
-    Source, SrcPos, Token, Type,
+    Source, SrcPos, Token, Type, VHDLStandard,
 };
 
 #[derive(Default, Clone)]
@@ -45,7 +45,7 @@ impl VHDLServer {
             rpc,
             settings,
             use_external_config: true,
-            project: Project::new(),
+            project: Project::new(VHDLStandard::default()),
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,
@@ -59,7 +59,7 @@ impl VHDLServer {
             rpc,
             settings: Default::default(),
             use_external_config,
-            project: Project::new(),
+            project: Project::new(VHDLStandard::default()),
             files_with_notifications: FnvHashMap::default(),
             init_params: None,
             config_file: None,

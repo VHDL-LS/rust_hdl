@@ -107,7 +107,6 @@ pub enum AttributeDesignator {
     Range(RangeAttribute),
     Ident(WithRef<Symbol>),
     Ascending,
-    Descending,
     Left,
     Right,
     High,

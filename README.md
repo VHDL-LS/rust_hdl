@@ -132,9 +132,21 @@ configuration file in the [TOML](https://github.com/toml-lang/toml) format named
 
 Settings in a later files overwrites those from previously loaded files.
 
+Define the VHDL revision to use for parsing and analysis with the `standard` key.
+The expected value is the year associated the VHDL standard.
+Supported standards are 1993, 2008 and 2019 where both the long version ("2008") and the short version ("08") can be
+used.
+If nothing is specified, 2008 is used.
+
+> [!NOTE]
+> Defining the standard feature is a relatively new feature (since april 2024).
+> Anything but the 2008 standard will not change much at the moment.
+
 **Example vhdl_ls.toml**
 
 ```toml
+# What standard to use. This is optional and defaults to VHDL2008.
+standard = "2008"
 # File names are either absolute or relative to the parent folder of the vhdl_ls.toml file
 [libraries]
 lib2.files = [

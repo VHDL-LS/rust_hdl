@@ -33,6 +33,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::standard::VHDLStandard;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
@@ -78,6 +79,12 @@ impl CodeBuilder {
     pub fn new() -> CodeBuilder {
         CodeBuilder {
             symbols: Arc::new(Symbols::default()),
+        }
+    }
+
+    pub fn with_standard(vhdl_standard: VHDLStandard) -> CodeBuilder {
+        CodeBuilder {
+            symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
         }
     }
 
@@ -130,6 +137,10 @@ pub struct Code {
 impl Code {
     pub fn new(code: &str) -> Code {
         CodeBuilder::new().code(code)
+    }
+
+    pub fn with_standard(code: &str, vhdl_standard: VHDLStandard) -> Code {
+        CodeBuilder::with_standard(vhdl_standard).code(code)
     }
 
     pub fn new_with_file_name(file_name: &Path, code: &str) -> Code {

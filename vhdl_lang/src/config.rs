@@ -18,11 +18,13 @@ use toml::{Table, Value};
 
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
+use crate::standard::VHDLStandard;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
+    standard: VHDLStandard,
     // Defines the severity that diagnostics are displayed with
     severities: SeverityMap,
 }
@@ -111,6 +113,14 @@ impl Config {
         let config = string.parse::<Value>().map_err(|err| err.to_string())?;
         let mut libraries = FnvHashMap::default();
 
+        let standard = if let Some(std) = config.get("standard") {
+            let std_str = std.as_str().ok_or("standard must be a string")?;
+            VHDLStandard::try_from(std_str)
+                .map_err(|_| format!("Unsupported standard '{std_str}'"))?
+        } else {
+            VHDLStandard::default()
+        };
+
         let libs = config
             .get("libraries")
             .ok_or("missing field libraries")?
@@ -177,6 +187,7 @@ impl Config {
         Ok(Config {
             libraries,
             severities,
+            standard,
         })
     }
 
@@ -225,6 +236,7 @@ impl Config {
     ///
     /// In case of conflict the appended config takes precedence
     pub fn append(&mut self, config: &Config, messages: &mut dyn MessageHandler) {
+        self.standard = config.standard;
         for library in config.iter_libraries() {
             if let Some(parent_library) = self.libraries.get_mut(&library.name) {
                 *parent_library = library.clone();
@@ -320,6 +332,12 @@ impl Config {
 
     pub fn severities(&self) -> &SeverityMap {
         &self.severities
+    }
+
+    /// The VHDL standard to use if no more specific config is present.
+    /// By default, VHDL 2008 is assumed
+    pub fn standard(&self) -> VHDLStandard {
+        self.standard
     }
 }
 
