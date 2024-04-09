@@ -18,7 +18,7 @@ use toml::{Table, Value};
 
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
-use crate::version::VHDLStandard;
+use crate::standard::VHDLStandard;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {

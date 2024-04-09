@@ -1,7 +1,7 @@
 use crate::ast::{AttributeDesignator, RangeAttribute, SignalAttribute, TypeAttribute};
+use crate::standard::VHDLStandard;
 use crate::syntax::Kind;
 use crate::syntax::Kind::*;
-use crate::version::VHDLStandard;
 
 const KEYWORDS_1993: &[Kind] = &[
     Abs,

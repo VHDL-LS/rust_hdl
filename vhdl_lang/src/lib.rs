@@ -21,7 +21,7 @@ mod project;
 mod syntax;
 
 mod completion;
-mod version;
+mod standard;
 
 pub use crate::config::Config;
 pub use crate::data::{
@@ -41,4 +41,4 @@ pub use crate::syntax::{
 };
 
 pub use completion::{list_completion_options, CompletionItem};
-pub use version::VHDLStandard;
+pub use standard::VHDLStandard;
