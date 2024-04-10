@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use std::cell::Cell;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
@@ -302,12 +303,7 @@ impl<'a> TokenAccess for TokenStream<'a> {
 }
 
 pub trait Recover<T> {
-    fn or_recover_until<F>(
-        self,
-        stream: &TokenStream,
-        msgs: &mut dyn DiagnosticHandler,
-        cond: F,
-    ) -> DiagnosticResult<T>
+    fn or_recover_until<F>(self, ctx: &mut ParsingContext<'_>, cond: F) -> DiagnosticResult<T>
     where
         F: Fn(Kind) -> bool;
 
@@ -315,23 +311,18 @@ pub trait Recover<T> {
 }
 
 impl<T> Recover<T> for DiagnosticResult<T> {
-    fn or_recover_until<F>(
-        self,
-        stream: &TokenStream,
-        msgs: &mut dyn DiagnosticHandler,
-        cond: F,
-    ) -> DiagnosticResult<T>
+    fn or_recover_until<F>(self, ctx: &mut ParsingContext<'_>, cond: F) -> DiagnosticResult<T>
     where
         F: Fn(Kind) -> bool,
     {
         match self {
             Ok(res) => Ok(res),
             Err(ref original_err) => {
-                let res = stream.skip_until(cond);
+                let res = ctx.stream.skip_until(cond);
                 match res {
                     Ok(_) => self,
                     Err(err) => {
-                        msgs.push(original_err.clone());
+                        ctx.diagnostics.push(original_err.clone());
                         Err(err)
                     }
                 }

@@ -5,27 +5,28 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{DelayMechanism, Waveform, WaveformElement};
+use crate::syntax::parser::ParsingContext;
 
 use super::common::{parse_optional, ParseResult};
 use super::expression::parse_expression;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::Kind::*;
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_delay_mechanism(stream: &TokenStream) -> ParseResult<Option<DelayMechanism>> {
-    let token = stream.peek_expect()?;
+pub fn parse_delay_mechanism(ctx: &mut ParsingContext<'_>) -> ParseResult<Option<DelayMechanism>> {
+    let token = ctx.stream.peek_expect()?;
     match token.kind {
         Transport => {
-            stream.skip();
+            ctx.stream.skip();
             Ok(Some(DelayMechanism::Transport))
         }
         Inertial => {
-            stream.skip();
+            ctx.stream.skip();
             Ok(Some(DelayMechanism::Inertial { reject: None }))
         }
         Reject => {
-            stream.skip();
-            let reject = Some(parse_expression(stream)?);
-            stream.expect_kind(Inertial)?;
+            ctx.stream.skip();
+            let reject = Some(parse_expression(ctx)?);
+            ctx.stream.expect_kind(Inertial)?;
             Ok(Some(DelayMechanism::Inertial { reject }))
         }
         _ => Ok(None),
@@ -33,20 +34,20 @@ pub fn parse_delay_mechanism(stream: &TokenStream) -> ParseResult<Option<DelayMe
 }
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_waveform(stream: &TokenStream) -> ParseResult<Waveform> {
-    if stream.skip_if_kind(Unaffected) {
+pub fn parse_waveform(ctx: &mut ParsingContext<'_>) -> ParseResult<Waveform> {
+    if ctx.stream.skip_if_kind(Unaffected) {
         return Ok(Waveform::Unaffected);
     }
 
     let mut elems = Vec::new();
 
     loop {
-        let value = parse_expression(stream)?;
-        let after = parse_optional(stream, After, parse_expression)?;
+        let value = parse_expression(ctx)?;
+        let after = parse_optional(ctx, After, parse_expression)?;
 
         elems.push(WaveformElement { value, after });
 
-        if !stream.skip_if_kind(Comma) {
+        if !ctx.stream.skip_if_kind(Comma) {
             break;
         }
     }

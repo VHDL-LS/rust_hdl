@@ -7,11 +7,12 @@
 use super::common::ParseResult;
 use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
-use super::tokens::{Kind, Kind::*, TokenStream};
+use super::tokens::{Kind, Kind::*};
 use crate::ast;
 use crate::ast::{Literal, *};
 use crate::data::{Diagnostic, WithPos};
 use crate::syntax::TokenAccess;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -143,14 +144,14 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 }
 
 pub fn parse_aggregate_initial_choices(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     choices: Vec<WithPos<Choice>>,
 ) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
     let mut choices = choices;
     let mut result = Vec::new();
     loop {
         expect_token!(
-            stream,
+            ctx.stream,
             token,
             RightPar => {
                 if choices.len() == 1 {
@@ -166,7 +167,7 @@ pub fn parse_aggregate_initial_choices(
                 if choices.len() == 1 {
                     if let Some(WithPos{item: Choice::Expression(expr), pos}) = choices.pop() {
                         result.push(ElementAssociation::Positional(WithPos::new(expr, pos)));
-                        choices = parse_choices(stream)?;
+                        choices = parse_choices(ctx)?;
                         continue;
                     }
                 }
@@ -174,17 +175,17 @@ pub fn parse_aggregate_initial_choices(
                 return Err(token.kinds_error(&[RightArrow]));
             },
             RightArrow => {
-                let rhs = parse_expression(stream)?;
+                let rhs = parse_expression(ctx)?;
                 result.push(ElementAssociation::Named(choices, rhs));
 
                 expect_token!(
-                    stream,
+                    ctx.stream,
                     token,
                     RightPar => {
                         return Ok(WithPos::from(result, token.pos.clone()))
                     },
                     Comma => {
-                        choices = parse_choices(stream)?;
+                        choices = parse_choices(ctx)?;
                     }
                 )
             }
@@ -192,21 +193,23 @@ pub fn parse_aggregate_initial_choices(
     }
 }
 
-pub fn parse_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
-    stream.expect_kind(LeftPar)?;
-    if let Some(token) = stream.pop_if_kind(RightPar) {
-        return Ok(WithPos::from(Vec::new(), stream.get_pos(token).clone()));
+pub fn parse_aggregate(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
+    ctx.stream.expect_kind(LeftPar)?;
+    if let Some(token) = ctx.stream.pop_if_kind(RightPar) {
+        return Ok(WithPos::from(Vec::new(), ctx.stream.get_pos(token).clone()));
     };
-    let choices = parse_choices(stream)?;
-    parse_aggregate_initial_choices(stream, choices)
+    let choices = parse_choices(ctx)?;
+    parse_aggregate_initial_choices(ctx, choices)
 }
 
 fn parse_half_range(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     left_expr: WithPos<Expression>,
     direction: Direction,
 ) -> ParseResult<WithPos<DiscreteRange>> {
-    let right_expr = parse_expression(stream)?;
+    let right_expr = parse_expression(ctx)?;
     let pos = left_expr.pos.combine(&right_expr.pos);
 
     let range = DiscreteRange::Range(ast::Range::Range(RangeConstraint {
@@ -218,29 +221,32 @@ fn parse_half_range(
     Ok(WithPos::new(range, pos))
 }
 
-fn parse_choice(stream: &TokenStream) -> ParseResult<WithPos<Choice>> {
-    if let Some(token) = stream.pop_if_kind(Others) {
-        return Ok(WithPos::new(Choice::Others, stream.get_pos(token).clone()));
+fn parse_choice(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Choice>> {
+    if let Some(token) = ctx.stream.pop_if_kind(Others) {
+        return Ok(WithPos::new(
+            Choice::Others,
+            ctx.stream.get_pos(token).clone(),
+        ));
     }
-    let left_expr = parse_expression(stream)?;
+    let left_expr = parse_expression(ctx)?;
 
-    if stream.skip_if_kind(To) {
-        let range = parse_half_range(stream, left_expr, Direction::Ascending)?;
+    if ctx.stream.skip_if_kind(To) {
+        let range = parse_half_range(ctx, left_expr, Direction::Ascending)?;
         Ok(range.map_into(Choice::DiscreteRange))
-    } else if stream.skip_if_kind(Downto) {
-        let range = parse_half_range(stream, left_expr, Direction::Descending)?;
+    } else if ctx.stream.skip_if_kind(Downto) {
+        let range = parse_half_range(ctx, left_expr, Direction::Descending)?;
         Ok(range.map_into(Choice::DiscreteRange))
     } else {
         Ok(left_expr.map_into(Choice::Expression))
     }
 }
 
-pub fn parse_choices(stream: &TokenStream) -> ParseResult<Vec<WithPos<Choice>>> {
+pub fn parse_choices(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithPos<Choice>>> {
     let mut choices = Vec::new();
     loop {
-        choices.push(parse_choice(stream)?);
+        choices.push(parse_choice(ctx)?);
 
-        if !stream.skip_if_kind(Bar) {
+        if !ctx.stream.skip_if_kind(Bar) {
             break;
         }
     }
@@ -248,12 +254,12 @@ pub fn parse_choices(stream: &TokenStream) -> ParseResult<Vec<WithPos<Choice>>> 
 }
 
 /// LRM 9.3.7 Allocators
-fn parse_allocator(stream: &TokenStream) -> ParseResult<WithPos<Allocator>> {
-    stream.expect_kind(New)?;
-    let type_mark = parse_type_mark(stream)?;
+fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Allocator>> {
+    ctx.stream.expect_kind(New)?;
+    let type_mark = parse_type_mark(ctx)?;
 
-    if stream.skip_if_kind(Tick) {
-        let expr = parse_expression(stream)?;
+    if ctx.stream.skip_if_kind(Tick) {
+        let expr = parse_expression(ctx)?;
         let pos = type_mark.pos.clone().combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
@@ -263,7 +269,7 @@ fn parse_allocator(stream: &TokenStream) -> ParseResult<WithPos<Allocator>> {
         let mut pos = type_mark.pos.clone();
 
         let constraint = {
-            if let Some(constraint) = parse_subtype_constraint(stream)? {
+            if let Some(constraint) = parse_subtype_constraint(ctx)? {
                 pos = pos.combine(&constraint.pos);
                 Some(constraint)
             } else {
@@ -319,8 +325,8 @@ fn name_to_selected_name(name: Name) -> Option<Name> {
     }
 }
 
-fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
-    let mut choices = parse_choices(stream)?;
+fn parse_expression_or_aggregate(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+    let mut choices = parse_choices(ctx)?;
 
     if choices.len() == 1
         && matches!(
@@ -340,19 +346,19 @@ fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Ex
         };
 
         peek_token!(
-            stream, token,
+            ctx.stream, token,
 
             // Was aggregate
             Comma | RightArrow => {
                 Ok(parse_aggregate_initial_choices(
-                    stream,
+                    ctx,
                     vec![WithPos::new(Choice::Expression(expr), pos)],
                 )?.map_into(Expression::Aggregate))
             },
 
             // Was expression with parenthesis
             RightPar => {
-                stream.skip();
+                ctx.stream.skip();
                 // Lexical position between parenthesis
                 let expr = WithPos {
                     item: expr,
@@ -363,7 +369,7 @@ fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Ex
         )
     } else {
         // Must be aggregate
-        Ok(parse_aggregate_initial_choices(stream, choices)?.map_into(Expression::Aggregate))
+        Ok(parse_aggregate_initial_choices(ctx, choices)?.map_into(Expression::Aggregate))
     }
 }
 
@@ -371,15 +377,15 @@ fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Ex
 /// 1. CHARACTER_LITERAL|INTEGER_LITERAL|IDENTIFIER|BOOLEAN_LITERAL
 /// 2. (expression)
 /// 3. PREFIX_UNARY_OP expression
-fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
-    let token = stream.peek_expect()?;
+fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+    let token = ctx.stream.peek_expect()?;
     match token.kind {
         Identifier | LtLt => {
-            let name = parse_name(stream)?;
-            if stream.skip_if_kind(Tick) {
-                let lpar = stream.expect_kind(LeftPar)?;
+            let name = parse_name(ctx)?;
+            if ctx.stream.skip_if_kind(Tick) {
+                let lpar = ctx.stream.expect_kind(LeftPar)?;
                 let expr =
-                    parse_expression_or_aggregate(stream)?.combine_pos_with(stream.get_pos(lpar));
+                    parse_expression_or_aggregate(ctx)?.combine_pos_with(ctx.stream.get_pos(lpar));
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
@@ -393,38 +399,37 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
             }
         }
         BitString => {
-            stream.skip();
+            ctx.stream.skip();
             Ok(token
                 .to_bit_string()?
                 .map_into(|bs| Expression::Literal(Literal::BitString(bs))))
         }
         Character => {
-            stream.skip();
+            ctx.stream.skip();
             Ok(token
                 .to_character_value()?
                 .map_into(|chr| Expression::Literal(Literal::Character(chr))))
         }
         StringLiteral => {
-            if stream.next_kinds_are(&[StringLiteral, LeftPar]) {
+            if ctx.stream.next_kinds_are(&[StringLiteral, LeftPar]) {
                 // Probably an function call via operator symbol "foo"()
-                parse_name(stream)
-                    .map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
+                parse_name(ctx).map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
             } else {
-                stream.skip();
+                ctx.stream.skip();
                 Ok(token
                     .to_string_value()?
                     .map_into(|string| Expression::Literal(Literal::String(string))))
             }
         }
         Null => {
-            stream.skip();
+            ctx.stream.skip();
             Ok(WithPos {
                 item: Expression::Literal(Literal::Null),
                 pos: token.pos.clone(),
             })
         }
         New => {
-            let alloc = parse_allocator(stream)?;
+            let alloc = parse_allocator(ctx)?;
 
             let new_pos = token.pos.combine(&alloc);
             Ok(WithPos {
@@ -433,11 +438,11 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
             })
         }
         AbstractLiteral => {
-            stream.skip();
+            ctx.stream.skip();
             let value = token.to_abstract_literal()?;
             // Physical unit
-            if let Some(unit_token) = stream.pop_if_kind(Identifier) {
-                let unit = stream.get_token(unit_token).to_identifier_value()?;
+            if let Some(unit_token) = ctx.stream.pop_if_kind(Identifier) {
+                let unit = ctx.stream.get_token(unit_token).to_identifier_value()?;
                 let pos = value.pos.combine_into(&unit);
                 let physical = PhysicalLiteral {
                     value: value.item,
@@ -453,16 +458,16 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
         }
 
         LeftPar => {
-            stream.skip();
-            parse_expression_or_aggregate(stream).map(|expr| expr.combine_pos_with(&token))
+            ctx.stream.skip();
+            parse_expression_or_aggregate(ctx).map(|expr| expr.combine_pos_with(&token))
         }
 
         kind => {
             // Prefix unary operation
             if let Some((unary_op, op_precedence)) = kind_to_prefix_unary_op(kind) {
-                stream.skip();
+                ctx.stream.skip();
 
-                let expr = parse_expr(stream, op_precedence)?;
+                let expr = parse_expr(ctx, op_precedence)?;
                 let pos = token.pos.combine(&expr);
 
                 Ok(WithPos {
@@ -474,7 +479,7 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
                 })
             } else {
                 Err(Diagnostic::syntax_error(
-                    stream.pos_before(token),
+                    ctx.stream.pos_before(token),
                     "Expected {expression}",
                 ))
             }
@@ -482,9 +487,12 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
     }
 }
 
-fn parse_expr(stream: &TokenStream, min_precedence: usize) -> ParseResult<WithPos<Expression>> {
-    let mut lhs = parse_primary(stream)?;
-    while let Some(token) = stream.peek() {
+fn parse_expr(
+    ctx: &mut ParsingContext<'_>,
+    min_precedence: usize,
+) -> ParseResult<WithPos<Expression>> {
+    let mut lhs = parse_primary(ctx)?;
+    while let Some(token) = ctx.stream.peek() {
         if token.kind == RightPar {
             return Ok(lhs);
         };
@@ -492,8 +500,8 @@ fn parse_expr(stream: &TokenStream, min_precedence: usize) -> ParseResult<WithPo
         if let Some((binary_op, op_precedence)) = kind_to_binary_op(token.kind) {
             // Binary operation
             if op_precedence > min_precedence {
-                stream.skip();
-                let rhs = parse_expr(stream, op_precedence)?;
+                ctx.stream.skip();
+                let rhs = parse_expr(ctx, op_precedence)?;
                 let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
                     item: Expression::Binary(
@@ -527,10 +535,10 @@ fn parse_expr(stream: &TokenStream, min_precedence: usize) -> ParseResult<WithPo
 ///   6. sign: + | -
 ///   7. multiplying_operator: * | / | mod | rem
 ///   8. misc_operator: ** | abs | not
-pub fn parse_expression(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
-    let state = stream.state();
-    parse_expr(stream, 0).map_err(|err| {
-        stream.set_state(state);
+pub fn parse_expression(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+    let state = ctx.stream.state();
+    parse_expr(ctx, 0).map_err(|err| {
+        ctx.stream.set_state(state);
         err
     })
 }

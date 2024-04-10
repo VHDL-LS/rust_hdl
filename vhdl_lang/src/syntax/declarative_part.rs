@@ -16,20 +16,19 @@ use super::subprogram::parse_subprogram;
 use super::tokens::{Kind::*, *};
 use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
-use crate::data::DiagnosticHandler;
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_package_instantiation(
-    stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<PackageInstantiation> {
-    let start_token = stream.expect_kind(Package)?;
-    let ident = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
-    stream.expect_kind(New)?;
-    let package_name = parse_selected_name(stream)?;
-    let generic_map = parse_map_aspect(stream, Generic, diagnsotics)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+    let start_token = ctx.stream.expect_kind(Package)?;
+    let ident = ctx.stream.expect_ident()?;
+    ctx.stream.expect_kind(Is)?;
+    ctx.stream.expect_kind(New)?;
+    let package_name = parse_selected_name(ctx)?;
+    let generic_map = parse_map_aspect(ctx, Generic)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(PackageInstantiation {
         span: TokenSpan::new(start_token, end_token),
@@ -40,8 +39,8 @@ pub fn parse_package_instantiation(
     })
 }
 
-pub fn is_declarative_part(stream: &TokenStream, begin_is_end: bool) -> ParseResult<bool> {
-    Ok(check_declarative_part(stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
+pub fn is_declarative_part(ctx: &mut ParsingContext, begin_is_end: bool) -> ParseResult<bool> {
+    Ok(check_declarative_part(ctx.stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
 }
 
 fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
@@ -61,10 +60,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
     }
 }
 
-pub fn parse_declarative_part(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Vec<Declaration>> {
+pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
     fn is_recover_token(kind: Kind) -> bool {
@@ -91,21 +87,18 @@ pub fn parse_declarative_part(
         )
     }
 
-    while let Some(token) = stream.peek() {
+    while let Some(token) = ctx.stream.peek() {
         match token.kind {
             Begin | End => break,
             Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For => {
                 let decl = match token.kind {
-                    Type | Subtype => {
-                        parse_type_declaration(stream, diagnostics).map(Declaration::Type)?
+                    Type | Subtype => parse_type_declaration(ctx).map(Declaration::Type)?,
+                    Component => parse_component_declaration(ctx).map(Declaration::Component)?,
+                    Impure | Pure | Function | Procedure => parse_subprogram(ctx)?,
+                    Package => parse_package_instantiation(ctx).map(Declaration::Package)?,
+                    For => {
+                        parse_configuration_specification(ctx).map(Declaration::Configuration)?
                     }
-                    Component => parse_component_declaration(stream, diagnostics)
-                        .map(Declaration::Component)?,
-                    Impure | Pure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
-                    Package => parse_package_instantiation(stream, diagnostics)
-                        .map(Declaration::Package)?,
-                    For => parse_configuration_specification(stream, diagnostics)
-                        .map(Declaration::Configuration)?,
                     _ => unreachable!(),
                 };
                 declarations.push(decl);
@@ -113,18 +106,18 @@ pub fn parse_declarative_part(
 
             File | Shared | Constant | Signal | Variable | Attribute => {
                 let decls: ParseResult<Vec<Declaration>> = match token.kind {
-                    File => parse_file_declaration(stream)
+                    File => parse_file_declaration(ctx)
                         .map(|decls| decls.into_iter().map(Declaration::File).collect()),
-                    Shared | Constant | Signal | Variable => parse_object_declaration(stream)
+                    Shared | Constant | Signal | Variable => parse_object_declaration(ctx)
                         .map(|decls| decls.into_iter().map(Declaration::Object).collect()),
-                    Attribute => parse_attribute(stream)
+                    Attribute => parse_attribute(ctx)
                         .map(|decls| decls.into_iter().map(Declaration::Attribute).collect()),
                     _ => unreachable!(),
                 };
-                match decls.or_recover_until(stream, diagnostics, is_recover_token) {
+                match decls.or_recover_until(ctx, is_recover_token) {
                     Ok(ref mut decls) => declarations.append(decls),
                     Err(err) => {
-                        diagnostics.push(err);
+                        ctx.diagnostics.push(err);
                         continue;
                     }
                 }
@@ -132,25 +125,25 @@ pub fn parse_declarative_part(
 
             Use | Alias => {
                 let decl: ParseResult<Declaration> = match token.kind {
-                    Use => parse_use_clause(stream, diagnostics).map(Declaration::Use),
-                    Alias => parse_alias_declaration(stream).map(Declaration::Alias),
+                    Use => parse_use_clause(ctx).map(Declaration::Use),
+                    Alias => parse_alias_declaration(ctx).map(Declaration::Alias),
                     _ => unreachable!(),
                 };
-                match decl.or_recover_until(stream, diagnostics, is_recover_token) {
+                match decl.or_recover_until(ctx, is_recover_token) {
                     Ok(decl) => declarations.push(decl),
                     Err(err) => {
-                        diagnostics.push(err);
+                        ctx.diagnostics.push(err);
                         continue;
                     }
                 }
             }
 
             _ => {
-                diagnostics.push(token.kinds_error(&[
+                ctx.diagnostics.push(token.kinds_error(&[
                     Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
                     File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
                 ]));
-                stream.skip_until(is_recover_token)?;
+                ctx.stream.skip_until(is_recover_token)?;
                 continue;
             }
         }

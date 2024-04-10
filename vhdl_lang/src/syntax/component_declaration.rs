@@ -4,28 +4,28 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::check_end_identifier_mismatch;
-use super::common::ParseResult;
+use super::common::{check_end_identifier_mismatch, ParseResult};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
-use crate::data::{Diagnostic, DiagnosticHandler};
+use crate::data::Diagnostic;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_optional_generic_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
-        let token = stream.peek_expect()?;
+        let token = ctx.stream.peek_expect()?;
         match token.kind {
             Generic => {
-                stream.skip();
-                let new_list = parse_generic_interface_list(stream, diagnostics)?;
-                stream.expect_kind(SemiColon)?;
+                ctx.stream.skip();
+                let new_list = parse_generic_interface_list(ctx)?;
+                ctx.stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    diagnostics.push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
+                    ctx.diagnostics
+                        .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -38,28 +38,28 @@ pub fn parse_optional_generic_list(
 }
 
 pub fn parse_optional_port_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
-        let token = stream.peek_expect()?;
+        let token = ctx.stream.peek_expect()?;
         match token.kind {
             Port => {
-                stream.skip();
-                let new_list = parse_port_interface_list(stream, diagnostics)?;
-                stream.expect_kind(SemiColon)?;
+                ctx.stream.skip();
+                let new_list = parse_port_interface_list(ctx)?;
+                ctx.stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    diagnostics.push(Diagnostic::syntax_error(token, "Duplicate port clause"));
+                    ctx.diagnostics
+                        .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                 } else {
                     list = Some(new_list);
                 }
             }
             Generic => {
-                stream.skip();
-                parse_generic_interface_list(stream, diagnostics)?;
-                stream.expect_kind(SemiColon)?;
-                diagnostics.push(Diagnostic::syntax_error(
+                ctx.stream.skip();
+                parse_generic_interface_list(ctx)?;
+                ctx.stream.expect_kind(SemiColon)?;
+                ctx.diagnostics.push(Diagnostic::syntax_error(
                     token,
                     "Generic clause must come before port clause",
                 ));
@@ -72,23 +72,22 @@ pub fn parse_optional_port_list(
 }
 
 pub fn parse_component_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ComponentDeclaration> {
-    let start_token = stream.expect_kind(Component)?;
-    let ident = WithDecl::new(stream.expect_ident()?);
-    stream.pop_if_kind(Is);
+    let start_token = ctx.stream.expect_kind(Component)?;
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.pop_if_kind(Is);
 
-    let generic_list = parse_optional_generic_list(stream, diagnostics)?;
-    let port_list = parse_optional_port_list(stream, diagnostics)?;
-    stream.expect_kind(End)?;
-    stream.expect_kind(Component)?;
-    let end_ident = stream.pop_optional_ident();
-    let end_token = stream.expect_kind(SemiColon)?;
+    let generic_list = parse_optional_generic_list(ctx)?;
+    let port_list = parse_optional_port_list(ctx)?;
+    ctx.stream.expect_kind(End)?;
+    ctx.stream.expect_kind(Component)?;
+    let end_ident = ctx.stream.pop_optional_ident();
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(ComponentDeclaration {
         span: TokenSpan::new(start_token, end_token),
-        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_list: generic_list.unwrap_or_default(),
         port_list: port_list.unwrap_or_default(),
