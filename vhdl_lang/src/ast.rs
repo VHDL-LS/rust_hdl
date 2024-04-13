@@ -734,7 +734,6 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
-    pub class: ObjectClass,
     pub ident: WithDecl<Ident>,
     pub mode: ModeIndication,
 }
@@ -748,9 +747,23 @@ pub enum ModeIndication {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SimpleModeIndication {
     pub mode: Option<Mode>,
+    pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
     pub bus: bool,
     pub expression: Option<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum ModeViewIndicationKind {
+    Array,
+    Record,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewIndication {
+    pub kind: ModeViewIndicationKind,
+    pub name: WithPos<Name>,
+    pub subtype_indication: Option<SubtypeIndication>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

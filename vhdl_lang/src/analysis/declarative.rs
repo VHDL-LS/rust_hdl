@@ -864,12 +864,13 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<EntRef<'a>> {
         match &mut object_decl.mode {
             ModeIndication::Simple(mode) => {
-                let subtype = self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
+                let (subtype, class) =
+                    self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
                 Ok(self.arena.define(
                     &mut object_decl.ident,
                     parent,
                     AnyEntKind::Object(Object {
-                        class: object_decl.class,
+                        class,
                         iface: Some(ObjectInterface::new(
                             object_decl.list_type,
                             mode.mode.unwrap_or_default(),
@@ -888,7 +889,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         mode: &mut SimpleModeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Subtype<'a>> {
+    ) -> EvalResult<(Subtype<'a>, ObjectClass)> {
         let subtype =
             self.resolve_subtype_indication(scope, &mut mode.subtype_indication, diagnostics);
 
@@ -906,7 +907,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        subtype
+        Ok((subtype?, mode.class))
     }
 
     pub fn analyze_interface_list(

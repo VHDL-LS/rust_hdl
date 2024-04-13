@@ -959,7 +959,8 @@ impl Display for InterfaceObjectDeclaration {
                 write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Parameter => {
-                write!(f, "{} {} : {}", self.class, self.ident, self.mode,)
+                let ModeIndication::Simple(class) = &self.mode;
+                write!(f, "{} {} : {}", class.class, self.ident, self.mode)
             }
         }
     }
