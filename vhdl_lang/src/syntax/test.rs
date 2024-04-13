@@ -37,6 +37,7 @@ use crate::standard::VHDLStandard;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
+use crate::syntax::parser::ParsingContext;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
 use crate::syntax::view::{parse_element_mode_indication, parse_mode_view_element_definition};
 use crate::syntax::{kind_str, TokenAccess, TokenId, TokenSpan};
@@ -47,18 +48,9 @@ use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-#[macro_export]
-macro_rules! vhd_08 {
-    ($fun:ident) => {
-        |stream, diagnostics| $fun(stream, diagnostics, vhdl_lang::VHDLStandard::VHDL2008)
-    };
-    ($fun:ident, $diagnostics:expr) => {
-        |stream| $fun(stream, $diagnostics, vhdl_lang::VHDLStandard::VHDL2008)
-    };
-}
-
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
+    pub standard: VHDLStandard,
 }
 
 impl AnyDesignUnit {
@@ -90,12 +82,14 @@ impl CodeBuilder {
     pub fn new() -> CodeBuilder {
         CodeBuilder {
             symbols: Arc::new(Symbols::default()),
+            standard: VHDLStandard::default(),
         }
     }
 
     pub fn with_standard(vhdl_standard: VHDLStandard) -> CodeBuilder {
         CodeBuilder {
             symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
+            standard: vhdl_standard,
         }
     }
 
@@ -107,6 +101,7 @@ impl CodeBuilder {
         let code = Code {
             symbols: self.symbols.clone(),
             pos,
+            standard: self.standard,
         };
 
         // Ensure symbol table is populated
@@ -143,6 +138,7 @@ impl<T> SeparatedList<T> {
 pub struct Code {
     pub symbols: Arc<Symbols>,
     pos: SrcPos,
+    standard: VHDLStandard,
 }
 
 impl Code {
@@ -162,6 +158,7 @@ impl Code {
         Code {
             symbols: self.symbols.clone(),
             pos: SrcPos::new(self.pos.source.clone(), range),
+            standard: self.standard,
         }
     }
 
@@ -175,6 +172,7 @@ impl Code {
                     end: self.pos.end(),
                 },
             ),
+            standard: self.standard,
         }
     }
 
@@ -188,6 +186,7 @@ impl Code {
                     end,
                 },
             ),
+            standard: self.standard,
         }
     }
 
@@ -346,9 +345,9 @@ impl Code {
     }
 
     /// Helper method to run lower level parsing function at specific substring
-    pub fn parse<F, R>(&self, parse_fun: F) -> R
+    pub fn parse<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
-        F: FnOnce(&TokenStream) -> R,
+        F: FnOnce(&mut ParsingContext<'_>) -> R,
     {
         let contents = self.pos.source.contents();
         let source = Source::from_contents(
@@ -358,19 +357,25 @@ impl Code {
         let contents = source.contents();
         let reader = ContentReader::new(&contents);
         let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
-        let mut stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
+        let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         forward(&stream, self.pos.start());
-        parse_fun(&mut stream)
+        let mut diag = Vec::new();
+        let mut ctx = ParsingContext {
+            stream: &stream,
+            diagnostics: &mut diag,
+            standard: self.standard,
+        };
+        (parse_fun(&mut ctx), diag)
     }
 
     /// Expect Ok() value
-    pub fn parse_ok<F, R>(&self, parse_fun: F) -> R
+    pub fn parse_ok<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
-        F: FnOnce(&TokenStream) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
         match self.parse(parse_fun) {
-            Ok(res) => res,
-            Err(diagnostic) => {
+            (Ok(res), diag) => (res, diag),
+            (Err(diagnostic), _) => {
                 panic!("{}", diagnostic.show_default());
             }
         }
@@ -378,51 +383,34 @@ impl Code {
 
     pub fn with_partial_stream<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&TokenStream) -> R,
+        R: Debug,
+        F: FnOnce(&mut ParsingContext<'_>) -> R,
     {
-        let contents = self.pos.source.contents();
-        let reader = ContentReader::new(&contents);
-        let tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
-        let mut stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
-        parse_fun(&mut stream)
+        let (res, diag) = self.with_partial_stream_diagnostics(parse_fun);
+        check_no_diagnostics(&diag);
+        res
     }
 
     pub fn with_stream<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&TokenStream) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
-        let parse_fun_eof = |stream: &TokenStream| {
-            let result = parse_fun(stream);
-            match result {
-                Err(err) => {
-                    println!("{err:#?}");
-                    println!("{}", err.show_default());
-                    panic!("Got Err()");
-                }
-                Ok(result) => {
-                    if let Some(token) = stream.peek() {
-                        println!("result = {result:#?}");
-                        panic!("Expected EOF got {token:?}");
-                    }
-                    result
-                }
-            }
-        };
-
-        self.with_partial_stream(parse_fun_eof)
+        let (res, diag) = self.with_stream_diagnostics(parse_fun);
+        check_no_diagnostics(&diag);
+        res
     }
 
     pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Diagnostic
     where
         R: Debug,
-        F: FnOnce(&TokenStream) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
-        let parse_fun_eof = |stream: &TokenStream| {
-            let result = parse_fun(stream);
+        let parse_fun_eof = |ctx: &mut ParsingContext<'_>| {
+            let result = parse_fun(ctx);
             match result {
                 Err(err) => {
-                    if let Some(token) = stream.peek() {
+                    if let Some(token) = ctx.stream.peek() {
                         println!("err = {err:#?}");
                         panic!("Expected EOF got {token:?}");
                     }
@@ -440,28 +428,52 @@ impl Code {
     pub fn with_partial_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
         R: Debug,
-        F: FnOnce(&TokenStream, &mut dyn DiagnosticHandler) -> R,
+        F: FnOnce(&mut ParsingContext<'_>) -> R,
     {
-        let mut diagnostics = Vec::new();
-        let result =
-            self.with_partial_stream(|stream: &TokenStream| parse_fun(stream, &mut diagnostics));
-        (result, diagnostics)
+        let contents = self.pos.source.contents();
+        let reader = ContentReader::new(&contents);
+        let tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
+        let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
+        let mut diag = Vec::new();
+        let mut ctx = ParsingContext {
+            stream: &stream,
+            diagnostics: &mut diag,
+            standard: self.standard,
+        };
+        let res = parse_fun(&mut ctx);
+        (res, diag)
     }
 
     pub fn with_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
         R: Debug,
-        F: FnOnce(&TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
-        let mut diagnostics = Vec::new();
-        let result = self.with_stream(|stream: &TokenStream| parse_fun(stream, &mut diagnostics));
-        (result, diagnostics)
+        let parse_fun_eof = |ctx: &mut ParsingContext| {
+            let result = parse_fun(ctx);
+            match result {
+                Err(err) => {
+                    println!("{err:#?}");
+                    println!("{}", err.show_default());
+                    panic!("Got Err()");
+                }
+                Ok(result) => {
+                    if let Some(token) = ctx.stream.peek() {
+                        println!("result = {result:#?}");
+                        panic!("Expected EOF got {token:?}");
+                    }
+                    result
+                }
+            }
+        };
+
+        self.with_partial_stream_diagnostics(parse_fun_eof)
     }
 
     pub fn with_stream_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
         let (result, diagnostics) = self.with_stream_diagnostics(parse_fun);
         check_no_diagnostics(&diagnostics);
@@ -469,51 +481,49 @@ impl Code {
     }
 
     pub fn declarative_part(&self) -> Vec<Declaration> {
-        let mut diagnostics = Vec::new();
-        let res = self.parse_ok(vhd_08!(parse_declarative_part, &mut diagnostics));
-        check_no_diagnostics(&diagnostics);
-        res
+        self.parse_ok_no_diagnostics(parse_declarative_part)
     }
     /// Helper to create a identifier at first occurence of name
     pub fn ident(&self) -> Ident {
-        self.parse_ok(|stream: &TokenStream| stream.expect_ident())
+        self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
     }
 
     pub fn attr_ident(&self) -> WithPos<AttributeDesignator> {
-        self.parse_ok(|stream: &TokenStream| stream.expect_ident())
+        self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
             .map_into(|i| AttributeDesignator::Ident(WithRef::new(i)))
     }
 
     pub fn decl_ident(&self) -> WithDecl<Ident> {
-        WithDecl::new(self.parse_ok(|stream: &TokenStream| stream.expect_ident()))
+        WithDecl::new(self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident()))
     }
 
     pub fn designator(&self) -> WithPos<Designator> {
-        self.parse_ok(parse_designator)
+        self.parse_ok_no_diagnostics(parse_designator)
     }
 
     pub fn decl_designator(&self) -> WithDecl<WithPos<Designator>> {
-        WithDecl::new(self.parse_ok(parse_designator))
+        WithDecl::new(self.parse_ok_no_diagnostics(parse_designator))
     }
     pub fn ref_designator(&self) -> WithPos<WithRef<Designator>> {
-        self.parse_ok(parse_designator).map_into(WithRef::new)
+        self.parse_ok_no_diagnostics(parse_designator)
+            .map_into(WithRef::new)
     }
 
     pub fn character(&self) -> WithPos<u8> {
-        self.parse_ok(|stream: &TokenStream| {
-            let id = stream.expect_kind(Kind::Character)?;
-            stream.get_token(id).to_character_value()
+        self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
+            let id = ctx.stream.expect_kind(Kind::Character)?;
+            ctx.stream.get_token(id).to_character_value()
         })
     }
 
-    /// Helper method to create expression from first occurence of substr
+    /// Helper method to create expression from first occurrence of substr
     /// Can be used to test all but expression parsing
     pub fn expr(&self) -> WithPos<Expression> {
-        self.parse_ok(parse_expression)
+        self.parse_ok_no_diagnostics(parse_expression)
     }
 
     pub fn name(&self) -> WithPos<Name> {
-        self.parse_ok(parse_name)
+        self.parse_ok_no_diagnostics(parse_name)
     }
 
     pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
@@ -525,11 +535,11 @@ impl Code {
     }
 
     pub fn type_mark(&self) -> WithPos<TypeMark> {
-        self.parse_ok(parse_type_mark)
+        self.parse_ok_no_diagnostics(parse_type_mark)
     }
 
     pub fn signature(&self) -> WithPos<Signature> {
-        self.parse_ok(parse_signature)
+        self.parse_ok_no_diagnostics(parse_signature)
     }
 
     /// Return symbol from symbol table
@@ -538,19 +548,21 @@ impl Code {
     }
 
     pub fn type_decl(&self) -> TypeDeclaration {
-        self.with_stream_no_diagnostics(vhd_08!(parse_type_declaration))
+        self.with_stream_no_diagnostics(parse_type_declaration)
     }
 
     pub fn object_decl(&self) -> ObjectDeclaration {
-        self.parse_ok(parse_object_declaration).remove(0)
+        self.parse_ok_no_diagnostics(parse_object_declaration)
+            .remove(0)
     }
 
     pub fn file_decl(&self) -> FileDeclaration {
-        self.parse_ok(parse_file_declaration).remove(0)
+        self.parse_ok_no_diagnostics(parse_file_declaration)
+            .remove(0)
     }
 
     pub fn alias_decl(&self) -> AliasDeclaration {
-        self.parse_ok(parse_alias_declaration)
+        self.parse_ok_no_diagnostics(parse_alias_declaration)
     }
 
     pub fn component_decl(&self) -> ComponentDeclaration {
@@ -558,15 +570,15 @@ impl Code {
     }
 
     pub fn entity_decl(&self) -> EntityDeclaration {
-        self.with_stream_no_diagnostics(vhd_08!(parse_entity_declaration))
+        self.with_stream_no_diagnostics(parse_entity_declaration)
     }
 
     pub fn subtype_indication(&self) -> SubtypeIndication {
-        self.parse_ok(parse_subtype_indication)
+        self.parse_ok_no_diagnostics(parse_subtype_indication)
     }
 
     pub fn element_mode(&self) -> ElementMode {
-        self.parse_ok(parse_element_mode_indication)
+        self.parse_ok_no_diagnostics(parse_element_mode_indication)
     }
 
     pub fn mode_view_element(&self) -> ModeViewElement {
@@ -574,15 +586,15 @@ impl Code {
     }
 
     pub fn port(&self) -> InterfaceDeclaration {
-        self.parse_ok(parse_port)
+        self.parse_ok_no_diagnostics(parse_port)
     }
 
     pub fn generic(&self) -> InterfaceDeclaration {
-        self.parse_ok(parse_generic)
+        self.parse_ok_no_diagnostics(parse_generic)
     }
 
     pub fn parameter(&self) -> InterfaceDeclaration {
-        self.parse_ok(parse_parameter)
+        self.parse_ok_no_diagnostics(parse_parameter)
     }
 
     pub fn function_call(&self) -> WithPos<CallOrIndexed> {
@@ -604,11 +616,10 @@ impl Code {
 
     pub fn parse_ok_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
-        let mut diagnostics = Vec::new();
-        let res = self.parse_ok(|stream| parse_fun(stream, &mut diagnostics));
-        check_no_diagnostics(&diagnostics);
+        let (res, diag) = self.parse_ok(|ctx| parse_fun(ctx));
+        check_no_diagnostics(&diag);
         res
     }
 
@@ -617,7 +628,7 @@ impl Code {
     }
 
     pub fn concurrent_statement(&self) -> LabeledConcurrentStatement {
-        self.parse_ok_no_diagnostics(vhd_08!(parse_labeled_concurrent_statement))
+        self.parse_ok_no_diagnostics(parse_labeled_concurrent_statement)
     }
 
     pub fn association_list(&self) -> SeparatedList<AssociationElement> {
@@ -625,37 +636,33 @@ impl Code {
     }
 
     pub fn port_map_aspect(&self) -> MapAspect {
-        self.parse_ok_no_diagnostics(|stream, diagnsotics| {
-            parse_map_aspect(stream, Kind::Port, diagnsotics)
-        })
-        .expect("Expecting port map aspect")
+        self.parse_ok_no_diagnostics(|ctx| parse_map_aspect(ctx, Kind::Port))
+            .expect("Expecting port map aspect")
     }
 
     pub fn generic_map_aspect(&self) -> MapAspect {
-        self.parse_ok_no_diagnostics(|stream, diagnostics| {
-            parse_map_aspect(stream, Kind::Generic, diagnostics)
-        })
-        .expect("Expecting generic map aspect")
+        self.parse_ok_no_diagnostics(|ctx| parse_map_aspect(ctx, Kind::Generic))
+            .expect("Expecting generic map aspect")
     }
 
     pub fn waveform(&self) -> Waveform {
-        self.parse_ok(parse_waveform)
+        self.parse_ok_no_diagnostics(parse_waveform)
     }
 
     pub fn aggregate(&self) -> WithPos<Vec<ElementAssociation>> {
-        self.parse_ok(parse_aggregate)
+        self.parse_ok_no_diagnostics(parse_aggregate)
     }
 
     pub fn range(&self) -> ast::Range {
-        self.parse_ok(parse_range).item
+        self.parse_ok_no_diagnostics(parse_range).item
     }
 
     pub fn discrete_range(&self) -> DiscreteRange {
-        self.parse_ok(parse_discrete_range)
+        self.parse_ok_no_diagnostics(parse_discrete_range)
     }
 
     pub fn choices(&self) -> Vec<WithPos<Choice>> {
-        self.parse_ok(parse_choices)
+        self.parse_ok_no_diagnostics(parse_choices)
     }
 
     pub fn use_clause(&self) -> UseClause {
@@ -674,15 +681,15 @@ impl Code {
     }
 
     pub fn package_declaration(&self) -> PackageDeclaration {
-        self.parse_ok_no_diagnostics(vhd_08!(parse_package_declaration))
+        self.parse_ok_no_diagnostics(parse_package_declaration)
     }
 
     pub fn design_file(&self) -> DesignFile {
-        self.parse_ok_no_diagnostics(vhd_08!(parse_design_file))
+        self.parse_ok_no_diagnostics(parse_design_file)
     }
 
     pub fn architecture_body(&self) -> ArchitectureBody {
-        self.parse_ok_no_diagnostics(vhd_08!(parse_architecture_body))
+        self.parse_ok_no_diagnostics(parse_architecture_body)
     }
 
     pub fn subprogram_specification(&self) -> SubprogramSpecification {
@@ -702,14 +709,14 @@ impl Code {
     }
 
     pub fn attribute_name(&self) -> AttributeName {
-        match self.parse_ok(parse_name).item {
+        match self.parse_ok_no_diagnostics(parse_name).item {
             Name::Attribute(attr) => *attr,
             name => panic!("Expected attribute got {name:?}"),
         }
     }
 
     pub fn association_element(&self) -> AssociationElement {
-        self.parse_ok(parse_association_element)
+        self.parse_ok_no_diagnostics(parse_association_element)
     }
 }
 

@@ -8,32 +8,33 @@ use super::common::ParseResult;
 use super::names::{parse_designator, parse_name};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::{AliasDeclaration, WithDecl};
+use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_alias_declaration(stream: &TokenStream) -> ParseResult<AliasDeclaration> {
-    let start_token = stream.expect_kind(Alias)?;
-    let designator = WithDecl::new(parse_designator(stream)?);
+pub fn parse_alias_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<AliasDeclaration> {
+    let start_token = ctx.stream.expect_kind(Alias)?;
+    let designator = WithDecl::new(parse_designator(ctx)?);
     let subtype_indication = {
-        if stream.skip_if_kind(Colon) {
-            Some(parse_subtype_indication(stream)?)
+        if ctx.stream.skip_if_kind(Colon) {
+            Some(parse_subtype_indication(ctx)?)
         } else {
             None
         }
     };
 
-    stream.expect_kind(Is)?;
-    let name = parse_name(stream)?;
+    ctx.stream.expect_kind(Is)?;
+    let name = parse_name(ctx)?;
 
     let signature = {
-        if stream.peek_kind() == Some(LeftSquare) {
-            Some(parse_signature(stream)?)
+        if ctx.stream.peek_kind() == Some(LeftSquare) {
+            Some(parse_signature(ctx)?)
         } else {
             None
         }
     };
 
-    let end_token = stream.expect_kind(SemiColon)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(AliasDeclaration {
         span: TokenSpan::new(start_token, end_token),

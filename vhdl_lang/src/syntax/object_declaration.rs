@@ -8,15 +8,18 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
 use crate::Diagnostic;
+use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
-    if stream.pop_if_kind(ColonEq).is_some() {
-        let expr = parse_expression(stream)?;
+pub fn parse_optional_assignment(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Option<WithPos<Expression>>> {
+    if ctx.stream.pop_if_kind(ColonEq).is_some() {
+        let expr = parse_expression(ctx)?;
         Ok(Some(expr))
     } else {
         Ok(None)
@@ -24,31 +27,31 @@ pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<Wit
 }
 
 fn parse_object_declaration_kind(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
-    let start_token = stream.get_current_token_id();
+    let start_token = ctx.stream.get_current_token_id();
     match class {
         ObjectClass::Signal => {
-            stream.expect_kind(Signal)?;
+            ctx.stream.expect_kind(Signal)?;
         }
         ObjectClass::Constant => {
-            stream.expect_kind(Constant)?;
+            ctx.stream.expect_kind(Constant)?;
         }
         ObjectClass::Variable => {
-            stream.expect_kind(Variable)?;
+            ctx.stream.expect_kind(Variable)?;
         }
         ObjectClass::SharedVariable => {
-            stream.expect_kind(Shared)?;
-            stream.expect_kind(Variable)?;
+            ctx.stream.expect_kind(Shared)?;
+            ctx.stream.expect_kind(Variable)?;
         }
     }
 
-    let idents = parse_identifier_list(stream)?;
-    stream.expect_kind(Colon)?;
-    let subtype = parse_subtype_indication(stream)?;
-    let opt_expression = parse_optional_assignment(stream)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+    let idents = parse_identifier_list(ctx)?;
+    ctx.stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(ctx)?;
+    let opt_expression = parse_optional_assignment(ctx)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(idents
         .into_iter()
@@ -62,42 +65,44 @@ fn parse_object_declaration_kind(
         .collect())
 }
 
-pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
-    let token = stream.peek_expect()?;
+pub fn parse_object_declaration(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Vec<ObjectDeclaration>> {
+    let token = ctx.stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
-        Constant => parse_object_declaration_kind(stream, ObjectClass::Constant)?,
-        Signal => parse_object_declaration_kind(stream, ObjectClass::Signal)?,
-        Variable => parse_object_declaration_kind(stream, ObjectClass::Variable)?,
+        Constant => parse_object_declaration_kind(ctx, ObjectClass::Constant)?,
+        Signal => parse_object_declaration_kind(ctx, ObjectClass::Signal)?,
+        Variable => parse_object_declaration_kind(ctx, ObjectClass::Variable)?,
         Shared => {
-            parse_object_declaration_kind(stream, ObjectClass::SharedVariable)?
+            parse_object_declaration_kind(ctx, ObjectClass::SharedVariable)?
         }
     );
     Ok(result)
 }
 
-pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
-    let start_token = stream.expect_kind(File)?;
-    let idents = parse_identifier_list(stream)?;
-    stream.expect_kind(Colon)?;
-    let subtype = parse_subtype_indication(stream)?;
+pub fn parse_file_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<FileDeclaration>> {
+    let start_token = ctx.stream.expect_kind(File)?;
+    let idents = parse_identifier_list(ctx)?;
+    ctx.stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(ctx)?;
 
     let open_info = {
-        if stream.skip_if_kind(Open) {
-            Some(parse_expression(stream)?)
+        if ctx.stream.skip_if_kind(Open) {
+            Some(parse_expression(ctx)?)
         } else {
             None
         }
     };
 
     let file_name = {
-        if stream.skip_if_kind(Is) {
-            Some(parse_expression(stream)?)
+        if ctx.stream.skip_if_kind(Is) {
+            Some(parse_expression(ctx)?)
         } else {
             None
         }
     };
-    let end_token = stream.expect_kind(SemiColon)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     // If the `file_open_information` is present, `file_name` is mandatory
     // LRM 6.4.2.5

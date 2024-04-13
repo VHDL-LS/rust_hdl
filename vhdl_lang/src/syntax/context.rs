@@ -7,39 +7,10 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::*;
-use crate::data::*;
+use crate::syntax::parser::ParsingContext;
 use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
-
-/// LRM 13. Design units and their analysis
-pub fn parse_library_clause(
-    stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler,
-) -> ParseResult<LibraryClause> {
-    let library_token = stream.expect_kind(Library)?;
-    let name_list = parse_ident_list(stream, diagnsotics)?;
-    let semi_token = stream.expect_kind(SemiColon)?;
-    Ok(LibraryClause {
-        span: TokenSpan::new(library_token, semi_token),
-        name_list,
-    })
-}
-
-/// LRM 12.4. Use clauses
-pub fn parse_use_clause(
-    stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler,
-) -> ParseResult<UseClause> {
-    let use_token = stream.expect_kind(Use)?;
-
-    let name_list = parse_name_list(stream, diagnsotics)?;
-    let semi_token = stream.expect_kind(SemiColon)?;
-    Ok(UseClause {
-        span: TokenSpan::new(use_token, semi_token),
-        name_list,
-    })
-}
 
 #[derive(PartialEq, Debug)]
 pub enum DeclarationOrReference {
@@ -47,14 +18,34 @@ pub enum DeclarationOrReference {
     Reference(ContextReference),
 }
 
-pub fn parse_context_reference(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<ContextReference> {
-    let context_token = stream.expect_kind(Context)?;
+/// LRM 13. Design units and their analysis
+pub fn parse_library_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<LibraryClause> {
+    let library_token = ctx.stream.expect_kind(Library)?;
+    let name_list = parse_ident_list(ctx)?;
+    let semi_token = ctx.stream.expect_kind(SemiColon)?;
+    Ok(LibraryClause {
+        span: TokenSpan::new(library_token, semi_token),
+        name_list,
+    })
+}
 
-    let name_list = parse_name_list(stream, diagnostics)?;
-    let semi_token = stream.expect_kind(SemiColon)?;
+/// LRM 12.4. Use clauses
+pub fn parse_use_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<UseClause> {
+    let use_token = ctx.stream.expect_kind(Use)?;
+
+    let name_list = parse_name_list(ctx)?;
+    let semi_token = ctx.stream.expect_kind(SemiColon)?;
+    Ok(UseClause {
+        span: TokenSpan::new(use_token, semi_token),
+        name_list,
+    })
+}
+
+pub fn parse_context_reference(ctx: &mut ParsingContext<'_>) -> ParseResult<ContextReference> {
+    let context_token = ctx.stream.expect_kind(Context)?;
+
+    let name_list = parse_name_list(ctx)?;
+    let semi_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
         span: TokenSpan::new(context_token, semi_token),
         name_list,
@@ -62,37 +53,34 @@ pub fn parse_context_reference(
 }
 
 /// LRM 13.4 Context clauses
-pub fn parse_context(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<DeclarationOrReference> {
-    let context_token = stream.expect_kind(Context)?;
-    let name = parse_name(stream)?;
-    if stream.skip_if_kind(Is) {
+pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrReference> {
+    let context_token = ctx.stream.expect_kind(Context)?;
+    let name = parse_name(ctx)?;
+    if ctx.stream.skip_if_kind(Is) {
         let mut items = Vec::with_capacity(16);
         let end_ident;
         loop {
-            let token = stream.peek_expect()?;
+            let token = ctx.stream.peek_expect()?;
             try_init_token_kind!(
                 token,
-                Library => items.push(ContextItem::Library(parse_library_clause(stream, diagnostics)?)),
-                Use => items.push(ContextItem::Use(parse_use_clause(stream, diagnostics)?)),
-                Context => items.push(ContextItem::Context(parse_context_reference(stream, diagnostics)?)),
+                Library => items.push(ContextItem::Library(parse_library_clause(ctx)?)),
+                Use => items.push(ContextItem::Use(parse_use_clause(ctx)?)),
+                Context => items.push(ContextItem::Context(parse_context_reference(ctx)?)),
                 End => {
-                    stream.skip();
-                    stream.pop_if_kind(Context);
-                    end_ident = stream.pop_optional_ident();
-                    stream.expect_kind(SemiColon)?;
+                    ctx.stream.skip();
+                    ctx.stream.pop_if_kind(Context);
+                    end_ident = ctx.stream.pop_optional_ident();
+                    ctx.stream.expect_kind(SemiColon)?;
                     break;
                 }
             )
         }
 
         let ident = WithDecl::new(to_simple_name(name)?);
-        let end_token = stream.get_last_token_id();
+        let end_token = ctx.stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             span: TokenSpan::new(context_token, end_token),
-            end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+            end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
             ident,
             items,
         }))
@@ -100,12 +88,12 @@ pub fn parse_context(
         // Context reference
         let mut items = vec![name];
         let mut tokens = Vec::new();
-        while let Some(comma) = stream.pop_if_kind(Comma) {
-            items.push(parse_name(stream)?);
+        while let Some(comma) = ctx.stream.pop_if_kind(Comma) {
+            items.push(parse_name(ctx)?);
             tokens.push(comma);
         }
         let name_list = SeparatedList { items, tokens };
-        let semi_token = stream.expect_kind(SemiColon)?;
+        let semi_token = ctx.stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {
             span: TokenSpan::new(context_token, semi_token),
             name_list,

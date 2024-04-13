@@ -11,19 +11,18 @@ use super::names::parse_identifier_list;
 use super::range::{parse_array_index_constraint, parse_range};
 use super::subprogram::parse_subprogram_declaration;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
-use crate::data::DiagnosticHandler;
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
-use crate::VHDLStandard;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 /// LRM 5.2.2 Enumeration types
-fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
+fn parse_enumeration_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
     let mut enum_literals = Vec::new();
     loop {
-        expect_token!(stream,
+        expect_token!(ctx.stream,
             literal_token,
             Identifier | Character => {
                 let enum_literal = match literal_token.kind {
@@ -33,7 +32,7 @@ fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDe
                 };
                 enum_literals.push(WithDecl::new(enum_literal));
 
-                expect_token!(stream, token,
+                expect_token!(ctx.stream, token,
                     RightPar => { break; },
                     Comma => {}
                 );
@@ -44,13 +43,13 @@ fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDe
     Ok(TypeDefinition::Enumeration(enum_literals))
 }
 
-fn parse_array_index_constraints(stream: &TokenStream) -> ParseResult<Vec<ArrayIndex>> {
-    stream.expect_kind(LeftPar)?;
+fn parse_array_index_constraints(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<ArrayIndex>> {
+    ctx.stream.expect_kind(LeftPar)?;
     let mut indexes = Vec::new();
     loop {
-        indexes.push(parse_array_index_constraint(stream)?);
+        indexes.push(parse_array_index_constraint(ctx)?);
 
-        expect_token!(stream, token,
+        expect_token!(ctx.stream, token,
             RightPar => {
                 return Ok(indexes);
             },
@@ -60,45 +59,45 @@ fn parse_array_index_constraints(stream: &TokenStream) -> ParseResult<Vec<ArrayI
 }
 
 /// LRM 5.3.2 Array types
-fn parse_array_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
-    let index_constraints = parse_array_index_constraints(stream)?;
-    stream.expect_kind(Of)?;
-    let element_subtype = parse_subtype_indication(stream)?;
+fn parse_array_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
+    let index_constraints = parse_array_index_constraints(ctx)?;
+    ctx.stream.expect_kind(Of)?;
+    let element_subtype = parse_subtype_indication(ctx)?;
     Ok(TypeDefinition::Array(index_constraints, element_subtype))
 }
 
 /// LRM 5.3.3 Record types
 fn parse_record_type_definition(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let mut elem_decls = Vec::new();
 
     loop {
-        if stream.skip_if_kind(End) {
-            stream.pop_if_kind(Record);
-            let end_ident = stream.pop_optional_ident();
+        if ctx.stream.skip_if_kind(End) {
+            ctx.stream.pop_if_kind(Record);
+            let end_ident = ctx.stream.pop_optional_ident();
             return Ok((TypeDefinition::Record(elem_decls), end_ident));
         };
 
-        let idents = parse_identifier_list(stream)?;
-        stream.expect_kind(Colon)?;
-        let subtype = parse_subtype_indication(stream)?;
+        let idents = parse_identifier_list(ctx)?;
+        ctx.stream.expect_kind(Colon)?;
+        let subtype = parse_subtype_indication(ctx)?;
         for ident in idents {
             elem_decls.push(ElementDeclaration {
                 ident: ident.into(),
                 subtype: subtype.clone(),
             });
         }
-        stream.expect_kind(SemiColon)?;
+        ctx.stream.expect_kind(SemiColon)?;
     }
 }
 
-pub fn parse_subtype_declaration(stream: &TokenStream) -> ParseResult<TypeDeclaration> {
-    let start_token = stream.expect_kind(Subtype)?;
-    let ident = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
-    let subtype_indication = parse_subtype_indication(stream)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+pub fn parse_subtype_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDeclaration> {
+    let start_token = ctx.stream.expect_kind(Subtype)?;
+    let ident = ctx.stream.expect_ident()?;
+    ctx.stream.expect_kind(Is)?;
+    let subtype_indication = parse_subtype_indication(ctx)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(TypeDeclaration {
         span: TokenSpan::new(start_token, end_token),
         ident: ident.into(),
@@ -109,56 +108,55 @@ pub fn parse_subtype_declaration(stream: &TokenStream) -> ParseResult<TypeDeclar
 
 /// LRM 5.6.2 Protected type declarations
 pub fn parse_protected_type_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<(ProtectedTypeDeclaration, Option<Ident>)> {
     let mut items = Vec::new();
 
     loop {
-        let token = stream.peek_expect()?;
+        let token = ctx.stream.peek_expect()?;
 
         try_init_token_kind!(
             token,
             Impure | Function | Procedure => items.push(ProtectedTypeDeclarativeItem::Subprogram(
-                parse_subprogram_declaration(stream, diagnostics)?,
+                parse_subprogram_declaration(ctx)?,
             )),
             End => {
-                stream.skip();
+                ctx.stream.skip();
                 break;
             }
         );
     }
-    stream.expect_kind(Protected)?;
-    let end_ident = stream.pop_optional_ident();
+    ctx.stream.expect_kind(Protected)?;
+    let end_ident = ctx.stream.pop_optional_ident();
     Ok((ProtectedTypeDeclaration { items }, end_ident))
 }
 
 /// LRM 5.2.4 Physical types
 fn parse_physical_type_definition(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     range: Range,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
-    let primary_unit = WithDecl::new(stream.expect_ident()?);
-    stream.expect_kind(SemiColon)?;
+    let primary_unit = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.expect_kind(SemiColon)?;
 
     let mut secondary_units = Vec::new();
 
     loop {
         peek_token!(
-            stream, token,
+            ctx.stream, token,
             End => {
                 break;
             },
             Identifier => {
-                stream.skip();
+                ctx.stream.skip();
                 let ident = WithDecl::new(token.to_identifier_value()?);
-                stream.expect_kind(EQ)?;
+                ctx.stream.expect_kind(EQ)?;
                 let literal = {
-                    expect_token!(stream,
+                    expect_token!(ctx.stream,
                         value_token,
                         AbstractLiteral => {
                             let value = value_token.to_abstract_literal()?.item;
-                            let unit = stream.expect_ident()?;
+                            let unit = ctx.stream.expect_ident()?;
                             PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
@@ -169,14 +167,14 @@ fn parse_physical_type_definition(
                 };
 
                 secondary_units.push((ident, literal));
-                stream.expect_kind(SemiColon)?;
+                ctx.stream.expect_kind(SemiColon)?;
             }
         )
     }
 
-    stream.expect_kind(End)?;
-    stream.expect_kind(Units)?;
-    let end_ident = stream.pop_optional_ident();
+    ctx.stream.expect_kind(End)?;
+    ctx.stream.expect_kind(Units)?;
+    let end_ident = ctx.stream.pop_optional_ident();
 
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
@@ -189,31 +187,27 @@ fn parse_physical_type_definition(
 }
 
 /// LRM 6.2
-pub fn parse_type_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<TypeDeclaration> {
-    let start_token = stream.get_current_token_id();
+pub fn parse_type_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDeclaration> {
+    let start_token = ctx.stream.get_current_token_id();
     peek_token!(
-        stream, token,
+        ctx.stream, token,
         Subtype => {
-            return parse_subtype_declaration(stream);
+            return parse_subtype_declaration(ctx);
         },
         Type => {
-            stream.skip();
+            ctx.stream.skip();
         }
     );
 
-    let ident = WithDecl::new(stream.expect_ident()?);
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
     let mut end_ident_pos = None;
 
     expect_token!(
-        stream, token,
+        ctx.stream, token,
         Is => {},
         SemiColon => {
             return Ok(TypeDeclaration {
-                span: TokenSpan::new(start_token, stream.get_last_token_id()),
+                span: TokenSpan::new(start_token, ctx.stream.get_last_token_id()),
                 ident,
                 def: TypeDefinition::Incomplete(Reference::undefined()),
                 end_ident_pos
@@ -222,61 +216,61 @@ pub fn parse_type_declaration(
     );
 
     let def = expect_token!(
-        stream, token,
+        ctx.stream, token,
         // Integer
         Range => {
-            let constraint = parse_range(stream)?.item;
+            let constraint = parse_range(ctx)?.item;
             expect_token!(
-                stream, token,
+                ctx.stream, token,
                 SemiColon => {
-                    stream.back(); // The ';' is consumed at the end of the function
+                    ctx.stream.back(); // The ';' is consumed at the end of the function
                     TypeDefinition::Numeric(constraint)
                 },
                 Units => {
-                    let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
-                    end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
+                    let (def, end_ident) = parse_physical_type_definition(ctx, constraint)?;
+                    end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
                     def
                 }
             )
         },
 
         Access => {
-            let subtype_indication = parse_subtype_indication(stream)?;
+            let subtype_indication = parse_subtype_indication(ctx)?;
             TypeDefinition::Access(subtype_indication)
         },
 
         Protected => {
-            if stream.skip_if_kind(Body) {
-                let decl = parse_declarative_part(stream, diagnostics, standard)?;
-                stream.expect_kind(End)?;
-                stream.expect_kind(Protected)?;
-                stream.expect_kind(Body)?;
-                let end_ident = stream.pop_optional_ident();
-                end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
+            if ctx.stream.skip_if_kind(Body) {
+                let decl = parse_declarative_part(ctx)?;
+                ctx.stream.expect_kind(End)?;
+                ctx.stream.expect_kind(Protected)?;
+                ctx.stream.expect_kind(Body)?;
+                let end_ident = ctx.stream.pop_optional_ident();
+                end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
 
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
             } else {
-                let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
-                end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
+                let (protected_type_decl, end_ident) = parse_protected_type_declaration(ctx)?;
+                end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
                 TypeDefinition::Protected(protected_type_decl)
             }
         },
         File => {
-            stream.expect_kind(Of)?;
-            let type_mark = parse_type_mark(stream)?;
+            ctx.stream.expect_kind(Of)?;
+            let type_mark = parse_type_mark(ctx)?;
             TypeDefinition::File(type_mark)
         },
-        Array => parse_array_type_definition(stream)?,
+        Array => parse_array_type_definition(ctx)?,
         Record =>  {
-            let (def, end_ident) = parse_record_type_definition(stream)?;
-            end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
+            let (def, end_ident) = parse_record_type_definition(ctx)?;
+            end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
             def
         },
         // Enumeration
-        LeftPar => parse_enumeration_type_definition(stream)?
+        LeftPar => parse_enumeration_type_definition(ctx)?
     );
 
-    let end_token = stream.expect_kind(SemiColon)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(TypeDeclaration {
         span: TokenSpan::new(start_token, end_token),
         ident,
@@ -291,7 +285,7 @@ mod tests {
 
     use super::*;
 
-    use crate::{vhd_08, HasTokenSpan};
+    use crate::HasTokenSpan;
 
     use crate::ast::{DiscreteRange, Ident};
     use crate::syntax::test::{token_to_string, Code};
@@ -308,7 +302,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -333,7 +327,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -358,7 +352,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -383,7 +377,7 @@ mod tests {
             end_ident_pos: None,
         };
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -405,7 +399,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -428,7 +422,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -451,7 +445,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -473,7 +467,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -492,7 +486,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -516,7 +510,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -543,7 +537,7 @@ end record;",
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -581,7 +575,7 @@ end foo;",
         };
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -591,7 +585,7 @@ end foo;",
         let code = Code::new("subtype vec_t is integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("vec_t").decl_ident(),
@@ -608,7 +602,7 @@ end foo;",
         let code = Code::new("type ptr_t is access integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("ptr_t").decl_ident(),
@@ -625,7 +619,7 @@ end foo;",
         let code = Code::new("type incomplete;");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("incomplete").decl_ident(),
@@ -640,7 +634,7 @@ end foo;",
         let code = Code::new("type foo is file of character;");
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("foo").decl_ident(),
@@ -673,7 +667,7 @@ end protected;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(code.s1("foo").ident(), code.token_span(), vec![], None)
         )
     }
@@ -687,7 +681,7 @@ end protected foo;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(
                 code.s1("foo").ident(),
                 code.token_span(),
@@ -715,7 +709,7 @@ end protected;
         ];
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(code.s1("foo").ident(), code.token_span(), items, None)
         )
     }
@@ -743,7 +737,7 @@ end protected body;
 
         let ident = code.s1("foo").decl_ident();
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident,
@@ -764,7 +758,7 @@ end units phys;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),
@@ -790,7 +784,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),
@@ -822,7 +816,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_type_declaration)),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 span: code.token_span(),
                 ident: code.s1("phys").decl_ident(),

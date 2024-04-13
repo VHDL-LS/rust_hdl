@@ -12,6 +12,7 @@ use crate::syntax::Symbols;
 use pretty_assertions::assert_eq;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
+use vhdl_lang::VHDLStandard;
 
 pub struct LibraryBuilder {
     code_builder: CodeBuilder,
@@ -141,6 +142,7 @@ fn std_logic_1164_package() -> Source {
 pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
     let builder = CodeBuilder {
         symbols: symbols.clone(),
+        standard: VHDLStandard::default(),
     };
     let std_standard = builder.code_from_source(standard_package());
     let std_textio = builder.code_from_source(textio_package());

@@ -4,16 +4,22 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::design_unit::parse_design_file;
 use super::tokens::{Symbols, TokenStream, Tokenizer};
 use crate::ast::DesignFile;
 use crate::data::*;
 use crate::standard::VHDLStandard;
+use crate::syntax::design_unit::parse_design_file;
 use std::io;
 use std::sync::Arc;
 
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
+    pub standard: VHDLStandard,
+}
+
+pub(crate) struct ParsingContext<'a> {
+    pub stream: &'a TokenStream<'a>,
+    pub diagnostics: &'a mut dyn DiagnosticHandler,
     pub standard: VHDLStandard,
 }
 
@@ -40,7 +46,13 @@ impl VHDLParser {
         let tokenizer = Tokenizer::new(&self.symbols, source, ContentReader::new(&contents));
         let stream = TokenStream::new(tokenizer, diagnostics);
 
-        match parse_design_file(&stream, diagnostics, self.standard) {
+        let mut ctx = ParsingContext {
+            stream: &stream,
+            diagnostics,
+            standard: self.standard,
+        };
+
+        match parse_design_file(&mut ctx) {
             Ok(design_file) => design_file,
             Err(diagnostic) => {
                 diagnostics.push(diagnostic);

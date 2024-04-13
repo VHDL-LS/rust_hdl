@@ -7,20 +7,21 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
 use crate::data::WithPos;
 use crate::syntax::TokenId;
+use vhdl_lang::syntax::parser::ParsingContext;
 
-fn parse_record_element_constraint(stream: &TokenStream) -> ParseResult<ElementConstraint> {
-    let ident = stream.expect_ident()?;
-    let constraint = Box::new(parse_composite_constraint(stream)?);
+fn parse_record_element_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult<ElementConstraint> {
+    let ident = ctx.stream.expect_ident()?;
+    let constraint = Box::new(parse_composite_constraint(ctx)?);
     Ok(ElementConstraint { ident, constraint })
 }
 
 fn parse_array_constraint(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     leftpar: TokenId,
     // Open is None
     initial: Option<DiscreteRange>,
@@ -29,17 +30,17 @@ fn parse_array_constraint(
 
     let mut end_pos = loop {
         expect_token!(
-            stream, sep_token,
+            ctx.stream, sep_token,
             RightPar => break sep_token.pos.clone(),
             Comma => {}
         );
 
-        discrete_ranges.push(parse_discrete_range(stream)?);
+        discrete_ranges.push(parse_discrete_range(ctx)?);
     };
 
     // Array element constraint
     let element_constraint = {
-        if let Some(elemement_constraint) = parse_subtype_constraint(stream)? {
+        if let Some(elemement_constraint) = parse_subtype_constraint(ctx)? {
             end_pos = elemement_constraint.pos.clone();
             Some(Box::new(elemement_constraint))
         } else {
@@ -47,7 +48,7 @@ fn parse_array_constraint(
         }
     };
 
-    let leftpar_pos = stream.get_pos(leftpar).clone();
+    let leftpar_pos = ctx.stream.get_pos(leftpar).clone();
 
     Ok(WithPos::from(
         SubtypeConstraint::Array(discrete_ranges, element_constraint),
@@ -55,50 +56,54 @@ fn parse_array_constraint(
     ))
 }
 
-fn parse_composite_constraint(stream: &TokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
+fn parse_composite_constraint(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<WithPos<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
-    let leftpar = stream.expect_kind(LeftPar)?;
-    let state = stream.state();
+    let leftpar = ctx.stream.expect_kind(LeftPar)?;
+    let state = ctx.stream.state();
 
     let mut initial = {
-        if stream.skip_if_kind(Open) {
+        if ctx.stream.skip_if_kind(Open) {
             // Array constraint open
             Ok(None)
         } else {
-            parse_discrete_range(stream).map(Some)
+            parse_discrete_range(ctx).map(Some)
         }
     };
 
-    if let Some(token) = stream.peek() {
+    if let Some(token) = ctx.stream.peek() {
         match token.kind {
             RightPar | Comma => {}
             _ => {
-                initial = Err(kinds_error(stream.pos_before(token), &[RightPar, Comma])
-                    .when("parsing index constraint"));
+                initial = Err(
+                    kinds_error(ctx.stream.pos_before(token), &[RightPar, Comma])
+                        .when("parsing index constraint"),
+                );
             }
         }
     }
 
     if let Ok(initial) = initial {
         // Array constraint
-        parse_array_constraint(stream, leftpar, initial)
+        parse_array_constraint(ctx, leftpar, initial)
     } else {
         // Record constraint
-        stream.set_state(state);
-        let mut constraints = vec![parse_record_element_constraint(stream)?];
+        ctx.stream.set_state(state);
+        let mut constraints = vec![parse_record_element_constraint(ctx)?];
 
         let rightpar_pos = loop {
             expect_token!(
-                stream,
+                ctx.stream,
                 sep_token,
                 RightPar => break sep_token.pos.clone(),
                 Comma => {}
             );
-            constraints.push(parse_record_element_constraint(stream)?);
+            constraints.push(parse_record_element_constraint(ctx)?);
         };
 
-        let leftpar_pos = stream.get_pos(leftpar).clone();
+        let leftpar_pos = ctx.stream.get_pos(leftpar).clone();
 
         Ok(WithPos::from(
             SubtypeConstraint::Record(constraints),
@@ -108,19 +113,19 @@ fn parse_composite_constraint(stream: &TokenStream) -> ParseResult<WithPos<Subty
 }
 
 pub fn parse_subtype_constraint(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Option<WithPos<SubtypeConstraint>>> {
-    if let Some(token) = stream.peek() {
+    if let Some(token) = ctx.stream.peek() {
         let constraint = match token.kind {
             Range => {
-                stream.skip();
+                ctx.stream.skip();
                 Some(
-                    parse_range(stream)?
+                    parse_range(ctx)?
                         .map_into(SubtypeConstraint::Range)
                         .combine_pos_with(&token),
                 )
             }
-            LeftPar => Some(parse_composite_constraint(stream)?),
+            LeftPar => Some(parse_composite_constraint(ctx)?),
             _ => None,
         };
         Ok(constraint)
@@ -130,17 +135,17 @@ pub fn parse_subtype_constraint(
 }
 
 pub fn parse_element_resolution_indication(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ResolutionIndication> {
-    stream.expect_kind(LeftPar)?;
+    ctx.stream.expect_kind(LeftPar)?;
 
-    let first_ident = stream.expect_ident()?;
+    let first_ident = ctx.stream.expect_ident()?;
 
     Ok(peek_token!(
-        stream, token,
+        ctx.stream, token,
         Dot | RightPar => {
             let selected_name = first_ident.map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()));
-            stream.expect_kind(RightPar)?;
+            ctx.stream.expect_kind(RightPar)?;
             ResolutionIndication::ArrayElement(selected_name)
         },
         Identifier | LeftPar => {
@@ -152,15 +157,15 @@ pub fn parse_element_resolution_indication(
                     if element_resolutions.is_empty() {
                         first_ident.clone()
                     } else {
-                        stream.expect_ident()?
+                        ctx.stream.expect_ident()?
                     }
                 };
 
                 let resolution = {
-                    if stream.peek_kind() == Some(LeftPar) {
-                        parse_element_resolution_indication(stream)?
+                    if ctx.stream.peek_kind() == Some(LeftPar) {
+                        parse_element_resolution_indication(ctx)?
                     } else {
-                        ResolutionIndication::FunctionName(parse_selected_name(stream)?)
+                        ResolutionIndication::FunctionName(parse_selected_name(ctx)?)
                     }
                 };
 
@@ -170,7 +175,7 @@ pub fn parse_element_resolution_indication(
                 });
 
                 expect_token!(
-                    stream,
+                    ctx.stream,
                     token,
                     RightPar => break,
                     Comma => {}
@@ -183,28 +188,28 @@ pub fn parse_element_resolution_indication(
     ))
 }
 
-pub fn parse_subtype_indication(stream: &TokenStream) -> ParseResult<SubtypeIndication> {
+pub fn parse_subtype_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<SubtypeIndication> {
     let (resolution, type_mark) = {
-        if stream.peek_kind() == Some(LeftPar) {
-            let resolution = parse_element_resolution_indication(stream)?;
-            let type_mark = parse_type_mark(stream)?;
+        if ctx.stream.peek_kind() == Some(LeftPar) {
+            let resolution = parse_element_resolution_indication(ctx)?;
+            let type_mark = parse_type_mark(ctx)?;
             (resolution, type_mark)
         } else {
-            let selected_name = parse_selected_name(stream)?;
-            match stream.peek_kind() {
+            let selected_name = parse_selected_name(ctx)?;
+            match ctx.stream.peek_kind() {
                 Some(Identifier) => (
                     ResolutionIndication::FunctionName(selected_name),
-                    parse_type_mark(stream)?,
+                    parse_type_mark(ctx)?,
                 ),
                 _ => (
                     ResolutionIndication::Unresolved,
-                    parse_type_mark_starting_with_name(stream, selected_name)?,
+                    parse_type_mark_starting_with_name(ctx, selected_name)?,
                 ),
             }
         }
     };
 
-    let constraint = parse_subtype_constraint(stream)?;
+    let constraint = parse_subtype_constraint(ctx)?;
 
     Ok(SubtypeIndication {
         resolution,

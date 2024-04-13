@@ -4,7 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{HasTokenSpan, Kind::*, TokenSpan, TokenStream};
+use super::tokens::{HasTokenSpan, Kind::*, TokenSpan};
+use vhdl_lang::syntax::parser::ParsingContext;
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
@@ -19,38 +20,33 @@ use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
-use crate::VHDLStandard;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
-pub fn parse_entity_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<EntityDeclaration> {
-    let start_token = stream.expect_kind(Entity)?;
+pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityDeclaration> {
+    let start_token = ctx.stream.expect_kind(Entity)?;
 
-    let ident = WithDecl::new(stream.expect_ident()?);
-    stream.expect_kind(Is)?;
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.expect_kind(Is)?;
 
-    let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
-    let port_clause = parse_optional_port_list(stream, diagnostics)?;
+    let generic_clause = parse_optional_generic_list(ctx)?;
+    let port_clause = parse_optional_port_list(ctx)?;
 
-    let decl = parse_declarative_part(stream, diagnostics, standard)?;
+    let decl = parse_declarative_part(ctx)?;
 
-    let statements = if stream.skip_if_kind(Begin) {
-        parse_labeled_concurrent_statements(stream, diagnostics, standard)?
+    let statements = if ctx.stream.skip_if_kind(Begin) {
+        parse_labeled_concurrent_statements(ctx)?
     } else {
         Vec::new()
     };
-    stream.pop_if_kind(End);
-    stream.pop_if_kind(Entity);
-    let end_ident = stream.pop_optional_ident();
-    let end_token = stream.expect_kind(SemiColon)?;
+    ctx.stream.pop_if_kind(End);
+    ctx.stream.pop_if_kind(Entity);
+    let end_ident = ctx.stream.pop_optional_ident();
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
-        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_clause,
         port_clause,
@@ -60,31 +56,27 @@ pub fn parse_entity_declaration(
 }
 
 /// LRM 3.3.1
-pub fn parse_architecture_body(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<ArchitectureBody> {
-    let start_token = stream.expect_kind(Architecture)?;
-    let ident = WithDecl::new(stream.expect_ident()?);
-    stream.expect_kind(Of)?;
-    let entity_name = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
+pub fn parse_architecture_body(ctx: &mut ParsingContext<'_>) -> ParseResult<ArchitectureBody> {
+    let start_token = ctx.stream.expect_kind(Architecture)?;
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.expect_kind(Of)?;
+    let entity_name = ctx.stream.expect_ident()?;
+    ctx.stream.expect_kind(Is)?;
 
-    let decl = parse_declarative_part(stream, diagnostics, standard)?;
-    let begin_token = stream.expect_kind(Begin)?;
+    let decl = parse_declarative_part(ctx)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
 
-    let statements = parse_labeled_concurrent_statements(stream, diagnostics, standard)?;
-    stream.expect_kind(End)?;
-    stream.pop_if_kind(Architecture);
+    let statements = parse_labeled_concurrent_statements(ctx)?;
+    ctx.stream.expect_kind(End)?;
+    ctx.stream.pop_if_kind(Architecture);
 
-    let end_ident = stream.pop_optional_ident();
-    let end_token = stream.expect_kind(SemiColon)?;
+    let end_ident = ctx.stream.pop_optional_ident();
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
-        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         begin_token,
         ident,
         entity_name: entity_name.into_ref(),
@@ -94,33 +86,29 @@ pub fn parse_architecture_body(
 }
 
 /// LRM 4.7 Package declarations
-pub fn parse_package_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<PackageDeclaration> {
-    let start_token = stream.expect_kind(Package)?;
-    let ident = WithDecl::new(stream.expect_ident()?);
+pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<PackageDeclaration> {
+    let start_token = ctx.stream.expect_kind(Package)?;
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
 
-    stream.expect_kind(Is)?;
+    ctx.stream.expect_kind(Is)?;
     let generic_clause = {
-        if stream.skip_if_kind(Generic) {
-            let decl = parse_generic_interface_list(stream, diagnostics)?;
-            stream.expect_kind(SemiColon)?;
+        if ctx.stream.skip_if_kind(Generic) {
+            let decl = parse_generic_interface_list(ctx)?;
+            ctx.stream.expect_kind(SemiColon)?;
             Some(decl)
         } else {
             None
         }
     };
-    let decl = parse_declarative_part(stream, diagnostics, standard)?;
-    stream.expect_kind(End)?;
-    stream.pop_if_kind(Package);
-    let end_ident = stream.pop_optional_ident();
-    let end_token = stream.expect_kind(SemiColon)?;
+    let decl = parse_declarative_part(ctx)?;
+    ctx.stream.expect_kind(End)?;
+    ctx.stream.pop_if_kind(Package);
+    let end_ident = ctx.stream.pop_optional_ident();
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
-        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_clause,
         decl,
@@ -128,29 +116,25 @@ pub fn parse_package_declaration(
 }
 
 /// LRM 4.8 Package bodies
-pub fn parse_package_body(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<PackageBody> {
-    let start_token = stream.expect_kind(Package)?;
-    stream.expect_kind(Body)?;
-    let ident = stream.expect_ident()?;
+pub fn parse_package_body(ctx: &mut ParsingContext<'_>) -> ParseResult<PackageBody> {
+    let start_token = ctx.stream.expect_kind(Package)?;
+    ctx.stream.expect_kind(Body)?;
+    let ident = ctx.stream.expect_ident()?;
 
-    stream.expect_kind(Is)?;
-    let decl = parse_declarative_part(stream, diagnostics, standard)?;
-    stream.expect_kind(End)?;
-    if stream.skip_if_kind(Package) {
-        stream.expect_kind(Body)?;
+    ctx.stream.expect_kind(Is)?;
+    let decl = parse_declarative_part(ctx)?;
+    ctx.stream.expect_kind(End)?;
+    if ctx.stream.skip_if_kind(Package) {
+        ctx.stream.expect_kind(Body)?;
     }
-    let end_ident = stream.pop_optional_ident();
-    let end_token = stream.expect_kind(SemiColon)?;
+    let end_ident = ctx.stream.pop_optional_ident();
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
         decl,
-        end_ident_pos: check_end_identifier_mismatch(&ident, end_ident, diagnostics),
+        end_ident_pos: check_end_identifier_mismatch(ctx, &ident, end_ident),
         ident: ident.into(),
     })
 }
@@ -169,108 +153,104 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
     format!("{} {}", prefix, message.as_ref())
 }
 
-pub fn parse_design_file(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    standard: VHDLStandard,
-) -> ParseResult<DesignFile> {
+pub fn parse_design_file(ctx: &mut ParsingContext<'_>) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
 
-    while let Some(token) = stream.peek() {
+    while let Some(token) = ctx.stream.peek() {
         try_init_token_kind!(
             token,
             Library => {
-                match parse_library_clause(stream, diagnostics) {
+                match parse_library_clause(ctx) {
                     Ok(library) => {
                         context_clause.push(ContextItem::Library(library));
                     },
-                    Err(diagnostic) => diagnostics.push(diagnostic),
+                    Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                 }
             },
             Use => {
-                match parse_use_clause(stream, diagnostics) {
+                match parse_use_clause(ctx) {
                     Ok(use_clause) => {
                         context_clause.push(ContextItem::Use(use_clause));
                     },
-                    Err(diagnostic) => diagnostics.push(diagnostic),
+                    Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                 }
             },
-            Context => match parse_context(stream, diagnostics) {
+            Context => match parse_context(ctx) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
                     if !context_clause.is_empty() {
                         let mut diagnostic = Diagnostic::syntax_error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(context_item.get_pos(stream), context_item_message(context_item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item.get_pos(ctx.stream), context_item_message(context_item, "may not come before context declaration"));
                         }
 
-                        diagnostics.push(diagnostic);
+                        ctx.diagnostics.push(diagnostic);
                         context_clause.clear();
                     }
 
-                    let tokens = stream.slice_tokens();
+                    let tokens = ctx.stream.slice_tokens();
 
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl))));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(ContextItem::Context(context_ref));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => ctx.diagnostics.push(diagnostic),
             },
-            Entity => match parse_entity_declaration(stream, diagnostics, standard) {
+            Entity => match parse_entity_declaration(ctx) {
                 Ok(mut entity) => {
-                    let tokens = stream.slice_tokens();
+                    let tokens = ctx.stream.slice_tokens();
                     entity.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity))));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => ctx.diagnostics.push(diagnostic),
             },
 
-            Architecture => match parse_architecture_body(stream, diagnostics, standard) {
+            Architecture => match parse_architecture_body(ctx) {
                 Ok(mut architecture) => {
-                    let tokens = stream.slice_tokens();
+                    let tokens = ctx.stream.slice_tokens();
                     architecture.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture))));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => ctx.diagnostics.push(diagnostic),
             },
 
-            Configuration => match parse_configuration_declaration(stream, diagnostics) {
+            Configuration => match parse_configuration_declaration(ctx) {
                 Ok(mut configuration) => {
-                    let tokens = stream.slice_tokens();
+                    let tokens = ctx.stream.slice_tokens();
                     configuration.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration))));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => ctx.diagnostics.push(diagnostic),
             },
             Package => {
-                if stream.next_kinds_are(&[Package, Body]) {
-                    match parse_package_body(stream, diagnostics, standard) {
+                if ctx.stream.next_kinds_are(&[Package, Body]) {
+                    match parse_package_body(ctx) {
                         Ok(mut package_body) => {
-                            let tokens = stream.slice_tokens();
+                            let tokens = ctx.stream.slice_tokens();
                             package_body.context_clause = take_context_clause(&mut context_clause);
                             design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body))));
                         }
-                        Err(diagnostic) => diagnostics.push(diagnostic),
+                        Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                     };
-                } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
-                    match parse_package_instantiation(stream, diagnostics) {
+                } else if ctx.stream.next_kinds_are(&[Package, Identifier, Is, New]) {
+                    match parse_package_instantiation(ctx) {
                         Ok(mut inst) => {
-                            let tokens = stream.slice_tokens();
+                            let tokens = ctx.stream.slice_tokens();
                             inst.context_clause = take_context_clause(&mut context_clause);
                             design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst))));
                         },
-                        Err(diagnostic) => diagnostics.push(diagnostic),
+                        Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                     }
                 } else {
-                    match parse_package_declaration(stream, diagnostics, standard) {
+                    match parse_package_declaration(ctx) {
                         Ok(mut package) => {
-                            let tokens = stream.slice_tokens();
+                            let tokens = ctx.stream.slice_tokens();
                             package.context_clause = take_context_clause(&mut context_clause);
                             design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package))));
                         }
-                        Err(diagnostic) => diagnostics.push(diagnostic),
+                        Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                     };
                 }
             }
@@ -278,8 +258,8 @@ pub fn parse_design_file(
     }
 
     for context_item in context_clause {
-        diagnostics.add(
-            context_item.get_pos(stream),
+        ctx.diagnostics.add(
+            context_item.get_pos(ctx.stream),
             context_item_message(&context_item, "not associated with any design unit"),
             ErrorCode::UnassociatedContext,
         );
@@ -297,12 +277,10 @@ mod tests {
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
     use crate::syntax::{HasTokenSpan, TokenAccess};
-    use crate::vhd_08;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
-        let mut diagnostics = vec![];
-        let design_file = code.with_stream(vhd_08!(parse_design_file, &mut diagnostics));
+        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
         (code, design_file, diagnostics)
     }
 
@@ -724,7 +702,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -747,7 +725,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -777,7 +755,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_diagnostics(vhd_08!(parse_package_declaration)),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
@@ -835,7 +813,7 @@ use lib.foo;
 context lib.ctx;
     ",
         );
-        let (design_file, diagnostics) = code.with_stream_diagnostics(vhd_08!(parse_design_file));
+        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
         check_diagnostics(
             diagnostics,
             vec![
@@ -879,7 +857,7 @@ entity ent is
 end entity;
     ",
         );
-        let (design_file, diagnostics) = code.with_stream_diagnostics(vhd_08!(parse_design_file));
+        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::syntax_error(

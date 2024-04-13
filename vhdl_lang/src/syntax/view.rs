@@ -8,11 +8,10 @@ use crate::ast::{ElementMode, ModeViewDeclaration, ModeViewElement, WithDecl};
 use crate::syntax::common::ParseResult;
 use crate::syntax::interface_declaration::parse_optional_mode;
 use crate::syntax::names::parse_name;
+use crate::syntax::parser::ParsingContext;
 use crate::syntax::separated_list::parse_ident_list;
 use crate::syntax::subtype_indication::parse_subtype_indication;
 use crate::syntax::Kind::*;
-use crate::syntax::TokenStream;
-use vhdl_lang::data::DiagnosticHandler;
 use vhdl_lang::syntax::common::check_end_identifier_mismatch;
 use vhdl_lang::TokenSpan;
 
@@ -21,23 +20,22 @@ use vhdl_lang::TokenSpan;
 //     { mode_view_element_definition }
 //   `end` `view` [ mode_view_simple_name ] `;`
 pub(crate) fn parse_mode_view_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ModeViewDeclaration> {
-    let start_tok = stream.expect_kind(View)?;
-    let ident = WithDecl::new(stream.expect_ident()?);
-    stream.expect_kind(Of)?;
-    let typ = parse_subtype_indication(stream)?;
-    stream.expect_kind(Is)?;
+    let start_tok = ctx.stream.expect_kind(View)?;
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.expect_kind(Of)?;
+    let typ = parse_subtype_indication(ctx)?;
+    ctx.stream.expect_kind(Is)?;
     let mut elements = Vec::new();
-    while stream.peek_kind() != Some(End) {
-        elements.push(parse_mode_view_element_definition(stream, diagnostics)?);
+    while ctx.stream.peek_kind() != Some(End) {
+        elements.push(parse_mode_view_element_definition(ctx)?);
     }
-    stream.expect_kind(End)?;
-    stream.expect_kind(View)?;
+    ctx.stream.expect_kind(End)?;
+    ctx.stream.expect_kind(View)?;
     let end_ident_pos =
-        check_end_identifier_mismatch(&ident.tree, stream.pop_optional_ident(), diagnostics);
-    let end_tok = stream.expect_kind(SemiColon)?;
+        check_end_identifier_mismatch(ctx, &ident.tree, ctx.stream.pop_optional_ident());
+    let end_tok = ctx.stream.expect_kind(SemiColon)?;
     Ok(ModeViewDeclaration {
         span: TokenSpan::new(start_tok, end_tok),
         ident,
@@ -49,14 +47,13 @@ pub(crate) fn parse_mode_view_declaration(
 
 // mode_view_element_definition ::= record_element_list : element_mode_indication ;
 pub(crate) fn parse_mode_view_element_definition(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ModeViewElement> {
-    let start = stream.get_current_token_id();
-    let element_list = parse_ident_list(stream, diagnostics)?;
-    stream.expect_kind(Colon)?;
-    let mode = parse_element_mode_indication(stream)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+    let start = ctx.stream.get_current_token_id();
+    let element_list = parse_ident_list(ctx)?;
+    ctx.stream.expect_kind(Colon)?;
+    let mode = parse_element_mode_indication(ctx)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(ModeViewElement {
         span: TokenSpan::new(start, end_token),
         mode,
@@ -73,17 +70,19 @@ pub(crate) fn parse_mode_view_element_definition(
 // element_record_mode_view_indication ::= view mode_view_name
 //
 // element_array_mode_view_indication ::= view ( mode_view_name )
-pub(crate) fn parse_element_mode_indication(stream: &TokenStream) -> ParseResult<ElementMode> {
-    if let Some(mode) = parse_optional_mode(stream)? {
+pub(crate) fn parse_element_mode_indication(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<ElementMode> {
+    if let Some(mode) = parse_optional_mode(ctx)? {
         return Ok(ElementMode::Simple(mode));
     }
-    stream.expect_kind(View)?;
-    if stream.skip_if_kind(LeftPar) {
-        let name = parse_name(stream)?;
-        stream.expect_kind(RightPar)?;
+    ctx.stream.expect_kind(View)?;
+    if ctx.stream.skip_if_kind(LeftPar) {
+        let name = parse_name(ctx)?;
+        ctx.stream.expect_kind(RightPar)?;
         Ok(ElementMode::Array(name))
     } else {
-        let name = parse_name(stream)?;
+        let name = parse_name(ctx)?;
         Ok(ElementMode::Record(name))
     }
 }
@@ -105,27 +104,27 @@ mod tests {
     fn element_mode_indication() {
         let code = Code::with_standard("in", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Simple(WithPos::new(Mode::In, code.s1("in")))
         );
         let code = Code::with_standard("out", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Simple(WithPos::new(Mode::Out, code.s1("out")))
         );
         let code = Code::with_standard("inout", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Simple(WithPos::new(Mode::InOut, code.s1("inout")))
         );
         let code = Code::with_standard("buffer", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Simple(WithPos::new(Mode::Buffer, code.s1("buffer")))
         );
         let code = Code::with_standard("linkage", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Simple(WithPos::new(Mode::Linkage, code.s1("linkage")))
         );
     }
@@ -134,7 +133,7 @@ mod tests {
     fn record_mode_view_declaration() {
         let code = Code::with_standard("view foo.bar", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Record(code.s1("foo.bar").name())
         );
     }
@@ -143,7 +142,7 @@ mod tests {
     fn array_mode_view_declaration() {
         let code = Code::with_standard("view (foo.bar)", VHDL2019);
         assert_eq!(
-            code.parse_ok(parse_element_mode_indication),
+            code.parse_ok_no_diagnostics(parse_element_mode_indication),
             ElementMode::Array(code.s1("foo.bar").name())
         );
     }
@@ -151,7 +150,7 @@ mod tests {
     #[test]
     fn missing_closing_parenthesis() {
         let code = Code::with_standard("view (foo.bar", VHDL2019);
-        let res = code.parse(parse_element_mode_indication);
+        let (res, _) = code.parse(parse_element_mode_indication);
         assert_eq!(
             res,
             Err(Diagnostic::new(
