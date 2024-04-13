@@ -881,6 +881,9 @@ impl<'a> AnalyzeContext<'a> {
                     None,
                 ))
             }
+            // This is only to avoid analyzing view declarations for now.
+            // There is no actual error here.
+            ModeIndication::View(_) => Err(EvalError::Unknown),
         }
     }
 

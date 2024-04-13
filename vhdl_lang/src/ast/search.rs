@@ -1108,6 +1108,7 @@ impl Search for ModeIndication {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             ModeIndication::Simple(simple) => simple.search(ctx, searcher),
+            ModeIndication::View(view) => view.search(ctx, searcher),
         }
     }
 }
@@ -1116,6 +1117,14 @@ impl Search for SimpleModeIndication {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(self.subtype_indication.search(ctx, searcher));
         return_if_found!(self.expression.search(ctx, searcher));
+        NotFound
+    }
+}
+
+impl Search for ModeViewIndication {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(self.name.search(ctx, searcher));
+        return_if_found!(self.subtype_indication.search(ctx, searcher));
         NotFound
     }
 }

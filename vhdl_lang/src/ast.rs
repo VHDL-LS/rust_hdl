@@ -741,7 +741,7 @@ pub struct InterfaceObjectDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ModeIndication {
     Simple(SimpleModeIndication),
-    // TODO: View
+    View(ModeViewIndication),
 }
 
 #[derive(PartialEq, Debug, Clone)]

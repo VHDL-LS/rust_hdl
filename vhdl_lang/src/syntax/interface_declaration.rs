@@ -105,7 +105,7 @@ fn parse_interface_object_declaration(
 
     ctx.stream.expect_kind(Colon)?;
     let mode = if ctx.stream.next_kind_is(View) {
-        todo!()
+        ModeIndication::View(parse_view_mode_indication(ctx)?)
     } else {
         ModeIndication::Simple(parse_simple_mode_indication(
             ctx,
@@ -455,6 +455,7 @@ mod tests {
     use crate::syntax::subprogram::parse_subprogram_declaration;
     use crate::syntax::test::Code;
     use crate::syntax::tokens::kinds_error;
+    use crate::VHDLStandard::VHDL2019;
     use assert_matches::assert_matches;
 
     #[test]
@@ -1054,6 +1055,63 @@ function foo() return bit;
                     class: ObjectClass::Signal,
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
+                }),
+                ident: code.s1("foo").decl_ident(),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_view_interface_declaration() {
+        let code = Code::with_standard("signal foo : view bar", VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_port),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceType::Port,
+                mode: ModeIndication::View(ModeViewIndication {
+                    name: code.s1("bar").name(),
+                    subtype_indication: None,
+                    kind: ModeViewIndicationKind::Record
+                }),
+                ident: code.s1("foo").decl_ident(),
+            })
+        );
+
+        let code = Code::with_standard("signal foo : view (bar)", VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_port),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceType::Port,
+                mode: ModeIndication::View(ModeViewIndication {
+                    name: code.s1("bar").name(),
+                    subtype_indication: None,
+                    kind: ModeViewIndicationKind::Array
+                }),
+                ident: code.s1("foo").decl_ident(),
+            })
+        );
+        let code = Code::with_standard("signal foo : view bar of baz", VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_port),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceType::Port,
+                mode: ModeIndication::View(ModeViewIndication {
+                    name: code.s1("bar").name(),
+                    subtype_indication: Some(code.s1("baz").subtype_indication()),
+                    kind: ModeViewIndicationKind::Record
+                }),
+                ident: code.s1("foo").decl_ident(),
+            })
+        );
+        let code = Code::with_standard("signal foo : view (bar) of baz", VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_port),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceType::Port,
+                mode: ModeIndication::View(ModeViewIndication {
+                    name: code.s1("bar").name(),
+                    subtype_indication: Some(code.s1("baz").subtype_indication()),
+                    kind: ModeViewIndicationKind::Array
                 }),
                 ident: code.s1("foo").decl_ident(),
             })

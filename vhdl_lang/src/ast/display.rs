@@ -929,6 +929,7 @@ impl Display for ModeIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ModeIndication::Simple(indication) => write!(f, "{indication}"),
+            ModeIndication::View(view) => write!(f, "{view}"),
         }
     }
 }
@@ -949,6 +950,20 @@ impl Display for SimpleModeIndication {
     }
 }
 
+impl Display for ModeViewIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "view ")?;
+        match self.kind {
+            ModeViewIndicationKind::Array => write!(f, "({})", self.name)?,
+            ModeViewIndicationKind::Record => write!(f, "{}", self.name)?,
+        }
+        if let Some(typ) = &self.subtype_indication {
+            write!(f, " of {typ}")?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
@@ -959,8 +974,11 @@ impl Display for InterfaceObjectDeclaration {
                 write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Parameter => {
-                let ModeIndication::Simple(class) = &self.mode;
-                write!(f, "{} {} : {}", class.class, self.ident, self.mode)
+                if let ModeIndication::Simple(mode) = &self.mode {
+                    write!(f, "{} {} : {}", mode.class, self.ident, self.mode)
+                } else {
+                    write!(f, "{} : {}", self.ident, self.mode)
+                }
             }
         }
     }
