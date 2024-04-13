@@ -925,30 +925,42 @@ impl Display for InterfaceFileDeclaration {
     }
 }
 
+impl Display for ModeIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            ModeIndication::Simple(indication) => write!(f, "{indication}"),
+        }
+    }
+}
+
+impl Display for SimpleModeIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if let Some(mode) = self.mode {
+            write!(f, "{mode} ")?;
+        }
+        write!(f, "{}", self.subtype_indication)?;
+        if self.bus {
+            write!(f, " bus")?;
+        }
+        if let Some(expr) = &self.expression {
+            write!(f, " := {expr}")?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
             InterfaceType::Port => {
-                write!(
-                    f,
-                    "{} : {} {}",
-                    self.ident, self.mode, self.subtype_indication
-                )?;
+                write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Generic => {
-                write!(f, "{} : {}", self.ident, self.subtype_indication)?;
+                write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Parameter => {
-                write!(
-                    f,
-                    "{} {} : {} {}",
-                    self.class, self.ident, self.mode, self.subtype_indication,
-                )?;
+                write!(f, "{} {} : {}", self.class, self.ident, self.mode,)
             }
-        }
-        match self.expression {
-            Some(ref expr) => write!(f, " := {expr}"),
-            None => Ok(()),
         }
     }
 }

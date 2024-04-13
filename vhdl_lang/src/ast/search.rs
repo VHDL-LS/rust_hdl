@@ -1104,6 +1104,22 @@ impl Search for ModeViewElement {
     }
 }
 
+impl Search for ModeIndication {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        match self {
+            ModeIndication::Simple(simple) => simple.search(ctx, searcher),
+        }
+    }
+}
+
+impl Search for SimpleModeIndication {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(self.subtype_indication.search(ctx, searcher));
+        return_if_found!(self.expression.search(ctx, searcher));
+        NotFound
+    }
+}
+
 impl Search for InterfaceDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self {
@@ -1111,8 +1127,7 @@ impl Search for InterfaceDeclaration {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::InterfaceObject(decl))
                     .or_not_found());
-                return_if_found!(decl.subtype_indication.search(ctx, searcher));
-                return_if_found!(decl.expression.search(ctx, searcher));
+                return_if_found!(decl.mode.search(ctx, searcher));
             }
             InterfaceDeclaration::Subprogram(ref spec, ref subpgm_default) => {
                 return_if_found!(searcher

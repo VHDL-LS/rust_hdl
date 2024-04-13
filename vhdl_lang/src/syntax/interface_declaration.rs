@@ -16,7 +16,9 @@ use crate::data::*;
 use vhdl_lang::data::error_codes::ErrorCode;
 use vhdl_lang::syntax::parser::ParsingContext;
 
-pub(crate) fn parse_optional_mode(ctx: &mut ParsingContext<'_>) -> ParseResult<Option<WithPos<Mode>>> {
+pub(crate) fn parse_optional_mode(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Option<WithPos<Mode>>> {
     let token = ctx.stream.peek_expect()?;
     let mode = match token.kind {
         In => Mode::In,
@@ -103,10 +105,7 @@ fn parse_interface_object_declaration(
     ctx.stream.expect_kind(Colon)?;
 
     let mode_with_pos = parse_optional_mode(ctx)?;
-    let mode = mode_with_pos
-        .as_ref()
-        .map(|mode| mode.item)
-        .unwrap_or(Mode::In);
+    let mode = mode_with_pos.as_ref().map(|mode| mode.item);
     let mode_pos = mode_with_pos.map(|mode| mode.pos);
 
     let object_class = match (
@@ -117,16 +116,17 @@ fn parse_interface_object_declaration(
         (_, Some(object_class), _) => object_class,
         (InterfaceType::Port, None, _) => ObjectClass::Signal,
         (InterfaceType::Generic, None, _) => ObjectClass::Constant,
-        (InterfaceType::Parameter, None, Mode::In) => ObjectClass::Constant,
+        (InterfaceType::Parameter, None, None | Some(Mode::In)) => ObjectClass::Constant,
         (InterfaceType::Parameter, None, _) => ObjectClass::Variable,
     };
 
     let subtype = parse_subtype_indication(ctx)?;
+    let bus = ctx.stream.pop_if_kind(Bus).is_some();
     let expr = parse_optional_assignment(ctx)?;
 
     // @TODO maybe move this to a semantic check?
     for ident in idents.iter() {
-        if object_class == ObjectClass::Constant && mode != Mode::In {
+        if object_class == ObjectClass::Constant && mode.unwrap_or_default() != Mode::In {
             let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::syntax_error(
                 pos,
@@ -151,16 +151,21 @@ fn parse_interface_object_declaration(
         };
     }
 
+    let mode_indication = ModeIndication::Simple(SimpleModeIndication {
+        mode,
+        subtype_indication: subtype,
+        expression: expr,
+        bus,
+    });
+
     Ok(idents
         .into_iter()
         .map(|ident| {
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 list_type,
-                mode,
+                mode: mode_indication.clone(),
                 class: object_class,
                 ident: ident.into(),
-                subtype_indication: subtype.clone(),
-                expression: expr.clone(),
             })
         })
         .collect())
@@ -410,6 +415,7 @@ mod tests {
     use crate::syntax::subprogram::parse_subprogram_declaration;
     use crate::syntax::test::Code;
     use crate::syntax::tokens::kinds_error;
+    use assert_matches::assert_matches;
 
     #[test]
     fn parses_interface_identifier_list() {
@@ -419,19 +425,25 @@ mod tests {
             vec![
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     list_type: InterfaceType::Generic,
-                    mode: Mode::In,
+                    mode: ModeIndication::Simple(SimpleModeIndication {
+                        bus: false,
+                        mode: None,
+                        subtype_indication: code.s1("natural").subtype_indication(),
+                        expression: None
+                    }),
                     class: ObjectClass::Constant,
                     ident: code.s1("foo").decl_ident(),
-                    subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: None
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     list_type: InterfaceType::Generic,
-                    mode: Mode::In,
+                    mode: ModeIndication::Simple(SimpleModeIndication {
+                        bus: false,
+                        mode: None,
+                        subtype_indication: code.s1("natural").subtype_indication(),
+                        expression: None
+                    }),
                     class: ObjectClass::Constant,
                     ident: code.s1("bar").decl_ident(),
-                    subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: None
                 })
             ]
         );
@@ -444,11 +456,14 @@ mod tests {
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 list_type: InterfaceType::Generic,
-                mode: Mode::In,
+                mode: ModeIndication::Simple(SimpleModeIndication {
+                    bus: false,
+                    mode: None,
+                    subtype_indication: code.s1("std_logic").subtype_indication(),
+                    expression: None
+                }),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("std_logic").subtype_indication(),
-                expression: None
             })
         );
     }
@@ -526,11 +541,14 @@ mod tests {
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 list_type: InterfaceType::Port,
-                mode: Mode::In,
+                mode: ModeIndication::Simple(SimpleModeIndication {
+                    bus: false,
+                    mode: None,
+                    subtype_indication: code.s1("std_logic").subtype_indication(),
+                    expression: None
+                }),
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("std_logic").subtype_indication(),
-                expression: None
             })
         );
     }
@@ -546,7 +564,10 @@ mod tests {
     fn parses_port_without_explicit_class() {
         let code = Code::new("foo : std_logic");
         let result = to_interface_object(code.with_stream(parse_port));
-        assert_eq!(result.mode, Mode::In);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication { mode: None, .. })
+        );
         assert_eq!(result.class, ObjectClass::Signal);
     }
 
@@ -554,7 +575,10 @@ mod tests {
     fn parses_generic_without_explicit_class() {
         let code = Code::new("foo : std_logic");
         let result = to_interface_object(code.with_stream(parse_generic));
-        assert_eq!(result.mode, Mode::In);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication { mode: None, .. })
+        );
         assert_eq!(result.class, ObjectClass::Constant);
     }
 
@@ -568,22 +592,43 @@ mod tests {
         // @TODO forbid mode != in for function
         let code = Code::new("foo : std_logic");
         let result = to_interface_object(code.with_stream(parse_parameter));
-        assert_eq!(result.mode, Mode::In);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication { mode: None, .. })
+        );
         assert_eq!(result.class, ObjectClass::Constant);
 
         let code = Code::new("foo : in std_logic");
         let result = to_interface_object(code.with_stream(parse_parameter));
-        assert_eq!(result.mode, Mode::In);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication {
+                mode: Some(Mode::In),
+                ..
+            })
+        );
         assert_eq!(result.class, ObjectClass::Constant);
 
         let code = Code::new("foo : out std_logic");
         let result = to_interface_object(code.with_stream(parse_parameter));
-        assert_eq!(result.mode, Mode::Out);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication {
+                mode: Some(Mode::Out),
+                ..
+            })
+        );
         assert_eq!(result.class, ObjectClass::Variable);
 
         let code = Code::new("foo : inout std_logic");
         let result = to_interface_object(code.with_stream(parse_parameter));
-        assert_eq!(result.mode, Mode::InOut);
+        assert_matches!(
+            result.mode,
+            ModeIndication::Simple(SimpleModeIndication {
+                mode: Some(Mode::InOut),
+                ..
+            })
+        );
         assert_eq!(result.class, ObjectClass::Variable);
     }
 
@@ -594,11 +639,14 @@ mod tests {
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 list_type: InterfaceType::Generic,
-                mode: Mode::In,
+                mode: ModeIndication::Simple(SimpleModeIndication {
+                    bus: false,
+                    mode: None,
+                    subtype_indication: code.s1("std_logic").subtype_indication(),
+                    expression: None
+                }),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("std_logic").subtype_indication(),
-                expression: None
             })
         );
     }
@@ -610,11 +658,14 @@ mod tests {
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 list_type: InterfaceType::Port,
-                mode: Mode::In,
+                mode: ModeIndication::Simple(SimpleModeIndication {
+                    bus: false,
+                    mode: None,
+                    subtype_indication: code.s1("std_logic").subtype_indication(),
+                    expression: None
+                }),
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("std_logic").subtype_indication(),
-                expression: None
             })
         );
     }
@@ -934,6 +985,25 @@ function foo() return bit;
                     return_type: code.s1("bit").type_mark()
                 })
             }
+        );
+    }
+
+    #[test]
+    fn parses_bus() {
+        let code = Code::new("signal foo : std_logic bus");
+        assert_eq!(
+            code.with_stream(parse_port),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceType::Port,
+                mode: ModeIndication::Simple(SimpleModeIndication {
+                    bus: true,
+                    mode: None,
+                    subtype_indication: code.s1("std_logic").subtype_indication(),
+                    expression: None
+                }),
+                class: ObjectClass::Signal,
+                ident: code.s1("foo").decl_ident(),
+            })
         );
     }
 }

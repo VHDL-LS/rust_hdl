@@ -736,8 +736,20 @@ pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
     pub class: ObjectClass,
     pub ident: WithDecl<Ident>,
-    pub mode: Mode,
+    pub mode: ModeIndication,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ModeIndication {
+    Simple(SimpleModeIndication),
+    // TODO: View
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SimpleModeIndication {
+    pub mode: Option<Mode>,
     pub subtype_indication: SubtypeIndication,
+    pub bus: bool,
     pub expression: Option<WithPos<Expression>>,
 }
 
@@ -774,8 +786,9 @@ pub enum InterfaceDeclaration {
     Package(InterfacePackageDeclaration),
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub enum Mode {
+    #[default]
     In,
     Out,
     InOut,

@@ -801,41 +801,7 @@ impl<'a> AnalyzeContext<'a> {
                 )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
-                let subtype = self.resolve_subtype_indication(
-                    scope,
-                    &mut object_decl.subtype_indication,
-                    diagnostics,
-                );
-
-                if let Some(ref mut expression) = object_decl.expression {
-                    if let Ok(ref subtype) = subtype {
-                        self.expr_pos_with_ttyp(
-                            scope,
-                            subtype.type_mark(),
-                            &expression.pos,
-                            &mut expression.item,
-                            diagnostics,
-                        )?;
-                    } else {
-                        self.expr_unknown_ttyp(scope, expression, diagnostics)?
-                    }
-                }
-
-                let subtype = subtype?;
-                self.arena.define(
-                    &mut object_decl.ident,
-                    parent,
-                    AnyEntKind::Object(Object {
-                        class: object_decl.class,
-                        iface: Some(ObjectInterface::new(
-                            object_decl.list_type,
-                            object_decl.mode,
-                        )),
-                        subtype,
-                        has_default: object_decl.expression.is_some(),
-                    }),
-                    None,
-                )
+                self.analyze_interface_object_declaration(scope, parent, object_decl, diagnostics)?
             }
             InterfaceDeclaration::Type(ref mut ident) => {
                 let typ = TypeEnt::from_any(self.arena.define(
@@ -887,6 +853,60 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
         Ok(ent)
+    }
+
+    pub fn analyze_interface_object_declaration(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        object_decl: &mut InterfaceObjectDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<EntRef<'a>> {
+        match &mut object_decl.mode {
+            ModeIndication::Simple(mode) => {
+                let subtype = self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
+                Ok(self.arena.define(
+                    &mut object_decl.ident,
+                    parent,
+                    AnyEntKind::Object(Object {
+                        class: object_decl.class,
+                        iface: Some(ObjectInterface::new(
+                            object_decl.list_type,
+                            mode.mode.unwrap_or_default(),
+                        )),
+                        subtype,
+                        has_default: mode.expression.is_some(),
+                    }),
+                    None,
+                ))
+            }
+        }
+    }
+
+    pub fn analyze_simple_mode_indication(
+        &self,
+        scope: &Scope<'a>,
+        mode: &mut SimpleModeIndication,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Subtype<'a>> {
+        let subtype =
+            self.resolve_subtype_indication(scope, &mut mode.subtype_indication, diagnostics);
+
+        if let Some(ref mut expression) = mode.expression {
+            if let Ok(ref subtype) = subtype {
+                self.expr_pos_with_ttyp(
+                    scope,
+                    subtype.type_mark(),
+                    &expression.pos,
+                    &mut expression.item,
+                    diagnostics,
+                )?;
+            } else {
+                self.expr_unknown_ttyp(scope, expression, diagnostics)?
+            }
+        }
+
+        subtype
     }
 
     pub fn analyze_interface_list(
