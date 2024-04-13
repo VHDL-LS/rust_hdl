@@ -9,55 +9,56 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenId, TokenSpan, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenId, TokenSpan};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::interface_declaration::parse_generic_interface_list;
 use crate::syntax::names::parse_name;
+use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
-    let left_square = stream.expect_kind(LeftSquare)?;
-    let start_pos = stream.get_pos(left_square);
+pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Signature>> {
+    let left_square = ctx.stream.expect_kind(LeftSquare)?;
+    let start_pos = ctx.stream.get_pos(left_square);
     let mut type_marks = Vec::new();
     let mut return_mark = None;
 
     let pos = peek_token!(
-        stream, token,
+        ctx.stream, token,
         Return => {
-            stream.skip();
-            return_mark = Some(parse_type_mark(stream)?);
-            let right_square = stream.expect_kind(RightSquare)?;
-            start_pos.combine(stream.get_pos(right_square))
+            ctx.stream.skip();
+            return_mark = Some(parse_type_mark(ctx)?);
+            let right_square = ctx.stream.expect_kind(RightSquare)?;
+            start_pos.combine(ctx.stream.get_pos(right_square))
         },
         RightSquare => {
-            stream.skip();
+            ctx.stream.skip();
             start_pos.combine(&token.pos)
         },
         Identifier => {
             loop {
-                let token = stream.peek_expect()?;
+                let token = ctx.stream.peek_expect()?;
 
                 match token.kind {
                     Identifier => {
-                        type_marks.push(parse_type_mark(stream)?);
+                        type_marks.push(parse_type_mark(ctx)?);
                         expect_token!(
-                            stream,
+                            ctx.stream,
                             sep_token,
                             Comma => {},
                             RightSquare => {
                                 break start_pos.combine(&sep_token.pos);
                             },
                             Return => {
-                                return_mark = Some(parse_type_mark(stream)?);
-                                let right_square = stream.expect_kind(RightSquare)?;
-                                break start_pos.combine(stream.get_pos(right_square));
+                                return_mark = Some(parse_type_mark(ctx)?);
+                                let right_square = ctx.stream.expect_kind(RightSquare)?;
+                                break start_pos.combine(ctx.stream.get_pos(right_square));
                             }
                         )
                     }
                     _ => {
-                        stream.skip();
-                        return Err(kinds_error(stream.pos_before(token), &[Identifier]))
+                        ctx.stream.skip();
+                        return Err(kinds_error(ctx.stream.pos_before(token), &[Identifier]))
                     }
                 };
             }
@@ -72,9 +73,9 @@ pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> 
     Ok(WithPos::new(signature, pos))
 }
 
-fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
+fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<SubprogramDesignator>> {
     Ok(expect_token!(
-        stream,
+        ctx.stream,
         token,
         Identifier => token.to_identifier_value()?.map_into(SubprogramDesignator::Identifier),
         StringLiteral => token.to_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
@@ -86,14 +87,13 @@ fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<SubprogramDesig
 ///     [ generic ( generic_list )
 ///     [ generic_map_aspect ] ]
 pub fn parse_optional_subprogram_header(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Option<SubprogramHeader>> {
-    let Some(generic) = stream.pop_if_kind(Generic) else {
+    let Some(generic) = ctx.stream.pop_if_kind(Generic) else {
         return Ok(None);
     };
-    let generic_list = parse_generic_interface_list(stream, diagnostics)?;
-    let map_aspect = parse_map_aspect(stream, Generic, diagnostics)?;
+    let generic_list = parse_generic_interface_list(ctx)?;
+    let map_aspect = parse_map_aspect(ctx, Generic)?;
 
     Ok(Some(SubprogramHeader {
         generic_tok: generic,
@@ -103,11 +103,10 @@ pub fn parse_optional_subprogram_header(
 }
 
 pub fn parse_subprogram_instantiation(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<SubprogramInstantiation> {
-    let start_token = stream.get_current_token_id();
-    let tok = stream.peek_expect()?;
+    let start_token = ctx.stream.get_current_token_id();
+    let tok = ctx.stream.peek_expect()?;
     let kind = match tok.kind {
         Procedure => SubprogramKind::Procedure,
         Function => SubprogramKind::Function,
@@ -118,18 +117,18 @@ pub fn parse_subprogram_instantiation(
             ))
         }
     };
-    stream.skip();
-    let ident = WithDecl::new(stream.expect_ident()?);
-    stream.expect_kind(Is)?;
-    stream.expect_kind(New)?;
-    let subprogram_name = parse_name(stream)?;
-    let signature = if stream.next_kind_is(LeftSquare) {
-        Some(parse_signature(stream)?)
+    ctx.stream.skip();
+    let ident = WithDecl::new(ctx.stream.expect_ident()?);
+    ctx.stream.expect_kind(Is)?;
+    ctx.stream.expect_kind(New)?;
+    let subprogram_name = parse_name(ctx)?;
+    let signature = if ctx.stream.next_kind_is(LeftSquare) {
+        Some(parse_signature(ctx)?)
     } else {
         None
     };
-    let generic_map = parse_map_aspect(stream, Generic, diagnostics)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+    let generic_map = parse_map_aspect(ctx, Generic)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
     Ok(SubprogramInstantiation {
         span: TokenSpan::new(start_token, end_token),
         kind,
@@ -141,46 +140,42 @@ pub fn parse_subprogram_instantiation(
 }
 
 pub fn parse_subprogram_specification(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<SubprogramSpecification> {
     let (is_function, is_pure) = {
         expect_token!(
-            stream,
+            ctx.stream,
             token,
             Procedure => (false, false),
             Function => (true, true),
             Impure => {
-                stream.expect_kind(Function)?;
+                ctx.stream.expect_kind(Function)?;
                 (true, false)
             },
             Pure => {
-                stream.expect_kind(Function)?;
+                ctx.stream.expect_kind(Function)?;
                 (true, true)
             }
         )
     };
 
-    let designator = parse_designator(stream)?;
+    let designator = parse_designator(ctx)?;
 
-    let header = parse_optional_subprogram_header(stream, diagnostics)?;
+    let header = parse_optional_subprogram_header(ctx)?;
 
     let (parameter_list, param_tok) = {
-        if let Some(parameter) = stream.pop_if_kind(Parameter) {
-            (
-                parse_parameter_interface_list(stream, diagnostics)?,
-                Some(parameter),
-            )
-        } else if stream.peek_kind() == Some(LeftPar) {
-            (parse_parameter_interface_list(stream, diagnostics)?, None)
+        if let Some(parameter) = ctx.stream.pop_if_kind(Parameter) {
+            (parse_parameter_interface_list(ctx)?, Some(parameter))
+        } else if ctx.stream.peek_kind() == Some(LeftPar) {
+            (parse_parameter_interface_list(ctx)?, None)
         } else {
             (Vec::new(), None)
         }
     };
 
     if is_function {
-        stream.expect_kind(Return)?;
-        let return_type = parse_type_mark(stream)?;
+        ctx.stream.expect_kind(Return)?;
+        let return_type = parse_type_mark(ctx)?;
         Ok(SubprogramSpecification::Function(FunctionSpecification {
             pure: is_pure,
             param_tok,
@@ -200,12 +195,11 @@ pub fn parse_subprogram_specification(
 }
 
 pub fn parse_subprogram_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<SubprogramDeclaration> {
-    let start_token = stream.get_current_token_id();
-    let specification = parse_subprogram_specification(stream, diagnostics)?;
-    let end_token = stream.expect_kind(SemiColon)?;
+    let start_token = ctx.stream.get_current_token_id();
+    let specification = parse_subprogram_specification(ctx)?;
+    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
     Ok(SubprogramDeclaration {
         span: TokenSpan::new(start_token, end_token),
@@ -215,10 +209,9 @@ pub fn parse_subprogram_declaration(
 
 /// LRM 4.3 Subprogram bodies
 pub fn parse_subprogram_body(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     specification_start_token: TokenId,
     specification: SubprogramSpecification,
-    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
     let end_kind = {
         match specification {
@@ -226,26 +219,26 @@ pub fn parse_subprogram_body(
             SubprogramSpecification::Function(..) => Function,
         }
     };
-    let declarations = parse_declarative_part(stream, diagnostics)?;
-    stream.expect_kind(Begin)?;
+    let declarations = parse_declarative_part(ctx)?;
+    ctx.stream.expect_kind(Begin)?;
 
-    let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
+    let statements = parse_labeled_sequential_statements(ctx)?;
     expect_token!(
-        stream,
+        ctx.stream,
         end_token,
         End => {
-            stream.pop_if_kind(end_kind);
+            ctx.stream.pop_if_kind(end_kind);
 
-            let end_ident = if matches!(stream.peek_kind(), Some(Identifier | StringLiteral)) {
-                Some(parse_designator(stream)?)
+            let end_ident = if matches!(ctx.stream.peek_kind(), Some(Identifier | StringLiteral)) {
+                Some(parse_designator(ctx)?)
             } else {
                 None
             };
-            let end_token = stream.expect_kind(SemiColon)?;
+            let end_token = ctx.stream.expect_kind(SemiColon)?;
 
             Ok(SubprogramBody {
                 span: TokenSpan::new(specification_start_token, end_token),
-                end_ident_pos: check_end_identifier_mismatch(specification.subpgm_designator(), end_ident, diagnostics),
+                end_ident_pos: check_end_identifier_mismatch(ctx, specification.subpgm_designator(), end_ident),
                 specification,
                 declarations,
                 statements,
@@ -254,28 +247,25 @@ pub fn parse_subprogram_body(
     )
 }
 
-pub fn parse_subprogram(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Declaration> {
-    if stream.next_kinds_are(&[Procedure, Identifier, Is, New])
-        || stream.next_kinds_are(&[Function, Identifier, Is, New])
+pub fn parse_subprogram(ctx: &mut ParsingContext<'_>) -> ParseResult<Declaration> {
+    if ctx.stream.next_kinds_are(&[Procedure, Identifier, Is, New])
+        || ctx.stream.next_kinds_are(&[Function, Identifier, Is, New])
     {
         return Ok(Declaration::SubprogramInstantiation(
-            parse_subprogram_instantiation(stream, diagnostics)?,
+            parse_subprogram_instantiation(ctx)?,
         ));
     }
-    let start_token = stream.get_current_token_id();
-    let specification = parse_subprogram_specification(stream, diagnostics)?;
+    let start_token = ctx.stream.get_current_token_id();
+    let specification = parse_subprogram_specification(ctx)?;
     expect_token!(
-        stream,
+        ctx.stream,
         token,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, start_token, specification, diagnostics)?))
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(ctx, start_token, specification)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(SubprogramDeclaration{
-                span: TokenSpan::new(start_token, stream.get_last_token_id()),
+                span: TokenSpan::new(start_token, ctx.stream.get_last_token_id()),
                 specification,
             }))
         }

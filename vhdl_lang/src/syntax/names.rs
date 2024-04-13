@@ -9,17 +9,18 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenAccess, TokenStream};
+use super::tokens::{Kind::*, TokenAccess};
 use crate::ast;
 use crate::ast::{Literal, *};
 use crate::data::error_codes::ErrorCode;
-use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
+use crate::data::{Diagnostic, WithPos};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
+use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>> {
+pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Designator>> {
     Ok(expect_token!(
-        stream,
+        ctx.stream,
         token,
         Identifier => token.to_identifier_value()?.map_into(Designator::Identifier),
         StringLiteral => token.to_operator_symbol()?.map_into(Designator::OperatorSymbol),
@@ -27,19 +28,17 @@ pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>
     ))
 }
 
-pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
-    let mut name = parse_designator(stream)?
-        .into_ref()
-        .map_into(Name::Designator);
+pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
+    let mut name = parse_designator(ctx)?.into_ref().map_into(Name::Designator);
     loop {
-        if !stream.skip_if_kind(Dot) {
+        if !ctx.stream.skip_if_kind(Dot) {
             break;
         }
-        if let Some(tok) = stream.pop_if_kind(All) {
-            let pos = stream.get_pos(tok).combine(&name.pos);
+        if let Some(tok) = ctx.stream.pop_if_kind(All) {
+            let pos = ctx.stream.get_pos(tok).combine(&name.pos);
             name = WithPos::from(Name::SelectedAll(Box::new(name)), pos);
         } else {
-            let suffix = parse_designator(stream)?.into_ref();
+            let suffix = parse_designator(ctx)?.into_ref();
             let pos = suffix.pos.combine(&name.pos);
             name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
         }
@@ -47,21 +46,21 @@ pub fn parse_selected_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
     Ok(name)
 }
 
-pub fn parse_type_mark(stream: &TokenStream) -> ParseResult<WithPos<TypeMark>> {
-    let name = parse_selected_name(stream)?;
-    parse_type_mark_starting_with_name(stream, name)
+pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<TypeMark>> {
+    let name = parse_selected_name(ctx)?;
+    parse_type_mark_starting_with_name(ctx, name)
 }
 
 pub fn parse_type_mark_starting_with_name(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     name: WithPos<Name>,
 ) -> ParseResult<WithPos<TypeMark>> {
-    let state = stream.state();
+    let state = ctx.stream.state();
 
     // Check if it is a type mark with a subtype or element attribute:
     // Example: signal sig0 : sig1'subtype;
-    if stream.pop_if_kind(Tick).is_some() {
-        if let Ok(attr) = stream.expect_attribute_designator() {
+    if ctx.stream.pop_if_kind(Tick).is_some() {
+        if let Ok(attr) = ctx.stream.expect_attribute_designator() {
             if let AttributeDesignator::Type(typattr) = attr.item {
                 return Ok(WithPos {
                     pos: attr.pos.combine_into(&name.pos),
@@ -73,7 +72,7 @@ pub fn parse_type_mark_starting_with_name(
             }
         }
 
-        stream.set_state(state);
+        ctx.stream.set_state(state);
     };
 
     Ok(WithPos {
@@ -106,11 +105,11 @@ pub fn expression_to_ident(name: WithPos<Expression>) -> ParseResult<Ident> {
     to_simple_name(name)
 }
 
-pub fn parse_identifier_list(stream: &TokenStream) -> ParseResult<Vec<Ident>> {
+pub fn parse_identifier_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Ident>> {
     let mut idents = Vec::new();
     loop {
-        idents.push(stream.expect_ident()?);
-        if !stream.skip_if_kind(Comma) {
+        idents.push(ctx.stream.expect_ident()?);
+        if !ctx.stream.skip_if_kind(Comma) {
             break;
         }
     }
@@ -165,23 +164,23 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
     }
 }
 
-fn parse_actual_part(stream: &TokenStream) -> ParseResult<WithPos<ActualPart>> {
-    if let Some(token) = stream.pop_if_kind(Open) {
+fn parse_actual_part(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<ActualPart>> {
+    if let Some(token) = ctx.stream.pop_if_kind(Open) {
         Ok(WithPos::from(
             ActualPart::Open,
-            stream.get_pos(token).clone(),
+            ctx.stream.get_pos(token).clone(),
         ))
     } else {
-        Ok(parse_expression(stream)?.map_into(ActualPart::Expression))
+        Ok(parse_expression(ctx)?.map_into(ActualPart::Expression))
     }
 }
 
-pub fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationElement> {
-    let actual = parse_actual_part(stream)?;
-    if stream.skip_if_kind(RightArrow) {
+pub fn parse_association_element(ctx: &mut ParsingContext<'_>) -> ParseResult<AssociationElement> {
+    let actual = parse_actual_part(ctx)?;
+    if ctx.stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
             formal: Some(actual_part_to_name(actual)?),
-            actual: parse_actual_part(stream)?,
+            actual: parse_actual_part(ctx)?,
         })
     } else {
         Ok(AssociationElement {
@@ -192,39 +191,36 @@ pub fn parse_association_element(stream: &TokenStream) -> ParseResult<Associatio
 }
 
 pub fn parse_association_list(
-    stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
-    let left_par = stream.expect_kind(LeftPar)?;
-    parse_association_list_no_leftpar(stream, left_par, diagnsotics)
+    let left_par = ctx.stream.expect_kind(LeftPar)?;
+    parse_association_list_no_leftpar(ctx, left_par)
 }
 
 pub fn parse_association_list_no_leftpar(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     left_par: TokenId,
-    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
-    if let Some(right_par) = stream.pop_if_kind(RightPar) {
-        diagnostics.add(
-            stream.get_span(left_par, right_par),
+    if let Some(right_par) = ctx.stream.pop_if_kind(RightPar) {
+        ctx.diagnostics.add(
+            ctx.stream.get_span(left_par, right_par),
             "Association list cannot be empty",
             ErrorCode::SyntaxError,
         );
         return Ok((SeparatedList::default(), right_par));
     }
     let list = parse_list_with_separator_or_recover(
-        stream,
+        ctx,
         Comma,
-        diagnostics,
         parse_association_element,
         Some(RightPar),
     )?;
-    let right_par = stream.expect_kind(RightPar)?;
+    let right_par = ctx.stream.expect_kind(RightPar)?;
     Ok((list, right_par))
 }
 
 fn parse_function_call(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     prefix: WithPos<Name>,
     first: AssociationElement,
 ) -> ParseResult<WithPos<Name>> {
@@ -232,9 +228,9 @@ fn parse_function_call(
     association_elements.push(first);
 
     loop {
-        association_elements.push(parse_association_element(stream)?);
+        association_elements.push(parse_association_element(ctx)?);
         expect_token!(
-            stream,
+            ctx.stream,
             token,
             Comma => {},
             RightPar => {
@@ -251,17 +247,17 @@ fn parse_function_call(
 }
 
 fn parse_attribute_name(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     name: WithPos<Name>,
     signature: Option<WithPos<Signature>>,
 ) -> ParseResult<WithPos<Name>> {
-    let attr = stream.expect_attribute_designator()?;
+    let attr = ctx.stream.expect_attribute_designator()?;
 
     let (expression, pos) = {
-        if stream.skip_if_kind(LeftPar) {
-            let ret = Some(parse_expression(stream)?);
-            let rpar_token = stream.expect_kind(RightPar)?;
-            (ret, stream.get_pos(rpar_token).combine(&name))
+        if ctx.stream.skip_if_kind(LeftPar) {
+            let ret = Some(parse_expression(ctx)?);
+            let rpar_token = ctx.stream.expect_kind(RightPar)?;
+            (ret, ctx.stream.get_pos(rpar_token).combine(&name))
         } else {
             (None, attr.pos.combine(&name))
         }
@@ -283,10 +279,10 @@ enum DesignatorOrAll {
     All,
 }
 
-fn parse_suffix(stream: &TokenStream) -> ParseResult<WithPos<DesignatorOrAll>> {
+fn parse_suffix(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<DesignatorOrAll>> {
     let name = {
         expect_token!(
-            stream,
+            ctx.stream,
             token,
             Identifier => token.to_identifier_value()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
             Character => token.to_character_value()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
@@ -300,50 +296,50 @@ fn parse_suffix(stream: &TokenStream) -> ParseResult<WithPos<DesignatorOrAll>> {
 
 /// LRM 8.7 External names
 /// Inside of << >>
-fn parse_inner_external_name(stream: &TokenStream) -> ParseResult<ExternalName> {
-    let token = stream.peek_expect()?;
+fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<ExternalName> {
+    let token = ctx.stream.peek_expect()?;
     let class = try_init_token_kind!(
         token,
         Signal => ExternalObjectClass::Signal,
         Constant => ExternalObjectClass::Constant,
         Variable => ExternalObjectClass::Variable);
-    stream.skip();
+    ctx.stream.skip();
 
     let path = peek_token!(
-        stream, token,
+        ctx.stream, token,
         CommAt => {
-            stream.skip();
-            let path_name = parse_name(stream)?;
+            ctx.stream.skip();
+            let path_name = parse_name(ctx)?;
             let path_pos = path_name.pos.clone().combine_into(&token);
             WithPos::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
-            stream.skip();
-            let path_name = parse_name(stream)?;
+            ctx.stream.skip();
+            let path_name = parse_name(ctx)?;
             let path_pos = path_name.pos.clone().combine_into(&token);
             WithPos::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
-            stream.skip();
-            stream.expect_kind(Dot)?;
+            ctx.stream.skip();
+            ctx.stream.expect_kind(Dot)?;
             let mut up_levels = 1;
-            while stream.skip_if_kind(Circ) {
-                stream.expect_kind(Dot)?;
+            while ctx.stream.skip_if_kind(Circ) {
+                ctx.stream.expect_kind(Dot)?;
                 up_levels += 1;
             }
-            let path_name = parse_name(stream)?;
+            let path_name = parse_name(ctx)?;
             let path_pos = path_name.pos.clone().combine_into(&token);
             WithPos::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
-            let path_name = parse_name(stream)?;
+            let path_name = parse_name(ctx)?;
             let path_pos = path_name.pos.clone();
             WithPos::from(ExternalPath::Relative(path_name, 0), path_pos)
         }
     );
 
-    stream.expect_kind(Colon)?;
-    let subtype = parse_subtype_indication(stream)?;
+    ctx.stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(ctx)?;
 
     Ok(ExternalName {
         class,
@@ -353,14 +349,14 @@ fn parse_inner_external_name(stream: &TokenStream) -> ParseResult<ExternalName> 
 }
 
 /// LRM 8. Names
-fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
+fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
     let mut name = {
-        if let Some(token) = stream.pop_if_kind(LtLt) {
-            let external_name = Name::External(Box::new(parse_inner_external_name(stream)?));
-            let end_token = stream.expect_kind(GtGt)?;
-            WithPos::from(external_name, stream.get_span(token, end_token))
+        if let Some(token) = ctx.stream.pop_if_kind(LtLt) {
+            let external_name = Name::External(Box::new(parse_inner_external_name(ctx)?));
+            let end_token = ctx.stream.expect_kind(GtGt)?;
+            WithPos::from(external_name, ctx.stream.get_span(token, end_token))
         } else {
-            let suffix = parse_suffix(stream)?;
+            let suffix = parse_suffix(ctx)?;
             match suffix.item {
                 DesignatorOrAll::Designator(designator) => {
                     WithPos::from(Name::Designator(designator.into_ref()), suffix.pos)
@@ -375,11 +371,11 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
         }
     };
 
-    while let Some(token) = stream.peek() {
+    while let Some(token) = ctx.stream.peek() {
         match token.kind {
             Dot => {
-                stream.skip();
-                let suffix = parse_suffix(stream)?;
+                ctx.stream.skip();
+                let suffix = parse_suffix(ctx)?;
                 let pos = name.pos.combine(&suffix.pos);
 
                 match suffix.item {
@@ -401,40 +397,40 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
                 }
             }
             LeftSquare => {
-                let state = stream.state();
-                let signature = Some(parse_signature(stream)?);
-                if !stream.skip_if_kind(Tick) {
+                let state = ctx.stream.state();
+                let signature = Some(parse_signature(ctx)?);
+                if !ctx.stream.skip_if_kind(Tick) {
                     // Alias may have prefix[signature] without tick
-                    stream.set_state(state);
+                    ctx.stream.set_state(state);
                     break;
                 }
-                name = parse_attribute_name(stream, name, signature)?;
+                name = parse_attribute_name(ctx, name, signature)?;
             }
             Tick => {
-                if stream.nth_kind_is(1, LeftPar) {
+                if ctx.stream.nth_kind_is(1, LeftPar) {
                     break;
                 }
-                stream.skip();
+                ctx.stream.skip();
                 let signature = None;
-                name = parse_attribute_name(stream, name, signature)?;
+                name = parse_attribute_name(ctx, name, signature)?;
             }
             LeftPar => {
-                stream.skip();
-                if let Some(right_par) = stream.pop_if_kind(RightPar) {
+                ctx.stream.skip();
+                if let Some(right_par) = ctx.stream.pop_if_kind(RightPar) {
                     return Err(Diagnostic::syntax_error(
-                        token.pos.combine(stream.get_pos(right_par)),
+                        token.pos.combine(ctx.stream.get_pos(right_par)),
                         "Association list cannot be empty",
                     ));
                 }
-                let assoc = parse_association_element(stream)?;
+                let assoc = parse_association_element(ctx)?;
                 expect_token!(
-                    stream,
+                    ctx.stream,
                     sep_token,
                     Comma => {
-                        name = parse_function_call(stream, name, assoc)?;
+                        name = parse_function_call(ctx, name, assoc)?;
                     },
                     To | Downto => {
-                        let right_expr = parse_expression(stream)?;
+                        let right_expr = parse_expression(ctx)?;
                         let direction = {
                             if sep_token.kind == To {
                                 Direction::Ascending
@@ -442,8 +438,8 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
                                 Direction::Descending
                             }
                         };
-                        let rpar_token = stream.expect_kind(RightPar)?;
-                        let pos = stream.get_pos(rpar_token).combine(&name);
+                        let rpar_token = ctx.stream.expect_kind(RightPar)?;
+                        let pos = ctx.stream.get_pos(rpar_token).combine(&name);
                         let discrete_range =
                             DiscreteRange::Range(ast::Range::Range(RangeConstraint {
                                 left_expr: Box::new(assoc_to_expression(assoc)?),
@@ -504,10 +500,10 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
     }
 }
 
-pub fn parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
-    let state = stream.state();
-    _parse_name(stream).map_err(|err| {
-        stream.set_state(state);
+pub fn parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
+    let state = ctx.stream.state();
+    _parse_name(ctx).map_err(|err| {
+        ctx.stream.set_state(state);
         err
     })
 }
@@ -912,9 +908,9 @@ mod tests {
     fn test_name_signature_no_attribute_name() {
         // Alias declarations may use name[signature]
         let code = Code::new("prefix[return natural]");
-        let name = code.with_partial_stream(|stream| {
-            let result = parse_name(stream);
-            stream.expect_kind(LeftSquare)?;
+        let name = code.with_partial_stream(|ctx| {
+            let result = parse_name(ctx);
+            ctx.stream.expect_kind(LeftSquare)?;
             result
         });
         let prefix = WithPos {
@@ -927,10 +923,10 @@ mod tests {
     #[test]
     fn test_qualified_expression_is_not_name() {
         let code = Code::new("prefix'(");
-        let name = code.with_stream(|stream| {
-            let result = parse_name(stream);
-            stream.expect_kind(Tick)?;
-            stream.expect_kind(LeftPar)?;
+        let name = code.with_stream(|ctx| {
+            let result = parse_name(ctx);
+            ctx.stream.expect_kind(Tick)?;
+            ctx.stream.expect_kind(LeftPar)?;
             result
         });
         let prefix = WithPos {
@@ -1219,7 +1215,7 @@ mod tests {
         let code = Code::new("foo()");
         let res = code.parse(parse_name);
         assert_eq!(
-            res,
+            res.0,
             Err(Diagnostic::syntax_error(
                 code.s1("()"),
                 "Association list cannot be empty"

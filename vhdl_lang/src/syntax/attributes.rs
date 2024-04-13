@@ -8,14 +8,15 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
-use super::tokens::{Kind::*, TokenSpan, TokenStream};
+use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
 };
+use vhdl_lang::syntax::parser::ParsingContext;
 
-fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
-    Ok(expect_token!(stream, token,
+fn parse_entity_class(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityClass> {
+    Ok(expect_token!(ctx.stream, token,
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
         Configuration => EntityClass::Configuration,
@@ -35,8 +36,8 @@ fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
     ))
 }
 
-pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityName>> {
-    Ok(expect_token!(stream, token,
+pub fn parse_entity_name_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<EntityName>> {
+    Ok(expect_token!(ctx.stream, token,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
             let mut token = token;
@@ -49,8 +50,8 @@ pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityNam
                 };
 
                 let signature = {
-                    if stream.peek_kind() == Some(LeftSquare) {
-                        Some(parse_signature(stream)?)
+                    if ctx.stream.peek_kind() == Some(LeftSquare) {
+                        Some(parse_signature(ctx)?)
                     } else {
                         None
                     }
@@ -61,8 +62,8 @@ pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityNam
                     signature,
                 }));
 
-                if stream.skip_if_kind(Comma) {
-                    token = expect_token!(stream, token, Identifier | StringLiteral => token);
+                if ctx.stream.skip_if_kind(Comma) {
+                    token = expect_token!(ctx.stream, token, Identifier | StringLiteral => token);
                 } else {
                     break entity_name_list;
                 }
@@ -77,13 +78,13 @@ pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityNam
     ))
 }
 
-pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
-    let start_token = stream.expect_kind(Attribute)?;
-    let ident = stream.expect_ident()?;
-    Ok(expect_token!(stream, token,
+pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Attribute>> {
+    let start_token = ctx.stream.expect_kind(Attribute)?;
+    let ident = ctx.stream.expect_ident()?;
+    Ok(expect_token!(ctx.stream, token,
         Colon => {
-            let type_mark = parse_type_mark(stream)?;
-            let end_token = stream.expect_kind(SemiColon)?;
+            let type_mark = parse_type_mark(ctx)?;
+            let end_token = ctx.stream.expect_kind(SemiColon)?;
             vec![Attribute::Declaration(AttributeDeclaration {
                 span: TokenSpan::new(start_token, end_token),
                 ident: ident.into(),
@@ -91,12 +92,12 @@ pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
             })]
         },
         Of => {
-            let entity_names = parse_entity_name_list(stream)?;
-            stream.expect_kind(Colon)?;
-            let entity_class = parse_entity_class(stream)?;
-            stream.expect_kind(Is)?;
-            let expr = parse_expression(stream)?;
-            let end_token = stream.expect_kind(SemiColon)?;
+            let entity_names = parse_entity_name_list(ctx)?;
+            ctx.stream.expect_kind(Colon)?;
+            let entity_class = parse_entity_class(ctx)?;
+            ctx.stream.expect_kind(Is)?;
+            let expr = parse_expression(ctx)?;
+            let end_token = ctx.stream.expect_kind(SemiColon)?;
 
             entity_names
                 .into_iter()

@@ -8,14 +8,15 @@ use super::common::parse_optional;
 use super::common::ParseResult;
 use super::expression::name_to_type_mark;
 use super::expression::parse_expression;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::Kind::*;
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
+use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_direction(stream: &TokenStream) -> ParseResult<Direction> {
+pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
     Ok(expect_token!(
-        stream, token,
+        ctx.stream, token,
         To => Direction::Ascending,
         Downto => Direction::Descending
     ))
@@ -26,13 +27,13 @@ enum NameOrRange {
     Range(WithPos<ast::Range>),
 }
 
-fn parse_name_or_range(stream: &TokenStream) -> ParseResult<NameOrRange> {
-    let expr = parse_expression(stream)?;
+fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange> {
+    let expr = parse_expression(ctx)?;
 
-    match stream.peek_kind() {
+    match ctx.stream.peek_kind() {
         Some(To) | Some(Downto) => {
-            let direction = parse_direction(stream)?;
-            let right_expr = parse_expression(stream)?;
+            let direction = parse_direction(ctx)?;
+            let right_expr = parse_expression(ctx)?;
 
             let pos = expr.pos.combine(&right_expr.pos);
             let range = ast::Range::Range(RangeConstraint {
@@ -72,38 +73,38 @@ fn parse_name_or_range(stream: &TokenStream) -> ParseResult<NameOrRange> {
 /// {selected_name}'range
 /// {selected_name}'reverse_range
 /// 2. {expr} to|downto {expr}
-pub fn parse_range(stream: &TokenStream) -> ParseResult<WithPos<ast::Range>> {
-    match parse_name_or_range(stream)? {
+pub fn parse_range(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<ast::Range>> {
+    match parse_name_or_range(ctx)? {
         NameOrRange::Range(range) => Ok(range),
         NameOrRange::Name(name) => Err(Diagnostic::syntax_error(&name, "Expected range")),
     }
 }
 
-pub fn parse_discrete_range(stream: &TokenStream) -> ParseResult<DiscreteRange> {
-    match parse_name_or_range(stream) {
+pub fn parse_discrete_range(ctx: &mut ParsingContext<'_>) -> ParseResult<DiscreteRange> {
+    match parse_name_or_range(ctx) {
         Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
             let type_mark = name_to_type_mark(name)?;
-            let range = parse_optional(stream, Range, parse_range)?.map(|range| range.item);
+            let range = parse_optional(ctx, Range, parse_range)?.map(|range| range.item);
             Ok(DiscreteRange::Discrete(type_mark, range))
         }
         Err(diagnostic) => Err(diagnostic.when("parsing discrete_range")),
     }
 }
 
-pub fn parse_array_index_constraint(stream: &TokenStream) -> ParseResult<ArrayIndex> {
-    match parse_name_or_range(stream) {
+pub fn parse_array_index_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult<ArrayIndex> {
+    match parse_name_or_range(ctx) {
         Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {
             let type_mark = name_to_type_mark(name)?;
 
-            if stream.skip_if_kind(Range) {
-                if stream.skip_if_kind(BOX) {
+            if ctx.stream.skip_if_kind(Range) {
+                if ctx.stream.skip_if_kind(BOX) {
                     Ok(ArrayIndex::IndexSubtypeDefintion(type_mark))
                 } else {
                     Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
                         type_mark,
-                        Some(parse_range(stream)?.item),
+                        Some(parse_range(ctx)?.item),
                     )))
                 }
             } else {

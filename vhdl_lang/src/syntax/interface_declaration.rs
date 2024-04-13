@@ -14,9 +14,10 @@ use super::tokens::{Kind::*, *};
 use crate::ast::*;
 use crate::data::*;
 use vhdl_lang::data::error_codes::ErrorCode;
+use vhdl_lang::syntax::parser::ParsingContext;
 
-fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>>> {
-    let token = stream.peek_expect()?;
+fn parse_optional_mode(ctx: &mut ParsingContext<'_>) -> ParseResult<Option<WithPos<Mode>>> {
+    let token = ctx.stream.peek_expect()?;
     let mode = match token.kind {
         In => Mode::In,
         Out => Mode::Out,
@@ -25,7 +26,7 @@ fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>
         Linkage => Mode::Linkage,
         _ => return Ok(None),
     };
-    stream.skip();
+    ctx.stream.skip();
     Ok(Some(WithPos::new(mode, token.pos.clone())))
 }
 
@@ -38,10 +39,10 @@ fn unexpected_object_class_kind(list_type: InterfaceType, token: &Token) -> Diag
 }
 
 fn parse_optional_object_class(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<Option<WithPos<ObjectClass>>> {
-    let token = stream.peek_expect()?;
+    let token = ctx.stream.peek_expect()?;
 
     let class = match token.kind {
         Constant => ObjectClass::Constant,
@@ -50,19 +51,19 @@ fn parse_optional_object_class(
         Identifier => return Ok(None),
         _ => return Err(unexpected_object_class_kind(list_type, token)),
     };
-    stream.skip();
+    ctx.stream.skip();
     Ok(Some(WithPos::new(class, token.pos.clone())))
 }
 
 fn parse_interface_file_declaration(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    stream.expect_kind(File)?;
-    let idents = parse_identifier_list(stream)?;
-    stream.expect_kind(Colon)?;
-    let subtype = parse_subtype_indication(stream)?;
+    ctx.stream.expect_kind(File)?;
+    let idents = parse_identifier_list(ctx)?;
+    ctx.stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(ctx)?;
 
-    if stream.next_kind_is(Open) {
+    if ctx.stream.next_kind_is(Open) {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
                 ident,
@@ -70,7 +71,7 @@ fn parse_interface_file_declaration(
             ));
         }
     }
-    if stream.next_kind_is(Is) {
+    if ctx.stream.next_kind_is(Is) {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
                 ident,
@@ -91,17 +92,17 @@ fn parse_interface_file_declaration(
 }
 
 fn parse_interface_object_declaration(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    let explicit_object_class = parse_optional_object_class(stream, list_type)?;
+    let explicit_object_class = parse_optional_object_class(ctx, list_type)?;
     let object_class_pos = explicit_object_class.as_ref().map(|class| &class.pos);
 
-    let idents = parse_identifier_list(stream)?;
+    let idents = parse_identifier_list(ctx)?;
 
-    stream.expect_kind(Colon)?;
+    ctx.stream.expect_kind(Colon)?;
 
-    let mode_with_pos = parse_optional_mode(stream)?;
+    let mode_with_pos = parse_optional_mode(ctx)?;
     let mode = mode_with_pos
         .as_ref()
         .map(|mode| mode.item)
@@ -120,8 +121,8 @@ fn parse_interface_object_declaration(
         (InterfaceType::Parameter, None, _) => ObjectClass::Variable,
     };
 
-    let subtype = parse_subtype_indication(stream)?;
-    let expr = parse_optional_assignment(stream)?;
+    let subtype = parse_subtype_indication(ctx)?;
+    let expr = parse_optional_assignment(ctx)?;
 
     // @TODO maybe move this to a semantic check?
     for ident in idents.iter() {
@@ -165,14 +166,16 @@ fn parse_interface_object_declaration(
         .collect())
 }
 
-fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<SubprogramDefault>> {
-    if stream.skip_if_kind(Is) {
+fn parse_subprogram_default(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Option<SubprogramDefault>> {
+    if ctx.stream.skip_if_kind(Is) {
         let default = {
             peek_token!(
-                stream, token,
-                Identifier => SubprogramDefault::Name(parse_selected_name(stream)?),
+                ctx.stream, token,
+                Identifier => SubprogramDefault::Name(parse_selected_name(ctx)?),
                 BOX => {
-                    stream.skip();
+                    ctx.stream.skip();
                     SubprogramDefault::Box
                 }
             )
@@ -185,33 +188,32 @@ fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<Subprogr
 }
 
 fn parse_interface_package(
-    stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<InterfacePackageDeclaration> {
-    stream.expect_kind(Package)?;
-    let ident = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
-    stream.expect_kind(New)?;
-    let package_name = parse_selected_name(stream)?;
-    stream.expect_kind(Generic)?;
-    stream.expect_kind(Map)?;
+    ctx.stream.expect_kind(Package)?;
+    let ident = ctx.stream.expect_ident()?;
+    ctx.stream.expect_kind(Is)?;
+    ctx.stream.expect_kind(New)?;
+    let package_name = parse_selected_name(ctx)?;
+    ctx.stream.expect_kind(Generic)?;
+    ctx.stream.expect_kind(Map)?;
 
     let generic_map = {
-        let left_par = stream.expect_kind(LeftPar)?;
-        let map_token = stream.peek_expect()?;
+        let left_par = ctx.stream.expect_kind(LeftPar)?;
+        let map_token = ctx.stream.peek_expect()?;
         match map_token.kind {
             BOX => {
-                stream.skip();
-                stream.expect_kind(RightPar)?;
+                ctx.stream.skip();
+                ctx.stream.expect_kind(RightPar)?;
                 InterfacePackageGenericMapAspect::Box
             }
             Default => {
-                stream.skip();
-                stream.expect_kind(RightPar)?;
+                ctx.stream.skip();
+                ctx.stream.expect_kind(RightPar)?;
                 InterfacePackageGenericMapAspect::Default
             }
             _ => {
-                let (list, _) = parse_association_list_no_leftpar(stream, left_par, diagnsotics)?;
+                let (list, _) = parse_association_list_no_leftpar(ctx, left_par)?;
                 InterfacePackageGenericMapAspect::Map(list)
             }
         }
@@ -225,41 +227,40 @@ fn parse_interface_package(
 }
 
 fn parse_interface_declaration(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     peek_token!(
-        stream, token,
+        ctx.stream, token,
         Signal | Constant | Variable | Identifier => {
-            parse_interface_object_declaration(stream, list_type)
+            parse_interface_object_declaration(ctx, list_type)
         },
-        File => parse_interface_file_declaration(stream),
+        File => parse_interface_file_declaration(ctx),
         Type => {
-            stream.skip();
-            let ident = stream.expect_ident()?;
+            ctx.stream.skip();
+            let ident = ctx.stream.expect_ident()?;
             Ok(vec![InterfaceDeclaration::Type(WithDecl::new(ident))])
         },
         Function | Procedure | Impure | Pure => {
-            let spec = parse_subprogram_specification(stream, diagnostics)?;
-            let default = parse_subprogram_default(stream)?;
+            let spec = parse_subprogram_specification(ctx)?;
+            let default = parse_subprogram_default(ctx)?;
 
             Ok(vec![InterfaceDeclaration::Subprogram(spec, default)])
         },
         Package => {
-            Ok(vec![InterfaceDeclaration::Package (parse_interface_package(stream, diagnostics)?)])
+            Ok(vec![InterfaceDeclaration::Package (parse_interface_package(ctx)?)])
         }
     )
 }
 
 /// Parse ; separator in generic or port lists.
 /// Expect ; for all but the last item
-fn parse_semicolon_separator(stream: &TokenStream) -> ParseResult<()> {
+fn parse_semicolon_separator(ctx: &mut ParsingContext<'_>) -> ParseResult<()> {
     peek_token!(
-        stream, token,
+        ctx.stream, token,
         SemiColon => {
-            stream.skip();
-            if stream.next_kind_is(RightPar) {
+           ctx.stream.skip();
+            if ctx.stream.next_kind_is(RightPar) {
                 return Err(Diagnostic::syntax_error(&token.pos,
                         format!("Last interface element may not end with {}",
                         kinds_str(&[SemiColon]))));
@@ -282,70 +283,69 @@ fn is_sync_kind(list_type: InterfaceType, kind: Kind) -> bool {
 }
 
 fn parse_interface_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let mut interface_list = Vec::new();
 
-    let left_par = stream.expect_kind(LeftPar)?;
+    let left_par = ctx.stream.expect_kind(LeftPar)?;
 
     'outer: loop {
-        let token = stream.peek_expect()?;
+        let token = ctx.stream.peek_expect()?;
         match token.kind {
             RightPar => {
                 if interface_list.is_empty() {
-                    diagnostics.add(
-                        stream.get_pos(left_par).combine(token),
+                    ctx.diagnostics.add(
+                        ctx.stream.get_pos(left_par).combine(token),
                         "Interface list must not be empty",
                         ErrorCode::SyntaxError,
                     );
                 }
-                stream.skip();
+                ctx.stream.skip();
                 break;
             }
             _ => {
-                let state = stream.state();
+                let state = ctx.stream.state();
 
-                match parse_interface_declaration(stream, diagnostics, list_type) {
+                match parse_interface_declaration(ctx, list_type) {
                     Ok(ref mut decl_list) => {
                         interface_list.append(decl_list);
                     }
                     Err(err) => {
-                        diagnostics.push(err);
-                        stream.set_state(state);
-                        if let Some(token) = stream.peek() {
+                        ctx.diagnostics.push(err);
+                        ctx.stream.set_state(state);
+                        if let Some(token) = ctx.stream.peek() {
                             if is_sync_kind(list_type, token.kind) {
-                                stream.skip();
+                                ctx.stream.skip();
                             }
                         }
 
                         // Recover
-                        while let Some(token) = stream.peek() {
+                        while let Some(token) = ctx.stream.peek() {
                             match token.kind {
                                 SemiColon => {
-                                    stream.skip();
+                                    ctx.stream.skip();
                                     continue 'outer;
                                 }
                                 kind if is_sync_kind(list_type, kind) => {
                                     continue 'outer;
                                 }
                                 RightPar => {
-                                    stream.skip();
+                                    ctx.stream.skip();
                                     break 'outer;
                                 }
                                 _ => {
-                                    stream.skip();
+                                    ctx.stream.skip();
                                 }
                             }
                         }
                     }
                 }
 
-                if let Err(err) = parse_semicolon_separator(stream) {
-                    diagnostics.push(err);
+                if let Err(err) = parse_semicolon_separator(ctx) {
+                    ctx.diagnostics.push(err);
                     // Ignore comma when recovering from errors
-                    stream.pop_if_kind(Comma);
+                    ctx.stream.pop_if_kind(Comma);
                 }
             }
         }
@@ -355,61 +355,52 @@ fn parse_interface_list(
 }
 
 pub fn parse_generic_interface_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceType::Generic)
+    parse_interface_list(ctx, InterfaceType::Generic)
 }
 
 pub fn parse_port_interface_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceType::Port)
+    parse_interface_list(ctx, InterfaceType::Port)
 }
 
 pub fn parse_parameter_interface_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
+    ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceType::Parameter)
+    parse_interface_list(ctx, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
 fn parse_one_interface_declaration(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<InterfaceDeclaration> {
-    let mut diagnostics = Vec::new();
-    let result = parse_interface_declaration(stream, &mut diagnostics, list_type).map(|decls| {
+    parse_interface_declaration(ctx, list_type).map(|decls| {
         assert_eq!(decls.len(), 1);
         decls[0].clone()
-    });
-    assert_eq!(diagnostics, vec![]);
-    result
+    })
 }
 
 #[cfg(test)]
-pub fn parse_parameter(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceType::Parameter)
+pub fn parse_parameter(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+    parse_one_interface_declaration(ctx, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
-pub fn parse_port(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceType::Port)
+pub fn parse_port(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+    parse_one_interface_declaration(ctx, InterfaceType::Port)
 }
 
 #[cfg(test)]
-pub fn parse_generic(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceType::Generic)
+pub fn parse_generic(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+    parse_one_interface_declaration(ctx, InterfaceType::Generic)
 }
 
 #[cfg(test)]
-pub fn parse_parameter_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceType::Parameter)
+pub fn parse_parameter_list(ctx: &mut ParsingContext) -> ParseResult<Vec<InterfaceDeclaration>> {
+    parse_interface_list(ctx, InterfaceType::Parameter)
 }
 
 #[cfg(test)]

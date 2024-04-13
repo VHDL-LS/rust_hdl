@@ -5,27 +5,24 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{IdentList, NameList, SeparatedList, WithRef};
-use crate::data::{DiagnosticHandler, DiagnosticResult};
+use crate::data::DiagnosticResult;
 use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::Comma;
-use crate::syntax::{kind_str, Kind, TokenAccess, TokenStream};
+use crate::syntax::{kind_str, Kind, TokenAccess};
 use crate::Diagnostic;
+use vhdl_lang::syntax::parser::ParsingContext;
 
 /// Skip extraneous tokens of kind `separator`.
 /// When there are any extra tokens of that kind, mark all the positions of these tokens as erroneous
-fn skip_extraneous_tokens(
-    stream: &TokenStream,
-    separator: Kind,
-    diagnostics: &mut dyn DiagnosticHandler,
-) {
-    if let Some(separator_tok) = stream.pop_if_kind(separator) {
-        let start_pos = stream.get_pos(separator_tok);
+fn skip_extraneous_tokens(ctx: &mut ParsingContext<'_>, separator: Kind) {
+    if let Some(separator_tok) = ctx.stream.pop_if_kind(separator) {
+        let start_pos = ctx.stream.get_pos(separator_tok);
         let mut end_pos = start_pos;
-        while let Some(separator_tok) = stream.pop_if_kind(separator) {
-            end_pos = stream.get_pos(separator_tok)
+        while let Some(separator_tok) = ctx.stream.pop_if_kind(separator) {
+            end_pos = ctx.stream.get_pos(separator_tok)
         }
-        diagnostics.push(Diagnostic::syntax_error(
+        ctx.diagnostics.push(Diagnostic::syntax_error(
             start_pos.combine(end_pos),
             format!("Extraneous '{}'", kind_str(separator)),
         ));
@@ -37,46 +34,45 @@ fn skip_extraneous_tokens(
 /// where `element` is an AST element and `separator` is a token of some `ast::Kind`.
 /// The returned list retains information of the whereabouts of the separator tokens.
 pub fn parse_list_with_separator<F, T>(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     separator: Kind,
-    diagnostics: &mut dyn DiagnosticHandler,
     parse_fn: F,
 ) -> DiagnosticResult<SeparatedList<T>>
 where
-    F: Fn(&TokenStream) -> ParseResult<T>,
+    F: Fn(&mut ParsingContext<'_>) -> ParseResult<T>,
 {
-    parse_list_with_separator_or_recover(stream, separator, diagnostics, parse_fn, None)
+    parse_list_with_separator_or_recover(ctx, separator, parse_fn, None)
 }
 
 /// Same as `parse_list_with_separator`.
 /// However, when supplied with a `recover_token` will skip until either the separator
 /// or the recover token is found.
 pub fn parse_list_with_separator_or_recover<F, T>(
-    stream: &TokenStream,
+    ctx: &mut ParsingContext<'_>,
     separator: Kind,
-    diagnostics: &mut dyn DiagnosticHandler,
     parse_fn: F,
     recover_token: Option<Kind>,
 ) -> DiagnosticResult<SeparatedList<T>>
 where
-    F: Fn(&TokenStream) -> ParseResult<T>,
+    F: Fn(&mut ParsingContext<'_>) -> ParseResult<T>,
 {
     let mut items = vec![];
     let mut tokens = vec![];
     loop {
-        match parse_fn(stream) {
+        match parse_fn(ctx) {
             Ok(item) => items.push(item),
             Err(err) => {
                 if let Some(tok) = recover_token {
-                    stream.skip_until(|kind| kind == separator || kind == tok)?;
-                    diagnostics.push(err);
+                    ctx.stream
+                        .skip_until(|kind| kind == separator || kind == tok)?;
+                    ctx.diagnostics.push(err);
                 } else {
                     return Err(err);
                 }
             }
         }
-        if let Some(separator_tok) = stream.pop_if_kind(separator) {
-            skip_extraneous_tokens(stream, separator, diagnostics);
+        if let Some(separator_tok) = ctx.stream.pop_if_kind(separator) {
+            skip_extraneous_tokens(ctx, separator);
             tokens.push(separator_tok);
         } else {
             break;
@@ -85,19 +81,13 @@ where
     Ok(SeparatedList { items, tokens })
 }
 
-pub fn parse_name_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> DiagnosticResult<NameList> {
-    parse_list_with_separator(stream, Comma, diagnostics, parse_name)
+pub fn parse_name_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<NameList> {
+    parse_list_with_separator(ctx, Comma, parse_name)
 }
 
-pub fn parse_ident_list(
-    stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> DiagnosticResult<IdentList> {
-    parse_list_with_separator(stream, Comma, diagnostics, |stream| {
-        stream.expect_ident().map(WithRef::new)
+pub fn parse_ident_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<IdentList> {
+    parse_list_with_separator(ctx, Comma, |ctx| {
+        ctx.stream.expect_ident().map(WithRef::new)
     })
 }
 
@@ -212,15 +202,14 @@ mod test {
     #[test]
     fn parse_recoverable_list() {
         let code = Code::new("a => b,c => d, e =>)");
-        let (res, diag) = code.with_stream_diagnostics(|stream, diag| {
+        let (res, diag) = code.with_stream_diagnostics(|ctx| {
             let res = parse_list_with_separator_or_recover(
-                stream,
+                ctx,
                 Kind::Comma,
-                diag,
                 parse_association_element,
                 Some(RightPar),
             );
-            stream.skip();
+            ctx.stream.skip();
             res
         });
         assert_eq!(
@@ -245,9 +234,9 @@ mod test {
     #[test]
     fn parse_list_with_erroneous_elements() {
         let code = Code::new("1,c,d");
-        let mut diag: Vec<Diagnostic> = vec![];
         let diag = code
-            .parse(|stream| parse_ident_list(stream, &mut diag))
+            .parse(parse_ident_list)
+            .0
             .expect_err("Should not parse OK");
         assert_eq!(
             diag,
