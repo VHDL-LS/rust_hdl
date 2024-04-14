@@ -111,7 +111,8 @@ pub enum ErrorCode {
     /// ```
     TooManyArguments,
 
-    /// A formal parameter wasn't associated in a function call
+    /// A formal parameter wasn't associated in a function call.
+    /// Also emitted when a record element was not associated in a view mode declaration.
     ///
     /// # Example
     /// ```vhdl

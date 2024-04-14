@@ -8,8 +8,8 @@ use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
-    SubprogramSpecification, TypeDeclaration, WithDecl,
+    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
+    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -19,7 +19,7 @@ pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType}
 mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
 mod object;
-pub use object::{Object, ObjectEnt, ObjectInterface};
+pub use object::{InterfaceMode, Object, ObjectEnt, ObjectInterface, ViewEnt};
 mod design;
 pub use design::{Design, DesignEnt};
 mod attribute;
@@ -63,6 +63,7 @@ pub enum AnyEntKind<'a> {
     DeferredConstant(Subtype<'a>),
     Library,
     Design(Design<'a>),
+    View(Subtype<'a>),
 }
 
 impl<'a> AnyEntKind<'a> {
@@ -125,6 +126,7 @@ impl<'a> AnyEntKind<'a> {
             Library => "library",
             Design(design) => design.describe(),
             Type(typ) => typ.describe(),
+            View(..) => "view",
         }
     }
 }
@@ -618,6 +620,7 @@ impl HasEntityId for Declaration {
             Declaration::Package(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
+            Declaration::View(decl) => decl.ent_id(),
         }
     }
 }
@@ -688,6 +691,12 @@ impl HasEntityId for AttributeDeclaration {
 impl HasEntityId for AttributeSpecification {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.reference.get()
+    }
+}
+
+impl HasEntityId for ModeViewDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl.get()
     }
 }
 

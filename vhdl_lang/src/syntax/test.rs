@@ -39,6 +39,7 @@ use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
+use crate::syntax::view::{parse_element_mode_indication, parse_mode_view_element_definition};
 use crate::syntax::{kind_str, TokenAccess, TokenId, TokenSpan};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
@@ -49,6 +50,7 @@ use std::sync::Arc;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
+    pub standard: VHDLStandard,
 }
 
 impl AnyDesignUnit {
@@ -80,12 +82,14 @@ impl CodeBuilder {
     pub fn new() -> CodeBuilder {
         CodeBuilder {
             symbols: Arc::new(Symbols::default()),
+            standard: VHDLStandard::default(),
         }
     }
 
     pub fn with_standard(vhdl_standard: VHDLStandard) -> CodeBuilder {
         CodeBuilder {
             symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
+            standard: vhdl_standard,
         }
     }
 
@@ -97,6 +101,7 @@ impl CodeBuilder {
         let code = Code {
             symbols: self.symbols.clone(),
             pos,
+            standard: self.standard,
         };
 
         // Ensure symbol table is populated
@@ -133,6 +138,7 @@ impl<T> SeparatedList<T> {
 pub struct Code {
     pub symbols: Arc<Symbols>,
     pos: SrcPos,
+    standard: VHDLStandard,
 }
 
 impl Code {
@@ -152,6 +158,7 @@ impl Code {
         Code {
             symbols: self.symbols.clone(),
             pos: SrcPos::new(self.pos.source.clone(), range),
+            standard: self.standard,
         }
     }
 
@@ -165,6 +172,7 @@ impl Code {
                     end: self.pos.end(),
                 },
             ),
+            standard: self.standard,
         }
     }
 
@@ -178,6 +186,7 @@ impl Code {
                     end,
                 },
             ),
+            standard: self.standard,
         }
     }
 
@@ -354,6 +363,7 @@ impl Code {
         let mut ctx = ParsingContext {
             stream: &stream,
             diagnostics: &mut diag,
+            standard: self.standard,
         };
         (parse_fun(&mut ctx), diag)
     }
@@ -428,6 +438,7 @@ impl Code {
         let mut ctx = ParsingContext {
             stream: &stream,
             diagnostics: &mut diag,
+            standard: self.standard,
         };
         let res = parse_fun(&mut ctx);
         (res, diag)
@@ -564,6 +575,14 @@ impl Code {
 
     pub fn subtype_indication(&self) -> SubtypeIndication {
         self.parse_ok_no_diagnostics(parse_subtype_indication)
+    }
+
+    pub fn element_mode(&self) -> ElementMode {
+        self.parse_ok_no_diagnostics(parse_element_mode_indication)
+    }
+
+    pub fn mode_view_element(&self) -> ModeViewElement {
+        self.parse_ok_no_diagnostics(parse_mode_view_element_definition)
     }
 
     pub fn port(&self) -> InterfaceDeclaration {

@@ -31,6 +31,7 @@ mod waveform;
 
 #[cfg(test)]
 pub mod test;
+mod view;
 
 pub use parser::{ParserResult, VHDLParser};
 pub use tokens::*;

@@ -17,6 +17,7 @@ use super::tokens::{Kind::*, *};
 use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::view::parse_mode_view_declaration;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_package_instantiation(
@@ -39,25 +40,28 @@ pub fn parse_package_instantiation(
     })
 }
 
-pub fn is_declarative_part(ctx: &mut ParsingContext, begin_is_end: bool) -> ParseResult<bool> {
-    Ok(check_declarative_part(ctx.stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
-}
-
-fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
-    match token.kind {
-        Use | Type | Subtype | Shared | Constant | Signal | Variable | File | Component
-        | Attribute | Alias | Impure | Pure | Function | Procedure | Package | For => Ok(()),
-        Begin if may_begin => Ok(()),
-        End if may_end => Ok(()),
-        _ => {
-            let decl_kinds = [
-                Use, Type, Subtype, Shared, Constant, Signal, Variable, File, Component, Attribute,
-                Alias, Impure, Pure, Function, Procedure, Package, For,
-            ];
-
-            Err(token.kinds_error(&decl_kinds))
-        }
-    }
+pub fn is_declarative_part(ctx: &mut ParsingContext) -> ParseResult<bool> {
+    Ok(matches!(
+        ctx.stream.peek_expect()?.kind,
+        Use | Type
+            | Subtype
+            | Shared
+            | Constant
+            | Signal
+            | Variable
+            | File
+            | Component
+            | Attribute
+            | Alias
+            | Impure
+            | Pure
+            | Function
+            | Procedure
+            | Package
+            | For
+            | View
+            | Begin
+    ))
 }
 
 pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Declaration>> {
@@ -80,6 +84,7 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
                 | Signal
                 | Variable
                 | Attribute
+                | View
                 | Use
                 | Alias
                 | Begin
@@ -138,11 +143,29 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
                 }
             }
 
+            View => {
+                match parse_mode_view_declaration(ctx).or_recover_until(ctx, is_recover_token) {
+                    Ok(decl) => declarations.push(Declaration::View(decl)),
+                    Err(err) => {
+                        ctx.diagnostics.push(err);
+                        continue;
+                    }
+                }
+            }
+
             _ => {
-                ctx.diagnostics.push(token.kinds_error(&[
-                    Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
-                    File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
-                ]));
+                use crate::VHDLStandard::*;
+                let expected: &[Kind] = match ctx.standard {
+                    VHDL2008 | VHDL1993 => &[
+                        Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
+                        File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                    ],
+                    VHDL2019 => &[
+                        Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
+                        File, Shared, Constant, Signal, Variable, Attribute, Use, Alias, View,
+                    ],
+                };
+                ctx.diagnostics.push(token.kinds_error(expected));
                 ctx.stream.skip_until(is_recover_token)?;
                 continue;
             }
@@ -157,7 +180,8 @@ mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{check_diagnostics, Code};
+    use crate::VHDLStandard::VHDL2019;
 
     #[test]
     fn package_instantiation() {
@@ -243,5 +267,43 @@ constant x: natural := 5;
         let code = Code::new("invalid");
         let (decl, _) = code.with_partial_stream_diagnostics(parse_declarative_part);
         assert!(decl.is_err());
+    }
+
+    #[test]
+    fn parse_declarative_part_vhdl2008_vs_vhdl2019() {
+        let code = Code::new(
+            "\
+var not_a_var: broken;
+",
+        );
+        let (_, diag) = code.with_partial_stream_diagnostics(parse_declarative_part);
+        check_diagnostics(
+            diag,
+            vec![Diagnostic::syntax_error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use' or 'alias'",
+            )],
+        );
+
+        let code = Code::with_standard(
+            "\
+var not_a_var: broken;
+",
+            VHDL2019,
+        );
+        let (_, diag) = code.with_partial_stream_diagnostics(parse_declarative_part);
+        check_diagnostics(
+            diag,
+            vec![Diagnostic::syntax_error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use', 'alias' or 'view'",
+            )],
+        )
     }
 }

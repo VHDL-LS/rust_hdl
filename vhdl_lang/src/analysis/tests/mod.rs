@@ -27,6 +27,7 @@ mod subprogram_instance;
 mod tool_directive;
 mod typecheck_expression;
 mod util;
+mod view_declarations;
 mod visibility;
 
 use std::cell::RefCell;

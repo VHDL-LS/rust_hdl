@@ -4,6 +4,7 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
 use super::*;
@@ -42,12 +43,12 @@ impl<'a> ObjectEnt<'a> {
         self.object().class
     }
 
-    pub fn mode(&self) -> Option<Mode> {
+    pub fn mode(&self) -> Option<&InterfaceMode<'a>> {
         self.object().mode()
     }
 
     pub fn describe(&self) -> String {
-        if let Some(iface) = self.object().iface {
+        if let Some(ref iface) = self.object().iface {
             match iface {
                 ObjectInterface::Generic => format!("generic '{}'", self.designator()),
                 ObjectInterface::Parameter(mode) => {
@@ -77,27 +78,42 @@ impl<'a> ObjectEnt<'a> {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum ObjectInterface {
-    Generic,
-    Port(Mode),
-    Parameter(Mode),
+#[derive(Clone, Eq, PartialEq)]
+pub enum InterfaceMode<'a> {
+    Simple(Mode),
+    View(ViewEnt<'a>),
 }
 
-impl ObjectInterface {
-    pub fn new(typ: InterfaceType, mode: Mode) -> Self {
+impl Display for InterfaceMode<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InterfaceMode::Simple(mode) => write!(f, "{mode}"),
+            InterfaceMode::View(view) => write!(f, "view {}", view.ent.designator),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum ObjectInterface<'a> {
+    Generic,
+    Port(InterfaceMode<'a>),
+    Parameter(InterfaceMode<'a>),
+}
+
+impl ObjectInterface<'_> {
+    pub fn simple(typ: InterfaceType, mode: Mode) -> Self {
         match typ {
             // @TODO error on non-input mode
             InterfaceType::Generic => ObjectInterface::Generic,
-            InterfaceType::Parameter => ObjectInterface::Parameter(mode),
-            InterfaceType::Port => ObjectInterface::Port(mode),
+            InterfaceType::Parameter => ObjectInterface::Parameter(InterfaceMode::Simple(mode)),
+            InterfaceType::Port => ObjectInterface::Port(InterfaceMode::Simple(mode)),
         }
     }
 
-    pub fn mode(&self) -> Mode {
+    pub fn mode(&self) -> &InterfaceMode {
         match self {
-            ObjectInterface::Generic => Mode::In,
-            ObjectInterface::Parameter(m) | ObjectInterface::Port(m) => *m,
+            ObjectInterface::Generic => &InterfaceMode::Simple(Mode::In),
+            ObjectInterface::Parameter(m) | ObjectInterface::Port(m) => m,
         }
     }
 
@@ -116,7 +132,7 @@ impl ObjectInterface {
 #[derive(Clone)]
 pub struct Object<'a> {
     pub class: ObjectClass,
-    pub iface: Option<ObjectInterface>,
+    pub iface: Option<ObjectInterface<'a>>,
     pub subtype: Subtype<'a>,
     pub has_default: bool,
 }
@@ -125,7 +141,7 @@ impl<'a> Object<'a> {
     pub(crate) fn const_param(subtype: Subtype<'a>) -> Object<'a> {
         Object {
             class: ObjectClass::Constant,
-            iface: Some(ObjectInterface::Parameter(Mode::In)),
+            iface: Some(ObjectInterface::Parameter(InterfaceMode::Simple(Mode::In))),
             subtype,
             has_default: false,
         }
@@ -148,8 +164,8 @@ impl<'a> Object<'a> {
         matches!(self.iface, Some(ObjectInterface::Parameter(_)))
     }
 
-    pub fn mode(&self) -> Option<Mode> {
-        self.iface.map(|i| i.mode())
+    pub fn mode(&self) -> Option<&InterfaceMode> {
+        self.iface.as_ref().map(|i| i.mode())
     }
 }
 
@@ -169,5 +185,29 @@ impl<'a> Deref for ObjectEnt<'a> {
     type Target = EntRef<'a>;
     fn deref(&self) -> &Self::Target {
         &self.ent
+    }
+}
+
+// A named entity that is known to be a view
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ViewEnt<'a> {
+    pub ent: EntRef<'a>,
+}
+
+impl<'a> ViewEnt<'a> {
+    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+        if matches!(ent.actual_kind(), AnyEntKind::View(..)) {
+            Some(Self { ent })
+        } else {
+            None
+        }
+    }
+
+    pub fn subtype(&self) -> &'a Subtype<'a> {
+        if let AnyEntKind::View(subtype) = self.ent.actual_kind() {
+            subtype
+        } else {
+            unreachable!("ViewEnt type invariant broken")
+        }
     }
 }

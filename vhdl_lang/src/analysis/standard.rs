@@ -450,7 +450,9 @@ impl<'a> AnalyzeContext<'a> {
                         self.ident("VALUE"),
                         AnyEntKind::Object(Object {
                             class: ObjectClass::Variable,
-                            iface: Some(ObjectInterface::Parameter(Mode::Out)),
+                            iface: Some(ObjectInterface::Parameter(InterfaceMode::Simple(
+                                Mode::Out,
+                            ))),
                             subtype: Subtype::new(type_mark),
                             has_default: false,
                         }),
@@ -534,7 +536,9 @@ impl<'a> AnalyzeContext<'a> {
                 self.ident("P"),
                 AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
-                    iface: Some(ObjectInterface::Parameter(Mode::InOut)),
+                    iface: Some(ObjectInterface::Parameter(InterfaceMode::Simple(
+                        Mode::InOut,
+                    ))),
                     subtype: Subtype::new(type_ent.to_owned()),
                     has_default: false,
                 }),

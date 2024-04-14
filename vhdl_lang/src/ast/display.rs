@@ -119,6 +119,7 @@ impl Display for AttributeDesignator {
             AttributeDesignator::SimpleName => write!(f, "simple_name"),
             AttributeDesignator::InstanceName => write!(f, "instance_name"),
             AttributeDesignator::PathName => write!(f, "path_name"),
+            AttributeDesignator::Converse => write!(f, "converse"),
         }
     }
 }
@@ -925,30 +926,61 @@ impl Display for InterfaceFileDeclaration {
     }
 }
 
+impl Display for ModeIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            ModeIndication::Simple(indication) => write!(f, "{indication}"),
+            ModeIndication::View(view) => write!(f, "{view}"),
+        }
+    }
+}
+
+impl Display for SimpleModeIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if let Some(mode) = self.mode {
+            write!(f, "{mode} ")?;
+        }
+        write!(f, "{}", self.subtype_indication)?;
+        if self.bus {
+            write!(f, " bus")?;
+        }
+        if let Some(expr) = &self.expression {
+            write!(f, " := {expr}")?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for ModeViewIndication {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "view ")?;
+        match self.kind {
+            ModeViewIndicationKind::Array => write!(f, "({})", self.name)?,
+            ModeViewIndicationKind::Record => write!(f, "{}", self.name)?,
+        }
+        if let Some(typ) = &self.subtype_indication {
+            write!(f, " of {typ}")?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
             InterfaceType::Port => {
-                write!(
-                    f,
-                    "{} : {} {}",
-                    self.ident, self.mode, self.subtype_indication
-                )?;
+                write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Generic => {
-                write!(f, "{} : {}", self.ident, self.subtype_indication)?;
+                write!(f, "{} : {}", self.ident, self.mode)
             }
             InterfaceType::Parameter => {
-                write!(
-                    f,
-                    "{} {} : {} {}",
-                    self.class, self.ident, self.mode, self.subtype_indication,
-                )?;
+                if let ModeIndication::Simple(mode) = &self.mode {
+                    write!(f, "{} {} : {}", mode.class, self.ident, self.mode)
+                } else {
+                    write!(f, "{} : {}", self.ident, self.mode)
+                }
             }
-        }
-        match self.expression {
-            Some(ref expr) => write!(f, " := {expr}"),
-            None => Ok(()),
         }
     }
 }

@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::analysis::target::AssignmentType;
 use fnv::FnvHashSet;
 
 use super::analyze::*;
@@ -26,7 +27,7 @@ pub enum ObjectBase<'a> {
 }
 
 impl<'a> ObjectBase<'a> {
-    pub fn mode(&self) -> Option<Mode> {
+    pub fn mode(&self) -> Option<&InterfaceMode<'a>> {
         match self {
             ObjectBase::Object(object) => object.mode(),
             ObjectBase::ObjectAlias(object, _) => object.mode(),
@@ -41,6 +42,33 @@ impl<'a> ObjectBase<'a> {
             ObjectBase::ObjectAlias(object, _) => object.class(),
             ObjectBase::DeferredConstant(..) => ObjectClass::Constant,
             ObjectBase::ExternalName(class) => (*class).into(),
+        }
+    }
+
+    /// Check that this object is a writable object and not constant or input only
+    pub fn can_be_assigned_to(&self) -> bool {
+        if self.class() == ObjectClass::Constant {
+            return false;
+        }
+        match self.mode() {
+            None => true,
+            Some(InterfaceMode::Simple(Mode::In)) => false,
+            Some(InterfaceMode::Simple(_)) => true,
+            // This is triggered when assigning, e.g.,
+            // using foo.bar <= baz where `foo` is a view.
+            // TODO: check, that this assignment is legal.
+            Some(InterfaceMode::View(_)) => true,
+        }
+    }
+
+    /// Check that a signal is not the target of a variable assignment and vice-versa
+    pub fn is_valid_assignment_type(&self, assignment_type: AssignmentType) -> bool {
+        let class = self.class();
+        match assignment_type {
+            AssignmentType::Signal => matches!(class, ObjectClass::Signal),
+            AssignmentType::Variable => {
+                matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
+            }
         }
     }
 
@@ -157,6 +185,7 @@ impl<'a> ResolvedName<'a> {
                 type_mark: Some(subtype.type_mark()),
             }),
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
+            AnyEntKind::View(_) => ResolvedName::Final(ent),
             AnyEntKind::Overloaded(_) => {
                 return Err((
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
@@ -226,6 +255,7 @@ impl<'a> ResolvedName<'a> {
                 ));
             }
             AnyEntKind::File(_)
+            | AnyEntKind::View(_)
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Concurrent(_)
@@ -386,6 +416,7 @@ pub enum AttrResolveResult<'a> {
     Type(BaseType<'a>),
     /// The result type is a value with type, e.g. `a'low`, `b'high`, `c'image(x)`
     Value(BaseType<'a>),
+    View(ViewEnt<'a>),
 }
 
 #[derive(Debug)]
@@ -792,6 +823,40 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub(crate) fn resolve_view_ent(
+        &self,
+        resolved: &ResolvedName<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        pos: &SrcPos,
+    ) -> EvalResult<ViewEnt<'a>> {
+        let ent = match resolved {
+            ResolvedName::Final(ent) => {
+                let Some(view_ent) = ViewEnt::from_any(ent) else {
+                    bail!(
+                        diagnostics,
+                        Diagnostic::new(
+                            pos,
+                            format!("{} is not a view", resolved.describe()),
+                            ErrorCode::MismatchedKinds
+                        )
+                    );
+                };
+                view_ent
+            }
+            _ => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::new(
+                        pos,
+                        format!("{} is not a view", resolved.describe()),
+                        ErrorCode::MismatchedKinds
+                    )
+                );
+            }
+        };
+        Ok(ent)
+    }
+
     pub fn attribute_suffix(
         &self,
         name_pos: &SrcPos,
@@ -1031,6 +1096,13 @@ impl<'a> AnalyzeContext<'a> {
             AttributeDesignator::Type(attr) => self
                 .resolve_type_attribute_suffix(prefix, &attr, name_pos, diagnostics)
                 .map(|typ| AttrResolveResult::Type(typ.base())),
+            AttributeDesignator::Converse => {
+                let view = self.resolve_view_ent(prefix, diagnostics, prefix_pos)?;
+                // Since we do not check the actual mode of the view,
+                // this does not actually converse anything at the moment.
+                // We only check that the selected name is a view and return that view.
+                Ok(AttrResolveResult::View(view))
+            }
         }
     }
 
@@ -1202,6 +1274,7 @@ impl<'a> AnalyzeContext<'a> {
                 AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
                     DisambiguatedType::Unambiguous(base.into()),
                 )),
+                AttrResolveResult::View(view) => Ok(ResolvedName::Final(view.ent)),
             };
         }
 
@@ -1718,6 +1791,7 @@ impl Declaration {
             Declaration::Use(_) => "use",
             Declaration::Package(_) => "package instantiation",
             Declaration::Configuration(_) => "configuration",
+            Declaration::View(_) => "view",
         }
     }
 }

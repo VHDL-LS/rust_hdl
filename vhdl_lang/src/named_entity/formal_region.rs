@@ -80,7 +80,10 @@ impl<'a> InterfaceEnt<'a> {
         match self.ent.kind() {
             AnyEntKind::Object(obj) => {
                 obj.class == ObjectClass::Signal
-                    && matches!(obj.mode(), Some(Mode::Out) | Some(Mode::InOut))
+                    && matches!(
+                        obj.mode(),
+                        Some(InterfaceMode::Simple(Mode::Out | Mode::InOut))
+                    )
             }
             _ => false,
         }
@@ -268,7 +271,7 @@ impl<'a> RecordRegion<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RecordElement<'a> {
     // A record element declaration
     ent: EntRef<'a>,

@@ -378,7 +378,7 @@ pub fn parse_instantiation_statement(
 fn parse_optional_declarative_part(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Option<Vec<Declaration>>> {
-    if is_declarative_part(ctx, true)? {
+    if is_declarative_part(ctx)? {
         let decls = parse_declarative_part(ctx)?;
         ctx.stream.expect_kind(Begin)?;
         Ok(Some(decls))

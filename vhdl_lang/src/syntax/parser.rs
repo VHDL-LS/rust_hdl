@@ -14,11 +14,13 @@ use std::sync::Arc;
 
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
+    pub standard: VHDLStandard,
 }
 
 pub(crate) struct ParsingContext<'a> {
     pub stream: &'a TokenStream<'a>,
     pub diagnostics: &'a mut dyn DiagnosticHandler,
+    pub standard: VHDLStandard,
 }
 
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;
@@ -27,6 +29,7 @@ impl VHDLParser {
     pub fn new(vhdl_standard: VHDLStandard) -> VHDLParser {
         VHDLParser {
             symbols: Arc::new(Symbols::from_standard(vhdl_standard)),
+            standard: vhdl_standard,
         }
     }
 
@@ -46,6 +49,7 @@ impl VHDLParser {
         let mut ctx = ParsingContext {
             stream: &stream,
             diagnostics,
+            standard: self.standard,
         };
 
         match parse_design_file(&mut ctx) {

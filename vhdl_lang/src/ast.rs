@@ -124,6 +124,7 @@ pub enum AttributeDesignator {
     SimpleName,
     InstanceName,
     PathName,
+    Converse,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
@@ -734,11 +735,36 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
-    pub class: ObjectClass,
     pub ident: WithDecl<Ident>,
-    pub mode: Mode,
+    pub mode: ModeIndication,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ModeIndication {
+    Simple(SimpleModeIndication),
+    View(ModeViewIndication),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SimpleModeIndication {
+    pub mode: Option<Mode>,
+    pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
+    pub bus: bool,
     pub expression: Option<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum ModeViewIndicationKind {
+    Array,
+    Record,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewIndication {
+    pub kind: ModeViewIndicationKind,
+    pub name: WithPos<Name>,
+    pub subtype_indication: Option<SubtypeIndication>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -774,8 +800,9 @@ pub enum InterfaceDeclaration {
     Package(InterfacePackageDeclaration),
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub enum Mode {
+    #[default]
     In,
     Out,
     InOut,
@@ -812,6 +839,7 @@ pub enum Declaration {
     Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
+    View(ModeViewDeclaration),
 }
 
 /// LRM 10.2 Wait statement
@@ -1160,6 +1188,30 @@ pub struct CaseGenerateStatement {
     pub end_label_pos: Option<SrcPos>,
 }
 
+/// LRM 6.5.2 Interface Object Declarations - Mode view declarations
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewDeclaration {
+    pub ident: WithDecl<Ident>,
+    pub typ: SubtypeIndication,
+    pub elements: Vec<ModeViewElement>,
+    pub end_ident_pos: Option<SrcPos>,
+}
+
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct ModeViewElement {
+    pub names: IdentList,
+    pub mode: ElementMode,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ElementMode {
+    Simple(WithPos<Mode>),
+    Record(WithPos<Name>),
+    Array(WithPos<Name>),
+}
+
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConcurrentStatement {
@@ -1251,7 +1303,7 @@ pub struct ContextDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
-/// LRM 4.9 Package instatiation declaration
+/// LRM 4.9 Package instantiation declaration
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {

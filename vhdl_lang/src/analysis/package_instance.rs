@@ -383,6 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                     ));
                 }
             },
+            AnyEntKind::View(typ) => AnyEntKind::View(self.map_subtype(mapping, *typ)),
         })
     }
 
@@ -570,7 +571,7 @@ impl<'a> AnalyzeContext<'a> {
 
         Object {
             class: *class,
-            iface: *iface,
+            iface: iface.clone(),
             subtype: self.map_subtype(mapping, *subtype),
             has_default: *has_default,
         }

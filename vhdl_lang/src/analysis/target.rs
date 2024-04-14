@@ -1,5 +1,4 @@
 use super::analyze::*;
-use super::names::*;
 use super::scope::*;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
@@ -47,7 +46,7 @@ impl<'a> AnalyzeContext<'a> {
             ErrorCode::MismatchedKinds,
             diagnostics,
         )?;
-        if !is_valid_assignment_target(&object_name.base) {
+        if !object_name.base.can_be_assigned_to() {
             diagnostics.add(
                 target_pos,
                 format!(
@@ -56,7 +55,7 @@ impl<'a> AnalyzeContext<'a> {
                 ),
                 ErrorCode::MismatchedKinds,
             );
-        } else if !is_valid_assignment_type(&object_name.base, assignment_type) {
+        } else if !object_name.base.is_valid_assignment_type(assignment_type) {
             diagnostics.add(
                 target_pos,
                 format!(
@@ -84,22 +83,6 @@ impl AssignmentType {
         match self {
             AssignmentType::Signal => "signal",
             AssignmentType::Variable => "variable",
-        }
-    }
-}
-
-/// Check that the assignment target is a writable object and not constant or input only
-fn is_valid_assignment_target(base: &ObjectBase) -> bool {
-    base.class() != ObjectClass::Constant && !matches!(base.mode(), Some(Mode::In))
-}
-
-// Check that a signal is not the target of a variable assignment and vice-versa
-fn is_valid_assignment_type(base: &ObjectBase, assignment_type: AssignmentType) -> bool {
-    let class = base.class();
-    match assignment_type {
-        AssignmentType::Signal => matches!(class, ObjectClass::Signal),
-        AssignmentType::Variable => {
-            matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
         }
     }
 }
