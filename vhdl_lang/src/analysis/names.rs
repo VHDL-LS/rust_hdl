@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::analysis::target::AssignmentType;
 use fnv::FnvHashSet;
 
 use super::analyze::*;
@@ -41,6 +42,33 @@ impl<'a> ObjectBase<'a> {
             ObjectBase::ObjectAlias(object, _) => object.class(),
             ObjectBase::DeferredConstant(..) => ObjectClass::Constant,
             ObjectBase::ExternalName(class) => (*class).into(),
+        }
+    }
+
+    /// Check that this object is a writable object and not constant or input only
+    pub fn can_be_assigned_to(&self) -> bool {
+        if self.class() == ObjectClass::Constant {
+            return false;
+        }
+        match self.mode() {
+            None => true,
+            Some(InterfaceMode::Simple(Mode::In)) => false,
+            Some(InterfaceMode::Simple(_)) => true,
+            // This is triggered when assigning, e.g.,
+            // using foo.bar <= baz where `foo` is a view.
+            // TODO: check, that this assignment is legal.
+            Some(InterfaceMode::View(_)) => true,
+        }
+    }
+
+    /// Check that a signal is not the target of a variable assignment and vice-versa
+    pub fn is_valid_assignment_type(&self, assignment_type: AssignmentType) -> bool {
+        let class = self.class();
+        match assignment_type {
+            AssignmentType::Signal => matches!(class, ObjectClass::Signal),
+            AssignmentType::Variable => {
+                matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
+            }
         }
     }
 

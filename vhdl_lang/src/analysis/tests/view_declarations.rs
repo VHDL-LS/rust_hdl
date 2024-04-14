@@ -428,3 +428,43 @@ end entity;
     // should simply not show any diagnostics.
     check_no_diagnostics(&diag);
 }
+
+#[test]
+#[ignore]
+fn view_declaration_in_cannot_be_assigned_to() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package my_pkg is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+end my_pkg;
+
+use work.my_pkg;
+
+entity my_ent is
+port ( y: view my_pkg.foo );
+end entity;
+
+architecture arch of my_ent is
+begin
+    y.x <= '1';
+end arch;
+    ",
+    );
+    let diag = builder.analyze();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::new(
+            code.s1("y.x"),
+            "interface signal 'y' of mode in may not be the target of an assignment",
+            ErrorCode::MismatchedKinds,
+        )],
+    );
+}
