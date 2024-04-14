@@ -11,6 +11,7 @@ use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::VHDLStandard::VHDL2019;
 
 pub fn parse_optional_generic_list(
     ctx: &mut ParsingContext<'_>,
@@ -81,7 +82,11 @@ pub fn parse_component_declaration(
     let generic_list = parse_optional_generic_list(ctx)?;
     let port_list = parse_optional_port_list(ctx)?;
     ctx.stream.expect_kind(End)?;
-    ctx.stream.expect_kind(Component)?;
+    if ctx.standard < VHDL2019 {
+        ctx.stream.expect_kind(Component)?;
+    } else {
+        ctx.stream.pop_if_kind(Component);
+    }
     let end_ident = ctx.stream.pop_optional_ident();
     let end_token = ctx.stream.expect_kind(SemiColon)?;
 
@@ -101,6 +106,7 @@ mod tests {
     use crate::ast::Ident;
     use crate::syntax::test::Code;
     use crate::SrcPos;
+    use crate::VHDLStandard::VHDL2019;
 
     fn to_component(
         ident: WithDecl<Ident>,
@@ -295,5 +301,35 @@ end
             )]
         );
         assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+    }
+
+    #[test]
+    pub fn component_vhdl2019() {
+        Code::with_standard(
+            "\
+component foo is
+end;
+        ",
+            VHDL2019,
+        )
+        .parse_ok_no_diagnostics(parse_component_declaration);
+
+        Code::with_standard(
+            "\
+component foo is
+end component;
+        ",
+            VHDL2019,
+        )
+        .parse_ok_no_diagnostics(parse_component_declaration);
+
+        Code::with_standard(
+            "\
+component foo is
+end component foo;
+        ",
+            VHDL2019,
+        )
+        .parse_ok_no_diagnostics(parse_component_declaration);
     }
 }
