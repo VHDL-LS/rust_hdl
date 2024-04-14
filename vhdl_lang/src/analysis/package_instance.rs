@@ -383,6 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                     ));
                 }
             },
+            AnyEntKind::View => AnyEntKind::View,
         })
     }
 

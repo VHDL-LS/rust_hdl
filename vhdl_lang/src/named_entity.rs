@@ -63,6 +63,7 @@ pub enum AnyEntKind<'a> {
     DeferredConstant(Subtype<'a>),
     Library,
     Design(Design<'a>),
+    View,
 }
 
 impl<'a> AnyEntKind<'a> {
@@ -125,6 +126,7 @@ impl<'a> AnyEntKind<'a> {
             Library => "library",
             Design(design) => design.describe(),
             Type(typ) => typ.describe(),
+            View => "view",
         }
     }
 }

@@ -574,7 +574,6 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::Use(ref mut use_clause) => {
                 self.analyze_use_clause(scope, use_clause, diagnostics)?;
             }
-
             Declaration::Package(ref mut instance) => {
                 let ent = self.arena.define(
                     &mut instance.ident,
@@ -594,10 +593,24 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::Configuration(..) => {}
-            Declaration::View(..) => {}
+            Declaration::View(view) => {
+                as_fatal(self.analyze_view_declaration(scope, parent, view, diagnostics))?;
+            }
             Declaration::Type(..) => unreachable!("Handled elsewhere"),
         };
 
+        Ok(())
+    }
+
+    fn analyze_view_declaration(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        view: &mut ModeViewDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<()> {
+        let typ = self.resolve_subtype_indication(scope, &mut view.typ, diagnostics)?;
+        // typ.type_mark().is_composite();
         Ok(())
     }
 
@@ -1053,6 +1066,7 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             Design::InterfacePackageInstance(_) => None,
             Design::Context(_) => None,
         },
+        AnyEntKind::View => None,
     }
 }
 

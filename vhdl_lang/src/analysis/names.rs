@@ -171,6 +171,7 @@ impl<'a> ResolvedName<'a> {
                 DesignEnt::from_any(ent).expect("AnyEntKind::Design is not a design entity"),
             ),
             AnyEntKind::Library
+            | AnyEntKind::View
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Concurrent(_)
@@ -226,6 +227,7 @@ impl<'a> ResolvedName<'a> {
                 ));
             }
             AnyEntKind::File(_)
+            | AnyEntKind::View
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Concurrent(_)

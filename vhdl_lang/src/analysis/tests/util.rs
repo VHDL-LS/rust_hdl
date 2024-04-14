@@ -21,8 +21,12 @@ pub struct LibraryBuilder {
 
 impl LibraryBuilder {
     pub fn new() -> LibraryBuilder {
+        LibraryBuilder::with_standard(VHDLStandard::default())
+    }
+
+    pub fn with_standard(standard: VHDLStandard) -> LibraryBuilder {
         LibraryBuilder {
-            code_builder: CodeBuilder::new(),
+            code_builder: CodeBuilder::with_standard(standard),
             libraries: HashMap::default(),
         }
     }
