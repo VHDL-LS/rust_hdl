@@ -442,7 +442,8 @@ impl<'a> AnalyzeContext<'a> {
                         ),
                         ErrorCode::DisallowedInSensitivityList,
                     )
-                } else if object_name.base.mode() == Some(Mode::Out) && !object_name.base.is_port()
+                } else if object_name.base.mode() == Some(&InterfaceMode::Simple(Mode::Out))
+                    && !object_name.base.is_port()
                 {
                     diagnostics.add(
                         &name.pos,

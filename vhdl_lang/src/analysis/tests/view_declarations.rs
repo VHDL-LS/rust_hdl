@@ -207,3 +207,190 @@ end view;
         )],
     );
 }
+
+#[test]
+pub fn view_interface_declarations_must_be_views() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+entity my_ent is
+port (
+    foo: view not_declared
+);
+end entity;
+    ",
+    );
+    let diag = builder.analyze();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::new(
+            code.s1("not_declared"),
+            "No declaration of 'not_declared'",
+            ErrorCode::Unresolved,
+        )],
+    );
+
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+    entity my_ent is
+    port (
+        foo: view bit
+    );
+    end entity;
+        ",
+    );
+    let diag = builder.analyze();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::new(
+            code.s1("bit"),
+            "type 'BIT' is not a view",
+            ErrorCode::MismatchedKinds,
+        )],
+    );
+
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package x is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+end x;
+
+use work.x.all;
+
+entity my_ent is
+port (
+    foo: view foo
+);
+end entity;
+    ",
+    );
+    let diag = builder.analyze();
+    check_no_diagnostics(&diag);
+}
+
+#[test]
+pub fn view_interface_declaration_subtype_must_match_declared_subtype() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package x is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+end x;
+
+use work.x.all;
+
+entity my_ent is
+port (
+    foo: view foo of bit
+);
+end entity;
+    ",
+    );
+    let diag = builder.analyze();
+    check_diagnostics(
+        diag,
+        vec![Diagnostic::new(
+            code.s1("of bit").s1("bit"),
+            "Specified subtype must match the subtype declared for the view",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package x is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+end x;
+
+use work.x.all;
+
+entity my_ent is
+port (
+    x: view foo of bar
+);
+end entity;
+    ",
+    );
+    let (root, diag) = builder.get_analyzed_root();
+    check_no_diagnostics(&diag);
+    let in_view = root
+        .search_reference(
+            code.source(),
+            code.s1("x: view foo of bar").s1("bar").start(),
+        )
+        .unwrap();
+
+    let declared = root
+        .search_reference(
+            code.source(),
+            code.s1("type bar is record").s1("bar").start(),
+        )
+        .unwrap();
+    assert_eq!(in_view, declared)
+}
+
+#[test]
+fn view_reference() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package x is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+end x;
+
+use work.x;
+
+entity my_ent is
+port (
+    x: view x.foo
+);
+end entity;
+    ",
+    );
+    let (root, diag) = builder.get_analyzed_root();
+    check_no_diagnostics(&diag);
+    let in_view = root
+        .search_reference(code.source(), code.s1("x: view x.foo").s1("foo").start())
+        .unwrap();
+
+    let declared = root
+        .search_reference(
+            code.source(),
+            code.s1("view foo of bar is").s1("foo").start(),
+        )
+        .unwrap();
+    assert_eq!(in_view, declared)
+}

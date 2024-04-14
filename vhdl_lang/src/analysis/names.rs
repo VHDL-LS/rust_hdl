@@ -26,7 +26,7 @@ pub enum ObjectBase<'a> {
 }
 
 impl<'a> ObjectBase<'a> {
-    pub fn mode(&self) -> Option<Mode> {
+    pub fn mode(&self) -> Option<&InterfaceMode<'a>> {
         match self {
             ObjectBase::Object(object) => object.mode(),
             ObjectBase::ObjectAlias(object, _) => object.mode(),
@@ -157,6 +157,7 @@ impl<'a> ResolvedName<'a> {
                 type_mark: Some(subtype.type_mark()),
             }),
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
+            AnyEntKind::View(_) => ResolvedName::Final(ent),
             AnyEntKind::Overloaded(_) => {
                 return Err((
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
@@ -171,7 +172,6 @@ impl<'a> ResolvedName<'a> {
                 DesignEnt::from_any(ent).expect("AnyEntKind::Design is not a design entity"),
             ),
             AnyEntKind::Library
-            | AnyEntKind::View
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Concurrent(_)
@@ -227,7 +227,7 @@ impl<'a> ResolvedName<'a> {
                 ));
             }
             AnyEntKind::File(_)
-            | AnyEntKind::View
+            | AnyEntKind::View(_)
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Concurrent(_)

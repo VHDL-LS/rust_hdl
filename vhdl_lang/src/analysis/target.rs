@@ -90,7 +90,8 @@ impl AssignmentType {
 
 /// Check that the assignment target is a writable object and not constant or input only
 fn is_valid_assignment_target(base: &ObjectBase) -> bool {
-    base.class() != ObjectClass::Constant && !matches!(base.mode(), Some(Mode::In))
+    base.class() != ObjectClass::Constant
+        && !matches!(base.mode(), Some(InterfaceMode::Simple(Mode::In)))
 }
 
 // Check that a signal is not the target of a variable assignment and vice-versa

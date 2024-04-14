@@ -80,7 +80,10 @@ impl<'a> InterfaceEnt<'a> {
         match self.ent.kind() {
             AnyEntKind::Object(obj) => {
                 obj.class == ObjectClass::Signal
-                    && matches!(obj.mode(), Some(Mode::Out) | Some(Mode::InOut))
+                    && matches!(
+                        obj.mode(),
+                        Some(InterfaceMode::Simple(Mode::Out | Mode::InOut))
+                    )
             }
             _ => false,
         }

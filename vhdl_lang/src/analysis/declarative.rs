@@ -660,9 +660,12 @@ impl<'a> AnalyzeContext<'a> {
                 ErrorCode::Unassociated,
             );
         }
-        Ok(self
-            .arena
-            .define(&mut view.ident, parent, AnyEntKind::View, Some(view.span)))
+        Ok(self.arena.define(
+            &mut view.ident,
+            parent,
+            AnyEntKind::View(typ),
+            Some(view.span),
+        ))
     }
 
     fn find_deferred_constant_declaration(
@@ -935,7 +938,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     AnyEntKind::Object(Object {
                         class,
-                        iface: Some(ObjectInterface::new(
+                        iface: Some(ObjectInterface::simple(
                             object_decl.list_type,
                             mode.mode.unwrap_or_default(),
                         )),
@@ -945,9 +948,61 @@ impl<'a> AnalyzeContext<'a> {
                     None,
                 ))
             }
-            // This is only to avoid analyzing view declarations for now.
-            // There is no actual error here.
-            ModeIndication::View(_) => Err(EvalError::Unknown),
+            ModeIndication::View(view) => {
+                // TODO: can only be port?
+                let resolved =
+                    self.name_resolve(scope, &view.name.pos, &mut view.name.item, diagnostics)?;
+                let view_ent = match resolved {
+                    ResolvedName::Final(ent) => {
+                        let Some(view_ent) = ViewEnt::from_any(ent) else {
+                            bail!(
+                                diagnostics,
+                                Diagnostic::new(
+                                    &view.name,
+                                    format!("{} is not a view", resolved.describe()),
+                                    ErrorCode::MismatchedKinds
+                                )
+                            );
+                        };
+                        view_ent
+                    }
+                    _ => {
+                        bail!(
+                            diagnostics,
+                            Diagnostic::new(
+                                &view.name,
+                                format!("{} is not a view", resolved.describe()),
+                                ErrorCode::MismatchedKinds
+                            )
+                        );
+                    }
+                };
+                if let Some(ast_declared_subtype) = &mut view.subtype_indication {
+                    let declared_subtype =
+                        self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
+                    if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
+                        bail!(
+                            diagnostics,
+                            Diagnostic::new(
+                                &ast_declared_subtype.type_mark,
+                                "Specified subtype must match the subtype declared for the view",
+                                ErrorCode::TypeMismatch
+                            )
+                        );
+                    }
+                }
+                Ok(self.arena.define(
+                    &mut object_decl.ident,
+                    parent,
+                    AnyEntKind::Object(Object {
+                        class: ObjectClass::Signal,
+                        iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
+                        subtype: *view_ent.subtype(),
+                        has_default: false,
+                    }),
+                    None,
+                ))
+            }
         }
     }
 
@@ -1117,7 +1172,7 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             Design::InterfacePackageInstance(_) => None,
             Design::Context(_) => None,
         },
-        AnyEntKind::View => None,
+        AnyEntKind::View(_) => None,
     }
 }
 

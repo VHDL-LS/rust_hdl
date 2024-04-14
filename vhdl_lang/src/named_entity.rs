@@ -19,7 +19,7 @@ pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType}
 mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, SubprogramKey};
 mod object;
-pub use object::{Object, ObjectEnt, ObjectInterface};
+pub use object::{InterfaceMode, Object, ObjectEnt, ObjectInterface, ViewEnt};
 mod design;
 pub use design::{Design, DesignEnt};
 mod attribute;
@@ -63,7 +63,7 @@ pub enum AnyEntKind<'a> {
     DeferredConstant(Subtype<'a>),
     Library,
     Design(Design<'a>),
-    View,
+    View(Subtype<'a>),
 }
 
 impl<'a> AnyEntKind<'a> {
@@ -126,7 +126,7 @@ impl<'a> AnyEntKind<'a> {
             Library => "library",
             Design(design) => design.describe(),
             Type(typ) => typ.describe(),
-            View => "view",
+            View(..) => "view",
         }
     }
 }
