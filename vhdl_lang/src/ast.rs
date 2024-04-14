@@ -124,6 +124,7 @@ pub enum AttributeDesignator {
     SimpleName,
     InstanceName,
     PathName,
+    Converse,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]

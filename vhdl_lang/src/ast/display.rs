@@ -119,6 +119,7 @@ impl Display for AttributeDesignator {
             AttributeDesignator::SimpleName => write!(f, "simple_name"),
             AttributeDesignator::InstanceName => write!(f, "instance_name"),
             AttributeDesignator::PathName => write!(f, "path_name"),
+            AttributeDesignator::Converse => write!(f, "converse"),
         }
     }
 }

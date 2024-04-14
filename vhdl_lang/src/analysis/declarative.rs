@@ -307,9 +307,13 @@ impl<'a> AnalyzeContext<'a> {
                         return Err(EvalError::Unknown);
                     }
                 }
-                ResolvedName::Final(_) => {
-                    // @TODO some of these can probably be aliased
-                    return Err(EvalError::Unknown);
+                ResolvedName::Final(ent) => {
+                    if let Some(ent) = ViewEnt::from_any(ent) {
+                        AnyEntKind::View(*ent.subtype())
+                    } else {
+                        // @TODO some of these can probably be aliased
+                        return Err(EvalError::Unknown);
+                    }
                 }
             }
         };
@@ -949,34 +953,9 @@ impl<'a> AnalyzeContext<'a> {
                 ))
             }
             ModeIndication::View(view) => {
-                // TODO: can only be port?
                 let resolved =
                     self.name_resolve(scope, &view.name.pos, &mut view.name.item, diagnostics)?;
-                let view_ent = match resolved {
-                    ResolvedName::Final(ent) => {
-                        let Some(view_ent) = ViewEnt::from_any(ent) else {
-                            bail!(
-                                diagnostics,
-                                Diagnostic::new(
-                                    &view.name,
-                                    format!("{} is not a view", resolved.describe()),
-                                    ErrorCode::MismatchedKinds
-                                )
-                            );
-                        };
-                        view_ent
-                    }
-                    _ => {
-                        bail!(
-                            diagnostics,
-                            Diagnostic::new(
-                                &view.name,
-                                format!("{} is not a view", resolved.describe()),
-                                ErrorCode::MismatchedKinds
-                            )
-                        );
-                    }
-                };
+                let view_ent = self.resolve_view_ent(&resolved, diagnostics, &view.name.pos)?;
                 if let Some(ast_declared_subtype) = &mut view.subtype_indication {
                     let declared_subtype =
                         self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;

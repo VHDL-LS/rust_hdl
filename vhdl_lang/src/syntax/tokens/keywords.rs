@@ -447,6 +447,7 @@ const ATTRIBUTES_2019: &[AttributeDesignator] = &[
     AttributeDesignator::SimpleName,
     AttributeDesignator::InstanceName,
     AttributeDesignator::PathName,
+    AttributeDesignator::Converse,
 ];
 
 impl VHDLStandard {

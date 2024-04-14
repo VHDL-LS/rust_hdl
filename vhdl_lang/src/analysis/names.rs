@@ -388,6 +388,7 @@ pub enum AttrResolveResult<'a> {
     Type(BaseType<'a>),
     /// The result type is a value with type, e.g. `a'low`, `b'high`, `c'image(x)`
     Value(BaseType<'a>),
+    View(ViewEnt<'a>),
 }
 
 #[derive(Debug)]
@@ -794,6 +795,40 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub(crate) fn resolve_view_ent(
+        &self,
+        resolved: &ResolvedName<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        pos: &SrcPos,
+    ) -> EvalResult<ViewEnt<'a>> {
+        let ent = match resolved {
+            ResolvedName::Final(ent) => {
+                let Some(view_ent) = ViewEnt::from_any(ent) else {
+                    bail!(
+                        diagnostics,
+                        Diagnostic::new(
+                            pos,
+                            format!("{} is not a view", resolved.describe()),
+                            ErrorCode::MismatchedKinds
+                        )
+                    );
+                };
+                view_ent
+            }
+            _ => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::new(
+                        pos,
+                        format!("{} is not a view", resolved.describe()),
+                        ErrorCode::MismatchedKinds
+                    )
+                );
+            }
+        };
+        Ok(ent)
+    }
+
     pub fn attribute_suffix(
         &self,
         name_pos: &SrcPos,
@@ -1033,6 +1068,13 @@ impl<'a> AnalyzeContext<'a> {
             AttributeDesignator::Type(attr) => self
                 .resolve_type_attribute_suffix(prefix, &attr, name_pos, diagnostics)
                 .map(|typ| AttrResolveResult::Type(typ.base())),
+            AttributeDesignator::Converse => {
+                let view = self.resolve_view_ent(prefix, diagnostics, prefix_pos)?;
+                // Since we do not check the actual mode of the view,
+                // this does not actually converse anything at the moment.
+                // We only check that the selected name is a view and return that view.
+                Ok(AttrResolveResult::View(view))
+            }
         }
     }
 
@@ -1204,6 +1246,7 @@ impl<'a> AnalyzeContext<'a> {
                 AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
                     DisambiguatedType::Unambiguous(base.into()),
                 )),
+                AttrResolveResult::View(view) => Ok(ResolvedName::Final(view.ent)),
             };
         }
 

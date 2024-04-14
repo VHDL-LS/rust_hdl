@@ -394,3 +394,37 @@ end entity;
         .unwrap();
     assert_eq!(in_view, declared)
 }
+
+#[test]
+fn converse_attribute() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package my_pkg is
+    type bar is record
+        x: bit;
+    end bar;
+     
+    view foo of bar is
+        x: in;
+    end view;
+
+    alias foo_conv is foo'converse;
+end my_pkg;
+
+use work.my_pkg;
+
+entity my_ent is
+port (
+    x: view my_pkg.foo;
+    y: view my_pkg.foo_conv
+);
+end entity;
+    ",
+    );
+    let diag = builder.analyze();
+    // The mode of views is not analyzed at the moment, so the 'converse attribute
+    // should simply not show any diagnostics.
+    check_no_diagnostics(&diag);
+}
