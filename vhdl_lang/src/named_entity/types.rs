@@ -178,6 +178,11 @@ impl<'a> TypeEnt<'a> {
         self.base().sliced_as()
     }
 
+    /// Returns whether this type denotes a record type.
+    pub fn is_record(&self) -> bool {
+        matches!(self.kind(), Type::Record(..))
+    }
+
     /// Lookup a selected name prefix.suffix
     /// where prefix has this type
     pub fn selected(

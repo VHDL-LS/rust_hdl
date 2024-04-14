@@ -610,7 +610,21 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<()> {
         let typ = self.resolve_subtype_indication(scope, &mut view.typ, diagnostics)?;
-        // typ.type_mark().is_composite();
+        if !typ.type_mark().is_record() {
+            let diag = Diagnostic::new(
+                &view.typ.type_mark,
+                format!(
+                    "The type of a view must be a record type, not {}",
+                    typ.type_mark().describe()
+                ),
+                ErrorCode::TypeMismatch,
+            )
+            .opt_related(
+                typ.type_mark().decl_pos.as_ref(),
+                format!("{} declared here", typ.type_mark().describe()),
+            );
+            bail!(diagnostics, diag);
+        }
         Ok(())
     }
 
