@@ -13,7 +13,9 @@ use crate::named_entity::{Signature, *};
 use crate::{ast, named_entity, HasTokenSpan};
 use analyze::*;
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
+use std::collections::HashSet;
 
 impl Declaration {
     pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
@@ -594,7 +596,11 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Configuration(..) => {}
             Declaration::View(view) => {
-                as_fatal(self.analyze_view_declaration(scope, parent, view, diagnostics))?;
+                if let Some(view) =
+                    as_fatal(self.analyze_view_declaration(scope, parent, view, diagnostics))?
+                {
+                    scope.add(view, diagnostics);
+                }
             }
             Declaration::Type(..) => unreachable!("Handled elsewhere"),
         };
@@ -602,30 +608,61 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    /// Analyzes a mode view declaration.
+    /// * Checks that the type of the view declaration is a record type
+    /// * Checks that all elements are associated in the view
     fn analyze_view_declaration(
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
         view: &mut ModeViewDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<()> {
+    ) -> EvalResult<EntRef<'a>> {
         let typ = self.resolve_subtype_indication(scope, &mut view.typ, diagnostics)?;
-        if !typ.type_mark().is_record() {
-            let diag = Diagnostic::new(
-                &view.typ.type_mark,
-                format!(
-                    "The type of a view must be a record type, not {}",
-                    typ.type_mark().describe()
-                ),
-                ErrorCode::TypeMismatch,
-            )
-            .opt_related(
-                typ.type_mark().decl_pos.as_ref(),
-                format!("{} declared here", typ.type_mark().describe()),
-            );
-            bail!(diagnostics, diag);
+        let record_region = match typ.type_mark().kind() {
+            Type::Record(region) => region,
+            _ => {
+                let diag = Diagnostic::new(
+                    &view.typ.type_mark,
+                    format!(
+                        "The type of a view must be a record type, not {}",
+                        typ.type_mark().describe()
+                    ),
+                    ErrorCode::TypeMismatch,
+                )
+                .opt_related(
+                    typ.type_mark().decl_pos.as_ref(),
+                    format!("{} declared here", typ.type_mark().describe()),
+                );
+                bail!(diagnostics, diag);
+            }
+        };
+        let mut unassociated: HashSet<_> = record_region.elems.iter().collect();
+        for element in view.elements.iter_mut() {
+            for name in element.names.items.iter_mut() {
+                let desi = Designator::Identifier(name.item.item.clone());
+                let Some(record_element) = record_region.lookup(&desi) else {
+                    diagnostics.push(Diagnostic::new(
+                        &name.item.pos,
+                        format!("Not a part of {}", typ.type_mark().describe()),
+                        ErrorCode::Unresolved,
+                    ));
+                    continue;
+                };
+                name.set_unique_reference(&record_element);
+                unassociated.remove(&record_element);
+            }
         }
-        Ok(())
+        if !unassociated.is_empty() {
+            diagnostics.add(
+                &view.ident.tree,
+                pretty_format_unassociated_message(&unassociated),
+                ErrorCode::Unassociated,
+            );
+        }
+        Ok(self
+            .arena
+            .define(&mut view.ident, parent, AnyEntKind::View, Some(view.span)))
     }
 
     fn find_deferred_constant_declaration(
@@ -1103,4 +1140,47 @@ fn find_full_type_definition<'a>(
         }
     }
     None
+}
+
+const UNASSOCIATED_DISPLAY_THRESHOLD: usize = 3;
+
+/// Pretty formats a hash set with unassociated record elements.
+/// This is for an improved user experience.
+/// The returned message has the format "Missing association of x".
+/// * If there is only one element, the message becomes "Missing association of element the_element"
+/// * If there are more elements, the message becomes
+///     "Missing association of element the_element1, the_element2 and the_element3"
+/// * If there are more elements than [UNASSOCIATED_DISPLAY_THRESHOLD], the message will be truncated
+///     to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
+fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement>) -> String {
+    assert!(
+        !unassociated.is_empty(),
+        "Should never be called with an empty set"
+    );
+    let mut as_string_vec = unassociated
+        .iter()
+        .sorted_by_key(|el| el.decl_pos())
+        .map(|el| el.designator().describe())
+        .collect_vec();
+    let description = if as_string_vec.len() == 1 {
+        as_string_vec.pop().unwrap()
+    } else if as_string_vec.len() > UNASSOCIATED_DISPLAY_THRESHOLD {
+        let mut desc = as_string_vec[..UNASSOCIATED_DISPLAY_THRESHOLD].join(", ");
+        desc.push_str(" and ");
+        desc.push_str(&(as_string_vec.len() - UNASSOCIATED_DISPLAY_THRESHOLD).to_string());
+        desc.push_str(" more");
+        desc
+    } else {
+        // len > 1, therefore we always have a last element
+        let last = as_string_vec.pop().unwrap();
+        let mut desc = as_string_vec.join(", ");
+        desc.push_str(" and ");
+        desc.push_str(&last);
+        desc
+    };
+    if unassociated.len() == 1 {
+        format!("Missing association of element {}", description)
+    } else {
+        format!("Missing association of elements {}", description)
+    }
 }

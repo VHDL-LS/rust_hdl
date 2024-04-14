@@ -268,7 +268,7 @@ impl<'a> RecordRegion<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RecordElement<'a> {
     // A record element declaration
     ent: EntRef<'a>,
