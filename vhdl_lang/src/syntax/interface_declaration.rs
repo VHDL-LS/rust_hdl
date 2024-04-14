@@ -17,6 +17,7 @@ use crate::ast::*;
 use crate::data::*;
 use vhdl_lang::data::error_codes::ErrorCode;
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::VHDLStandard::VHDL2019;
 
 pub(crate) fn parse_optional_mode(
     ctx: &mut ParsingContext<'_>,
@@ -304,8 +305,8 @@ fn parse_semicolon_separator(ctx: &mut ParsingContext<'_>) -> ParseResult<()> {
     peek_token!(
         ctx.stream, token,
         SemiColon => {
-           ctx.stream.skip();
-            if ctx.stream.next_kind_is(RightPar) {
+            ctx.stream.skip();
+            if ctx.stream.next_kind_is(RightPar) && ctx.standard < VHDL2019 {
                 return Err(Diagnostic::syntax_error(&token.pos,
                         format!("Last interface element may not end with {}",
                         kinds_str(&[SemiColon]))));
@@ -776,6 +777,23 @@ bar : natural)",
                 code.s(";", 2),
                 "Last interface element may not end with ';'"
             )]
+        );
+
+        let code = Code::with_standard(
+            "\
+(constant foo : std_logic;
+ bar : natural;
+)",
+            VHDL2019,
+        );
+        let result = code.parse_ok_no_diagnostics(parse_generic_interface_list);
+
+        assert_eq!(
+            result,
+            vec![
+                code.s1("constant foo : std_logic").generic(),
+                code.s1("bar : natural").generic()
+            ]
         );
     }
 
