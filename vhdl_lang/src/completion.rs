@@ -14,7 +14,6 @@ use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities,
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
-use itertools::Itertools;
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
@@ -356,6 +355,8 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                 let Some(ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
                     return Finished(NotFound);
                 };
+
+                // Early-exit for when we are inside a statement.
                 for statement in &body.statements {
                     let pos = &statement.statement.pos;
 
@@ -372,18 +373,34 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                     .get_span(body.begin_token, body.get_end_token())
                     .contains(self.cursor)
                 {
-                    self.completions = self
-                        .root
-                        .get_visible_entities_from_entity(ent)
-                        .map(|eid| {
-                            let ent = self.root.get_ent(eid);
-                            let architectures = get_architectures_for_entity(ent, self.root);
-                            CompletionItem::EntityInstantiation(
-                                self.root.get_ent(eid),
-                                architectures,
-                            )
-                        })
-                        .collect()
+                    self.completions.extend(
+                        self.root
+                            .get_visible_entities_from_entity(ent)
+                            .map(|eid| entity_to_completion_item(self.root, eid))
+                            .chain(
+                                body.decl
+                                    .iter()
+                                    .filter_map(|decl| decl.ent_id())
+                                    .map(|eid| self.root.get_ent(eid))
+                                    .filter(|ent| {
+                                        matches!(
+                                            ent.kind(),
+                                            AnyEntKind::Object(_) | AnyEntKind::ObjectAlias { .. }
+                                        )
+                                    })
+                                    .map(CompletionItem::Simple),
+                            ),
+                    );
+                    if let Design::Entity(_, region) = ent.kind() {
+                        self.completions
+                            .extend(region.entities.values().filter_map(|ent| {
+                                if let NamedEntities::Single(ent) = ent {
+                                    Some(CompletionItem::Simple(ent))
+                                } else {
+                                    None
+                                }
+                            }))
+                    }
                 }
                 Finished(Found)
             }
@@ -392,21 +409,33 @@ impl<'a> Searcher for CompletionSearcher<'a> {
     }
 }
 
+fn entity_to_completion_item(root: &DesignRoot, eid: EntityId) -> CompletionItem {
+    let ent = root.get_ent(eid);
+    match ent.kind() {
+        AnyEntKind::Design(Design::Entity(..)) => {
+            let architectures = get_architectures_for_entity(ent, root);
+            CompletionItem::EntityInstantiation(ent, architectures)
+        }
+        _ => CompletionItem::Simple(ent),
+    }
+}
+
 /// Returns a vec populated with all architectures that belong to the given entity
 fn get_architectures_for_entity<'a>(ent: EntRef<'a>, root: &'a DesignRoot) -> Vec<EntRef<'a>> {
-    if let Some(design) = DesignEnt::from_any(ent) {
-        root.public_symbols()
-            .filter(|sym| match sym.kind() {
-                AnyEntKind::Design(Design::Architecture(arch_design)) => {
-                    arch_design.id() == design.id()
-                }
-                _ => false,
-            })
-            .sorted_by_key(|a| a.decl_pos())
-            .collect_vec()
-    } else {
-        vec![]
-    }
+    let Some(lib_symbol) = ent.library_name() else {
+        return vec![];
+    };
+    let Some(lib) = root.get_lib(lib_symbol) else {
+        return vec![];
+    };
+    let Some(sym) = ent.designator().as_identifier() else {
+        return vec![];
+    };
+    lib.secondary_units(sym)
+        .filter_map(|locked_unit| locked_unit.unit.get())
+        .filter_map(|read_guard| read_guard.ent_id())
+        .map(|eid| root.get_ent(eid))
+        .collect()
 }
 
 impl DesignRoot {
@@ -874,9 +903,51 @@ end arch;
             .search_reference(code1.source(), code1.s1("arch2").start())
             .unwrap();
 
-        assert_eq!(
-            options,
-            vec![CompletionItem::EntityInstantiation(ent, vec![arch1, arch2])]
+        match &options[..] {
+            [CompletionItem::EntityInstantiation(got_ent, architectures)] => {
+                assert_eq!(*got_ent, ent);
+                assert_eq_unordered(architectures, &[arch1, arch2]);
+            }
+            _ => panic!("Expected entity instantiation"),
+        }
+    }
+
+    #[test]
+    pub fn completes_signals_and_ports() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+entity my_ent is
+    port (
+        foo : in bit
+    );
+end my_ent;
+
+architecture arch of my_ent is
+    signal bar : natural;
+    type foobaz is array(natural range <>) of bit;
+begin
+end arch;
+        ",
+        );
+
+        let (root, diag) = builder.get_analyzed_root();
+        check_no_diagnostics(&diag);
+        let cursor = code.s1("begin").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let ent1 = root
+            .search_reference(code.source(), code.s1("foo").start())
+            .unwrap();
+
+        let ent2 = root
+            .search_reference(code.source(), code.s1("bar").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options,
+            &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
         )
     }
 }
