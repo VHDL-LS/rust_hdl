@@ -349,13 +349,45 @@ impl<'a> Searcher for CompletionSearcher<'a> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         match decl {
             FoundDeclaration::Architecture(body) => {
+                // ensure we are in the concurrent region
+                if !ctx
+                    .get_span(body.begin_token, body.get_end_token())
+                    .contains(self.cursor)
+                {
+                    return Finished(NotFound);
+                }
+                // Add architecture declarations to the list of completed names
+                self.completions.extend(
+                    body.decl
+                        .iter()
+                        .filter_map(|decl| decl.ent_id())
+                        .map(|eid| self.root.get_ent(eid))
+                        .filter(|ent| {
+                            matches!(
+                                ent.kind(),
+                                AnyEntKind::Object(_) | AnyEntKind::ObjectAlias { .. }
+                            )
+                        })
+                        .map(CompletionItem::Simple),
+                );
+
                 let Some(eid) = body.entity_name.reference.get() else {
                     return Finished(NotFound);
                 };
                 let Some(ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
                     return Finished(NotFound);
                 };
-
+                // Add ports and generics to the list of completed items
+                if let Design::Entity(_, region) = ent.kind() {
+                    self.completions
+                        .extend(region.entities.values().filter_map(|ent| {
+                            if let NamedEntities::Single(ent) = ent {
+                                Some(CompletionItem::Simple(ent))
+                            } else {
+                                None
+                            }
+                        }))
+                }
                 // Early-exit for when we are inside a statement.
                 for statement in &body.statements {
                     let pos = &statement.statement.pos;
@@ -369,39 +401,11 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                         return Finished(NotFound);
                     }
                 }
-                if ctx
-                    .get_span(body.begin_token, body.get_end_token())
-                    .contains(self.cursor)
-                {
-                    self.completions.extend(
-                        self.root
-                            .get_visible_entities_from_entity(ent)
-                            .map(|eid| entity_to_completion_item(self.root, eid))
-                            .chain(
-                                body.decl
-                                    .iter()
-                                    .filter_map(|decl| decl.ent_id())
-                                    .map(|eid| self.root.get_ent(eid))
-                                    .filter(|ent| {
-                                        matches!(
-                                            ent.kind(),
-                                            AnyEntKind::Object(_) | AnyEntKind::ObjectAlias { .. }
-                                        )
-                                    })
-                                    .map(CompletionItem::Simple),
-                            ),
-                    );
-                    if let Design::Entity(_, region) = ent.kind() {
-                        self.completions
-                            .extend(region.entities.values().filter_map(|ent| {
-                                if let NamedEntities::Single(ent) = ent {
-                                    Some(CompletionItem::Simple(ent))
-                                } else {
-                                    None
-                                }
-                            }))
-                    }
-                }
+                self.completions.extend(
+                    self.root
+                        .get_visible_entities_from_entity(ent)
+                        .map(|eid| entity_to_completion_item(self.root, eid)),
+                );
                 Finished(Found)
             }
             _ => NotFinished,
@@ -673,6 +677,20 @@ mod test {
             .search_reference(code.source(), code.s1("dout").start())
             .unwrap();
 
+        let clk_signal = root
+            .search_reference(
+                code.source(),
+                code.s1("signal clk, rst: bit;").s1("clk").start(),
+            )
+            .unwrap();
+
+        let rst_signal = root
+            .search_reference(
+                code.source(),
+                code.s1("signal clk, rst: bit;").s1("rst").start(),
+            )
+            .unwrap();
+
         let cursor = code.s1("port map (").pos().end();
         let options = list_completion_options(&root, code.source(), cursor);
         assert!(options.contains(&CompletionItem::Formal(rst)));
@@ -684,14 +702,26 @@ mod test {
             .pos()
             .end();
         let options = list_completion_options(&root, code.source(), cursor);
-        assert_eq!(options.len(), 0);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(clk_signal),
+                CompletionItem::Simple(rst_signal),
+            ],
+        );
         let cursor = code
             .s1("port map (
             clk => c")
             .pos()
             .end();
         let options = list_completion_options(&root, code.source(), cursor);
-        assert_eq!(options.len(), 0);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(clk_signal),
+                CompletionItem::Simple(rst_signal),
+            ],
+        );
     }
 
     #[test]
