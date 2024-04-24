@@ -17,6 +17,8 @@ use crate::SrcPos;
 
 pub enum Design<'a> {
     Entity(Visibility<'a>, Region<'a>),
+    /// A VHDL architecture.
+    /// The linked `DesignEnt` is the entity that belongs to the architecture.
     Architecture(DesignEnt<'a>),
     Configuration,
     Package(Visibility<'a>, Region<'a>),
