@@ -28,9 +28,6 @@ use vhdl_lang::{
 pub enum NonProjectFileHandling {
     /// Ignore any non-project files
     Ignore,
-    /// Only parse non-project files, do not analyze them.
-    /// Not implemented at the moment
-    // Parse,
     /// Add non-project files to an anonymous library and analyze them
     #[default]
     Analyze,
@@ -292,6 +289,10 @@ impl VHDLServer {
             match self.settings.non_project_file_handling {
                 NonProjectFileHandling::Ignore => {}
                 NonProjectFileHandling::Analyze => {
+                    self.message(Message::warning(format!(
+                        "Opening file {} that is not part of the project",
+                        file_name.to_string_lossy()
+                    )));
                     self.project
                         .update_source(&Source::inline(&file_name, text));
                     self.publish_diagnostics();
