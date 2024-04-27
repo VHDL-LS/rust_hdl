@@ -77,8 +77,12 @@ impl<'a> AnalyzeContext<'a> {
         attr: &mut AttributeName,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
-        let resolved =
-            self.name_resolve(scope, &attr.name.pos, &mut attr.name.item, diagnostics)?;
+        let resolved = self.name_resolve(
+            scope,
+            &attr.name.to_pos(self.ctx),
+            &mut attr.name.item,
+            diagnostics,
+        )?;
         let typ = match resolved {
             ResolvedName::Type(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
@@ -93,7 +97,7 @@ impl<'a> AnalyzeContext<'a> {
                         ent.return_type().unwrap()
                     } else {
                         diagnostics.add(
-                        &attr.name.pos,
+                        &attr.name.to_pos(self.ctx),
                         format!(
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
@@ -112,7 +116,7 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
                 diagnostics.add(
-                    &attr.name.pos,
+                    &attr.name.to_pos(self.ctx),
                     format!(
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
@@ -136,14 +140,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl_pos) = typ.decl_pos() {
                     // To debug if it ever happens
                     eprintln!("{}", decl_pos.show("Array with no indexes"));
-                    eprintln!("{}", attr.name.pos.show("Used here"));
+                    eprintln!("{}", attr.name.to_pos(self.ctx).show("Used here"));
                     panic!("Internal error")
                 }
                 Err(EvalError::Unknown)
             }
         } else {
             diagnostics.add(
-                &attr.name.pos,
+                &attr.name.to_pos(self.ctx),
                 format!(
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
@@ -269,7 +273,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.pos(),
+                &drange.pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -313,10 +317,10 @@ impl<'a> AnalyzeContext<'a> {
                 } = name.as_mut();
 
                 let prefix_typ = as_fatal(
-                    self.name_resolve(scope, &name.pos, &mut name.item, diagnostics)
+                    self.name_resolve(scope, &name.to_pos(self.ctx), &mut name.item, diagnostics)
                         .and_then(|prefix| {
                             prefix.as_type_of_attr_prefix(
-                                &name.pos,
+                                &name.to_pos(self.ctx),
                                 &AttributeSuffix {
                                     signature,
                                     attr,
@@ -346,7 +350,7 @@ impl<'a> AnalyzeContext<'a> {
                         {
                             if !self.can_be_target_type(index_typ.into(), target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
-                                    &range.pos(),
+                                    &range.pos(self.ctx),
                                     &index_typ.describe(),
                                     target_type,
                                 ))

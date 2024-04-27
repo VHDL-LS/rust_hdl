@@ -97,14 +97,14 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
                     scope,
-                    &prefix.pos,
+                    &prefix.to_pos(self.ctx),
                     &mut prefix.item,
                     diagnostics,
                 )?;
 
                 let suffix_ent = resolved_prefix
                     .type_mark
-                    .selected(&prefix.pos, suffix)
+                    .selected(&prefix.to_pos(self.ctx), suffix)
                     .into_eval_result(diagnostics)?;
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
@@ -134,7 +134,7 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
                     scope,
-                    &prefix.pos,
+                    &prefix.to_pos(self.ctx),
                     &mut prefix.item,
                     diagnostics,
                 )?;
@@ -180,7 +180,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     let converted_typ = match as_fatal(self.name_resolve(
                         scope,
-                        &fcall.name.pos,
+                        &fcall.name.to_pos(self.ctx),
                         &mut fcall.name.item,
                         diagnostics,
                     ))? {
@@ -218,7 +218,7 @@ impl<'a> AnalyzeContext<'a> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.pos,
+                                        &fcall.name.to_pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -239,7 +239,7 @@ impl<'a> AnalyzeContext<'a> {
                     let resolved_prefix = self.resolve_formal(
                         formal_region,
                         scope,
-                        &indexed_name.name.pos,
+                        &indexed_name.name.to_pos(self.ctx),
                         &mut indexed_name.name.item,
                         diagnostics,
                     )?;
@@ -247,7 +247,7 @@ impl<'a> AnalyzeContext<'a> {
                     let new_typ = self.analyze_indexed_name(
                         scope,
                         name_pos,
-                        indexed_name.name.suffix_pos(),
+                        indexed_name.name.suffix_pos(self.ctx),
                         resolved_prefix.type_mark,
                         &mut indexed_name.indexes,
                         diagnostics,
@@ -281,7 +281,7 @@ impl<'a> AnalyzeContext<'a> {
                     fail = true;
 
                     diagnostics.add(
-                        formal,
+                        formal.to_pos(self.ctx),
                         "Named arguments are not allowed before positional arguments",
                         ErrorCode::NamedBeforePositional,
                     );
@@ -316,12 +316,12 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_formal = as_fatal(self.resolve_formal(
                     formal_region,
                     scope,
-                    &formal.pos,
+                    &formal.to_pos(self.ctx),
                     &mut formal.item,
                     diagnostics,
                 ))?;
 
-                result.push((&formal.pos, resolved_formal));
+                result.push((&formal.to_pos(self.ctx), resolved_formal));
             } else if let Some(formal) = formal_region.nth(actual_idx) {
                 // Actual index is same as formal index for positional argument
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);

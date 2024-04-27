@@ -17,25 +17,25 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_type_mark(
         &self,
         scope: &Scope<'a>,
-        type_mark: &mut WithPos<TypeMark>,
+        type_mark: &mut WithTokenSpan<TypeMark>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         let name = self.name_resolve(
             scope,
-            &type_mark.item.name.pos,
+            &type_mark.item.name.to_pos(self.ctx),
             &mut type_mark.item.name.item,
             diagnostics,
         )?;
 
         if let Some(attr) = &type_mark.item.attr {
-            let pos = type_mark.item.name.suffix_pos();
+            let pos = type_mark.item.name.suffix_pos(self.ctx);
 
             let typ = match name {
                 ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
                 ResolvedName::ObjectName(obj) => obj.type_mark(),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark,
+                        type_mark.to_pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -67,7 +67,7 @@ impl<'a> AnalyzeContext<'a> {
                 ResolvedName::Type(typ) => Ok(typ),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark,
+                        type_mark.to_pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -130,26 +130,30 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_procedure_call(
         &self,
         scope: &Scope<'a>,
-        fcall: &mut WithPos<CallOrIndexed>,
+        fcall: &mut WithTokenSpan<CallOrIndexed>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let CallOrIndexed { name, parameters } = &mut fcall.item;
 
-        let resolved =
-            match as_fatal(self.name_resolve(scope, &name.pos, &mut name.item, diagnostics))? {
-                Some(resolved) => resolved,
-                None => {
-                    // Continue checking missing names even if procedure is not found
-                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-                    return Ok(());
-                }
-            };
+        let resolved = match as_fatal(self.name_resolve(
+            scope,
+            &name.to_pos(self.ctx),
+            &mut name.item,
+            diagnostics,
+        ))? {
+            Some(resolved) => resolved,
+            None => {
+                // Continue checking missing names even if procedure is not found
+                self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                return Ok(());
+            }
+        };
 
         match resolved {
             ResolvedName::Overloaded(ref des, names) => {
                 match as_fatal(self.disambiguate(
                     scope,
-                    &fcall.pos,
+                    &fcall.to_pos(self.ctx),
                     des,
                     parameters,
                     SubprogramKind::Procedure,
@@ -164,7 +168,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         if !ent.is_procedure() {
                             let mut diagnostic = Diagnostic::new(
-                                &name.pos,
+                                &name.to_pos(self.ctx),
                                 "Invalid procedure call",
                                 ErrorCode::InvalidCall,
                             );
@@ -179,7 +183,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics.push(diagnostic);
                         } else if ent.is_uninst_subprogram_body() {
                             diagnostics.add(
-                                &name.pos,
+                                &name.to_pos(self.ctx),
                                 format!("uninstantiated {} cannot be called", ent.describe()),
                                 ErrorCode::InvalidCall,
                             )
@@ -193,14 +197,14 @@ impl<'a> AnalyzeContext<'a> {
                     name.set_unique_reference(ent);
                     let (generic_region, port_region) = region.to_entity_formal();
                     self.check_association(
-                        &fcall.item.name.pos,
+                        &fcall.item.name.to_pos(self.ctx),
                         &generic_region,
                         scope,
                         &mut [],
                         diagnostics,
                     )?;
                     self.check_association(
-                        &fcall.item.name.pos,
+                        &fcall.item.name.to_pos(self.ctx),
                         &port_region,
                         scope,
                         &mut [],
@@ -208,7 +212,7 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                 } else {
                     diagnostics.add(
-                        &name.pos,
+                        &name.to_pos(self.ctx),
                         format!("{} is not a procedure", resolved.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -217,7 +221,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             resolved => {
                 diagnostics.add(
-                    &name.pos,
+                    &name.to_pos(self.ctx),
                     format!("{} is not a procedure", resolved.describe_type()),
                     ErrorCode::MismatchedKinds,
                 );

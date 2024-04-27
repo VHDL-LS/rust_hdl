@@ -17,7 +17,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_expr_assignment(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -59,7 +59,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_waveform_assignment(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,

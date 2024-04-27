@@ -12,6 +12,7 @@ use super::tokens::Kind::*;
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
+use vhdl_lang::data::WithTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
@@ -23,7 +24,7 @@ pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
 }
 
 enum NameOrRange {
-    Name(WithPos<Name>),
+    Name(WithTokenSpan<Name>),
     Range(WithPos<ast::Range>),
 }
 
@@ -76,7 +77,9 @@ fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange>
 pub fn parse_range(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<ast::Range>> {
     match parse_name_or_range(ctx)? {
         NameOrRange::Range(range) => Ok(range),
-        NameOrRange::Name(name) => Err(Diagnostic::syntax_error(&name, "Expected range")),
+        NameOrRange::Name(name) => {
+            Err(Diagnostic::syntax_error(name.to_pos(ctx), "Expected range"))
+        }
     }
 }
 
@@ -84,7 +87,7 @@ pub fn parse_discrete_range(ctx: &mut ParsingContext<'_>) -> ParseResult<Discret
     match parse_name_or_range(ctx) {
         Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
-            let type_mark = name_to_type_mark(name)?;
+            let type_mark = name_to_type_mark(ctx, name)?;
             let range = parse_optional(ctx, Range, parse_range)?.map(|range| range.item);
             Ok(DiscreteRange::Discrete(type_mark, range))
         }
@@ -96,7 +99,7 @@ pub fn parse_array_index_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult
     match parse_name_or_range(ctx) {
         Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {
-            let type_mark = name_to_type_mark(name)?;
+            let type_mark = name_to_type_mark(ctx, name)?;
 
             if ctx.stream.skip_if_kind(Range) {
                 if ctx.stream.skip_if_kind(BOX) {

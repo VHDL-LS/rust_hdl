@@ -10,7 +10,7 @@ use vhdl_lang::syntax::parser::ParsingContext;
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
 use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
-use crate::data::{DiagnosticHandler, DiagnosticResult, WithPos};
+use crate::data::{DiagnosticHandler, DiagnosticResult, WithPos, WithTokenSpan};
 use crate::{Diagnostic, SrcPos};
 
 pub struct TokenStream<'a> {
@@ -249,7 +249,9 @@ impl<'a> TokenStream<'a> {
 
     /// Expect identifier or subtype/range keywords
     /// foo'subtype or foo'range
-    pub fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>> {
+    pub fn expect_attribute_designator(
+        &self,
+    ) -> DiagnosticResult<WithTokenSpan<AttributeDesignator>> {
         let des = expect_token!(
             self,
             token,

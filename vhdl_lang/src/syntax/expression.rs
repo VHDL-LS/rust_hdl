@@ -8,16 +8,17 @@ use super::common::ParseResult;
 use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*};
-use crate::ast;
 use crate::ast::{Literal, *};
-use crate::data::{Diagnostic, WithPos};
+use crate::data::{Diagnostic, WithPos, WithTokenSpan};
 use crate::syntax::TokenAccess;
+use crate::{ast, TokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
 
-fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
+fn name_to_expression(ctx: &dyn TokenAccess, name: WithTokenSpan<Name>) -> WithPos<Expression> {
+    let pos = name.to_pos(ctx);
     WithPos {
         item: Expression::Name(Box::new(name.item)),
-        pos: name.pos,
+        pos,
     }
 }
 
@@ -146,7 +147,7 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 pub fn parse_aggregate_initial_choices(
     ctx: &mut ParsingContext<'_>,
     choices: Vec<WithPos<Choice>>,
-) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
+) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
     let mut choices = choices;
     let mut result = Vec::new();
     loop {
@@ -157,7 +158,7 @@ pub fn parse_aggregate_initial_choices(
                 if choices.len() == 1 {
                     if let Some(WithPos{item: Choice::Expression(expr), pos}) = choices.pop() {
                         result.push(ElementAssociation::Positional(WithPos::new(expr, pos)));
-                        return Ok(WithPos::from(result, token.pos.clone()))
+                        return Ok(WithTokenSpan::from(result, token.pos.clone()))
                     }
                 }
 
@@ -195,10 +196,13 @@ pub fn parse_aggregate_initial_choices(
 
 pub fn parse_aggregate(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
-    ctx.stream.expect_kind(LeftPar)?;
+) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
+    let start_tok = ctx.stream.expect_kind(LeftPar)?;
     if let Some(token) = ctx.stream.pop_if_kind(RightPar) {
-        return Ok(WithPos::from(Vec::new(), ctx.stream.get_pos(token).clone()));
+        return Ok(WithTokenSpan::from(
+            Vec::new(),
+            TokenSpan::new(start_tok, token),
+        ));
     };
     let choices = parse_choices(ctx)?;
     parse_aggregate_initial_choices(ctx, choices)
@@ -260,13 +264,13 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Allocato
 
     if ctx.stream.skip_if_kind(Tick) {
         let expr = parse_expression(ctx)?;
-        let pos = type_mark.pos.clone().combine_into(&expr);
+        let pos = type_mark.to_pos(ctx).combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
             pos,
         })
     } else {
-        let mut pos = type_mark.pos.clone();
+        let mut pos = type_mark.to_pos(ctx);
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(ctx)? {
@@ -290,8 +294,12 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Allocato
     }
 }
 
-pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
-    let pos = name.pos.clone();
+pub fn name_to_type_mark(
+    ctx: &mut ParsingContext<'_>,
+    name: WithTokenSpan<Name>,
+) -> ParseResult<WithTokenSpan<TypeMark>> {
+    let pos = name.to_pos(ctx);
+    let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
@@ -305,7 +313,7 @@ pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> 
                 }
             }
             _ => Some(TypeMark {
-                name: WithPos::from(name_to_selected_name(name)?, pos.clone()),
+                name: WithTokenSpan::from(name_to_selected_name(name)?, name_span),
                 attr: None,
             }),
         })
@@ -386,16 +394,16 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression
                 let lpar = ctx.stream.expect_kind(LeftPar)?;
                 let expr =
                     parse_expression_or_aggregate(ctx)?.combine_pos_with(ctx.stream.get_pos(lpar));
-                let pos = name.pos.combine(&expr);
+                let pos = name.to_pos(ctx).combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
-                        type_mark: name_to_type_mark(name)?,
+                        type_mark: name_to_type_mark(ctx, name)?,
                         expr,
                     })),
                     pos,
                 })
             } else {
-                Ok(name_to_expression(name))
+                Ok(name_to_expression(ctx, name))
             }
         }
         BitString => {

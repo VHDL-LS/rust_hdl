@@ -497,14 +497,15 @@ impl Code {
         WithDecl::new(self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident()))
     }
 
-    pub fn designator(&self) -> WithPos<Designator> {
+    pub fn designator(&self) -> WithTokenSpan<Designator> {
         self.parse_ok_no_diagnostics(parse_designator)
     }
 
-    pub fn decl_designator(&self) -> WithDecl<WithPos<Designator>> {
+    pub fn decl_designator(&self) -> WithDecl<WithTokenSpan<Designator>> {
         WithDecl::new(self.parse_ok_no_diagnostics(parse_designator))
     }
-    pub fn ref_designator(&self) -> WithPos<WithRef<Designator>> {
+
+    pub fn ref_designator(&self) -> WithTokenSpan<WithRef<Designator>> {
         self.parse_ok_no_diagnostics(parse_designator)
             .map_into(WithRef::new)
     }
@@ -522,11 +523,11 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_expression)
     }
 
-    pub fn name(&self) -> WithPos<Name> {
+    pub fn name(&self) -> WithTokenSpan<Name> {
         self.parse_ok_no_diagnostics(parse_name)
     }
 
-    pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
+    pub fn name_list(&self) -> SeparatedList<WithTokenSpan<Name>> {
         self.parse_ok_no_diagnostics(parse_name_list)
     }
 
@@ -534,7 +535,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
-    pub fn type_mark(&self) -> WithPos<TypeMark> {
+    pub fn type_mark(&self) -> WithTokenSpan<TypeMark> {
         self.parse_ok_no_diagnostics(parse_type_mark)
     }
 
@@ -597,18 +598,18 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_parameter)
     }
 
-    pub fn function_call(&self) -> WithPos<CallOrIndexed> {
+    pub fn function_call(&self) -> WithTokenSpan<CallOrIndexed> {
         let name = self.name();
         match name.item {
-            Name::CallOrIndexed(call) => WithPos::new(*call, name.pos),
+            Name::CallOrIndexed(call) => WithTokenSpan::from(*call, name.span),
             _ => {
-                let pos = name.pos.clone();
-                WithPos::new(
+                let span = name.span.clone();
+                WithTokenSpan::from(
                     CallOrIndexed {
                         name,
                         parameters: vec![],
                     },
-                    pos,
+                    span,
                 )
             }
         }
@@ -649,7 +650,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_waveform)
     }
 
-    pub fn aggregate(&self) -> WithPos<Vec<ElementAssociation>> {
+    pub fn aggregate(&self) -> WithTokenSpan<Vec<ElementAssociation>> {
         self.parse_ok_no_diagnostics(parse_aggregate)
     }
 
@@ -870,6 +871,12 @@ pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
+    }
+}
+
+impl AsRef<TokenSpan> for Code {
+    fn as_ref(&self) -> &TokenSpan {
+        &self.token_span()
     }
 }
 

@@ -5,11 +5,10 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::tokens::Kind;
-use crate::ast::Ident;
+use crate::ast::{Ident, WithToken};
 use crate::data::Diagnostic;
-use crate::data::WithPos;
 use crate::syntax::parser::ParsingContext;
-use crate::SrcPos;
+use crate::{SrcPos, TokenId};
 
 /// Parse optional part followed by optional keyword
 pub fn parse_optional<F, R>(
@@ -33,15 +32,15 @@ where
 
 pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>(
     ctx: &mut ParsingContext,
-    ident: &WithPos<T>,
-    end_ident: Option<WithPos<T>>,
-) -> Option<SrcPos> {
+    ident: &WithToken<T>,
+    end_ident: Option<WithToken<T>>,
+) -> Option<TokenId> {
     if let Some(end_ident) = end_ident {
         if ident.item == end_ident.item {
-            return Some(end_ident.pos);
+            return Some(end_ident.token);
         } else {
             ctx.diagnostics.push(Diagnostic::syntax_error(
-                &end_ident.pos,
+                &end_ident.pos(ctx),
                 format!("End identifier mismatch, expected {}", ident.item),
             ));
         }

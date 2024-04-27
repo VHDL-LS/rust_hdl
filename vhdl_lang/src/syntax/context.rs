@@ -76,7 +76,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
             )
         }
 
-        let ident = WithDecl::new(to_simple_name(name)?);
+        let ident = WithDecl::new(to_simple_name(ctx, name)?);
         let end_token = ctx.stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             span: TokenSpan::new(context_token, end_token),

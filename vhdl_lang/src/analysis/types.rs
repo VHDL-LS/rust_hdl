@@ -30,7 +30,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
                 scope,
-                &type_mark.pos,
+                &type_mark.to_pos(self.ctx),
                 base_type.base(),
                 &mut constraint.item,
                 diagnostics,
@@ -421,7 +421,7 @@ impl<'a> AnalyzeContext<'a> {
                         UniversalType::Real
                     } else {
                         diagnostics.add(
-                            &range.pos(),
+                            &range.pos(self.ctx),
                             "Expected real or integer range",
                             ErrorCode::TypeMismatch,
                         );
@@ -527,7 +527,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         } else {
                             diagnostics.add(
-                                drange.pos(),
+                                drange.pos(self.ctx),
                                 format!("Got extra index constraint for {}", base_type.describe()),
                                 ErrorCode::TooManyConstraints,
                             );

@@ -442,13 +442,15 @@ mod tests {
             let mut fcall = code.function_call();
 
             let des = if let Name::Designator(des) = &fcall.item.name.item {
-                WithPos::new(des.item.clone(), fcall.item.name.pos.clone())
+                WithPos::new(des.item.clone(), fcall.item.name.to_pos(&self.tokens))
             } else {
                 panic!("Expected designator")
             };
 
-            let overloaded = if let NamedEntities::Overloaded(overloaded) =
-                self.scope.lookup(&fcall.item.name.pos, &des.item).unwrap()
+            let overloaded = if let NamedEntities::Overloaded(overloaded) = self
+                .scope
+                .lookup(&fcall.item.name.to_pos(&self.tokens), &des.item)
+                .unwrap()
             {
                 overloaded
             } else {
@@ -457,7 +459,7 @@ mod tests {
 
             as_fatal(self.ctx().disambiguate(
                 &self.scope,
-                &fcall.pos,
+                &fcall.to_pos(&self.tokens),
                 &des,
                 &mut fcall.item.parameters,
                 overloaded::SubprogramKind::Function(ttyp),

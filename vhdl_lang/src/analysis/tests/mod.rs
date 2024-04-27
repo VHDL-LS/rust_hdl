@@ -54,7 +54,7 @@ pub(super) struct TestSetup<'a> {
     root: DesignRoot,
     arena: Arena,
     pub scope: Scope<'a>,
-    tokens: MockTokenAccess,
+    pub(crate) tokens: MockTokenAccess,
 }
 
 #[cfg(test)]

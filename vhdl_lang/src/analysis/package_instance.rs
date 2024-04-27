@@ -42,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
         self.generic_instance(
             package_ent,
             scope,
-            &unit.ident.tree.pos,
+            &unit.ident.tree.pos(self.ctx),
             &package_region,
             generic_map,
             diagnostics,
@@ -63,7 +63,7 @@ impl<'a> AnalyzeContext<'a> {
         for (idx, assoc) in generic_map.iter_mut().enumerate() {
             let formal = if let Some(formal) = &mut assoc.formal {
                 if let Name::Designator(des) = &mut formal.item {
-                    match generics.lookup(&formal.pos, &des.item) {
+                    match generics.lookup(&formal.to_pos(self.ctx), &des.item) {
                         Ok((_, ent)) => {
                             des.set_unique_reference(&ent);
                             ent
@@ -75,7 +75,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 } else {
                     diagnostics.add(
-                        &formal.pos,
+                        &formal.to_pos(self.ctx),
                         "Expected simple name for package generic formal",
                         ErrorCode::MismatchedKinds,
                     );
@@ -102,7 +102,7 @@ impl<'a> AnalyzeContext<'a> {
                                 Name::Slice(prefix, drange) => {
                                     let typ = self.type_name(
                                         scope,
-                                        &prefix.pos,
+                                        &prefix.to_pos(self.ctx),
                                         &mut prefix.item,
                                         diagnostics,
                                     )?;
@@ -132,7 +132,7 @@ impl<'a> AnalyzeContext<'a> {
                                 Name::CallOrIndexed(call) if call.could_be_indexed_name() => self
                                     .type_name(
                                     scope,
-                                    &call.name.pos,
+                                    &call.name.to_pos(self.ctx),
                                     &mut call.name.item,
                                     diagnostics,
                                 )?,

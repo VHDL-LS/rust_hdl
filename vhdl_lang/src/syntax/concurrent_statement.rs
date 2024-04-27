@@ -241,26 +241,27 @@ pub fn parse_process_statement(
 }
 
 fn to_procedure_call(
-    target: WithPos<Target>,
+    ctx: &mut ParsingContext<'_>,
+    target: WithTokenSpan<Target>,
     postponed: bool,
 ) -> ParseResult<ConcurrentProcedureCall> {
     match target.item {
         Target::Name(Name::CallOrIndexed(call)) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: WithPos::new(*call, target.pos),
+            call: WithTokenSpan::from(*call, target.span),
         }),
         Target::Name(name) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: WithPos::from(
+            call: WithTokenSpan::from(
                 CallOrIndexed {
-                    name: WithPos::from(name, target.pos.clone()),
+                    name: WithTokenSpan::from(name, target.span.clone()),
                     parameters: vec![],
                 },
-                target.pos,
+                target.span,
             ),
         }),
         Target::Aggregate(..) => Err(Diagnostic::syntax_error(
-            target,
+            target.to_pos(ctx.stream),
             "Expected procedure call, got aggregate",
         )),
     }
@@ -269,7 +270,7 @@ fn to_procedure_call(
 /// Assume target and <= is parsed already
 fn parse_assignment_known_target(
     ctx: &mut ParsingContext<'_>,
-    target: WithPos<Target>,
+    target: WithTokenSpan<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     // @TODO postponed
     let postponed = false;
@@ -289,14 +290,14 @@ fn parse_assignment_known_target(
 
 fn parse_assignment_or_procedure_call(
     ctx: &mut ParsingContext<'_>,
-    target: WithPos<Target>,
+    target: WithTokenSpan<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     expect_token!(ctx.stream, token,
     LTE => {
         parse_assignment_known_target(ctx, target)
     },
     SemiColon => {
-        Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(target, false)?))
+        Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(ctx, target, false)?))
     })
 }
 
@@ -460,7 +461,7 @@ fn parse_if_generate_statement(
         let mut condition = parse_expression(ctx)?;
         let mut alternative_label = None;
         if ctx.stream.skip_if_kind(Colon) {
-            alternative_label = Some(WithDecl::new(expression_to_ident(condition)?));
+            alternative_label = Some(WithDecl::new(expression_to_ident(ctx, condition)?));
             condition = parse_expression(ctx)?;
         }
         ctx.stream.expect_kind(Generate)?;
@@ -623,7 +624,7 @@ pub fn parse_concurrent_statement(
                     _ => {
                         let target = parse_name(ctx)?.map_into(Target::Name);
                         ctx.stream.expect_kind(SemiColon)?;
-                        ConcurrentStatement::ProcedureCall(to_procedure_call(target, true)?)
+                        ConcurrentStatement::ProcedureCall(to_procedure_call(ctx, target, true)?)
                     }
                 }
             },
@@ -633,7 +634,7 @@ pub fn parse_concurrent_statement(
                 let token = ctx.stream.peek_expect()?;
                 match token.kind {
                     Generic|Port => {
-                        name.expect_selected()?;
+                        name.expect_selected(ctx)?;
                         let unit = InstantiatedUnit::Component(name);
                         ConcurrentStatement::Instance(parse_instantiation_statement(ctx, start_tok, unit)?)
                     }
@@ -689,7 +690,7 @@ pub fn parse_labeled_concurrent_statement(
     if ctx.stream.next_kind_is(Identifier) {
         let name = parse_name(ctx)?;
         if ctx.stream.skip_if_kind(Colon) {
-            let label = Some(to_simple_name(name)?);
+            let label = Some(to_simple_name(ctx.stream, name)?);
 
             let start = ctx.stream.peek_expect()?;
             let statement = parse_concurrent_statement(ctx, label.as_ref())?;

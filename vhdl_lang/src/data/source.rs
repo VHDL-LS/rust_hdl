@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::contents::Contents;
+use crate::TokenSpan;
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -15,6 +16,7 @@ use std::hash::{Hash, Hasher};
 use std::io;
 pub use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use vhdl_lang::TokenAccess;
 
 struct FileId {
     name: FilePath,
@@ -322,6 +324,60 @@ impl<T> WithPos<T> {
         WithPos {
             item: self.item,
             pos: self.pos.combine_into(other.as_ref()),
+        }
+    }
+}
+
+/// A generic object with an associated source file and lexical range.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct WithTokenSpan<T> {
+    pub item: T,
+    pub span: TokenSpan,
+}
+
+impl<T> WithTokenSpan<T> {
+    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+        self.span.to_pos(ctx)
+    }
+
+    pub fn new(item: T, span: impl AsRef<TokenSpan>) -> WithTokenSpan<T> {
+        WithTokenSpan {
+            item,
+            span: span.as_ref().clone(),
+        }
+    }
+
+    pub fn from(item: T, span: impl Into<TokenSpan>) -> WithTokenSpan<T> {
+        WithTokenSpan {
+            item,
+            span: span.into(),
+        }
+    }
+
+    pub fn map_into<F, U>(self, f: F) -> WithTokenSpan<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        WithTokenSpan {
+            item: f(self.item),
+            span: self.span,
+        }
+    }
+
+    pub fn try_map_into<F, U>(self, f: F) -> Option<WithTokenSpan<U>>
+    where
+        F: FnOnce(T) -> Option<U>,
+    {
+        Some(WithTokenSpan {
+            item: f(self.item)?,
+            span: self.span,
+        })
+    }
+
+    pub fn combine_span_with(self, other: &dyn AsRef<TokenSpan>) -> Self {
+        WithTokenSpan {
+            item: self.item,
+            span: TokenSpan::new(self.span.start_token, other.as_ref().end_token),
         }
     }
 }

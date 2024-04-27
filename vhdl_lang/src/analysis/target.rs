@@ -15,14 +15,18 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_target(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         match target.item {
-            Target::Name(ref mut name) => {
-                self.resolve_target_name(scope, name, &target.pos, assignment_type, diagnostics)
-            }
+            Target::Name(ref mut name) => self.resolve_target_name(
+                scope,
+                name,
+                &target.to_pos(self.ctx),
+                assignment_type,
+                diagnostics,
+            ),
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(scope, assocs, diagnostics)?;
                 Err(EvalError::Unknown)

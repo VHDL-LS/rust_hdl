@@ -6,7 +6,7 @@
 
 use fnv::FnvHashMap;
 
-use crate::ast::{self, AttributeDesignator, Operator, WithRef};
+use crate::ast::{self, AttributeDesignator, Operator, WithRef, WithToken};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -610,7 +610,7 @@ impl Token {
         }
     }
 
-    pub fn to_character_value(&self) -> DiagnosticResult<WithPos<u8>> {
+    pub fn to_character_value(&self) -> DiagnosticResult<WithToken<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
@@ -666,7 +666,7 @@ impl Token {
         }
     }
 
-    pub fn to_operator_symbol(&self) -> DiagnosticResult<WithPos<Operator>> {
+    pub fn to_operator_symbol(&self) -> DiagnosticResult<WithToken<Operator>> {
         let string = self.to_string_value()?;
         if let Some(op) = Operator::from_latin1(string.item) {
             Ok(WithPos::new(op, string.pos))

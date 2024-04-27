@@ -26,7 +26,7 @@ impl<'a> AnalyzeContext<'a> {
                     label.name(),
                     parent,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
-                    Some(label.pos()),
+                    Some(label.pos(self.ctx)),
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -330,7 +330,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match scope.lookup(
-            &label.item.pos,
+            &label.item.pos(self.ctx),
             &Designator::Identifier(label.item.item.clone()),
         ) {
             Ok(NamedEntities::Single(ent)) => {
@@ -338,21 +338,21 @@ impl<'a> AnalyzeContext<'a> {
                 if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
                     if !find_outer_loop(parent, Some(label.item.name())) {
                         diagnostics.add(
-                            &label.item.pos,
+                            &label.item.pos(self.ctx),
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
                             ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {
                     diagnostics.add(
-                        &label.item.pos,
+                        &label.item.pos(self.ctx),
                         format!("Expected loop label, got {}", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
                 }
             }
             Ok(NamedEntities::Overloaded(_)) => diagnostics.add(
-                &label.item.pos,
+                &label.item.pos(self.ctx),
                 format!(
                     "Expected loop label, got overloaded name {}",
                     &label.item.item

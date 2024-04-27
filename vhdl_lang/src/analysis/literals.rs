@@ -188,7 +188,7 @@ impl<'a> AnalyzeContext<'a> {
         unit: &mut WithRef<Ident>,
     ) -> Result<TypeEnt<'a>, Diagnostic> {
         match scope.lookup(
-            &unit.item.pos,
+            &unit.item.pos(self.ctx),
             &Designator::Identifier(unit.item.item.clone()),
         )? {
             NamedEntities::Single(unit_ent) => {
@@ -197,14 +197,14 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(*physical_ent)
                 } else {
                     Err(Diagnostic::new(
-                        &unit.item.pos,
+                        &unit.item.pos(self.ctx),
                         format!("{} is not a physical unit", unit_ent.describe()),
                         ErrorCode::InvalidLiteral,
                     ))
                 }
             }
             NamedEntities::Overloaded(_) => Err(Diagnostic::new(
-                &unit.item.pos,
+                &unit.item.pos(self.ctx),
                 "Overloaded name may not be physical unit",
                 ErrorCode::MismatchedKinds,
             )),

@@ -21,6 +21,24 @@ impl<T: Display> Display for WithDecl<T> {
     }
 }
 
+impl<T> Display for WithTokenSpan<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", &self.item)
+    }
+}
+
+impl<T> Display for WithToken<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", &self.item)
+    }
+}
+
 impl Display for BaseSpecifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

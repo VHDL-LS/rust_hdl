@@ -438,7 +438,7 @@ enum Suffix<'a> {
 enum SplitName<'a> {
     Designator(&'a mut WithRef<Designator>),
     External(&'a mut ExternalName),
-    Suffix(&'a mut WithPos<Name>, Suffix<'a>),
+    Suffix(&'a mut WithTokenSpan<Name>, Suffix<'a>),
 }
 
 impl<'a> SplitName<'a> {
@@ -1202,7 +1202,7 @@ impl<'a> AnalyzeContext<'a> {
             SplitName::Suffix(p, s) => {
                 let resolved = self.name_resolve_with_suffixes(
                     scope,
-                    &p.pos,
+                    &p.to_pos(self.ctx),
                     &mut p.item,
                     None,
                     true,
@@ -1239,7 +1239,7 @@ impl<'a> AnalyzeContext<'a> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos,
+                                    &prefix.to_pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1254,7 +1254,7 @@ impl<'a> AnalyzeContext<'a> {
                                     ResolvedName::Expression(DisambiguatedType::Unambiguous(typ));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos,
+                                    &prefix.to_pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1267,8 +1267,14 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         if let Suffix::Attribute(ref mut attr) = suffix {
-            let typ =
-                self.attribute_suffix(name_pos, &prefix.pos, scope, &resolved, attr, diagnostics)?;
+            let typ = self.attribute_suffix(
+                name_pos,
+                &prefix.to_pos(self.ctx),
+                scope,
+                &resolved,
+                attr,
+                diagnostics,
+            )?;
             return match typ {
                 AttrResolveResult::Type(base) => Ok(ResolvedName::Type(base.into())),
                 AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
@@ -1316,7 +1322,7 @@ impl<'a> AnalyzeContext<'a> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos,
+                                    &prefix.to_pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1331,7 +1337,7 @@ impl<'a> AnalyzeContext<'a> {
                                 );
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos,
+                                    &prefix.to_pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1353,7 +1359,7 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::ObjectName(oname) => {
                 match self.resolve_typed_suffix(
                     scope,
-                    &prefix.pos,
+                    &prefix.to_pos(self.ctx),
                     name_pos,
                     oname.type_mark(),
                     &mut suffix,
@@ -1367,7 +1373,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     None => {
                         diagnostics.push(Diagnostic::cannot_be_prefix(
-                            &prefix.pos,
+                            &prefix.to_pos(self.ctx),
                             resolved,
                             suffix,
                         ));
@@ -1379,7 +1385,7 @@ impl<'a> AnalyzeContext<'a> {
                 DisambiguatedType::Unambiguous(typ) => {
                     match self.resolve_typed_suffix(
                         scope,
-                        &prefix.pos,
+                        &prefix.to_pos(self.ctx),
                         name_pos,
                         *typ,
                         &mut suffix,
@@ -1394,7 +1400,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         None => {
                             diagnostics.push(Diagnostic::cannot_be_prefix(
-                                &prefix.pos,
+                                &prefix.to_pos(self.ctx),
                                 resolved,
                                 suffix,
                             ));
@@ -1433,7 +1439,7 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Design(ref ent) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
                     let name = ent
-                        .selected(&prefix.pos, designator)
+                        .selected(&prefix.to_pos(self.ctx), designator)
                         .into_eval_result(diagnostics)?;
                     resolved = match name {
                         NamedEntities::Single(named_entity) => {
@@ -1971,7 +1977,7 @@ mod test {
             let mut name = code.name();
             self.ctx().name_resolve_with_suffixes(
                 &self.scope,
-                &name.pos,
+                &name.to_pos(&self.tokens),
                 &mut name.item,
                 ttyp,
                 false,
@@ -1989,7 +1995,7 @@ mod test {
             self.ctx()
                 .expression_name_with_ttyp(
                     &self.scope,
-                    &name.pos,
+                    &name.to_pos(&self.tokens),
                     &mut name.item,
                     ttyp,
                     diagnostics,
@@ -2005,7 +2011,7 @@ mod test {
             let mut name = code.name();
             as_fatal(self.ctx().expression_name_types(
                 &self.scope,
-                &name.pos,
+                &name.to_pos(&self.tokens),
                 &mut name.item,
                 diagnostics,
             ))

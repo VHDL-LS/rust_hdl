@@ -13,12 +13,13 @@ use super::tokens::{Kind::*, TokenAccess};
 use crate::ast;
 use crate::ast::{Literal, *};
 use crate::data::error_codes::ErrorCode;
-use crate::data::{Diagnostic, WithPos};
+use crate::data::{Diagnostic, WithPos, WithTokenSpan};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::TokenSpan;
 
-pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Designator>> {
+pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Designator>> {
     Ok(expect_token!(
         ctx.stream,
         token,
@@ -28,7 +29,7 @@ pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Des
     ))
 }
 
-pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
+pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
     let mut name = parse_designator(ctx)?.into_ref().map_into(Name::Designator);
     loop {
         if !ctx.stream.skip_if_kind(Dot) {
@@ -46,15 +47,15 @@ pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<
     Ok(name)
 }
 
-pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<TypeMark>> {
+pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<TypeMark>> {
     let name = parse_selected_name(ctx)?;
     parse_type_mark_starting_with_name(ctx, name)
 }
 
 pub fn parse_type_mark_starting_with_name(
     ctx: &mut ParsingContext<'_>,
-    name: WithPos<Name>,
-) -> ParseResult<WithPos<TypeMark>> {
+    name: WithTokenSpan<Name>,
+) -> ParseResult<WithTokenSpan<TypeMark>> {
     let state = ctx.stream.state();
 
     // Check if it is a type mark with a subtype or element attribute:
@@ -62,8 +63,8 @@ pub fn parse_type_mark_starting_with_name(
     if ctx.stream.pop_if_kind(Tick).is_some() {
         if let Ok(attr) = ctx.stream.expect_attribute_designator() {
             if let AttributeDesignator::Type(typattr) = attr.item {
-                return Ok(WithPos {
-                    pos: attr.pos.combine_into(&name.pos),
+                return Ok(WithTokenSpan {
+                    span: TokenSpan::new(attr.span.start_token, attr.span.end_token),
                     item: TypeMark {
                         name,
                         attr: Some(typattr),
@@ -75,9 +76,10 @@ pub fn parse_type_mark_starting_with_name(
         ctx.stream.set_state(state);
     };
 
-    Ok(WithPos {
-        pos: name.pos.clone(),
+    let span = name.span;
+    Ok(WithTokenSpan {
         item: TypeMark { name, attr: None },
+        span,
     })
 }
 
@@ -91,18 +93,21 @@ impl Name {
     }
 }
 
-impl WithPos<Name> {
-    pub fn expect_selected(&self) -> Result<(), Diagnostic> {
+impl WithTokenSpan<Name> {
+    pub fn expect_selected(&self, ctx: &dyn TokenAccess) -> Result<(), Diagnostic> {
         match self.item.expect_selected() {
             Ok(_) => Ok(()),
-            Err(msg) => Err(Diagnostic::syntax_error(self, msg)),
+            Err(msg) => Err(Diagnostic::syntax_error(self.to_pos(ctx), msg)),
         }
     }
 }
 
-pub fn expression_to_ident(name: WithPos<Expression>) -> ParseResult<Ident> {
+pub fn expression_to_ident(
+    ctx: &mut ParsingContext<'_>,
+    name: WithPos<Expression>,
+) -> ParseResult<Ident> {
     let name = expression_to_name(name)?;
-    to_simple_name(name)
+    to_simple_name(ctx, name)
 }
 
 pub fn parse_identifier_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Ident>> {
@@ -116,7 +121,7 @@ pub fn parse_identifier_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Id
     Ok(idents)
 }
 
-fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
+fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithTokenSpan<Name>> {
     match expr.item {
         Expression::Name(name) => Ok(WithPos {
             item: *name,
@@ -150,7 +155,7 @@ fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expr
     }
 }
 
-fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Name>> {
+fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithTokenSpan<Name>> {
     match actual.item {
         ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
         _ => Err(Diagnostic::syntax_error(&actual, "Expected name")),
@@ -221,9 +226,9 @@ pub fn parse_association_list_no_leftpar(
 
 fn parse_function_call(
     ctx: &mut ParsingContext<'_>,
-    prefix: WithPos<Name>,
+    prefix: WithTokenSpan<Name>,
     first: AssociationElement,
-) -> ParseResult<WithPos<Name>> {
+) -> ParseResult<WithTokenSpan<Name>> {
     let mut association_elements = Vec::new();
     association_elements.push(first);
 
@@ -234,12 +239,12 @@ fn parse_function_call(
             token,
             Comma => {},
             RightPar => {
-                let pos = token.pos.combine(&prefix);
-                return Ok(WithPos {
+                let span = TokenSpan::new(prefix.span.start_token, ctx.stream.get_current_token_id());
+                return Ok(WithTokenSpan {
                     item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                         name: prefix,
                         parameters: association_elements})),
-                    pos,
+                    span,
                 });
             }
         )
@@ -248,9 +253,9 @@ fn parse_function_call(
 
 fn parse_attribute_name(
     ctx: &mut ParsingContext<'_>,
-    name: WithPos<Name>,
-    signature: Option<WithPos<Signature>>,
-) -> ParseResult<WithPos<Name>> {
+    name: WithTokenSpan<Name>,
+    signature: Option<WithTokenSpan<Signature>>,
+) -> ParseResult<WithTokenSpan<Name>> {
     let attr = ctx.stream.expect_attribute_designator()?;
 
     let (expression, pos) = {
@@ -349,7 +354,7 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
 }
 
 /// LRM 8. Names
-fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
+fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
     let mut name = {
         if let Some(token) = ctx.stream.pop_if_kind(LtLt) {
             let external_name = Name::External(Box::new(parse_inner_external_name(ctx)?));
@@ -500,7 +505,7 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
     }
 }
 
-pub fn parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Name>> {
+pub fn parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
     let state = ctx.stream.state();
     _parse_name(ctx).map_err(|err| {
         ctx.stream.set_state(state);
@@ -544,10 +549,13 @@ mod tests {
             .map_into(Designator::Identifier)
             .into_ref()
             .map_into(Name::Designator);
-        let foo_bar = WithPos::from(Name::Selected(Box::new(foo), bar), code.s1("foo.bar").pos());
-        let foo_bar_baz = WithPos::from(
+        let foo_bar = WithTokenSpan::from(
+            Name::Selected(Box::new(foo), bar),
+            code.s1("foo.bar").token_span(),
+        );
+        let foo_bar_baz = WithTokenSpan::from(
             Name::Selected(Box::new(foo_bar), baz),
-            code.s1("foo.bar.baz").pos(),
+            code.s1("foo.bar.baz").token_span(),
         );
 
         assert_eq!(code.with_stream(parse_selected_name), foo_bar_baz);
@@ -562,7 +570,10 @@ mod tests {
             .map_into(Designator::Identifier)
             .into_ref()
             .map_into(Name::Designator);
-        let foo_all = WithPos::from(Name::SelectedAll(Box::new(foo)), code.s1("foo.all").pos());
+        let foo_all = WithTokenSpan::from(
+            Name::SelectedAll(Box::new(foo)),
+            code.s1("foo.all").token_span(),
+        );
         assert_eq!(code.with_stream(parse_selected_name), foo_all);
     }
 
@@ -584,9 +595,9 @@ mod tests {
         let code = Code::new("foo");
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos {
+            WithTokenSpan {
                 item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
-                pos: code.s1("foo").pos()
+                span: code.s1("foo").token_span()
             }
         );
     }
@@ -596,9 +607,9 @@ mod tests {
         let code = Code::new("'a'");
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos {
+            WithTokenSpan {
                 item: Name::Designator(Designator::Character(b'a').into_ref()),
-                pos: code.s1("'a'").pos()
+                span: code.s1("'a'").token_span()
             }
         );
     }
@@ -608,9 +619,9 @@ mod tests {
         let code = Code::new("\"+\"");
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos {
+            WithTokenSpan {
                 item: Name::Designator(Designator::OperatorSymbol(Operator::Plus).into_ref()),
-                pos: code.s1("\"+\"").pos()
+                span: code.s1("\"+\"").token_span()
             }
         );
 
@@ -618,9 +629,9 @@ mod tests {
         let code = Code::new("\"AND\"");
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos {
+            WithTokenSpan {
                 item: Name::Designator(Designator::OperatorSymbol(Operator::And).into_ref()),
-                pos: code.s1("\"AND\"").pos()
+                span: code.s1("\"AND\"").token_span()
             }
         );
 
@@ -628,9 +639,9 @@ mod tests {
         let code = Code::new("\"and\"");
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos {
+            WithTokenSpan {
                 item: Name::Designator(Designator::OperatorSymbol(Operator::And).into_ref()),
-                pos: code.s1("\"and\"").pos()
+                span: code.s1("\"and\"").token_span()
             }
         );
     }
@@ -639,29 +650,29 @@ mod tests {
     fn test_selected_name() {
         let code = Code::new("foo.bar.baz");
 
-        let foo = WithPos {
+        let foo = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
-            pos: code.s1("foo").pos(),
+            span: code.s1("foo").token_span(),
         };
 
-        let bar = WithPos {
+        let bar = WithTokenSpan {
             item: Designator::Identifier(code.symbol("bar")),
-            pos: code.s1("bar").pos(),
+            span: code.s1("bar").token_span(),
         };
 
-        let baz = WithPos {
+        let baz = WithTokenSpan {
             item: Designator::Identifier(code.symbol("baz")),
-            pos: code.s1("baz").pos(),
+            span: code.s1("baz").token_span(),
         };
 
-        let foo_bar = WithPos {
+        let foo_bar = WithTokenSpan {
             item: Name::Selected(Box::new(foo), bar.into_ref()),
-            pos: code.s1("foo.bar").pos(),
+            span: code.s1("foo.bar").token_span(),
         };
 
-        let foo_bar_baz = WithPos {
+        let foo_bar_baz = WithTokenSpan {
             item: Name::Selected(Box::new(foo_bar), baz.into_ref()),
-            pos: code.s1("foo.bar.baz").pos(),
+            span: code.s1("foo.bar.baz").token_span(),
         };
 
         assert_eq!(code.with_stream(parse_name), foo_bar_baz);
@@ -671,14 +682,14 @@ mod tests {
     fn test_selected_name_all() {
         let code = Code::new("foo.all");
 
-        let foo = WithPos {
+        let foo = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
-            pos: code.s1("foo").pos(),
+            span: code.s1("foo").token_span(),
         };
 
-        let foo_all = WithPos {
+        let foo_all = WithTokenSpan {
             item: Name::SelectedAll(Box::new(foo)),
-            pos: code.s1("foo.all").pos(),
+            span: code.s1("foo.all").token_span(),
         };
 
         assert_eq!(code.with_stream(parse_name), foo_all);
@@ -687,16 +698,16 @@ mod tests {
     #[test]
     fn test_slice_name_range_to() {
         let code = Code::new("prefix(0 to 3)");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let slice = WithPos {
+        let slice = WithTokenSpan {
             item: Name::Slice(
                 Box::new(prefix),
                 Box::new(code.s1("0 to 3").discrete_range()),
             ),
-            pos: code.s1("prefix(0 to 3)").pos(),
+            span: code.s1("prefix(0 to 3)").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
     }
@@ -704,16 +715,16 @@ mod tests {
     #[test]
     fn test_slice_name_range_downto() {
         let code = Code::new("prefix(3 downto 0)");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let slice = WithPos {
+        let slice = WithTokenSpan {
             item: Name::Slice(
                 Box::new(prefix),
                 Box::new(code.s1("3 downto 0").discrete_range()),
             ),
-            pos: code.s1("prefix(3 downto 0)").pos(),
+            span: code.s1("prefix(3 downto 0)").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
     }
@@ -721,16 +732,16 @@ mod tests {
     #[test]
     fn test_slice_range_attribute() {
         let code = Code::new("prefix(foo(0)'range)");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let slice = WithPos {
+        let slice = WithTokenSpan {
             item: Name::Slice(
                 Box::new(prefix),
                 Box::new(code.s1("foo(0)'range").discrete_range()),
             ),
-            pos: code.s1("prefix(foo(0)'range)").pos(),
+            span: code.s1("prefix(foo(0)'range)").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
     }
@@ -738,18 +749,18 @@ mod tests {
     #[test]
     fn test_attribute_name() {
         let code = Code::new("prefix'foo");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: None,
             })),
-            pos: code.s1("prefix'foo").pos(),
+            span: code.s1("prefix'foo").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -757,11 +768,11 @@ mod tests {
     #[test]
     fn test_attribute_name_range() {
         let code = Code::new("prefix'range");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
@@ -771,7 +782,7 @@ mod tests {
                 signature: None,
                 expr: None,
             })),
-            pos: code.s1("prefix'range").pos(),
+            span: code.s1("prefix'range").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -779,11 +790,11 @@ mod tests {
     #[test]
     fn test_attribute_name_subtype() {
         let code = Code::new("prefix'subtype");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
@@ -793,7 +804,7 @@ mod tests {
                 signature: None,
                 expr: None,
             })),
-            pos: code.s1("prefix'subtype").pos(),
+            span: code.s1("prefix'subtype").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -801,11 +812,11 @@ mod tests {
     #[test]
     fn test_attribute_name_element() {
         let code = Code::new("prefix'element");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
@@ -815,7 +826,7 @@ mod tests {
                 signature: None,
                 expr: None,
             })),
-            pos: code.s1("prefix'element").pos(),
+            span: code.s1("prefix'element").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -827,8 +838,8 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_type_mark),
-            WithPos {
-                pos: name.pos.clone(),
+            WithTokenSpan {
+                span: name.span,
                 item: TypeMark { name, attr: None },
             }
         );
@@ -840,8 +851,8 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_type_mark),
-            WithPos {
-                pos: code.pos(),
+            WithTokenSpan {
+                span: code.token_span(),
                 item: TypeMark {
                     name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Subtype)
@@ -856,8 +867,8 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_type_mark),
-            WithPos {
-                pos: code.pos(),
+            WithTokenSpan {
+                span: code.token_span(),
                 item: TypeMark {
                     name: code.s1("prefix").name(),
                     attr: Some(TypeAttribute::Element)
@@ -869,18 +880,18 @@ mod tests {
     #[test]
     fn test_attribute_name_expression() {
         let code = Code::new("prefix'foo(expr+1)");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: code.s1("foo").attr_ident(),
                 signature: None,
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
-            pos: code.s1("prefix'foo(expr+1)").pos(),
+            span: code.s1("prefix'foo(expr+1)").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -888,18 +899,18 @@ mod tests {
     #[test]
     fn test_attribute_name_signature_expression() {
         let code = Code::new("prefix[return natural]'foo(expr+1)");
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
-        let attr = WithPos {
+        let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: code.s1("foo").attr_ident(),
                 signature: Some(code.s1("[return natural]").signature()),
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
-            pos: code.s1("prefix[return natural]'foo(expr+1)").pos(),
+            span: code.s1("prefix[return natural]'foo(expr+1)").token_span(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -913,9 +924,9 @@ mod tests {
             ctx.stream.expect_kind(LeftSquare)?;
             result
         });
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
         assert_eq!(name, Ok(prefix));
     }
@@ -929,9 +940,9 @@ mod tests {
             ctx.stream.expect_kind(LeftPar)?;
             result
         });
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
         assert_eq!(name, prefix);
     }
@@ -940,12 +951,12 @@ mod tests {
     fn test_function_call_no_formal() {
         let code = Code::new("foo(0)");
 
-        let foo = WithPos {
+        let foo = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
-            pos: code.s1("foo").pos(),
+            span: code.s1("foo").token_span(),
         };
 
-        let foo_0 = WithPos {
+        let foo_0 = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
                 parameters: vec![AssociationElement {
@@ -953,7 +964,7 @@ mod tests {
                     actual: code.s1("0").expr().map_into(ActualPart::Expression),
                 }],
             })),
-            pos: code.s1("foo(0)").pos(),
+            span: code.s1("foo(0)").token_span(),
         };
 
         assert_eq!(code.with_stream(parse_name), foo_0);
@@ -963,12 +974,12 @@ mod tests {
     fn test_function_call_many() {
         let code = Code::new("prefix(0, 1)(3).suffix");
 
-        let prefix = WithPos {
+        let prefix = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
-            pos: code.s1("prefix").pos(),
+            span: code.s1("prefix").token_span(),
         };
 
-        let prefix_index = WithPos {
+        let prefix_index = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix,
                 parameters: vec![
@@ -982,10 +993,10 @@ mod tests {
                     },
                 ],
             })),
-            pos: code.s1("prefix(0, 1)").pos(),
+            span: code.s1("prefix(0, 1)").token_span(),
         };
 
-        let prefix_index_3 = WithPos {
+        let prefix_index_3 = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix_index,
                 parameters: vec![AssociationElement {
@@ -993,7 +1004,7 @@ mod tests {
                     actual: code.s1("3").expr().map_into(ActualPart::Expression),
                 }],
             })),
-            pos: code.s1("prefix(0, 1)(3)").pos(),
+            span: code.s1("prefix(0, 1)(3)").token_span(),
         };
 
         let suffix = WithPos {
@@ -1001,9 +1012,9 @@ mod tests {
             pos: code.s1("suffix").pos(),
         };
 
-        let prefix_index_3_suffix = WithPos {
+        let prefix_index_3_suffix = WithTokenSpan {
             item: Name::Selected(Box::new(prefix_index_3), suffix.into_ref()),
-            pos: code.s1("prefix(0, 1)(3).suffix").pos(),
+            span: code.s1("prefix(0, 1)(3).suffix").token_span(),
         };
 
         assert_eq!(code.with_stream(parse_name), prefix_index_3_suffix);
@@ -1013,14 +1024,14 @@ mod tests {
     fn test_function_call() {
         let code = Code::new("foo(arg => 0)");
 
-        let foo = WithPos {
+        let foo = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
-            pos: code.s1("foo").pos(),
+            span: code.s1("foo").token_span(),
         };
 
-        let arg = WithPos {
+        let arg = WithTokenSpan {
             item: Name::Designator(Designator::Identifier(code.symbol("arg")).into_ref()),
-            pos: code.s1("arg").pos(),
+            span: code.s1("arg").token_span(),
         };
 
         let assoc_elem = AssociationElement {
@@ -1028,12 +1039,12 @@ mod tests {
             actual: code.s1("0").expr().map_into(ActualPart::Expression),
         };
 
-        let foo_call = WithPos {
+        let foo_call = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
                 parameters: vec![assoc_elem],
             })),
-            pos: code.s1("foo(arg => 0)").pos(),
+            span: code.s1("foo(arg => 0)").token_span(),
         };
 
         assert_eq!(code.with_stream(parse_name), foo_call);
@@ -1075,7 +1086,7 @@ mod tests {
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -1092,7 +1103,7 @@ mod tests {
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -1109,7 +1120,7 @@ mod tests {
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -1126,7 +1137,7 @@ mod tests {
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -1143,7 +1154,7 @@ mod tests {
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithPos::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -1166,7 +1177,7 @@ mod tests {
             };
             assert_eq!(
                 code.with_stream(parse_name),
-                WithPos::new(Name::External(Box::new(external_name)), code)
+                WithTokenSpan::new(Name::External(Box::new(external_name)), code)
             );
         }
     }

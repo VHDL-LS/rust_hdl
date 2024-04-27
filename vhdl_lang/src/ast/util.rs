@@ -10,32 +10,30 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Concurrent, Sequential};
 
-impl WithPos<Name> {
-    pub fn suffix_pos(&self) -> &SrcPos {
+impl WithTokenSpan<Name> {
+    pub fn suffix_pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
         match self.item {
-            Name::Designator(..) => &self.pos,
+            Name::Designator(..) => &self.to_pos(ctx),
             Name::Selected(_, ref suffix) => &suffix.pos,
             // @TODO add pos of .all?
-            Name::SelectedAll(ref prefix) => &prefix.pos,
-            Name::CallOrIndexed(ref fcall) => fcall.name.suffix_pos(),
-            Name::Slice(ref prefix, ..) => prefix.suffix_pos(),
-            Name::Attribute(ref attr, ..) => attr.name.suffix_pos(),
-            Name::External(..) => &self.pos,
+            Name::SelectedAll(ref prefix) => &prefix.to_pos(ctx),
+            Name::CallOrIndexed(ref fcall) => fcall.name.suffix_pos(ctx),
+            Name::Slice(ref prefix, ..) => prefix.suffix_pos(ctx),
+            Name::Attribute(ref attr, ..) => attr.name.suffix_pos(ctx),
+            Name::External(..) => &self.to_pos(ctx),
         }
     }
 }
 
-pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
+pub fn to_simple_name(ctx: &dyn TokenAccess, name: WithTokenSpan<Name>) -> DiagnosticResult<Ident> {
+    let token = name.span.start_token;
     match name.item {
         Name::Designator(WithRef {
             item: Designator::Identifier(ident),
             ..
-        }) => Ok(WithPos {
-            item: ident,
-            pos: name.pos,
-        }),
+        }) => Ok(WithToken { item: ident, token }),
         _ => Err(Diagnostic::new(
-            &name,
+            &ctx.get_pos(token),
             "Expected simple name",
             ErrorCode::SyntaxError,
         )),
@@ -106,11 +104,9 @@ pub trait HasIdent {
     fn name(&self) -> &Symbol {
         &self.ident().item
     }
-}
 
-impl<T: HasIdent> HasSrcPos for T {
-    fn pos(&self) -> &SrcPos {
-        &self.ident().pos
+    fn ident_pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
+        self.ident().pos(ctx)
     }
 }
 
@@ -198,8 +194,8 @@ impl HasIdent for AnyDesignUnit {
     }
 }
 
-impl<'a, T: HasIdent> From<&'a T> for WithPos<Designator> {
-    fn from(other: &'a T) -> WithPos<Designator> {
+impl<'a, T: HasIdent> From<&'a T> for WithToken<Designator> {
+    fn from(other: &'a T) -> WithToken<Designator> {
         other.ident().to_owned().map_into(Designator::Identifier)
     }
 }
@@ -211,8 +207,8 @@ pub trait HasPrimaryIdent {
         &self.primary_ident().item
     }
     /// The position of the primary name in the secondary unit declaration
-    fn primary_pos(&self) -> &SrcPos {
-        &self.primary_ident().pos
+    fn primary_pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
+        ctx.get_pos(self.primary_ident().token)
     }
 }
 
@@ -390,7 +386,7 @@ impl CallOrIndexed {
 }
 
 pub struct IndexedName<'a> {
-    pub name: &'a mut WithPos<Name>,
+    pub name: &'a mut WithTokenSpan<Name>,
     pub indexes: Vec<Index<'a>>,
 }
 
@@ -428,20 +424,20 @@ impl RangeConstraint {
 }
 
 impl crate::ast::Range {
-    pub fn pos(&self) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         use crate::ast::Range::*;
         match self {
             Range(constraint) => constraint.pos(),
-            Attribute(attr) => attr.name.pos.combine(&attr.attr.pos),
+            Attribute(attr) => attr.name.to_pos(ctx).combine(&attr.attr.pos),
         }
     }
 }
 
 impl DiscreteRange {
-    pub fn pos(&self) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         match self {
-            DiscreteRange::Discrete(type_mark, _) => type_mark.pos.clone(),
-            DiscreteRange::Range(range) => range.pos(),
+            DiscreteRange::Discrete(type_mark, _) => type_mark.to_pos(ctx),
+            DiscreteRange::Range(range) => range.pos(ctx),
         }
     }
 }

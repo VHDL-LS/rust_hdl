@@ -47,7 +47,7 @@ impl<'a> AnalyzeContext<'a> {
                     label.name(),
                     parent,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
-                    Some(label.pos()),
+                    Some(self.ctx.get_pos(label.token)),
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -267,7 +267,7 @@ impl<'a> AnalyzeContext<'a> {
             InstantiatedUnit::Entity(ref mut entity_name, ref mut architecture_name) => {
                 let Some(resolved) = as_fatal(self.name_resolve(
                     scope,
-                    &entity_name.pos,
+                    &entity_name.to_pos(self.ctx),
                     &mut entity_name.item,
                     diagnostics,
                 ))?
@@ -283,7 +283,7 @@ impl<'a> AnalyzeContext<'a> {
                                         if let Some(arch) = as_fatal(self.get_architecture(
                                             diagnostics,
                                             library_name,
-                                            &architecture_name.item.pos,
+                                            self.ctx.get_pos(architecture_name.item.token),
                                             entity_ident,
                                             &architecture_name.item.item,
                                         ))? {
@@ -296,7 +296,7 @@ impl<'a> AnalyzeContext<'a> {
                             let (generic_region, port_region) = ent_region.to_entity_formal();
 
                             self.check_association(
-                                &entity_name.pos,
+                                &entity_name.to_pos(self.ctx),
                                 &generic_region,
                                 scope,
                                 instance
@@ -307,7 +307,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics,
                             )?;
                             self.check_association(
-                                &entity_name.pos,
+                                &entity_name.to_pos(self.ctx),
                                 &port_region,
                                 scope,
                                 instance
@@ -320,13 +320,15 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(())
                         }
                         _ => {
-                            diagnostics
-                                .push(resolved.kind_error(entity_name.suffix_pos(), "entity"));
+                            diagnostics.push(
+                                resolved.kind_error(entity_name.suffix_pos(self.ctx), "entity"),
+                            );
                             Ok(())
                         }
                     },
                     other => {
-                        diagnostics.push(other.kind_error(entity_name.suffix_pos(), "entity"));
+                        diagnostics
+                            .push(other.kind_error(entity_name.suffix_pos(self.ctx), "entity"));
                         Ok(())
                     }
                 }
@@ -334,7 +336,7 @@ impl<'a> AnalyzeContext<'a> {
             InstantiatedUnit::Component(ref mut component_name) => {
                 let Some(resolved) = as_fatal(self.name_resolve(
                     scope,
-                    &component_name.pos,
+                    &component_name.to_pos(self.ctx),
                     &mut component_name.item,
                     diagnostics,
                 ))?
@@ -345,8 +347,9 @@ impl<'a> AnalyzeContext<'a> {
                 let ent = match resolved {
                     ResolvedName::Final(ent) => ent,
                     other => {
-                        diagnostics
-                            .push(other.kind_error(component_name.suffix_pos(), "component"));
+                        diagnostics.push(
+                            other.kind_error(component_name.suffix_pos(self.ctx), "component"),
+                        );
                         return Ok(());
                     }
                 };
@@ -354,7 +357,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let AnyEntKind::Component(ent_region) = ent.kind() {
                     let (generic_region, port_region) = ent_region.to_entity_formal();
                     self.check_association(
-                        &component_name.pos,
+                        &component_name.to_pos(self.ctx),
                         &generic_region,
                         scope,
                         instance
@@ -365,7 +368,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     )?;
                     self.check_association(
-                        &component_name.pos,
+                        &component_name.to_pos(self.ctx),
                         &port_region,
                         scope,
                         instance
@@ -377,14 +380,16 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
                     Ok(())
                 } else {
-                    diagnostics.push(resolved.kind_error(component_name.suffix_pos(), "component"));
+                    diagnostics.push(
+                        resolved.kind_error(component_name.suffix_pos(self.ctx), "component"),
+                    );
                     Ok(())
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
                 let Some(resolved) = as_fatal(self.name_resolve(
                     scope,
-                    &config_name.pos,
+                    &config_name.to_pos(self.ctx),
                     &mut config_name.item,
                     diagnostics,
                 ))?
@@ -394,8 +399,9 @@ impl<'a> AnalyzeContext<'a> {
                 match resolved {
                     ResolvedName::Design(ent) if matches!(ent.kind(), Design::Configuration) => {}
                     other => {
-                        diagnostics
-                            .push(other.kind_error(config_name.suffix_pos(), "configuration"));
+                        diagnostics.push(
+                            other.kind_error(config_name.suffix_pos(self.ctx), "configuration"),
+                        );
                         return Ok(());
                     }
                 }
@@ -421,13 +427,13 @@ impl<'a> AnalyzeContext<'a> {
     pub fn sensitivity_list_check(
         &self,
         scope: &Scope<'a>,
-        names: &mut [WithPos<Name>],
+        names: &mut [WithTokenSpan<Name>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for name in names.iter_mut() {
             if let Some(object_name) = as_fatal(self.resolve_object_name(
                 scope,
-                &name.pos,
+                &name.to_pos(self.ctx),
                 &mut name.item,
                 "is not a signal and cannot be in a sensitivity list",
                 ErrorCode::DisallowedInSensitivityList,
@@ -435,7 +441,7 @@ impl<'a> AnalyzeContext<'a> {
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
                     diagnostics.add(
-                        &name.pos,
+                        &name.to_pos(self.ctx),
                         format!(
                             "{} is not a signal and cannot be in a sensitivity list",
                             object_name.base.describe_class()
@@ -446,7 +452,7 @@ impl<'a> AnalyzeContext<'a> {
                     && !object_name.base.is_port()
                 {
                     diagnostics.add(
-                        &name.pos,
+                        &name.to_pos(self.ctx),
                         format!(
                             "{} cannot be in a sensitivity list",
                             object_name.base.describe_class()

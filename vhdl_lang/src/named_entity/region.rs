@@ -423,6 +423,12 @@ impl<T: SetReference> SetReference for WithPos<T> {
     }
 }
 
+impl<T: SetReference> SetReference for WithTokenSpan<T> {
+    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+        self.item.set_unique_reference(ent);
+    }
+}
+
 impl SetReference for Reference {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
         self.set(ent.id());

@@ -136,7 +136,7 @@ impl Library {
         match self.units.entry(unit.key().clone()) {
             Entry::Occupied(entry) => {
                 self.duplicates
-                    .push((entry.get().ident().pos.clone(), unit));
+                    .push((entry.get().ident().pos(&unit.tokens).clone(), unit));
             }
             Entry::Vacant(entry) => {
                 self.added.insert(unit_id);

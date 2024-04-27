@@ -413,7 +413,7 @@ fn parse_optional_force_mode(ctx: &mut ParsingContext<'_>) -> ParseResult<Option
 
 fn parse_assignment_or_procedure_call(
     ctx: &mut ParsingContext<'_>,
-    target: WithPos<Target>,
+    target: WithTokenSpan<Target>,
 ) -> ParseResult<SequentialStatement> {
     Ok(expect_token!(
         ctx.stream,
@@ -458,24 +458,24 @@ fn parse_assignment_or_procedure_call(
         SemiColon => {
             match target.item {
                 Target::Name(Name::CallOrIndexed(call)) => {
-                    SequentialStatement::ProcedureCall(WithPos::new(*call, target.pos))
+                    SequentialStatement::ProcedureCall(WithTokenSpan::from(*call, target.span))
                 }
                 Target::Name(name) => {
                     SequentialStatement::ProcedureCall(
-                        WithPos::new(CallOrIndexed {
-                            name: WithPos::from(name, target.pos.clone()),
+                        WithTokenSpan::from(CallOrIndexed {
+                            name: WithTokenSpan::from(name, target.span),
                             parameters: vec![]
-                        }, target.pos))
+                        }, target.span))
                 }
                 Target::Aggregate(..) => {
-                    return Err(Diagnostic::syntax_error(target, "Expected procedure call, got aggregate"));
+                    return Err(Diagnostic::syntax_error(target.to_pos(ctx), "Expected procedure call, got aggregate"));
                 }
             }
         }
     ))
 }
 
-pub fn parse_target(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Target>> {
+pub fn parse_target(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Target>> {
     if ctx.stream.next_kind_is(LeftPar) {
         Ok(parse_aggregate(ctx)?.map_into(Target::Aggregate))
     } else {
@@ -560,7 +560,7 @@ pub fn parse_sequential_statement(
     if ctx.stream.next_kind_is(Identifier) {
         let name = parse_name(ctx)?;
         if ctx.stream.skip_if_kind(Colon) {
-            let label = Some(to_simple_name(name)?);
+            let label = Some(to_simple_name(ctx, name)?);
             let start = ctx.stream.peek_expect()?;
             let statement = parse_unlabeled_sequential_statement(ctx, label.as_ref())?;
             let end = ctx.stream.last().unwrap();
