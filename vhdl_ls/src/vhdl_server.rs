@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use vhdl_lang::ast::{Designator, ObjectClass};
 
 use crate::rpc_channel::SharedRpcChannel;
+use serde_json::Value;
 use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -21,10 +22,36 @@ use vhdl_lang::{
     Source, SrcPos, Token, Type, VHDLStandard,
 };
 
+/// Defines how the language server handles files
+/// that are not part of the `vhdl_ls.toml` project settings file.
+#[derive(Default, Clone)]
+pub enum NonProjectFileHandling {
+    /// Ignore any non-project files
+    Ignore,
+    /// Only parse non-project files, do not analyze them.
+    /// Not implemented at the moment
+    // Parse,
+    /// Add non-project files to an anonymous library and analyze them
+    #[default]
+    Analyze,
+}
+
+impl NonProjectFileHandling {
+    pub fn from_string(value: &str) -> Option<NonProjectFileHandling> {
+        use NonProjectFileHandling::*;
+        Some(match value {
+            "ignore" => Ignore,
+            "analyze" => Analyze,
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
     pub no_lint: bool,
     pub silent: bool,
+    pub non_project_file_handling: NonProjectFileHandling,
 }
 
 pub struct VHDLServer {
@@ -116,12 +143,30 @@ impl VHDLServer {
         config
     }
 
+    fn apply_initial_options(&mut self, options: &Value) {
+        let Some(non_project_file_handling) = options.get("nonProjectFiles") else {
+            return;
+        };
+        match non_project_file_handling {
+            Value::String(handling) => match NonProjectFileHandling::from_string(handling) {
+                None => self.message(Message::error(format!(
+                    "Illegal setting {handling} for nonProjectFiles setting"
+                ))),
+                Some(handling) => self.settings.non_project_file_handling = handling,
+            },
+            _ => self.message(Message::error("nonProjectFiles must be a string")),
+        }
+    }
+
     pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
         self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
         self.severity_map = *config.severities();
         self.project = Project::from_config(config, &mut self.message_filter());
         self.project.enable_unused_declaration_detection();
+        if let Some(options) = &init_params.initialization_options {
+            self.apply_initial_options(options)
+        }
         self.init_params = Some(init_params);
         let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
 
@@ -244,13 +289,14 @@ impl VHDLServer {
             self.project.update_source(&source);
             self.publish_diagnostics();
         } else {
-            self.message(Message::warning(format!(
-                "Opening file {} that is not part of the project",
-                file_name.to_string_lossy()
-            )));
-            self.project
-                .update_source(&Source::inline(&file_name, text));
-            self.publish_diagnostics();
+            match self.settings.non_project_file_handling {
+                NonProjectFileHandling::Ignore => {}
+                NonProjectFileHandling::Analyze => {
+                    self.project
+                        .update_source(&Source::inline(&file_name, text));
+                    self.publish_diagnostics();
+                }
+            }
         }
     }
 
