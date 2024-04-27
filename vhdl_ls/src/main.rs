@@ -28,5 +28,6 @@ fn main() {
     vhdl_ls::start(VHDLServerSettings {
         no_lint: args.no_lint,
         silent: args.silent,
+        ..Default::default()
     });
 }
