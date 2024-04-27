@@ -24,7 +24,7 @@ use vhdl_lang::{
 
 /// Defines how the language server handles files
 /// that are not part of the `vhdl_ls.toml` project settings file.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Eq, PartialEq)]
 pub enum NonProjectFileHandling {
     /// Ignore any non-project files
     Ignore,
@@ -270,7 +270,7 @@ impl VHDLServer {
             }
             self.project.update_source(&source);
             self.publish_diagnostics();
-        } else {
+        } else if self.settings.non_project_file_handling != NonProjectFileHandling::Ignore {
             self.message(Message::error(format!(
                 "Changing file {} that is not part of the project",
                 file_name.to_string_lossy()
