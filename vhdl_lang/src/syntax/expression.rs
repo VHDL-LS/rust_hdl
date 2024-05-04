@@ -470,7 +470,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
 
         LeftPar => {
             ctx.stream.skip();
-            parse_expression_or_aggregate(ctx).map(|expr| expr.combine_span_with(token_id))
+            parse_expression_or_aggregate(ctx).map(|expr| expr.start_with(token_id))
         }
 
         kind => {
