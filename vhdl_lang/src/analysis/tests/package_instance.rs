@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use pretty_assertions::assert_eq;
 use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
