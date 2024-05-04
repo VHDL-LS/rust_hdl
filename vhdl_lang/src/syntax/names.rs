@@ -260,9 +260,10 @@ fn parse_function_call(
         expect_token!(
             ctx.stream,
             token,
+            token_id,
             Comma => {},
             RightPar => {
-                let span = TokenSpan::new(prefix.span.start_token, ctx.stream.get_current_token_id());
+                let span = TokenSpan::new(prefix.span.start_token, token_id);
                 return Ok(WithTokenSpan {
                     item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                         name: prefix,
