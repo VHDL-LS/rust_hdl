@@ -371,7 +371,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(Disambiguated::Unambiguous(ent));
         } else if strict_ok_assoc_types.is_empty() {
             // Do not disambiguate away to emtpy result
-            strict_ok_assoc_types = ok_return_type.clone();
+            strict_ok_assoc_types.clone_from(&ok_return_type);
         }
 
         Ok(Disambiguated::Ambiguous(

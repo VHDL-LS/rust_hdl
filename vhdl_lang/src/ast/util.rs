@@ -215,10 +215,6 @@ pub trait HasPrimaryIdent {
     fn primary_name(&self) -> &Symbol {
         &self.primary_ident().item
     }
-    /// The position of the primary name in the secondary unit declaration
-    fn primary_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
-        ctx.get_pos(self.primary_ident().token)
-    }
 }
 
 impl HasPrimaryIdent for ArchitectureBody {
