@@ -277,6 +277,7 @@ mod tests {
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
     use crate::syntax::{HasTokenSpan, TokenAccess};
+    use pretty_assertions::assert_eq;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -561,44 +562,52 @@ end;
         let code_myent4 = code.s1_to_end("entity myent4").s1_from_start(";");
 
         assert_eq!(
-            design_file.design_units,
-            [
-                (
-                    substreams[0].clone(),
-                    simple_entity(code.s1("myent").ident(), code_myent.token_span(), None,)
-                ),
-                (
-                    substreams[1].clone(),
-                    simple_entity(
-                        code.s1("myent2").ident(),
-                        code_myent2
-                            .token_span()
-                            .apply_offset(code.s1("entity myent2").token()),
-                        Some(code.s("myent2", 2).token()),
-                    )
-                ),
-                (
-                    substreams[2].clone(),
-                    simple_entity(
-                        code.s1("myent3").ident(),
-                        code_myent3
-                            .token_span()
-                            .apply_offset(code.s1("entity myent3").token()),
-                        Some(code.s("myent3", 2).token()),
-                    )
-                ),
-                (
-                    substreams[3].clone(),
-                    simple_entity(
-                        code.s1("myent4").ident(),
-                        code_myent4
-                            .token_span()
-                            .apply_offset(code.s1("entity myent4").token()),
-                        None
-                    )
-                )
-            ]
+            design_file.design_units[0],
+            (
+                substreams[0].clone(),
+                simple_entity(code.s1("myent").ident(), code_myent.token_span(), None,)
+            )
         );
+        assert_eq!(
+            design_file.design_units[1],
+            (
+                substreams[1].clone(),
+                simple_entity(
+                    code.s1("myent2").ident(),
+                    code_myent2
+                        .token_span()
+                        .apply_offset(code.s1("entity myent2").token()),
+                    Some(code.s("myent2", 2).token()),
+                )
+            )
+        );
+        assert_eq!(
+            design_file.design_units[2],
+            (
+                substreams[2].clone(),
+                simple_entity(
+                    code.s1("myent3").ident(),
+                    code_myent3
+                        .token_span()
+                        .apply_offset(code.s1("entity myent3").token()),
+                    Some(code.s("myent3", 2).token()),
+                )
+            ),
+        );
+        assert_eq!(
+            design_file.design_units[3],
+            (
+                substreams[3].clone(),
+                simple_entity(
+                    code.s1("myent4").ident(),
+                    code_myent4
+                        .token_span()
+                        .apply_offset(code.s1("entity myent4").token()),
+                    None
+                )
+            )
+        );
+        assert_eq!(design_file.design_units.len(), 4);
     }
 
     // An simple entity with only a name
