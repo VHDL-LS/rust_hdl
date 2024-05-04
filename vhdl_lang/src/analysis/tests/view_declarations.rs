@@ -2,6 +2,7 @@ use crate::analysis::tests::{check_diagnostics, check_no_diagnostics, LibraryBui
 use crate::data::ErrorCode;
 use crate::Diagnostic;
 use crate::VHDLStandard::VHDL2019;
+use pretty_assertions::assert_eq;
 
 #[test]
 pub fn view_mode_declaration_must_have_declared_subtype() {
