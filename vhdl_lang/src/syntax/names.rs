@@ -285,9 +285,9 @@ fn parse_attribute_name(
         if ctx.stream.skip_if_kind(LeftPar) {
             let ret = Some(parse_expression(ctx)?);
             let rpar_token = ctx.stream.expect_kind(RightPar)?;
-            (ret, TokenSpan::new(rpar_token, name.span.end_token))
+            (ret, name.span.with_end(rpar_token))
         } else {
-            (None, TokenSpan::new(attr.token, name.span.end_token))
+            (None, name.span.with_end(attr.token))
         }
     };
 
