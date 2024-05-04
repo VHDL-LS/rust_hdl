@@ -114,7 +114,7 @@ pub trait HasIdent {
         &self.ident().item
     }
 
-    fn ident_pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
+    fn ident_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
         self.ident().pos(ctx)
     }
 }
@@ -216,7 +216,7 @@ pub trait HasPrimaryIdent {
         &self.primary_ident().item
     }
     /// The position of the primary name in the secondary unit declaration
-    fn primary_pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
+    fn primary_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
         ctx.get_pos(self.primary_ident().token)
     }
 }
@@ -437,7 +437,7 @@ impl crate::ast::Range {
         use crate::ast::Range::*;
         match self {
             Range(constraint) => constraint.span(),
-            Attribute(attr) => attr.name.span.set_end(attr.attr.token),
+            Attribute(attr) => attr.name.span.with_end(attr.attr.token),
         }
     }
 }

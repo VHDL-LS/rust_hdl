@@ -929,6 +929,7 @@ impl<'a> AnalyzeContext<'a> {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
                     let typ = if choices.len() == 1 {
                         let choice = choices.first_mut().unwrap();
+                        let choice_pos = choice.span.to_pos(self.ctx);
                         match &mut choice.item {
                             Choice::Expression(choice_expr) => {
                                 if let Some(simple_name) =
@@ -936,17 +937,13 @@ impl<'a> AnalyzeContext<'a> {
                                 {
                                     if let Some(elem) = elems.lookup(&simple_name.item) {
                                         simple_name.set_unique_reference(&elem);
-                                        associated.associate(
-                                            &elem,
-                                            &choice.span.to_pos(self.ctx),
-                                            diagnostics,
-                                        );
+                                        associated.associate(&elem, &choice_pos, diagnostics);
                                         Some(elem.type_mark().base())
                                     } else {
                                         is_ok_so_far = false;
                                         diagnostics.push(Diagnostic::no_declaration_within(
                                             &record_type,
-                                            &choice.to_pos(self.ctx),
+                                            &choice_pos,
                                             &simple_name.item,
                                         ));
                                         None
@@ -1022,11 +1019,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                 for elem in elems.iter() {
                                     if !associated.is_associated(&elem) {
-                                        associated.associate(
-                                            &elem,
-                                            &choice.to_pos(self.ctx),
-                                            diagnostics,
-                                        );
+                                        associated.associate(&elem, &choice_pos, diagnostics);
                                     }
                                 }
 
@@ -1063,9 +1056,10 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 ElementAssociation::Positional(ref mut expr) => {
+                    let expr_pos = expr.span.to_pos(self.ctx);
                     if let Some(elem) = elems.nth(idx) {
                         self.expr_with_ttyp(scope, elem.type_mark(), expr, diagnostics)?;
-                        associated.associate(elem, &expr.span.to_pos(self.ctx), diagnostics);
+                        associated.associate(elem, &expr_pos, diagnostics);
                     } else {
                         self.expr_unknown_ttyp(scope, expr, diagnostics)?;
 

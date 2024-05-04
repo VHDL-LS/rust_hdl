@@ -42,6 +42,12 @@ pub(crate) struct LockedUnit {
     pub tokens: Vec<Token>,
 }
 
+impl HasSrcPos for LockedUnit {
+    fn pos(&self) -> &SrcPos {
+        self.ident.pos(&self.tokens)
+    }
+}
+
 impl HasUnitId for LockedUnit {
     fn unit_id(&self) -> &UnitId {
         &self.unit_id
@@ -237,15 +243,7 @@ impl Library {
 
         for unit_ids in self.units_by_source.values() {
             let mut unit_ids: Vec<UnitId> = unit_ids.clone().into_iter().collect();
-            unit_ids.sort_by_key(|unit_id| {
-                self.units
-                    .get(unit_id.key())
-                    .unwrap()
-                    .ident()
-                    .pos
-                    .range()
-                    .start
-            });
+            unit_ids.sort_by_key(|unit_id| self.units.get(unit_id.key()).unwrap().ident().token);
             result.append(&mut unit_ids);
         }
         result
@@ -1007,7 +1005,7 @@ impl DesignRoot {
                 std_lib,
                 // Will be overwritten below
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
-                Some(std_package.ident.pos()),
+                Some(std_package.ident.pos(&locked_unit.tokens)),
                 None,
             )
         };
@@ -1019,6 +1017,7 @@ impl DesignRoot {
 
         // Reserve space in the arena for the standard types
         self.standard_types = Some(StandardTypes::new(
+            &locked_unit.tokens,
             &arena,
             standard_pkg,
             &mut std_package.decl,

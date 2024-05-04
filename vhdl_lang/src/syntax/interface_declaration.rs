@@ -157,10 +157,10 @@ fn parse_simple_mode_indication(
     explicit_object_class: Option<&WithToken<ObjectClass>>,
     idents: &[Ident],
 ) -> ParseResult<SimpleModeIndication> {
-    let object_class_pos = explicit_object_class.map(|class| &class.pos(ctx));
+    let object_class_tok = explicit_object_class.map(|class| class.token);
     let mode_with_pos = parse_optional_mode(ctx)?;
     let mode = mode_with_pos.as_ref().map(|mode| mode.item);
-    let mode_pos = mode_with_pos.map(|mode| mode.pos(ctx));
+    let mode_tok = mode_with_pos.map(|mode| mode.token);
 
     let object_class = match (
         list_type,
@@ -181,25 +181,25 @@ fn parse_simple_mode_indication(
     // @TODO maybe move this to a semantic check?
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode.unwrap_or_default() != Mode::In {
-            let pos = mode_pos.as_ref().unwrap_or(&ident.pos(ctx));
+            let token_id = mode_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(token_id),
                 "Interface constant declaration may only have mode=in",
             ));
         };
 
         if list_type == InterfaceType::Port && object_class != ObjectClass::Signal {
-            let pos = object_class_pos.unwrap_or(&ident.pos(ctx));
+            let tok = object_class_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(tok),
                 "Port list only allows signal object class",
             ));
         };
 
         if list_type == InterfaceType::Generic && object_class != ObjectClass::Constant {
-            let pos = object_class_pos.unwrap_or(&ident.pos(ctx));
+            let tok = object_class_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(tok),
                 "Generic list only allows constant object class",
             ));
         };

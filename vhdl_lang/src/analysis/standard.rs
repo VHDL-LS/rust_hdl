@@ -11,6 +11,7 @@ use crate::ast::ObjectClass;
 use crate::ast::Operator;
 use crate::data::DiagnosticHandler;
 use crate::syntax::Symbols;
+use vhdl_lang::TokenAccess;
 
 use super::analyze::AnalyzeContext;
 use crate::named_entity::*;
@@ -63,7 +64,12 @@ pub(crate) struct StandardTypes {
 }
 
 impl StandardTypes {
-    pub fn new<'a>(arena: &'a Arena, standard_pkg: EntRef<'a>, decls: &mut [Declaration]) -> Self {
+    pub fn new<'a>(
+        ctx: &dyn TokenAccess,
+        arena: &'a Arena,
+        standard_pkg: EntRef<'a>,
+        decls: &mut [Declaration],
+    ) -> Self {
         let mut boolean = None;
         let mut boolean_vector = None;
         let mut bit = None;
@@ -87,7 +93,7 @@ impl StandardTypes {
                         Some(standard_pkg),
                         Related::None,
                         AnyEntKind::Type(Type::Incomplete),
-                        Some(type_decl.ident.tree.pos.clone()),
+                        Some(type_decl.ident.tree.pos(ctx).clone()),
                         None,
                     )
                     .id();

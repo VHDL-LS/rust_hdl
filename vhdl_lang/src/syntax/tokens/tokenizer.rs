@@ -575,7 +575,7 @@ impl TokenSpan {
         }
     }
 
-    pub(crate) fn set_end(&self, other: TokenId) -> TokenSpan {
+    pub(crate) fn with_end(&self, other: TokenId) -> TokenSpan {
         TokenSpan {
             start_token: self.start_token,
             end_token: other,
@@ -727,7 +727,6 @@ impl Token {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
-            pos,
             ..
         } = self
         {

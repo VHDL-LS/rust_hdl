@@ -107,6 +107,7 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let statement_span = statement.statement.span;
         match statement.statement.item {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { ref mut expression } = ret;
@@ -186,7 +187,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.to_pos(self.ctx),
+                        &statement_span.to_pos(self.ctx),
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
                     )
@@ -206,7 +207,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.to_pos(self.ctx),
+                        &statement_span.to_pos(self.ctx),
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
                     )

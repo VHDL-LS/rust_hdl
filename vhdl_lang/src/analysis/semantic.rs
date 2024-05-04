@@ -133,6 +133,7 @@ impl<'a> AnalyzeContext<'a> {
         fcall: &mut WithTokenSpan<CallOrIndexed>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let fcall_span = fcall.span;
         let CallOrIndexed { name, parameters } = &mut fcall.item;
 
         let resolved =
@@ -149,7 +150,7 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::Overloaded(ref des, names) => {
                 match as_fatal(self.disambiguate(
                     scope,
-                    &fcall.to_pos(self.ctx),
+                    &fcall_span.to_pos(self.ctx),
                     des,
                     parameters,
                     SubprogramKind::Procedure,

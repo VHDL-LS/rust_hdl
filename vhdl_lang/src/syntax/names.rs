@@ -39,13 +39,12 @@ pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToke
             break;
         }
         if let Some(tok) = ctx.stream.pop_if_kind(All) {
-            name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), name.span.set_end(tok));
+            let span = name.span.with_end(tok);
+            name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), span);
         } else {
             let suffix = parse_designator(ctx)?.into_ref();
-            name = WithTokenSpan::from(
-                Name::SelectedAll(Box::new(name)),
-                name.span.set_end(suffix.token),
-            );
+            let span = name.span.with_end(suffix.token);
+            name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), span);
         }
     }
     Ok(name)
@@ -340,13 +339,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
         CommAt => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.set_end(token_id);
+            let path_pos = path_name.span.with_end(token_id);
             WithTokenSpan::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.set_end(token_id);
+            let path_pos = path_name.span.with_end(token_id);
             WithTokenSpan::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
@@ -358,7 +357,7 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
                 up_levels += 1;
             }
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.set_end(token_id);
+            let path_pos = path_name.span.with_end(token_id);
             WithTokenSpan::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
@@ -406,7 +405,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
             Dot => {
                 ctx.stream.skip();
                 let suffix = parse_suffix(ctx)?;
-                let span = name.span.set_end(suffix.token);
+                let span = name.span.with_end(suffix.token);
 
                 match suffix.item {
                     DesignatorOrAll::Designator(designator) => {

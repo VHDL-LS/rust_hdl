@@ -62,8 +62,9 @@ impl<'a> AnalyzeContext<'a> {
         // @TODO check missing associations
         for (idx, assoc) in generic_map.iter_mut().enumerate() {
             let formal = if let Some(formal) = &mut assoc.formal {
+                let formal_pos = formal.to_pos(self.ctx);
                 if let Name::Designator(des) = &mut formal.item {
-                    match generics.lookup(&formal.to_pos(self.ctx), &des.item) {
+                    match generics.lookup(&formal_pos, &des.item) {
                         Ok((_, ent)) => {
                             des.set_unique_reference(&ent);
                             ent

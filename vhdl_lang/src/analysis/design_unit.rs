@@ -380,6 +380,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<DesignEnt> {
         let ent_name = &mut config.entity_name;
+        let ent_name_span = ent_name.span;
 
         match ent_name.item {
             // Entities are implicitly defined for configurations
@@ -388,7 +389,7 @@ impl<'a> AnalyzeContext<'a> {
                 .lookup_in_library(
                     diagnostics,
                     self.work_library_name(),
-                    &ent_name.to_pos(self.ctx),
+                    &ent_name_span.to_pos(self.ctx),
                     &designator.item,
                 )
                 .map(|design| {
