@@ -44,7 +44,7 @@ pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToke
         } else {
             let suffix = parse_designator(ctx)?.into_ref();
             let span = name.span.with_end(suffix.token);
-            name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), span);
+            name = WithTokenSpan::from(Name::Selected(Box::new(name), suffix), span);
         }
     }
     Ok(name)
