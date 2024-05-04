@@ -306,8 +306,6 @@ pub trait Recover<T> {
     fn or_recover_until<F>(self, ctx: &mut ParsingContext<'_>, cond: F) -> DiagnosticResult<T>
     where
         F: Fn(Kind) -> bool;
-
-    fn log(self, msgs: &mut dyn DiagnosticHandler);
 }
 
 impl<T> Recover<T> for DiagnosticResult<T> {
@@ -327,12 +325,6 @@ impl<T> Recover<T> for DiagnosticResult<T> {
                     }
                 }
             }
-        }
-    }
-
-    fn log(self, msgs: &mut dyn DiagnosticHandler) {
-        if let Err(err) = self {
-            msgs.push(err)
         }
     }
 }
