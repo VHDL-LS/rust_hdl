@@ -92,7 +92,7 @@ pub trait Searcher {
 
     /// Search an identifier that has a reference to a declaration
     fn search_ident_ref(&mut self, ctx: &dyn TokenAccess, ident: &WithRef<Ident>) -> SearchState {
-        self.search_pos_with_ref(ctx, ctx.get_pos(ident.item.token), &ident.reference)
+        self.search_pos_with_ref(ctx, ident.item.pos(ctx), &ident.reference)
     }
 
     /// Search a declaration of a named entity
@@ -324,11 +324,7 @@ impl Search for LabeledSequentialStatement {
                 } = exit_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
-                        .search_pos_with_ref(
-                            ctx,
-                            ctx.get_pos(loop_label.item.token),
-                            &loop_label.reference
-                        )
+                        .search_pos_with_ref(ctx, loop_label.item.pos(ctx), &loop_label.reference)
                         .or_not_found());
                 }
                 return_if_found!(condition.search(ctx, searcher));
@@ -340,11 +336,7 @@ impl Search for LabeledSequentialStatement {
                 } = next_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
-                        .search_pos_with_ref(
-                            ctx,
-                            ctx.get_pos(loop_label.item.token),
-                            &loop_label.reference
-                        )
+                        .search_pos_with_ref(ctx, loop_label.item.pos(ctx), &loop_label.reference)
                         .or_not_found());
                 }
                 return_if_found!(condition.search(ctx, searcher));
@@ -449,7 +441,7 @@ impl Search for InstantiationStatement {
                     return_if_found!(searcher
                         .search_pos_with_ref(
                             ctx,
-                            ctx.get_pos(architecture_name.item.token),
+                            architecture_name.item.pos(ctx),
                             &architecture_name.reference
                         )
                         .or_not_found());
@@ -610,7 +602,7 @@ fn search_pos_name(
             if let AttributeDesignator::Ident(ref user_attr) = attr.item {
                 return_if_finished!(searcher.search_pos_with_ref(
                     ctx,
-                    ctx.get_pos(attr.token),
+                    attr.pos(ctx),
                     &user_attr.reference
                 ));
             }
@@ -793,7 +785,7 @@ impl Search for TypeDeclaration {
             TypeDefinition::Incomplete(ref reference) => {
                 // Incomplete type should reference full declaration
                 return_if_found!(searcher
-                    .search_pos_with_ref(ctx, ctx.get_pos(self.ident.tree.token), reference)
+                    .search_pos_with_ref(ctx, self.ident.pos(ctx), reference)
                     .or_not_found());
             }
             TypeDefinition::Enumeration(ref literals) => {
@@ -1110,7 +1102,7 @@ impl Search for ModeViewElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         for name in self.names.items.iter() {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, ctx.get_pos(name.item.token), &name.reference)
+                .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
                 .or_not_found());
         }
         NotFound
@@ -1237,7 +1229,7 @@ impl Search for LibraryClause {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         for name in self.name_list.items.iter() {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, ctx.get_pos(name.item.token), &name.reference)
+                .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
                 .or_not_found());
         }
         NotFound
