@@ -648,7 +648,7 @@ mod tests {
                         condition_clause: None,
                         timeout_clause: None
                     }),
-                    code.token_span()
+                    code.pos_after("foo: ").token_span()
                 )
             )
         );
