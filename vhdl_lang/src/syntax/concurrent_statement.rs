@@ -695,7 +695,7 @@ pub fn parse_labeled_concurrent_statement(
 
             let start_pos = ctx.stream.get_current_token_id();
             let statement = parse_concurrent_statement(ctx, label.as_ref())?;
-            let end_pos = ctx.stream.get_current_token_id();
+            let end_pos = ctx.stream.get_last_token_id();
 
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(label),
