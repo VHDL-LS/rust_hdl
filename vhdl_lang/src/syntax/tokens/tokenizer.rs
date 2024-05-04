@@ -580,13 +580,16 @@ impl TokenSpan {
     }
 
     pub(crate) fn combine(&self, other: impl Into<TokenSpan>) -> TokenSpan {
+        let other = other.into();
+        debug_assert!(self.start_token <= other.end_token);
         TokenSpan {
             start_token: self.start_token,
-            end_token: other.into().end_token,
+            end_token: other.end_token,
         }
     }
 
     pub(crate) fn end_with(&self, other: TokenId) -> TokenSpan {
+        debug_assert!(self.start_token <= other);
         TokenSpan {
             start_token: self.start_token,
             end_token: other,
@@ -594,6 +597,7 @@ impl TokenSpan {
     }
 
     pub(crate) fn start_with(&self, other: TokenId) -> TokenSpan {
+        debug_assert!(other <= self.end_token);
         TokenSpan {
             start_token: other,
             end_token: self.end_token,
