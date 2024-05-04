@@ -524,13 +524,23 @@ pub trait HasTokenSpan {
 /// Holds token information about an AST element.
 /// Since the different pieces may be gathered in different locations,
 /// the fields are gated behind accessor functions which also check some invariants every time they are called.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct TokenSpan {
     pub start_token: TokenId,
     pub end_token: TokenId,
 }
 
-impl TokenSpan {}
+impl Display for TokenSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.start_token.0, self.end_token.0)
+    }
+}
+
+impl Debug for TokenSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
 
 impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
@@ -642,6 +652,7 @@ pub struct Comment {
 
 use crate::standard::VHDLStandard;
 use std::convert::AsRef;
+use std::fmt::{Debug, Display, Formatter};
 use strum::IntoStaticStr;
 
 impl AsRef<SrcPos> for Token {
