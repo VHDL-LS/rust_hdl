@@ -41,6 +41,7 @@ pub fn parse_entity_name_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<E
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
             let mut token = token;
+            let mut token_id = token_id;
             loop {
 
                 let designator = match token.kind {
@@ -63,6 +64,7 @@ pub fn parse_entity_name_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<E
                 }));
 
                 if ctx.stream.skip_if_kind(Comma) {
+                    token_id = ctx.stream.get_current_token_id();
                     token = expect_token!(ctx.stream, token, Identifier | StringLiteral => token);
                 } else {
                     break entity_name_list;
@@ -118,6 +120,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Attribut
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn parse_simple_attribute_declaration() {
