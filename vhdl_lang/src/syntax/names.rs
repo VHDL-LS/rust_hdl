@@ -60,6 +60,7 @@ pub fn parse_type_mark_starting_with_name(
     name: WithTokenSpan<Name>,
 ) -> ParseResult<WithTokenSpan<TypeMark>> {
     let state = ctx.stream.state();
+    let name_span = name.span;
 
     // Check if it is a type mark with a subtype or element attribute:
     // Example: signal sig0 : sig1'subtype;
@@ -71,7 +72,7 @@ pub fn parse_type_mark_starting_with_name(
                         name,
                         attr: Some(typattr),
                     },
-                    span: attr.token.into(),
+                    span: name_span.end_with(attr.token),
                 });
             }
         }
@@ -79,10 +80,9 @@ pub fn parse_type_mark_starting_with_name(
         ctx.stream.set_state(state);
     };
 
-    let span = name.span;
     Ok(WithTokenSpan {
         item: TypeMark { name, attr: None },
-        span,
+        span: name_span,
     })
 }
 
