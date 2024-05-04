@@ -544,6 +544,7 @@ impl Debug for TokenSpan {
 
 impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
+        debug_assert!(start_token <= end_token);
         Self {
             start_token,
             end_token,
