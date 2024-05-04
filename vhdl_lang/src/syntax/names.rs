@@ -339,13 +339,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
         CommAt => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.end_with(token_id);
+            let path_pos = path_name.span.start_with(token_id);
             WithTokenSpan::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.end_with(token_id);
+            let path_pos = path_name.span.start_with(token_id);
             WithTokenSpan::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
@@ -357,7 +357,7 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
                 up_levels += 1;
             }
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.end_with(token_id);
+            let path_pos = path_name.span.start_with(token_id);
             WithTokenSpan::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
