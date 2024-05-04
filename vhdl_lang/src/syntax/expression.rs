@@ -452,7 +452,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
                 let unit = ctx
                     .stream
                     .get_token(unit_token)
-                    .to_identifier_value(token_id)?;
+                    .to_identifier_value(unit_token)?;
                 let span = TokenSpan::new(value.token, unit.token);
                 let physical = PhysicalLiteral {
                     value: value.item,
