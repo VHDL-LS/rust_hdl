@@ -487,13 +487,14 @@ fn parse_if_generate_statement(
                 let alternative_label = expect_token!(
                     ctx.stream,
                     token,
+                    token_id,
                     Generate => {
                         None
                     },
                     Identifier => {
                         ctx.stream.expect_kind(Colon)?;
                         ctx.stream.expect_kind(Generate)?;
-                        Some(WithDecl::new(token.to_identifier_value()?))
+                        Some(WithDecl::new(token.to_identifier_value(token_id)?))
                     }
                 );
                 let body = parse_generate_body(ctx, alternative_label)?;
@@ -686,37 +687,37 @@ pub fn parse_labeled_concurrent_statements(
 pub fn parse_labeled_concurrent_statement(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<LabeledConcurrentStatement> {
-    let start = ctx.stream.peek_expect()?;
+    let start_pos = ctx.stream.get_current_token_id();
     if ctx.stream.next_kind_is(Identifier) {
         let name = parse_name(ctx)?;
         if ctx.stream.skip_if_kind(Colon) {
             let label = Some(to_simple_name(ctx.stream, name)?);
 
-            let start = ctx.stream.peek_expect()?;
+            let start_pos = ctx.stream.get_current_token_id();
             let statement = parse_concurrent_statement(ctx, label.as_ref())?;
-            let end = ctx.stream.last().unwrap();
+            let end_pos = ctx.stream.get_current_token_id();
 
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(label),
-                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+                statement: WithTokenSpan::new(statement, TokenSpan::new(start_pos, end_pos)),
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(ctx, target)?;
-            let end = ctx.stream.last().unwrap();
+            let end_pos = ctx.stream.get_last_token_id();
 
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(None),
-                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+                statement: WithTokenSpan::new(statement, TokenSpan::new(start_pos, end_pos)),
             })
         }
     } else {
         let statement = parse_concurrent_statement(ctx, None)?;
-        let end = ctx.stream.last().unwrap();
+        let end_pos = ctx.stream.get_last_token_id();
 
         Ok(LabeledConcurrentStatement {
             label: WithDecl::new(None),
-            statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+            statement: WithTokenSpan::new(statement, TokenSpan::new(start_pos, end_pos)),
         })
     }
 }
@@ -741,7 +742,7 @@ mod tests {
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::ProcedureCall(call), code.token_span())
         );
     }
 
@@ -756,7 +757,7 @@ mod tests {
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::ProcedureCall(call), code.token_span())
         );
     }
 
@@ -771,9 +772,9 @@ mod tests {
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::ProcedureCall(call),
-                code.s1("foo(clk);")
+                code.s1("foo(clk);").token_span()
             )
         );
     }
@@ -789,7 +790,7 @@ mod tests {
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::ProcedureCall(call), code.token_span())
         );
     }
 
@@ -819,9 +820,9 @@ end block;",
             decl: code.s1("constant const : natural := 0;").declarative_part(),
             statements: vec![LabeledConcurrentStatement {
                 label: Some(code.s1("name2").ident()).into(),
-                statement: WithPos::new(
+                statement: WithTokenSpan::new(
                     ConcurrentStatement::ProcedureCall(call),
-                    code.s1("foo(clk);").pos(),
+                    code.s1("foo(clk);").token_span(),
                 ),
             }],
             end_label_pos: None,
@@ -831,7 +832,10 @@ end block;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+            WithTokenSpan::new(
+                ConcurrentStatement::Block(block),
+                code.pos_after("name : ").token_span()
+            )
         );
     }
 
@@ -860,7 +864,10 @@ end block name;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+            WithTokenSpan::new(
+                ConcurrentStatement::Block(block),
+                code.pos_after("name : ").token_span()
+            )
         );
     }
 
@@ -889,7 +896,10 @@ end block;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+            WithTokenSpan::new(
+                ConcurrentStatement::Block(block),
+                code.pos_after("name : ").token_span()
+            )
         );
     }
 
@@ -918,7 +928,10 @@ end block;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+            WithTokenSpan::new(
+                ConcurrentStatement::Block(block),
+                code.pos_after("name : ").token_span()
+            )
         );
     }
 
@@ -951,7 +964,10 @@ end block;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name: "))
+            WithTokenSpan::new(
+                ConcurrentStatement::Block(block),
+                code.pos_after("name: ").token_span()
+            )
         );
     }
 
@@ -975,7 +991,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -999,9 +1015,9 @@ end process name;",
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Process(process),
-                code.pos_after("name : ")
+                code.pos_after("name : ").token_span()
             )
         );
     }
@@ -1026,7 +1042,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1050,7 +1066,7 @@ end postponed process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1080,7 +1096,7 @@ end postponed process;",
         );
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1107,7 +1123,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1137,7 +1153,7 @@ end process;",
         );
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1167,7 +1183,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Process(process), code.token_span())
         );
     }
 
@@ -1186,7 +1202,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Assert(assert), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Assert(assert), code.token_span())
         );
     }
 
@@ -1205,7 +1221,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Assert(assert), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Assert(assert), code.token_span())
         );
     }
 
@@ -1223,7 +1239,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Assignment(assign), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Assignment(assign), code.token_span())
         );
     }
 
@@ -1244,7 +1260,7 @@ end process;",
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
-            WithPos::new(ConcurrentStatement::Assignment(assign), code.pos())
+            WithTokenSpan::new(ConcurrentStatement::Assignment(assign), code.token_span())
         );
     }
 
@@ -1276,7 +1292,7 @@ with x(0) + 1 select
                 rhs: AssignmentRightHand::Selected(selection)
             })
         );
-        assert_eq!(stmt.statement.pos, code.pos());
+        assert_eq!(stmt.statement.span, code.token_span());
     }
 
     #[test]
@@ -1293,9 +1309,9 @@ with x(0) + 1 select
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1314,9 +1330,9 @@ with x(0) + 1 select
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1335,9 +1351,9 @@ with x(0) + 1 select
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1359,9 +1375,9 @@ with x(0) + 1 select
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1399,9 +1415,9 @@ inst: component lib.foo.bar
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1431,9 +1447,9 @@ inst: lib.foo.bar
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1463,9 +1479,9 @@ inst: lib.foo.bar
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::Instance(inst),
-                code.pos_after("inst: ")
+                code.pos_after("inst: ").token_span()
             )
         );
     }
@@ -1493,9 +1509,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::ForGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1524,9 +1540,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::ForGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1550,9 +1566,9 @@ end generate;",
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
             assert_eq!(
                 stmt.statement,
-                WithPos::new(
+                WithTokenSpan::new(
                     ConcurrentStatement::ForGenerate(gen),
-                    code.pos_after("gen: ")
+                    code.pos_after("gen: ").token_span()
                 )
             );
         }
@@ -1609,9 +1625,9 @@ end generate;",
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
             assert_eq!(
                 stmt.statement,
-                WithPos::new(
+                WithTokenSpan::new(
                     ConcurrentStatement::ForGenerate(gen),
-                    code.pos_after("gen: ")
+                    code.pos_after("gen: ").token_span()
                 )
             );
         }
@@ -1663,9 +1679,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1698,9 +1714,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1750,9 +1766,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1810,9 +1826,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1864,9 +1880,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
         assert_eq!(
@@ -1928,9 +1944,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::IfGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -1977,9 +1993,9 @@ end generate;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::CaseGenerate(gen),
-                code.pos_after("gen: ")
+                code.pos_after("gen: ").token_span()
             )
         );
     }
@@ -2026,9 +2042,9 @@ end generate gen1;",
         assert_eq!(stmt.label.tree, Some(code.s1("gen1").ident()));
         assert_eq!(
             stmt.statement,
-            WithPos::new(
+            WithTokenSpan::new(
                 ConcurrentStatement::CaseGenerate(gen),
-                code.pos_after("gen1: ")
+                code.pos_after("gen1: ").token_span()
             )
         );
     }

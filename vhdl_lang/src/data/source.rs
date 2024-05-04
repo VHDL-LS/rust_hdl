@@ -280,59 +280,18 @@ impl PartialOrd for SrcPos {
 
 /// A generic object with an associated source file and lexical range.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct WithPos<T> {
-    pub item: T,
-    pub pos: SrcPos,
-}
-
-impl<T> WithPos<T> {
-    pub fn new(item: T, pos: impl AsRef<SrcPos>) -> WithPos<T> {
-        WithPos {
-            item,
-            pos: pos.as_ref().clone(),
-        }
-    }
-
-    pub fn from(item: T, pos: impl Into<SrcPos>) -> WithPos<T> {
-        WithPos {
-            item,
-            pos: pos.into(),
-        }
-    }
-
-    pub fn map_into<F, U>(self, f: F) -> WithPos<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        WithPos {
-            item: f(self.item),
-            pos: self.pos,
-        }
-    }
-
-    pub fn try_map_into<F, U>(self, f: F) -> Option<WithPos<U>>
-    where
-        F: FnOnce(T) -> Option<U>,
-    {
-        Some(WithPos {
-            item: f(self.item)?,
-            pos: self.pos,
-        })
-    }
-
-    pub fn combine_pos_with(self, other: &dyn AsRef<SrcPos>) -> Self {
-        WithPos {
-            item: self.item,
-            pos: self.pos.combine_into(other.as_ref()),
-        }
-    }
-}
-
-/// A generic object with an associated source file and lexical range.
-#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct WithTokenSpan<T> {
     pub item: T,
     pub span: TokenSpan,
+}
+
+impl<T> WithTokenSpan<T> {
+    pub fn combine_pos_with(self, other: &dyn AsRef<TokenSpan>) -> Self {
+        WithTokenSpan {
+            item: self.item,
+            span: self.span.combine(*other.as_ref()),
+        }
+    }
 }
 
 impl<T> WithTokenSpan<T> {
@@ -340,11 +299,8 @@ impl<T> WithTokenSpan<T> {
         self.span.to_pos(ctx)
     }
 
-    pub fn new(item: T, span: impl AsRef<TokenSpan>) -> WithTokenSpan<T> {
-        WithTokenSpan {
-            item,
-            span: span.as_ref().clone(),
-        }
+    pub fn new(item: T, span: TokenSpan) -> WithTokenSpan<T> {
+        WithTokenSpan { item, span }
     }
 
     pub fn from(item: T, span: impl Into<TokenSpan>) -> WithTokenSpan<T> {
@@ -374,17 +330,17 @@ impl<T> WithTokenSpan<T> {
         })
     }
 
-    pub fn combine_span_with(self, other: &dyn AsRef<TokenSpan>) -> Self {
+    pub fn combine_span_with(self, other: impl Into<TokenSpan>) -> Self {
         WithTokenSpan {
             item: self.item,
-            span: TokenSpan::new(self.span.start_token, other.as_ref().end_token),
+            span: TokenSpan::new(self.span.start_token, other.into().end_token),
         }
     }
 }
 
-impl<T> AsRef<SrcPos> for WithPos<T> {
-    fn as_ref(&self) -> &SrcPos {
-        &self.pos
+impl<T> AsRef<TokenSpan> for WithTokenSpan<T> {
+    fn as_ref(&self) -> &TokenSpan {
+        &self.span
     }
 }
 
@@ -394,9 +350,9 @@ impl AsRef<SrcPos> for SrcPos {
     }
 }
 
-impl<T> From<WithPos<T>> for SrcPos {
-    fn from(with_pos: WithPos<T>) -> SrcPos {
-        with_pos.pos
+impl<T> From<WithTokenSpan<T>> for TokenSpan {
+    fn from(with_span: WithTokenSpan<T>) -> TokenSpan {
+        with_span.span
     }
 }
 

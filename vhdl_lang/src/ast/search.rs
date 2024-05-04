@@ -39,7 +39,7 @@ impl SearchState {
 pub enum FoundDeclaration<'a> {
     Object(&'a ObjectDeclaration),
     ElementDeclaration(&'a ElementDeclaration),
-    EnumerationLiteral(&'a Ident, &'a WithDecl<WithPos<EnumerationLiteral>>),
+    EnumerationLiteral(&'a Ident, &'a WithDecl<WithToken<EnumerationLiteral>>),
     InterfaceObject(&'a InterfaceObjectDeclaration),
     InterfaceFile(&'a InterfaceFileDeclaration),
     File(&'a FileDeclaration),
@@ -240,16 +240,16 @@ fn search_assignment<T: Search>(
     }
 }
 
-impl Search for WithPos<Choice> {
+impl Search for WithTokenSpan<Choice> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
 
         match self.item {
             Choice::DiscreteRange(ref drange) => {
                 return_if_found!(drange.search(ctx, searcher));
             }
             Choice::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &self.pos, expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &self.to_pos(ctx), expr, searcher));
             }
             Choice::Others => {}
         }
@@ -567,11 +567,11 @@ impl Search for LabeledConcurrentStatement {
     }
 }
 
-impl Search for WithPos<WithRef<Designator>> {
+impl Search for WithToken<WithRef<Designator>> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, self.pos(ctx)));
         searcher
-            .search_designator_ref(ctx, &self.pos, &self.item)
+            .search_designator_ref(ctx, self.pos(ctx), &self.item)
             .or_not_found()
     }
 }
@@ -610,7 +610,7 @@ fn search_pos_name(
             if let AttributeDesignator::Ident(ref user_attr) = attr.item {
                 return_if_finished!(searcher.search_pos_with_ref(
                     ctx,
-                    &attr.pos,
+                    ctx.get_pos(attr.token),
                     &user_attr.reference
                 ));
             }
@@ -642,16 +642,16 @@ impl Search for ElementConstraint {
     }
 }
 
-impl Search for WithPos<ElementConstraint> {
+impl Search for WithTokenSpan<ElementConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
         self.item.search(ctx, searcher)
     }
 }
 
-impl Search for WithPos<SubtypeConstraint> {
+impl Search for WithTokenSpan<SubtypeConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
         match self.item {
             SubtypeConstraint::Array(ref dranges, ref constraint) => {
                 return_if_found!(dranges.search(ctx, searcher));
@@ -681,13 +681,6 @@ impl Search for SubtypeIndication {
         return_if_found!(type_mark.search(ctx, searcher));
         return_if_found!(constraint.search(ctx, searcher));
         NotFound
-    }
-}
-
-impl Search for WithPos<TypeMark> {
-    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
-        self.item.name.search(ctx, searcher)
     }
 }
 
@@ -845,14 +838,14 @@ fn search_pos_expr(
     match expr {
         Expression::Binary(ref op, ref left, ref right) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos, &op.item.reference)
+                .search_pos_with_ref(ctx, &op.pos(ctx), &op.item.reference)
                 .or_not_found());
             return_if_found!(left.search(ctx, searcher));
             right.search(ctx, searcher)
         }
         Expression::Unary(ref op, ref expr) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos, &op.item.reference)
+                .search_pos_with_ref(ctx, &op.pos(ctx), &op.item.reference)
                 .or_not_found());
             expr.search(ctx, searcher)
         }
@@ -860,7 +853,7 @@ fn search_pos_expr(
         Expression::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
         Expression::New(ref alloc) => {
-            return_if_finished!(searcher.search_with_pos(ctx, &alloc.pos));
+            return_if_finished!(searcher.search_with_pos(ctx, &alloc.to_pos(ctx)));
             match alloc.item {
                 Allocator::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
                 Allocator::Subtype(ref subtype) => subtype.search(ctx, searcher),
@@ -913,7 +906,7 @@ impl Search for AssociationElement {
 
         match actual.item {
             ActualPart::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &actual.pos, expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &actual.to_pos(ctx), expr, searcher));
             }
             ActualPart::Open => {}
         }
@@ -946,9 +939,9 @@ impl Search for Waveform {
     }
 }
 
-impl Search for WithPos<Expression> {
+impl Search for WithTokenSpan<Expression> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        search_pos_expr(ctx, &self.pos, &self.item, searcher)
+        search_pos_expr(ctx, &self.span.to_pos(ctx), &self.item, searcher)
     }
 }
 
@@ -1024,11 +1017,7 @@ impl Search for Declaration {
                 }) = entity_name
                 {
                     return_if_found!(searcher
-                        .search_pos_with_ref(
-                            ctx,
-                            &designator.to_pos(ctx),
-                            &designator.item.reference
-                        )
+                        .search_pos_with_ref(ctx, designator.pos(ctx), &designator.item.reference)
                         .or_not_found());
                     if let Some(signature) = signature {
                         return_if_found!(signature.item.search(ctx, searcher));

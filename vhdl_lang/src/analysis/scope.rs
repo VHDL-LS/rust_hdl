@@ -9,6 +9,7 @@ use crate::data::*;
 use crate::named_entity::*;
 
 use crate::data::error_codes::ErrorCode;
+use crate::{TokenAccess, TokenSpan};
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -121,19 +122,21 @@ impl<'a> ScopeInner<'a> {
     /// Lookup a named entity that was made potentially visible via a use clause
     fn lookup_visible(
         &self,
-        pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        span: TokenSpan,
         designator: &Designator,
     ) -> Result<Option<NamedEntities<'a>>, Diagnostic> {
         let mut visible = Visible::default();
         self.lookup_visiblity_into(designator, &mut visible);
-        visible.into_unambiguous(pos, designator)
+        visible.into_unambiguous(ctx, span, designator)
     }
 
     /// Lookup a designator from within the region itself
     /// Thus all parent regions and visibility is relevant
     fn lookup_uncached(
         &self,
-        pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        span: TokenSpan,
         designator: &Designator,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
@@ -143,7 +146,7 @@ impl<'a> ScopeInner<'a> {
                 // In case of overloaded local, non-conflicting visible names are still relevant
                 NamedEntities::Overloaded(enclosing_overloaded) => {
                     if let Ok(Some(NamedEntities::Overloaded(overloaded))) =
-                        self.lookup_visible(pos, designator)
+                        self.lookup_visible(ctx, span, designator)
                     {
                         Some(NamedEntities::Overloaded(
                             enclosing_overloaded.with_visible(overloaded),
@@ -154,13 +157,13 @@ impl<'a> ScopeInner<'a> {
                 }
             }
         } else {
-            self.lookup_visible(pos, designator)?
+            self.lookup_visible(ctx, span, designator)?
         };
 
         match result {
             Some(visible) => Ok(visible),
             None => Err(Diagnostic::new(
-                pos,
+                span.to_pos(ctx),
                 match designator {
                     Designator::Identifier(ident) => {
                         format!("No declaration of '{ident}'")
@@ -180,14 +183,15 @@ impl<'a> ScopeInner<'a> {
 
     fn lookup(
         &mut self,
-        pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        span: TokenSpan,
         designator: &Designator,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         if let Some(res) = self.cache.get(designator) {
             return Ok(res.clone());
         }
 
-        let ents = self.lookup_uncached(pos, designator)?;
+        let ents = self.lookup_uncached(ctx, span, designator)?;
         if let Entry::Vacant(vacant) = self.cache.entry(designator.clone()) {
             Ok(vacant.insert(ents).clone())
         } else {
@@ -318,10 +322,14 @@ impl<'a> Scope<'a> {
 
     pub fn lookup(
         &self,
-        pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        span: impl Into<TokenSpan>,
         designator: &Designator,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
-        self.0.as_ref().borrow_mut().lookup(pos, designator)
+        self.0
+            .as_ref()
+            .borrow_mut()
+            .lookup(ctx, span.into(), designator)
     }
 
     /// Used when using context clauses

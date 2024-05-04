@@ -41,7 +41,7 @@ impl<'a> AnalyzeContext<'a> {
     fn range_expr_type(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<DisambiguatedType<'a>> {
         match self.expr_type(scope, expr, diagnostics)? {
@@ -50,7 +50,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
                     diagnostics.add(
-                        &expr.pos,
+                        &expr.to_pos(self.ctx),
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
                         ErrorCode::NonScalarInRange,
                     );
@@ -62,7 +62,7 @@ impl<'a> AnalyzeContext<'a> {
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
                 diagnostics.add(
-                    &expr.pos,
+                    &expr.to_pos(self.ctx),
                     "Non-scalar expression cannot be used in a range",
                     ErrorCode::NonScalarInRange,
                 );
@@ -77,12 +77,8 @@ impl<'a> AnalyzeContext<'a> {
         attr: &mut AttributeName,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
-        let resolved = self.name_resolve(
-            scope,
-            &attr.name.to_pos(self.ctx),
-            &mut attr.name.item,
-            diagnostics,
-        )?;
+        let resolved =
+            self.name_resolve(scope, attr.name.span, &mut attr.name.item, diagnostics)?;
         let typ = match resolved {
             ResolvedName::Type(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
@@ -180,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
                             return Ok(typ);
                         } else {
                             diagnostics.add(
-                                constraint.pos(),
+                                constraint.span().to_pos(self.ctx),
                                 format!(
                                     "Range type mismatch, left is {}, right is {}",
                                     l.base().describe(),
@@ -200,7 +196,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
                         diagnostics.add(
-                            constraint.pos(),
+                            constraint.span().to_pos(self.ctx),
                             "Range is ambiguous",
                             ErrorCode::TypeMismatch,
                         );
@@ -232,14 +228,14 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(typ)
                 } else if types.is_empty() {
                     diagnostics.add(
-                        constraint.pos(),
+                        constraint.span().to_pos(self.ctx),
                         "Range type of left and right side does not match",
                         ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
                     diagnostics.add(
-                        constraint.pos(),
+                        constraint.span().to_pos(self.ctx),
                         "Range is ambiguous",
                         ErrorCode::TypeMismatch,
                     );
@@ -273,7 +269,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.pos(self.ctx),
+                &drange.span().to_pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -296,14 +292,14 @@ impl<'a> AnalyzeContext<'a> {
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
-                    &constraint.left_expr.pos,
+                    constraint.left_expr.span,
                     &mut constraint.left_expr.item,
                     diagnostics,
                 )?;
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
-                    &constraint.right_expr.pos,
+                    constraint.right_expr.span,
                     &mut constraint.right_expr.item,
                     diagnostics,
                 )?;
@@ -317,10 +313,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = name.as_mut();
 
                 let prefix_typ = as_fatal(
-                    self.name_resolve(scope, &name.to_pos(self.ctx), &mut name.item, diagnostics)
+                    self.name_resolve(scope, name.span, &mut name.item, diagnostics)
                         .and_then(|prefix| {
                             prefix.as_type_of_attr_prefix(
-                                &name.to_pos(self.ctx),
+                                self.ctx,
+                                name.span,
                                 &AttributeSuffix {
                                     signature,
                                     attr,
@@ -333,7 +330,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut signature) = signature {
                     diagnostics.add(
-                        &signature.pos,
+                        &signature.to_pos(self.ctx),
                         format!("Did not expect signature for '{attr} attribute"),
                         ErrorCode::UnexpectedSignature,
                     );
@@ -350,7 +347,7 @@ impl<'a> AnalyzeContext<'a> {
                         {
                             if !self.can_be_target_type(index_typ.into(), target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
-                                    &range.pos(self.ctx),
+                                    &range.span().to_pos(self.ctx),
                                     &index_typ.describe(),
                                     target_type,
                                 ))

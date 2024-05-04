@@ -33,11 +33,12 @@ pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 mod formal_region;
 use crate::data::error_codes::ErrorCode;
-use crate::TokenSpan;
+use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
     FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
     RecordRegion,
 };
+use vhdl_lang::ast::WithToken;
 
 pub enum AnyEntKind<'a> {
     ExternalAlias {
@@ -218,6 +219,7 @@ impl Arena {
 
     pub fn define<'a, T: HasIdent>(
         &'a self,
+        ctx: &dyn TokenAccess,
         decl: &mut WithDecl<T>,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
@@ -227,7 +229,7 @@ impl Arena {
             decl.tree.name().clone(),
             parent,
             kind,
-            Some(decl.tree.pos()),
+            Some(decl.tree.ident_pos(ctx)),
             src_span,
         );
         decl.decl.set(ent.id());
@@ -703,6 +705,7 @@ impl HasEntityId for ModeViewDeclaration {
 impl WithDecl<Ident> {
     pub fn define<'a>(
         &mut self,
+        ctx: &dyn TokenAccess,
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
@@ -712,7 +715,7 @@ impl WithDecl<Ident> {
             self.tree.name().clone(),
             parent,
             kind,
-            Some(self.tree.pos()),
+            Some(self.tree.pos(ctx)),
             src_span,
         );
         self.decl.set(ent.id());
@@ -720,9 +723,10 @@ impl WithDecl<Ident> {
     }
 }
 
-impl WithDecl<WithPos<Designator>> {
+impl WithDecl<WithToken<Designator>> {
     pub fn define<'a>(
         &mut self,
+        ctx: &dyn TokenAccess,
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
@@ -732,7 +736,7 @@ impl WithDecl<WithPos<Designator>> {
             self.tree.item.clone(),
             parent,
             kind,
-            Some(&self.tree.pos),
+            Some(self.tree.pos(ctx)),
             src_span,
         );
         self.decl.set(ent.id());

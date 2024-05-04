@@ -4,6 +4,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
+use vhdl_lang::TokenSpan;
 
 /// Analysis of assignment targets
 ///
@@ -20,13 +21,9 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         match target.item {
-            Target::Name(ref mut name) => self.resolve_target_name(
-                scope,
-                name,
-                &target.to_pos(self.ctx),
-                assignment_type,
-                diagnostics,
-            ),
+            Target::Name(ref mut name) => {
+                self.resolve_target_name(scope, name, target.span, assignment_type, diagnostics)
+            }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(scope, assocs, diagnostics)?;
                 Err(EvalError::Unknown)
@@ -38,7 +35,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         target: &mut Name,
-        target_pos: &SrcPos,
+        target_pos: TokenSpan,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
@@ -52,7 +49,7 @@ impl<'a> AnalyzeContext<'a> {
         )?;
         if !object_name.base.can_be_assigned_to() {
             diagnostics.add(
-                target_pos,
+                target_pos.to_pos(self.ctx),
                 format!(
                     "{} may not be the target of an assignment",
                     object_name.base.describe_class()
@@ -61,7 +58,7 @@ impl<'a> AnalyzeContext<'a> {
             );
         } else if !object_name.base.is_valid_assignment_type(assignment_type) {
             diagnostics.add(
-                target_pos,
+                target_pos.to_pos(self.ctx),
                 format!(
                     "{} may not be the target of a {} assignment",
                     object_name.base.describe_class(),

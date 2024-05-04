@@ -148,7 +148,7 @@ impl<'a> TestSetup<'a> {
         let designator = self.snippet(sym).designator();
 
         self.scope
-            .lookup(&designator.pos, &designator.item)
+            .lookup(&self.tokens, designator.token, &designator.item)
             .unwrap()
             .into_non_overloaded()
             .unwrap()
@@ -157,8 +157,10 @@ impl<'a> TestSetup<'a> {
     pub fn lookup_overloaded(&'a self, code: Code) -> OverloadedEnt<'a> {
         let des = code.designator();
 
-        if let NamedEntities::Overloaded(overloaded) =
-            self.scope.lookup(&des.pos, &des.item).unwrap()
+        if let NamedEntities::Overloaded(overloaded) = self
+            .scope
+            .lookup(&self.tokens, des.token, &des.item)
+            .unwrap()
         {
             overloaded
                 .entities()

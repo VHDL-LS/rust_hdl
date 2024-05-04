@@ -22,13 +22,13 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<TypeEnt<'a>> {
         let name = self.name_resolve(
             scope,
-            &type_mark.item.name.to_pos(self.ctx),
+            type_mark.item.name.span,
             &mut type_mark.item.name.item,
             diagnostics,
         )?;
 
         if let Some(attr) = &type_mark.item.attr {
-            let pos = type_mark.item.name.suffix_pos(self.ctx);
+            let span = type_mark.item.name.suffix_pos();
 
             let typ = match name {
                 ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
@@ -54,7 +54,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(elem_type)
                     } else {
                         diagnostics.add(
-                            pos,
+                            span.to_pos(self.ctx),
                             format!("array type expected for '{attr} attribute",),
                             ErrorCode::TypeMismatch,
                         );
@@ -85,16 +85,16 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>,
-        choices: &mut [WithPos<Choice>],
+        choices: &mut [WithTokenSpan<Choice>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for choice in choices.iter_mut() {
             match choice.item {
                 Choice::Expression(ref mut expr) => {
                     if let Some(ttyp) = ttyp {
-                        self.expr_pos_with_ttyp(scope, ttyp, &choice.pos, expr, diagnostics)?;
+                        self.expr_pos_with_ttyp(scope, ttyp, choice.span, expr, diagnostics)?;
                     } else {
-                        self.expr_pos_unknown_ttyp(scope, &choice.pos, expr, diagnostics)?;
+                        self.expr_pos_unknown_ttyp(scope, choice.span, expr, diagnostics)?;
                     }
                 }
                 Choice::DiscreteRange(ref mut drange) => {
@@ -119,7 +119,7 @@ impl<'a> AnalyzeContext<'a> {
         for AssociationElement { actual, .. } in elems.iter_mut() {
             match actual.item {
                 ActualPart::Expression(ref mut expr) => {
-                    self.expr_pos_unknown_ttyp(scope, &actual.pos, expr, diagnostics)?;
+                    self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
                 }
                 ActualPart::Open => {}
             }
@@ -135,19 +135,15 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         let CallOrIndexed { name, parameters } = &mut fcall.item;
 
-        let resolved = match as_fatal(self.name_resolve(
-            scope,
-            &name.to_pos(self.ctx),
-            &mut name.item,
-            diagnostics,
-        ))? {
-            Some(resolved) => resolved,
-            None => {
-                // Continue checking missing names even if procedure is not found
-                self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-                return Ok(());
-            }
-        };
+        let resolved =
+            match as_fatal(self.name_resolve(scope, name.span, &mut name.item, diagnostics))? {
+                Some(resolved) => resolved,
+                None => {
+                    // Continue checking missing names even if procedure is not found
+                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                    return Ok(());
+                }
+            };
 
         match resolved {
             ResolvedName::Overloaded(ref des, names) => {
@@ -161,7 +157,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 ))? {
                     Some(Disambiguated::Ambiguous(candidates)) => {
-                        diagnostics.push(Diagnostic::ambiguous_call(des, candidates))
+                        diagnostics.push(Diagnostic::ambiguous_call(self.ctx, des, candidates))
                     }
                     Some(Disambiguated::Unambiguous(ent)) => {
                         name.set_unique_reference(&ent);

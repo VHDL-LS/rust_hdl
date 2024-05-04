@@ -24,10 +24,11 @@ fn parse_enumeration_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResul
     loop {
         expect_token!(ctx.stream,
             literal_token,
+            literal_token_id,
             Identifier | Character => {
                 let enum_literal = match literal_token.kind {
-                    Identifier => literal_token.to_identifier_value()?.map_into(EnumerationLiteral::Identifier),
-                    Character => literal_token.to_character_value()?.map_into(EnumerationLiteral::Character),
+                    Identifier => literal_token.to_identifier_value(literal_token_id)?.map_into(EnumerationLiteral::Identifier),
+                    Character => literal_token.to_character_value(literal_token_id)?.map_into(EnumerationLiteral::Character),
                     _ => unreachable!()
                 };
                 enum_literals.push(WithDecl::new(enum_literal));
@@ -143,24 +144,24 @@ fn parse_physical_type_definition(
 
     loop {
         peek_token!(
-            ctx.stream, token,
+            ctx.stream, token, token_id,
             End => {
                 break;
             },
             Identifier => {
                 ctx.stream.skip();
-                let ident = WithDecl::new(token.to_identifier_value()?);
+                let ident = WithDecl::new(token.to_identifier_value(token_id)?);
                 ctx.stream.expect_kind(EQ)?;
                 let literal = {
                     expect_token!(ctx.stream,
                         value_token,
                         AbstractLiteral => {
-                            let value = value_token.to_abstract_literal()?.item;
+                            let value = value_token.to_abstract_literal(token_id)?.item;
                             let unit = ctx.stream.expect_ident()?;
                             PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
-                            let unit = value_token.to_identifier_value()?;
+                            let unit = value_token.to_identifier_value(token_id)?;
                             PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
                         }
                     )
@@ -285,11 +286,10 @@ mod tests {
 
     use super::*;
 
-    use crate::HasTokenSpan;
+    use crate::{HasTokenSpan, TokenId};
 
     use crate::ast::{DiscreteRange, Ident};
     use crate::syntax::test::{token_to_string, Code};
-    use crate::SrcPos;
 
     #[test]
     fn parse_integer_scalar_type_definition() {
@@ -571,7 +571,7 @@ end foo;",
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
-            end_ident_pos: Some(code.s("foo", 2).pos()),
+            end_ident_pos: Some(code.s("foo", 2).token()),
         };
 
         assert_eq!(
@@ -648,7 +648,7 @@ end foo;",
         ident: Ident,
         token_span: TokenSpan,
         items: Vec<ProtectedTypeDeclarativeItem>,
-        end_ident_pos: Option<SrcPos>,
+        end_ident_pos: Option<TokenId>,
     ) -> TypeDeclaration {
         TypeDeclaration {
             span: token_span,
@@ -686,7 +686,7 @@ end protected foo;
                 code.s1("foo").ident(),
                 code.token_span(),
                 vec![],
-                Some(code.s("foo", 2).pos())
+                Some(code.s("foo", 2).token())
             )
         )
     }
@@ -767,7 +767,7 @@ end units phys;
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![]
                 }),
-                end_ident_pos: Some(code.s("phys", 2).pos()),
+                end_ident_pos: Some(code.s("phys", 2).token()),
             }
         )
     }

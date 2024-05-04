@@ -105,7 +105,7 @@ mod tests {
 
     use crate::ast::Ident;
     use crate::syntax::test::Code;
-    use crate::SrcPos;
+    use crate::TokenId;
     use crate::VHDLStandard::VHDL2019;
 
     fn to_component(
@@ -113,7 +113,7 @@ mod tests {
         span: TokenSpan,
         generic_list: Vec<InterfaceDeclaration>,
         port_list: Vec<InterfaceDeclaration>,
-        end_ident_pos: Option<SrcPos>,
+        end_ident_pos: Option<TokenId>,
     ) -> ComponentDeclaration {
         ComponentDeclaration {
             span,
@@ -176,7 +176,7 @@ end component foo;
                 code.token_span(),
                 vec![],
                 vec![],
-                Some(code.s("foo", 2).pos())
+                Some(code.s("foo", 2).token())
             )
         );
     }

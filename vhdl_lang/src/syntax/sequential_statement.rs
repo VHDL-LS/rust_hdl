@@ -16,6 +16,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::TokenSpan;
 
 /// LRM 10.2 Wait statement
 fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStatement> {
@@ -286,7 +287,7 @@ pub fn parse_signal_assignment_right_hand(
 /// LRM 10.6 Variable assignment statement
 fn parse_variable_assignment_right_hand(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<AssignmentRightHand<WithPos<Expression>>> {
+) -> ParseResult<AssignmentRightHand<WithTokenSpan<Expression>>> {
     parse_assignment_right_hand(ctx, parse_expression)
 }
 
@@ -366,7 +367,7 @@ where
 
 pub fn parse_selection<T, F>(
     ctx: &mut ParsingContext<'_>,
-    expression: WithPos<Expression>,
+    expression: WithTokenSpan<Expression>,
     parse_item: F,
 ) -> ParseResult<Selection<T>>
 where
@@ -555,34 +556,34 @@ fn parse_unlabeled_sequential_statement(
 pub fn parse_sequential_statement(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<LabeledSequentialStatement> {
-    let start = ctx.stream.peek_expect()?;
+    let start_idx = ctx.stream.get_current_token_id();
 
     if ctx.stream.next_kind_is(Identifier) {
         let name = parse_name(ctx)?;
         if ctx.stream.skip_if_kind(Colon) {
             let label = Some(to_simple_name(ctx, name)?);
-            let start = ctx.stream.peek_expect()?;
+            let start_idx = ctx.stream.get_current_token_id();
             let statement = parse_unlabeled_sequential_statement(ctx, label.as_ref())?;
-            let end = ctx.stream.last().unwrap();
+            let end = ctx.stream.get_last_token_id();
             Ok(LabeledSequentialStatement {
                 label: WithDecl::new(label),
-                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+                statement: WithTokenSpan::from(statement, TokenSpan::new(start_idx, end)),
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(ctx, target)?;
-            let end = ctx.stream.last().unwrap();
+            let end = ctx.stream.get_last_token_id();
             Ok(LabeledSequentialStatement {
                 label: WithDecl::new(None),
-                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+                statement: WithTokenSpan::from(statement, TokenSpan::new(start_idx, end)),
             })
         }
     } else {
         let statement = parse_unlabeled_sequential_statement(ctx, None)?;
-        let end = ctx.stream.last().unwrap();
+        let end = ctx.stream.get_last_token_id();
         Ok(LabeledSequentialStatement {
             label: WithDecl::new(None),
-            statement: WithPos::new(statement, start.pos.combine(&end.pos)),
+            statement: WithTokenSpan::from(statement, TokenSpan::new(start_idx, end)),
         })
     }
 }
@@ -607,7 +608,7 @@ mod tests {
 
     fn with_label(
         label: Option<Ident>,
-        statement: WithPos<SequentialStatement>,
+        statement: WithTokenSpan<SequentialStatement>,
     ) -> LabeledSequentialStatement {
         LabeledSequentialStatement {
             label: WithDecl::new(label),
@@ -622,13 +623,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::from(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
                         timeout_clause: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -641,13 +642,13 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("foo").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
                         timeout_clause: None
                     }),
-                    code.pos_after("foo: ")
+                    code.token_span()
                 )
             )
         );
@@ -660,13 +661,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
                         condition_clause: None,
                         timeout_clause: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -679,13 +680,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: Some(code.s1("a = b").expr()),
                         timeout_clause: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -698,13 +699,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
                         timeout_clause: Some(code.s1("2 ns").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -717,13 +718,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![code.s1("foo").name()],
                         condition_clause: Some(code.s1("bar").expr()),
                         timeout_clause: Some(code.s1("2 ns").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -736,13 +737,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Assert(AssertStatement {
                         condition: code.s1("false").expr(),
                         report: None,
                         severity: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -755,13 +756,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Assert(AssertStatement {
                         condition: code.s1("false").expr(),
                         report: Some(code.s1("\"message\"").expr()),
                         severity: Some(code.s1("error").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -774,12 +775,12 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Report(ReportStatement {
                         report: code.s1("\"message\"").expr(),
                         severity: Some(code.s1("error").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -793,13 +794,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -813,13 +814,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -831,13 +832,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::In),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -849,13 +850,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::Out),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -869,12 +870,12 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -888,7 +889,7 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code
                             .s1("<< signal dut.foo : boolean  >>")
@@ -897,7 +898,7 @@ mod tests {
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -911,13 +912,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -930,12 +931,12 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -948,7 +949,7 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code
                             .s1("<< variable dut.foo : boolean >>")
@@ -956,7 +957,7 @@ mod tests {
                             .map_into(Target::Name),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -969,7 +970,7 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code
                             .s1("(foo, 1 => bar)")
@@ -977,7 +978,7 @@ mod tests {
                             .map_into(Target::Aggregate),
                         rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -990,7 +991,7 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("name").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code
                             .s1("(foo, 1 => bar)")
@@ -998,7 +999,7 @@ mod tests {
                             .map_into(Target::Aggregate),
                         rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
                     }),
-                    code.pos_after("name: ")
+                    code.pos_after("name: ").token_span()
                 )
             )
         );
@@ -1011,12 +1012,12 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("name").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                     }),
-                    code.pos_after("name: ")
+                    code.pos_after("name: ").token_span()
                 )
             )
         );
@@ -1029,7 +1030,7 @@ mod tests {
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Conditional(Conditionals {
@@ -1040,7 +1041,7 @@ mod tests {
                             else_item: None
                         })
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1073,12 +1074,12 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Selected(selection)
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1091,7 +1092,7 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Conditional(Conditionals {
@@ -1108,7 +1109,7 @@ with x(0) + 1 select
                             else_item: None
                         })
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1120,7 +1121,7 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         rhs: AssignmentRightHand::Conditional(Conditionals {
@@ -1131,7 +1132,7 @@ with x(0) + 1 select
                             else_item: Some(code.s1("expr2").expr())
                         })
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1153,13 +1154,13 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Conditional(conditionals)
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1181,13 +1182,13 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Conditional(conditionals)
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1220,13 +1221,13 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
                         rhs: AssignmentRightHand::Selected(selection)
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1259,13 +1260,13 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Selected(selection)
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1279,9 +1280,9 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::ProcedureCall(code.s1("foo(1,2)").function_call()),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1295,9 +1296,9 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::ProcedureCall(code.s1("foo").function_call()),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1316,7 +1317,7 @@ end if;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![Conditional {
@@ -1330,7 +1331,7 @@ end if;",
                         },
                         end_label_pos: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1348,7 +1349,7 @@ end if mylabel;",
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![Conditional {
@@ -1362,7 +1363,7 @@ end if mylabel;",
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos())
                     }),
-                    code.pos_after("mylabel: ")
+                    code.pos_after("mylabel: ").token_span()
                 )
             )
         );
@@ -1382,7 +1383,7 @@ end if;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![Conditional {
@@ -1393,7 +1394,7 @@ end if;",
                         },
                         end_label_pos: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1413,7 +1414,7 @@ end if mylabel;",
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![Conditional {
@@ -1424,7 +1425,7 @@ end if mylabel;",
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos())
                     }),
-                    code.pos_after("mylabel: ")
+                    code.pos_after("mylabel: ").token_span()
                 )
             )
         );
@@ -1445,7 +1446,7 @@ end if;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![
@@ -1462,7 +1463,7 @@ end if;",
                         },
                         end_label_pos: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1483,7 +1484,7 @@ end if mylabel;",
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::If(IfStatement {
                         conds: Conditionals {
                             conditionals: vec![
@@ -1500,7 +1501,7 @@ end if mylabel;",
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos())
                     }),
-                    code.pos_after("mylabel: ")
+                    code.pos_after("mylabel: ").token_span()
                 )
             )
         );
@@ -1522,7 +1523,7 @@ end case;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Case(CaseStatement {
                         is_matching: false,
                         expression: code.s1("foo(1)").expr(),
@@ -1544,7 +1545,7 @@ end case;",
                         ],
                         end_label_pos: None
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1562,7 +1563,7 @@ end case?;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Case(CaseStatement {
                         is_matching: true,
                         expression: code.s1("foo(1)").expr(),
@@ -1572,7 +1573,7 @@ end case?;",
                         }],
                         end_label_pos: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1591,7 +1592,7 @@ end loop lbl;",
             statement,
             with_label(
                 Some(code.s1("lbl").ident()),
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Loop(LoopStatement {
                         iteration_scheme: None,
                         statements: vec![
@@ -1600,7 +1601,7 @@ end loop lbl;",
                         ],
                         end_label_pos: Some(code.s("lbl", 2).pos()),
                     }),
-                    code.pos_after("lbl: ")
+                    code.pos_after("lbl: ").token_span()
                 )
             )
         );
@@ -1619,7 +1620,7 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Loop(LoopStatement {
                         iteration_scheme: Some(IterationScheme::While(
                             code.s1("foo = true").expr()
@@ -1630,7 +1631,7 @@ end loop;",
                         ],
                         end_label_pos: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1648,7 +1649,7 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Loop(LoopStatement {
                         iteration_scheme: Some(IterationScheme::For(
                             code.s1("idx").decl_ident(),
@@ -1660,7 +1661,7 @@ end loop;",
                         ],
                         end_label_pos: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1673,12 +1674,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Next(NextStatement {
                         loop_label: None,
                         condition: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1691,12 +1692,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Next(NextStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1709,12 +1710,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Next(NextStatement {
                         loop_label: None,
                         condition: Some(code.s1("condition").expr()),
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1727,12 +1728,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Next(NextStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: Some(code.s1("condition").expr()),
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1745,12 +1746,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Exit(ExitStatement {
                         loop_label: None,
                         condition: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1763,12 +1764,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Exit(ExitStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: None,
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1781,12 +1782,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Exit(ExitStatement {
                         loop_label: None,
                         condition: Some(code.s1("condition").expr()),
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1799,12 +1800,12 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Exit(ExitStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: Some(code.s1("condition").expr()),
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1819,9 +1820,9 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Return(ReturnStatement { expression: None }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1835,11 +1836,11 @@ end loop;",
             statement,
             with_label(
                 None,
-                WithPos::new(
+                WithTokenSpan::new(
                     SequentialStatement::Return(ReturnStatement {
                         expression: Some(code.s1("1 + 2").expr()),
                     }),
-                    code.pos()
+                    code.token_span()
                 )
             )
         );
@@ -1850,7 +1851,10 @@ end loop;",
         let (code, statement) = parse("null;");
         assert_eq!(
             statement,
-            with_label(None, WithPos::new(SequentialStatement::Null, code.pos()))
+            with_label(
+                None,
+                WithTokenSpan::new(SequentialStatement::Null, code.token_span())
+            )
         );
     }
 }

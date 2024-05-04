@@ -404,7 +404,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -437,7 +437,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -472,7 +472,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -501,7 +501,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -545,7 +545,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -592,7 +592,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -650,7 +650,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -699,7 +699,7 @@ end configuration cfg;
                         block_config: None,
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -779,7 +779,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }

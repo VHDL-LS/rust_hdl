@@ -488,7 +488,7 @@ impl Code {
         self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
     }
 
-    pub fn attr_ident(&self) -> WithPos<AttributeDesignator> {
+    pub fn attr_ident(&self) -> WithToken<AttributeDesignator> {
         self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
             .map_into(|i| AttributeDesignator::Ident(WithRef::new(i)))
     }
@@ -497,29 +497,29 @@ impl Code {
         WithDecl::new(self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident()))
     }
 
-    pub fn designator(&self) -> WithTokenSpan<Designator> {
+    pub fn designator(&self) -> WithToken<Designator> {
         self.parse_ok_no_diagnostics(parse_designator)
     }
 
-    pub fn decl_designator(&self) -> WithDecl<WithTokenSpan<Designator>> {
+    pub fn decl_designator(&self) -> WithDecl<WithToken<Designator>> {
         WithDecl::new(self.parse_ok_no_diagnostics(parse_designator))
     }
 
-    pub fn ref_designator(&self) -> WithTokenSpan<WithRef<Designator>> {
+    pub fn ref_designator(&self) -> WithToken<WithRef<Designator>> {
         self.parse_ok_no_diagnostics(parse_designator)
             .map_into(WithRef::new)
     }
 
-    pub fn character(&self) -> WithPos<u8> {
+    pub fn character(&self) -> WithToken<u8> {
         self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
             let id = ctx.stream.expect_kind(Kind::Character)?;
-            ctx.stream.get_token(id).to_character_value()
+            ctx.stream.get_token(id).to_character_value(id)
         })
     }
 
     /// Helper method to create expression from first occurrence of substr
     /// Can be used to test all but expression parsing
-    pub fn expr(&self) -> WithPos<Expression> {
+    pub fn expr(&self) -> WithTokenSpan<Expression> {
         self.parse_ok_no_diagnostics(parse_expression)
     }
 
@@ -539,7 +539,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_type_mark)
     }
 
-    pub fn signature(&self) -> WithPos<Signature> {
+    pub fn signature(&self) -> WithTokenSpan<Signature> {
         self.parse_ok_no_diagnostics(parse_signature)
     }
 
@@ -662,7 +662,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_discrete_range)
     }
 
-    pub fn choices(&self) -> Vec<WithPos<Choice>> {
+    pub fn choices(&self) -> Vec<WithTokenSpan<Choice>> {
         self.parse_ok_no_diagnostics(parse_choices)
     }
 

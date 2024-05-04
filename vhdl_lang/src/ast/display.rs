@@ -9,7 +9,7 @@
 use super::*;
 use std::fmt::{Display, Formatter, Result};
 
-impl<T: Display> Display for WithPos<T> {
+impl<T: Display> Display for WithTokenSpan<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", &self.item)
     }
@@ -18,15 +18,6 @@ impl<T: Display> Display for WithPos<T> {
 impl<T: Display> Display for WithDecl<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", &self.tree)
-    }
-}
-
-impl<T> Display for WithTokenSpan<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", &self.item)
     }
 }
 

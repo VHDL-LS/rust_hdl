@@ -268,6 +268,28 @@ macro_rules! peek_token {
                 }
             }
         }
+    };
+    ($tokens:expr, $token:ident, $token_id:ident, $($($kind:ident)|+ => $result:expr),*) => {
+        {
+            let $token = $tokens.peek_expect()?;
+            let $token_id = $tokens.get_current_token_id();
+            match $token.kind {
+                $(
+                    $($kind)|+ => $result
+                ),*,
+                _ => {
+                    let kinds = vec![
+                        $(
+                            $(
+                                $kind,
+                            )*
+                        )*
+                    ];
+
+                    return Err($crate::syntax::tokens::kinds_error($tokens.pos_before($token), &kinds));
+                }
+            }
+        }
     }
 }
 
@@ -280,6 +302,31 @@ macro_rules! expect_token {
     ($tokens:expr, $token:ident, $($($kind:ident)|+ => $result:expr),*) => {
         {
             let $token = $tokens.peek_expect()?;
+            match $token.kind {
+                $(
+                    $($kind)|+ => {
+                        $tokens.skip();
+                        $result
+                    }
+                ),*
+                _ => {
+                    let kinds = vec![
+                        $(
+                            $(
+                                $kind,
+                            )*
+                        )*
+                    ];
+
+                    return Err($crate::syntax::tokens::kinds_error($tokens.pos_before($token), &kinds));
+                }
+            }
+        }
+    };
+    ($tokens:expr, $token:ident, $token_id:ident, $($($kind:ident)|+ => $result:expr),*) => {
+        {
+            let $token = $tokens.peek_expect()?;
+            let $token_id = $tokens.get_current_token_id();
             match $token.kind {
                 $(
                     $($kind)|+ => {
@@ -408,6 +455,15 @@ impl TokenId {
     }
 }
 
+impl Into<TokenSpan> for TokenId {
+    fn into(self) -> TokenSpan {
+        TokenSpan {
+            start_token: self,
+            end_token: self,
+        }
+    }
+}
+
 /// AST elements for which it is necessary to get the underlying tokens can implement the `HasTokenSpan` trait.
 /// The trait provides getters for the start and end token.
 ///
@@ -474,6 +530,8 @@ pub struct TokenSpan {
     pub end_token: TokenId,
 }
 
+impl TokenSpan {}
+
 impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
         Self {
@@ -508,6 +566,20 @@ impl TokenSpan {
 
     pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.start_token, self.end_token)
+    }
+
+    pub(crate) fn combine(&self, other: impl Into<TokenSpan>) -> TokenSpan {
+        TokenSpan {
+            start_token: self.start_token,
+            end_token: other.into().end_token,
+        }
+    }
+
+    pub(crate) fn set_end(&self, other: TokenId) -> TokenSpan {
+        TokenSpan {
+            start_token: self.start_token,
+            end_token: other,
+        }
     }
 }
 
@@ -596,63 +668,62 @@ impl Token {
         kinds_error(&self.pos, kinds)
     }
 
-    pub fn to_identifier_value(&self) -> DiagnosticResult<Ident> {
+    pub fn to_identifier_value(&self, id: TokenId) -> DiagnosticResult<Ident> {
         if let Token {
             kind: Identifier,
             value: Value::Identifier(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[Identifier]))
         }
     }
 
-    pub fn to_character_value(&self) -> DiagnosticResult<WithToken<u8>> {
+    pub fn to_character_value(&self, id: TokenId) -> DiagnosticResult<WithToken<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(*value, pos.clone()))
+            Ok(WithToken::new(*value, id))
         } else {
             Err(self.kinds_error(&[Character]))
         }
     }
 
-    pub fn to_bit_string(&self) -> DiagnosticResult<WithPos<ast::BitString>> {
+    pub fn to_bit_string(&self, id: TokenId) -> DiagnosticResult<WithToken<ast::BitString>> {
         if let Token {
             kind: BitString,
             value: Value::BitString(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[BitString]))
         }
     }
 
-    pub fn to_abstract_literal(&self) -> DiagnosticResult<WithPos<ast::AbstractLiteral>> {
+    pub fn to_abstract_literal(
+        &self,
+        id: TokenId,
+    ) -> DiagnosticResult<WithToken<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
             value: Value::AbstractLiteral(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(*value, pos.clone()))
+            Ok(WithToken::new(*value, id))
         } else {
             Err(self.kinds_error(&[AbstractLiteral]))
         }
     }
 
-    pub fn to_string_value(&self) -> DiagnosticResult<WithPos<Latin1String>> {
+    pub fn to_string_value(&self, id: TokenId) -> DiagnosticResult<WithToken<Latin1String>> {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
@@ -660,19 +731,19 @@ impl Token {
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[StringLiteral]))
         }
     }
 
-    pub fn to_operator_symbol(&self) -> DiagnosticResult<WithToken<Operator>> {
-        let string = self.to_string_value()?;
+    pub fn to_operator_symbol(&self, id: TokenId) -> DiagnosticResult<WithToken<Operator>> {
+        let string = self.to_string_value(id)?;
         if let Some(op) = Operator::from_latin1(string.item) {
-            Ok(WithPos::new(op, string.pos))
+            Ok(WithToken::new(op, string.token))
         } else {
             Err(Diagnostic::syntax_error(
-                &string.pos,
+                &self.pos,
                 "Invalid operator symbol",
             ))
         }

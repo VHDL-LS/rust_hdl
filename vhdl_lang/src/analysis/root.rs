@@ -168,9 +168,10 @@ impl Library {
 
     fn append_duplicate_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for (prev_pos, unit) in self.duplicates.iter() {
+            let tokens = &unit.tokens;
             let diagnostic = match unit.key() {
                 UnitKey::Primary(ref primary_name) => Diagnostic::new(
-                    unit.pos(),
+                    unit.ident_pos(tokens),
                     format!(
                         "A primary unit has already been declared with name '{}' in library '{}'",
                         primary_name, &self.name
@@ -179,12 +180,12 @@ impl Library {
                 ),
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
                     AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::new(
-                        unit.ident(),
+                        unit.ident_pos(tokens),
                         format!("Duplicate architecture '{name}' of entity '{primary_name}'",),
                         ErrorCode::Duplicate,
                     ),
                     AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::new(
-                        unit.pos(),
+                        unit.ident_pos(tokens),
                         format!("Duplicate package body of package '{primary_name}'"),
                         ErrorCode::Duplicate,
                     ),

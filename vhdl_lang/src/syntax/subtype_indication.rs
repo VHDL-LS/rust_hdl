@@ -7,11 +7,12 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, Kind::*, TokenAccess};
+use super::tokens::{kinds_error, Kind::*};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
-use crate::data::WithPos;
+use crate::data::WithTokenSpan;
 use crate::syntax::TokenId;
+use crate::TokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 fn parse_record_element_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult<ElementConstraint> {
@@ -25,13 +26,13 @@ fn parse_array_constraint(
     leftpar: TokenId,
     // Open is None
     initial: Option<DiscreteRange>,
-) -> ParseResult<WithPos<SubtypeConstraint>> {
+) -> ParseResult<WithTokenSpan<SubtypeConstraint>> {
     let mut discrete_ranges: Vec<_> = initial.into_iter().collect();
 
-    let mut end_pos = loop {
+    let mut end_token = loop {
         expect_token!(
-            ctx.stream, sep_token,
-            RightPar => break sep_token.pos.clone(),
+            ctx.stream, sep_token, sep_token_id,
+            RightPar => break sep_token_id,
             Comma => {}
         );
 
@@ -41,24 +42,22 @@ fn parse_array_constraint(
     // Array element constraint
     let element_constraint = {
         if let Some(elemement_constraint) = parse_subtype_constraint(ctx)? {
-            end_pos = elemement_constraint.pos.clone();
+            end_token = elemement_constraint.span.end_token;
             Some(Box::new(elemement_constraint))
         } else {
             None
         }
     };
 
-    let leftpar_pos = ctx.stream.get_pos(leftpar).clone();
-
-    Ok(WithPos::from(
+    Ok(WithTokenSpan::from(
         SubtypeConstraint::Array(discrete_ranges, element_constraint),
-        leftpar_pos.combine_into(&end_pos).clone(),
+        TokenSpan::new(leftpar, end_token),
     ))
 }
 
 fn parse_composite_constraint(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<WithPos<SubtypeConstraint>> {
+) -> ParseResult<WithTokenSpan<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
     let leftpar = ctx.stream.expect_kind(LeftPar)?;
@@ -93,36 +92,36 @@ fn parse_composite_constraint(
         ctx.stream.set_state(state);
         let mut constraints = vec![parse_record_element_constraint(ctx)?];
 
-        let rightpar_pos = loop {
+        let rightpar = loop {
             expect_token!(
                 ctx.stream,
                 sep_token,
-                RightPar => break sep_token.pos.clone(),
+                sep_token_id,
+                RightPar => break sep_token_id,
                 Comma => {}
             );
             constraints.push(parse_record_element_constraint(ctx)?);
         };
 
-        let leftpar_pos = ctx.stream.get_pos(leftpar).clone();
-
-        Ok(WithPos::from(
+        Ok(WithTokenSpan::from(
             SubtypeConstraint::Record(constraints),
-            leftpar_pos.combine_into(&rightpar_pos),
+            TokenSpan::new(leftpar, rightpar),
         ))
     }
 }
 
 pub fn parse_subtype_constraint(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<WithPos<SubtypeConstraint>>> {
+) -> ParseResult<Option<WithTokenSpan<SubtypeConstraint>>> {
     if let Some(token) = ctx.stream.peek() {
+        let token_id = ctx.stream.get_current_token_id();
         let constraint = match token.kind {
             Range => {
                 ctx.stream.skip();
                 Some(
                     parse_range(ctx)?
                         .map_into(SubtypeConstraint::Range)
-                        .combine_pos_with(&token),
+                        .combine_span_with(token_id),
                 )
             }
             LeftPar => Some(parse_composite_constraint(ctx)?),
@@ -144,7 +143,7 @@ pub fn parse_element_resolution_indication(
     Ok(peek_token!(
         ctx.stream, token,
         Dot | RightPar => {
-            let selected_name = first_ident.map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()));
+            let selected_name = first_ident.map_into_span(|sym| Name::Designator(Designator::Identifier(sym).into_ref()));
             ctx.stream.expect_kind(RightPar)?;
             ResolutionIndication::ArrayElement(selected_name)
         },
@@ -360,9 +359,9 @@ mod tests {
     fn parse_subtype_indication_with_range() {
         let code = Code::new("integer range 0 to 2-1");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Range(code.s1("0 to 2-1").range()),
-            code.s1("range 0 to 2-1"),
+            code.s1("range 0 to 2-1").token_span(),
         );
 
         assert_eq!(
@@ -379,9 +378,9 @@ mod tests {
     fn parse_subtype_indication_with_range_attribute() {
         let code = Code::new("integer range lib.foo.bar'range");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Range(code.s1("lib.foo.bar'range").range()),
-            code.s1("range lib.foo.bar'range"),
+            code.s1("range lib.foo.bar'range").token_span(),
         );
 
         assert_eq!(
@@ -398,9 +397,9 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_range() {
         let code = Code::new("integer_vector(2-1 downto 0)");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
-            code.s1("(2-1 downto 0)"),
+            code.s1("(2-1 downto 0)").token_span(),
         );
 
         assert_eq!(
@@ -417,9 +416,9 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_discrete() {
         let code = Code::new("integer_vector(lib.foo.bar)");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(vec![code.s1("lib.foo.bar").discrete_range()], None),
-            code.s1("(lib.foo.bar)"),
+            code.s1("(lib.foo.bar)").token_span(),
         );
 
         assert_eq!(
@@ -436,9 +435,9 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_attribute() {
         let code = Code::new("integer_vector(lib.pkg.bar'range)");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None),
-            code.s1("(lib.pkg.bar'range)"),
+            code.s1("(lib.pkg.bar'range)").token_span(),
         );
 
         assert_eq!(
@@ -455,7 +454,10 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_open() {
         let code = Code::new("integer_vector(open)");
 
-        let constraint = WithPos::new(SubtypeConstraint::Array(vec![], None), code.s1("(open)"));
+        let constraint = WithTokenSpan::new(
+            SubtypeConstraint::Array(vec![], None),
+            code.s1("(open)").token_span(),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -471,7 +473,7 @@ mod tests {
     fn parse_subtype_indication_with_multi_dim_array_constraints() {
         let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)");
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(
                 vec![
                     code.s1("2-1 downto 0").discrete_range(),
@@ -479,7 +481,7 @@ mod tests {
                 ],
                 None,
             ),
-            code.s1("(2-1 downto 0, 11 to 14)"),
+            code.s1("(2-1 downto 0, 11 to 14)").token_span(),
         );
 
         assert_eq!(
@@ -496,12 +498,12 @@ mod tests {
     fn parse_subtype_indication_with_array_element_constraint() {
         let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)(foo to bar)");
 
-        let element_constraint = WithPos::new(
+        let element_constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(vec![code.s1("foo to bar").discrete_range()], None),
-            code.s1("(foo to bar)"),
+            code.s1("(foo to bar)").token_span(),
         );
 
-        let constraint = WithPos::new(
+        let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(
                 vec![
                     code.s1("2-1 downto 0").discrete_range(),
@@ -509,7 +511,7 @@ mod tests {
                 ],
                 Some(Box::new(element_constraint)),
             ),
-            code.s1("(2-1 downto 0, 11 to 14)(foo to bar)"),
+            code.s1("(2-1 downto 0, 11 to 14)(foo to bar)").token_span(),
         );
 
         assert_eq!(
@@ -528,17 +530,17 @@ mod tests {
 
         let tdata_constraint = ElementConstraint {
             ident: code.s1("tdata").ident(),
-            constraint: Box::new(WithPos::new(
+            constraint: Box::new(WithTokenSpan::new(
                 SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
-                code.s1("(2-1 downto 0)"),
+                code.s1("(2-1 downto 0)").token_span(),
             )),
         };
 
         let tuser_constraint = ElementConstraint {
             ident: code.s1("tuser").ident(),
-            constraint: Box::new(WithPos::new(
+            constraint: Box::new(WithTokenSpan::new(
                 SubtypeConstraint::Array(vec![code.s1("3 to 5").discrete_range()], None),
-                code.s1("(3 to 5)"),
+                code.s1("(3 to 5)").token_span(),
             )),
         };
 
@@ -547,9 +549,9 @@ mod tests {
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
                 type_mark: code.s1("axi_m2s_t").type_mark(),
-                constraint: Some(WithPos::new(
+                constraint: Some(WithTokenSpan::new(
                     SubtypeConstraint::Record(vec![tdata_constraint, tuser_constraint]),
-                    code.s1("(tdata(2-1 downto 0), tuser(3 to 5))")
+                    code.s1("(tdata(2-1 downto 0), tuser(3 to 5))").token_span()
                 ))
             }
         );

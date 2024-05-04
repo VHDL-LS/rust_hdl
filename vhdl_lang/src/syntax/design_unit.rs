@@ -179,7 +179,7 @@ pub fn parse_design_file(ctx: &mut ParsingContext<'_>) -> ParseResult<DesignFile
             Context => match parse_context(ctx) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
                     if !context_clause.is_empty() {
-                        let mut diagnostic = Diagnostic::syntax_error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
+                        let mut diagnostic = Diagnostic::syntax_error(context_decl.ident.pos(ctx), "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
                             diagnostic.add_related(context_item.get_pos(ctx.stream), context_item_message(context_item, "may not come before context declaration"));
@@ -307,7 +307,7 @@ mod tests {
     fn simple_entity(
         ident: Ident,
         span: TokenSpan,
-        end_ident_pos: Option<SrcPos>,
+        end_ident_pos: Option<TokenId>,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             span,
@@ -350,7 +350,7 @@ end entity myent;
                 simple_entity(
                     code.s1("myent").ident(),
                     code.token_span(),
-                    Some(code.s("myent", 2).pos()),
+                    Some(code.s("myent", 2).token()),
                 )
             )]
         );
@@ -574,7 +574,7 @@ end;
                         code_myent2
                             .token_span()
                             .apply_offset(code.s1("entity myent2").token()),
-                        Some(code.s("myent2", 2).pos()),
+                        Some(code.s("myent2", 2).token()),
                     )
                 ),
                 (
@@ -584,7 +584,7 @@ end;
                         code_myent3
                             .token_span()
                             .apply_offset(code.s1("entity myent3").token()),
-                        Some(code.s("myent3", 2).pos()),
+                        Some(code.s("myent3", 2).token()),
                     )
                 ),
                 (
@@ -607,7 +607,7 @@ end;
         entity_name: Ident,
         span: TokenSpan,
         begin_token: TokenId,
-        end_ident_pos: Option<SrcPos>,
+        end_ident_pos: Option<TokenId>,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             span,
@@ -663,7 +663,7 @@ end architecture arch_name;
                     code.s1("myent").ident(),
                     code.token_span(),
                     code.s1("begin").token(),
-                    Some(code.s("arch_name", 2).pos()),
+                    Some(code.s("arch_name", 2).token()),
                 )
             )]
         );

@@ -177,7 +177,8 @@ impl<'a> Visible<'a> {
 
     pub fn into_unambiguous(
         self,
-        pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        span: TokenSpan,
         designator: &Designator,
     ) -> Result<Option<NamedEntities<'a>>, Diagnostic> {
         let mut named_entities: Vec<_> = self
@@ -200,7 +201,7 @@ impl<'a> Visible<'a> {
         } else {
             // Duplicate visible items hide each other
             let mut error = Diagnostic::new(
-                pos,
+                span.to_pos(ctx),
                 format!("Name '{designator}' is hidden by conflicting use clause"),
                 ErrorCode::ConflictingUseClause,
             );

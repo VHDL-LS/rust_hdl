@@ -85,7 +85,7 @@ impl<'a> AnalyzeContext<'a> {
                 ent
             } else {
                 diagnostics.add(
-                    &assoc.actual.pos,
+                    &assoc.actual.to_pos(self.ctx),
                     "Extra actual for generic map",
                     ErrorCode::TooManyArguments,
                 );
@@ -102,7 +102,7 @@ impl<'a> AnalyzeContext<'a> {
                                 Name::Slice(prefix, drange) => {
                                     let typ = self.type_name(
                                         scope,
-                                        &prefix.to_pos(self.ctx),
+                                        prefix.span,
                                         &mut prefix.item,
                                         diagnostics,
                                     )?;
@@ -117,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
                                         }
                                     } else {
                                         diagnostics.add(
-                                            &assoc.actual.pos,
+                                            &assoc.actual.to_pos(self.ctx),
                                             format!(
                                                 "Array constraint cannot be used for {}",
                                                 typ.describe()
@@ -132,15 +132,15 @@ impl<'a> AnalyzeContext<'a> {
                                 Name::CallOrIndexed(call) if call.could_be_indexed_name() => self
                                     .type_name(
                                     scope,
-                                    &call.name.to_pos(self.ctx),
+                                    call.name.span,
                                     &mut call.name.item,
                                     diagnostics,
                                 )?,
-                                _ => self.type_name(scope, &assoc.actual.pos, name, diagnostics)?,
+                                _ => self.type_name(scope, assoc.actual.span, name, diagnostics)?,
                             }
                         } else {
                             diagnostics.add(
-                                &assoc.actual.pos,
+                                &assoc.actual.to_pos(self.ctx),
                                 "Cannot map expression to type generic",
                                 ErrorCode::MismatchedKinds,
                             );
@@ -152,14 +152,14 @@ impl<'a> AnalyzeContext<'a> {
                     GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
                         scope,
                         self.map_type_ent(&mapping, obj.type_mark()),
-                        &assoc.actual.pos,
+                        assoc.actual.span,
                         expr,
                         diagnostics,
                     )?,
                     GpkgInterfaceEnt::Subprogram(target) => match expr {
                         Expression::Name(name) => {
                             let resolved =
-                                self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
+                                self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
                             if let ResolvedName::Overloaded(des, overloaded) = resolved {
                                 let signature = target.subprogram_key().map(|base_type| {
                                     mapping
@@ -171,7 +171,7 @@ impl<'a> AnalyzeContext<'a> {
                                     name.set_unique_reference(&ent);
                                 } else {
                                     let mut diag = Diagnostic::new(
-                                        &assoc.actual.pos,
+                                        &assoc.actual.to_pos(self.ctx),
                                         format!(
                                             "Cannot map '{}' to subprogram generic {}{}",
                                             des,
@@ -190,7 +190,7 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             } else {
                                 diagnostics.add(
-                                    &assoc.actual.pos,
+                                    &assoc.actual.to_pos(self.ctx),
                                     format!(
                                         "Cannot map {} to subprogram generic",
                                         resolved.describe()
@@ -202,24 +202,24 @@ impl<'a> AnalyzeContext<'a> {
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
                                 diagnostics.add(
-                                    &assoc.actual.pos,
+                                    &assoc.actual.to_pos(self.ctx),
                                     "Invalid operator symbol",
                                     ErrorCode::InvalidOperatorSymbol,
                                 );
                             }
                         }
                         _ => diagnostics.add(
-                            &assoc.actual.pos,
+                            &assoc.actual.to_pos(self.ctx),
                             "Cannot map expression to subprogram generic",
                             ErrorCode::MismatchedKinds,
                         ),
                     },
                     GpkgInterfaceEnt::Package(_) => match expr {
                         Expression::Name(name) => {
-                            self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
+                            self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
                         }
                         _ => diagnostics.add(
-                            &assoc.actual.pos,
+                            &assoc.actual.to_pos(self.ctx),
                             "Cannot map expression to package generic",
                             ErrorCode::MismatchedKinds,
                         ),

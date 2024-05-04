@@ -11,8 +11,7 @@ use super::expression::parse_expression;
 use super::tokens::Kind::*;
 use crate::ast;
 use crate::ast::*;
-use crate::data::{Diagnostic, WithPos};
-use vhdl_lang::data::WithTokenSpan;
+use crate::data::{Diagnostic, WithTokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
@@ -25,7 +24,7 @@ pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
 
 enum NameOrRange {
     Name(WithTokenSpan<Name>),
-    Range(WithPos<ast::Range>),
+    Range(WithTokenSpan<ast::Range>),
 }
 
 fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange> {
@@ -36,45 +35,48 @@ fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange>
             let direction = parse_direction(ctx)?;
             let right_expr = parse_expression(ctx)?;
 
-            let pos = expr.pos.combine(&right_expr.pos);
+            let span = expr.span.combine(right_expr.span);
             let range = ast::Range::Range(RangeConstraint {
                 direction,
                 left_expr: Box::new(expr),
                 right_expr: Box::new(right_expr),
             });
 
-            return Ok(NameOrRange::Range(WithPos::from(range, pos)));
+            return Ok(NameOrRange::Range(WithTokenSpan::from(range, span)));
         }
         _ => {}
     }
 
-    if let WithPos {
+    if let WithTokenSpan {
         item: Expression::Name(name),
-        pos,
+        span,
     } = expr
     {
         if let Name::Attribute(attribute_name) = *name {
             if attribute_name.as_range().is_some() {
                 let range = ast::Range::Attribute(attribute_name);
-                Ok(NameOrRange::Range(WithPos::from(range, pos)))
+                Ok(NameOrRange::Range(WithTokenSpan::from(range, span)))
             } else {
-                Ok(NameOrRange::Name(WithPos::from(
+                Ok(NameOrRange::Name(WithTokenSpan::from(
                     Name::Attribute(attribute_name),
-                    pos,
+                    span,
                 )))
             }
         } else {
-            Ok(NameOrRange::Name(WithPos::from(*name, pos)))
+            Ok(NameOrRange::Name(WithTokenSpan::from(*name, span)))
         }
     } else {
-        Err(Diagnostic::syntax_error(&expr, "Expected name or range"))
+        Err(Diagnostic::syntax_error(
+            expr.to_pos(ctx),
+            "Expected name or range",
+        ))
     }
 }
 
 /// {selected_name}'range
 /// {selected_name}'reverse_range
 /// 2. {expr} to|downto {expr}
-pub fn parse_range(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<ast::Range>> {
+pub fn parse_range(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<ast::Range>> {
     match parse_name_or_range(ctx)? {
         NameOrRange::Range(range) => Ok(range),
         NameOrRange::Name(name) => {
@@ -130,13 +132,13 @@ mod tests {
         let code = Code::new("foo.bar to 1");
         assert_eq!(
             code.with_stream(parse_range),
-            WithPos::new(
+            WithTokenSpan::new(
                 ast::Range::Range(RangeConstraint {
                     direction: Direction::Ascending,
                     left_expr: Box::new(code.s1("foo.bar").expr()),
                     right_expr: Box::new(code.s1("1").expr())
                 },),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -146,9 +148,9 @@ mod tests {
         let code = Code::new("foo.bar'range");
         assert_eq!(
             code.with_stream(parse_range),
-            WithPos::new(
+            WithTokenSpan::new(
                 ast::Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name())),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -158,9 +160,9 @@ mod tests {
         let code = Code::new("foo.bar'reverse_range");
         assert_eq!(
             code.with_stream(parse_range),
-            WithPos::new(
+            WithTokenSpan::new(
                 ast::Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name())),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -170,13 +172,13 @@ mod tests {
         let code = Code::new("foo.bar'length downto 0");
         assert_eq!(
             code.with_stream(parse_range),
-            WithPos::new(
+            WithTokenSpan::new(
                 ast::Range::Range(RangeConstraint {
                     direction: Direction::Descending,
                     left_expr: Box::new(code.s1("foo.bar'length").expr()),
                     right_expr: Box::new(code.s1("0").expr())
                 }),
-                code.pos()
+                code.token_span()
             )
         );
     }

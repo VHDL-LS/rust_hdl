@@ -56,17 +56,17 @@ pub fn check_label_identifier_mismatch(
     if let Some(ident) = label {
         if let Some(end_ident) = end_ident {
             if ident.item == end_ident.item {
-                return Some(end_ident.pos);
+                return Some(end_ident.pos(ctx).clone());
             } else {
                 ctx.diagnostics.push(Diagnostic::syntax_error(
-                    &end_ident.pos,
+                    &end_ident.pos(ctx),
                     format!("End label mismatch, expected {}", ident.item),
                 ));
             }
         }
     } else if let Some(end_ident) = end_ident {
         ctx.diagnostics.push(Diagnostic::syntax_error(
-            &end_ident.pos,
+            &end_ident.pos(ctx),
             format!(
                 "End label '{}' found for unlabeled statement",
                 end_ident.item

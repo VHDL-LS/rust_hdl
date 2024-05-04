@@ -13,35 +13,39 @@ use super::tokens::{Kind::*, TokenAccess};
 use crate::ast;
 use crate::ast::{Literal, *};
 use crate::data::error_codes::ErrorCode;
-use crate::data::{Diagnostic, WithPos, WithTokenSpan};
+use crate::data::{Diagnostic, WithTokenSpan};
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
 
-pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Designator>> {
+pub fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToken<Designator>> {
     Ok(expect_token!(
         ctx.stream,
         token,
-        Identifier => token.to_identifier_value()?.map_into(Designator::Identifier),
-        StringLiteral => token.to_operator_symbol()?.map_into(Designator::OperatorSymbol),
-        Character => token.to_character_value()?.map_into(Designator::Character)
+        token_id,
+        Identifier => token.to_identifier_value(token_id)?.map_into(Designator::Identifier),
+        StringLiteral => token.to_operator_symbol(token_id)?.map_into(Designator::OperatorSymbol),
+        Character => token.to_character_value(token_id)?.map_into(Designator::Character)
     ))
 }
 
 pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
-    let mut name = parse_designator(ctx)?.into_ref().map_into(Name::Designator);
+    let mut name = parse_designator(ctx)?
+        .into_ref()
+        .map_into_span(Name::Designator);
     loop {
         if !ctx.stream.skip_if_kind(Dot) {
             break;
         }
         if let Some(tok) = ctx.stream.pop_if_kind(All) {
-            let pos = ctx.stream.get_pos(tok).combine(&name.pos);
-            name = WithPos::from(Name::SelectedAll(Box::new(name)), pos);
+            name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), name.span.set_end(tok));
         } else {
             let suffix = parse_designator(ctx)?.into_ref();
-            let pos = suffix.pos.combine(&name.pos);
-            name = WithPos::from(Name::Selected(Box::new(name), suffix), pos);
+            name = WithTokenSpan::from(
+                Name::SelectedAll(Box::new(name)),
+                name.span.set_end(suffix.token),
+            );
         }
     }
     Ok(name)
@@ -64,11 +68,11 @@ pub fn parse_type_mark_starting_with_name(
         if let Ok(attr) = ctx.stream.expect_attribute_designator() {
             if let AttributeDesignator::Type(typattr) = attr.item {
                 return Ok(WithTokenSpan {
-                    span: TokenSpan::new(attr.span.start_token, attr.span.end_token),
                     item: TypeMark {
                         name,
                         attr: Some(typattr),
                     },
+                    span: attr.token.into(),
                 });
             }
         }
@@ -104,9 +108,9 @@ impl WithTokenSpan<Name> {
 
 pub fn expression_to_ident(
     ctx: &mut ParsingContext<'_>,
-    name: WithPos<Expression>,
+    name: WithTokenSpan<Expression>,
 ) -> ParseResult<Ident> {
-    let name = expression_to_name(name)?;
+    let name = expression_to_name(ctx, name)?;
     to_simple_name(ctx, name)
 }
 
@@ -121,60 +125,80 @@ pub fn parse_identifier_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Id
     Ok(idents)
 }
 
-fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithTokenSpan<Name>> {
+fn expression_to_name(
+    ctx: &dyn TokenAccess,
+    expr: WithTokenSpan<Expression>,
+) -> ParseResult<WithTokenSpan<Name>> {
     match expr.item {
-        Expression::Name(name) => Ok(WithPos {
+        Expression::Name(name) => Ok(WithTokenSpan {
             item: *name,
-            pos: expr.pos,
+            span: expr.span,
         }),
         Expression::Literal(Literal::String(val)) => {
             if let Some(op) = Operator::from_latin1(val) {
-                Ok(WithPos {
+                Ok(WithTokenSpan {
                     item: Name::Designator(Designator::OperatorSymbol(op).into_ref()),
-                    pos: expr.pos,
+                    span: expr.span,
                 })
             } else {
                 Err(Diagnostic::syntax_error(
-                    expr.pos,
+                    expr.span.to_pos(ctx),
                     "Invalid operator symbol",
                 ))
             }
         }
-        Expression::Literal(Literal::Character(val)) => Ok(WithPos {
+        Expression::Literal(Literal::Character(val)) => Ok(WithTokenSpan {
             item: Name::Designator(Designator::Character(val).into_ref()),
-            pos: expr.pos,
+            span: expr.span,
         }),
-        _ => Err(Diagnostic::syntax_error(&expr, "Expected name")),
+        _ => Err(Diagnostic::syntax_error(expr.to_pos(ctx), "Expected name")),
     }
 }
 
-fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expression>> {
+fn actual_to_expression(
+    ctx: &dyn TokenAccess,
+    actual: WithTokenSpan<ActualPart>,
+) -> ParseResult<WithTokenSpan<Expression>> {
     match actual.item {
-        ActualPart::Expression(expr) => Ok(WithPos::from(expr, actual.pos)),
-        _ => Err(Diagnostic::syntax_error(&actual, "Expected expression")),
+        ActualPart::Expression(expr) => Ok(WithTokenSpan::from(expr, actual.span)),
+        _ => Err(Diagnostic::syntax_error(
+            actual.to_pos(ctx),
+            "Expected expression",
+        )),
     }
 }
 
-fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithTokenSpan<Name>> {
+fn actual_part_to_name(
+    ctx: &dyn TokenAccess,
+    actual: WithTokenSpan<ActualPart>,
+) -> ParseResult<WithTokenSpan<Name>> {
     match actual.item {
-        ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
-        _ => Err(Diagnostic::syntax_error(&actual, "Expected name")),
+        ActualPart::Expression(expr) => {
+            expression_to_name(ctx, WithTokenSpan::from(expr, actual.span))
+        }
+        _ => Err(Diagnostic::syntax_error(
+            actual.to_pos(ctx),
+            "Expected name",
+        )),
     }
 }
 
-fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Expression>> {
+fn assoc_to_expression(
+    ctx: &dyn TokenAccess,
+    assoc: AssociationElement,
+) -> ParseResult<WithTokenSpan<Expression>> {
     match assoc.formal {
-        Some(name) => Err(Diagnostic::syntax_error(&name, "Expected expression")),
-        None => actual_to_expression(assoc.actual),
+        Some(name) => Err(Diagnostic::syntax_error(
+            name.to_pos(ctx),
+            "Expected expression",
+        )),
+        None => actual_to_expression(ctx, assoc.actual),
     }
 }
 
-fn parse_actual_part(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<ActualPart>> {
+fn parse_actual_part(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<ActualPart>> {
     if let Some(token) = ctx.stream.pop_if_kind(Open) {
-        Ok(WithPos::from(
-            ActualPart::Open,
-            ctx.stream.get_pos(token).clone(),
-        ))
+        Ok(WithTokenSpan::from(ActualPart::Open, token))
     } else {
         Ok(parse_expression(ctx)?.map_into(ActualPart::Expression))
     }
@@ -184,7 +208,7 @@ pub fn parse_association_element(ctx: &mut ParsingContext<'_>) -> ParseResult<As
     let actual = parse_actual_part(ctx)?;
     if ctx.stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
-            formal: Some(actual_part_to_name(actual)?),
+            formal: Some(actual_part_to_name(ctx, actual)?),
             actual: parse_actual_part(ctx)?,
         })
     } else {
@@ -258,24 +282,24 @@ fn parse_attribute_name(
 ) -> ParseResult<WithTokenSpan<Name>> {
     let attr = ctx.stream.expect_attribute_designator()?;
 
-    let (expression, pos) = {
+    let (expression, span) = {
         if ctx.stream.skip_if_kind(LeftPar) {
             let ret = Some(parse_expression(ctx)?);
             let rpar_token = ctx.stream.expect_kind(RightPar)?;
-            (ret, ctx.stream.get_pos(rpar_token).combine(&name))
+            (ret, TokenSpan::new(rpar_token, name.span.end_token))
         } else {
-            (None, attr.pos.combine(&name))
+            (None, TokenSpan::new(attr.token, name.span.end_token))
         }
     };
 
-    Ok(WithPos {
+    Ok(WithTokenSpan {
         item: Name::Attribute(Box::new(AttributeName {
             name,
             attr,
             signature,
             expr: expression.map(Box::new),
         })),
-        pos,
+        span,
     })
 }
 
@@ -284,15 +308,16 @@ enum DesignatorOrAll {
     All,
 }
 
-fn parse_suffix(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<DesignatorOrAll>> {
+fn parse_suffix(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToken<DesignatorOrAll>> {
     let name = {
         expect_token!(
             ctx.stream,
             token,
-            Identifier => token.to_identifier_value()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
-            Character => token.to_character_value()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
-            StringLiteral => token.to_operator_symbol()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
-            All => WithPos::from(DesignatorOrAll::All, token.pos.clone())
+            token_id,
+            Identifier => token.to_identifier_value(token_id)?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
+            Character => token.to_character_value(token_id)?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
+            StringLiteral => token.to_operator_symbol(token_id)?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
+            All => WithToken::new(DesignatorOrAll::All, token_id)
         )
     };
 
@@ -311,18 +336,18 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
     ctx.stream.skip();
 
     let path = peek_token!(
-        ctx.stream, token,
+        ctx.stream, token, token_id,
         CommAt => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.pos.clone().combine_into(&token);
-            WithPos::from(ExternalPath::Package(path_name), path_pos)
+            let path_pos = path_name.span.set_end(token_id);
+            WithTokenSpan::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.pos.clone().combine_into(&token);
-            WithPos::from(ExternalPath::Absolute(path_name), path_pos)
+            let path_pos = path_name.span.set_end(token_id);
+            WithTokenSpan::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
             ctx.stream.skip();
@@ -333,13 +358,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
                 up_levels += 1;
             }
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.pos.clone().combine_into(&token);
-            WithPos::from(ExternalPath::Relative(path_name, up_levels), path_pos)
+            let path_pos = path_name.span.set_end(token_id);
+            WithTokenSpan::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.pos.clone();
-            WithPos::from(ExternalPath::Relative(path_name, 0), path_pos)
+            let path_span = path_name.span;
+            WithTokenSpan::from(ExternalPath::Relative(path_name, 0), path_span)
         }
     );
 
@@ -359,16 +384,16 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
         if let Some(token) = ctx.stream.pop_if_kind(LtLt) {
             let external_name = Name::External(Box::new(parse_inner_external_name(ctx)?));
             let end_token = ctx.stream.expect_kind(GtGt)?;
-            WithPos::from(external_name, ctx.stream.get_span(token, end_token))
+            WithTokenSpan::from(external_name, TokenSpan::new(token, end_token))
         } else {
             let suffix = parse_suffix(ctx)?;
             match suffix.item {
                 DesignatorOrAll::Designator(designator) => {
-                    WithPos::from(Name::Designator(designator.into_ref()), suffix.pos)
+                    WithTokenSpan::from(Name::Designator(designator.into_ref()), suffix.token)
                 }
                 DesignatorOrAll::All => {
                     return Err(Diagnostic::syntax_error(
-                        suffix.pos,
+                        suffix.pos(ctx),
                         "Illegal prefix 'all' for name",
                     ));
                 }
@@ -381,22 +406,22 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
             Dot => {
                 ctx.stream.skip();
                 let suffix = parse_suffix(ctx)?;
-                let pos = name.pos.combine(&suffix.pos);
+                let span = name.span.set_end(suffix.token);
 
                 match suffix.item {
                     DesignatorOrAll::Designator(designator) => {
-                        name = WithPos {
+                        name = WithTokenSpan {
                             item: Name::Selected(
                                 Box::new(name),
-                                WithPos::from(designator.into_ref(), suffix.pos),
+                                WithToken::new(designator.into_ref(), suffix.token),
                             ),
-                            pos,
+                            span,
                         }
                     }
                     DesignatorOrAll::All => {
-                        name = WithPos {
+                        name = WithTokenSpan {
                             item: Name::SelectedAll(Box::new(name)),
-                            pos,
+                            span,
                         }
                     }
                 }
@@ -431,6 +456,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                 expect_token!(
                     ctx.stream,
                     sep_token,
+                    sep_token_id,
                     Comma => {
                         name = parse_function_call(ctx, name, assoc)?;
                     },
@@ -444,21 +470,21 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                             }
                         };
                         let rpar_token = ctx.stream.expect_kind(RightPar)?;
-                        let pos = ctx.stream.get_pos(rpar_token).combine(&name);
+                        let span = TokenSpan::new(rpar_token, name.span.end_token);
                         let discrete_range =
                             DiscreteRange::Range(ast::Range::Range(RangeConstraint {
-                                left_expr: Box::new(assoc_to_expression(assoc)?),
+                                left_expr: Box::new(assoc_to_expression(ctx, assoc)?),
                                 direction,
                                 right_expr: Box::new(right_expr),
                             }));
 
-                        name = WithPos {
+                        name = WithTokenSpan {
                             item: Name::Slice(Box::new(name), Box::new(discrete_range)),
-                            pos,
+                            span,
                         };
                     },
                     RightPar => {
-                        let pos = sep_token.pos.combine(&name);
+                        let pos = TokenSpan::new(sep_token_id, name.span.end_token);
                         let item = match into_range(assoc) {
                             Ok(range) => Name::Slice(Box::new(name), Box::new(DiscreteRange::Range(range))),
                             Err(assoc) => Name::CallOrIndexed(Box::new(CallOrIndexed {
@@ -467,7 +493,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                             })),
                         };
 
-                        name = WithPos::new(item, pos);
+                        name = WithTokenSpan::new(item, pos);
                     }
                 )
             }
@@ -526,7 +552,7 @@ mod tests {
             code.with_stream(parse_selected_name),
             code.s1("foo")
                 .ident()
-                .map_into(|sym| Name::Designator(Designator::Identifier(sym).into_ref()))
+                .map_into_span(|sym| Name::Designator(Designator::Identifier(sym).into_ref()))
         );
     }
 
@@ -548,7 +574,7 @@ mod tests {
             .ident()
             .map_into(Designator::Identifier)
             .into_ref()
-            .map_into(Name::Designator);
+            .map_into_span(Name::Designator);
         let foo_bar = WithTokenSpan::from(
             Name::Selected(Box::new(foo), bar),
             code.s1("foo.bar").token_span(),
@@ -569,7 +595,7 @@ mod tests {
             .ident()
             .map_into(Designator::Identifier)
             .into_ref()
-            .map_into(Name::Designator);
+            .map_into_span(Name::Designator);
         let foo_all = WithTokenSpan::from(
             Name::SelectedAll(Box::new(foo)),
             code.s1("foo.all").token_span(),
@@ -655,14 +681,14 @@ mod tests {
             span: code.s1("foo").token_span(),
         };
 
-        let bar = WithTokenSpan {
+        let bar = WithToken {
             item: Designator::Identifier(code.symbol("bar")),
-            span: code.s1("bar").token_span(),
+            token: code.s1("bar").token(),
         };
 
-        let baz = WithTokenSpan {
+        let baz = WithToken {
             item: Designator::Identifier(code.symbol("baz")),
-            span: code.s1("baz").token_span(),
+            token: code.s1("baz").token(),
         };
 
         let foo_bar = WithTokenSpan {
@@ -775,9 +801,9 @@ mod tests {
         let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: WithPos {
+                attr: WithToken {
                     item: AttributeDesignator::Range(RangeAttribute::Range),
-                    pos: code.s1("range").pos(),
+                    token: code.s1("range").token(),
                 },
                 signature: None,
                 expr: None,
@@ -797,9 +823,9 @@ mod tests {
         let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: WithPos {
+                attr: WithToken {
                     item: AttributeDesignator::Type(TypeAttribute::Subtype),
-                    pos: code.s1("subtype").pos(),
+                    token: code.s1("subtype").token(),
                 },
                 signature: None,
                 expr: None,
@@ -819,9 +845,9 @@ mod tests {
         let attr = WithTokenSpan {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: WithPos {
+                attr: WithToken {
                     item: AttributeDesignator::Type(TypeAttribute::Element),
-                    pos: code.s1("element").pos(),
+                    token: code.s1("element").token(),
                 },
                 signature: None,
                 expr: None,
@@ -1007,9 +1033,9 @@ mod tests {
             span: code.s1("prefix(0, 1)(3)").token_span(),
         };
 
-        let suffix = WithPos {
+        let suffix = WithToken {
             item: Designator::Identifier(code.symbol("suffix")),
-            pos: code.s1("suffix").pos(),
+            token: code.s1("suffix").token(),
         };
 
         let prefix_index_3_suffix = WithTokenSpan {
@@ -1055,11 +1081,11 @@ mod tests {
         let code = Code::new("(open, arg => open)");
         let elem1 = AssociationElement {
             formal: None,
-            actual: WithPos::new(ActualPart::Open, code.s1("open").pos()),
+            actual: WithTokenSpan::new(ActualPart::Open, code.s1("open").token_span()),
         };
         let elem2 = AssociationElement {
             formal: Some(code.s1("arg").name()),
-            actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
+            actual: WithTokenSpan::new(ActualPart::Open, code.s("open", 2).token_span()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_association_list),
@@ -1078,15 +1104,15 @@ mod tests {
         let code = Code::new("<< signal dut.foo : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
-            path: WithPos::new(
+            path: WithTokenSpan::new(
                 ExternalPath::Relative(code.s1("dut.foo").name(), 0),
-                code.s1("dut.foo").pos(),
+                code.s1("dut.foo").token_span(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
         );
     }
 
@@ -1095,15 +1121,15 @@ mod tests {
         let code = Code::new("<< signal ^.dut.gen(0) : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
-            path: WithPos::new(
+            path: WithTokenSpan::new(
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 1),
-                code.s1("^.dut.gen(0)").pos(),
+                code.s1("^.dut.gen(0)").token_span(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
         );
     }
 
@@ -1112,15 +1138,15 @@ mod tests {
         let code = Code::new("<< signal ^.^.^.dut.gen(0) : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
-            path: WithPos::new(
+            path: WithTokenSpan::new(
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 3),
-                code.s1("^.^.^.dut.gen(0)").pos(),
+                code.s1("^.^.^.dut.gen(0)").token_span(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
         );
     }
 
@@ -1129,15 +1155,15 @@ mod tests {
         let code = Code::new("<< signal .dut.gen(0) : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
-            path: WithPos::new(
+            path: WithTokenSpan::new(
                 ExternalPath::Absolute(code.s1("dut.gen(0)").name()),
-                code.s1(".dut.gen(0)").pos(),
+                code.s1(".dut.gen(0)").token_span(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
         );
     }
 
@@ -1146,15 +1172,15 @@ mod tests {
         let code = Code::new("<< signal @lib.pkg : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
-            path: WithPos::new(
+            path: WithTokenSpan::new(
                 ExternalPath::Package(code.s1("lib.pkg").name()),
-                code.s1("@lib.pkg").pos(),
+                code.s1("@lib.pkg").token_span(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
             code.with_stream(parse_name),
-            WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+            WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
         );
     }
 
@@ -1169,15 +1195,15 @@ mod tests {
             let code = Code::new(&format!("<< {string} dut.foo : std_logic >>"));
             let external_name = ExternalName {
                 class,
-                path: WithPos::new(
+                path: WithTokenSpan::new(
                     ExternalPath::Relative(code.s1("dut.foo").name(), 0),
-                    code.s1("dut.foo").pos(),
+                    code.s1("dut.foo").token_span(),
                 ),
                 subtype: code.s1("std_logic").subtype_indication(),
             };
             assert_eq!(
                 code.with_stream(parse_name),
-                WithTokenSpan::new(Name::External(Box::new(external_name)), code)
+                WithTokenSpan::new(Name::External(Box::new(external_name)), code.token_span())
             );
         }
     }

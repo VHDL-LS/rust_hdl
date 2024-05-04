@@ -117,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
                             diagnostics.add(
-                                &statement.statement.pos,
+                                &statement.statement.to_pos(self.ctx),
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
                             );
@@ -126,7 +126,7 @@ impl<'a> AnalyzeContext<'a> {
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
                             diagnostics.add(
-                                &statement.statement.pos,
+                                &statement.statement.to_pos(self.ctx),
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
                             );
@@ -134,7 +134,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.add(
-                            &statement.statement.pos,
+                            &statement.statement.to_pos(self.ctx),
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
                         );
@@ -186,7 +186,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.pos,
+                        &statement.statement.to_pos(self.ctx),
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
                     )
@@ -206,7 +206,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.pos,
+                        &statement.statement.to_pos(self.ctx),
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
                     )
@@ -257,8 +257,13 @@ impl<'a> AnalyzeContext<'a> {
                         let typ = as_fatal(self.drange_type(scope, drange, diagnostics))?;
                         let region = scope.nested();
                         region.add(
-                            self.arena
-                                .define(index, parent, AnyEntKind::LoopParameter(typ), None),
+                            self.arena.define(
+                                self.ctx,
+                                index,
+                                parent,
+                                AnyEntKind::LoopParameter(typ),
+                                None,
+                            ),
                             diagnostics,
                         );
                         self.analyze_sequential_part(&region, parent, statements, diagnostics)?;
@@ -330,7 +335,8 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match scope.lookup(
-            &label.item.pos(self.ctx),
+            self.ctx,
+            label.item.token,
             &Designator::Identifier(label.item.item.clone()),
         ) {
             Ok(NamedEntities::Single(ent)) => {

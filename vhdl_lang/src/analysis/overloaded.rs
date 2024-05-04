@@ -5,6 +5,7 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use fnv::FnvHashSet;
+use vhdl_lang::TokenAccess;
 
 use super::analyze::*;
 use super::expression::ExpressionType;
@@ -80,7 +81,8 @@ impl<'a> Candidates<'a> {
 
     fn finish(
         self,
-        name: &WithPos<Designator>,
+        ctx: &dyn TokenAccess,
+        name: &WithToken<Designator>,
         ttyp: Option<TypeEnt<'a>>,
     ) -> Result<Disambiguated<'a>, Diagnostic> {
         let (remaining, mut rejected) = self.split();
@@ -98,7 +100,7 @@ impl<'a> Candidates<'a> {
                         // Special case to get better error for single rejected enumeration literal
                         // For example when assigning true to an integer.
                         return Err(Diagnostic::new(
-                            name,
+                            name.pos(ctx),
                             format!("'{}' does not match {}", name, ttyp.describe()),
                             ErrorCode::TypeMismatch,
                         ));
@@ -113,7 +115,7 @@ impl<'a> Candidates<'a> {
                 ("Could not resolve", ErrorCode::Unresolved)
             };
 
-            let mut diag = Diagnostic::new(name, format!("{err_prefix} '{name}'"), code);
+            let mut diag = Diagnostic::new(name.pos(ctx), format!("{err_prefix} '{name}'"), code);
 
             rejected.sort_by(|x, y| x.ent.decl_pos().cmp(&y.ent.decl_pos()));
 
@@ -246,7 +248,7 @@ impl<'a> AnalyzeContext<'a> {
             match &mut assoc.actual.item {
                 ActualPart::Expression(expr) => {
                     let actual_type =
-                        self.expr_pos_type(scope, &assoc.actual.pos, expr, diagnostics)?;
+                        self.expr_pos_type(scope, assoc.actual.span, expr, diagnostics)?;
                     actual_types.push(Some(actual_type));
                 }
                 ActualPart::Open => {
@@ -262,8 +264,8 @@ impl<'a> AnalyzeContext<'a> {
     pub fn disambiguate(
         &self,
         scope: &Scope<'a>,
-        call_pos: &SrcPos,               // The position of the entire call
-        call_name: &WithPos<Designator>, // The position and name of the subprogram name in the call
+        call_pos: &SrcPos,                 // The position of the entire call
+        call_name: &WithToken<Designator>, // The position and name of the subprogram name in the call
         assocs: &mut [AssociationElement],
         kind: SubprogramKind<'a>,
         all_overloaded: Vec<OverloadedEnt<'a>>,
@@ -284,7 +286,7 @@ impl<'a> AnalyzeContext<'a> {
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_kind.is_empty() {
-            diagnostics.push(Diagnostic::ambiguous(call_name, all_overloaded));
+            diagnostics.push(Diagnostic::ambiguous(self.ctx, call_name, all_overloaded));
             return Err(EvalError::Unknown);
         }
 
@@ -297,7 +299,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_kind.is_empty() {
             diagnostics.add(
-                call_name,
+                call_name.pos(self.ctx),
                 format!("uninstantiated subprogram {} cannot be called", call_name),
                 ErrorCode::InvalidCall,
             );
@@ -313,7 +315,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_formals.is_empty() {
             // No candidate matched actual/formal profile
-            diagnostics.push(Diagnostic::ambiguous(call_name, ok_kind));
+            diagnostics.push(Diagnostic::ambiguous(self.ctx, call_name, ok_kind));
             return Err(EvalError::Unknown);
         }
 
@@ -329,6 +331,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_assoc_types.is_empty() {
             diagnostics.push(Diagnostic::ambiguous(
+                self.ctx,
                 call_name,
                 ok_formals.into_iter().map(|resolved| resolved.subpgm),
             ));
@@ -347,6 +350,7 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(Disambiguated::Unambiguous(ent));
             } else if ok_return_type.is_empty() {
                 diagnostics.push(Diagnostic::ambiguous(
+                    self.ctx,
                     call_name,
                     ok_assoc_types.into_iter().map(|resolved| resolved.subpgm),
                 ));
@@ -380,7 +384,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn disambiguate_no_actuals(
         &self,
-        name: &WithPos<Designator>,
+        name: &WithToken<Designator>,
         ttyp: Option<TypeEnt<'a>>,
         overloaded: &OverloadedName<'a>,
     ) -> Result<Option<Disambiguated<'a>>, Diagnostic> {
@@ -404,18 +408,19 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        Ok(Some(candidates.finish(name, ttyp)?))
+        Ok(Some(candidates.finish(self.ctx, name, ttyp)?))
     }
 }
 
 impl Diagnostic {
     fn ambiguous<'a>(
-        name: &WithPos<Designator>,
+        ctx: &dyn TokenAccess,
+        name: &WithToken<Designator>,
         rejected: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Self {
         let mut diag = Diagnostic::new(
-            &name.pos,
-            format!("Could not resolve call to '{}'", name.designator()),
+            &name.pos(ctx),
+            format!("Could not resolve call to '{}'", name.item.designator()),
             ErrorCode::AmbiguousCall,
         );
         diag.add_subprogram_candidates("Does not match", rejected);
@@ -442,14 +447,14 @@ mod tests {
             let mut fcall = code.function_call();
 
             let des = if let Name::Designator(des) = &fcall.item.name.item {
-                WithPos::new(des.item.clone(), fcall.item.name.to_pos(&self.tokens))
+                WithToken::new(des.item.clone(), fcall.span.start_token)
             } else {
                 panic!("Expected designator")
             };
 
             let overloaded = if let NamedEntities::Overloaded(overloaded) = self
                 .scope
-                .lookup(&fcall.item.name.to_pos(&self.tokens), &des.item)
+                .lookup(&self.tokens, fcall.span, &des.item)
                 .unwrap()
             {
                 overloaded

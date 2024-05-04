@@ -19,7 +19,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
-        rhs: &mut AssignmentRightHand<WithPos<Expression>>,
+        rhs: &mut AssignmentRightHand<WithTokenSpan<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let ttyp = as_fatal(self.resolve_target(scope, target, assignment_type, diagnostics))?;
@@ -124,7 +124,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(ttyp) = ttyp {

@@ -119,6 +119,7 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         self.arena.define(
+            self.ctx,
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Configuration),
@@ -219,6 +220,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&scope, &mut unit.items, diagnostics)?;
 
         self.arena.define(
+            self.ctx,
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Context(scope.into_region())),
@@ -267,6 +269,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
         let arch = self.arena.define(
+            self.ctx,
             &mut unit.ident,
             primary.into(),
             AnyEntKind::Design(Design::Architecture(primary)),
@@ -389,18 +392,13 @@ impl<'a> AnalyzeContext<'a> {
                     &designator.item,
                 )
                 .map(|design| {
-                    designator.reference.set_unique_reference(design.into());
+                    designator.set_unique_reference(design.into());
                     design
                 })?),
 
             // configuration cfg of lib.ent
             Name::Selected(ref mut prefix, ref mut designator) => {
-                let name = self.name_resolve(
-                    scope,
-                    &prefix.to_pos(self.ctx),
-                    &mut prefix.item,
-                    diagnostics,
-                )?;
+                let name = self.name_resolve(scope, prefix.span, &mut prefix.item, diagnostics)?;
                 match name {
                     ResolvedName::Library(ref library_name) => {
                         if library_name != self.work_library_name() {
@@ -412,7 +410,7 @@ impl<'a> AnalyzeContext<'a> {
                             let primary_ent = self.lookup_in_library(
                                 diagnostics,
                                 library_name,
-                                &designator.pos,
+                                designator.pos(self.ctx),
                                 &designator.item.item,
                             )?;
                             designator
@@ -423,7 +421,7 @@ impl<'a> AnalyzeContext<'a> {
                                 Design::Entity(..) => Ok(primary_ent),
                                 _ => {
                                     diagnostics.add(
-                                        designator,
+                                        designator.pos(self.ctx),
                                         format!(
                                             "{} does not denote an entity",
                                             primary_ent.describe()
@@ -495,12 +493,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Selected(ref mut prefix, ref mut suffix) => {
                 let prefix_ent = self.resolve_context_item_prefix(diagnostics, scope, prefix)?;
 
-                let visible = self.lookup_selected(
-                    diagnostics,
-                    &prefix.to_pos(self.ctx),
-                    prefix_ent,
-                    suffix,
-                )?;
+                let visible = self.lookup_selected(diagnostics, prefix.span, prefix_ent, suffix)?;
                 suffix.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
@@ -511,7 +504,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::Designator(designator) => {
                 let visible = scope
-                    .lookup(&name.to_pos(self.ctx), designator.designator())
+                    .lookup(self.ctx, name.span, designator.item.designator())
                     .into_eval_result(diagnostics)?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
@@ -606,7 +599,7 @@ impl<'a> AnalyzeContext<'a> {
                                     _ => {
                                         if let Name::Selected(_, ref suffix) = name.item {
                                             diagnostics.add(
-                                                suffix,
+                                                suffix.pos(self.ctx),
                                                 format!(
                                                     "{} does not denote a context declaration",
                                                     ent.describe()
@@ -710,7 +703,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<Region<'a>> {
         let name = self.name_resolve(
             scope,
-            &package_name.to_pos(self.ctx),
+            package_name.span,
             &mut package_name.item,
             diagnostics,
         )?;

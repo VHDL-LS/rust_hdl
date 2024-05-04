@@ -390,7 +390,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                 }
                 // Early-exit for when we are inside a statement.
                 for statement in &body.statements {
-                    let pos = &statement.statement.pos;
+                    let pos = &statement.statement.to_pos(ctx);
 
                     // Early exit. The cursor is below the current statement.
                     if pos.start() > self.cursor {

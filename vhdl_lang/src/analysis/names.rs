@@ -6,6 +6,7 @@
 
 use crate::analysis::target::AssignmentType;
 use fnv::FnvHashSet;
+use vhdl_lang::{TokenAccess, TokenSpan};
 
 use super::analyze::*;
 use super::expression::ExpressionType;
@@ -151,7 +152,7 @@ pub enum ResolvedName<'a> {
     Library(Symbol),
     Design(DesignEnt<'a>),
     Type(TypeEnt<'a>),
-    Overloaded(WithPos<Designator>, OverloadedName<'a>),
+    Overloaded(WithToken<Designator>, OverloadedName<'a>),
     ObjectName(ObjectName<'a>),
     /// The result of a function call and any subsequent selections thereof
     Expression(DisambiguatedType<'a>),
@@ -338,7 +339,8 @@ impl<'a> ResolvedName<'a> {
 
     pub(crate) fn as_type_of_attr_prefix(
         &self,
-        prefix_pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        prefix_pos: TokenSpan,
         attr: &AttributeSuffix,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
@@ -346,7 +348,9 @@ impl<'a> ResolvedName<'a> {
             Ok(typ)
         } else {
             diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                prefix_pos, self, attr,
+                &prefix_pos.to_pos(ctx),
+                self,
+                attr,
             ));
             Err(EvalError::Unknown)
         }
@@ -354,7 +358,8 @@ impl<'a> ResolvedName<'a> {
 
     fn as_type_of_signal_attr_prefix(
         &self,
-        prefix_pos: &SrcPos,
+        ctx: &dyn TokenAccess,
+        prefix_pos: TokenSpan,
         attr: &AttributeSuffix,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
@@ -365,7 +370,7 @@ impl<'a> ResolvedName<'a> {
         }
 
         diagnostics.add(
-            prefix_pos,
+            prefix_pos.to_pos(ctx),
             format!(
                 "Expected signal prefix for '{} attribute, got {}",
                 attr.attr,
@@ -421,14 +426,14 @@ pub enum AttrResolveResult<'a> {
 
 #[derive(Debug)]
 pub struct AttributeSuffix<'a> {
-    pub signature: &'a mut Option<WithPos<crate::ast::Signature>>,
-    pub attr: &'a mut WithPos<AttributeDesignator>,
-    pub expr: &'a mut Option<Box<WithPos<Expression>>>,
+    pub signature: &'a mut Option<WithTokenSpan<crate::ast::Signature>>,
+    pub attr: &'a mut WithToken<AttributeDesignator>,
+    pub expr: &'a mut Option<Box<WithTokenSpan<Expression>>>,
 }
 
 #[derive(Debug)]
 enum Suffix<'a> {
-    Selected(&'a mut WithPos<WithRef<Designator>>),
+    Selected(&'a mut WithToken<WithRef<Designator>>),
     All,
     Slice(&'a mut DiscreteRange),
     Attribute(AttributeSuffix<'a>),
@@ -471,7 +476,7 @@ impl<'a> SplitName<'a> {
 
 enum TypeOrMethod<'a> {
     Type(TypeEnt<'a>),
-    Method(WithPos<Designator>, OverloadedName<'a>),
+    Method(WithToken<Designator>, OverloadedName<'a>),
 }
 
 fn could_be_indexed_name(assocs: &[AssociationElement]) -> bool {
@@ -480,10 +485,12 @@ fn could_be_indexed_name(assocs: &[AssociationElement]) -> bool {
         .all(|assoc| assoc.formal.is_none() && !matches!(assoc.actual.item, ActualPart::Open))
 }
 
-pub fn as_type_conversion(assocs: &mut [AssociationElement]) -> Option<(&SrcPos, &mut Expression)> {
+pub fn as_type_conversion(
+    assocs: &mut [AssociationElement],
+) -> Option<(TokenSpan, &mut Expression)> {
     if assocs.len() == 1 && could_be_indexed_name(assocs) {
         if let ActualPart::Expression(ref mut expr) = assocs[0].actual.item {
-            return Some((&assocs[0].actual.pos, expr));
+            return Some((assocs[0].actual.span, expr));
         }
     }
     None
@@ -492,7 +499,7 @@ pub fn as_type_conversion(assocs: &mut [AssociationElement]) -> Option<(&SrcPos,
 impl<'a> AnalyzeContext<'a> {
     fn name_to_type(
         &self,
-        pos: &SrcPos,
+        pos: TokenSpan,
         // Reference to set if overloaded name was disambiguated
         reference: Option<&mut Reference>,
         name: ResolvedName<'a>,
@@ -500,7 +507,7 @@ impl<'a> AnalyzeContext<'a> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
                 Err(Diagnostic::new(
-                    pos,
+                    pos.to_pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 ))
@@ -515,7 +522,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(DisambiguatedType::Unambiguous(*typ))),
                 _ => Err(Diagnostic::new(
-                    pos,
+                    pos.to_pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 )),
@@ -541,7 +548,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn name_to_unambiguous_type(
         &self,
-        pos: &SrcPos,
+        span: TokenSpan,
         name: &ResolvedName<'a>,
         ttyp: TypeEnt<'a>,
         // Optional reference to set when disambiguating overloaded
@@ -550,7 +557,7 @@ impl<'a> AnalyzeContext<'a> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
                 Err(Diagnostic::new(
-                    pos,
+                    span.to_pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 ))
@@ -561,7 +568,7 @@ impl<'a> AnalyzeContext<'a> {
                 AnyEntKind::File(subtype) => Ok(Some(subtype.type_mark())),
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(*typ)),
                 _ => Err(Diagnostic::new(
-                    pos,
+                    span.to_pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 )),
@@ -576,7 +583,7 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(Some(ent.return_type().unwrap()))
                         }
                         Disambiguated::Ambiguous(overloaded) => {
-                            Err(Diagnostic::ambiguous_call(des, overloaded))
+                            Err(Diagnostic::ambiguous_call(self.ctx, des, overloaded))
                         }
                     }
                 } else {
@@ -611,7 +618,7 @@ impl<'a> AnalyzeContext<'a> {
             if let ActualPart::Expression(expr) = &mut assoc.actual.item {
                 return self.expr_as_discrete_range_type(
                     scope,
-                    &assoc.actual.pos,
+                    assoc.actual.span,
                     expr,
                     diagnostics,
                 );
@@ -623,7 +630,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expr_as_discrete_range_type(
         &self,
         scope: &Scope<'a>,
-        expr_pos: &SrcPos,
+        expr_pos: TokenSpan,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Option<TypeEnt<'a>>> {
@@ -654,7 +661,7 @@ impl<'a> AnalyzeContext<'a> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            expr_pos,
+                            expr_pos.to_pos(self.ctx),
                             format!("{} cannot be used as a discrete range", typ.describe()),
                             ErrorCode::MismatchedKinds,
                         )
@@ -671,8 +678,8 @@ impl<'a> AnalyzeContext<'a> {
     fn resolve_typed_suffix(
         &self,
         scope: &Scope<'a>,
-        prefix_pos: &SrcPos,
-        name_pos: &SrcPos,
+        prefix_pos: TokenSpan,
+        name_pos: TokenSpan,
         prefix_typ: TypeEnt<'a>,
         suffix: &mut Suffix,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -680,7 +687,7 @@ impl<'a> AnalyzeContext<'a> {
         match suffix {
             Suffix::Selected(suffix) => Ok(Some(
                 match prefix_typ
-                    .selected(prefix_pos, suffix)
+                    .selected(self.ctx, prefix_pos, suffix)
                     .into_eval_result(diagnostics)?
                 {
                     TypedSelection::RecordElement(elem) => {
@@ -688,7 +695,7 @@ impl<'a> AnalyzeContext<'a> {
                         TypeOrMethod::Type(elem.type_mark())
                     }
                     TypedSelection::ProtectedMethod(name) => TypeOrMethod::Method(
-                        WithPos::new(suffix.item.item.clone(), suffix.pos.clone()),
+                        WithToken::new(suffix.item.item.clone(), suffix.token),
                         name,
                     ),
                 },
@@ -704,7 +711,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     } else {
                         diagnostics.add(
-                            name_pos,
+                            name_pos.to_pos(self.ctx),
                             format!(
                                 "Cannot slice {}-dimensional {}",
                                 indexes.len(),
@@ -742,14 +749,14 @@ impl<'a> AnalyzeContext<'a> {
                                         self.expr_pos_with_ttyp(
                                             scope,
                                             ttyp.into(),
-                                            &actual.pos,
+                                            actual.span,
                                             expr,
                                             diagnostics,
                                         )?;
                                     } else {
                                         self.expr_pos_unknown_ttyp(
                                             scope,
-                                            &actual.pos,
+                                            actual.span,
                                             expr,
                                             diagnostics,
                                         )?;
@@ -763,7 +770,7 @@ impl<'a> AnalyzeContext<'a> {
                             bail!(
                                 diagnostics,
                                 Diagnostic::dimension_mismatch(
-                                    name_pos,
+                                    &name_pos.to_pos(self.ctx),
                                     prefix_typ,
                                     assocs.len(),
                                     num_indexes,
@@ -786,7 +793,7 @@ impl<'a> AnalyzeContext<'a> {
     pub(crate) fn array_index_expression_in_attribute(
         &self,
         indexes: &[Option<BaseType<'a>>],
-        mut expr: Option<&mut WithPos<Expression>>,
+        mut expr: Option<&mut WithTokenSpan<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
         let idx = if let Some(expr) = expr.as_mut() {
@@ -796,7 +803,7 @@ impl<'a> AnalyzeContext<'a> {
                 idx as usize
             } else {
                 diagnostics.add(
-                    &expr.pos,
+                    &expr.span.to_pos(self.ctx),
                     "Expected an integer literal",
                     ErrorCode::MismatchedKinds,
                 );
@@ -817,7 +824,7 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.add(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
+                diagnostics.add(&expr.to_pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
             }
             Err(EvalError::Unknown)
         }
@@ -827,7 +834,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         resolved: &ResolvedName<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-        pos: &SrcPos,
+        pos: TokenSpan,
     ) -> EvalResult<ViewEnt<'a>> {
         let ent = match resolved {
             ResolvedName::Final(ent) => {
@@ -835,7 +842,7 @@ impl<'a> AnalyzeContext<'a> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            pos,
+                            pos.to_pos(self.ctx),
                             format!("{} is not a view", resolved.describe()),
                             ErrorCode::MismatchedKinds
                         )
@@ -847,7 +854,7 @@ impl<'a> AnalyzeContext<'a> {
                 bail!(
                     diagnostics,
                     Diagnostic::new(
-                        pos,
+                        pos.to_pos(self.ctx),
                         format!("{} is not a view", resolved.describe()),
                         ErrorCode::MismatchedKinds
                     )
@@ -859,8 +866,8 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn attribute_suffix(
         &self,
-        name_pos: &SrcPos,
-        prefix_pos: &SrcPos,
+        name_pos: TokenSpan,
+        prefix_pos: TokenSpan,
         scope: &Scope<'a>,
         prefix: &ResolvedName<'a>,
         attr: &mut AttributeSuffix,
@@ -871,7 +878,7 @@ impl<'a> AnalyzeContext<'a> {
             | AttributeDesignator::Right
             | AttributeDesignator::High
             | AttributeDesignator::Low => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if let Some((_, indexes)) = typ.array_type() {
                     self.array_index_expression_in_attribute(
@@ -881,34 +888,40 @@ impl<'a> AnalyzeContext<'a> {
                     )
                     .map(AttrResolveResult::Value)
                 } else if typ.is_scalar() {
-                    check_no_attr_argument(attr, diagnostics);
+                    check_no_attr_argument(self.ctx, attr, diagnostics);
                     Ok(AttrResolveResult::Value(typ.into()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Ascending => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
                     Ok(AttrResolveResult::Value(self.boolean().base()))
                 } else if typ.is_scalar() {
-                    check_no_attr_argument(attr, diagnostics);
+                    check_no_attr_argument(self.ctx, attr, diagnostics);
                     Ok(AttrResolveResult::Value(self.boolean().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Image => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
-                if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
+                if let Some(ref mut expr) =
+                    check_single_argument(self.ctx, name_pos, attr, diagnostics)
+                {
                     self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                 }
 
@@ -916,15 +929,19 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(AttrResolveResult::Value(self.string().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Value => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
-                if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
+                if let Some(ref mut expr) =
+                    check_single_argument(self.ctx, name_pos, attr, diagnostics)
+                {
                     self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
                 }
 
@@ -932,31 +949,39 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Pos => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
+                    if let Some(ref mut expr) =
+                        check_single_argument(self.ctx, name_pos, attr, diagnostics)
+                    {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
                     Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Val => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
+                    if let Some(ref mut expr) =
+                        check_single_argument(self.ctx, name_pos, attr, diagnostics)
+                    {
                         self.expr_with_ttyp(
                             scope,
                             self.universal_integer().into(),
@@ -967,7 +992,9 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
@@ -976,28 +1003,34 @@ impl<'a> AnalyzeContext<'a> {
             | AttributeDesignator::Pred
             | AttributeDesignator::LeftOf
             | AttributeDesignator::RightOf => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
+                    if let Some(ref mut expr) =
+                        check_single_argument(self.ctx, name_pos, attr, diagnostics)
+                    {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Length => {
-                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
                     Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, prefix, attr,
+                        &name_pos.to_pos(self.ctx),
+                        prefix,
+                        attr,
                     ));
                     Err(EvalError::Unknown)
                 }
@@ -1005,12 +1038,17 @@ impl<'a> AnalyzeContext<'a> {
             AttributeDesignator::SimpleName
             | AttributeDesignator::InstanceName
             | AttributeDesignator::PathName => {
-                check_no_attr_argument(attr, diagnostics);
+                check_no_attr_argument(self.ctx, attr, diagnostics);
                 Ok(AttrResolveResult::Value(self.string().base()))
             }
 
             AttributeDesignator::Signal(sattr) => {
-                let typ = prefix.as_type_of_signal_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let typ = prefix.as_type_of_signal_attr_prefix(
+                    self.ctx,
+                    prefix_pos,
+                    attr,
+                    diagnostics,
+                )?;
                 let expr = attr.expr.as_mut().map(|expr| expr.as_mut());
                 match sattr {
                     SignalAttribute::Delayed => {
@@ -1026,35 +1064,35 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::Transaction => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.bit().base()))
                     }
                     SignalAttribute::Event => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::Active => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::LastEvent => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.time().base()))
                     }
                     SignalAttribute::LastActive => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.time().base()))
                     }
                     SignalAttribute::LastValue => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(typ.base()))
                     }
                     SignalAttribute::Driving => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::DrivingValue => {
-                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
                         Ok(AttrResolveResult::Value(typ.base()))
                     }
                 }
@@ -1067,7 +1105,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(AttrResolveResult::Value(attr.typ().base()))
                     } else {
                         diagnostics.add(
-                            &attr.attr.pos,
+                            &attr.attr.pos(self.ctx),
                             format!("Unknown attribute '{}", attr.attr.item),
                             ErrorCode::Unresolved,
                         );
@@ -1075,7 +1113,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 } else {
                     diagnostics.add(
-                        name_pos,
+                        name_pos.to_pos(self.ctx),
                         format!(
                             "{} may not be the prefix of a user defined attribute",
                             prefix.describe()
@@ -1087,7 +1125,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             AttributeDesignator::Range(_) => {
                 diagnostics.add(
-                    name_pos,
+                    name_pos.to_pos(self.ctx),
                     "Range cannot be used as an expression",
                     ErrorCode::MismatchedKinds,
                 );
@@ -1118,13 +1156,13 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         prefix: &ResolvedName<'a>,
         suffix: &TypeAttribute,
-        pos: &SrcPos,
+        pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         // all type attribute suffixes require that the prefix be an object type
         let Some(obj) = prefix.as_object_name() else {
             diagnostics.add(
-                pos,
+                pos.to_pos(self.ctx),
                 format!(
                     "The {} attribute can only be used on objects, not {}",
                     suffix,
@@ -1141,7 +1179,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(elem_type)
                 } else {
                     diagnostics.add(
-                        pos,
+                        pos.to_pos(self.ctx),
                         "The element attribute can only be used for array types",
                         ErrorCode::IllegalAttribute,
                     );
@@ -1154,7 +1192,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn name_resolve(
         &self,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
+        name_pos: TokenSpan,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ResolvedName<'a>> {
@@ -1164,7 +1202,7 @@ impl<'a> AnalyzeContext<'a> {
     fn name_resolve_with_suffixes(
         &self,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
+        span: TokenSpan,
         name: &mut Name,
         ttyp: Option<TypeEnt<'a>>,
         has_suffix: bool,
@@ -1175,18 +1213,18 @@ impl<'a> AnalyzeContext<'a> {
         let mut resolved = match SplitName::from_name(name) {
             SplitName::Designator(designator) => {
                 let name = scope
-                    .lookup(name_pos, designator.designator())
+                    .lookup(self.ctx, span, designator.designator())
                     .into_eval_result(diagnostics)?;
                 return Ok(match name {
                     NamedEntities::Single(ent) => {
                         designator.set_unique_reference(ent);
 
                         ResolvedName::from_scope_not_overloaded(ent)
-                            .map_err(|(e, code)| Diagnostic::new(name_pos, e, code))
+                            .map_err(|(e, code)| Diagnostic::new(span.to_pos(self.ctx), e, code))
                             .into_eval_result(diagnostics)?
                     }
                     NamedEntities::Overloaded(overloaded) => ResolvedName::Overloaded(
-                        WithPos::new(designator.item.clone(), name_pos.clone()),
+                        WithToken::new(designator.designator().clone(), span.start_token),
                         overloaded,
                     ),
                 });
@@ -1202,7 +1240,7 @@ impl<'a> AnalyzeContext<'a> {
             SplitName::Suffix(p, s) => {
                 let resolved = self.name_resolve_with_suffixes(
                     scope,
-                    &p.to_pos(self.ctx),
+                    p.span,
                     &mut p.item,
                     None,
                     true,
@@ -1233,7 +1271,8 @@ impl<'a> AnalyzeContext<'a> {
                         Disambiguated::Ambiguous(ents) => {
                             if let Some(types) = ambiguous_functions_to_types(&ents) {
                                 if has_suffix || ttyp.is_some() {
-                                    diagnostics.push(Diagnostic::ambiguous_call(des, ents));
+                                    diagnostics
+                                        .push(Diagnostic::ambiguous_call(self.ctx, des, ents));
                                 }
                                 resolved =
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
@@ -1267,14 +1306,8 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         if let Suffix::Attribute(ref mut attr) = suffix {
-            let typ = self.attribute_suffix(
-                name_pos,
-                &prefix.to_pos(self.ctx),
-                scope,
-                &resolved,
-                attr,
-                diagnostics,
-            )?;
+            let typ =
+                self.attribute_suffix(span, prefix.span, scope, &resolved, attr, diagnostics)?;
             return match typ {
                 AttrResolveResult::Type(base) => Ok(ResolvedName::Type(base.into())),
                 AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
@@ -1300,7 +1333,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     match as_fatal(self.disambiguate(
                         scope,
-                        name_pos,
+                        &span.to_pos(self.ctx),
                         des,
                         assocs,
                         SubprogramKind::Function(if has_suffix {
@@ -1315,7 +1348,8 @@ impl<'a> AnalyzeContext<'a> {
                         Some(Disambiguated::Ambiguous(ents)) => {
                             if let Some(types) = ambiguous_functions_to_types(&ents) {
                                 if has_suffix || ttyp.is_some() {
-                                    diagnostics.push(Diagnostic::ambiguous_call(des, ents));
+                                    diagnostics
+                                        .push(Diagnostic::ambiguous_call(self.ctx, des, ents));
                                 }
 
                                 resolved =
@@ -1350,7 +1384,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 } else {
                     diagnostics.push(Diagnostic::unreachable(
-                        name_pos,
+                        &span.to_pos(self.ctx),
                         "CallOrIndexed should already be handled",
                     ));
                     return Err(EvalError::Unknown);
@@ -1359,8 +1393,8 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::ObjectName(oname) => {
                 match self.resolve_typed_suffix(
                     scope,
-                    &prefix.to_pos(self.ctx),
-                    name_pos,
+                    prefix.span,
+                    span,
                     oname.type_mark(),
                     &mut suffix,
                     diagnostics,
@@ -1385,8 +1419,8 @@ impl<'a> AnalyzeContext<'a> {
                 DisambiguatedType::Unambiguous(typ) => {
                     match self.resolve_typed_suffix(
                         scope,
-                        &prefix.to_pos(self.ctx),
-                        name_pos,
+                        prefix.span,
+                        span,
                         *typ,
                         &mut suffix,
                         diagnostics,
@@ -1420,7 +1454,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.lookup_in_library(
                             diagnostics,
                             library_name,
-                            &designator.pos,
+                            designator.pos(self.ctx),
                             &designator.item.item,
                         )
                         .map(|design| {
@@ -1432,33 +1466,43 @@ impl<'a> AnalyzeContext<'a> {
                         })?,
                     );
                 } else {
-                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    diagnostics.push(Diagnostic::cannot_be_prefix(
+                        &span.to_pos(self.ctx),
+                        resolved,
+                        suffix,
+                    ));
                     return Err(EvalError::Unknown);
                 }
             }
             ResolvedName::Design(ref ent) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
                     let name = ent
-                        .selected(&prefix.to_pos(self.ctx), designator)
+                        .selected(self.ctx, prefix.span, designator)
                         .into_eval_result(diagnostics)?;
                     resolved = match name {
                         NamedEntities::Single(named_entity) => {
                             designator.set_reference(&name);
 
                             ResolvedName::from_design_not_overloaded(named_entity)
-                                .map_err(|(e, code)| Diagnostic::new(&designator.pos, e, code))
+                                .map_err(|(e, code)| {
+                                    Diagnostic::new(&designator.pos(self.ctx), e, code)
+                                })
                                 .into_eval_result(diagnostics)?
                         }
                         NamedEntities::Overloaded(overloaded) => {
                             // Could be used for an alias of a subprogram
                             ResolvedName::Overloaded(
-                                WithPos::new(designator.item.item.clone(), designator.pos.clone()),
+                                WithToken::new(designator.item.item.clone(), designator.token),
                                 overloaded,
                             )
                         }
                     }
                 } else {
-                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    diagnostics.push(Diagnostic::cannot_be_prefix(
+                        &span.to_pos(self.ctx),
+                        resolved,
+                        suffix,
+                    ));
                     return Err(EvalError::Unknown);
                 }
             }
@@ -1472,11 +1516,19 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                diagnostics.push(Diagnostic::cannot_be_prefix(
+                    &span.to_pos(self.ctx),
+                    resolved,
+                    suffix,
+                ));
                 return Err(EvalError::Unknown);
             }
             ResolvedName::Final(_) => {
-                diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                diagnostics.push(Diagnostic::cannot_be_prefix(
+                    &span.to_pos(self.ctx),
+                    resolved,
+                    suffix,
+                ));
                 return Err(EvalError::Unknown);
             }
         }
@@ -1490,7 +1542,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_object_name(
         &self,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
+        name_pos: TokenSpan,
         name: &mut Name,
         err_msg: &'static str,
         error_code: ErrorCode,
@@ -1506,7 +1558,7 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
                 diagnostics.add(
-                    name_pos,
+                    name_pos.to_pos(self.ctx),
                     format!("{} {}", resolved.describe(), err_msg),
                     error_code,
                 );
@@ -1518,7 +1570,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn type_name(
         &self,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
+        name_pos: TokenSpan,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
@@ -1532,7 +1584,7 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
                 diagnostics.add(
-                    name_pos,
+                    name_pos.to_pos(self.ctx),
                     format!("Expected type name, got {}", resolved.describe()),
                     ErrorCode::MismatchedKinds,
                 );
@@ -1545,7 +1597,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         typ: TypeEnt<'a>,
-        pos: &SrcPos,
+        pos: TokenSpan,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -1554,7 +1606,7 @@ impl<'a> AnalyzeContext<'a> {
                 ExpressionType::Unambiguous(ctyp) => {
                     if !typ.base().is_closely_related(ctyp.base()) {
                         diagnostics.add(
-                            pos,
+                            pos.to_pos(self.ctx),
                             format!(
                                 "{} cannot be converted to {}",
                                 ctyp.describe(),
@@ -1568,7 +1620,7 @@ impl<'a> AnalyzeContext<'a> {
                 | ExpressionType::Ambiguous(_)
                 | ExpressionType::Null
                 | ExpressionType::Aggregate => diagnostics.add(
-                    pos,
+                    pos.to_pos(self.ctx),
                     format!(
                         "{} cannot be the argument of type conversion",
                         types.describe()
@@ -1584,13 +1636,13 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expression_name_types(
         &self,
         scope: &Scope<'a>,
-        expr_pos: &SrcPos,
+        span: TokenSpan,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<DisambiguatedType<'a>> {
         let resolved =
-            self.name_resolve_with_suffixes(scope, expr_pos, name, None, false, diagnostics)?;
-        match self.name_to_type(expr_pos, name.suffix_reference_mut(), resolved) {
+            self.name_resolve_with_suffixes(scope, span, name, None, false, diagnostics)?;
+        match self.name_to_type(span, name.suffix_reference_mut(), resolved) {
             Ok(Some(typ)) => Ok(typ),
             Ok(None) => Err(EvalError::Unknown),
             Err(diag) => {
@@ -1604,30 +1656,26 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expression_name_with_ttyp(
         &self,
         scope: &Scope<'a>,
-        expr_pos: &SrcPos,
+        span: TokenSpan,
         name: &mut Name,
         ttyp: TypeEnt<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(resolved) = as_fatal(self.name_resolve_with_suffixes(
             scope,
-            expr_pos,
+            span,
             name,
             Some(ttyp),
             false,
             diagnostics,
         ))? {
             // @TODO target_type already used above, functions could probably be simplified
-            match self.name_to_unambiguous_type(
-                expr_pos,
-                &resolved,
-                ttyp,
-                name.suffix_reference_mut(),
-            ) {
+            match self.name_to_unambiguous_type(span, &resolved, ttyp, name.suffix_reference_mut())
+            {
                 Ok(Some(type_mark)) => {
                     if !self.can_be_target_type(type_mark, ttyp.base()) {
                         diagnostics.push(Diagnostic::type_mismatch(
-                            expr_pos,
+                            &span.to_pos(self.ctx),
                             &resolved.describe_type(),
                             ttyp,
                         ));
@@ -1647,8 +1695,8 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_indexed_name(
         &self,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
-        suffix_pos: &SrcPos,
+        name_pos: TokenSpan,
+        suffix_pos: TokenSpan,
         type_mark: TypeEnt<'a>,
         indexes: &mut [Index],
         diagnostics: &mut dyn DiagnosticHandler,
@@ -1669,7 +1717,7 @@ impl<'a> AnalyzeContext<'a> {
         {
             if indexes.len() != index_types.len() {
                 diagnostics.push(Diagnostic::dimension_mismatch(
-                    name_pos,
+                    &name_pos.to_pos(self.ctx),
                     base_type,
                     indexes.len(),
                     index_types.len(),
@@ -1685,7 +1733,7 @@ impl<'a> AnalyzeContext<'a> {
             bail!(
                 diagnostics,
                 Diagnostic::new(
-                    suffix_pos,
+                    suffix_pos.to_pos(self.ctx),
                     format!("{} cannot be indexed", type_mark.describe()),
                     ErrorCode::MismatchedKinds,
                 )
@@ -1696,9 +1744,9 @@ impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
         diagnostics: &mut dyn DiagnosticHandler,
-        prefix_pos: &SrcPos,
+        prefix_pos: TokenSpan,
         prefix: EntRef<'a>,
-        suffix: &mut WithPos<WithRef<Designator>>,
+        suffix: &mut WithToken<WithRef<Designator>>,
     ) -> EvalResult<NamedEntities<'a>> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
@@ -1706,7 +1754,7 @@ impl<'a> AnalyzeContext<'a> {
                 let named_entity = self.lookup_in_library(
                     diagnostics,
                     library_name,
-                    &suffix.pos,
+                    suffix.pos(self.ctx),
                     &suffix.item.item,
                 )?;
                 suffix
@@ -1718,27 +1766,27 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Object(ref object) => Ok(object
                 .subtype
                 .type_mark()
-                .selected(prefix_pos, suffix)
+                .selected(self.ctx, prefix_pos, suffix)
                 .into_eval_result(diagnostics)?
                 .into_any()),
             AnyEntKind::ObjectAlias { ref type_mark, .. } => Ok(type_mark
-                .selected(prefix_pos, suffix)
+                .selected(self.ctx, prefix_pos, suffix)
                 .into_eval_result(diagnostics)?
                 .into_any()),
             AnyEntKind::ExternalAlias { ref type_mark, .. } => Ok(type_mark
-                .selected(prefix_pos, suffix)
+                .selected(self.ctx, prefix_pos, suffix)
                 .into_eval_result(diagnostics)?
                 .into_any()),
             AnyEntKind::ElementDeclaration(ref subtype) => Ok(subtype
                 .type_mark()
-                .selected(prefix_pos, suffix)
+                .selected(self.ctx, prefix_pos, suffix)
                 .into_eval_result(diagnostics)?
                 .into_any()),
             AnyEntKind::Design(_) => {
                 let design = DesignEnt::from_any(prefix)
                     .ok_or_else(|| {
                         Diagnostic::internal(
-                            &suffix.pos,
+                            suffix.pos(self.ctx),
                             format!(
                                 "Internal error when expecting design unit, got {}",
                                 prefix.describe()
@@ -1748,7 +1796,7 @@ impl<'a> AnalyzeContext<'a> {
                     .into_eval_result(diagnostics)?;
 
                 let named = design
-                    .selected(prefix_pos, suffix)
+                    .selected(self.ctx, prefix_pos, suffix)
                     .into_eval_result(diagnostics)?;
                 Ok(named)
             }
@@ -1756,7 +1804,7 @@ impl<'a> AnalyzeContext<'a> {
             _ => {
                 bail!(
                     diagnostics,
-                    Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos)
+                    Diagnostic::invalid_selected_name_prefix(prefix, &prefix_pos.to_pos(self.ctx))
                 );
             }
         }
@@ -1888,11 +1936,12 @@ impl Diagnostic {
     }
 
     pub fn ambiguous_call<'a>(
-        call_name: &WithPos<Designator>,
+        ctx: &dyn TokenAccess,
+        call_name: &WithToken<Designator>,
         candidates: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Diagnostic {
         let mut diag = Diagnostic::new(
-            &call_name.pos,
+            call_name.pos(ctx),
             format!("Ambiguous call to {}", call_name.item.describe()),
             ErrorCode::AmbiguousCall,
         );
@@ -1901,10 +1950,14 @@ impl Diagnostic {
     }
 }
 
-fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn DiagnosticHandler) {
+fn check_no_attr_argument(
+    ctx: &dyn TokenAccess,
+    suffix: &AttributeSuffix,
+    diagnostics: &mut dyn DiagnosticHandler,
+) {
     if let Some(ref expr) = suffix.expr {
         diagnostics.add(
-            &expr.pos,
+            &expr.to_pos(ctx),
             format!("'{} attribute does not take an argument", suffix.attr),
             ErrorCode::TooManyArguments,
         )
@@ -1912,13 +1965,14 @@ fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn Diagno
 }
 
 fn check_no_sattr_argument(
+    ctx: &dyn TokenAccess,
     attr: SignalAttribute,
-    expr: Option<&mut WithPos<Expression>>,
+    expr: Option<&mut WithTokenSpan<Expression>>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) {
     if let Some(ref expr) = expr {
         diagnostics.add(
-            &expr.pos,
+            expr.to_pos(ctx),
             format!("'{attr} attribute does not take an argument"),
             ErrorCode::TooManyArguments,
         )
@@ -1926,15 +1980,16 @@ fn check_no_sattr_argument(
 }
 
 fn check_single_argument<'a>(
-    pos: &SrcPos,
+    ctx: &dyn TokenAccess,
+    pos: TokenSpan,
     suffix: &'a mut AttributeSuffix,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> Option<&'a mut WithPos<Expression>> {
+) -> Option<&'a mut WithTokenSpan<Expression>> {
     if let Some(ref mut expr) = suffix.expr {
         Some(expr)
     } else {
         diagnostics.add(
-            pos,
+            pos.to_pos(ctx),
             format!("'{} attribute requires a single argument", suffix.attr),
             ErrorCode::Unassociated,
         );
@@ -1977,7 +2032,7 @@ mod test {
             let mut name = code.name();
             self.ctx().name_resolve_with_suffixes(
                 &self.scope,
-                &name.to_pos(&self.tokens),
+                name.span,
                 &mut name.item,
                 ttyp,
                 false,
@@ -1995,7 +2050,7 @@ mod test {
             self.ctx()
                 .expression_name_with_ttyp(
                     &self.scope,
-                    &name.to_pos(&self.tokens),
+                    name.span,
                     &mut name.item,
                     ttyp,
                     diagnostics,
@@ -2011,7 +2066,7 @@ mod test {
             let mut name = code.name();
             as_fatal(self.ctx().expression_name_types(
                 &self.scope,
-                &name.to_pos(&self.tokens),
+                name.span,
                 &mut name.item,
                 diagnostics,
             ))

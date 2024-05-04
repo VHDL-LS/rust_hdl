@@ -199,7 +199,7 @@ end context ident;
                     ident: code.s1("ident").decl_ident(),
                     items: vec![],
                     end_ident_pos: if has_end_ident {
-                        Some(code.s("ident", 2).pos())
+                        Some(code.s("ident", 2).token())
                     } else {
                         None
                     },

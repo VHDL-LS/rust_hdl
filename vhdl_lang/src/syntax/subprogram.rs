@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenId, TokenSpan};
+use super::tokens::{kinds_error, Kind::*, TokenId, TokenSpan};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
@@ -17,23 +17,22 @@ use crate::syntax::interface_declaration::parse_generic_interface_list;
 use crate::syntax::names::parse_name;
 use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Signature>> {
+pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Signature>> {
     let left_square = ctx.stream.expect_kind(LeftSquare)?;
-    let start_pos = ctx.stream.get_pos(left_square);
     let mut type_marks = Vec::new();
     let mut return_mark = None;
 
     let pos = peek_token!(
-        ctx.stream, token,
+        ctx.stream, token, token_id,
         Return => {
             ctx.stream.skip();
             return_mark = Some(parse_type_mark(ctx)?);
             let right_square = ctx.stream.expect_kind(RightSquare)?;
-            start_pos.combine(ctx.stream.get_pos(right_square))
+            TokenSpan::new(left_square, right_square)
         },
         RightSquare => {
             ctx.stream.skip();
-            start_pos.combine(&token.pos)
+            TokenSpan::new(left_square, token_id)
         },
         Identifier => {
             loop {
@@ -45,14 +44,15 @@ pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Sign
                         expect_token!(
                             ctx.stream,
                             sep_token,
+                            sep_token_id,
                             Comma => {},
                             RightSquare => {
-                                break start_pos.combine(&sep_token.pos);
+                                break TokenSpan::new(left_square, sep_token_id);
                             },
                             Return => {
                                 return_mark = Some(parse_type_mark(ctx)?);
                                 let right_square = ctx.stream.expect_kind(RightSquare)?;
-                                break start_pos.combine(ctx.stream.get_pos(right_square));
+                                break TokenSpan::new(left_square, right_square);
                             }
                         )
                     }
@@ -70,15 +70,16 @@ pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Sign
         None => Signature::Procedure(type_marks),
     };
 
-    Ok(WithPos::new(signature, pos))
+    Ok(WithTokenSpan::new(signature, pos))
 }
 
-fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<SubprogramDesignator>> {
+fn parse_designator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToken<SubprogramDesignator>> {
     Ok(expect_token!(
         ctx.stream,
         token,
-        Identifier => token.to_identifier_value()?.map_into(SubprogramDesignator::Identifier),
-        StringLiteral => token.to_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
+        token_id,
+        Identifier => token.to_identifier_value(token_id)?.map_into(SubprogramDesignator::Identifier),
+        StringLiteral => token.to_operator_symbol(token_id)?.map_into(SubprogramDesignator::OperatorSymbol)
     ))
 }
 
@@ -353,9 +354,9 @@ function \"+\" return lib.foo.natural;
                 span: code.token_span(),
                 specification: SubprogramSpecification::Function(FunctionSpecification {
                     pure: true,
-                    designator: WithPos {
+                    designator: WithToken {
                         item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
-                        pos: code.s1("\"+\"").pos()
+                        token: code.s1("\"+\"").token()
                     }
                     .into(),
                     header: None,
@@ -534,9 +535,9 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            WithPos::new(
+            WithTokenSpan::new(
                 Signature::Function(vec![], code.s1("bar.type_mark").type_mark()),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -546,12 +547,12 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[foo.type_mark return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            WithPos::new(
+            WithTokenSpan::new(
                 Signature::Function(
                     vec![code.s1("foo.type_mark").type_mark()],
                     code.s1("bar.type_mark").type_mark()
                 ),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -570,9 +571,9 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[foo.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            WithPos::new(
+            WithTokenSpan::new(
                 Signature::Procedure(vec![code.s1("foo.type_mark").type_mark()]),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -582,7 +583,7 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         let code = Code::new("[foo.type_mark, foo2.type_mark return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            WithPos::new(
+            WithTokenSpan::new(
                 Signature::Function(
                     vec![
                         code.s1("foo.type_mark").type_mark(),
@@ -590,7 +591,7 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                     ],
                     code.s1("bar.type_mark").type_mark()
                 ),
-                code.pos()
+                code.token_span()
             )
         );
     }
@@ -678,7 +679,7 @@ end function foo;
             specification,
             declarations: vec![],
             statements: vec![],
-            end_ident_pos: Some(code.s("foo", 2).pos()),
+            end_ident_pos: Some(code.s("foo", 2).token()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
@@ -703,7 +704,7 @@ end function \"+\";
             specification,
             declarations: vec![],
             statements: vec![],
-            end_ident_pos: Some(code.s("\"+\"", 2).pos()),
+            end_ident_pos: Some(code.s("\"+\"", 2).token()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
@@ -876,7 +877,7 @@ end procedure swap;
                 code.s1("a := b;").sequential_statement(),
                 code.s1(" b := temp;").sequential_statement(),
             ],
-            end_ident_pos: Some(code.s("swap", 2).pos()),
+            end_ident_pos: Some(code.s("swap", 2).token()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),

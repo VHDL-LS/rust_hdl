@@ -37,15 +37,15 @@ fn parse_entity_class(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityClass> 
 }
 
 pub fn parse_entity_name_list(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<EntityName>> {
-    Ok(expect_token!(ctx.stream, token,
+    Ok(expect_token!(ctx.stream, token, token_id,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
             let mut token = token;
             loop {
 
                 let designator = match token.kind {
-                    Identifier => token.to_identifier_value()?.map_into(Designator::Identifier),
-                    StringLiteral => token.to_operator_symbol()?.map_into(Designator::OperatorSymbol),
+                    Identifier => token.to_identifier_value(token_id)?.map_into(Designator::Identifier),
+                    StringLiteral => token.to_operator_symbol(token_id)?.map_into(Designator::OperatorSymbol),
                     _ => unreachable!(""),
                 };
 

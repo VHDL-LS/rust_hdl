@@ -84,9 +84,9 @@ pub enum Operator {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeName {
     pub name: WithTokenSpan<Name>,
-    pub signature: Option<WithPos<Signature>>,
-    pub attr: WithPos<AttributeDesignator>,
-    pub expr: Option<Box<WithPos<Expression>>>,
+    pub signature: Option<WithTokenSpan<Signature>>,
+    pub attr: WithToken<AttributeDesignator>,
+    pub expr: Option<Box<WithTokenSpan<Expression>>>,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
@@ -174,7 +174,7 @@ pub enum ExternalPath {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExternalName {
     pub class: ExternalObjectClass,
-    pub path: WithPos<ExternalPath>,
+    pub path: WithTokenSpan<ExternalPath>,
     pub subtype: SubtypeIndication,
 }
 
@@ -182,7 +182,7 @@ pub struct ExternalName {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Name {
     Designator(WithRef<Designator>),
-    Selected(Box<WithTokenSpan<Name>>, WithPos<WithRef<Designator>>),
+    Selected(Box<WithTokenSpan<Name>>, WithToken<WithRef<Designator>>),
     SelectedAll(Box<WithTokenSpan<Name>>),
     Slice(Box<WithTokenSpan<Name>>, Box<DiscreteRange>),
     Attribute(Box<AttributeName>),
@@ -208,8 +208,8 @@ pub enum Choice {
 /// LRM 9.3.3 Aggregates
 #[derive(PartialEq, Debug, Clone)]
 pub enum ElementAssociation {
-    Positional(WithPos<Expression>),
-    Named(Vec<WithPos<Choice>>, WithPos<Expression>),
+    Positional(WithTokenSpan<Expression>),
+    Named(Vec<WithTokenSpan<Choice>>, WithTokenSpan<Expression>),
 }
 
 /// LRM 6.5.7 Association Lists
@@ -223,7 +223,7 @@ pub enum ActualPart {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AssociationElement {
     pub formal: Option<WithTokenSpan<Name>>,
-    pub actual: WithPos<ActualPart>,
+    pub actual: WithTokenSpan<ActualPart>,
 }
 
 /// LRM 15.5 Abstract literals
@@ -269,18 +269,18 @@ pub enum Allocator {
 #[derive(PartialEq, Debug, Clone)]
 pub struct QualifiedExpression {
     pub type_mark: WithTokenSpan<TypeMark>,
-    pub expr: WithPos<Expression>,
+    pub expr: WithTokenSpan<Expression>,
 }
 
 /// LRM 9. Expressions
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     Binary(
-        WithPos<WithRef<Operator>>,
-        Box<WithPos<Expression>>,
-        Box<WithPos<Expression>>,
+        WithToken<WithRef<Operator>>,
+        Box<WithTokenSpan<Expression>>,
+        Box<WithTokenSpan<Expression>>,
     ),
-    Unary(WithPos<WithRef<Operator>>, Box<WithPos<Expression>>),
+    Unary(WithToken<WithRef<Operator>>, Box<WithTokenSpan<Expression>>),
 
     /// LRM 9.3.3 Aggregates
     Aggregate(Vec<ElementAssociation>),
@@ -295,7 +295,7 @@ pub enum Expression {
     Literal(Literal),
 
     /// LRM 9.3.7 Allocators
-    New(Box<WithPos<Allocator>>),
+    New(Box<WithTokenSpan<Allocator>>),
 }
 
 /// An identifier together with the lexical source location it occurs in.
@@ -321,8 +321,8 @@ pub enum DiscreteRange {
 #[derive(PartialEq, Debug, Clone)]
 pub struct RangeConstraint {
     pub direction: Direction,
-    pub left_expr: Box<WithPos<Expression>>,
-    pub right_expr: Box<WithPos<Expression>>,
+    pub left_expr: Box<WithTokenSpan<Expression>>,
+    pub right_expr: Box<WithTokenSpan<Expression>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -335,14 +335,17 @@ pub enum Range {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementConstraint {
     pub ident: Ident,
-    pub constraint: Box<WithPos<SubtypeConstraint>>,
+    pub constraint: Box<WithTokenSpan<SubtypeConstraint>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubtypeConstraint {
     Range(Range),
     /// Empty Vec means Open
-    Array(Vec<DiscreteRange>, Option<Box<WithPos<SubtypeConstraint>>>),
+    Array(
+        Vec<DiscreteRange>,
+        Option<Box<WithTokenSpan<SubtypeConstraint>>>,
+    ),
     Record(Vec<ElementConstraint>),
 }
 
@@ -373,7 +376,7 @@ pub struct TypeMark {
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
     pub type_mark: WithTokenSpan<TypeMark>,
-    pub constraint: Option<WithPos<SubtypeConstraint>>,
+    pub constraint: Option<WithTokenSpan<SubtypeConstraint>>,
 }
 
 /// LRM 5.3 Array Types
@@ -464,6 +467,12 @@ pub struct WithToken<T> {
     pub token: TokenId,
 }
 
+impl HasDesignator for WithToken<WithRef<Designator>> {
+    fn designator(&self) -> &Designator {
+        self.item.designator()
+    }
+}
+
 impl<T> WithToken<T> {
     pub fn new(item: T, token: TokenId) -> WithToken<T> {
         WithToken { item, token }
@@ -479,6 +488,16 @@ impl<T> WithToken<T> {
         }
     }
 
+    pub fn map_into_span<F, U>(self, f: F) -> WithTokenSpan<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        WithTokenSpan {
+            item: f(self.item),
+            span: self.token.into(),
+        }
+    }
+
     pub fn pos(&self, ctx: &dyn TokenAccess) -> &SrcPos {
         ctx.get_pos(self.token)
     }
@@ -488,10 +507,10 @@ impl<T> WithToken<T> {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: WithDecl<WithTokenSpan<Designator>>,
+    pub designator: WithDecl<WithToken<Designator>>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithTokenSpan<Name>,
-    pub signature: Option<WithPos<Signature>>,
+    pub signature: Option<WithTokenSpan<Signature>>,
 }
 
 /// LRM 6.7 Attribute declarations
@@ -505,8 +524,8 @@ pub struct AttributeDeclaration {
 /// LRM 7.2 Attribute specification
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityTag {
-    pub designator: WithTokenSpan<WithRef<Designator>>,
-    pub signature: Option<WithPos<Signature>>,
+    pub designator: WithToken<WithRef<Designator>>,
+    pub signature: Option<WithTokenSpan<Signature>>,
 }
 
 /// LRM 7.2 Attribute specification
@@ -549,7 +568,7 @@ pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
     pub entity_name: EntityName,
     pub entity_class: EntityClass,
-    pub expr: WithPos<Expression>,
+    pub expr: WithTokenSpan<Expression>,
 }
 
 /// LRM 7.2 Attribute specification
@@ -591,7 +610,7 @@ pub enum EnumerationLiteral {
 pub enum TypeDefinition {
     /// LRM 5.2 Scalar Types
     /// LRM 5.2.2 Enumeration types
-    Enumeration(Vec<WithDecl<WithPos<EnumerationLiteral>>>),
+    Enumeration(Vec<WithDecl<WithToken<EnumerationLiteral>>>),
     /// LRM 5.2.3 Integer types
     ///     5.2.5 Floating-point types
     Numeric(Range),
@@ -647,7 +666,7 @@ pub struct ObjectDeclaration {
     pub class: ObjectClass,
     pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
-    pub expression: Option<WithPos<Expression>>,
+    pub expression: Option<WithTokenSpan<Expression>>,
 }
 
 #[with_token_span]
@@ -655,8 +674,8 @@ pub struct ObjectDeclaration {
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
-    pub open_info: Option<WithPos<Expression>>,
-    pub file_name: Option<WithPos<Expression>>,
+    pub open_info: Option<WithTokenSpan<Expression>>,
+    pub file_name: Option<WithTokenSpan<Expression>>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -668,7 +687,7 @@ pub enum SubprogramDesignator {
 /// LRM 4.2 Subprogram declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
-    pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
     // The `parameter` token, if such a token exists
     pub param_tok: Option<TokenId>,
@@ -679,7 +698,7 @@ pub struct ProcedureSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
-    pub designator: WithDecl<WithTokenSpan<SubprogramDesignator>>,
+    pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
     // The `parameter` token, if such a token exists
     pub param_tok: Option<TokenId>,
@@ -721,7 +740,7 @@ pub struct SubprogramInstantiation {
     pub kind: SubprogramKind,
     pub ident: WithDecl<Ident>,
     pub subprogram_name: WithTokenSpan<Name>,
-    pub signature: Option<WithPos<Signature>>,
+    pub signature: Option<WithTokenSpan<Signature>>,
     pub generic_map: Option<MapAspect>,
 }
 
@@ -771,7 +790,7 @@ pub struct SimpleModeIndication {
     pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
     pub bus: bool,
-    pub expression: Option<WithPos<Expression>>,
+    pub expression: Option<WithTokenSpan<Expression>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -866,23 +885,23 @@ pub enum Declaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
     pub sensitivity_clause: Vec<WithTokenSpan<Name>>,
-    pub condition_clause: Option<WithPos<Expression>>,
-    pub timeout_clause: Option<WithPos<Expression>>,
+    pub condition_clause: Option<WithTokenSpan<Expression>>,
+    pub timeout_clause: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.3 Assertion statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct AssertStatement {
-    pub condition: WithPos<Expression>,
-    pub report: Option<WithPos<Expression>>,
-    pub severity: Option<WithPos<Expression>>,
+    pub condition: WithTokenSpan<Expression>,
+    pub report: Option<WithTokenSpan<Expression>>,
+    pub severity: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.4 Report statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReportStatement {
-    pub report: WithPos<Expression>,
-    pub severity: Option<WithPos<Expression>>,
+    pub report: WithTokenSpan<Expression>,
+    pub severity: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -895,8 +914,8 @@ pub enum Target {
 /// LRM 10.5 Signal assignment statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaveformElement {
-    pub value: WithPos<Expression>,
-    pub after: Option<WithPos<Expression>>,
+    pub value: WithTokenSpan<Expression>,
+    pub after: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -910,7 +929,9 @@ pub enum Waveform {
 #[derive(PartialEq, Debug, Clone)]
 pub enum DelayMechanism {
     Transport,
-    Inertial { reject: Option<WithPos<Expression>> },
+    Inertial {
+        reject: Option<WithTokenSpan<Expression>>,
+    },
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -931,7 +952,7 @@ pub enum ForceMode {
 pub struct SignalForceAssignment {
     pub target: WithTokenSpan<Target>,
     pub force_mode: Option<ForceMode>,
-    pub rhs: AssignmentRightHand<WithPos<Expression>>,
+    pub rhs: AssignmentRightHand<WithTokenSpan<Expression>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -944,7 +965,7 @@ pub struct SignalReleaseAssignment {
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableAssignment {
     pub target: WithTokenSpan<Target>,
-    pub rhs: AssignmentRightHand<WithPos<Expression>>,
+    pub rhs: AssignmentRightHand<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -958,7 +979,7 @@ pub enum AssignmentRightHand<T> {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Conditional<T> {
-    pub condition: WithPos<Expression>,
+    pub condition: WithTokenSpan<Expression>,
     pub item: T,
 }
 
@@ -977,13 +998,13 @@ pub struct IfStatement {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Alternative<T> {
-    pub choices: Vec<WithPos<Choice>>,
+    pub choices: Vec<WithTokenSpan<Choice>>,
     pub item: T,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Selection<T> {
-    pub expression: WithPos<Expression>,
+    pub expression: WithTokenSpan<Expression>,
     pub alternatives: Vec<Alternative<T>>,
 }
 
@@ -991,7 +1012,7 @@ pub struct Selection<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseStatement {
     pub is_matching: bool,
-    pub expression: WithPos<Expression>,
+    pub expression: WithTokenSpan<Expression>,
     pub alternatives: Vec<Alternative<Vec<LabeledSequentialStatement>>>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -999,7 +1020,7 @@ pub struct CaseStatement {
 /// LRM 10.10 Loop statement
 #[derive(PartialEq, Debug, Clone)]
 pub enum IterationScheme {
-    While(WithPos<Expression>),
+    While(WithTokenSpan<Expression>),
     For(WithDecl<Ident>, DiscreteRange),
 }
 
@@ -1015,20 +1036,20 @@ pub struct LoopStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct NextStatement {
     pub loop_label: Option<WithRef<Ident>>,
-    pub condition: Option<WithPos<Expression>>,
+    pub condition: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.12 Exit statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExitStatement {
     pub loop_label: Option<WithRef<Ident>>,
-    pub condition: Option<WithPos<Expression>>,
+    pub condition: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10.13 Return statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReturnStatement {
-    pub expression: Option<WithPos<Expression>>,
+    pub expression: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10. Sequential statements
@@ -1055,14 +1076,14 @@ pub enum SequentialStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledSequentialStatement {
     pub label: WithDecl<Option<Ident>>,
-    pub statement: WithPos<SequentialStatement>,
+    pub statement: WithTokenSpan<SequentialStatement>,
 }
 
 /// LRM 11.2 Block statement
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockStatement {
-    pub guard_condition: Option<WithPos<Expression>>,
+    pub guard_condition: Option<WithTokenSpan<Expression>>,
     pub header: BlockHeader,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
@@ -1227,7 +1248,7 @@ pub struct ModeViewElement {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ElementMode {
-    Simple(WithPos<Mode>),
+    Simple(WithToken<Mode>),
     Record(WithTokenSpan<Name>),
     Array(WithTokenSpan<Name>),
 }
@@ -1250,7 +1271,7 @@ pub enum ConcurrentStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledConcurrentStatement {
     pub label: WithDecl<Option<Ident>>,
-    pub statement: WithPos<ConcurrentStatement>,
+    pub statement: WithTokenSpan<ConcurrentStatement>,
 }
 
 /// LRM 13. Design units and their analysis
