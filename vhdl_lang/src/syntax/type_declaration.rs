@@ -155,13 +155,14 @@ fn parse_physical_type_definition(
                 let literal = {
                     expect_token!(ctx.stream,
                         value_token,
+                        value_token_id,
                         AbstractLiteral => {
-                            let value = value_token.to_abstract_literal(token_id)?.item;
+                            let value = value_token.to_abstract_literal(value_token_id)?.item;
                             let unit = ctx.stream.expect_ident()?;
                             PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
-                            let unit = value_token.to_identifier_value(token_id)?;
+                            let unit = value_token.to_identifier_value(value_token_id)?;
                             PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
                         }
                     )
