@@ -6,6 +6,7 @@
 
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
+use vhdl_lang::TokenAccess;
 
 use super::analyze::*;
 use super::overloaded::Disambiguated;
@@ -929,7 +930,7 @@ impl<'a> AnalyzeContext<'a> {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
                     let typ = if choices.len() == 1 {
                         let choice = choices.first_mut().unwrap();
-                        let choice_pos = choice.span.to_pos(self.ctx);
+                        let choice_span = choice.span;
                         match &mut choice.item {
                             Choice::Expression(choice_expr) => {
                                 if let Some(simple_name) =
@@ -937,13 +938,18 @@ impl<'a> AnalyzeContext<'a> {
                                 {
                                     if let Some(elem) = elems.lookup(&simple_name.item) {
                                         simple_name.set_unique_reference(&elem);
-                                        associated.associate(&elem, &choice_pos, diagnostics);
+                                        associated.associate(
+                                            self.ctx,
+                                            &elem,
+                                            choice.span,
+                                            diagnostics,
+                                        );
                                         Some(elem.type_mark().base())
                                     } else {
                                         is_ok_so_far = false;
                                         diagnostics.push(Diagnostic::no_declaration_within(
                                             &record_type,
-                                            &choice_pos,
+                                            &choice_span.to_pos(self.ctx),
                                             &simple_name.item,
                                         ));
                                         None
@@ -1019,7 +1025,12 @@ impl<'a> AnalyzeContext<'a> {
 
                                 for elem in elems.iter() {
                                     if !associated.is_associated(&elem) {
-                                        associated.associate(&elem, &choice_pos, diagnostics);
+                                        associated.associate(
+                                            self.ctx,
+                                            &elem,
+                                            choice.span,
+                                            diagnostics,
+                                        );
                                     }
                                 }
 
@@ -1056,10 +1067,9 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    let expr_pos = expr.span.to_pos(self.ctx);
                     if let Some(elem) = elems.nth(idx) {
                         self.expr_with_ttyp(scope, elem.type_mark(), expr, diagnostics)?;
-                        associated.associate(elem, &expr_pos, diagnostics);
+                        associated.associate(self.ctx, elem, expr.span, diagnostics);
                     } else {
                         self.expr_unknown_ttyp(scope, expr, diagnostics)?;
 
@@ -1242,26 +1252,27 @@ impl Diagnostic {
 }
 
 #[derive(Default)]
-struct RecordAssociations<'a>(FnvHashMap<EntityId, &'a SrcPos>);
+struct RecordAssociations(FnvHashMap<EntityId, TokenSpan>);
 
-impl<'a> RecordAssociations<'a> {
+impl RecordAssociations {
     fn associate(
         &mut self,
+        ctx: &dyn TokenAccess,
         elem: &RecordElement,
-        pos: &'a SrcPos,
+        pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some(prev_pos) = self.0.insert(elem.id(), pos) {
             diagnostics.push(
                 Diagnostic::new(
-                    pos,
+                    pos.to_pos(ctx),
                     format!(
                         "Record element '{}' has already been associated",
                         elem.designator()
                     ),
                     ErrorCode::AlreadyAssociated,
                 )
-                .related(prev_pos, "Previously associated here"),
+                .related(prev_pos.to_pos(ctx), "Previously associated here"),
             );
         }
     }

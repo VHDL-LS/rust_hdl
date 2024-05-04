@@ -239,7 +239,7 @@ impl<'a> AnalyzeContext<'a> {
         let Some(primary) = as_fatal(self.lookup_in_library(
             diagnostics,
             self.work_library_name(),
-            &unit.entity_name.item.pos(self.ctx),
+            unit.entity_name.item.pos(self.ctx),
             &Designator::Identifier(unit.entity_name.item.item.clone()),
         ))?
         else {
@@ -542,19 +542,19 @@ impl<'a> AnalyzeContext<'a> {
                         if self.work_sym == library_name.item.item {
                             library_name.set_unique_reference(self.work_library());
                             diagnostics.add(
-                                &library_name.item.pos(self.ctx),
+                                library_name.item.pos(self.ctx),
                                 "Library clause not necessary for current working library",
                                 ErrorCode::UnnecessaryWorkLibrary,
                             )
                         } else if let Some(library) = self.get_library(&library_name.item.item) {
                             library_name.set_unique_reference(library);
                             scope.make_potentially_visible(
-                                Some(&library_name.item.pos(self.ctx)),
+                                Some(library_name.item.pos(self.ctx)),
                                 library,
                             );
                         } else {
                             diagnostics.add(
-                                &library_name.item.pos(self.ctx),
+                                library_name.item.pos(self.ctx),
                                 format!("No such library '{}'", library_name.item),
                                 ErrorCode::Unresolved,
                             );

@@ -40,7 +40,7 @@ pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>
             return Some(end_ident.token);
         } else {
             ctx.diagnostics.push(Diagnostic::syntax_error(
-                &end_ident.pos(ctx),
+                end_ident.pos(ctx),
                 format!("End identifier mismatch, expected {}", ident.item),
             ));
         }
@@ -59,14 +59,14 @@ pub fn check_label_identifier_mismatch(
                 return Some(end_ident.pos(ctx).clone());
             } else {
                 ctx.diagnostics.push(Diagnostic::syntax_error(
-                    &end_ident.pos(ctx),
+                    end_ident.pos(ctx),
                     format!("End label mismatch, expected {}", ident.item),
                 ));
             }
         }
     } else if let Some(end_ident) = end_ident {
         ctx.diagnostics.push(Diagnostic::syntax_error(
-            &end_ident.pos(ctx),
+            end_ident.pos(ctx),
             format!(
                 "End label '{}' found for unlabeled statement",
                 end_ident.item

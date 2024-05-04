@@ -254,7 +254,7 @@ fn to_procedure_call(
             postponed,
             call: WithTokenSpan::from(
                 CallOrIndexed {
-                    name: WithTokenSpan::from(name, target.span.clone()),
+                    name: WithTokenSpan::from(name, target.span),
                     parameters: vec![],
                 },
                 target.span,

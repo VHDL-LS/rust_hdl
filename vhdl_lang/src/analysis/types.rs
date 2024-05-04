@@ -75,7 +75,7 @@ impl<'a> AnalyzeContext<'a> {
                         literal.tree.item.clone().into_designator(),
                         enum_type.into(),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
-                        Some(&literal.pos(self.ctx)),
+                        Some(literal.pos(self.ctx)),
                         None,
                     );
                     literal.decl.set(literal_ent.id());
@@ -109,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                                         if let Some(prev_pos) = ent.decl_pos() {
                                             diagnostics.push(Diagnostic::duplicate_error(
                                                 &type_decl.ident.tree,
-                                                &type_decl.ident.tree.pos(self.ctx),
+                                                type_decl.ident.tree.pos(self.ctx),
                                                 Some(prev_pos),
                                             ))
                                         }
@@ -383,7 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != phys_type {
                                 diagnostics.add(
-                                    &value.unit.item.pos(self.ctx),
+                                    value.unit.item.pos(self.ctx),
                                     format!(
                                         "Physical unit of type '{}' does not match {}",
                                         secondary_unit_type.designator(),
@@ -611,7 +611,7 @@ impl<'a> AnalyzeContext<'a> {
                         } else {
                             diagnostics.push(Diagnostic::no_declaration_within(
                                 &base_type,
-                                &ident.pos(self.ctx),
+                                ident.pos(self.ctx),
                                 &des,
                             ))
                         }

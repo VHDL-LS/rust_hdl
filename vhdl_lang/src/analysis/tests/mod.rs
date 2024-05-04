@@ -58,7 +58,7 @@ pub(super) struct TestSetup<'a> {
 }
 
 #[cfg(test)]
-struct MockTokenAccess {
+pub(crate) struct MockTokenAccess {
     token: Token,
 }
 

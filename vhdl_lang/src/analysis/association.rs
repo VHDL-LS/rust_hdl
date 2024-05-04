@@ -382,7 +382,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(result)
     }
 
-    fn check_missing_and_duplicates<'e>(
+    fn check_missing_and_duplicates(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         resolved_pairs: &[(TokenSpan, Option<ResolvedFormal<'a>>)],

@@ -114,11 +114,6 @@ impl<'a> TokenStream<'a> {
         TokenId::new(self.get_idx() - 1 - self.token_offset.get())
     }
 
-    pub fn last(&self) -> Option<&Token> {
-        let last_idx = self.get_idx().checked_sub(1)?;
-        self.tokens.get(last_idx)
-    }
-
     fn eof_error(&self) -> Diagnostic {
         let end = self.tokenizer.source.contents().end();
         Diagnostic::syntax_error(

@@ -306,7 +306,7 @@ impl<'a> AnalyzeContext<'a> {
                             AnyEntKind::Overloaded(Overloaded::Alias(ent))
                         } else {
                             diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                &des.pos(self.ctx),
+                                des.pos(self.ctx),
                                 &des.item,
                                 &overloaded,
                             ));
@@ -666,7 +666,7 @@ impl<'a> AnalyzeContext<'a> {
                 let desi = Designator::Identifier(name.item.item.clone());
                 let Some(record_element) = record_region.lookup(&desi) else {
                     diagnostics.push(Diagnostic::new(
-                        &name.item.pos(self.ctx),
+                        name.item.pos(self.ctx),
                         format!("Not a part of {}", typ.type_mark().describe()),
                         ErrorCode::Unresolved,
                     ));
@@ -678,7 +678,7 @@ impl<'a> AnalyzeContext<'a> {
         }
         if !unassociated.is_empty() {
             diagnostics.add(
-                &view.ident.pos(self.ctx),
+                view.ident.pos(self.ctx),
                 pretty_format_unassociated_message(&unassociated),
                 ErrorCode::Unassociated,
             );
@@ -738,7 +738,7 @@ impl<'a> AnalyzeContext<'a> {
                     attr_ent
                 } else {
                     diagnostics.add(
-                        &ident.item.pos(self.ctx),
+                        ident.item.pos(self.ctx),
                         format!("{} is not an attribute", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -747,7 +747,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Ok(NamedEntities::Overloaded(_)) => {
                 diagnostics.add(
-                    &ident.item.pos(self.ctx),
+                    ident.item.pos(self.ctx),
                     format!("Overloaded name '{}' is not an attribute", ident.item),
                     ErrorCode::MismatchedKinds,
                 );
@@ -864,7 +864,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let res = unsafe {
                 self.arena
-                    .add_attr(ent.id(), &designator.pos(self.ctx), attr_ent)
+                    .add_attr(ent.id(), designator.pos(self.ctx), attr_ent)
             };
 
             if let Err(diagnostic) = res {

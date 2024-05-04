@@ -455,11 +455,11 @@ impl TokenId {
     }
 }
 
-impl Into<TokenSpan> for TokenId {
-    fn into(self) -> TokenSpan {
+impl From<TokenId> for TokenSpan {
+    fn from(value: TokenId) -> Self {
         TokenSpan {
-            start_token: self,
-            end_token: self,
+            start_token: value,
+            end_token: value,
         }
     }
 }

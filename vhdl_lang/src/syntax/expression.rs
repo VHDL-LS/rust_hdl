@@ -1256,12 +1256,12 @@ mod tests {
     }
 
     /// Format expression as a string to simplify testing of precedence.
-    fn fmt(expr: &WithTokenSpan<Expression>) -> String {
+    fn fmt(ctx: &dyn TokenAccess, expr: &WithTokenSpan<Expression>) -> String {
         match expr.item {
             Expression::Binary(ref op, ref lhs, ref rhs) => {
-                format!("({} {:?} {})", fmt(lhs), op.item.item, fmt(rhs))
+                format!("({} {:?} {})", fmt(ctx, lhs), op.item.item, fmt(ctx, rhs))
             }
-            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op.item.item, fmt(rhs)),
+            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op.item.item, fmt(ctx, rhs)),
             Expression::Literal(ref lit) => match lit {
                 Literal::Null => "null".to_string(),
                 // @TODO quote and escape
@@ -1280,22 +1280,21 @@ mod tests {
                     }
                 },
                 _ => {
-                    println!("{}", expr.pos.code_context());
+                    println!("{}", expr.to_pos(ctx).code_context());
                     panic!("Cannot format {lit:?}");
                 }
             },
             _ => {
-                println!("{}", expr.pos.code_context());
+                println!("{}", expr.to_pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
             }
         }
     }
 
     fn assert_expression_is(code: &str, expr_str: &str) {
-        assert_eq!(
-            fmt(&Code::new(code).with_stream(parse_expression)),
-            expr_str
-        );
+        let code = Code::new(code);
+        let ctx = code.tokenize();
+        assert_eq!(fmt(&ctx, &code.with_stream(parse_expression)), expr_str);
     }
 
     #[test]

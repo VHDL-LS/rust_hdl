@@ -1105,7 +1105,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(AttrResolveResult::Value(attr.typ().base()))
                     } else {
                         diagnostics.add(
-                            &attr.attr.pos(self.ctx),
+                            attr.attr.pos(self.ctx),
                             format!("Unknown attribute '{}", attr.attr.item),
                             ErrorCode::Unresolved,
                         );
@@ -1485,7 +1485,7 @@ impl<'a> AnalyzeContext<'a> {
 
                             ResolvedName::from_design_not_overloaded(named_entity)
                                 .map_err(|(e, code)| {
-                                    Diagnostic::new(&designator.pos(self.ctx), e, code)
+                                    Diagnostic::new(designator.pos(self.ctx), e, code)
                                 })
                                 .into_eval_result(diagnostics)?
                         }

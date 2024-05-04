@@ -603,7 +603,7 @@ impl Code {
         match name.item {
             Name::CallOrIndexed(call) => WithTokenSpan::from(*call, name.span),
             _ => {
-                let span = name.span.clone();
+                let span = name.span;
                 WithTokenSpan::from(
                     CallOrIndexed {
                         name,
@@ -874,11 +874,11 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
-impl AsRef<TokenSpan> for Code {
+/* impl AsRef<TokenSpan> for Code {
     fn as_ref(&self) -> &TokenSpan {
         &self.token_span()
     }
-}
+} */
 
 fn value_to_string(value: &Value) -> String {
     match value {

@@ -419,7 +419,7 @@ impl Diagnostic {
         rejected: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Self {
         let mut diag = Diagnostic::new(
-            &name.pos(ctx),
+            name.pos(ctx),
             format!("Could not resolve call to '{}'", name.item.designator()),
             ErrorCode::AmbiguousCall,
         );

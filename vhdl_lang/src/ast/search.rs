@@ -838,14 +838,14 @@ fn search_pos_expr(
     match expr {
         Expression::Binary(ref op, ref left, ref right) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos(ctx), &op.item.reference)
+                .search_pos_with_ref(ctx, op.pos(ctx), &op.item.reference)
                 .or_not_found());
             return_if_found!(left.search(ctx, searcher));
             right.search(ctx, searcher)
         }
         Expression::Unary(ref op, ref expr) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos(ctx), &op.item.reference)
+                .search_pos_with_ref(ctx, op.pos(ctx), &op.item.reference)
                 .or_not_found());
             expr.search(ctx, searcher)
         }

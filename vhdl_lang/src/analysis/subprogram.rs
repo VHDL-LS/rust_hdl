@@ -51,7 +51,7 @@ impl<'a> AnalyzeContext<'a> {
                 .into_designator(),
             parent,
             AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
-            Some(&subprogram.subpgm_designator().pos(self.ctx)),
+            Some(subprogram.subpgm_designator().pos(self.ctx)),
             None,
         );
 
@@ -215,7 +215,7 @@ impl<'a> AnalyzeContext<'a> {
         match as_fatal(self.generic_instance(
             inst_subprogram_ent,
             scope,
-            &instance.ident.tree.pos(self.ctx),
+            instance.ident.tree.pos(self.ctx),
             region,
             &mut instance.generic_map,
             diagnostics,
@@ -230,7 +230,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(signature) => Ok(signature),
                     Err((err, code)) => {
                         let mut diag =
-                            Diagnostic::new(&instance.ident.tree.pos(self.ctx), err, code);
+                            Diagnostic::new(instance.ident.tree.pos(self.ctx), err, code);
                         if let Some(pos) = uninstantiated_subprogram.decl_pos() {
                             diag.add_related(pos, "When instantiating this declaration");
                         }
@@ -267,7 +267,7 @@ impl<'a> AnalyzeContext<'a> {
                     .collect_vec();
                 if choices.is_empty() {
                     diagnostics.add(
-                        &instantiation.ident.tree.pos(self.ctx),
+                        instantiation.ident.tree.pos(self.ctx),
                         format!(
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()

@@ -345,21 +345,21 @@ impl<'a> AnalyzeContext<'a> {
                 if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
                     if !find_outer_loop(parent, Some(label.item.name())) {
                         diagnostics.add(
-                            &label.item.pos(self.ctx),
+                            label.item.pos(self.ctx),
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
                             ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {
                     diagnostics.add(
-                        &label.item.pos(self.ctx),
+                        label.item.pos(self.ctx),
                         format!("Expected loop label, got {}", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
                 }
             }
             Ok(NamedEntities::Overloaded(_)) => diagnostics.add(
-                &label.item.pos(self.ctx),
+                label.item.pos(self.ctx),
                 format!(
                     "Expected loop label, got overloaded name {}",
                     &label.item.item

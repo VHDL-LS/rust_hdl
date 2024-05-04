@@ -42,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
         self.generic_instance(
             package_ent,
             scope,
-            &unit.ident.tree.pos(self.ctx),
+            unit.ident.tree.pos(self.ctx),
             &package_region,
             generic_map,
             diagnostics,

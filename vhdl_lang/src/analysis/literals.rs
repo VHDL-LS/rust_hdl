@@ -199,14 +199,14 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(*physical_ent)
                 } else {
                     Err(Diagnostic::new(
-                        &unit.item.pos(self.ctx),
+                        unit.item.pos(self.ctx),
                         format!("{} is not a physical unit", unit_ent.describe()),
                         ErrorCode::InvalidLiteral,
                     ))
                 }
             }
             NamedEntities::Overloaded(_) => Err(Diagnostic::new(
-                &unit.item.pos(self.ctx),
+                unit.item.pos(self.ctx),
                 "Overloaded name may not be physical unit",
                 ErrorCode::MismatchedKinds,
             )),
