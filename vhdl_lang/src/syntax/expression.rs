@@ -392,7 +392,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
             let name = parse_name(ctx)?;
             if ctx.stream.skip_if_kind(Tick) {
                 let lpar = ctx.stream.expect_kind(LeftPar)?;
-                let expr = parse_expression_or_aggregate(ctx)?.combine_span_with(lpar);
+                let expr = parse_expression_or_aggregate(ctx)?.start_with(lpar);
                 let span = name.span.combine(expr.span);
                 Ok(WithTokenSpan::new(
                     Expression::Qualified(Box::new(QualifiedExpression {

@@ -469,7 +469,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                             }
                         };
                         let rpar_token = ctx.stream.expect_kind(RightPar)?;
-                        let span = TokenSpan::new(rpar_token, name.span.end_token);
+                        let span = name.span.end_with(rpar_token);
                         let discrete_range =
                             DiscreteRange::Range(ast::Range::Range(RangeConstraint {
                                 left_expr: Box::new(assoc_to_expression(ctx, assoc)?),
@@ -483,7 +483,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                         };
                     },
                     RightPar => {
-                        let pos = TokenSpan::new(sep_token_id, name.span.end_token);
+                        let span = name.span.end_with(sep_token_id);
                         let item = match into_range(assoc) {
                             Ok(range) => Name::Slice(Box::new(name), Box::new(DiscreteRange::Range(range))),
                             Err(assoc) => Name::CallOrIndexed(Box::new(CallOrIndexed {
@@ -492,7 +492,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                             })),
                         };
 
-                        name = WithTokenSpan::new(item, pos);
+                        name = WithTokenSpan::new(item, span);
                     }
                 )
             }
