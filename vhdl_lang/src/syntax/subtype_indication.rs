@@ -121,7 +121,7 @@ pub fn parse_subtype_constraint(
                 Some(
                     parse_range(ctx)?
                         .map_into(SubtypeConstraint::Range)
-                        .combine_span_with(token_id),
+                        .start_with(token_id),
                 )
             }
             LeftPar => Some(parse_composite_constraint(ctx)?),

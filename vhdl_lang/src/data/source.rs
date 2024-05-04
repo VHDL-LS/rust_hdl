@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::contents::Contents;
-use crate::TokenSpan;
+use crate::{TokenId, TokenSpan};
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -334,6 +334,13 @@ impl<T> WithTokenSpan<T> {
         WithTokenSpan {
             item: self.item,
             span: TokenSpan::new(self.span.start_token, other.into().end_token),
+        }
+    }
+
+    pub fn start_with(self, id: TokenId) -> Self {
+        WithTokenSpan {
+            item: self.item,
+            span: self.span.start_with(id),
         }
     }
 }

@@ -437,7 +437,7 @@ impl crate::ast::Range {
         use crate::ast::Range::*;
         match self {
             Range(constraint) => constraint.span(),
-            Attribute(attr) => attr.name.span.with_end(attr.attr.token),
+            Attribute(attr) => attr.name.span.end_with(attr.attr.token),
         }
     }
 }

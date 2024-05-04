@@ -39,11 +39,11 @@ pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToke
             break;
         }
         if let Some(tok) = ctx.stream.pop_if_kind(All) {
-            let span = name.span.with_end(tok);
+            let span = name.span.end_with(tok);
             name = WithTokenSpan::from(Name::SelectedAll(Box::new(name)), span);
         } else {
             let suffix = parse_designator(ctx)?.into_ref();
-            let span = name.span.with_end(suffix.token);
+            let span = name.span.end_with(suffix.token);
             name = WithTokenSpan::from(Name::Selected(Box::new(name), suffix), span);
         }
     }
@@ -285,9 +285,9 @@ fn parse_attribute_name(
         if ctx.stream.skip_if_kind(LeftPar) {
             let ret = Some(parse_expression(ctx)?);
             let rpar_token = ctx.stream.expect_kind(RightPar)?;
-            (ret, name.span.with_end(rpar_token))
+            (ret, name.span.end_with(rpar_token))
         } else {
-            (None, name.span.with_end(attr.token))
+            (None, name.span.end_with(attr.token))
         }
     };
 
@@ -339,13 +339,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
         CommAt => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.with_end(token_id);
+            let path_pos = path_name.span.end_with(token_id);
             WithTokenSpan::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
             ctx.stream.skip();
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.with_end(token_id);
+            let path_pos = path_name.span.end_with(token_id);
             WithTokenSpan::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
@@ -357,7 +357,7 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
                 up_levels += 1;
             }
             let path_name = parse_name(ctx)?;
-            let path_pos = path_name.span.with_end(token_id);
+            let path_pos = path_name.span.end_with(token_id);
             WithTokenSpan::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
@@ -405,7 +405,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
             Dot => {
                 ctx.stream.skip();
                 let suffix = parse_suffix(ctx)?;
-                let span = name.span.with_end(suffix.token);
+                let span = name.span.end_with(suffix.token);
 
                 match suffix.item {
                     DesignatorOrAll::Designator(designator) => {

@@ -586,10 +586,17 @@ impl TokenSpan {
         }
     }
 
-    pub(crate) fn with_end(&self, other: TokenId) -> TokenSpan {
+    pub(crate) fn end_with(&self, other: TokenId) -> TokenSpan {
         TokenSpan {
             start_token: self.start_token,
             end_token: other,
+        }
+    }
+
+    pub(crate) fn start_with(&self, other: TokenId) -> TokenSpan {
+        TokenSpan {
+            start_token: other,
+            end_token: self.end_token,
         }
     }
 }
