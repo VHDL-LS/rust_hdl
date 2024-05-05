@@ -243,7 +243,7 @@ impl Library {
 
         for unit_ids in self.units_by_source.values() {
             let mut unit_ids: Vec<UnitId> = unit_ids.clone().into_iter().collect();
-            unit_ids.sort_by_key(|unit_id| self.units.get(unit_id.key()).unwrap().ident().token);
+            unit_ids.sort_by_key(|unit_id| self.units.get(unit_id.key()).unwrap().pos().start());
             result.append(&mut unit_ids);
         }
         result
