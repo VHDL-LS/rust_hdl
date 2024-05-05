@@ -101,7 +101,7 @@ impl<'a> AnalyzeContext<'a> {
             as_fatal(self.lookup_entity_for_configuration(&root_region, unit, diagnostics))?
         {
             if let Some(primary_pos) = named_entity.decl_pos() {
-                let secondary_pos = unit.get_pos(self.ctx);
+                let secondary_pos = unit.ident_pos(self.ctx);
                 if primary_pos.source == secondary_pos.source
                     && primary_pos.start() > secondary_pos.start()
                 {
