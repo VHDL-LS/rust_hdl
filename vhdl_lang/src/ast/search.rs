@@ -1899,7 +1899,8 @@ pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
 }
 
 #[cfg(test)]
-pub fn check_no_unresolved(tree: &mut impl Search) {
+#[allow(clippy::ptr_arg)]
+pub fn check_no_unresolved(tree: &mut impl Search, tokens: &Vec<Token>) {
     #[derive(Default)]
     struct CheckNoUnresolved;
 
@@ -1916,6 +1917,5 @@ pub fn check_no_unresolved(tree: &mut impl Search) {
     }
 
     let mut searcher = CheckNoUnresolved;
-    let tokens: Vec<Token> = Vec::new();
-    let _ = tree.search(&tokens, &mut searcher);
+    let _ = tree.search(tokens, &mut searcher);
 }

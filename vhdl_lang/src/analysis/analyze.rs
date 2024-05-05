@@ -132,7 +132,7 @@ pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
     }
 }
 
-pub(super) struct AnalyzeContext<'a> {
+pub(super) struct AnalyzeContext<'a, 't> {
     pub(super) root: &'a DesignRoot,
 
     pub work_sym: Symbol,
@@ -158,16 +158,16 @@ pub(super) struct AnalyzeContext<'a> {
     uses: RefCell<FnvHashSet<UnitId>>,
     missing_unit: RefCell<FnvHashSet<(Symbol, Symbol, Option<Symbol>)>>,
     uses_library_all: RefCell<FnvHashSet<Symbol>>,
-    pub ctx: &'a dyn TokenAccess,
+    pub ctx: &'t dyn TokenAccess,
 }
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn new(
         root: &'a DesignRoot,
         current_unit: &UnitId,
         arena: &'a Arena,
-        ctx: &'a dyn TokenAccess,
-    ) -> AnalyzeContext<'a> {
+        ctx: &'t dyn TokenAccess,
+    ) -> AnalyzeContext<'a, 't> {
         AnalyzeContext {
             work_sym: root.symbol_utf8("work"),
             std_sym: root.symbol_utf8("std"),

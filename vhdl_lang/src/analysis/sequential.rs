@@ -12,7 +12,7 @@ use crate::named_entity::*;
 use analyze::*;
 use target::AssignmentType;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,

@@ -13,7 +13,7 @@ use crate::named_entity::*;
 use analyze::*;
 use target::AssignmentType;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_concurrent_part(
         &self,
         scope: &Scope<'a>,

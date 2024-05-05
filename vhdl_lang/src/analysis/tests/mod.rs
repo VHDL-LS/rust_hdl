@@ -104,7 +104,8 @@ impl<'a> TestSetup<'a> {
         }
     }
 
-    pub fn ctx(&'a self) -> AnalyzeContext<'a> {
+    #[allow(clippy::ptr_arg)]
+    pub fn ctx<'t>(&'a self, tokens: &'t Vec<Token>) -> AnalyzeContext<'a, 't> {
         let ctx = AnalyzeContext::new(
             &self.root,
             &UnitId::package(
@@ -112,7 +113,7 @@ impl<'a> TestSetup<'a> {
                 &self.root.symbol_utf8("dummy"),
             ),
             &self.arena,
-            &self.tokens,
+            tokens,
         );
         ctx.add_implicit_context_clause(&self.scope).unwrap();
         ctx
@@ -132,7 +133,7 @@ impl<'a> TestSetup<'a> {
             None,
             None,
         );
-        self.ctx()
+        self.ctx(&code.tokenize())
             .analyze_declarative_part(
                 &self.scope,
                 dummy_parent,

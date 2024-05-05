@@ -13,7 +13,7 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn resolve_type_mark(
         &self,
         scope: &Scope<'a>,

@@ -13,7 +13,7 @@ use crate::named_entity::*;
 use crate::HasTokenSpan;
 use analyze::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_primary_unit(
         &self,
         unit: &mut AnyPrimaryUnit,

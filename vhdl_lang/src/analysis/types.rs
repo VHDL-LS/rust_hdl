@@ -11,7 +11,7 @@ use crate::data::*;
 use crate::named_entity::{Signature, *};
 use analyze::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn resolve_subtype_indication(
         &self,
         scope: &Scope<'a>,

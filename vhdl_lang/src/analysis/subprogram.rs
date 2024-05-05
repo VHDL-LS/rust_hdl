@@ -13,7 +13,7 @@ use crate::{ast, HasTokenSpan};
 use analyze::*;
 use itertools::Itertools;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     fn subprogram_header(
         &self,
         scope: &Scope<'a>,

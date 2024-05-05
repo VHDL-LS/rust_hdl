@@ -496,7 +496,7 @@ pub fn as_type_conversion(
     None
 }
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     fn name_to_type(
         &self,
         pos: TokenSpan,
@@ -2030,7 +2030,7 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> EvalResult<ResolvedName<'a>> {
             let mut name = code.name();
-            self.ctx().name_resolve_with_suffixes(
+            self.ctx(&code.tokenize()).name_resolve_with_suffixes(
                 &self.scope,
                 name.span,
                 &mut name.item,
@@ -2047,7 +2047,7 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) {
             let mut name = code.name();
-            self.ctx()
+            self.ctx(&code.tokenize())
                 .expression_name_with_ttyp(
                     &self.scope,
                     name.span,
@@ -2064,7 +2064,7 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> Option<DisambiguatedType<'a>> {
             let mut name = code.name();
-            as_fatal(self.ctx().expression_name_types(
+            as_fatal(self.ctx(&code.tokenize()).expression_name_types(
                 &self.scope,
                 name.span,
                 &mut name.item,
@@ -2650,7 +2650,7 @@ type arr_t is array (integer range 0 to 3) of integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&code.tokenize()).universal_integer().into()
             )))
         );
     }
@@ -2670,7 +2670,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&code.tokenize()).universal_integer().into()
             )))
         );
     }
@@ -2690,7 +2690,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
     }
@@ -2703,7 +2703,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().string()
+                test.ctx(&code.tokenize()).string()
             )))
         );
 
@@ -2712,7 +2712,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut diagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().string()
+                test.ctx(&code.tokenize()).string()
             )))
         );
         check_diagnostics(
@@ -2734,7 +2734,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut diagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
         check_diagnostics(
@@ -2755,7 +2755,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
     }
@@ -2768,7 +2768,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&code.tokenize()).universal_integer().into()
             )))
         );
 
@@ -2776,7 +2776,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
 
@@ -2785,7 +2785,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut diagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
         check_diagnostics(
@@ -2801,7 +2801,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
 
@@ -2809,7 +2809,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
 
@@ -2817,7 +2817,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
 
@@ -2825,7 +2825,7 @@ constant c0 : arr_t := (others => 0);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().character()
+                test.ctx(&code.tokenize()).character()
             )))
         );
     }
@@ -2894,7 +2894,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
 
@@ -2902,7 +2902,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
 
@@ -2910,7 +2910,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
 
@@ -2918,7 +2918,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
 
@@ -2926,7 +2926,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().bit()
+                test.ctx(&code.tokenize()).bit()
             )))
         );
 
@@ -2934,7 +2934,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
 
@@ -2942,7 +2942,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
 
@@ -2950,7 +2950,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().time()
+                test.ctx(&code.tokenize()).time()
             )))
         );
 
@@ -2958,7 +2958,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().time()
+                test.ctx(&code.tokenize()).time()
             )))
         );
 
@@ -2966,7 +2966,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
 
@@ -2974,7 +2974,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().boolean()
+                test.ctx(&code.tokenize()).boolean()
             )))
         );
 
@@ -2982,7 +2982,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
     }
@@ -3048,21 +3048,21 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().string()
+                test.ctx(&code.tokenize()).string()
             )))
         );
         let code = test.snippet("thesig'instance_name");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().string()
+                test.ctx(&code.tokenize()).string()
             )))
         );
         let code = test.snippet("thesig'path_name");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().string()
+                test.ctx(&code.tokenize()).string()
             )))
         );
     }
@@ -3074,7 +3074,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
 
@@ -3082,7 +3082,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().real()
+                test.ctx(&code.tokenize()).real()
             )))
         );
     }
@@ -3095,7 +3095,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut diagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().integer()
+                test.ctx(&code.tokenize()).integer()
             )))
         );
         check_diagnostics(
@@ -3112,7 +3112,7 @@ signal thesig : integer;
         assert_eq!(
             test.name_resolve(&code, None, &mut diagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx().real()
+                test.ctx(&code.tokenize()).real()
             )))
         );
 
@@ -3241,9 +3241,12 @@ type enum_t is (alpha, beta);
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Ambiguous(
-                vec![test.ctx().real().base(), test.ctx().integer().base()]
-                    .into_iter()
-                    .collect()
+                vec![
+                    test.ctx(&code.tokenize()).real().base(),
+                    test.ctx(&code.tokenize()).integer().base()
+                ]
+                .into_iter()
+                .collect()
             )))
         );
     }
@@ -3262,9 +3265,15 @@ type enum_t is (alpha, beta);
         let code = test.snippet("myfun(f1)");
         let mut diagnostics = Vec::new();
         assert_eq!(
-            test.name_resolve(&code, Some(test.ctx().integer()), &mut diagnostics),
+            test.name_resolve(
+                &code,
+                Some(test.ctx(&code.tokenize()).integer()),
+                &mut diagnostics
+            ),
             Ok(ResolvedName::Expression(DisambiguatedType::Ambiguous(
-                vec![test.ctx().integer().base()].into_iter().collect()
+                vec![test.ctx(&code.tokenize()).integer().base()]
+                    .into_iter()
+                    .collect()
             )))
         );
         check_diagnostics(

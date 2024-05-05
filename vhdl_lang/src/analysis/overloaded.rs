@@ -185,7 +185,7 @@ impl<'a> AsRef<OverloadedEnt<'a>> for ResolvedCall<'a> {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     /// Typecheck one overloaded call where the exact subprogram is known
     pub fn check_call(
         &self,
@@ -462,9 +462,9 @@ mod tests {
                 panic!("Expected overloaded")
             };
 
-            as_fatal(self.ctx().disambiguate(
+            as_fatal(self.ctx(&code.tokenize()).disambiguate(
                 &self.scope,
-                &fcall.to_pos(&self.tokens),
+                &fcall.to_pos(&code.tokenize()),
                 &des,
                 &mut fcall.item.parameters,
                 overloaded::SubprogramKind::Function(ttyp),
@@ -742,7 +742,7 @@ function myfun(arg1 : integer) return character;
         let code = test.snippet("to_string(0)");
 
         let uint_to_string = test
-            .ctx()
+            .ctx(&code.tokenize())
             .universal_integer()
             .lookup_implicit_of("TO_STRING");
 
@@ -757,7 +757,10 @@ function myfun(arg1 : integer) return character;
         let test = TestSetup::new();
         let code = test.snippet("minimum(0, integer'(0))");
 
-        let minimum = test.ctx().integer().lookup_implicit_of("MINIMUM");
+        let minimum = test
+            .ctx(&code.tokenize())
+            .integer()
+            .lookup_implicit_of("MINIMUM");
 
         assert_eq!(
             test.disambiguate(&code, None, &mut NoDiagnostics),

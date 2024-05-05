@@ -14,7 +14,7 @@ use crate::data::*;
 use crate::named_entity::*;
 use crate::TokenSpan;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     /// Analyze a string literal or expanded bit-string literal for type-matching
     fn analyze_string_literal(
         &self,

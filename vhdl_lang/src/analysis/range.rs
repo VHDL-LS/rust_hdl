@@ -17,7 +17,7 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn range_unknown_typ(
         &self,
         scope: &Scope<'a>,
@@ -396,6 +396,7 @@ mod tests {
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;
     use crate::Diagnostic;
+    use vhdl_lang::Token;
 
     impl<'a> TestSetup<'a> {
         fn range_type(
@@ -403,16 +404,17 @@ mod tests {
             code: &Code,
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> EvalResult<BaseType<'a>> {
-            self.ctx()
+            self.ctx(&code.tokenize())
                 .range_type(&self.scope, &mut code.range(), diagnostics)
         }
 
         fn range_type_ast(
             &'a self,
             rng: &mut Range,
+            tokens: &Vec<Token>,
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> EvalResult<BaseType<'a>> {
-            self.ctx().range_type(&self.scope, rng, diagnostics)
+            self.ctx(tokens).range_type(&self.scope, rng, diagnostics)
         }
     }
 
@@ -423,7 +425,7 @@ mod tests {
         let code = test.snippet("0 to 1");
         assert_eq!(
             test.range_type(&code, &mut NoDiagnostics),
-            Ok(test.ctx().universal_integer())
+            Ok(test.ctx(&code.tokenize()).universal_integer())
         );
     }
 
@@ -434,7 +436,7 @@ mod tests {
         let code = test.snippet("-1 to 1");
         assert_eq!(
             test.range_type(&code, &mut NoDiagnostics),
-            Ok(test.ctx().universal_integer())
+            Ok(test.ctx(&code.tokenize()).universal_integer())
         );
     }
 
@@ -455,8 +457,11 @@ mod tests {
         let code = test.snippet("0.0 to 1.0");
         let mut diagnostics = Vec::new();
         assert_eq!(
-            test.ctx()
-                .drange_type(&test.scope, &mut code.discrete_range(), &mut diagnostics),
+            test.ctx(&code.tokenize()).drange_type(
+                &test.scope,
+                &mut code.discrete_range(),
+                &mut diagnostics
+            ),
             Err(EvalError::Unknown)
         );
 
@@ -504,18 +509,18 @@ function f1 return integer;
         let code = test.snippet("f1 to 'a'");
         let mut rng = code.range();
         assert_eq!(
-            test.range_type_ast(&mut rng, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &code.tokenize(), &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
-        check_no_unresolved(&mut rng);
+        check_no_unresolved(&mut rng, &code.tokenize());
 
         let code = test.snippet("'a' to f1");
         let mut rng = code.range();
         assert_eq!(
-            test.range_type_ast(&mut rng, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &code.tokenize(), &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
-        check_no_unresolved(&mut rng);
+        check_no_unresolved(&mut rng, &code.tokenize());
     }
 
     #[test]

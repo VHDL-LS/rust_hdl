@@ -59,16 +59,16 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
-pub(super) struct TypeMatcher<'c, 'a> {
+pub(super) struct TypeMatcher<'c, 'a, 't> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
 
     // Allow implicit type conversion from abstract types to universal real/integer
     implicit_type_conversion_from_universal: bool,
-    context: &'c AnalyzeContext<'a>,
+    context: &'c AnalyzeContext<'a, 't>,
 }
 
-impl<'c, 'a> TypeMatcher<'c, 'a> {
+impl<'c, 'a, 't> TypeMatcher<'c, 'a, 't> {
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
         if types.match_type(ttyp) {
@@ -155,8 +155,8 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
-    pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
+    pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: false,
             implicit_type_conversion_from_universal: false,
@@ -164,7 +164,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn any_matcher(&self) -> TypeMatcher<'_, 'a> {
+    pub fn any_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: true,
             implicit_type_conversion_from_universal: true,
@@ -172,7 +172,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a> {
+    pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: true,
             implicit_type_conversion_from_universal: false,
@@ -1298,7 +1298,11 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> Option<ExpressionType<'a>> {
             let mut expr = code.expr();
-            as_fatal(self.ctx().expr_type(&self.scope, &mut expr, diagnostics)).unwrap()
+            as_fatal(
+                self.ctx(&code.tokenize())
+                    .expr_type(&self.scope, &mut expr, diagnostics),
+            )
+            .unwrap()
         }
 
         fn expr_with_ttyp(
@@ -1308,7 +1312,7 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) {
             let mut expr = code.expr();
-            self.ctx()
+            self.ctx(&code.tokenize())
                 .expr_pos_with_ttyp(&self.scope, ttyp, expr.span, &mut expr.item, diagnostics)
                 .unwrap()
         }
@@ -1369,7 +1373,7 @@ mod test {
         assert_eq!(
             test.expr_type(&test.snippet("0"), &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&Vec::new()).universal_integer().into()
             ))
         );
     }
@@ -1380,7 +1384,7 @@ mod test {
         assert_eq!(
             test.expr_type(&test.snippet("0.0"), &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_real().into()
+                test.ctx(&Vec::new()).universal_real().into()
             ))
         );
     }
@@ -1635,7 +1639,7 @@ function \"+\"(a : integer; b : character) return integer;
         assert_eq!(
             test.expr_type(&code, &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&code.tokenize()).universal_integer().into()
             ))
         );
     }
@@ -1656,13 +1660,13 @@ function with_arg(arg : natural) return integer;
         let code = test.snippet("no_arg");
         test.expr_with_ttyp(
             &code,
-            test.ctx().universal_integer().into(),
+            test.ctx(&code.tokenize()).universal_integer().into(),
             &mut NoDiagnostics,
         );
         let code = test.snippet("with_arg(0)");
         test.expr_with_ttyp(
             &code,
-            test.ctx().universal_integer().into(),
+            test.ctx(&code.tokenize()).universal_integer().into(),
             &mut NoDiagnostics,
         );
     }
