@@ -202,12 +202,80 @@ impl Code {
         self.start_to_pos(substr_match_range.end)
     }
 
+    /// Slices the code from the position given by the substring to the end
+    /// ```
+    /// let code = Code::new("foo bar baz");
+    /// assert_eq!(code.s1_to_end("bar"), Code::new("bar baz"));
+    /// ```
     pub fn s1_to_end(&self, substr: &str) -> Code {
         self.s_to_end(substr, 1)
     }
 
+    /// Slices the code from the start to the position given by the substring
+    /// ```
+    /// let code = Code::new("foo bar baz");
+    /// assert_eq!(code.s1_from_start("bar"), Code::new("foo bar"));
+    /// ```
     pub fn s1_from_start(&self, substr: &str) -> Code {
         self.s_from_start(substr, 1)
+    }
+
+    /// Returns the code in between the begin and end
+    /// ```
+    /// let code = Code::new("foo bar 123 baz foobar");
+    /// assert_eq!(code.between("bar", "baz"), Code::new("bar 123 baz"));
+    /// ```
+    pub fn between(&self, begin: &str, end: &str) -> Code {
+        self.s1_to_end(begin).s1_from_start(end)
+    }
+
+    /// Turns this code object into a new code object.
+    ///
+    /// By default, all operations leave the source untouched and instead only modify an internal
+    /// window. Therefore, the following holds true:
+    /// ```
+    /// use vhdl_lang::{Position, Range};
+    /// let code = Code::new("foo bar baz");
+    /// let code_slice = code.s1("bar");
+    /// assert_eq!(code_slice.pos().range(), Range::new(Position::new(0, 4), Position::new(0, 7)));
+    /// ```
+    /// In other words, even though the code slice only "contains" the 'bar' token,
+    /// the position is still correct.
+    ///
+    /// In contrast, this function will create a new code object with new source information:
+    /// ```
+    /// use vhdl_lang::{Position, Range};
+    /// let code = Code::new("foo bar baz");
+    /// let code_slice = code.s1("bar").to_new();
+    /// assert_eq!(code_slice.pos().range(), Range::new(Position::new(0, 0), Position::new(0, 3)));
+    /// ```
+    /// Note that the symbol table stays the same.
+    ///
+    /// The use-case for this is when dealing with token spans with different primary units.
+    /// For example, the following VHDL snippet defines two units:
+    /// ```vhdl
+    /// entity foo is
+    /// end foo;
+    ///
+    /// entity bar is
+    /// end entity bar;
+    /// ```
+    /// The expression `code.s1("bar").token()` would return the token with offset 7.
+    /// However, tokens are stored per design unit. Therefore, this should return 1 in the
+    /// context of the 'bar' entity.
+    /// The expression `code.between("entity bar", ";").to_new().s1("bar").token()` correctly
+    /// returns 1 as index.
+    /// Note, however, that this will yield an incorrect source position.
+    pub fn to_new(&self) -> Code {
+        let new_contents = self.source().contents().crop(self.pos.range());
+        let range = new_contents.range();
+        let new_source = Source::from_contents(self.source().file_name(), new_contents);
+        let pos = SrcPos::new(new_source, range);
+        Code {
+            pos,
+            standard: self.standard,
+            symbols: self.symbols.clone(),
+        }
     }
 
     /// Create new Code from n:th occurence of substr

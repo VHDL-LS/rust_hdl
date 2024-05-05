@@ -556,16 +556,20 @@ end;
             expected_streams
         );
 
-        let code_myent = code.s1_from_start(";");
-        let code_myent2 = code.s1_to_end("entity myent2").s1_from_start(";");
-        let code_myent3 = code.s1_to_end("entity myent3").s1_from_start(";");
-        let code_myent4 = code.s1_to_end("entity myent4").s1_from_start(";");
+        let code_myent = code.between("entity myent", ";").to_new();
+        let code_myent2 = code.between("entity myent2", ";").to_new();
+        let code_myent3 = code.between("entity myent3", ";").to_new();
+        let code_myent4 = code.between("entity myent4", ";").to_new();
 
         assert_eq!(
             design_file.design_units[0],
             (
                 substreams[0].clone(),
-                simple_entity(code.s1("myent").ident(), code_myent.token_span(), None,)
+                simple_entity(
+                    code_myent.s1("myent").ident(),
+                    code_myent.token_span(),
+                    None,
+                )
             )
         );
         assert_eq!(
@@ -573,11 +577,9 @@ end;
             (
                 substreams[1].clone(),
                 simple_entity(
-                    code.s1("myent2").ident(),
-                    code_myent2
-                        .token_span()
-                        .apply_offset(code.s1("entity myent2").token()),
-                    Some(code.s("myent2", 2).token()),
+                    code_myent2.s1("myent2").ident(),
+                    code_myent2.token_span(),
+                    Some(code_myent2.s("myent2", 2).token()),
                 )
             )
         );
@@ -586,11 +588,9 @@ end;
             (
                 substreams[2].clone(),
                 simple_entity(
-                    code.s1("myent3").ident(),
-                    code_myent3
-                        .token_span()
-                        .apply_offset(code.s1("entity myent3").token()),
-                    Some(code.s("myent3", 2).token()),
+                    code_myent3.s1("myent3").ident(),
+                    code_myent3.token_span(),
+                    Some(code_myent3.s("myent3", 2).token()),
                 )
             ),
         );
@@ -599,10 +599,8 @@ end;
             (
                 substreams[3].clone(),
                 simple_entity(
-                    code.s1("myent4").ident(),
-                    code_myent4
-                        .token_span()
-                        .apply_offset(code.s1("entity myent4").token()),
+                    code_myent4.s1("myent4").ident(),
+                    code_myent4.token_span(),
                     None
                 )
             )
