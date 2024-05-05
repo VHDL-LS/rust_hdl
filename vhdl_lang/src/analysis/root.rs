@@ -1005,7 +1005,7 @@ impl DesignRoot {
                 std_lib,
                 // Will be overwritten below
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
-                Some(std_package.ident.pos(&locked_unit.tokens)),
+                Some(std_package.ident_pos(&locked_unit.tokens)),
                 None,
             )
         };

@@ -51,7 +51,7 @@ impl<'a> AnalyzeContext<'a> {
             unit.name().clone(),
             self.work_library(),
             AnyEntKind::Design(Design::Entity(Visibility::default(), Region::default())),
-            Some(&unit.get_pos(self.ctx)),
+            Some(unit.ident_pos(self.ctx)),
             Some(unit.span()),
         );
 
@@ -138,7 +138,7 @@ impl<'a> AnalyzeContext<'a> {
             unit.name().clone(),
             self.work_library(),
             AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
-            Some(unit.ident().pos(self.ctx)),
+            Some(unit.ident_pos(self.ctx)),
             Some(unit.span()),
         );
 
@@ -185,7 +185,7 @@ impl<'a> AnalyzeContext<'a> {
             unit.name().clone(),
             self.work_library(),
             AnyEntKind::Design(Design::PackageInstance(Region::default())),
-            Some(unit.ident().pos(self.ctx)),
+            Some(unit.ident_pos(self.ctx)),
             Some(unit.span()),
         );
 

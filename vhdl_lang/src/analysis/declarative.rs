@@ -420,7 +420,7 @@ impl<'a> AnalyzeContext<'a> {
                             Related::None
                         },
                         kind,
-                        Some(object_decl.ident.tree.pos(self.ctx).clone()),
+                        Some(object_decl.ident.pos(self.ctx).clone()),
                         Some(src_span),
                     );
                     object_decl.ident.decl.set(object_ent.id());

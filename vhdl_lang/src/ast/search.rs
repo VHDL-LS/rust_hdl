@@ -11,7 +11,7 @@ use crate::named_entity::{EntRef, HasEntityId, Reference, Related};
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum SearchResult {
     Found,
     NotFound,

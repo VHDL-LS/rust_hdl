@@ -93,7 +93,7 @@ impl StandardTypes {
                         Some(standard_pkg),
                         Related::None,
                         AnyEntKind::Type(Type::Incomplete),
-                        Some(type_decl.ident.tree.pos(ctx).clone()),
+                        Some(type_decl.ident.pos(ctx).clone()),
                         None,
                     )
                     .id();

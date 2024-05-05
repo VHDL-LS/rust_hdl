@@ -47,7 +47,7 @@ impl<'a> AnalyzeContext<'a> {
                     label.name(),
                     parent,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
-                    Some(self.ctx.get_pos(label.token)),
+                    Some(label.pos(self.ctx)),
                     None,
                 );
                 statement.label.decl.set(ent.id());
