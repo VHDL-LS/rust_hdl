@@ -442,17 +442,6 @@ impl TokenId {
     pub(crate) fn new(idx: usize) -> TokenId {
         TokenId(idx)
     }
-
-    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
-    /// method `TokenStream::slice_tokens`.
-    #[cfg(test)]
-    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenId {
-        debug_assert!(
-            self.0 >= offset.0,
-            "The token ID of the offset token must be lower than the token ID to be offset!"
-        );
-        TokenId(self.0 - offset.0)
-    }
 }
 
 impl From<TokenId> for TokenSpan {
@@ -548,16 +537,6 @@ impl TokenSpan {
         Self {
             start_token,
             end_token,
-        }
-    }
-
-    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
-    /// method `TokenStream::slice_tokens`.
-    #[cfg(test)]
-    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenSpan {
-        TokenSpan {
-            start_token: self.start_token.apply_offset(offset),
-            end_token: self.end_token.apply_offset(offset),
         }
     }
 
