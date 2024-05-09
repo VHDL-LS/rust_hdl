@@ -7,6 +7,7 @@
 use super::analyze::*;
 use super::scope::*;
 use super::target::AssignmentType;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;

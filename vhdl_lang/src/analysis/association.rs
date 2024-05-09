@@ -116,13 +116,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     } else {
                         bail!(
                             diagnostics,
-                            Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                            Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                         );
                     }
                 } else {
                     bail!(
                         diagnostics,
-                        Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                     );
                 }
             }
@@ -130,12 +130,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Name::SelectedAll(_) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                 );
             }
             Name::Designator(designator) => {
                 let (idx, ent) = formal_region
-                    .lookup(&name_pos.to_pos(self.ctx), designator.item.designator())
+                    .lookup(&name_pos.pos(self.ctx), designator.item.designator())
                     .into_eval_result(diagnostics)?;
                 designator.set_unique_reference(ent.inner());
                 Ok(ResolvedFormal::new_basic(idx, ent))
@@ -153,7 +153,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     // Converted formals may not be further selected
                     bail!(
                         diagnostics,
-                        Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                     );
                 }
 
@@ -163,7 +163,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Name::Attribute(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                 );
             }
             Name::CallOrIndexed(ref mut fcall) => {
@@ -172,12 +172,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     bail!(
                         diagnostics,
-                        Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                     );
                 };
 
                 if formal_region
-                    .lookup(&name_pos.to_pos(self.ctx), prefix.designator())
+                    .lookup(&name_pos.pos(self.ctx), prefix.designator())
                     .is_err()
                 {
                     // The prefix of the name was not found in the formal region
@@ -199,7 +199,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     } else {
                         bail!(
                             diagnostics,
-                            Diagnostic::invalid_formal_conversion(name_pos.to_pos(self.ctx))
+                            Diagnostic::invalid_formal_conversion(name_pos.pos(self.ctx))
                         );
                     };
 
@@ -215,7 +215,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::invalid_type_conversion(
-                                        pos.to_pos(self.ctx),
+                                        pos.pos(self.ctx),
                                         ctyp,
                                         typ
                                     )
@@ -250,7 +250,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.to_pos(self.ctx),
+                                        &fcall.name.pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -264,7 +264,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         _ => {
                             bail!(
                                 diagnostics,
-                                Diagnostic::invalid_formal_conversion(name_pos.to_pos(self.ctx))
+                                Diagnostic::invalid_formal_conversion(name_pos.pos(self.ctx))
                             );
                         }
                     };
@@ -293,20 +293,20 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     } else {
                         bail!(
                             diagnostics,
-                            Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                            Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                         );
                     }
                 } else {
                     bail!(
                         diagnostics,
-                        Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                     );
                 }
             }
             Name::External(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::invalid_formal(name_pos.to_pos(self.ctx))
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
                 );
             }
         }
@@ -325,7 +325,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     fail = true;
 
                     diagnostics.add(
-                        formal.to_pos(self.ctx),
+                        formal.pos(self.ctx),
                         "Named arguments are not allowed before positional arguments",
                         ErrorCode::NamedBeforePositional,
                     );
@@ -372,7 +372,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 result.push((actual.span, Some(formal)));
             } else {
                 diagnostics.add(
-                    &actual.to_pos(self.ctx),
+                    &actual.pos(self.ctx),
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
                 );
@@ -399,7 +399,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
                         if !(resolved_formal.is_partial && prev_formal.is_partial) {
                             let mut diag = Diagnostic::new(
-                                actual_pos.to_pos(self.ctx),
+                                actual_pos.pos(self.ctx),
                                 format!(
                                     "{} has already been associated",
                                     resolved_formal.iface.describe(),
@@ -407,10 +407,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 ErrorCode::AlreadyAssociated,
                             );
 
-                            diag.add_related(
-                                prev_pos.to_pos(self.ctx),
-                                "Previously associated here",
-                            );
+                            diag.add_related(prev_pos.pos(self.ctx), "Previously associated here");
                             is_error = true;
                             diagnostics.push(diag);
                         }
@@ -537,7 +534,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a signal",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -548,7 +545,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                                     ) if base.class() == ObjectClass::Signal)
                 {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Name must denote a signal name",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -559,7 +556,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a variable or shared variable",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -570,7 +567,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
                 {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Name must denote a variable name",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -581,7 +578,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a file",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -592,7 +589,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
                     diagnostics.add(
-                        actual_pos.to_pos(self.ctx),
+                        actual_pos.pos(self.ctx),
                         "Name must denote a file name",
                         ErrorCode::InterfaceModeMismatch,
                     );

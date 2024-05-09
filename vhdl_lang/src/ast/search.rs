@@ -242,14 +242,14 @@ fn search_assignment<T: Search>(
 
 impl Search for WithTokenSpan<Choice> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
 
         match self.item {
             Choice::DiscreteRange(ref drange) => {
                 return_if_found!(drange.search(ctx, searcher));
             }
             Choice::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &self.to_pos(ctx), expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &self.pos(ctx), expr, searcher));
             }
             Choice::Others => {}
         }
@@ -260,7 +260,7 @@ impl Search for WithTokenSpan<Choice> {
 impl Search for WithTokenSpan<Target> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {
-            Target::Name(ref name) => search_pos_name(&self.to_pos(ctx), name, searcher, ctx),
+            Target::Name(ref name) => search_pos_name(&self.pos(ctx), name, searcher, ctx),
             Target::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         }
     }
@@ -289,7 +289,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(expression.search(ctx, searcher));
             }
             SequentialStatement::ProcedureCall(ref pcall) => {
-                return_if_finished!(searcher.search_with_pos(ctx, &pcall.to_pos(ctx)));
+                return_if_finished!(searcher.search_with_pos(ctx, &pcall.pos(ctx)));
                 return_if_found!(pcall.item.search(ctx, searcher));
             }
             SequentialStatement::If(ref ifstmt) => {
@@ -548,7 +548,7 @@ impl Search for LabeledConcurrentStatement {
                     call,
                     ..
                 } = pcall;
-                return_if_finished!(searcher.search_with_pos(ctx, &call.to_pos(ctx)));
+                return_if_finished!(searcher.search_with_pos(ctx, &call.pos(ctx)));
                 return_if_found!(call.item.search(ctx, searcher));
             }
             ConcurrentStatement::Assert(ref assert) => {
@@ -640,8 +640,8 @@ fn search_pos_name(
 
 impl Search for WithTokenSpan<Name> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
-        search_pos_name(&self.to_pos(ctx), &self.item, searcher, ctx)
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
+        search_pos_name(&self.pos(ctx), &self.item, searcher, ctx)
     }
 }
 
@@ -655,14 +655,14 @@ impl Search for ElementConstraint {
 
 impl Search for WithTokenSpan<ElementConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         self.item.search(ctx, searcher)
     }
 }
 
 impl Search for WithTokenSpan<SubtypeConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         match self.item {
             SubtypeConstraint::Array(ref dranges, ref constraint) => {
                 return_if_found!(dranges.search(ctx, searcher));
@@ -697,7 +697,7 @@ impl Search for SubtypeIndication {
 
 impl Search for WithTokenSpan<TypeMark> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.to_pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         self.item.name.search(ctx, searcher)
     }
 }
@@ -864,7 +864,7 @@ fn search_pos_expr(
         Expression::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
         Expression::New(ref alloc) => {
-            return_if_finished!(searcher.search_with_pos(ctx, &alloc.to_pos(ctx)));
+            return_if_finished!(searcher.search_with_pos(ctx, &alloc.pos(ctx)));
             match alloc.item {
                 Allocator::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
                 Allocator::Subtype(ref subtype) => subtype.search(ctx, searcher),
@@ -908,7 +908,7 @@ impl Search for AssociationElement {
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
             return_if_found!(search_pos_name(
-                &formal.to_pos(ctx),
+                &formal.pos(ctx),
                 &formal.item,
                 searcher,
                 ctx
@@ -917,7 +917,7 @@ impl Search for AssociationElement {
 
         match actual.item {
             ActualPart::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &actual.to_pos(ctx), expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &actual.pos(ctx), expr, searcher));
             }
             ActualPart::Open => {}
         }
@@ -952,7 +952,7 @@ impl Search for Waveform {
 
 impl Search for WithTokenSpan<Expression> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        search_pos_expr(ctx, &self.span.to_pos(ctx), &self.item, searcher)
+        search_pos_expr(ctx, &self.span.pos(ctx), &self.item, searcher)
     }
 }
 

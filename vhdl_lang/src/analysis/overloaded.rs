@@ -11,6 +11,7 @@ use super::analyze::*;
 use super::expression::ExpressionType;
 use super::scope::*;
 use crate::ast::search::clear_references;
+use crate::ast::token_range::WithToken;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -464,7 +465,7 @@ mod tests {
 
             as_fatal(self.ctx(&code.tokenize()).disambiguate(
                 &self.scope,
-                &fcall.to_pos(&code.tokenize()),
+                &fcall.pos(&code.tokenize()),
                 &des,
                 &mut fcall.item.parameters,
                 overloaded::SubprogramKind::Function(ttyp),

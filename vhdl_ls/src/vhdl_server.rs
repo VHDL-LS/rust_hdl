@@ -740,7 +740,7 @@ impl VHDLServer {
                 ctx: &Vec<Token>,
             ) -> Option<DocumentSymbol> {
                 let decl_pos = ent.decl_pos()?;
-                let src_range = ent.src_span.to_pos(ctx).range();
+                let src_range = ent.src_span.pos(ctx).range();
                 #[allow(deprecated)]
                 Some(DocumentSymbol {
                     name: ent.describe(),

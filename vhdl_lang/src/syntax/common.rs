@@ -5,7 +5,8 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::tokens::Kind;
-use crate::ast::{Ident, WithToken};
+use crate::ast::token_range::WithToken;
+use crate::ast::Ident;
 use crate::data::Diagnostic;
 use crate::syntax::parser::ParsingContext;
 use crate::{SrcPos, TokenId};

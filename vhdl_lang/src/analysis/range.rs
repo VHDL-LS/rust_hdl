@@ -11,6 +11,7 @@ use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
@@ -50,7 +51,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
                     diagnostics.add(
-                        &expr.to_pos(self.ctx),
+                        &expr.pos(self.ctx),
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
                         ErrorCode::NonScalarInRange,
                     );
@@ -62,7 +63,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
                 diagnostics.add(
-                    &expr.to_pos(self.ctx),
+                    &expr.pos(self.ctx),
                     "Non-scalar expression cannot be used in a range",
                     ErrorCode::NonScalarInRange,
                 );
@@ -93,8 +94,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         ent.return_type().unwrap()
                     } else {
                         diagnostics.add(
-                        &attr.name.to_pos(self.ctx),
-                        format!(
+                            &attr.name.pos(self.ctx),
+                            format!(
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
                         ),
@@ -112,7 +113,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
                 diagnostics.add(
-                    &attr.name.to_pos(self.ctx),
+                    &attr.name.pos(self.ctx),
                     format!(
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
@@ -136,14 +137,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some(decl_pos) = typ.decl_pos() {
                     // To debug if it ever happens
                     eprintln!("{}", decl_pos.show("Array with no indexes"));
-                    eprintln!("{}", attr.name.to_pos(self.ctx).show("Used here"));
+                    eprintln!("{}", attr.name.pos(self.ctx).show("Used here"));
                     panic!("Internal error")
                 }
                 Err(EvalError::Unknown)
             }
         } else {
             diagnostics.add(
-                &attr.name.to_pos(self.ctx),
+                &attr.name.pos(self.ctx),
                 format!(
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
@@ -176,7 +177,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             return Ok(typ);
                         } else {
                             diagnostics.add(
-                                constraint.span().to_pos(self.ctx),
+                                constraint.span().pos(self.ctx),
                                 format!(
                                     "Range type mismatch, left is {}, right is {}",
                                     l.base().describe(),
@@ -196,7 +197,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
                         diagnostics.add(
-                            constraint.span().to_pos(self.ctx),
+                            constraint.span().pos(self.ctx),
                             "Range is ambiguous",
                             ErrorCode::TypeMismatch,
                         );
@@ -228,14 +229,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(typ)
                 } else if types.is_empty() {
                     diagnostics.add(
-                        constraint.span().to_pos(self.ctx),
+                        constraint.span().pos(self.ctx),
                         "Range type of left and right side does not match",
                         ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
                     diagnostics.add(
-                        constraint.span().to_pos(self.ctx),
+                        constraint.span().pos(self.ctx),
                         "Range is ambiguous",
                         ErrorCode::TypeMismatch,
                     );
@@ -269,7 +270,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.span().to_pos(self.ctx),
+                &drange.span().pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -330,7 +331,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 if let Some(ref mut signature) = signature {
                     diagnostics.add(
-                        &signature.to_pos(self.ctx),
+                        &signature.pos(self.ctx),
                         format!("Did not expect signature for '{attr} attribute"),
                         ErrorCode::UnexpectedSignature,
                     );
@@ -347,7 +348,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         {
                             if !self.can_be_target_type(index_typ.into(), target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
-                                    &range.span().to_pos(self.ctx),
+                                    &range.span().pos(self.ctx),
                                     &index_typ.describe(),
                                     target_type,
                                 ))

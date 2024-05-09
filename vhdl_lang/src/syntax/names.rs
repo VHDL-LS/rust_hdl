@@ -11,9 +11,10 @@ use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess};
 use crate::ast;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
 use crate::data::error_codes::ErrorCode;
-use crate::data::{Diagnostic, WithTokenSpan};
+use crate::data::Diagnostic;
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -100,7 +101,7 @@ impl WithTokenSpan<Name> {
     pub fn expect_selected(&self, ctx: &dyn TokenAccess) -> Result<(), Diagnostic> {
         match self.item.expect_selected() {
             Ok(_) => Ok(()),
-            Err(msg) => Err(Diagnostic::syntax_error(self.to_pos(ctx), msg)),
+            Err(msg) => Err(Diagnostic::syntax_error(self.pos(ctx), msg)),
         }
     }
 }
@@ -141,7 +142,7 @@ fn expression_to_name(
                 })
             } else {
                 Err(Diagnostic::syntax_error(
-                    expr.span.to_pos(ctx),
+                    expr.span.pos(ctx),
                     "Invalid operator symbol",
                 ))
             }
@@ -150,7 +151,7 @@ fn expression_to_name(
             item: Name::Designator(Designator::Character(val).into_ref()),
             span: expr.span,
         }),
-        _ => Err(Diagnostic::syntax_error(expr.to_pos(ctx), "Expected name")),
+        _ => Err(Diagnostic::syntax_error(expr.pos(ctx), "Expected name")),
     }
 }
 
@@ -161,7 +162,7 @@ fn actual_to_expression(
     match actual.item {
         ActualPart::Expression(expr) => Ok(WithTokenSpan::from(expr, actual.span)),
         _ => Err(Diagnostic::syntax_error(
-            actual.to_pos(ctx),
+            actual.pos(ctx),
             "Expected expression",
         )),
     }
@@ -175,10 +176,7 @@ fn actual_part_to_name(
         ActualPart::Expression(expr) => {
             expression_to_name(ctx, WithTokenSpan::from(expr, actual.span))
         }
-        _ => Err(Diagnostic::syntax_error(
-            actual.to_pos(ctx),
-            "Expected name",
-        )),
+        _ => Err(Diagnostic::syntax_error(actual.pos(ctx), "Expected name")),
     }
 }
 
@@ -188,7 +186,7 @@ fn assoc_to_expression(
 ) -> ParseResult<WithTokenSpan<Expression>> {
     match assoc.formal {
         Some(name) => Err(Diagnostic::syntax_error(
-            name.to_pos(ctx),
+            name.pos(ctx),
             "Expected expression",
         )),
         None => actual_to_expression(ctx, assoc.actual),

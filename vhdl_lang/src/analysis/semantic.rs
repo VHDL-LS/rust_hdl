@@ -8,6 +8,7 @@ use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::SubprogramKind;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -35,7 +36,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ResolvedName::ObjectName(obj) => obj.type_mark(),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark.to_pos(self.ctx),
+                        type_mark.pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -54,7 +55,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Ok(elem_type)
                     } else {
                         diagnostics.add(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!("array type expected for '{attr} attribute",),
                             ErrorCode::TypeMismatch,
                         );
@@ -67,7 +68,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ResolvedName::Type(typ) => Ok(typ),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark.to_pos(self.ctx),
+                        type_mark.pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -150,7 +151,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ResolvedName::Overloaded(ref des, names) => {
                 match as_fatal(self.disambiguate(
                     scope,
-                    &fcall_span.to_pos(self.ctx),
+                    &fcall_span.pos(self.ctx),
                     des,
                     parameters,
                     SubprogramKind::Procedure,
@@ -165,7 +166,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         if !ent.is_procedure() {
                             let mut diagnostic = Diagnostic::new(
-                                &name.to_pos(self.ctx),
+                                &name.pos(self.ctx),
                                 "Invalid procedure call",
                                 ErrorCode::InvalidCall,
                             );
@@ -180,7 +181,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             diagnostics.push(diagnostic);
                         } else if ent.is_uninst_subprogram_body() {
                             diagnostics.add(
-                                &name.to_pos(self.ctx),
+                                &name.pos(self.ctx),
                                 format!("uninstantiated {} cannot be called", ent.describe()),
                                 ErrorCode::InvalidCall,
                             )
@@ -194,14 +195,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     name.set_unique_reference(ent);
                     let (generic_region, port_region) = region.to_entity_formal();
                     self.check_association(
-                        &fcall.item.name.to_pos(self.ctx),
+                        &fcall.item.name.pos(self.ctx),
                         &generic_region,
                         scope,
                         &mut [],
                         diagnostics,
                     )?;
                     self.check_association(
-                        &fcall.item.name.to_pos(self.ctx),
+                        &fcall.item.name.pos(self.ctx),
                         &port_region,
                         scope,
                         &mut [],
@@ -209,7 +210,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     )?;
                 } else {
                     diagnostics.add(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         format!("{} is not a procedure", resolved.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -218,7 +219,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             resolved => {
                 diagnostics.add(
-                    &name.to_pos(self.ctx),
+                    &name.pos(self.ctx),
                     format!("{} is not a procedure", resolved.describe_type()),
                     ErrorCode::MismatchedKinds,
                 );

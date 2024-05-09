@@ -13,9 +13,11 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
+pub mod token_range;
 mod ast_span;
 
 pub(crate) use self::util::*;
+use crate::ast::token_range::*;
 pub(crate) use any_design_unit::*;
 
 use crate::data::*;
@@ -464,45 +466,9 @@ impl<T: AsRef<SrcPos>> AsRef<SrcPos> for WithDecl<T> {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Clone)]
-pub struct WithToken<T> {
-    pub item: T,
-    pub token: TokenId,
-}
-
 impl HasDesignator for WithToken<WithRef<Designator>> {
     fn designator(&self) -> &Designator {
         self.item.designator()
-    }
-}
-
-impl<T> WithToken<T> {
-    pub fn new(item: T, token: TokenId) -> WithToken<T> {
-        WithToken { item, token }
-    }
-
-    pub fn map_into<F, U>(self, f: F) -> WithToken<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        WithToken {
-            item: f(self.item),
-            token: self.token,
-        }
-    }
-
-    pub fn map_into_span<F, U>(self, f: F) -> WithTokenSpan<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        WithTokenSpan {
-            item: f(self.item),
-            span: self.token.into(),
-        }
-    }
-
-    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
-        ctx.get_pos(self.token)
     }
 }
 

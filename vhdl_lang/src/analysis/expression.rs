@@ -13,6 +13,7 @@ use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::ResolvedCall;
 use super::scope::*;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -234,8 +235,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ExpressionType::Null
             | ExpressionType::Aggregate => {
                 diagnostics.add(
-                expr.to_pos(self.ctx),
-                "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+                    expr.pos(self.ctx),
+                    "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
                     ErrorCode::AmbiguousExpression,
             );
                 Err(EvalError::Unknown)
@@ -261,7 +262,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::internal(
-                        self.ctx.get_pos(op_pos),
+                        op_pos.pos(self.ctx),
                         format!(
                             "Operator symbol cannot denote non-overloaded symbol {}",
                             ent.describe(),
@@ -512,7 +513,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Ok(NamedEntities::Single(ent)) => {
                             // Should never happen but better know if it does
                             diagnostics.add(
-                                span.to_pos(self.ctx),
+                                span.pos(self.ctx),
                                 format!(
                                     "Character literal cannot denote non-overloaded symbol {}",
                                     ent.describe(),
@@ -528,7 +529,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     Ok(ExpressionType::Unambiguous(return_type))
                                 } else {
                                     diagnostics.add(
-                                        span.to_pos(self.ctx),
+                                        span.pos(self.ctx),
                                         format!(
                                             "Character literal cannot denote procedure symbol {}",
                                             ent.describe(),
@@ -658,7 +659,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         let implicit_bools = self.implicit_bool_types(scope, expr.span);
                         if !implicit_bools.contains(&typ.base()) {
                             diagnostics.add(
-                                expr.to_pos(self.ctx),
+                                expr.pos(self.ctx),
                                 format!(
                                     "{} cannot be implicitly converted to {}. Operator ?? is not defined for this type.",
                                     typ.describe(),
@@ -686,7 +687,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             std::cmp::Ordering::Greater => {
                                 let mut diag = Diagnostic::new(
-                                    &expr.to_pos(self.ctx),
+                                    &expr.pos(self.ctx),
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
@@ -696,7 +697,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                             std::cmp::Ordering::Less => {
                                 let mut diag = Diagnostic::new(
-                                    expr.to_pos(self.ctx),
+                                    expr.pos(self.ctx),
                                     format!(
                                         "Cannot disambiguate expression to {}",
                                         self.boolean().describe()
@@ -749,7 +750,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 {
                     if !self.can_be_target_type(type_mark, target_base.base()) {
                         diagnostics.push(Diagnostic::type_mismatch(
-                            &span.to_pos(self.ctx),
+                            &span.pos(self.ctx),
                             &type_mark.describe(),
                             target_type,
                         ));
@@ -781,7 +782,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         if !self.can_be_target_type(op_type, target_type.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
-                                &span.to_pos(self.ctx),
+                                &span.pos(self.ctx),
                                 &op_type.describe(),
                                 target_type,
                             ));
@@ -824,7 +825,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         if !self.can_be_target_type(op_type, target_type.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
-                                &span.to_pos(self.ctx),
+                                &span.pos(self.ctx),
                                 &op_type.describe(),
                                 target_type,
                             ));
@@ -869,7 +870,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.analyze_aggregate(scope, assocs, diagnostics)?;
 
                     diagnostics.add(
-                        span.to_pos(self.ctx),
+                        span.pos(self.ctx),
                         format!("composite does not match {}", target_type.describe()),
                         ErrorCode::TypeMismatch,
                     );
@@ -949,7 +950,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                         is_ok_so_far = false;
                                         diagnostics.push(Diagnostic::no_declaration_within(
                                             &record_type,
-                                            &choice_span.to_pos(self.ctx),
+                                            &choice_span.pos(self.ctx),
                                             &simple_name.item,
                                         ));
                                         None
@@ -957,7 +958,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else {
                                     is_ok_so_far = false;
                                     diagnostics.add(
-                                        &choice.to_pos(self.ctx),
+                                        &choice.pos(self.ctx),
                                         "Record aggregate choice must be a simple name",
                                         ErrorCode::MismatchedKinds,
                                     );
@@ -967,7 +968,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             Choice::DiscreteRange(_) => {
                                 is_ok_so_far = false;
                                 diagnostics.add(
-                                    &choice.to_pos(self.ctx),
+                                    &choice.pos(self.ctx),
                                     "Record aggregate choice must be a simple name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -987,7 +988,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::new(&choice.to_pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
+                                    let mut diag = Diagnostic::new(&choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1006,7 +1007,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else if remaining_types.is_empty() {
                                     diagnostics.push(
                                         Diagnostic::new(
-                                            &choice.to_pos(self.ctx),
+                                            &choice.pos(self.ctx),
                                             format!(
                                             "All elements of record '{}' are already associated",
                                             record_type.designator()
@@ -1046,7 +1047,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             is_ok_so_far = false;
                             let pos = first.span.combine(last.span);
                             diagnostics.add(
-                                pos.to_pos(self.ctx),
+                                pos.pos(self.ctx),
                                 "Record aggregate choice must be a simple name",
                                 ErrorCode::MismatchedKinds,
                             );
@@ -1075,7 +1076,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         diagnostics.push(
                             Diagnostic::new(
-                                expr.to_pos(self.ctx),
+                                expr.pos(self.ctx),
                                 format!(
                                     "Unexpected positional association for record '{}'",
                                     record_type.designator()
@@ -1098,7 +1099,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if !associated.is_associated(&elem) {
                     diagnostics.push(
                         Diagnostic::new(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!(
                                 "Missing association of record element '{}'",
                                 elem.designator()
@@ -1144,7 +1145,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
-                                                &choice.to_pos(self.ctx),
+                                                &choice.pos(self.ctx),
                                                 &typ.describe(),
                                                 index_type.into(),
                                             ));
@@ -1204,7 +1205,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             } else {
                 diagnostics.add(
-                    &expr.to_pos(self.ctx),
+                    &expr.pos(self.ctx),
                     format!(
                         "Expected sub-aggregate for target {}",
                         array_type.describe()
@@ -1265,14 +1266,14 @@ impl RecordAssociations {
         if let Some(prev_pos) = self.0.insert(elem.id(), pos) {
             diagnostics.push(
                 Diagnostic::new(
-                    pos.to_pos(ctx),
+                    pos.pos(ctx),
                     format!(
                         "Record element '{}' has already been associated",
                         elem.designator()
                     ),
                     ErrorCode::AlreadyAssociated,
                 )
-                .related(prev_pos.to_pos(ctx), "Previously associated here"),
+                .related(prev_pos.pos(ctx), "Previously associated here"),
             );
         }
     }

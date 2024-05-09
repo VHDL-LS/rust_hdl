@@ -163,7 +163,7 @@ impl<'a> ScopeInner<'a> {
         match result {
             Some(visible) => Ok(visible),
             None => Err(Diagnostic::new(
-                span.to_pos(ctx),
+                span.pos(ctx),
                 match designator {
                     Designator::Identifier(ident) => {
                         format!("No declaration of '{ident}'")

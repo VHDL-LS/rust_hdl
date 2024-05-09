@@ -123,7 +123,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
                             diagnostics.add(
-                                &statement.statement.to_pos(self.ctx),
+                                &statement.statement.pos(self.ctx),
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
                             );
@@ -132,7 +132,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
                             diagnostics.add(
-                                &statement.statement.to_pos(self.ctx),
+                                &statement.statement.pos(self.ctx),
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
                             );
@@ -140,7 +140,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.add(
-                            &statement.statement.to_pos(self.ctx),
+                            &statement.statement.pos(self.ctx),
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
                         );
@@ -199,7 +199,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement_span.to_pos(self.ctx),
+                        &statement_span.pos(self.ctx),
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
                     )
@@ -220,7 +220,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement_span.to_pos(self.ctx),
+                        &statement_span.pos(self.ctx),
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
                     )

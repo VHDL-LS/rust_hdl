@@ -9,7 +9,8 @@ use vhdl_lang::syntax::parser::ParsingContext;
 
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
-use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute, WithToken};
+use crate::ast::token_range::WithToken;
+use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
 use crate::data::{DiagnosticHandler, DiagnosticResult};
 use crate::{Diagnostic, SrcPos};
 

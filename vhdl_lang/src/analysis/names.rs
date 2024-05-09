@@ -14,6 +14,7 @@ use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::SubprogramKind;
 use super::scope::*;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -348,7 +349,7 @@ impl<'a> ResolvedName<'a> {
             Ok(typ)
         } else {
             diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                &prefix_pos.to_pos(ctx),
+                &prefix_pos.pos(ctx),
                 self,
                 attr,
             ));
@@ -370,7 +371,7 @@ impl<'a> ResolvedName<'a> {
         }
 
         diagnostics.add(
-            prefix_pos.to_pos(ctx),
+            prefix_pos.pos(ctx),
             format!(
                 "Expected signal prefix for '{} attribute, got {}",
                 attr.attr,
@@ -507,7 +508,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
                 Err(Diagnostic::new(
-                    pos.to_pos(self.ctx),
+                    pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 ))
@@ -522,7 +523,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(DisambiguatedType::Unambiguous(*typ))),
                 _ => Err(Diagnostic::new(
-                    pos.to_pos(self.ctx),
+                    pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 )),
@@ -557,7 +558,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
                 Err(Diagnostic::new(
-                    span.to_pos(self.ctx),
+                    span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 ))
@@ -568,7 +569,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 AnyEntKind::File(subtype) => Ok(Some(subtype.type_mark())),
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(*typ)),
                 _ => Err(Diagnostic::new(
-                    span.to_pos(self.ctx),
+                    span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
                     ErrorCode::MismatchedKinds,
                 )),
@@ -661,7 +662,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            expr_pos.to_pos(self.ctx),
+                            expr_pos.pos(self.ctx),
                             format!("{} cannot be used as a discrete range", typ.describe()),
                             ErrorCode::MismatchedKinds,
                         )
@@ -711,7 +712,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         }
                     } else {
                         diagnostics.add(
-                            name_pos.to_pos(self.ctx),
+                            name_pos.pos(self.ctx),
                             format!(
                                 "Cannot slice {}-dimensional {}",
                                 indexes.len(),
@@ -770,7 +771,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             bail!(
                                 diagnostics,
                                 Diagnostic::dimension_mismatch(
-                                    &name_pos.to_pos(self.ctx),
+                                    &name_pos.pos(self.ctx),
                                     prefix_typ,
                                     assocs.len(),
                                     num_indexes,
@@ -803,7 +804,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 idx as usize
             } else {
                 diagnostics.add(
-                    &expr.span.to_pos(self.ctx),
+                    &expr.span.pos(self.ctx),
                     "Expected an integer literal",
                     ErrorCode::MismatchedKinds,
                 );
@@ -824,7 +825,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.add(&expr.to_pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
+                diagnostics.add(&expr.pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
             }
             Err(EvalError::Unknown)
         }
@@ -842,7 +843,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            pos.to_pos(self.ctx),
+                            pos.pos(self.ctx),
                             format!("{} is not a view", resolved.describe()),
                             ErrorCode::MismatchedKinds
                         )
@@ -854,7 +855,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::new(
-                        pos.to_pos(self.ctx),
+                        pos.pos(self.ctx),
                         format!("{} is not a view", resolved.describe()),
                         ErrorCode::MismatchedKinds
                     )
@@ -892,7 +893,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(typ.into()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -909,7 +910,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(self.boolean().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -929,7 +930,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(self.string().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -949,7 +950,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -968,7 +969,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -992,7 +993,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -1014,7 +1015,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -1028,7 +1029,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        &name_pos.to_pos(self.ctx),
+                        &name_pos.pos(self.ctx),
                         prefix,
                         attr,
                     ));
@@ -1113,7 +1114,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 } else {
                     diagnostics.add(
-                        name_pos.to_pos(self.ctx),
+                        name_pos.pos(self.ctx),
                         format!(
                             "{} may not be the prefix of a user defined attribute",
                             prefix.describe()
@@ -1125,7 +1126,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             AttributeDesignator::Range(_) => {
                 diagnostics.add(
-                    name_pos.to_pos(self.ctx),
+                    name_pos.pos(self.ctx),
                     "Range cannot be used as an expression",
                     ErrorCode::MismatchedKinds,
                 );
@@ -1162,7 +1163,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         // all type attribute suffixes require that the prefix be an object type
         let Some(obj) = prefix.as_object_name() else {
             diagnostics.add(
-                pos.to_pos(self.ctx),
+                pos.pos(self.ctx),
                 format!(
                     "The {} attribute can only be used on objects, not {}",
                     suffix,
@@ -1179,7 +1180,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(elem_type)
                 } else {
                     diagnostics.add(
-                        pos.to_pos(self.ctx),
+                        pos.pos(self.ctx),
                         "The element attribute can only be used for array types",
                         ErrorCode::IllegalAttribute,
                     );
@@ -1220,7 +1221,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         designator.set_unique_reference(ent);
 
                         ResolvedName::from_scope_not_overloaded(ent)
-                            .map_err(|(e, code)| Diagnostic::new(span.to_pos(self.ctx), e, code))
+                            .map_err(|(e, code)| Diagnostic::new(span.pos(self.ctx), e, code))
                             .into_eval_result(diagnostics)?
                     }
                     NamedEntities::Overloaded(overloaded) => ResolvedName::Overloaded(
@@ -1278,7 +1279,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1293,7 +1294,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Unambiguous(typ));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1333,7 +1334,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                     match as_fatal(self.disambiguate(
                         scope,
-                        &span.to_pos(self.ctx),
+                        &span.pos(self.ctx),
                         des,
                         assocs,
                         SubprogramKind::Function(if has_suffix {
@@ -1356,7 +1357,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1371,7 +1372,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 );
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1384,7 +1385,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 } else {
                     diagnostics.push(Diagnostic::unreachable(
-                        &span.to_pos(self.ctx),
+                        &span.pos(self.ctx),
                         "CallOrIndexed should already be handled",
                     ));
                     return Err(EvalError::Unknown);
@@ -1407,7 +1408,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     None => {
                         diagnostics.push(Diagnostic::cannot_be_prefix(
-                            &prefix.to_pos(self.ctx),
+                            &prefix.pos(self.ctx),
                             resolved,
                             suffix,
                         ));
@@ -1434,7 +1435,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         }
                         None => {
                             diagnostics.push(Diagnostic::cannot_be_prefix(
-                                &prefix.to_pos(self.ctx),
+                                &prefix.pos(self.ctx),
                                 resolved,
                                 suffix,
                             ));
@@ -1467,7 +1468,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     );
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix(
-                        &span.to_pos(self.ctx),
+                        &span.pos(self.ctx),
                         resolved,
                         suffix,
                     ));
@@ -1499,7 +1500,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix(
-                        &span.to_pos(self.ctx),
+                        &span.pos(self.ctx),
                         resolved,
                         suffix,
                     ));
@@ -1517,7 +1518,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
 
                 diagnostics.push(Diagnostic::cannot_be_prefix(
-                    &span.to_pos(self.ctx),
+                    &span.pos(self.ctx),
                     resolved,
                     suffix,
                 ));
@@ -1525,7 +1526,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             ResolvedName::Final(_) => {
                 diagnostics.push(Diagnostic::cannot_be_prefix(
-                    &span.to_pos(self.ctx),
+                    &span.pos(self.ctx),
                     resolved,
                     suffix,
                 ));
@@ -1558,7 +1559,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
                 diagnostics.add(
-                    name_pos.to_pos(self.ctx),
+                    name_pos.pos(self.ctx),
                     format!("{} {}", resolved.describe(), err_msg),
                     error_code,
                 );
@@ -1584,7 +1585,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
                 diagnostics.add(
-                    name_pos.to_pos(self.ctx),
+                    name_pos.pos(self.ctx),
                     format!("Expected type name, got {}", resolved.describe()),
                     ErrorCode::MismatchedKinds,
                 );
@@ -1606,7 +1607,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ExpressionType::Unambiguous(ctyp) => {
                     if !typ.base().is_closely_related(ctyp.base()) {
                         diagnostics.add(
-                            pos.to_pos(self.ctx),
+                            pos.pos(self.ctx),
                             format!(
                                 "{} cannot be converted to {}",
                                 ctyp.describe(),
@@ -1620,7 +1621,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 | ExpressionType::Ambiguous(_)
                 | ExpressionType::Null
                 | ExpressionType::Aggregate => diagnostics.add(
-                    pos.to_pos(self.ctx),
+                    pos.pos(self.ctx),
                     format!(
                         "{} cannot be the argument of type conversion",
                         types.describe()
@@ -1675,7 +1676,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Ok(Some(type_mark)) => {
                     if !self.can_be_target_type(type_mark, ttyp.base()) {
                         diagnostics.push(Diagnostic::type_mismatch(
-                            &span.to_pos(self.ctx),
+                            &span.pos(self.ctx),
                             &resolved.describe_type(),
                             ttyp,
                         ));
@@ -1717,7 +1718,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         {
             if indexes.len() != index_types.len() {
                 diagnostics.push(Diagnostic::dimension_mismatch(
-                    &name_pos.to_pos(self.ctx),
+                    &name_pos.pos(self.ctx),
                     base_type,
                     indexes.len(),
                     index_types.len(),
@@ -1733,7 +1734,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             bail!(
                 diagnostics,
                 Diagnostic::new(
-                    suffix_pos.to_pos(self.ctx),
+                    suffix_pos.pos(self.ctx),
                     format!("{} cannot be indexed", type_mark.describe()),
                     ErrorCode::MismatchedKinds,
                 )
@@ -1804,7 +1805,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             _ => {
                 bail!(
                     diagnostics,
-                    Diagnostic::invalid_selected_name_prefix(prefix, &prefix_pos.to_pos(self.ctx))
+                    Diagnostic::invalid_selected_name_prefix(prefix, &prefix_pos.pos(self.ctx))
                 );
             }
         }
@@ -1957,7 +1958,7 @@ fn check_no_attr_argument(
 ) {
     if let Some(ref expr) = suffix.expr {
         diagnostics.add(
-            &expr.to_pos(ctx),
+            &expr.pos(ctx),
             format!("'{} attribute does not take an argument", suffix.attr),
             ErrorCode::TooManyArguments,
         )
@@ -1972,7 +1973,7 @@ fn check_no_sattr_argument(
 ) {
     if let Some(ref expr) = expr {
         diagnostics.add(
-            expr.to_pos(ctx),
+            expr.pos(ctx),
             format!("'{attr} attribute does not take an argument"),
             ErrorCode::TooManyArguments,
         )
@@ -1989,7 +1990,7 @@ fn check_single_argument<'a>(
         Some(expr)
     } else {
         diagnostics.add(
-            pos.to_pos(ctx),
+            pos.pos(ctx),
             format!("'{} attribute requires a single argument", suffix.attr),
             ErrorCode::Unassociated,
         );

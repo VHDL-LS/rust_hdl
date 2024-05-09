@@ -8,8 +8,9 @@ use super::common::ParseResult;
 use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*};
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
-use crate::data::{Diagnostic, WithTokenSpan};
+use crate::data::Diagnostic;
 use crate::syntax::TokenAccess;
 use crate::{ast, TokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -295,7 +296,7 @@ pub fn name_to_type_mark(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
 ) -> ParseResult<WithTokenSpan<TypeMark>> {
-    let pos = name.to_pos(ctx);
+    let pos = name.pos(ctx);
     let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
@@ -1280,12 +1281,12 @@ mod tests {
                     }
                 },
                 _ => {
-                    println!("{}", expr.to_pos(ctx).code_context());
+                    println!("{}", expr.pos(ctx).code_context());
                     panic!("Cannot format {lit:?}");
                 }
             },
             _ => {
-                println!("{}", expr.to_pos(ctx).code_context());
+                println!("{}", expr.pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
             }
         }

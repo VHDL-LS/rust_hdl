@@ -30,6 +30,7 @@ use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer, Value
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;

@@ -29,7 +29,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let chr = Designator::Character(*chr);
                 if !literals.contains(&chr) {
                     diagnostics.add(
-                        span.to_pos(self.ctx),
+                        span.pos(self.ctx),
                         format!("{} does not define character {}", elem_type.describe(), chr),
                         ErrorCode::InvalidLiteral,
                     );
@@ -38,7 +38,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         } else {
             diagnostics.add(
-                span.to_pos(self.ctx),
+                span.pos(self.ctx),
                 format!("string literal does not match {}", target_type.describe()),
                 ErrorCode::TypeMismatch,
             );
@@ -63,7 +63,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if !self.can_be_target_type(self.universal_integer().into(), target_type.base())
                     {
                         diagnostics.add(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!("integer literal does not match {}", target_type.describe()),
                             ErrorCode::TypeMismatch,
                         );
@@ -72,7 +72,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 AbstractLiteral::Real(_) => {
                     if !self.can_be_target_type(self.universal_real().into(), target_type.base()) {
                         diagnostics.add(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!("real literal does not match {}", target_type.describe()),
                             ErrorCode::TypeMismatch,
                         );
@@ -83,7 +83,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Type::Enum(literals) => {
                     if !literals.contains(&Designator::Character(*char)) {
                         diagnostics.add(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!(
                                 "character literal does not match {}",
                                 target_type.describe()
@@ -94,7 +94,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
                 _ => {
                     diagnostics.add(
-                        span.to_pos(self.ctx),
+                        span.pos(self.ctx),
                         format!(
                             "character literal does not match {}",
                             target_type.describe()
@@ -125,7 +125,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         match err {
                             BitStringConversionError::IllegalDecimalCharacter(rel_pos) => {
                                 diagnostics.add(
-                                    span.to_pos(self.ctx),
+                                    span.pos(self.ctx),
                                     format!(
                                         "Illegal digit '{}' for base 10",
                                         bit_string.value.bytes[rel_pos] as char,
@@ -135,7 +135,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             BitStringConversionError::IllegalTruncate(_, _) => {
                                 diagnostics.add(
-                                    span.to_pos(self.ctx),
+                                    span.pos(self.ctx),
                                     format!(
                                         "Truncating vector to length {} would lose information",
                                         bit_string.length.unwrap() // Safe as this error can only happen when there is a length
@@ -145,7 +145,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             BitStringConversionError::EmptySignedExpansion => {
                                 diagnostics.add(
-                                    span.to_pos(self.ctx),
+                                    span.pos(self.ctx),
                                     "Cannot expand an empty signed bit string",
                                     ErrorCode::InvalidLiteral,
                                 );
@@ -159,7 +159,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(physical_type) => {
                         if physical_type.base_type() != target_base {
                             diagnostics.push(Diagnostic::type_mismatch(
-                                &span.to_pos(self.ctx),
+                                &span.pos(self.ctx),
                                 &physical_type.describe(),
                                 target_type,
                             ))
@@ -173,7 +173,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Literal::Null => {
                 if !matches!(target_base.kind(), Type::Access(_)) {
                     diagnostics.add(
-                        span.to_pos(self.ctx),
+                        span.pos(self.ctx),
                         format!("null literal does not match {}", target_base.describe()),
                         ErrorCode::TypeMismatch,
                     );

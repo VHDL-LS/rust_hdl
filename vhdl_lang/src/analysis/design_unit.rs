@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::analysis::names::ResolvedName;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -389,7 +390,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 .lookup_in_library(
                     diagnostics,
                     self.work_library_name(),
-                    &ent_name_span.to_pos(self.ctx),
+                    &ent_name_span.pos(self.ctx),
                     &designator.item,
                 )
                 .map(|design| {
@@ -404,7 +405,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ResolvedName::Library(ref library_name) => {
                         if library_name != self.work_library_name() {
                             diagnostics.add(
-                                &prefix.to_pos(self.ctx),
+                                &prefix.pos(self.ctx),
                                 format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()), ErrorCode::ConfigNotInSameLibrary);
                             Err(EvalError::Unknown)
                         } else {
@@ -435,14 +436,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         }
                     }
                     other => {
-                        diagnostics.push(other.kind_error(&prefix.to_pos(self.ctx), "library"));
+                        diagnostics.push(other.kind_error(&prefix.pos(self.ctx), "library"));
                         Err(EvalError::Unknown)
                     }
                 }
             }
             _ => {
                 diagnostics.add(
-                    &ent_name.to_pos(self.ctx),
+                    &ent_name.pos(self.ctx),
                     "Expected selected name",
                     ErrorCode::MismatchedKinds,
                 );
@@ -464,7 +465,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            &prefix.to_pos(self.ctx),
+                            &prefix.pos(self.ctx),
                             "Invalid prefix of a selected name",
                             ErrorCode::MismatchedKinds
                         )
@@ -475,7 +476,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::new(
-                        &prefix.to_pos(self.ctx),
+                        &prefix.pos(self.ctx),
                         "'.all' may not be the prefix of a selected name",
                         ErrorCode::MismatchedKinds
                     )
@@ -501,11 +502,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
             Name::SelectedAll(prefix) => {
                 let prefix_ent = self.resolve_context_item_prefix(diagnostics, scope, prefix)?;
-                Ok(UsedNames::AllWithin(prefix.to_pos(self.ctx), prefix_ent))
+                Ok(UsedNames::AllWithin(prefix.pos(self.ctx), prefix_ent))
             }
             Name::Designator(designator) => {
                 let visible = scope
-                    .lookup(self.ctx, name.span, designator.item.designator())
+                    .lookup(self.ctx, name.span, designator.designator())
                     .into_eval_result(diagnostics)?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
@@ -518,7 +519,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::new(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         "Invalid selected name",
                         ErrorCode::MismatchedKinds
                     )
@@ -572,7 +573,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             Name::Selected(..) => {}
                             _ => {
                                 diagnostics.add(
-                                    &name.to_pos(self.ctx),
+                                    &name.pos(self.ctx),
                                     "Context reference must be a selected name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -593,7 +594,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     // OK
                                     AnyEntKind::Design(Design::Context(ref context_region)) => {
                                         scope.add_context_visibility(
-                                            Some(&name.to_pos(self.ctx)),
+                                            Some(&name.pos(self.ctx)),
                                             context_region,
                                         );
                                     }
@@ -635,7 +636,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Name::SelectedAll(..) => {}
                 _ => {
                     diagnostics.add(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         "Use clause must be a selected name",
                         ErrorCode::MismatchedKinds,
                     );
@@ -650,12 +651,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             };
             match context_item {
                 UsedNames::Single(visible) => {
-                    visible.make_potentially_visible_in(Some(&name.to_pos(self.ctx)), scope);
+                    visible.make_potentially_visible_in(Some(&name.pos(self.ctx)), scope);
                 }
                 UsedNames::AllWithin(visibility_pos, named_entity) => match named_entity.kind() {
                     AnyEntKind::Library => {
                         let library_name = named_entity.designator().expect_identifier();
-                        self.use_all_in_library(&name.to_pos(self.ctx), library_name, scope)?;
+                        self.use_all_in_library(&name.pos(self.ctx), library_name, scope)?;
                     }
                     AnyEntKind::Design(design) => match design {
                         Design::UninstPackage(..) => {
@@ -668,7 +669,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         | Design::PackageInstance(ref primary_region)
                         | Design::InterfacePackageInstance(ref primary_region) => {
                             scope.make_all_potentially_visible(
-                                Some(&name.to_pos(self.ctx)),
+                                Some(&name.pos(self.ctx)),
                                 primary_region,
                             );
                         }
@@ -714,7 +715,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         }
         diagnostics.add(
-            &package_name.to_pos(self.ctx),
+            &package_name.pos(self.ctx),
             format!("'{package_name}' is not an uninstantiated generic package"),
             ErrorCode::MismatchedKinds,
         );

@@ -229,7 +229,7 @@ impl<'a> TypeEnt<'a> {
                 }
             }
             Type::Incomplete => Err(Diagnostic::new(
-                prefix_pos.to_pos(ctx),
+                prefix_pos.pos(ctx),
                 "Cannot select incomplete type before full type definition",
                 ErrorCode::MismatchedKinds,
             )),
@@ -245,7 +245,7 @@ impl<'a> TypeEnt<'a> {
             | Type::Integer { .. }
             | Type::Real { .. } => Err(Diagnostic::invalid_selected_name_prefix(
                 &self,
-                &prefix_pos.to_pos(ctx),
+                &prefix_pos.pos(ctx),
             )),
         }
     }

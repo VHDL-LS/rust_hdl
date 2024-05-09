@@ -6,7 +6,8 @@
 
 use fnv::FnvHashMap;
 
-use crate::ast::{self, AttributeDesignator, Operator, WithRef, WithToken};
+use crate::ast::token_range::WithToken;
+use crate::ast::{self, AttributeDesignator, Operator, WithRef};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -442,6 +443,10 @@ impl TokenId {
     pub(crate) fn new(idx: usize) -> TokenId {
         TokenId(idx)
     }
+
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+        ctx.get_pos(*self)
+    }
 }
 
 impl From<TokenId> for TokenSpan {
@@ -566,7 +571,7 @@ impl TokenSpan {
         }
     }
 
-    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.start_token, self.end_token)
     }
 
