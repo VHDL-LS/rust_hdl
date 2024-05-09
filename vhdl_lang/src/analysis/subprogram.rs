@@ -35,6 +35,50 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(region)
     }
 
+    pub(crate) fn subprogram_body(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        body: &mut SubprogramBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
+            scope,
+            parent,
+            &mut body.specification,
+            Overloaded::Subprogram,
+            diagnostics,
+        ))? {
+            Some(r) => r,
+            None => {
+                return Ok(());
+            }
+        };
+
+        scope.add(subpgm_ent.into(), diagnostics);
+
+        self.define_labels_for_sequential_part(
+            &subpgm_region,
+            subpgm_ent.into(),
+            &mut body.statements,
+            diagnostics,
+        )?;
+        self.analyze_declarative_part(
+            &subpgm_region,
+            subpgm_ent.into(),
+            &mut body.declarations,
+            diagnostics,
+        )?;
+
+        self.analyze_sequential_part(
+            &subpgm_region,
+            subpgm_ent.into(),
+            &mut body.statements,
+            diagnostics,
+        )?;
+        Ok(())
+    }
+
     pub(crate) fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
