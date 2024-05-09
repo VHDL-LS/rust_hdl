@@ -520,14 +520,29 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 return self.subprogram_body(scope, parent, body, diagnostics);
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
+                let ent = self.arena.explicit(
+                    subdecl
+                        .specification
+                        .subpgm_designator()
+                        .item
+                        .clone()
+                        .into_designator(),
+                    parent,
+                    AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+                        FormalRegion::new_params(),
+                        None,
+                    ))),
+                    Some(subdecl.specification.subpgm_designator().pos(self.ctx)),
+                    subdecl.span(),
+                );
                 match as_fatal(self.subprogram_specification(
                     scope,
-                    parent,
+                    ent,
                     &mut subdecl.specification,
                     Overloaded::SubprogramDecl,
                     diagnostics,
                 ))? {
-                    Some((_, ent)) => {
+                    Some(_) => {
                         scope.add(ent.into(), diagnostics);
                     }
                     None => {
@@ -904,9 +919,24 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm) => {
-                let (_, ent) = self.subprogram_specification(
-                    scope,
+                let ent = self.arena.explicit(
+                    subpgm
+                        .specification
+                        .subpgm_designator()
+                        .item
+                        .clone()
+                        .into_designator(),
                     parent,
+                    AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(Signature::new(
+                        FormalRegion::new_params(),
+                        None,
+                    ))),
+                    Some(subpgm.specification.subpgm_designator().pos(self.ctx)),
+                    subpgm.span(),
+                );
+                self.subprogram_specification(
+                    scope,
+                    ent,
                     &mut subpgm.specification,
                     Overloaded::InterfaceSubprogram,
                     diagnostics,

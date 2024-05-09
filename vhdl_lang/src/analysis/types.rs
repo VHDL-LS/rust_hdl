@@ -191,14 +191,28 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
+                            let ent = self.arena.explicit(
+                                subprogram
+                                    .subpgm_designator()
+                                    .item
+                                    .clone()
+                                    .into_designator(),
+                                ptype,
+                                AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+                                    FormalRegion::new_params(),
+                                    None,
+                                ))),
+                                Some(subprogram.subpgm_designator().pos(self.ctx)),
+                                subprogram.span(),
+                            );
                             match as_fatal(self.subprogram_specification(
                                 scope,
-                                ptype,
+                                ent,
                                 &mut subprogram.specification,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
                             ))? {
-                                Some((_, ent)) => {
+                                Some(_) => {
                                     region.add(ent.into(), diagnostics);
                                 }
                                 None => {

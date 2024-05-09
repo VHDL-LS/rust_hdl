@@ -42,9 +42,24 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         body: &mut SubprogramBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
-            scope,
+        let ent = self.arena.explicit(
+            body.specification
+                .subpgm_designator()
+                .item
+                .clone()
+                .into_designator(),
             parent,
+            AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
+                FormalRegion::new_params(),
+                None,
+            ))),
+            Some(body.specification.subpgm_designator().pos(self.ctx)),
+            body.span(),
+        );
+
+        let subpgm_region = match as_fatal(self.subprogram_specification(
+            scope,
+            ent,
             &mut body.specification,
             Overloaded::Subprogram,
             diagnostics,
@@ -55,24 +70,24 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        scope.add(subpgm_ent.into(), diagnostics);
+        scope.add(ent.into(), diagnostics);
 
         self.define_labels_for_sequential_part(
             &subpgm_region,
-            subpgm_ent.into(),
+            ent.into(),
             &mut body.statements,
             diagnostics,
         )?;
         self.analyze_declarative_part(
             &subpgm_region,
-            subpgm_ent.into(),
+            ent.into(),
             &mut body.declarations,
             diagnostics,
         )?;
 
         self.analyze_sequential_part(
             &subpgm_region,
-            subpgm_ent.into(),
+            ent.into(),
             &mut body.statements,
             diagnostics,
         )?;
@@ -82,23 +97,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     pub(crate) fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
-        parent: EntRef<'a>,
+        ent: EntRef<'a>,
         subprogram: &mut SubprogramSpecification,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<(Scope<'a>, OverloadedEnt<'a>)> {
+    ) -> EvalResult<Scope<'a>> {
         let subpgm_region = scope.nested();
-        let ent = self.arena.explicit(
-            subprogram
-                .subpgm_designator()
-                .item
-                .clone()
-                .into_designator(),
-            parent,
-            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
-            Some(subprogram.subpgm_designator().pos(self.ctx)),
-            subprogram.span(),
-        );
 
         let (signature, generic_map) = match subprogram {
             SubprogramSpecification::Function(fun) => {
@@ -174,7 +178,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ent.set_kind(AnyEntKind::Overloaded(kind));
         }
         subprogram.set_decl_id(ent.id());
-        Ok((subpgm_region, OverloadedEnt::from_any(ent).unwrap()))
+        Ok(subpgm_region)
     }
 
     pub fn resolve_signature(
