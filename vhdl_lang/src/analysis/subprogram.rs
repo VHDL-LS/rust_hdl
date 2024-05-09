@@ -5,6 +5,7 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::names::*;
 use super::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;

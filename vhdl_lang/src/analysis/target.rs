@@ -1,5 +1,6 @@
 use super::analyze::*;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;

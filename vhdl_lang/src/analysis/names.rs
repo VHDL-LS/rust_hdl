@@ -14,6 +14,7 @@ use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::SubprogramKind;
 use super::scope::*;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;

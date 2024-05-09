@@ -8,9 +8,9 @@ use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
 use super::tokens::{kinds_error, Kind::*};
+use crate::ast::token_range::WithTokenSpan;
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
-use crate::data::WithTokenSpan;
 use crate::syntax::TokenId;
 use crate::TokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;

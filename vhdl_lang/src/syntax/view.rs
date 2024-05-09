@@ -89,7 +89,8 @@ pub(crate) fn parse_element_mode_indication(
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{Mode, ModeViewDeclaration, ModeViewElement, WithToken};
+    use crate::ast::token_range::WithToken;
+    use crate::ast::{Mode, ModeViewDeclaration, ModeViewElement};
     use crate::data::ErrorCode;
     use crate::syntax::test::{check_diagnostics, Code};
     use crate::syntax::view::{

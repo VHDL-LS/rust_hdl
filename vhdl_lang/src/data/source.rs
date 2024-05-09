@@ -5,7 +5,6 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::contents::Contents;
-use crate::{TokenId, TokenSpan};
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -16,7 +15,6 @@ use std::hash::{Hash, Hasher};
 use std::io;
 pub use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use vhdl_lang::TokenAccess;
 
 struct FileId {
     name: FilePath,
@@ -278,88 +276,9 @@ impl PartialOrd for SrcPos {
     }
 }
 
-/// A generic object with an associated source file and lexical range.
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct WithTokenSpan<T> {
-    pub item: T,
-    pub span: TokenSpan,
-}
-
-impl<T> WithTokenSpan<T> {
-    pub fn combine_pos_with(self, other: &dyn AsRef<TokenSpan>) -> Self {
-        WithTokenSpan {
-            item: self.item,
-            span: self.span.combine(*other.as_ref()),
-        }
-    }
-}
-
-impl<T> WithTokenSpan<T> {
-    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
-        self.span.to_pos(ctx)
-    }
-
-    pub fn new(item: T, span: TokenSpan) -> WithTokenSpan<T> {
-        WithTokenSpan { item, span }
-    }
-
-    pub fn from(item: T, span: impl Into<TokenSpan>) -> WithTokenSpan<T> {
-        WithTokenSpan {
-            item,
-            span: span.into(),
-        }
-    }
-
-    pub fn map_into<F, U>(self, f: F) -> WithTokenSpan<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        WithTokenSpan {
-            item: f(self.item),
-            span: self.span,
-        }
-    }
-
-    pub fn try_map_into<F, U>(self, f: F) -> Option<WithTokenSpan<U>>
-    where
-        F: FnOnce(T) -> Option<U>,
-    {
-        Some(WithTokenSpan {
-            item: f(self.item)?,
-            span: self.span,
-        })
-    }
-
-    pub fn combine_span_with(self, other: impl Into<TokenSpan>) -> Self {
-        WithTokenSpan {
-            item: self.item,
-            span: TokenSpan::new(self.span.start_token, other.into().end_token),
-        }
-    }
-
-    pub fn start_with(self, id: TokenId) -> Self {
-        WithTokenSpan {
-            item: self.item,
-            span: self.span.start_with(id),
-        }
-    }
-}
-
-impl<T> AsRef<TokenSpan> for WithTokenSpan<T> {
-    fn as_ref(&self) -> &TokenSpan {
-        &self.span
-    }
-}
-
 impl AsRef<SrcPos> for SrcPos {
     fn as_ref(&self) -> &SrcPos {
         self
-    }
-}
-
-impl<T> From<WithTokenSpan<T>> for TokenSpan {
-    fn from(with_span: WithTokenSpan<T>) -> TokenSpan {
-        with_span.span
     }
 }
 

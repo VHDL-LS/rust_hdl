@@ -10,6 +10,7 @@ use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause;
 use super::names::{parse_name, parse_selected_name};
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use vhdl_lang::syntax::parser::ParsingContext;

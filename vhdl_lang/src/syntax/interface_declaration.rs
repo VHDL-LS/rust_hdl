@@ -12,6 +12,7 @@ use super::object_declaration::parse_optional_assignment;
 use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
+use crate::ast::token_range::WithToken;
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;

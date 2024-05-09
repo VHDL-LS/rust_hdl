@@ -19,6 +19,7 @@ use super::sequential_statement::{
 };
 use super::tokens::Kind::*;
 use super::waveform::{parse_delay_mechanism, parse_waveform};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::{Kind, TokenAccess};
@@ -248,13 +249,13 @@ fn to_procedure_call(
     match target.item {
         Target::Name(Name::CallOrIndexed(call)) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: WithTokenSpan::from(*call, target.span),
+            call: WithTokenSpan::new(*call, target.span),
         }),
         Target::Name(name) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: WithTokenSpan::from(
+            call: WithTokenSpan::new(
                 CallOrIndexed {
-                    name: WithTokenSpan::from(name, target.span),
+                    name: WithTokenSpan::new(name, target.span),
                     parameters: vec![],
                 },
                 target.span,

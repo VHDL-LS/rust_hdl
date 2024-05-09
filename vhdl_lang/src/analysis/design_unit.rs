@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::analysis::names::ResolvedName;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;

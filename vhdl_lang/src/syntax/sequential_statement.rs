@@ -12,6 +12,7 @@ use super::names::parse_name;
 use super::range::parse_discrete_range;
 use super::tokens::Kind::*;
 use super::waveform::{parse_delay_mechanism, parse_waveform};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;

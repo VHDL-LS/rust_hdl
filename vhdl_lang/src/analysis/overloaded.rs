@@ -11,6 +11,7 @@ use super::analyze::*;
 use super::expression::ExpressionType;
 use super::scope::*;
 use crate::ast::search::clear_references;
+use crate::ast::token_range::WithToken;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;

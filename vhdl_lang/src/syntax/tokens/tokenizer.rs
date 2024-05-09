@@ -6,7 +6,8 @@
 
 use fnv::FnvHashMap;
 
-use crate::ast::{self, AttributeDesignator, Operator, WithRef, WithToken};
+use crate::ast::token_range::WithToken;
+use crate::ast::{self, AttributeDesignator, Operator, WithRef};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 

@@ -9,9 +9,9 @@ use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
-use crate::data::WithTokenSpan;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 

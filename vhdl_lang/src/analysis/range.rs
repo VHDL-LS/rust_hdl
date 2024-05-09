@@ -11,6 +11,7 @@ use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;

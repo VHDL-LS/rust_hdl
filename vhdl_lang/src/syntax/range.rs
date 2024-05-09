@@ -10,8 +10,9 @@ use super::expression::name_to_type_mark;
 use super::expression::parse_expression;
 use super::tokens::Kind::*;
 use crate::ast;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
-use crate::data::{Diagnostic, WithTokenSpan};
+use crate::data::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
