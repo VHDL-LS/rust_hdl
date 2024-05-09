@@ -824,7 +824,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.add(&expr.to_pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
+                diagnostics.add(&expr.pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
             }
             Err(EvalError::Unknown)
         }
@@ -1278,7 +1278,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1293,7 +1293,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Unambiguous(typ));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1356,7 +1356,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1371,7 +1371,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 );
                             } else {
                                 diagnostics.add(
-                                    &prefix.to_pos(self.ctx),
+                                    &prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1407,7 +1407,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     None => {
                         diagnostics.push(Diagnostic::cannot_be_prefix(
-                            &prefix.to_pos(self.ctx),
+                            &prefix.pos(self.ctx),
                             resolved,
                             suffix,
                         ));
@@ -1434,7 +1434,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         }
                         None => {
                             diagnostics.push(Diagnostic::cannot_be_prefix(
-                                &prefix.to_pos(self.ctx),
+                                &prefix.pos(self.ctx),
                                 resolved,
                                 suffix,
                             ));
@@ -1957,7 +1957,7 @@ fn check_no_attr_argument(
 ) {
     if let Some(ref expr) = suffix.expr {
         diagnostics.add(
-            &expr.to_pos(ctx),
+            &expr.pos(ctx),
             format!("'{} attribute does not take an argument", suffix.attr),
             ErrorCode::TooManyArguments,
         )
@@ -1972,7 +1972,7 @@ fn check_no_sattr_argument(
 ) {
     if let Some(ref expr) = expr {
         diagnostics.add(
-            expr.to_pos(ctx),
+            expr.pos(ctx),
             format!("'{attr} attribute does not take an argument"),
             ErrorCode::TooManyArguments,
         )

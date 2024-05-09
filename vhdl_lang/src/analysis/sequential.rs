@@ -118,7 +118,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
                             diagnostics.add(
-                                &statement.statement.to_pos(self.ctx),
+                                &statement.statement.pos(self.ctx),
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
                             );
@@ -127,7 +127,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
                             diagnostics.add(
-                                &statement.statement.to_pos(self.ctx),
+                                &statement.statement.pos(self.ctx),
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
                             );
@@ -135,7 +135,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.add(
-                            &statement.statement.to_pos(self.ctx),
+                            &statement.statement.pos(self.ctx),
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
                         );

@@ -464,7 +464,7 @@ mod tests {
 
             as_fatal(self.ctx(&code.tokenize()).disambiguate(
                 &self.scope,
-                &fcall.to_pos(&code.tokenize()),
+                &fcall.pos(&code.tokenize()),
                 &des,
                 &mut fcall.item.parameters,
                 overloaded::SubprogramKind::Function(ttyp),

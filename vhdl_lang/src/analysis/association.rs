@@ -250,7 +250,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.to_pos(self.ctx),
+                                        &fcall.name.pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -325,7 +325,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     fail = true;
 
                     diagnostics.add(
-                        formal.to_pos(self.ctx),
+                        formal.pos(self.ctx),
                         "Named arguments are not allowed before positional arguments",
                         ErrorCode::NamedBeforePositional,
                     );
@@ -372,7 +372,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 result.push((actual.span, Some(formal)));
             } else {
                 diagnostics.add(
-                    &actual.to_pos(self.ctx),
+                    &actual.pos(self.ctx),
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
                 );

@@ -295,7 +295,7 @@ pub fn name_to_type_mark(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
 ) -> ParseResult<WithTokenSpan<TypeMark>> {
-    let pos = name.to_pos(ctx);
+    let pos = name.pos(ctx);
     let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
@@ -1280,12 +1280,12 @@ mod tests {
                     }
                 },
                 _ => {
-                    println!("{}", expr.to_pos(ctx).code_context());
+                    println!("{}", expr.pos(ctx).code_context());
                     panic!("Cannot format {lit:?}");
                 }
             },
             _ => {
-                println!("{}", expr.to_pos(ctx).code_context());
+                println!("{}", expr.pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
             }
         }

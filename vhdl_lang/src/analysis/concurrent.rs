@@ -304,7 +304,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.check_association(
-                                    &entity_name.to_pos(self.ctx),
+                                    &entity_name.pos(self.ctx),
                                     &generic_region,
                                     scope,
                                     instance
@@ -315,7 +315,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     diagnostics,
                                 )?;
                                 self.check_association(
-                                    &entity_name.to_pos(self.ctx),
+                                    &entity_name.pos(self.ctx),
                                     &port_region,
                                     scope,
                                     instance
@@ -370,7 +370,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let AnyEntKind::Component(ent_region) = ent.kind() {
                     let (generic_region, port_region) = ent_region.to_entity_formal();
                     self.check_association(
-                        &component_name.to_pos(self.ctx),
+                        &component_name.pos(self.ctx),
                         &generic_region,
                         scope,
                         instance
@@ -381,7 +381,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         diagnostics,
                     )?;
                     self.check_association(
-                        &component_name.to_pos(self.ctx),
+                        &component_name.pos(self.ctx),
                         &port_region,
                         scope,
                         instance
@@ -456,7 +456,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
                     diagnostics.add(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         format!(
                             "{} is not a signal and cannot be in a sensitivity list",
                             object_name.base.describe_class()
@@ -467,7 +467,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     && !object_name.base.is_port()
                 {
                     diagnostics.add(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         format!(
                             "{} cannot be in a sensitivity list",
                             object_name.base.describe_class()

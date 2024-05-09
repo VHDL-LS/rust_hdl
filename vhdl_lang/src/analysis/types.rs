@@ -30,7 +30,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
                 scope,
-                &type_mark.to_pos(self.ctx),
+                &type_mark.pos(self.ctx),
                 base_type.base(),
                 &mut constraint.item,
                 diagnostics,
@@ -603,7 +603,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         if let Some(elem) = region.lookup(&des) {
                             self.analyze_subtype_constraint(
                                 scope,
-                                &constraint.to_pos(self.ctx),
+                                &constraint.pos(self.ctx),
                                 elem.type_mark().base(),
                                 &mut constraint.item,
                                 diagnostics,

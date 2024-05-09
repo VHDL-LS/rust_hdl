@@ -67,7 +67,7 @@ fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange>
         }
     } else {
         Err(Diagnostic::syntax_error(
-            expr.to_pos(ctx),
+            expr.pos(ctx),
             "Expected name or range",
         ))
     }
@@ -79,9 +79,7 @@ fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange>
 pub fn parse_range(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<ast::Range>> {
     match parse_name_or_range(ctx)? {
         NameOrRange::Range(range) => Ok(range),
-        NameOrRange::Name(name) => {
-            Err(Diagnostic::syntax_error(name.to_pos(ctx), "Expected range"))
-        }
+        NameOrRange::Name(name) => Err(Diagnostic::syntax_error(name.pos(ctx), "Expected range")),
     }
 }
 

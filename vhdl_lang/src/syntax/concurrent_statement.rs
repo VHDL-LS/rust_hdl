@@ -261,7 +261,7 @@ fn to_procedure_call(
             ),
         }),
         Target::Aggregate(..) => Err(Diagnostic::syntax_error(
-            target.to_pos(ctx.stream),
+            target.pos(ctx.stream),
             "Expected procedure call, got aggregate",
         )),
     }

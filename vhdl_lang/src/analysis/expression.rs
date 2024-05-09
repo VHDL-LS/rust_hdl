@@ -234,8 +234,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ExpressionType::Null
             | ExpressionType::Aggregate => {
                 diagnostics.add(
-                expr.to_pos(self.ctx),
-                "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+                    expr.pos(self.ctx),
+                    "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
                     ErrorCode::AmbiguousExpression,
             );
                 Err(EvalError::Unknown)
@@ -658,7 +658,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         let implicit_bools = self.implicit_bool_types(scope, expr.span);
                         if !implicit_bools.contains(&typ.base()) {
                             diagnostics.add(
-                                expr.to_pos(self.ctx),
+                                expr.pos(self.ctx),
                                 format!(
                                     "{} cannot be implicitly converted to {}. Operator ?? is not defined for this type.",
                                     typ.describe(),
@@ -686,7 +686,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             std::cmp::Ordering::Greater => {
                                 let mut diag = Diagnostic::new(
-                                    &expr.to_pos(self.ctx),
+                                    &expr.pos(self.ctx),
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
@@ -696,7 +696,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                             std::cmp::Ordering::Less => {
                                 let mut diag = Diagnostic::new(
-                                    expr.to_pos(self.ctx),
+                                    expr.pos(self.ctx),
                                     format!(
                                         "Cannot disambiguate expression to {}",
                                         self.boolean().describe()
@@ -957,7 +957,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else {
                                     is_ok_so_far = false;
                                     diagnostics.add(
-                                        &choice.to_pos(self.ctx),
+                                        &choice.pos(self.ctx),
                                         "Record aggregate choice must be a simple name",
                                         ErrorCode::MismatchedKinds,
                                     );
@@ -967,7 +967,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             Choice::DiscreteRange(_) => {
                                 is_ok_so_far = false;
                                 diagnostics.add(
-                                    &choice.to_pos(self.ctx),
+                                    &choice.pos(self.ctx),
                                     "Record aggregate choice must be a simple name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -987,7 +987,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::new(&choice.to_pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
+                                    let mut diag = Diagnostic::new(&choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1006,7 +1006,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else if remaining_types.is_empty() {
                                     diagnostics.push(
                                         Diagnostic::new(
-                                            &choice.to_pos(self.ctx),
+                                            &choice.pos(self.ctx),
                                             format!(
                                             "All elements of record '{}' are already associated",
                                             record_type.designator()
@@ -1075,7 +1075,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         diagnostics.push(
                             Diagnostic::new(
-                                expr.to_pos(self.ctx),
+                                expr.pos(self.ctx),
                                 format!(
                                     "Unexpected positional association for record '{}'",
                                     record_type.designator()
@@ -1144,7 +1144,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
-                                                &choice.to_pos(self.ctx),
+                                                &choice.pos(self.ctx),
                                                 &typ.describe(),
                                                 index_type.into(),
                                             ));
@@ -1204,7 +1204,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             } else {
                 diagnostics.add(
-                    &expr.to_pos(self.ctx),
+                    &expr.pos(self.ctx),
                     format!(
                         "Expected sub-aggregate for target {}",
                         array_type.describe()

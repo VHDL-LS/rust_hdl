@@ -340,7 +340,7 @@ pub fn parse_configuration_specification(
             }
         }
         ComponentSpecificationOrName::Name(name) => Err(Diagnostic::syntax_error(
-            name.to_pos(ctx.stream),
+            name.pos(ctx.stream),
             "Expected component specification",
         )),
     }

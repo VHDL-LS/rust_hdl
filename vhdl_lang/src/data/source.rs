@@ -295,7 +295,7 @@ impl<T> WithTokenSpan<T> {
 }
 
 impl<T> WithTokenSpan<T> {
-    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         self.span.to_pos(ctx)
     }
 

@@ -62,7 +62,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         // @TODO check missing associations
         for (idx, assoc) in generic_map.iter_mut().enumerate() {
             let formal = if let Some(formal) = &mut assoc.formal {
-                let formal_pos = formal.to_pos(self.ctx);
+                let formal_pos = formal.pos(self.ctx);
                 if let Name::Designator(des) = &mut formal.item {
                     match generics.lookup(&formal_pos, &des.item) {
                         Ok((_, ent)) => {
@@ -76,7 +76,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 } else {
                     diagnostics.add(
-                        &formal.to_pos(self.ctx),
+                        &formal.pos(self.ctx),
                         "Expected simple name for package generic formal",
                         ErrorCode::MismatchedKinds,
                     );
@@ -86,7 +86,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ent
             } else {
                 diagnostics.add(
-                    &assoc.actual.to_pos(self.ctx),
+                    &assoc.actual.pos(self.ctx),
                     "Extra actual for generic map",
                     ErrorCode::TooManyArguments,
                 );
@@ -118,7 +118,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                         }
                                     } else {
                                         diagnostics.add(
-                                            &assoc.actual.to_pos(self.ctx),
+                                            &assoc.actual.pos(self.ctx),
                                             format!(
                                                 "Array constraint cannot be used for {}",
                                                 typ.describe()
@@ -141,7 +141,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                         } else {
                             diagnostics.add(
-                                &assoc.actual.to_pos(self.ctx),
+                                &assoc.actual.pos(self.ctx),
                                 "Cannot map expression to type generic",
                                 ErrorCode::MismatchedKinds,
                             );
@@ -172,7 +172,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     name.set_unique_reference(&ent);
                                 } else {
                                     let mut diag = Diagnostic::new(
-                                        &assoc.actual.to_pos(self.ctx),
+                                        &assoc.actual.pos(self.ctx),
                                         format!(
                                             "Cannot map '{}' to subprogram generic {}{}",
                                             des,
@@ -191,7 +191,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 }
                             } else {
                                 diagnostics.add(
-                                    &assoc.actual.to_pos(self.ctx),
+                                    &assoc.actual.pos(self.ctx),
                                     format!(
                                         "Cannot map {} to subprogram generic",
                                         resolved.describe()
@@ -203,14 +203,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
                                 diagnostics.add(
-                                    &assoc.actual.to_pos(self.ctx),
+                                    &assoc.actual.pos(self.ctx),
                                     "Invalid operator symbol",
                                     ErrorCode::InvalidOperatorSymbol,
                                 );
                             }
                         }
                         _ => diagnostics.add(
-                            &assoc.actual.to_pos(self.ctx),
+                            &assoc.actual.pos(self.ctx),
                             "Cannot map expression to subprogram generic",
                             ErrorCode::MismatchedKinds,
                         ),
@@ -220,7 +220,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
                         }
                         _ => diagnostics.add(
-                            &assoc.actual.to_pos(self.ctx),
+                            &assoc.actual.pos(self.ctx),
                             "Cannot map expression to package generic",
                             ErrorCode::MismatchedKinds,
                         ),

@@ -247,7 +247,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some(ref signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Alias",
-                            signature.to_pos(self.ctx),
+                            signature.pos(self.ctx),
                         ));
                     }
                     match oname.base {
@@ -275,11 +275,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some(ref signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Alias",
-                            signature.to_pos(self.ctx),
+                            signature.pos(self.ctx),
                         ));
                     }
                     diagnostics.add(
-                        &name.to_pos(self.ctx),
+                        &name.pos(self.ctx),
                         format!("{} cannot be aliased", resolved_name.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -289,7 +289,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some(ref signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Alias",
-                            signature.to_pos(self.ctx),
+                            signature.pos(self.ctx),
                         ));
                     }
                     AnyEntKind::Type(Type::Alias(typ))
@@ -313,7 +313,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             return Err(EvalError::Unknown);
                         }
                     } else {
-                        diagnostics.push(Diagnostic::signature_required(name.to_pos(self.ctx)));
+                        diagnostics.push(Diagnostic::signature_required(name.pos(self.ctx)));
                         return Err(EvalError::Unknown);
                     }
                 }
@@ -646,7 +646,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Type::Record(region) => region,
             _ => {
                 let diag = Diagnostic::new(
-                    &view.typ.type_mark.to_pos(self.ctx),
+                    &view.typ.type_mark.pos(self.ctx),
                     format!(
                         "The type of a view must be a record type, not {}",
                         typ.type_mark().describe()
@@ -772,7 +772,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some(signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Attribute specification",
-                            &signature.to_pos(self.ctx),
+                            &signature.pos(self.ctx),
                         ));
                     }
                     ent
@@ -992,7 +992,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         bail!(
                             diagnostics,
                             Diagnostic::new(
-                                &ast_declared_subtype.type_mark.to_pos(self.ctx),
+                                &ast_declared_subtype.type_mark.pos(self.ctx),
                                 "Specified subtype must match the subtype declared for the view",
                                 ErrorCode::TypeMismatch
                             )
