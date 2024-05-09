@@ -13,8 +13,8 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
-pub mod token_range;
 mod ast_span;
+pub mod token_range;
 
 pub(crate) use self::util::*;
 use crate::ast::token_range::*;
@@ -23,7 +23,6 @@ pub(crate) use any_design_unit::*;
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
-use crate::TokenSpan;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -863,7 +862,6 @@ pub enum Declaration {
 }
 
 /// LRM 10.2 Wait statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
     pub sensitivity_clause: Vec<WithTokenSpan<Name>>,
@@ -872,7 +870,6 @@ pub struct WaitStatement {
 }
 
 /// LRM 10.3 Assertion statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AssertStatement {
     pub condition: WithTokenSpan<Expression>,
@@ -881,7 +878,6 @@ pub struct AssertStatement {
 }
 
 /// LRM 10.4 Report statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReportStatement {
     pub report: WithTokenSpan<Expression>,
@@ -949,7 +945,6 @@ pub struct SignalReleaseAssignment {
 }
 
 /// LRM 10.6 Variable assignment statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableAssignment {
     pub target: WithTokenSpan<Target>,
@@ -978,7 +973,6 @@ pub struct Conditionals<T> {
 }
 
 /// LRM 10.8 If statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct IfStatement {
     pub conds: Conditionals<Vec<LabeledSequentialStatement>>,
@@ -998,7 +992,6 @@ pub struct Selection<T> {
 }
 
 /// LRM 10.9 Case statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseStatement {
     pub is_matching: bool,
@@ -1015,7 +1008,6 @@ pub enum IterationScheme {
 }
 
 /// LRM 10.10 Loop statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LoopStatement {
     pub iteration_scheme: Option<IterationScheme>,
@@ -1024,7 +1016,6 @@ pub struct LoopStatement {
 }
 
 /// LRM 10.11 Next statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct NextStatement {
     pub loop_label: Option<WithRef<Ident>>,
@@ -1032,7 +1023,6 @@ pub struct NextStatement {
 }
 
 /// LRM 10.12 Exit statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExitStatement {
     pub loop_label: Option<WithRef<Ident>>,
@@ -1040,14 +1030,13 @@ pub struct ExitStatement {
 }
 
 /// LRM 10.13 Return statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReturnStatement {
     pub expression: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10. Sequential statements
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum SequentialStatement {
     Wait(WaitStatement),
     Assert(AssertStatement),
@@ -1063,7 +1052,7 @@ pub enum SequentialStatement {
     Next(NextStatement),
     Exit(ExitStatement),
     Return(ReturnStatement),
-    Null(TokenSpan),
+    Null,
 }
 
 /// LRM 10. Sequential statements

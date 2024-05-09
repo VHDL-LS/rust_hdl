@@ -1197,7 +1197,6 @@ end process;",
                 condition: code.s1("cond = true").expr(),
                 report: None,
                 severity: None,
-                span: code.token_span(),
             },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -1217,7 +1216,6 @@ end process;",
                 condition: code.s1("cond = true").expr(),
                 report: None,
                 severity: None,
-                span: code.pos_after("postponed ").token_span(),
             },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);

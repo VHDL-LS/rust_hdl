@@ -282,10 +282,7 @@ impl Search for LabeledSequentialStatement {
             .or_not_found());
         match self.statement.item {
             SequentialStatement::Return(ref ret) => {
-                let ReturnStatement {
-                    ref expression,
-                    span: _,
-                } = ret;
+                let ReturnStatement { ref expression } = ret;
                 return_if_found!(expression.search(ctx, searcher));
             }
             SequentialStatement::ProcedureCall(ref pcall) => {
@@ -300,7 +297,6 @@ impl Search for LabeledSequentialStatement {
                     sensitivity_clause,
                     condition_clause,
                     timeout_clause,
-                    span: _,
                 } = wait_stmt;
                 return_if_found!(sensitivity_clause.search(ctx, searcher));
                 return_if_found!(condition_clause.search(ctx, searcher));
@@ -311,18 +307,13 @@ impl Search for LabeledSequentialStatement {
                     condition,
                     report,
                     severity,
-                    span: _,
                 } = assert_stmt;
                 return_if_found!(condition.search(ctx, searcher));
                 return_if_found!(report.search(ctx, searcher));
                 return_if_found!(severity.search(ctx, searcher));
             }
             SequentialStatement::Report(ref report_stmt) => {
-                let ReportStatement {
-                    report,
-                    severity,
-                    span: _,
-                } = report_stmt;
+                let ReportStatement { report, severity } = report_stmt;
                 return_if_found!(report.search(ctx, searcher));
                 return_if_found!(severity.search(ctx, searcher));
             }
@@ -330,7 +321,6 @@ impl Search for LabeledSequentialStatement {
                 let ExitStatement {
                     condition,
                     loop_label,
-                    span: _,
                 } = exit_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
@@ -343,7 +333,6 @@ impl Search for LabeledSequentialStatement {
                 let NextStatement {
                     condition,
                     loop_label,
-                    span: _,
                 } = next_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
@@ -360,7 +349,6 @@ impl Search for LabeledSequentialStatement {
                     iteration_scheme,
                     statements,
                     end_label_pos: _,
-                    span: _,
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref index, ref drange)) => {
@@ -388,7 +376,7 @@ impl Search for LabeledSequentialStatement {
                 let VariableAssignment {
                     target,
                     rhs,
-                    span: _,
+                    // span: _,
                 } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher, ctx));
             }
@@ -409,7 +397,7 @@ impl Search for LabeledSequentialStatement {
                 } = assign;
                 return_if_found!(target.search(ctx, searcher));
             }
-            SequentialStatement::Null(_) => {}
+            SequentialStatement::Null => {}
         }
 
         if let Some(end_label_pos) = self.statement.item.end_label_pos() {
@@ -559,7 +547,6 @@ impl Search for LabeledConcurrentStatement {
                             condition,
                             report,
                             severity,
-                            span: _,
                         },
                 } = assert;
                 return_if_found!(condition.search(ctx, searcher));
@@ -1379,7 +1366,6 @@ impl Search for CaseStatement {
             expression,
             alternatives,
             end_label_pos: _,
-            span: _,
         } = self;
         return_if_found!(expression.search(ctx, searcher));
         return_if_found!(search_alternatives(alternatives, false, searcher, ctx));

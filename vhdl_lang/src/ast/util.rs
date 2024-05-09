@@ -526,7 +526,7 @@ impl SequentialStatement {
             Next(_) => None,
             Exit(_) => None,
             Return(_) => None,
-            Null(_) => None,
+            Null => None,
         }
     }
 
@@ -547,7 +547,7 @@ impl SequentialStatement {
             Next(_) => None,
             Exit(_) => None,
             Return(_) => None,
-            Null(_) => None,
+            Null => None,
         }
     }
 

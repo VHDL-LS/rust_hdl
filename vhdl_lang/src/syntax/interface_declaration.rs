@@ -490,7 +490,7 @@ mod tests {
                         expression: None
                     }),
                     ident: code.s1("foo").decl_ident(),
-                    span: code.s1("foo").token_span()
+                    span: code.between("constant", "natural").token_span()
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     list_type: InterfaceType::Generic,
@@ -503,7 +503,7 @@ mod tests {
                         expression: None
                     }),
                     ident: code.s1("bar").decl_ident(),
-                    span: code.s1("foo").token_span()
+                    span: code.between("constant", "natural").token_span()
                 })
             ]
         );

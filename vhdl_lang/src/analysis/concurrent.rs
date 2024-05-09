@@ -216,7 +216,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             condition,
                             report,
                             severity,
-                            span: _,
                         },
                 } = assert;
                 self.boolean_expr(scope, condition, diagnostics)?;

@@ -112,10 +112,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let statement_span = statement.statement.span;
         match statement.statement.item {
             SequentialStatement::Return(ref mut ret) => {
-                let ReturnStatement {
-                    ref mut expression,
-                    span: _,
-                } = ret;
+                let ReturnStatement { ref mut expression } = ret;
 
                 match SequentialRoot::from(parent) {
                     SequentialRoot::Function(ttyp) => {
@@ -152,7 +149,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     sensitivity_clause,
                     condition_clause,
                     timeout_clause,
-                    span: _,
                 } = wait_stmt;
                 self.sensitivity_list_check(scope, sensitivity_clause, diagnostics)?;
                 if let Some(expr) = condition_clause {
@@ -167,7 +163,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     condition,
                     report,
                     severity,
-                    span: _,
                 } = assert_stmt;
                 self.boolean_expr(scope, condition, diagnostics)?;
                 if let Some(expr) = report {
@@ -178,11 +173,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             }
             SequentialStatement::Report(ref mut report_stmt) => {
-                let ReportStatement {
-                    report,
-                    severity,
-                    span: _,
-                } = report_stmt;
+                let ReportStatement { report, severity } = report_stmt;
                 self.expr_with_ttyp(scope, self.string(), report, diagnostics)?;
                 if let Some(expr) = severity {
                     self.expr_with_ttyp(scope, self.severity_level(), expr, diagnostics)?;
@@ -192,7 +183,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let ExitStatement {
                     condition,
                     loop_label,
-                    span: _,
                 } = exit_stmt;
 
                 if let Some(loop_label) = loop_label {
@@ -213,7 +203,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let NextStatement {
                     condition,
                     loop_label,
-                    span: _,
                 } = next_stmt;
 
                 if let Some(loop_label) = loop_label {
@@ -252,7 +241,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     expression,
                     alternatives,
                     end_label_pos: _,
-                    span: _,
                 } = case_stmt;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for alternative in alternatives.iter_mut() {
@@ -266,7 +254,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     iteration_scheme,
                     statements,
                     end_label_pos: _,
-                    span: _,
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
@@ -311,7 +298,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let VariableAssignment {
                     target,
                     rhs,
-                    span: _,
+                    // span: _,
                 } = assign;
                 self.analyze_expr_assignment(
                     scope,
@@ -344,7 +331,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } = assign;
                 as_fatal(self.resolve_target(scope, target, AssignmentType::Signal, diagnostics))?;
             }
-            SequentialStatement::Null(_) => {}
+            SequentialStatement::Null => {}
         }
         Ok(())
     }
