@@ -142,7 +142,7 @@ fn expression_to_name(
                 })
             } else {
                 Err(Diagnostic::syntax_error(
-                    expr.span.to_pos(ctx),
+                    expr.span.pos(ctx),
                     "Invalid operator symbol",
                 ))
             }

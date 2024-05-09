@@ -177,7 +177,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             return Ok(typ);
                         } else {
                             diagnostics.add(
-                                constraint.span().to_pos(self.ctx),
+                                constraint.span().pos(self.ctx),
                                 format!(
                                     "Range type mismatch, left is {}, right is {}",
                                     l.base().describe(),
@@ -197,7 +197,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
                         diagnostics.add(
-                            constraint.span().to_pos(self.ctx),
+                            constraint.span().pos(self.ctx),
                             "Range is ambiguous",
                             ErrorCode::TypeMismatch,
                         );
@@ -229,14 +229,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(typ)
                 } else if types.is_empty() {
                     diagnostics.add(
-                        constraint.span().to_pos(self.ctx),
+                        constraint.span().pos(self.ctx),
                         "Range type of left and right side does not match",
                         ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
                     diagnostics.add(
-                        constraint.span().to_pos(self.ctx),
+                        constraint.span().pos(self.ctx),
                         "Range is ambiguous",
                         ErrorCode::TypeMismatch,
                     );
@@ -270,7 +270,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.span().to_pos(self.ctx),
+                &drange.span().pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -348,7 +348,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         {
                             if !self.can_be_target_type(index_typ.into(), target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
-                                    &range.span().to_pos(self.ctx),
+                                    &range.span().pos(self.ctx),
                                     &index_typ.describe(),
                                     target_type,
                                 ))

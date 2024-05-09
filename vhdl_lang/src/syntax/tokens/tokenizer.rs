@@ -555,7 +555,7 @@ impl TokenSpan {
         }
     }
 
-    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.start_token, self.end_token)
     }
 

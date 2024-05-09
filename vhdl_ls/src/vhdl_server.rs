@@ -742,7 +742,7 @@ impl VHDLServer {
                 let decl_pos = ent.decl_pos()?;
                 let src_range = ent
                     .src_span
-                    .map(|span| span.to_pos(ctx).range())
+                    .map(|span| span.pos(ctx).range())
                     .unwrap_or(decl_pos.range());
                 #[allow(deprecated)]
                 Some(DocumentSymbol {

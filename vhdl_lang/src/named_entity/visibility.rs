@@ -201,7 +201,7 @@ impl<'a> Visible<'a> {
         } else {
             // Duplicate visible items hide each other
             let mut error = Diagnostic::new(
-                span.to_pos(ctx),
+                span.pos(ctx),
                 format!("Name '{designator}' is hidden by conflicting use clause"),
                 ErrorCode::ConflictingUseClause,
             );

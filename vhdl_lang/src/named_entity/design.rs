@@ -96,7 +96,7 @@ impl<'a> DesignEnt<'a> {
             }
             _ => Err(Diagnostic::invalid_selected_name_prefix(
                 self,
-                &prefix_pos.to_pos(ctx),
+                &prefix_pos.pos(ctx),
             )),
         }
     }

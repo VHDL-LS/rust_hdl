@@ -283,63 +283,61 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     return Ok(());
                 };
                 match resolved {
-                    ResolvedName::Design(ent) => {
-                        match ent.kind() {
-                            Design::Entity(_, ent_region) => {
-                                if let Designator::Identifier(entity_ident) = ent.designator() {
-                                    if let Some(library_name) = ent.library_name() {
-                                        if let Some(ref mut architecture_name) = architecture_name {
-                                            if let Some(arch) = as_fatal(self.get_architecture(
-                                                diagnostics,
-                                                library_name,
-                                                self.ctx.get_pos(architecture_name.item.token),
-                                                entity_ident,
-                                                &architecture_name.item.item,
-                                            ))? {
-                                                architecture_name.set_unique_reference(&arch);
-                                            }
+                    ResolvedName::Design(ent) => match ent.kind() {
+                        Design::Entity(_, ent_region) => {
+                            if let Designator::Identifier(entity_ident) = ent.designator() {
+                                if let Some(library_name) = ent.library_name() {
+                                    if let Some(ref mut architecture_name) = architecture_name {
+                                        if let Some(arch) = as_fatal(self.get_architecture(
+                                            diagnostics,
+                                            library_name,
+                                            self.ctx.get_pos(architecture_name.item.token),
+                                            entity_ident,
+                                            &architecture_name.item.item,
+                                        ))? {
+                                            architecture_name.set_unique_reference(&arch);
                                         }
                                     }
                                 }
-
-                                let (generic_region, port_region) = ent_region.to_entity_formal();
-
-                                self.check_association(
-                                    &entity_name.pos(self.ctx),
-                                    &generic_region,
-                                    scope,
-                                    instance
-                                        .generic_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                self.check_association(
-                                    &entity_name.pos(self.ctx),
-                                    &port_region,
-                                    scope,
-                                    instance
-                                        .port_map
-                                        .as_mut()
-                                        .map(|it| it.list.items.as_mut_slice())
-                                        .unwrap_or(&mut []),
-                                    diagnostics,
-                                )?;
-                                Ok(())
                             }
-                            _ => {
-                                diagnostics.push(resolved.kind_error(
-                                    entity_name.suffix_pos().to_pos(self.ctx),
-                                    "entity",
-                                ));
-                                Ok(())
-                            }
+
+                            let (generic_region, port_region) = ent_region.to_entity_formal();
+
+                            self.check_association(
+                                &entity_name.pos(self.ctx),
+                                &generic_region,
+                                scope,
+                                instance
+                                    .generic_map
+                                    .as_mut()
+                                    .map(|it| it.list.items.as_mut_slice())
+                                    .unwrap_or(&mut []),
+                                diagnostics,
+                            )?;
+                            self.check_association(
+                                &entity_name.pos(self.ctx),
+                                &port_region,
+                                scope,
+                                instance
+                                    .port_map
+                                    .as_mut()
+                                    .map(|it| it.list.items.as_mut_slice())
+                                    .unwrap_or(&mut []),
+                                diagnostics,
+                            )?;
+                            Ok(())
                         }
-                    }
+                        _ => {
+                            diagnostics.push(
+                                resolved
+                                    .kind_error(entity_name.suffix_pos().pos(self.ctx), "entity"),
+                            );
+                            Ok(())
+                        }
+                    },
                     other => {
                         diagnostics.push(
-                            other.kind_error(entity_name.suffix_pos().to_pos(self.ctx), "entity"),
+                            other.kind_error(entity_name.suffix_pos().pos(self.ctx), "entity"),
                         );
                         Ok(())
                     }
@@ -356,17 +354,16 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     return Ok(());
                 };
 
-                let ent =
-                    match resolved {
-                        ResolvedName::Final(ent) => ent,
-                        other => {
-                            diagnostics.push(other.kind_error(
-                                component_name.suffix_pos().to_pos(self.ctx),
-                                "component",
-                            ));
-                            return Ok(());
-                        }
-                    };
+                let ent = match resolved {
+                    ResolvedName::Final(ent) => ent,
+                    other => {
+                        diagnostics.push(
+                            other
+                                .kind_error(component_name.suffix_pos().pos(self.ctx), "component"),
+                        );
+                        return Ok(());
+                    }
+                };
 
                 if let AnyEntKind::Component(ent_region) = ent.kind() {
                     let (generic_region, port_region) = ent_region.to_entity_formal();
@@ -395,8 +392,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(())
                 } else {
                     diagnostics.push(
-                        resolved
-                            .kind_error(component_name.suffix_pos().to_pos(self.ctx), "component"),
+                        resolved.kind_error(component_name.suffix_pos().pos(self.ctx), "component"),
                     );
                     Ok(())
                 }
@@ -414,10 +410,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 match resolved {
                     ResolvedName::Design(ent) if matches!(ent.kind(), Design::Configuration) => {}
                     other => {
-                        diagnostics.push(other.kind_error(
-                            config_name.suffix_pos().to_pos(self.ctx),
-                            "configuration",
-                        ));
+                        diagnostics.push(
+                            other.kind_error(
+                                config_name.suffix_pos().pos(self.ctx),
+                                "configuration",
+                            ),
+                        );
                         return Ok(());
                     }
                 }

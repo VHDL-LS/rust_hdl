@@ -50,7 +50,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         )?;
         if !object_name.base.can_be_assigned_to() {
             diagnostics.add(
-                target_pos.to_pos(self.ctx),
+                target_pos.pos(self.ctx),
                 format!(
                     "{} may not be the target of an assignment",
                     object_name.base.describe_class()
@@ -59,7 +59,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             );
         } else if !object_name.base.is_valid_assignment_type(assignment_type) {
             diagnostics.add(
-                target_pos.to_pos(self.ctx),
+                target_pos.pos(self.ctx),
                 format!(
                     "{} may not be the target of a {} assignment",
                     object_name.base.describe_class(),

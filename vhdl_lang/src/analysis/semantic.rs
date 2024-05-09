@@ -55,7 +55,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Ok(elem_type)
                     } else {
                         diagnostics.add(
-                            span.to_pos(self.ctx),
+                            span.pos(self.ctx),
                             format!("array type expected for '{attr} attribute",),
                             ErrorCode::TypeMismatch,
                         );
@@ -151,7 +151,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ResolvedName::Overloaded(ref des, names) => {
                 match as_fatal(self.disambiguate(
                     scope,
-                    &fcall_span.to_pos(self.ctx),
+                    &fcall_span.pos(self.ctx),
                     des,
                     parameters,
                     SubprogramKind::Procedure,

@@ -46,7 +46,7 @@ pub struct WithTokenSpan<T> {
 
 impl<T> WithTokenSpan<T> {
     pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
-        self.span.to_pos(ctx)
+        self.span.pos(ctx)
     }
 
     pub fn new(item: T, span: TokenSpan) -> WithTokenSpan<T> {

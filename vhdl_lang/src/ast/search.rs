@@ -933,7 +933,7 @@ impl Search for Waveform {
 
 impl Search for WithTokenSpan<Expression> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        search_pos_expr(ctx, &self.span.to_pos(ctx), &self.item, searcher)
+        search_pos_expr(ctx, &self.span.pos(ctx), &self.item, searcher)
     }
 }
 

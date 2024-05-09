@@ -390,7 +390,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 .lookup_in_library(
                     diagnostics,
                     self.work_library_name(),
-                    &ent_name_span.to_pos(self.ctx),
+                    &ent_name_span.pos(self.ctx),
                     &designator.item,
                 )
                 .map(|design| {
