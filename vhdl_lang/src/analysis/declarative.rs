@@ -543,7 +543,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     diagnostics,
                 ))? {
                     Some(_) => {
-                        scope.add(ent.into(), diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                     None => {
                         return Ok(());
@@ -941,7 +941,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Overloaded::InterfaceSubprogram,
                     diagnostics,
                 )?;
-                ent.into()
+                ent
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region = self.analyze_package_instance_name(

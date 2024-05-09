@@ -213,7 +213,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 diagnostics,
                             ))? {
                                 Some(_) => {
-                                    region.add(ent.into(), diagnostics);
+                                    region.add(ent, diagnostics);
                                 }
                                 None => {
                                     return Ok(());

@@ -70,27 +70,17 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        scope.add(ent.into(), diagnostics);
+        scope.add(ent, diagnostics);
 
         self.define_labels_for_sequential_part(
             &subpgm_region,
-            ent.into(),
+            ent,
             &mut body.statements,
             diagnostics,
         )?;
-        self.analyze_declarative_part(
-            &subpgm_region,
-            ent.into(),
-            &mut body.declarations,
-            diagnostics,
-        )?;
+        self.analyze_declarative_part(&subpgm_region, ent, &mut body.declarations, diagnostics)?;
 
-        self.analyze_sequential_part(
-            &subpgm_region,
-            ent.into(),
-            &mut body.statements,
-            diagnostics,
-        )?;
+        self.analyze_sequential_part(&subpgm_region, ent, &mut body.statements, diagnostics)?;
         Ok(())
     }
 
