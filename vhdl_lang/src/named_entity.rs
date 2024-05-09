@@ -32,7 +32,7 @@ mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 mod formal_region;
-use crate::ast::token_range::WithToken;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
@@ -699,6 +699,15 @@ impl HasEntityId for AttributeSpecification {
 impl HasEntityId for ModeViewDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
+    }
+}
+
+impl<T> HasEntityId for WithTokenSpan<T>
+where
+    T: HasEntityId,
+{
+    fn ent_id(&self) -> Option<EntityId> {
+        self.item.ent_id()
     }
 }
 

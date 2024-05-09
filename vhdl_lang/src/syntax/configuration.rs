@@ -281,7 +281,9 @@ pub fn parse_configuration_declaration(
                     break parse_vunit_binding_indication_list_known_keyword(ctx)?;
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(ctx)?));
+                decl.push(ConfigurationDeclarativeItem::Use(
+                    parse_use_clause(ctx)?.item,
+                ));
             }
             _ => break Vec::new(),
         }

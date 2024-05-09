@@ -12,6 +12,7 @@ use crate::ast::Operator;
 use crate::data::DiagnosticHandler;
 use crate::syntax::Symbols;
 use crate::HasTokenSpan;
+use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::TokenAccess;
 
 use super::analyze::AnalyzeContext;
@@ -69,7 +70,7 @@ impl StandardTypes {
         ctx: &dyn TokenAccess,
         arena: &'a Arena,
         standard_pkg: EntRef<'a>,
-        decls: &mut [Declaration],
+        decls: &mut [WithTokenSpan<Declaration>],
     ) -> Self {
         let mut boolean = None;
         let mut boolean_vector = None;
@@ -87,7 +88,7 @@ impl StandardTypes {
 
         // Reserve space in the arena for the standard types
         for decl in decls.iter_mut() {
-            if let Declaration::Type(ref mut type_decl) = decl {
+            if let Declaration::Type(ref mut type_decl) = decl.item {
                 let id = arena
                     .alloc(
                         Designator::Identifier(type_decl.ident.tree.item.clone()),

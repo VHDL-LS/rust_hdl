@@ -647,6 +647,12 @@ impl Search for WithTokenSpan<ElementConstraint> {
     }
 }
 
+impl Search for WithTokenSpan<Declaration> {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        self.item.search(ctx, searcher)
+    }
+}
+
 impl Search for WithTokenSpan<SubtypeConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
@@ -1006,7 +1012,6 @@ impl Search for Declaration {
                 entity_name,
                 entity_class: _,
                 expr,
-                span: _,
             })) => {
                 return_if_found!(searcher.search_ident_ref(ctx, ident).or_not_found());
                 if let EntityName::Name(EntityTag {
@@ -1033,7 +1038,6 @@ impl Search for Declaration {
                     subtype_indication,
                     name,
                     signature,
-                    span: _,
                 } = alias;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(name.search(ctx, searcher));
@@ -1071,7 +1075,6 @@ impl Search for Declaration {
                     subtype_indication,
                     open_info,
                     file_name,
-                    span: _,
                 } = file;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(open_info.search(ctx, searcher));
@@ -1093,7 +1096,6 @@ impl Search for Declaration {
                     ident: _,
                     typ,
                     elements,
-                    span: _,
                     end_ident_pos: _,
                 } = view;
                 return_if_found!(typ.search(ctx, searcher));

@@ -1026,7 +1026,7 @@ end package;
             .decl
             .iter()
             .map(|d| {
-                if let Declaration::SubprogramDeclaration(sub) = d {
+                if let Declaration::SubprogramDeclaration(sub) = &d.item {
                     sub
                 } else {
                     panic!("Only subprogram declarations are expected!")

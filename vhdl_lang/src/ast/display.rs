@@ -2288,7 +2288,7 @@ end package;",
 )",
             |code| {
                 assert_matches!(
-                code.declarative_part().remove(0),
+                code.declarative_part().remove(0).item,
                 Declaration::SubprogramInstantiation(inst) => inst
                 )
             },

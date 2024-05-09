@@ -873,7 +873,7 @@ end package;
             .decl
             .iter()
             .map(|d| {
-                if let Declaration::Type(obj) = d {
+                if let Declaration::Type(obj) = &d.item {
                     obj
                 } else {
                     panic!("Only object declarations are expected!")

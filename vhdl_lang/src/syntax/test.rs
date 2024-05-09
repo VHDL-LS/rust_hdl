@@ -549,7 +549,7 @@ impl Code {
         result
     }
 
-    pub fn declarative_part(&self) -> Vec<Declaration> {
+    pub fn declarative_part(&self) -> Vec<WithTokenSpan<Declaration>> {
         self.parse_ok_no_diagnostics(parse_declarative_part)
     }
     /// Helper to create a identifier at first occurence of name
@@ -624,15 +624,17 @@ impl Code {
     pub fn object_decl(&self) -> ObjectDeclaration {
         self.parse_ok_no_diagnostics(parse_object_declaration)
             .remove(0)
+            .item
     }
 
     pub fn file_decl(&self) -> FileDeclaration {
         self.parse_ok_no_diagnostics(parse_file_declaration)
             .remove(0)
+            .item
     }
 
     pub fn alias_decl(&self) -> AliasDeclaration {
-        self.parse_ok_no_diagnostics(parse_alias_declaration)
+        self.parse_ok_no_diagnostics(parse_alias_declaration).item
     }
 
     pub fn component_decl(&self) -> ComponentDeclaration {
@@ -736,7 +738,7 @@ impl Code {
     }
 
     pub fn use_clause(&self) -> UseClause {
-        self.parse_ok_no_diagnostics(parse_use_clause)
+        self.parse_ok_no_diagnostics(parse_use_clause).item
     }
 
     pub fn library_clause(&self) -> LibraryClause {

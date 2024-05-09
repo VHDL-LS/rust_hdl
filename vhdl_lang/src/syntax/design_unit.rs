@@ -171,7 +171,7 @@ pub fn parse_design_file(ctx: &mut ParsingContext<'_>) -> ParseResult<DesignFile
             Use => {
                 match parse_use_clause(ctx) {
                     Ok(use_clause) => {
-                        context_clause.push(ContextItem::Use(use_clause));
+                        context_clause.push(ContextItem::Use(use_clause.item));
                     },
                     Err(diagnostic) => ctx.diagnostics.push(diagnostic),
                 }

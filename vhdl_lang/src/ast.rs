@@ -472,7 +472,6 @@ impl HasDesignator for WithToken<WithRef<Designator>> {
 }
 
 /// LRM 6.6 Alias declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithToken<Designator>>,
@@ -482,7 +481,6 @@ pub struct AliasDeclaration {
 }
 
 /// LRM 6.7 Attribute declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -530,7 +528,6 @@ pub enum EntityClass {
 }
 
 /// LRM 7.2 Attribute specification
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
@@ -540,7 +537,7 @@ pub struct AttributeSpecification {
 }
 
 /// LRM 7.2 Attribute specification
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Attribute {
     Specification(AttributeSpecification),
     Declaration(AttributeDeclaration),
@@ -555,7 +552,7 @@ pub struct ProtectedTypeDeclaration {
 /// LRM 5.6.3 Protected type bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProtectedTypeBody {
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
 }
 
 /// LRM 5.4.2 Physical type declaration
@@ -628,7 +625,6 @@ pub enum InterfaceType {
     Parameter,
 }
 
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
@@ -637,7 +633,6 @@ pub struct ObjectDeclaration {
     pub expression: Option<WithTokenSpan<Expression>>,
 }
 
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -681,7 +676,7 @@ pub struct FunctionSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
     pub specification: SubprogramSpecification,
-    pub declarations: Vec<Declaration>,
+    pub declarations: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -844,7 +839,7 @@ pub struct ComponentDeclaration {
     pub end_ident_pos: Option<TokenId>,
 }
 
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Declaration {
     Object(ObjectDeclaration),
     File(FileDeclaration),
@@ -1068,7 +1063,7 @@ pub struct LabeledSequentialStatement {
 pub struct BlockStatement {
     pub guard_condition: Option<WithTokenSpan<Expression>>,
     pub header: BlockHeader,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1094,7 +1089,7 @@ pub enum SensitivityList {
 pub struct ProcessStatement {
     pub postponed: bool,
     pub sensitivity_list: Option<SensitivityList>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1182,7 +1177,7 @@ impl InstantiationStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct GenerateBody {
     pub alternative_label: Option<WithDecl<Ident>>,
-    pub decl: Option<Vec<Declaration>>,
+    pub decl: Option<Vec<WithTokenSpan<Declaration>>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1213,7 +1208,6 @@ pub struct CaseGenerateStatement {
 }
 
 /// LRM 6.5.2 Interface Object Declarations - Mode view declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewDeclaration {
     pub ident: WithDecl<Ident>,
@@ -1436,7 +1430,7 @@ pub struct EntityDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -1449,7 +1443,7 @@ pub struct ArchitectureBody {
     pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
     pub begin_token: TokenId,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -1461,7 +1455,7 @@ pub struct PackageDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1471,7 +1465,7 @@ pub struct PackageDeclaration {
 pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub end_ident_pos: Option<TokenId>,
 }
 

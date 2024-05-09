@@ -15,6 +15,7 @@ use super::object_declaration::{parse_file_declaration, parse_object_declaration
 use super::subprogram::parse_subprogram;
 use super::tokens::{Kind::*, *};
 use super::type_declaration::parse_type_declaration;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::view::parse_mode_view_declaration;
@@ -64,8 +65,10 @@ pub fn is_declarative_part(ctx: &mut ParsingContext) -> ParseResult<bool> {
     ))
 }
 
-pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<Declaration>> {
-    let mut declarations: Vec<Declaration> = Vec::new();
+pub fn parse_declarative_part(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Vec<WithTokenSpan<Declaration>>> {
+    let mut declarations: Vec<WithTokenSpan<Declaration>> = Vec::new();
 
     fn is_recover_token(kind: Kind) -> bool {
         matches!(
@@ -93,6 +96,7 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
     }
 
     while let Some(token) = ctx.stream.peek() {
+        let start_token = ctx.stream.get_current_token_id();
         match token.kind {
             Begin | End => break,
             Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For => {
@@ -106,17 +110,35 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
                     }
                     _ => unreachable!(),
                 };
-                declarations.push(decl);
+                let end_token = ctx.stream.get_last_token_id();
+                declarations.push(WithTokenSpan::new(
+                    decl,
+                    TokenSpan::new(start_token, end_token),
+                ));
             }
 
             File | Shared | Constant | Signal | Variable | Attribute => {
-                let decls: ParseResult<Vec<Declaration>> = match token.kind {
-                    File => parse_file_declaration(ctx)
-                        .map(|decls| decls.into_iter().map(Declaration::File).collect()),
-                    Shared | Constant | Signal | Variable => parse_object_declaration(ctx)
-                        .map(|decls| decls.into_iter().map(Declaration::Object).collect()),
-                    Attribute => parse_attribute(ctx)
-                        .map(|decls| decls.into_iter().map(Declaration::Attribute).collect()),
+                let decls: ParseResult<Vec<WithTokenSpan<Declaration>>> = match token.kind {
+                    File => parse_file_declaration(ctx).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|decl| decl.map_into(Declaration::File))
+                            .collect()
+                    }),
+                    Shared | Constant | Signal | Variable => {
+                        parse_object_declaration(ctx).map(|decls| {
+                            decls
+                                .into_iter()
+                                .map(|decl| decl.map_into(Declaration::Object))
+                                .collect()
+                        })
+                    }
+                    Attribute => parse_attribute(ctx).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|decl| decl.map_into(Declaration::Attribute))
+                            .collect()
+                    }),
                     _ => unreachable!(),
                 };
                 match decls.or_recover_until(ctx, is_recover_token) {
@@ -129,9 +151,11 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
             }
 
             Use | Alias => {
-                let decl: ParseResult<Declaration> = match token.kind {
-                    Use => parse_use_clause(ctx).map(Declaration::Use),
-                    Alias => parse_alias_declaration(ctx).map(Declaration::Alias),
+                let decl: ParseResult<WithTokenSpan<Declaration>> = match token.kind {
+                    Use => parse_use_clause(ctx).map(|decl| decl.map_into(Declaration::Use)),
+                    Alias => {
+                        parse_alias_declaration(ctx).map(|decl| decl.map_into(Declaration::Alias))
+                    }
                     _ => unreachable!(),
                 };
                 match decl.or_recover_until(ctx, is_recover_token) {
@@ -145,7 +169,7 @@ pub fn parse_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<D
 
             View => {
                 match parse_mode_view_declaration(ctx).or_recover_until(ctx, is_recover_token) {
-                    Ok(decl) => declarations.push(Declaration::View(decl)),
+                    Ok(decl) => declarations.push(decl.map_into(Declaration::View)),
                     Err(err) => {
                         ctx.diagnostics.push(err);
                         continue;
@@ -240,13 +264,15 @@ constant x: natural := 5;
         let (decls, msgs) = code.with_partial_stream_diagnostics(parse_declarative_part);
         assert_eq!(
             decls,
-            Ok(vec![Declaration::Object(ObjectDeclaration {
-                span: code.s1_to_end("constant").token_span(),
-                class: ObjectClass::Constant,
-                ident: code.s1("x").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: Some(code.s1("5").expr())
-            })])
+            Ok(vec![WithTokenSpan::new(
+                Declaration::Object(ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    ident: code.s1("x").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(code.s1("5").expr())
+                }),
+                code.s1("constant x: natural := 5;").token_span()
+            )])
         );
 
         assert_eq!(

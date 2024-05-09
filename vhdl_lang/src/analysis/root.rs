@@ -1051,7 +1051,7 @@ impl DesignRoot {
         }
 
         for decl in std_package.decl.iter_mut() {
-            if let Declaration::Type(ref mut type_decl) = decl {
+            if let Declaration::Type(ref mut type_decl) = decl.item {
                 context
                     .analyze_type_declaration(
                         &scope,
