@@ -738,57 +738,65 @@ impl VHDLServer {
             fn to_document_symbol(
                 EntHierarchy { ent, children }: EntHierarchy,
                 ctx: &Vec<Token>,
-            ) -> Option<DocumentSymbol> {
-                let decl_pos = ent.decl_pos()?;
+            ) -> DocumentSymbol {
+                // Use the declaration position, if it exists,
+                // else the position of the first source range token.
+                // This is applicable for unnamed elements, e.g., processes or loops.
+                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
                 let src_range = ent.src_span.pos(ctx).range();
                 #[allow(deprecated)]
-                Some(DocumentSymbol {
+                DocumentSymbol {
                     name: ent.describe(),
                     kind: to_symbol_kind(ent.kind()),
                     tags: None,
                     detail: None,
-                    selection_range: to_lsp_range(decl_pos.range),
+                    selection_range: to_lsp_range(selection_pos.range),
                     range: to_lsp_range(src_range),
                     children: if !children.is_empty() {
                         Some(
                             children
                                 .into_iter()
-                                .filter_map(|hierarchy| to_document_symbol(hierarchy, ctx))
+                                .map(|hierarchy| to_document_symbol(hierarchy, ctx))
                                 .collect(),
                         )
                     } else {
                         None
                     },
                     deprecated: None,
-                })
+                }
             }
 
             Some(DocumentSymbolResponse::Nested(
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .filter_map(|(hierarchy, tokens)| to_document_symbol(hierarchy, tokens))
+                    .map(|(hierarchy, tokens)| to_document_symbol(hierarchy, tokens))
                     .collect(),
             ))
         } else {
-            fn to_symbol_information(ent: EntRef) -> Option<SymbolInformation> {
-                let decl_pos = ent.decl_pos()?;
+            #[allow(clippy::ptr_arg)]
+            fn to_symbol_information(ent: EntRef, ctx: &Vec<Token>) -> SymbolInformation {
+                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
                 #[allow(deprecated)]
-                Some(SymbolInformation {
+                SymbolInformation {
                     name: ent.describe(),
                     kind: to_symbol_kind(ent.kind()),
                     tags: None,
-                    location: srcpos_to_location(decl_pos),
+                    location: srcpos_to_location(selection_pos),
                     deprecated: None,
                     container_name: ent.parent_in_same_source().map(|ent| ent.describe()),
-                })
+                }
             }
 
             Some(DocumentSymbolResponse::Flat(
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
-                    .flat_map(|(a, _)| a.into_flat().into_iter().filter_map(to_symbol_information))
+                    .flat_map(|(a, ctx)| {
+                        a.into_flat()
+                            .into_iter()
+                            .map(|hierarchy| to_symbol_information(hierarchy, ctx))
+                    })
                     .collect(),
             ))
         }

@@ -356,11 +356,11 @@ impl<'a> AnyEnt<'a> {
 
         while let Some(parent) = ent.parent {
             if let Some(pos) = parent.decl_pos() {
-                if pos.source() == source {
-                    return Some(parent);
+                return if pos.source() == source {
+                    Some(parent)
                 } else {
-                    return None;
-                }
+                    None
+                };
             }
             ent = parent;
         }
