@@ -1,5 +1,5 @@
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{LabeledConcurrentStatement, LabeledSequentialStatement, WithDecl};
-use crate::data::WithTokenSpan;
 use crate::{HasTokenSpan, TokenId};
 use vhdl_lang::ast::WithToken;
 use vhdl_lang::TokenSpan;
