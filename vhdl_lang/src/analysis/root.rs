@@ -1224,7 +1224,7 @@ impl<'a> EntHierarchy<'a> {
         let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
 
         symbols.retain(|ent| {
-            if let Some(parent) = ent.parent_in_same_source() {
+            if let Some(parent) = ent.parent() {
                 by_parent.entry(parent.id()).or_default().push(ent);
                 false
             } else {

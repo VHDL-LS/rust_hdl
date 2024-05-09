@@ -192,6 +192,8 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
+    // TODO: There needs to be source information.
+    // Add this information or make this a `SrcPos`?
     pub src_span: TokenSpan,
 
     /// Custom attributes on this entity
@@ -367,6 +369,10 @@ impl<'a> AnyEnt<'a> {
         None
     }
 
+    pub fn parent(&self) -> Option<EntRef<'a>> {
+        self.parent
+    }
+
     pub fn library_name(&self) -> Option<&Symbol> {
         if let AnyEntKind::Library = self.kind() {
             if let Designator::Identifier(symbol) = self.designator() {
@@ -488,7 +494,13 @@ impl<'a> AnyEnt<'a> {
             AnyEntKind::Overloaded(_) => OverloadedEnt::from_any(self).unwrap().describe(),
 
             AnyEntKind::Type(_) => TypeEnt::from_any(self).unwrap().describe(),
-            _ => format!("{} '{}'", self.kind.describe(), self.designator),
+            _ => {
+                if matches!(self.designator, Designator::Anonymous(_)) {
+                    self.kind.describe().to_string()
+                } else {
+                    format!("{} '{}'", self.kind.describe(), self.designator)
+                }
+            }
         }
     }
 
@@ -791,9 +803,9 @@ pub enum Sequential {
 impl Sequential {
     fn describe(&self) -> &'static str {
         match self {
-            Sequential::Case => "case",
-            Sequential::If => "if",
-            Sequential::Loop => "loop",
+            Sequential::Case => "case statement",
+            Sequential::If => "if statement",
+            Sequential::Loop => "loop statement",
         }
     }
 }
