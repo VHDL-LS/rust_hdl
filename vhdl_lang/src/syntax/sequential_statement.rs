@@ -22,6 +22,7 @@ use vhdl_lang::TokenSpan;
 
 /// LRM 10.2 Wait statement
 fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStatement> {
+    ctx.stream.expect_kind(Wait)?;
     let mut sensitivity_clause = vec![];
     if ctx.stream.skip_if_kind(On) {
         loop {
@@ -35,6 +36,7 @@ fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStateme
     let condition_clause = parse_optional(ctx, Until, parse_expression)?;
     let timeout_clause = parse_optional(ctx, For, parse_expression)?;
 
+    ctx.stream.expect_kind(SemiColon)?;
     Ok(WaitStatement {
         sensitivity_clause,
         condition_clause,
@@ -202,7 +204,6 @@ fn parse_loop_statement(
     ctx: &mut ParsingContext<'_>,
     label: Option<&Ident>,
 ) -> ParseResult<LoopStatement> {
-    ctx.stream.get_current_token_id();
     let iteration_scheme = {
         expect_token!(
             ctx.stream, token,
