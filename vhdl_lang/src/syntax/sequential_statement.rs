@@ -436,12 +436,11 @@ fn parse_assignment_or_procedure_call(
                     ctx.stream.skip();
                     let force_mode = parse_optional_force_mode(ctx)?;
                     let rhs = parse_variable_assignment_right_hand(ctx)?;
-                    let end_token = ctx.stream.get_last_token_id();
+                    ctx.stream.get_last_token_id();
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target,
                         force_mode,
                         rhs,
-                        span: target_span.end_with(end_token)
                     })
                 },
                 Release => {
@@ -458,12 +457,11 @@ fn parse_assignment_or_procedure_call(
                 _ => {
                     let delay_mechanism = parse_delay_mechanism(ctx)?;
                     let rhs = parse_signal_assignment_right_hand(ctx)?;
-                    let end_token = ctx.stream.get_last_token_id();
+                    ctx.stream.get_last_token_id();
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target,
                         delay_mechanism,
                         rhs,
-                        span: target_span.end_with(end_token),
                     })
                 }
             }
@@ -500,7 +498,6 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
     let expression = parse_expression(ctx)?;
     ctx.stream.expect_kind(Select)?;
     let target = parse_target(ctx)?;
-    let target_span = target.span();
     expect_token!(
         ctx.stream,
         token,
@@ -515,22 +512,20 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
             if ctx.stream.skip_if_kind(Force) {
                 let force_mode = parse_optional_force_mode(ctx)?;
                 let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?);
-                let end_token = ctx.stream.get_last_token_id();
+                ctx.stream.get_last_token_id();
                 Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                     target,
                     force_mode,
                     rhs,
-                    span: target_span.end_with(end_token),
                 }))
             } else {
                 let delay_mechanism = parse_delay_mechanism(ctx)?;
                 let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?);
-                let end_token = ctx.stream.get_last_token_id();
+                ctx.stream.get_last_token_id();
                 Ok(SequentialStatement::SignalAssignment(SignalAssignment {
                     target,
                     delay_mechanism,
                     rhs,
-                    span: target_span.end_with(end_token),
             }))
         }
         }
@@ -821,7 +816,6 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -842,7 +836,6 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -861,7 +854,6 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::In),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -880,7 +872,6 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::Out),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -924,7 +915,6 @@ mod tests {
                             .map_into(Target::Name),
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -945,7 +935,6 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -1188,7 +1177,6 @@ with x(0) + 1 select
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
                         rhs: AssignmentRightHand::Conditional(conditionals),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -1217,7 +1205,6 @@ with x(0) + 1 select
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Conditional(conditionals),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -1257,7 +1244,6 @@ with x(0) + 1 select
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
                         rhs: AssignmentRightHand::Selected(selection),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -1297,7 +1283,6 @@ with x(0) + 1 select
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
                         rhs: AssignmentRightHand::Selected(selection),
-                        span: code.token_span(),
                     }),
                     code.token_span()
                 )

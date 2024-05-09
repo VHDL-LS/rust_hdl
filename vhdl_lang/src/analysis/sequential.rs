@@ -313,7 +313,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     target,
                     force_mode: _,
                     rhs,
-                    span: _,
                 } = assign;
                 self.analyze_expr_assignment(
                     scope,

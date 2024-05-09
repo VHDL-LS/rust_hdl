@@ -316,7 +316,7 @@ procedure foo;
                     param_tok: None,
                     header: None,
                     parameter_list: Vec::new(),
-                    span: code.token_span(),
+                    span: code.s1("procedure foo").token_span(),
                 })
             }
         );
@@ -344,7 +344,7 @@ function foo return lib.foo.natural;
                     param_tok: None,
                     parameter_list: Vec::new(),
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -372,7 +372,7 @@ function \"+\" return lib.foo.natural;
                     param_tok: None,
                     parameter_list: Vec::new(),
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -400,7 +400,7 @@ impure function foo return lib.foo.natural;
                     param_tok: None,
                     parameter_list: Vec::new(),
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("impure", ".natural").token_span(),
                 })
             }
         );
@@ -427,7 +427,7 @@ pure function foo return lib.foo.natural;
                     param_tok: None,
                     parameter_list: Vec::new(),
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("pure", ".natural").token_span(),
                 })
             }
         );
@@ -453,7 +453,7 @@ procedure foo(foo : natural);
                     header: None,
                     param_tok: None,
                     parameter_list: vec![code.s1("foo : natural").parameter()],
-                    span: code.token_span(),
+                    span: code.between("procedure", "natural)").token_span(),
                 })
             }
         );
@@ -481,7 +481,7 @@ function foo(foo : natural) return lib.foo.natural;
                     param_tok: None,
                     parameter_list: vec![code.s1("foo : natural").parameter()],
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -509,7 +509,7 @@ function foo parameter (foo : natural) return lib.foo.natural;
                     param_tok: Some(code.s1("parameter").token()),
                     parameter_list: vec![code.s1("foo : natural").parameter()],
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -541,7 +541,7 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                     param_tok: Some(code.s1("parameter").token()),
                     parameter_list: vec![code.s1("foo : natural").parameter()],
                     return_type: code.s1("lib.foo.natural").type_mark(),
-                    span: code.token_span(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -801,7 +801,7 @@ procedure my_proc
                         .subprogram_header(),
                     param_tok: None,
                     parameter_list: vec![],
-                    span: code.token_span(),
+                    span: code.between("procedure", "4)").token_span(),
                 })
             }
         );
@@ -833,7 +833,7 @@ procedure my_proc
                         .subprogram_header(),
                     param_tok: None,
                     parameter_list: vec![],
-                    span: code.token_span(),
+                    span: code.between("procedure", "42)").token_span(),
                 })
             }
         );

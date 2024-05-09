@@ -268,7 +268,7 @@ end context;
                         name_list: code.s1("foo").ident_list(),
                     }),
                     ContextItem::Use(UseClause {
-                        span: code.token_span(),
+                        span: code.s1("use foo.bar;").token_span(),
                         name_list: code.s1("foo.bar").name_list(),
                     }),
                     ContextItem::Context(ContextReference {

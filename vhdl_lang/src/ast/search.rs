@@ -385,7 +385,6 @@ impl Search for LabeledSequentialStatement {
                     target,
                     force_mode: _,
                     rhs,
-                    span: _,
                 } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher, ctx));
             }

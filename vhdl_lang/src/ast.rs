@@ -910,7 +910,6 @@ pub enum DelayMechanism {
 }
 
 /// LRM 10.5 Signal assignment statement
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalAssignment {
     pub target: WithTokenSpan<Target>,
@@ -924,7 +923,6 @@ pub enum ForceMode {
     Out,
 }
 
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalForceAssignment {
     pub target: WithTokenSpan<Target>,
