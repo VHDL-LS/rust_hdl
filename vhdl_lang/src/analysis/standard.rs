@@ -11,6 +11,7 @@ use crate::ast::ObjectClass;
 use crate::ast::Operator;
 use crate::data::DiagnosticHandler;
 use crate::syntax::Symbols;
+use crate::HasTokenSpan;
 use vhdl_lang::TokenAccess;
 
 use super::analyze::AnalyzeContext;
@@ -94,7 +95,7 @@ impl StandardTypes {
                         Related::None,
                         AnyEntKind::Type(Type::Incomplete),
                         Some(type_decl.ident.pos(ctx).clone()),
-                        None,
+                        type_decl.span(),
                     )
                     .id();
                 let name = type_decl.ident.tree.item.name();
@@ -316,10 +317,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         );
 
         for (name, kind) in formals.into_iter() {
-            region.add(
-                self.arena
-                    .explicit(name, subpgm_ent, kind, implicit_of.decl_pos(), None),
-            );
+            region.add(self.arena.explicit(
+                name,
+                subpgm_ent,
+                kind,
+                implicit_of.decl_pos(),
+                implicit_of.src_span,
+            ));
         }
 
         let kind = if let Some(return_type) = return_type {

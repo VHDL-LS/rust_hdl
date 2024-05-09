@@ -13,6 +13,7 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
+mod ast_span;
 
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
@@ -20,6 +21,7 @@ pub(crate) use any_design_unit::*;
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
+use crate::TokenSpan;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -391,6 +393,7 @@ pub enum ArrayIndex {
 }
 
 /// LRM 5.3.3 Record types
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
     pub ident: WithDecl<Ident>,
@@ -685,6 +688,7 @@ pub enum SubprogramDesignator {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
@@ -695,6 +699,7 @@ pub struct ProcedureSpecification {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
@@ -751,7 +756,7 @@ pub enum Signature {
     Procedure(Vec<WithTokenSpan<TypeMark>>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum SubprogramSpecification {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
@@ -764,6 +769,7 @@ pub struct SubprogramDeclaration {
     pub specification: SubprogramSpecification,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -771,6 +777,7 @@ pub struct InterfaceFileDeclaration {
 }
 
 /// LRM 6.5.2 Interface object declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
@@ -806,12 +813,6 @@ pub struct ModeViewIndication {
     pub subtype_indication: Option<SubtypeIndication>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum SubprogramDefault {
-    Name(WithTokenSpan<Name>),
-    Box,
-}
-
 /// LRM 6.5.5 Interface package declaration
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfacePackageGenericMapAspect {
@@ -821,6 +822,7 @@ pub enum InterfacePackageGenericMapAspect {
 }
 
 /// LRM 6.5.5 Interface package declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfacePackageDeclaration {
     pub ident: WithDecl<Ident>,
@@ -829,12 +831,25 @@ pub struct InterfacePackageDeclaration {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub enum SubprogramDefault {
+    Name(WithTokenSpan<Name>),
+    Box,
+}
+
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfaceSubprogramDeclaration {
+    pub specification: SubprogramSpecification,
+    pub default: Option<SubprogramDefault>,
+}
+
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum InterfaceDeclaration {
     Object(InterfaceObjectDeclaration),
     File(InterfaceFileDeclaration),
     Type(WithDecl<Ident>),
     /// LRM 6.5.4 Interface subprogram declarations
-    Subprogram(SubprogramSpecification, Option<SubprogramDefault>),
+    Subprogram(InterfaceSubprogramDeclaration),
     /// LRM 6.5.5 Interface package declaration
     Package(InterfacePackageDeclaration),
 }
@@ -882,6 +897,7 @@ pub enum Declaration {
 }
 
 /// LRM 10.2 Wait statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
     pub sensitivity_clause: Vec<WithTokenSpan<Name>>,
@@ -890,6 +906,7 @@ pub struct WaitStatement {
 }
 
 /// LRM 10.3 Assertion statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AssertStatement {
     pub condition: WithTokenSpan<Expression>,
@@ -898,6 +915,7 @@ pub struct AssertStatement {
 }
 
 /// LRM 10.4 Report statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReportStatement {
     pub report: WithTokenSpan<Expression>,
@@ -935,6 +953,7 @@ pub enum DelayMechanism {
 }
 
 /// LRM 10.5 Signal assignment statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalAssignment {
     pub target: WithTokenSpan<Target>,
@@ -948,6 +967,7 @@ pub enum ForceMode {
     Out,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalForceAssignment {
     pub target: WithTokenSpan<Target>,
@@ -955,6 +975,7 @@ pub struct SignalForceAssignment {
     pub rhs: AssignmentRightHand<WithTokenSpan<Expression>>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalReleaseAssignment {
     pub target: WithTokenSpan<Target>,
@@ -962,6 +983,7 @@ pub struct SignalReleaseAssignment {
 }
 
 /// LRM 10.6 Variable assignment statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableAssignment {
     pub target: WithTokenSpan<Target>,
@@ -990,6 +1012,7 @@ pub struct Conditionals<T> {
 }
 
 /// LRM 10.8 If statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct IfStatement {
     pub conds: Conditionals<Vec<LabeledSequentialStatement>>,
@@ -1009,6 +1032,7 @@ pub struct Selection<T> {
 }
 
 /// LRM 10.9 Case statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseStatement {
     pub is_matching: bool,
@@ -1025,6 +1049,7 @@ pub enum IterationScheme {
 }
 
 /// LRM 10.10 Loop statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LoopStatement {
     pub iteration_scheme: Option<IterationScheme>,
@@ -1033,6 +1058,7 @@ pub struct LoopStatement {
 }
 
 /// LRM 10.11 Next statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct NextStatement {
     pub loop_label: Option<WithRef<Ident>>,
@@ -1040,6 +1066,7 @@ pub struct NextStatement {
 }
 
 /// LRM 10.12 Exit statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExitStatement {
     pub loop_label: Option<WithRef<Ident>>,
@@ -1047,13 +1074,14 @@ pub struct ExitStatement {
 }
 
 /// LRM 10.13 Return statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ReturnStatement {
     pub expression: Option<WithTokenSpan<Expression>>,
 }
 
 /// LRM 10. Sequential statements
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum SequentialStatement {
     Wait(WaitStatement),
     Assert(AssertStatement),
@@ -1069,7 +1097,7 @@ pub enum SequentialStatement {
     Next(NextStatement),
     Exit(ExitStatement),
     Return(ReturnStatement),
-    Null,
+    Null(TokenSpan),
 }
 
 /// LRM 10. Sequential statements

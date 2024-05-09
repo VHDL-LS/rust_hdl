@@ -15,6 +15,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::syntax::{Symbols, Token, TokenAccess};
+use crate::{HasTokenSpan, TokenSpan};
 use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
@@ -118,7 +119,7 @@ impl Library {
             Related::None,
             AnyEntKind::Library,
             None,
-            None,
+            TokenSpan::for_library(),
         );
 
         Library {
@@ -1006,7 +1007,7 @@ impl DesignRoot {
                 // Will be overwritten below
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
                 Some(std_package.ident_pos(&locked_unit.tokens)),
-                None,
+                std_package.span(),
             )
         };
 

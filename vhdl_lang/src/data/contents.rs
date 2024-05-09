@@ -274,6 +274,20 @@ impl<'a> ContentReader<'a> {
         Ok(self.peek()?.map(Latin1String::lowercase))
     }
 
+    /// Returns whether the chars that follow are the given substring.
+    ///
+    /// # Examples
+    /// ```
+    /// use super::{ContentReader, Contents};
+    /// let reader = ContentReader::new(Contents::from_str("foo bar"));
+    /// assert!(reader.matches("foo"));
+    /// assert!(!reader.matches("bar"));
+    /// for _ in 0..3 {
+    ///     reader.skip();
+    /// }
+    /// assert!(reader.matches("bar"));
+    /// assert!(!reader.matches("foo"));
+    /// ```
     #[cfg(test)]
     pub fn matches(&mut self, substr: &str) -> bool {
         let mut lookahead = self.clone();

@@ -65,7 +65,7 @@ fn parse_optional_object_class(
 fn parse_interface_file_declaration(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    ctx.stream.expect_kind(File)?;
+    let start_token = ctx.stream.expect_kind(File)?;
     let idents = parse_identifier_list(ctx)?;
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
@@ -87,12 +87,15 @@ fn parse_interface_file_declaration(
         }
     }
 
+    let end_token = ctx.stream.get_last_token_id();
+
     Ok(idents
         .into_iter()
         .map(|ident| {
             InterfaceDeclaration::File(InterfaceFileDeclaration {
                 ident: ident.into(),
                 subtype_indication: subtype.clone(),
+                span: TokenSpan::new(start_token, end_token),
             })
         })
         .collect())
@@ -102,6 +105,7 @@ fn parse_interface_object_declaration(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
+    let start_token = ctx.stream.get_current_token_id();
     let explicit_object_class = parse_optional_object_class(ctx, list_type)?;
 
     let idents = parse_identifier_list(ctx)?;
@@ -118,6 +122,7 @@ fn parse_interface_object_declaration(
         )?)
     };
 
+    let end_token = ctx.stream.get_last_token_id();
     Ok(idents
         .into_iter()
         .map(|ident| {
@@ -125,6 +130,7 @@ fn parse_interface_object_declaration(
                 list_type,
                 mode: mode.clone(),
                 ident: ident.into(),
+                span: TokenSpan::new(start_token, end_token),
             })
         })
         .collect())
@@ -238,7 +244,7 @@ fn parse_subprogram_default(
 fn parse_interface_package(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<InterfacePackageDeclaration> {
-    ctx.stream.expect_kind(Package)?;
+    let start_token = ctx.stream.expect_kind(Package)?;
     let ident = ctx.stream.expect_ident()?;
     ctx.stream.expect_kind(Is)?;
     ctx.stream.expect_kind(New)?;
@@ -266,11 +272,13 @@ fn parse_interface_package(
             }
         }
     };
+    let last_token = ctx.stream.get_last_token_id();
 
     Ok(InterfacePackageDeclaration {
         ident: ident.into(),
         package_name,
         generic_map,
+        span: TokenSpan::new(start_token, last_token),
     })
 }
 
@@ -279,7 +287,7 @@ fn parse_interface_declaration(
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     peek_token!(
-        ctx.stream, token,
+        ctx.stream, token, start_token,
         Signal | Constant | Variable | Identifier => {
             parse_interface_object_declaration(ctx, list_type)
         },
@@ -293,7 +301,9 @@ fn parse_interface_declaration(
             let spec = parse_subprogram_specification(ctx)?;
             let default = parse_subprogram_default(ctx)?;
 
-            Ok(vec![InterfaceDeclaration::Subprogram(spec, default)])
+            let end_token = ctx.stream.get_last_token_id();
+
+            Ok(vec![InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration { specification: spec, default, span: TokenSpan::new(start_token, end_token)})])
         },
         Package => {
             Ok(vec![InterfaceDeclaration::Package (parse_interface_package(ctx)?)])
@@ -460,6 +470,7 @@ mod tests {
     use crate::syntax::tokens::kinds_error;
     use crate::VHDLStandard::VHDL2019;
     use assert_matches::assert_matches;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn parses_interface_identifier_list() {
@@ -478,6 +489,7 @@ mod tests {
                         expression: None
                     }),
                     ident: code.s1("foo").decl_ident(),
+                    span: code.s1("foo").token_span()
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     list_type: InterfaceType::Generic,
@@ -490,6 +502,7 @@ mod tests {
                         expression: None
                     }),
                     ident: code.s1("bar").decl_ident(),
+                    span: code.s1("foo").token_span()
                 })
             ]
         );
@@ -511,6 +524,7 @@ mod tests {
                     expression: None
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }
@@ -523,6 +537,7 @@ mod tests {
             InterfaceDeclaration::File(InterfaceFileDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
+                span: code.token_span()
             })
         );
     }
@@ -565,7 +580,8 @@ mod tests {
             (
                 vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
                     ident: code.s1("valid").decl_ident(),
-                    subtype_indication: code.s("text", 2).subtype_indication()
+                    subtype_indication: code.s("text", 2).subtype_indication(),
+                    span: code.s1("file valid : text").token_span()
                 })],
                 vec![
                     Diagnostic::syntax_error(
@@ -597,6 +613,7 @@ mod tests {
                     expression: None
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }
@@ -704,6 +721,7 @@ mod tests {
                     expression: None
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }
@@ -723,6 +741,7 @@ mod tests {
                     expression: None
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }
@@ -926,28 +945,33 @@ bar : natural)",
         let code = Code::new("function foo return bar");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar")
+            InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration {
+                specification: code
+                    .s1("function foo return bar")
                     .subprogram_specification(),
-                None
-            )
+                default: None,
+                span: code.token_span()
+            })
         );
         let code = Code::new("procedure foo");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(
-                code.s1("procedure foo").subprogram_specification(),
-                None
-            )
+            InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration {
+                specification: code.s1("procedure foo").subprogram_specification(),
+                default: None,
+                span: code.token_span()
+            })
         );
         let code = Code::new("impure function foo return bar");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(
-                code.s1("impure function foo return bar")
+            InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration {
+                specification: code
+                    .s1("impure function foo return bar")
                     .subprogram_specification(),
-                None
-            )
+                default: None,
+                span: code.token_span()
+            })
         );
     }
 
@@ -956,21 +980,25 @@ bar : natural)",
         let code = Code::new("function foo return bar is lib.name");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar")
+            InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration {
+                specification: code
+                    .s1("function foo return bar")
                     .subprogram_specification(),
-                Some(SubprogramDefault::Name(code.s1("lib.name").name()))
-            )
+                default: Some(SubprogramDefault::Name(code.s1("lib.name").name())),
+                span: code.token_span()
+            })
         );
 
         let code = Code::new("function foo return bar is <>");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar")
+            InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration {
+                specification: code
+                    .s1("function foo return bar")
                     .subprogram_specification(),
-                Some(SubprogramDefault::Box)
-            )
+                default: Some(SubprogramDefault::Box),
+                span: code.token_span()
+            })
         );
     }
 
@@ -988,7 +1016,8 @@ package foo is new lib.pkg
                 package_name: code.s1("lib.pkg").name(),
                 generic_map: InterfacePackageGenericMapAspect::Map(
                     code.s1("(foo => bar)").association_list()
-                )
+                ),
+                span: code.token_span()
             })
         );
     }
@@ -1005,7 +1034,8 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Box
+                generic_map: InterfacePackageGenericMapAspect::Box,
+                span: code.token_span()
             })
         );
     }
@@ -1022,7 +1052,8 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Default
+                generic_map: InterfacePackageGenericMapAspect::Default,
+                span: code.token_span()
             })
         );
     }
@@ -1056,7 +1087,8 @@ function foo() return bit;
                     header: None,
                     param_tok: None,
                     parameter_list: vec![],
-                    return_type: code.s1("bit").type_mark()
+                    return_type: code.s1("bit").type_mark(),
+                    span: code.s1("function foo() return bit").token_span()
                 })
             }
         );
@@ -1077,6 +1109,7 @@ function foo() return bit;
                     expression: None
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }
@@ -1094,6 +1127,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Record
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
 
@@ -1108,6 +1142,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Array
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
         let code = Code::with_standard("signal foo : view bar of baz", VHDL2019);
@@ -1121,6 +1156,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Record
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
         let code = Code::with_standard("signal foo : view (bar) of baz", VHDL2019);
@@ -1134,6 +1170,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Array
                 }),
                 ident: code.s1("foo").decl_ident(),
+                span: code.token_span()
             })
         );
     }

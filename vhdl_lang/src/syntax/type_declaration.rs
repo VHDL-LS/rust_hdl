@@ -16,6 +16,7 @@ use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
+use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 /// LRM 5.2.2 Enumeration types
@@ -84,9 +85,11 @@ fn parse_record_type_definition(
         ctx.stream.expect_kind(Colon)?;
         let subtype = parse_subtype_indication(ctx)?;
         for ident in idents {
+            let ident_span = ident.token.span();
             elem_decls.push(ElementDeclaration {
                 ident: ident.into(),
                 subtype: subtype.clone(),
+                span: ident_span,
             });
         }
         ctx.stream.expect_kind(SemiColon)?;
@@ -528,6 +531,7 @@ end record;",
         let elem_decl = ElementDeclaration {
             ident: code.s1("element").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
+            span: code.s1("element").token_span(),
         };
 
         let type_decl = TypeDeclaration {
@@ -556,16 +560,19 @@ end foo;",
         let elem_decl0a = ElementDeclaration {
             ident: code.s1("element").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
+            span: code.s1("element").token_span(),
         };
 
         let elem_decl0b = ElementDeclaration {
             ident: code.s1("field").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
+            span: code.s1("field").token_span(),
         };
 
         let elem_decl1 = ElementDeclaration {
             ident: code.s1("other_element").decl_ident(),
             subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
+            span: code.s1("other_element").token_span(),
         };
 
         let type_decl = TypeDeclaration {

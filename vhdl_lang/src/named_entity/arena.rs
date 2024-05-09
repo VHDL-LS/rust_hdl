@@ -160,7 +160,7 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         let ent = AnyEnt {
             id: EntityId::undefined(),
@@ -189,7 +189,7 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         unsafe {
             let local = self.local.borrow_mut();

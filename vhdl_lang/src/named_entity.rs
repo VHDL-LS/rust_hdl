@@ -192,7 +192,7 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
-    pub src_span: Option<TokenSpan>,
+    pub src_span: TokenSpan,
 
     /// Custom attributes on this entity
     pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
@@ -205,7 +205,7 @@ impl Arena {
         designator: impl Into<Designator>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -223,7 +223,7 @@ impl Arena {
         decl: &mut WithDecl<T>,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         let ent = self.explicit(
             decl.tree.name().clone(),
@@ -242,7 +242,7 @@ impl Arena {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -574,7 +574,7 @@ impl HasEntityId for InterfaceDeclaration {
             InterfaceDeclaration::Object(object) => object.ent_id(),
             InterfaceDeclaration::File(file) => file.ent_id(),
             InterfaceDeclaration::Type(typ) => typ.decl.get(),
-            InterfaceDeclaration::Subprogram(decl, _) => decl.ent_id(),
+            InterfaceDeclaration::Subprogram(declaration) => declaration.specification.ent_id(),
             InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
         }
     }
@@ -709,7 +709,7 @@ impl WithDecl<Ident> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.name().clone(),
@@ -730,7 +730,7 @@ impl WithDecl<WithToken<Designator>> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.item.clone(),

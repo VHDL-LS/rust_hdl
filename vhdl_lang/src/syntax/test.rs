@@ -813,7 +813,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
         reader.skip();
     }
 
-    panic!("Could not find occurence {occurence} of substring {substr:?}");
+    panic!("Could not find occurrence {occurence} of substring {substr:?}");
 }
 
 /// Fast forward tokenstream until position

@@ -1035,9 +1035,9 @@ impl Display for InterfaceDeclaration {
             InterfaceDeclaration::Object(ref decl) => write!(f, "{decl}"),
             InterfaceDeclaration::File(ref decl) => write!(f, "{decl}"),
             InterfaceDeclaration::Type(ref ident) => write!(f, "type {ident}"),
-            InterfaceDeclaration::Subprogram(ref decl, ref default) => {
-                write!(f, "{decl}")?;
-                match default {
+            InterfaceDeclaration::Subprogram(ref decl) => {
+                write!(f, "{}", decl.specification)?;
+                match &decl.default {
                     Some(ref default) => write!(f, " is {default}"),
                     None => Ok(()),
                 }

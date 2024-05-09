@@ -145,7 +145,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 let (decl_pos, span) = match full_definiton {
                                     Some(full_decl) => (
                                         self.ctx.get_pos(full_decl.ident.tree.token),
-                                        Some(full_decl.span),
+                                        full_decl.span,
                                     ),
                                     None => {
                                         let error = Diagnostic::new(
@@ -157,7 +157,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                             ErrorCode::MissingFullTypeDeclaration,
                                         ).related(type_decl.ident.pos(self.ctx), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
-                                        (type_decl.ident.pos(self.ctx), None)
+                                        (type_decl.ident.pos(self.ctx), type_decl.span)
                                     }
                                 };
 
@@ -328,7 +328,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        Ok(designator.define(self.ctx, self.arena, parent, kind, Some(*span)))
+        Ok(designator.define(self.ctx, self.arena, parent, kind, *span))
     }
 
     pub(crate) fn analyze_declaration(
@@ -421,7 +421,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         },
                         kind,
                         Some(object_decl.ident.pos(self.ctx).clone()),
-                        Some(src_span),
+                        src_span,
                     );
                     object_decl.ident.decl.set(object_ent.id());
 
@@ -457,7 +457,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             ident,
                             parent,
                             AnyEntKind::File(subtype),
-                            Some(src_span),
+                            src_span,
                         ),
                         diagnostics,
                     );
@@ -470,7 +470,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut component.ident,
                     parent,
                     AnyEntKind::Component(Region::default()),
-                    Some(src_span),
+                    src_span,
                 );
                 self.analyze_interface_list(
                     &nested,
@@ -500,7 +500,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 &mut attr_decl.ident,
                                 parent,
                                 AnyEntKind::Attribute(typ),
-                                Some(src_span),
+                                src_span,
                             ),
                             diagnostics,
                         );
@@ -571,7 +571,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         FormalRegion::new_params(),
                         None,
                     ))),
-                    Some(src_span),
+                    src_span,
                 );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
@@ -604,7 +604,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
-                    Some(src_span),
+                    src_span,
                 );
 
                 if let Some(pkg_region) =
@@ -688,7 +688,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             &mut view.ident,
             parent,
             AnyEntKind::View(typ),
-            Some(view.span),
+            view.span,
         ))
     }
 
@@ -882,6 +882,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
+        let span = decl.span();
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
                 let file_type = self.resolve_subtype_indication(
@@ -894,7 +895,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut file_decl.ident,
                     parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
-                    None,
+                    span,
                 )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
@@ -906,7 +907,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ident,
                     parent,
                     AnyEntKind::Type(Type::Interface),
-                    None,
+                    span,
                 ))
                 .unwrap();
 
@@ -925,11 +926,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 typ.into()
             }
-            InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
+            InterfaceDeclaration::Subprogram(ref mut subpgm) => {
                 let (_, ent) = self.subprogram_specification(
                     scope,
                     parent,
-                    subpgm,
+                    &mut subpgm.specification,
                     Overloaded::InterfaceSubprogram,
                     diagnostics,
                 )?;
@@ -947,7 +948,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
-                    None,
+                    span,
                 )
             }
         };
@@ -961,6 +962,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         object_decl: &mut InterfaceObjectDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
+        let span = object_decl.span();
         match &mut object_decl.mode {
             ModeIndication::Simple(mode) => {
                 let (subtype, class) =
@@ -978,7 +980,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         subtype,
                         has_default: mode.expression.is_some(),
                     }),
-                    None,
+                    span,
                 ))
             }
             ModeIndication::View(view) => {
@@ -1009,7 +1011,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         subtype: *view_ent.subtype(),
                         has_default: false,
                     }),
-                    None,
+                    span,
                 ))
             }
         }

@@ -498,8 +498,13 @@ pub trait HasTokenSpan {
     fn get_start_token(&self) -> TokenId;
     fn get_end_token(&self) -> TokenId;
 
-    fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token];
-    fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos;
+    fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token] {
+        tokens.get_token_slice(self.get_start_token(), self.get_end_token())
+    }
+
+    fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos {
+        tokens.get_span(self.get_start_token(), self.get_end_token())
+    }
 
     fn get_span(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.get_start_token(), self.get_end_token())
@@ -537,6 +542,13 @@ impl TokenSpan {
         Self {
             start_token,
             end_token,
+        }
+    }
+
+    pub fn for_library() -> Self {
+        Self {
+            start_token: TokenId(0),
+            end_token: TokenId(0),
         }
     }
 
