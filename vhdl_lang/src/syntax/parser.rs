@@ -9,8 +9,10 @@ use crate::ast::DesignFile;
 use crate::data::*;
 use crate::standard::VHDLStandard;
 use crate::syntax::design_unit::parse_design_file;
+use crate::{Token, TokenId};
 use std::io;
 use std::sync::Arc;
+use vhdl_lang::TokenAccess;
 
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
@@ -21,6 +23,16 @@ pub(crate) struct ParsingContext<'a> {
     pub stream: &'a TokenStream<'a>,
     pub diagnostics: &'a mut dyn DiagnosticHandler,
     pub standard: VHDLStandard,
+}
+
+impl TokenAccess for ParsingContext<'_> {
+    fn get_token(&self, id: TokenId) -> &Token {
+        self.stream.get_token(id)
+    }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        self.stream.get_token_slice(start_id, end_id)
+    }
 }
 
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;

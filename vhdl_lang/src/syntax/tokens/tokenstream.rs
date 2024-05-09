@@ -9,8 +9,9 @@ use vhdl_lang::syntax::parser::ParsingContext;
 
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
+use crate::ast::token_range::WithToken;
 use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
-use crate::data::{DiagnosticHandler, DiagnosticResult, WithPos};
+use crate::data::{DiagnosticHandler, DiagnosticResult};
 use crate::{Diagnostic, SrcPos};
 
 pub struct TokenStream<'a> {
@@ -112,11 +113,6 @@ impl<'a> TokenStream<'a> {
 
     pub fn get_last_token_id(&self) -> TokenId {
         TokenId::new(self.get_idx() - 1 - self.token_offset.get())
-    }
-
-    pub fn last(&self) -> Option<&Token> {
-        let last_idx = self.get_idx().checked_sub(1)?;
-        self.tokens.get(last_idx)
     }
 
     fn eof_error(&self) -> Diagnostic {
@@ -240,25 +236,26 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|id| self.get_token(id).to_identifier_value().unwrap())
+            .map(|id| self.get_token(id).to_identifier_value(id).unwrap())
     }
 
     pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
-        expect_token!(self, token, Identifier => token.to_identifier_value())
+        expect_token!(self, token, token_id, Identifier => token.to_identifier_value(token_id))
     }
 
     /// Expect identifier or subtype/range keywords
     /// foo'subtype or foo'range
-    pub fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>> {
+    pub fn expect_attribute_designator(&self) -> DiagnosticResult<WithToken<AttributeDesignator>> {
         let des = expect_token!(
             self,
             token,
+            token_id,
             Identifier => {
-                let ident = token.to_identifier_value()?;
+                let ident = token.to_identifier_value(token_id)?;
                 ident.map_into(|sym| self.tokenizer.attribute(sym))
             },
-            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos.clone()),
-            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
+            Subtype => WithToken::new(AttributeDesignator::Type(TypeAttribute::Subtype), token_id),
+            Range => WithToken::new(AttributeDesignator::Range(RangeAttribute::Range), token_id)
         );
         Ok(des)
     }

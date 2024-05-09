@@ -8,8 +8,7 @@ use std::ops::Deref;
 
 use super::*;
 use crate::ast::{Designator, HasDesignator, Ident, WithDecl, WithRef};
-use crate::data::WithPos;
-use crate::{Diagnostic, SrcPos};
+use crate::Diagnostic;
 
 use fnv::FnvHashSet;
 
@@ -82,6 +81,7 @@ pub struct TypeEnt<'a>(EntRef<'a>);
 
 impl<'a> TypeEnt<'a> {
     pub fn define_with_opt_id(
+        ctx: &dyn TokenAccess,
         arena: &'a Arena,
         id: Option<EntityId>,
         ident: &mut WithDecl<Ident>,
@@ -103,7 +103,7 @@ impl<'a> TypeEnt<'a> {
                     Some(parent),
                     related,
                     AnyEntKind::Type(kind),
-                    Some(ident.tree.pos.clone()),
+                    Some(ident.pos(ctx).clone()),
                     None,
                 )
             }
@@ -113,7 +113,7 @@ impl<'a> TypeEnt<'a> {
                 Some(parent),
                 related,
                 AnyEntKind::Type(kind),
-                Some(ident.tree.pos.clone()),
+                Some(ident.pos(ctx).clone()),
                 None,
             )
         };
@@ -187,8 +187,9 @@ impl<'a> TypeEnt<'a> {
     /// where prefix has this type
     pub fn selected(
         self,
-        prefix_pos: &SrcPos,
-        suffix: &WithPos<WithRef<Designator>>,
+        ctx: &dyn TokenAccess,
+        prefix_pos: TokenSpan,
+        suffix: &WithToken<WithRef<Designator>>,
     ) -> Result<TypedSelection<'a>, Diagnostic> {
         match self.kind() {
             Type::Record(ref region) => {
@@ -197,7 +198,7 @@ impl<'a> TypeEnt<'a> {
                 } else {
                     Err(Diagnostic::no_declaration_within(
                         &self,
-                        &suffix.pos,
+                        suffix.pos(ctx),
                         &suffix.item.item,
                     ))
                 }
@@ -206,7 +207,7 @@ impl<'a> TypeEnt<'a> {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     match decl {
                         NamedEntities::Single(ent) => Err(Diagnostic::new(
-                            &suffix.pos,
+                            suffix.pos(ctx),
                             format!(
                                 "Protected type selection must be a method, got {}",
                                 ent.describe()
@@ -220,19 +221,19 @@ impl<'a> TypeEnt<'a> {
                 } else {
                     Err(Diagnostic::no_declaration_within(
                         &self,
-                        &suffix.pos,
+                        suffix.pos(ctx),
                         &suffix.item.item,
                     ))
                 }
             }
             Type::Incomplete => Err(Diagnostic::new(
-                prefix_pos,
+                prefix_pos.pos(ctx),
                 "Cannot select incomplete type before full type definition",
                 ErrorCode::MismatchedKinds,
             )),
-            Type::Subtype(subtype) => subtype.type_mark().selected(prefix_pos, suffix),
-            Type::Access(subtype, ..) => subtype.type_mark().selected(prefix_pos, suffix),
-            Type::Alias(alias) => alias.selected(prefix_pos, suffix),
+            Type::Subtype(subtype) => subtype.type_mark().selected(ctx, prefix_pos, suffix),
+            Type::Access(subtype, ..) => subtype.type_mark().selected(ctx, prefix_pos, suffix),
+            Type::Alias(alias) => alias.selected(ctx, prefix_pos, suffix),
             Type::Array { .. }
             | Type::File { .. }
             | Type::Interface { .. }
@@ -240,7 +241,10 @@ impl<'a> TypeEnt<'a> {
             | Type::Physical { .. }
             | Type::Universal { .. }
             | Type::Integer { .. }
-            | Type::Real { .. } => Err(Diagnostic::invalid_selected_name_prefix(&self, prefix_pos)),
+            | Type::Real { .. } => Err(Diagnostic::invalid_selected_name_prefix(
+                &self,
+                &prefix_pos.pos(ctx),
+            )),
         }
     }
 

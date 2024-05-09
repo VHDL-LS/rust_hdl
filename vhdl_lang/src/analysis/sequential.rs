@@ -12,7 +12,7 @@ use crate::named_entity::*;
 use analyze::*;
 use target::AssignmentType;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,
@@ -26,7 +26,7 @@ impl<'a> AnalyzeContext<'a> {
                     label.name(),
                     parent,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
-                    Some(label.pos()),
+                    Some(label.pos(self.ctx)),
                     None,
                 );
                 statement.label.decl.set(ent.id());
@@ -107,6 +107,7 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let statement_span = statement.statement.span;
         match statement.statement.item {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { ref mut expression } = ret;
@@ -117,7 +118,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
                             diagnostics.add(
-                                &statement.statement.pos,
+                                &statement.statement.pos(self.ctx),
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
                             );
@@ -126,7 +127,7 @@ impl<'a> AnalyzeContext<'a> {
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
                             diagnostics.add(
-                                &statement.statement.pos,
+                                &statement.statement.pos(self.ctx),
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
                             );
@@ -134,7 +135,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.add(
-                            &statement.statement.pos,
+                            &statement.statement.pos(self.ctx),
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
                         );
@@ -186,7 +187,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.pos,
+                        &statement_span.pos(self.ctx),
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
                     )
@@ -206,7 +207,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement.statement.pos,
+                        &statement_span.pos(self.ctx),
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
                     )
@@ -257,8 +258,13 @@ impl<'a> AnalyzeContext<'a> {
                         let typ = as_fatal(self.drange_type(scope, drange, diagnostics))?;
                         let region = scope.nested();
                         region.add(
-                            self.arena
-                                .define(index, parent, AnyEntKind::LoopParameter(typ), None),
+                            self.arena.define(
+                                self.ctx,
+                                index,
+                                parent,
+                                AnyEntKind::LoopParameter(typ),
+                                None,
+                            ),
                             diagnostics,
                         );
                         self.analyze_sequential_part(&region, parent, statements, diagnostics)?;
@@ -330,7 +336,8 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match scope.lookup(
-            &label.item.pos,
+            self.ctx,
+            label.item.token,
             &Designator::Identifier(label.item.item.clone()),
         ) {
             Ok(NamedEntities::Single(ent)) => {
@@ -338,21 +345,21 @@ impl<'a> AnalyzeContext<'a> {
                 if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
                     if !find_outer_loop(parent, Some(label.item.name())) {
                         diagnostics.add(
-                            &label.item.pos,
+                            label.item.pos(self.ctx),
                             format!("Cannot be used outside of loop '{}'", ent.designator()),
                             ErrorCode::InvalidLoopLabel,
                         );
                     }
                 } else {
                     diagnostics.add(
-                        &label.item.pos,
+                        label.item.pos(self.ctx),
                         format!("Expected loop label, got {}", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
                 }
             }
             Ok(NamedEntities::Overloaded(_)) => diagnostics.add(
-                &label.item.pos,
+                label.item.pos(self.ctx),
                 format!(
                     "Expected loop label, got overloaded name {}",
                     &label.item.item

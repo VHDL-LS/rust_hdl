@@ -5,6 +5,7 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::named_entity::overloaded::SubprogramKey;
 use fnv::FnvHashMap;
@@ -417,7 +418,13 @@ impl<T> SetReference for WithRef<T> {
     }
 }
 
-impl<T: SetReference> SetReference for WithPos<T> {
+impl<T: SetReference> SetReference for WithTokenSpan<T> {
+    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+        self.item.set_unique_reference(ent);
+    }
+}
+
+impl<T: SetReference> SetReference for WithToken<T> {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
         self.item.set_unique_reference(ent);
     }

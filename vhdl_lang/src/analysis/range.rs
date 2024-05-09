@@ -11,13 +11,14 @@ use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn range_unknown_typ(
         &self,
         scope: &Scope<'a>,
@@ -41,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
     fn range_expr_type(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<DisambiguatedType<'a>> {
         match self.expr_type(scope, expr, diagnostics)? {
@@ -50,7 +51,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
                     diagnostics.add(
-                        &expr.pos,
+                        &expr.pos(self.ctx),
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
                         ErrorCode::NonScalarInRange,
                     );
@@ -62,7 +63,7 @@ impl<'a> AnalyzeContext<'a> {
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
                 diagnostics.add(
-                    &expr.pos,
+                    &expr.pos(self.ctx),
                     "Non-scalar expression cannot be used in a range",
                     ErrorCode::NonScalarInRange,
                 );
@@ -78,7 +79,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
         let resolved =
-            self.name_resolve(scope, &attr.name.pos, &mut attr.name.item, diagnostics)?;
+            self.name_resolve(scope, attr.name.span, &mut attr.name.item, diagnostics)?;
         let typ = match resolved {
             ResolvedName::Type(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
@@ -93,8 +94,8 @@ impl<'a> AnalyzeContext<'a> {
                         ent.return_type().unwrap()
                     } else {
                         diagnostics.add(
-                        &attr.name.pos,
-                        format!(
+                            &attr.name.pos(self.ctx),
+                            format!(
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
                         ),
@@ -112,7 +113,7 @@ impl<'a> AnalyzeContext<'a> {
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
                 diagnostics.add(
-                    &attr.name.pos,
+                    &attr.name.pos(self.ctx),
                     format!(
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
@@ -136,14 +137,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl_pos) = typ.decl_pos() {
                     // To debug if it ever happens
                     eprintln!("{}", decl_pos.show("Array with no indexes"));
-                    eprintln!("{}", attr.name.pos.show("Used here"));
+                    eprintln!("{}", attr.name.pos(self.ctx).show("Used here"));
                     panic!("Internal error")
                 }
                 Err(EvalError::Unknown)
             }
         } else {
             diagnostics.add(
-                &attr.name.pos,
+                &attr.name.pos(self.ctx),
                 format!(
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
@@ -176,7 +177,7 @@ impl<'a> AnalyzeContext<'a> {
                             return Ok(typ);
                         } else {
                             diagnostics.add(
-                                constraint.pos(),
+                                constraint.span().pos(self.ctx),
                                 format!(
                                     "Range type mismatch, left is {}, right is {}",
                                     l.base().describe(),
@@ -196,7 +197,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     (DisambiguatedType::Ambiguous(_), DisambiguatedType::Ambiguous(_)) => {
                         diagnostics.add(
-                            constraint.pos(),
+                            constraint.span().pos(self.ctx),
                             "Range is ambiguous",
                             ErrorCode::TypeMismatch,
                         );
@@ -228,14 +229,14 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(typ)
                 } else if types.is_empty() {
                     diagnostics.add(
-                        constraint.pos(),
+                        constraint.span().pos(self.ctx),
                         "Range type of left and right side does not match",
                         ErrorCode::TypeMismatch,
                     );
                     Err(EvalError::Unknown)
                 } else {
                     diagnostics.add(
-                        constraint.pos(),
+                        constraint.span().pos(self.ctx),
                         "Range is ambiguous",
                         ErrorCode::TypeMismatch,
                     );
@@ -269,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.pos(),
+                &drange.span().pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -292,14 +293,14 @@ impl<'a> AnalyzeContext<'a> {
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
-                    &constraint.left_expr.pos,
+                    constraint.left_expr.span,
                     &mut constraint.left_expr.item,
                     diagnostics,
                 )?;
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
-                    &constraint.right_expr.pos,
+                    constraint.right_expr.span,
                     &mut constraint.right_expr.item,
                     diagnostics,
                 )?;
@@ -313,10 +314,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = name.as_mut();
 
                 let prefix_typ = as_fatal(
-                    self.name_resolve(scope, &name.pos, &mut name.item, diagnostics)
+                    self.name_resolve(scope, name.span, &mut name.item, diagnostics)
                         .and_then(|prefix| {
                             prefix.as_type_of_attr_prefix(
-                                &name.pos,
+                                self.ctx,
+                                name.span,
                                 &AttributeSuffix {
                                     signature,
                                     attr,
@@ -329,7 +331,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut signature) = signature {
                     diagnostics.add(
-                        &signature.pos,
+                        &signature.pos(self.ctx),
                         format!("Did not expect signature for '{attr} attribute"),
                         ErrorCode::UnexpectedSignature,
                     );
@@ -346,7 +348,7 @@ impl<'a> AnalyzeContext<'a> {
                         {
                             if !self.can_be_target_type(index_typ.into(), target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
-                                    &range.pos(),
+                                    &range.span().pos(self.ctx),
                                     &index_typ.describe(),
                                     target_type,
                                 ))
@@ -395,6 +397,7 @@ mod tests {
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;
     use crate::Diagnostic;
+    use vhdl_lang::Token;
 
     impl<'a> TestSetup<'a> {
         fn range_type(
@@ -402,16 +405,17 @@ mod tests {
             code: &Code,
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> EvalResult<BaseType<'a>> {
-            self.ctx()
+            self.ctx(&code.tokenize())
                 .range_type(&self.scope, &mut code.range(), diagnostics)
         }
 
         fn range_type_ast(
             &'a self,
             rng: &mut Range,
+            tokens: &Vec<Token>,
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> EvalResult<BaseType<'a>> {
-            self.ctx().range_type(&self.scope, rng, diagnostics)
+            self.ctx(tokens).range_type(&self.scope, rng, diagnostics)
         }
     }
 
@@ -422,7 +426,7 @@ mod tests {
         let code = test.snippet("0 to 1");
         assert_eq!(
             test.range_type(&code, &mut NoDiagnostics),
-            Ok(test.ctx().universal_integer())
+            Ok(test.ctx(&code.tokenize()).universal_integer())
         );
     }
 
@@ -433,7 +437,7 @@ mod tests {
         let code = test.snippet("-1 to 1");
         assert_eq!(
             test.range_type(&code, &mut NoDiagnostics),
-            Ok(test.ctx().universal_integer())
+            Ok(test.ctx(&code.tokenize()).universal_integer())
         );
     }
 
@@ -454,8 +458,11 @@ mod tests {
         let code = test.snippet("0.0 to 1.0");
         let mut diagnostics = Vec::new();
         assert_eq!(
-            test.ctx()
-                .drange_type(&test.scope, &mut code.discrete_range(), &mut diagnostics),
+            test.ctx(&code.tokenize()).drange_type(
+                &test.scope,
+                &mut code.discrete_range(),
+                &mut diagnostics
+            ),
             Err(EvalError::Unknown)
         );
 
@@ -503,18 +510,18 @@ function f1 return integer;
         let code = test.snippet("f1 to 'a'");
         let mut rng = code.range();
         assert_eq!(
-            test.range_type_ast(&mut rng, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &code.tokenize(), &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
-        check_no_unresolved(&mut rng);
+        check_no_unresolved(&mut rng, &code.tokenize());
 
         let code = test.snippet("'a' to f1");
         let mut rng = code.range();
         assert_eq!(
-            test.range_type_ast(&mut rng, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &code.tokenize(), &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
-        check_no_unresolved(&mut rng);
+        check_no_unresolved(&mut rng, &code.tokenize());
     }
 
     #[test]

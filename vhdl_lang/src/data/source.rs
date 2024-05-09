@@ -276,71 +276,9 @@ impl PartialOrd for SrcPos {
     }
 }
 
-/// A generic object with an associated source file and lexical range.
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct WithPos<T> {
-    pub item: T,
-    pub pos: SrcPos,
-}
-
-impl<T> WithPos<T> {
-    pub fn new(item: T, pos: impl AsRef<SrcPos>) -> WithPos<T> {
-        WithPos {
-            item,
-            pos: pos.as_ref().clone(),
-        }
-    }
-
-    pub fn from(item: T, pos: impl Into<SrcPos>) -> WithPos<T> {
-        WithPos {
-            item,
-            pos: pos.into(),
-        }
-    }
-
-    pub fn map_into<F, U>(self, f: F) -> WithPos<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        WithPos {
-            item: f(self.item),
-            pos: self.pos,
-        }
-    }
-
-    pub fn try_map_into<F, U>(self, f: F) -> Option<WithPos<U>>
-    where
-        F: FnOnce(T) -> Option<U>,
-    {
-        Some(WithPos {
-            item: f(self.item)?,
-            pos: self.pos,
-        })
-    }
-
-    pub fn combine_pos_with(self, other: &dyn AsRef<SrcPos>) -> Self {
-        WithPos {
-            item: self.item,
-            pos: self.pos.combine_into(other.as_ref()),
-        }
-    }
-}
-
-impl<T> AsRef<SrcPos> for WithPos<T> {
-    fn as_ref(&self) -> &SrcPos {
-        &self.pos
-    }
-}
-
 impl AsRef<SrcPos> for SrcPos {
     fn as_ref(&self) -> &SrcPos {
         self
-    }
-}
-
-impl<T> From<WithPos<T>> for SrcPos {
-    fn from(with_pos: WithPos<T>) -> SrcPos {
-        with_pos.pos
     }
 }
 

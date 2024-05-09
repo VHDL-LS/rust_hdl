@@ -6,6 +6,7 @@
 
 use fnv::FnvHashMap;
 
+use crate::ast::token_range::WithToken;
 use crate::ast::{self, AttributeDesignator, Operator, WithRef};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
@@ -268,6 +269,28 @@ macro_rules! peek_token {
                 }
             }
         }
+    };
+    ($tokens:expr, $token:ident, $token_id:ident, $($($kind:ident)|+ => $result:expr),*) => {
+        {
+            let $token = $tokens.peek_expect()?;
+            let $token_id = $tokens.get_current_token_id();
+            match $token.kind {
+                $(
+                    $($kind)|+ => $result
+                ),*,
+                _ => {
+                    let kinds = vec![
+                        $(
+                            $(
+                                $kind,
+                            )*
+                        )*
+                    ];
+
+                    return Err($crate::syntax::tokens::kinds_error($tokens.pos_before($token), &kinds));
+                }
+            }
+        }
     }
 }
 
@@ -280,6 +303,31 @@ macro_rules! expect_token {
     ($tokens:expr, $token:ident, $($($kind:ident)|+ => $result:expr),*) => {
         {
             let $token = $tokens.peek_expect()?;
+            match $token.kind {
+                $(
+                    $($kind)|+ => {
+                        $tokens.skip();
+                        $result
+                    }
+                ),*
+                _ => {
+                    let kinds = vec![
+                        $(
+                            $(
+                                $kind,
+                            )*
+                        )*
+                    ];
+
+                    return Err($crate::syntax::tokens::kinds_error($tokens.pos_before($token), &kinds));
+                }
+            }
+        }
+    };
+    ($tokens:expr, $token:ident, $token_id:ident, $($($kind:ident)|+ => $result:expr),*) => {
+        {
+            let $token = $tokens.peek_expect()?;
+            let $token_id = $tokens.get_current_token_id();
             match $token.kind {
                 $(
                     $($kind)|+ => {
@@ -396,15 +444,17 @@ impl TokenId {
         TokenId(idx)
     }
 
-    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
-    /// method `TokenStream::slice_tokens`.
-    #[cfg(test)]
-    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenId {
-        debug_assert!(
-            self.0 >= offset.0,
-            "The token ID of the offset token must be lower than the token ID to be offset!"
-        );
-        TokenId(self.0 - offset.0)
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+        ctx.get_pos(*self)
+    }
+}
+
+impl From<TokenId> for TokenSpan {
+    fn from(value: TokenId) -> Self {
+        TokenSpan {
+            start_token: value,
+            end_token: value,
+        }
     }
 }
 
@@ -468,27 +518,30 @@ pub trait HasTokenSpan {
 /// Holds token information about an AST element.
 /// Since the different pieces may be gathered in different locations,
 /// the fields are gated behind accessor functions which also check some invariants every time they are called.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct TokenSpan {
     pub start_token: TokenId,
     pub end_token: TokenId,
 }
 
+impl Display for TokenSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.start_token.0, self.end_token.0)
+    }
+}
+
+impl Debug for TokenSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
+        debug_assert!(start_token <= end_token);
         Self {
             start_token,
             end_token,
-        }
-    }
-
-    /// In unit tests this function can be used to simulate 'token slicing' as it is done by the
-    /// method `TokenStream::slice_tokens`.
-    #[cfg(test)]
-    pub(crate) fn apply_offset(&self, offset: TokenId) -> TokenSpan {
-        TokenSpan {
-            start_token: self.start_token.apply_offset(offset),
-            end_token: self.end_token.apply_offset(offset),
         }
     }
 
@@ -506,8 +559,33 @@ impl TokenSpan {
         }
     }
 
-    pub fn to_pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
         ctx.get_span(self.start_token, self.end_token)
+    }
+
+    pub(crate) fn combine(&self, other: impl Into<TokenSpan>) -> TokenSpan {
+        let other = other.into();
+        debug_assert!(self.start_token <= other.end_token);
+        TokenSpan {
+            start_token: self.start_token,
+            end_token: other.end_token,
+        }
+    }
+
+    pub(crate) fn end_with(&self, other: TokenId) -> TokenSpan {
+        debug_assert!(self.start_token <= other);
+        TokenSpan {
+            start_token: self.start_token,
+            end_token: other,
+        }
+    }
+
+    pub(crate) fn start_with(&self, other: TokenId) -> TokenSpan {
+        debug_assert!(other <= self.end_token);
+        TokenSpan {
+            start_token: other,
+            end_token: self.end_token,
+        }
     }
 }
 
@@ -570,6 +648,7 @@ pub struct Comment {
 
 use crate::standard::VHDLStandard;
 use std::convert::AsRef;
+use std::fmt::{Debug, Display, Formatter};
 use strum::IntoStaticStr;
 
 impl AsRef<SrcPos> for Token {
@@ -596,83 +675,81 @@ impl Token {
         kinds_error(&self.pos, kinds)
     }
 
-    pub fn to_identifier_value(&self) -> DiagnosticResult<Ident> {
+    pub fn to_identifier_value(&self, id: TokenId) -> DiagnosticResult<Ident> {
         if let Token {
             kind: Identifier,
             value: Value::Identifier(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[Identifier]))
         }
     }
 
-    pub fn to_character_value(&self) -> DiagnosticResult<WithPos<u8>> {
+    pub fn to_character_value(&self, id: TokenId) -> DiagnosticResult<WithToken<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(*value, pos.clone()))
+            Ok(WithToken::new(*value, id))
         } else {
             Err(self.kinds_error(&[Character]))
         }
     }
 
-    pub fn to_bit_string(&self) -> DiagnosticResult<WithPos<ast::BitString>> {
+    pub fn to_bit_string(&self, id: TokenId) -> DiagnosticResult<WithToken<ast::BitString>> {
         if let Token {
             kind: BitString,
             value: Value::BitString(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[BitString]))
         }
     }
 
-    pub fn to_abstract_literal(&self) -> DiagnosticResult<WithPos<ast::AbstractLiteral>> {
+    pub fn to_abstract_literal(
+        &self,
+        id: TokenId,
+    ) -> DiagnosticResult<WithToken<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
             value: Value::AbstractLiteral(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(*value, pos.clone()))
+            Ok(WithToken::new(*value, id))
         } else {
             Err(self.kinds_error(&[AbstractLiteral]))
         }
     }
 
-    pub fn to_string_value(&self) -> DiagnosticResult<WithPos<Latin1String>> {
+    pub fn to_string_value(&self, id: TokenId) -> DiagnosticResult<WithToken<Latin1String>> {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
-            pos,
             ..
         } = self
         {
-            Ok(WithPos::from(value.clone(), pos.clone()))
+            Ok(WithToken::new(value.clone(), id))
         } else {
             Err(self.kinds_error(&[StringLiteral]))
         }
     }
 
-    pub fn to_operator_symbol(&self) -> DiagnosticResult<WithPos<Operator>> {
-        let string = self.to_string_value()?;
+    pub fn to_operator_symbol(&self, id: TokenId) -> DiagnosticResult<WithToken<Operator>> {
+        let string = self.to_string_value(id)?;
         if let Some(op) = Operator::from_latin1(string.item) {
-            Ok(WithPos::new(op, string.pos))
+            Ok(WithToken::new(op, string.token))
         } else {
             Err(Diagnostic::syntax_error(
-                &string.pos,
+                &self.pos,
                 "Invalid operator symbol",
             ))
         }

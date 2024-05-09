@@ -9,33 +9,34 @@ use super::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Concurrent, Sequential};
+use crate::TokenSpan;
 
-impl WithPos<Name> {
-    pub fn suffix_pos(&self) -> &SrcPos {
+impl WithTokenSpan<Name> {
+    pub fn suffix_pos(&self) -> TokenSpan {
         match self.item {
-            Name::Designator(..) => &self.pos,
-            Name::Selected(_, ref suffix) => &suffix.pos,
+            Name::Designator(..) => self.span,
+            Name::Selected(_, ref suffix) => suffix.token.into(),
             // @TODO add pos of .all?
-            Name::SelectedAll(ref prefix) => &prefix.pos,
-            Name::CallOrIndexed(ref fcall) => fcall.name.suffix_pos(),
-            Name::Slice(ref prefix, ..) => prefix.suffix_pos(),
-            Name::Attribute(ref attr, ..) => attr.name.suffix_pos(),
-            Name::External(..) => &self.pos,
+            Name::SelectedAll(ref prefix) => prefix.span,
+            Name::CallOrIndexed(ref fcall) => fcall.name.span,
+            Name::Slice(ref prefix, ..) => prefix.span,
+            Name::Attribute(ref attr, ..) => attr.name.span,
+            Name::External(..) => self.span,
         }
     }
 }
 
-pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
+pub fn to_simple_name(ctx: &dyn TokenAccess, name: WithTokenSpan<Name>) -> DiagnosticResult<Ident> {
     match name.item {
         Name::Designator(WithRef {
             item: Designator::Identifier(ident),
             ..
-        }) => Ok(WithPos {
+        }) => Ok(WithToken {
             item: ident,
-            pos: name.pos,
+            token: name.span.start_token,
         }),
         _ => Err(Diagnostic::new(
-            &name,
+            &name.span.pos(ctx),
             "Expected simple name",
             ErrorCode::SyntaxError,
         )),
@@ -65,7 +66,7 @@ pub trait HasDesignator {
     fn designator(&self) -> &Designator;
 }
 
-impl<T: HasDesignator> HasDesignator for WithPos<T> {
+impl<T: HasDesignator> HasDesignator for WithTokenSpan<T> {
     fn designator(&self) -> &Designator {
         self.item.designator()
     }
@@ -95,8 +96,14 @@ impl Ident {
     }
 }
 
-impl WithPos<Designator> {
-    pub fn into_ref(self) -> WithPos<WithRef<Designator>> {
+impl WithTokenSpan<Designator> {
+    pub fn into_ref(self) -> WithTokenSpan<WithRef<Designator>> {
+        self.map_into(|name| name.into_ref())
+    }
+}
+
+impl WithToken<Designator> {
+    pub fn into_ref(self) -> WithToken<WithRef<Designator>> {
         self.map_into(|name| name.into_ref())
     }
 }
@@ -106,11 +113,9 @@ pub trait HasIdent {
     fn name(&self) -> &Symbol {
         &self.ident().item
     }
-}
 
-impl<T: HasIdent> HasSrcPos for T {
-    fn pos(&self) -> &SrcPos {
-        &self.ident().pos
+    fn ident_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+        self.ident().pos(ctx)
     }
 }
 
@@ -198,8 +203,8 @@ impl HasIdent for AnyDesignUnit {
     }
 }
 
-impl<'a, T: HasIdent> From<&'a T> for WithPos<Designator> {
-    fn from(other: &'a T) -> WithPos<Designator> {
+impl<'a, T: HasIdent> From<&'a T> for WithToken<Designator> {
+    fn from(other: &'a T) -> WithToken<Designator> {
         other.ident().to_owned().map_into(Designator::Identifier)
     }
 }
@@ -248,8 +253,8 @@ impl From<Symbol> for Designator {
     }
 }
 
-impl From<WithPos<Symbol>> for WithPos<Designator> {
-    fn from(other: WithPos<Symbol>) -> WithPos<Designator> {
+impl From<WithTokenSpan<Symbol>> for WithTokenSpan<Designator> {
+    fn from(other: WithTokenSpan<Symbol>) -> WithTokenSpan<Designator> {
         other.map_into(|sym| sym.into())
     }
 }
@@ -270,10 +275,10 @@ impl SubprogramDesignator {
 }
 
 impl SubprogramSpecification {
-    pub fn pos(&self) -> &SrcPos {
+    pub fn token(&self) -> TokenId {
         match self {
-            SubprogramSpecification::Function(ref function) => &function.designator.tree.pos,
-            SubprogramSpecification::Procedure(ref procedure) => &procedure.designator.tree.pos,
+            SubprogramSpecification::Function(ref function) => function.designator.tree.token,
+            SubprogramSpecification::Procedure(ref procedure) => procedure.designator.tree.token,
         }
     }
 }
@@ -369,7 +374,7 @@ impl CallOrIndexed {
         for elem in parameters.iter_mut() {
             if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {
                 indexes.push(Index {
-                    pos: &elem.actual.pos,
+                    pos: elem.actual.span,
                     expr,
                 });
             }
@@ -386,12 +391,12 @@ impl CallOrIndexed {
 }
 
 pub struct IndexedName<'a> {
-    pub name: &'a mut WithPos<Name>,
+    pub name: &'a mut WithTokenSpan<Name>,
     pub indexes: Vec<Index<'a>>,
 }
 
 pub struct Index<'a> {
-    pub pos: &'a SrcPos,
+    pub pos: TokenSpan,
     pub expr: &'a mut Expression,
 }
 
@@ -418,32 +423,32 @@ impl AttributeName {
 }
 
 impl RangeConstraint {
-    pub fn pos(&self) -> SrcPos {
-        self.left_expr.pos.combine(&self.right_expr.pos)
+    pub fn span(&self) -> TokenSpan {
+        self.left_expr.span.combine(self.right_expr.span)
     }
 }
 
 impl crate::ast::Range {
-    pub fn pos(&self) -> SrcPos {
+    pub fn span(&self) -> TokenSpan {
         use crate::ast::Range::*;
         match self {
-            Range(constraint) => constraint.pos(),
-            Attribute(attr) => attr.name.pos.combine(&attr.attr.pos),
+            Range(constraint) => constraint.span(),
+            Attribute(attr) => attr.name.span.end_with(attr.attr.token),
         }
     }
 }
 
 impl DiscreteRange {
-    pub fn pos(&self) -> SrcPos {
+    pub fn span(&self) -> TokenSpan {
         match self {
-            DiscreteRange::Discrete(type_mark, _) => type_mark.pos.clone(),
-            DiscreteRange::Range(range) => range.pos(),
+            DiscreteRange::Discrete(type_mark, _) => type_mark.span,
+            DiscreteRange::Range(range) => range.span(),
         }
     }
 }
 
 impl SubprogramSpecification {
-    pub fn subpgm_designator(&self) -> &WithPos<SubprogramDesignator> {
+    pub fn subpgm_designator(&self) -> &WithToken<SubprogramDesignator> {
         match self {
             SubprogramSpecification::Procedure(s) => &s.designator.tree,
             SubprogramSpecification::Function(s) => &s.designator.tree,
@@ -459,7 +464,7 @@ impl SubprogramSpecification {
 }
 
 impl SubprogramDeclaration {
-    pub fn subpgm_designator(&self) -> &WithPos<SubprogramDesignator> {
+    pub fn subpgm_designator(&self) -> &WithToken<SubprogramDesignator> {
         self.specification.subpgm_designator()
     }
 

@@ -11,7 +11,7 @@ use crate::data::*;
 use crate::named_entity::{Signature, *};
 use analyze::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn resolve_subtype_indication(
         &self,
         scope: &Scope<'a>,
@@ -30,7 +30,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
                 scope,
-                &type_mark.pos,
+                &type_mark.pos(self.ctx),
                 base_type.base(),
                 &mut constraint.item,
                 diagnostics,
@@ -53,6 +53,7 @@ impl<'a> AnalyzeContext<'a> {
         match type_decl.def {
             TypeDefinition::Enumeration(ref mut enumeration) => {
                 let enum_type = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -74,7 +75,7 @@ impl<'a> AnalyzeContext<'a> {
                         literal.tree.item.clone().into_designator(),
                         enum_type.into(),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
-                        Some(&literal.tree.pos),
+                        Some(literal.pos(self.ctx)),
                         None,
                     );
                     literal.decl.set(literal_ent.id());
@@ -108,12 +109,13 @@ impl<'a> AnalyzeContext<'a> {
                                         if let Some(prev_pos) = ent.decl_pos() {
                                             diagnostics.push(Diagnostic::duplicate_error(
                                                 &type_decl.ident.tree,
-                                                &type_decl.ident.tree.pos,
+                                                type_decl.ident.tree.pos(self.ctx),
                                                 Some(prev_pos),
                                             ))
                                         }
                                     } else {
                                         let ptype_body: &'a AnyEnt = TypeEnt::define_with_opt_id(
+                                            self.ctx,
                                             self.arena,
                                             overwrite_id,
                                             &mut type_decl.ident,
@@ -149,7 +151,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         if !is_ok {
                             diagnostics.add(
-                                type_decl.ident.pos(),
+                                type_decl.ident.pos(self.ctx),
                                 format!("'{}' is not a protected type", &type_decl.ident),
                                 ErrorCode::TypeMismatch,
                             );
@@ -157,7 +159,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     None => {
                         diagnostics.add(
-                            type_decl.ident.pos(),
+                            type_decl.ident.pos(self.ctx),
                             format!("No declaration of protected type '{}'", &type_decl.ident),
                             ErrorCode::Unresolved,
                         );
@@ -168,6 +170,7 @@ impl<'a> AnalyzeContext<'a> {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
                 let ptype: &'a AnyEnt = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -219,6 +222,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let type_ent = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -234,6 +238,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.resolve_subtype_indication(scope, &mut elem_decl.subtype, diagnostics);
                     if let Some(subtype) = as_fatal(subtype)? {
                         let elem = self.arena.define(
+                            self.ctx,
                             &mut elem_decl.ident,
                             type_ent.into(),
                             AnyEntKind::ElementDeclaration(subtype),
@@ -264,6 +269,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.resolve_subtype_indication(scope, subtype_indication, diagnostics);
                 if let Some(subtype) = as_fatal(subtype)? {
                     let type_ent = TypeEnt::define_with_opt_id(
+                        self.ctx,
                         self.arena,
                         overwrite_id,
                         &mut type_decl.ident,
@@ -303,6 +309,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 let is_1d = indexes.len() == 1;
                 let array_ent = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -328,6 +335,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 ))? {
                     let type_ent = TypeEnt::define_with_opt_id(
+                        self.ctx,
                         self.arena,
                         overwrite_id,
                         &mut type_decl.ident,
@@ -347,6 +355,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
 
                 let phys_type = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -357,6 +366,7 @@ impl<'a> AnalyzeContext<'a> {
                 scope.add(phys_type.into(), diagnostics);
 
                 let primary = self.arena.define(
+                    self.ctx,
                     &mut physical.primary_unit,
                     parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
@@ -373,7 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != phys_type {
                                 diagnostics.add(
-                                    &value.unit.item.pos,
+                                    value.unit.item.pos(self.ctx),
                                     format!(
                                         "Physical unit of type '{}' does not match {}",
                                         secondary_unit_type.designator(),
@@ -387,6 +397,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
 
                     let secondary_unit = self.arena.define(
+                        self.ctx,
                         secondary_unit_name,
                         parent,
                         AnyEntKind::PhysicalLiteral(phys_type),
@@ -421,7 +432,7 @@ impl<'a> AnalyzeContext<'a> {
                         UniversalType::Real
                     } else {
                         diagnostics.add(
-                            &range.pos(),
+                            &range.span().pos(self.ctx),
                             "Expected real or integer range",
                             ErrorCode::TypeMismatch,
                         );
@@ -432,6 +443,7 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 let type_ent = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -454,6 +466,7 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::File(ref mut type_mark) => {
                 let file_type = TypeEnt::define_with_opt_id(
+                    self.ctx,
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
@@ -527,7 +540,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         } else {
                             diagnostics.add(
-                                drange.pos(),
+                                drange.span().pos(self.ctx),
                                 format!("Got extra index constraint for {}", base_type.describe()),
                                 ErrorCode::TooManyConstraints,
                             );
@@ -551,7 +564,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(constraint) = constraint {
                         self.analyze_subtype_constraint(
                             scope,
-                            &constraint.pos,
+                            &constraint.span.pos(self.ctx),
                             elem_type.base(),
                             &mut constraint.item,
                             diagnostics,
@@ -590,14 +603,16 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some(elem) = region.lookup(&des) {
                             self.analyze_subtype_constraint(
                                 scope,
-                                &constraint.pos,
+                                &constraint.pos(self.ctx),
                                 elem.type_mark().base(),
                                 &mut constraint.item,
                                 diagnostics,
                             )?;
                         } else {
                             diagnostics.push(Diagnostic::no_declaration_within(
-                                &base_type, &ident.pos, &des,
+                                &base_type,
+                                ident.pos(self.ctx),
+                                &des,
                             ))
                         }
                     }

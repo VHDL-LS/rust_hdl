@@ -1,9 +1,11 @@
 use super::analyze::*;
 use super::scope::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
+use vhdl_lang::TokenSpan;
 
 /// Analysis of assignment targets
 ///
@@ -11,17 +13,17 @@ use crate::named_entity::*;
 ///   target <= 1;
 ///   target(0).elem := 1
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn resolve_target(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         match target.item {
             Target::Name(ref mut name) => {
-                self.resolve_target_name(scope, name, &target.pos, assignment_type, diagnostics)
+                self.resolve_target_name(scope, name, target.span, assignment_type, diagnostics)
             }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(scope, assocs, diagnostics)?;
@@ -34,7 +36,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         target: &mut Name,
-        target_pos: &SrcPos,
+        target_pos: TokenSpan,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
@@ -48,7 +50,7 @@ impl<'a> AnalyzeContext<'a> {
         )?;
         if !object_name.base.can_be_assigned_to() {
             diagnostics.add(
-                target_pos,
+                target_pos.pos(self.ctx),
                 format!(
                     "{} may not be the target of an assignment",
                     object_name.base.describe_class()
@@ -57,7 +59,7 @@ impl<'a> AnalyzeContext<'a> {
             );
         } else if !object_name.base.is_valid_assignment_type(assignment_type) {
             diagnostics.add(
-                target_pos,
+                target_pos.pos(self.ctx),
                 format!(
                     "{} may not be the target of a {} assignment",
                     object_name.base.describe_class(),

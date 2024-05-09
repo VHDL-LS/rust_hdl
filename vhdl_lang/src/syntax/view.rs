@@ -89,8 +89,9 @@ pub(crate) fn parse_element_mode_indication(
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::token_range::WithToken;
     use crate::ast::{Mode, ModeViewDeclaration, ModeViewElement};
-    use crate::data::{ErrorCode, WithPos};
+    use crate::data::ErrorCode;
     use crate::syntax::test::{check_diagnostics, Code};
     use crate::syntax::view::{
         parse_element_mode_indication, parse_mode_view_declaration,
@@ -105,27 +106,27 @@ mod tests {
         let code = Code::with_standard("in", VHDL2019);
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_element_mode_indication),
-            ElementMode::Simple(WithPos::new(Mode::In, code.s1("in")))
+            ElementMode::Simple(WithToken::new(Mode::In, code.s1("in").token()))
         );
         let code = Code::with_standard("out", VHDL2019);
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_element_mode_indication),
-            ElementMode::Simple(WithPos::new(Mode::Out, code.s1("out")))
+            ElementMode::Simple(WithToken::new(Mode::Out, code.s1("out").token()))
         );
         let code = Code::with_standard("inout", VHDL2019);
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_element_mode_indication),
-            ElementMode::Simple(WithPos::new(Mode::InOut, code.s1("inout")))
+            ElementMode::Simple(WithToken::new(Mode::InOut, code.s1("inout").token()))
         );
         let code = Code::with_standard("buffer", VHDL2019);
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_element_mode_indication),
-            ElementMode::Simple(WithPos::new(Mode::Buffer, code.s1("buffer")))
+            ElementMode::Simple(WithToken::new(Mode::Buffer, code.s1("buffer").token()))
         );
         let code = Code::with_standard("linkage", VHDL2019);
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_element_mode_indication),
-            ElementMode::Simple(WithPos::new(Mode::Linkage, code.s1("linkage")))
+            ElementMode::Simple(WithToken::new(Mode::Linkage, code.s1("linkage").token()))
         );
     }
 
@@ -238,7 +239,7 @@ end view foo;
                 ident: code.s1("foo").decl_ident(),
                 typ: code.s1("bar").subtype_indication(),
                 elements: Vec::new(),
-                end_ident_pos: Some(code.s("foo", 2).pos()),
+                end_ident_pos: Some(code.s("foo", 2).token()),
             }
         );
 

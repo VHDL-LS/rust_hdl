@@ -54,11 +54,11 @@ pub(super) struct TestSetup<'a> {
     root: DesignRoot,
     arena: Arena,
     pub scope: Scope<'a>,
-    tokens: MockTokenAccess,
+    pub(crate) tokens: MockTokenAccess,
 }
 
 #[cfg(test)]
-struct MockTokenAccess {
+pub(crate) struct MockTokenAccess {
     token: Token,
 }
 
@@ -104,7 +104,8 @@ impl<'a> TestSetup<'a> {
         }
     }
 
-    pub fn ctx(&'a self) -> AnalyzeContext<'a> {
+    #[allow(clippy::ptr_arg)]
+    pub fn ctx<'t>(&'a self, tokens: &'t Vec<Token>) -> AnalyzeContext<'a, 't> {
         let ctx = AnalyzeContext::new(
             &self.root,
             &UnitId::package(
@@ -112,7 +113,7 @@ impl<'a> TestSetup<'a> {
                 &self.root.symbol_utf8("dummy"),
             ),
             &self.arena,
-            &self.tokens,
+            tokens,
         );
         ctx.add_implicit_context_clause(&self.scope).unwrap();
         ctx
@@ -132,7 +133,7 @@ impl<'a> TestSetup<'a> {
             None,
             None,
         );
-        self.ctx()
+        self.ctx(&code.tokenize())
             .analyze_declarative_part(
                 &self.scope,
                 dummy_parent,
@@ -148,7 +149,7 @@ impl<'a> TestSetup<'a> {
         let designator = self.snippet(sym).designator();
 
         self.scope
-            .lookup(&designator.pos, &designator.item)
+            .lookup(&self.tokens, designator.token, &designator.item)
             .unwrap()
             .into_non_overloaded()
             .unwrap()
@@ -157,8 +158,10 @@ impl<'a> TestSetup<'a> {
     pub fn lookup_overloaded(&'a self, code: Code) -> OverloadedEnt<'a> {
         let des = code.designator();
 
-        if let NamedEntities::Overloaded(overloaded) =
-            self.scope.lookup(&des.pos, &des.item).unwrap()
+        if let NamedEntities::Overloaded(overloaded) = self
+            .scope
+            .lookup(&self.tokens, des.token, &des.item)
+            .unwrap()
         {
             overloaded
                 .entities()

@@ -11,7 +11,7 @@ use crate::named_entity::{EntRef, HasEntityId, Reference, Related};
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
 #[must_use]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum SearchResult {
     Found,
     NotFound,
@@ -39,7 +39,7 @@ impl SearchState {
 pub enum FoundDeclaration<'a> {
     Object(&'a ObjectDeclaration),
     ElementDeclaration(&'a ElementDeclaration),
-    EnumerationLiteral(&'a Ident, &'a WithDecl<WithPos<EnumerationLiteral>>),
+    EnumerationLiteral(&'a Ident, &'a WithDecl<WithToken<EnumerationLiteral>>),
     InterfaceObject(&'a InterfaceObjectDeclaration),
     InterfaceFile(&'a InterfaceFileDeclaration),
     File(&'a FileDeclaration),
@@ -92,7 +92,7 @@ pub trait Searcher {
 
     /// Search an identifier that has a reference to a declaration
     fn search_ident_ref(&mut self, ctx: &dyn TokenAccess, ident: &WithRef<Ident>) -> SearchState {
-        self.search_pos_with_ref(ctx, &ident.item.pos, &ident.reference)
+        self.search_pos_with_ref(ctx, ident.item.pos(ctx), &ident.reference)
     }
 
     /// Search a declaration of a named entity
@@ -213,7 +213,7 @@ fn search_selection<T: Search>(
 }
 
 fn search_assignment<T: Search>(
-    target: &WithPos<Target>,
+    target: &WithTokenSpan<Target>,
     rhs: &AssignmentRightHand<T>,
     searcher: &mut impl Searcher,
     ctx: &dyn TokenAccess,
@@ -240,16 +240,16 @@ fn search_assignment<T: Search>(
     }
 }
 
-impl Search for WithPos<Choice> {
+impl Search for WithTokenSpan<Choice> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
 
         match self.item {
             Choice::DiscreteRange(ref drange) => {
                 return_if_found!(drange.search(ctx, searcher));
             }
             Choice::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &self.pos, expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &self.pos(ctx), expr, searcher));
             }
             Choice::Others => {}
         }
@@ -257,10 +257,10 @@ impl Search for WithPos<Choice> {
     }
 }
 
-impl Search for WithPos<Target> {
+impl Search for WithTokenSpan<Target> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {
-            Target::Name(ref name) => search_pos_name(&self.pos, name, searcher, ctx),
+            Target::Name(ref name) => search_pos_name(&self.pos(ctx), name, searcher, ctx),
             Target::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         }
     }
@@ -286,7 +286,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(expression.search(ctx, searcher));
             }
             SequentialStatement::ProcedureCall(ref pcall) => {
-                return_if_finished!(searcher.search_with_pos(ctx, &pcall.pos));
+                return_if_finished!(searcher.search_with_pos(ctx, &pcall.pos(ctx)));
                 return_if_found!(pcall.item.search(ctx, searcher));
             }
             SequentialStatement::If(ref ifstmt) => {
@@ -324,7 +324,7 @@ impl Search for LabeledSequentialStatement {
                 } = exit_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
-                        .search_pos_with_ref(ctx, &loop_label.item.pos, &loop_label.reference)
+                        .search_pos_with_ref(ctx, loop_label.item.pos(ctx), &loop_label.reference)
                         .or_not_found());
                 }
                 return_if_found!(condition.search(ctx, searcher));
@@ -336,7 +336,7 @@ impl Search for LabeledSequentialStatement {
                 } = next_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
-                        .search_pos_with_ref(ctx, &loop_label.item.pos, &loop_label.reference)
+                        .search_pos_with_ref(ctx, loop_label.item.pos(ctx), &loop_label.reference)
                         .or_not_found());
                 }
                 return_if_found!(condition.search(ctx, searcher));
@@ -441,7 +441,7 @@ impl Search for InstantiationStatement {
                     return_if_found!(searcher
                         .search_pos_with_ref(
                             ctx,
-                            &architecture_name.item.pos,
+                            architecture_name.item.pos(ctx),
                             &architecture_name.reference
                         )
                         .or_not_found());
@@ -530,7 +530,7 @@ impl Search for LabeledConcurrentStatement {
                     call,
                     ..
                 } = pcall;
-                return_if_finished!(searcher.search_with_pos(ctx, &call.pos));
+                return_if_finished!(searcher.search_with_pos(ctx, &call.pos(ctx)));
                 return_if_found!(call.item.search(ctx, searcher));
             }
             ConcurrentStatement::Assert(ref assert) => {
@@ -559,11 +559,11 @@ impl Search for LabeledConcurrentStatement {
     }
 }
 
-impl Search for WithPos<WithRef<Designator>> {
+impl Search for WithToken<WithRef<Designator>> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, self.pos(ctx)));
         searcher
-            .search_designator_ref(ctx, &self.pos, &self.item)
+            .search_designator_ref(ctx, self.pos(ctx), &self.item)
             .or_not_found()
     }
 }
@@ -602,7 +602,7 @@ fn search_pos_name(
             if let AttributeDesignator::Ident(ref user_attr) = attr.item {
                 return_if_finished!(searcher.search_pos_with_ref(
                     ctx,
-                    &attr.pos,
+                    attr.pos(ctx),
                     &user_attr.reference
                 ));
             }
@@ -619,10 +619,10 @@ fn search_pos_name(
     }
 }
 
-impl Search for WithPos<Name> {
+impl Search for WithTokenSpan<Name> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
-        search_pos_name(&self.pos, &self.item, searcher, ctx)
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
+        search_pos_name(&self.pos(ctx), &self.item, searcher, ctx)
     }
 }
 
@@ -634,16 +634,16 @@ impl Search for ElementConstraint {
     }
 }
 
-impl Search for WithPos<ElementConstraint> {
+impl Search for WithTokenSpan<ElementConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         self.item.search(ctx, searcher)
     }
 }
 
-impl Search for WithPos<SubtypeConstraint> {
+impl Search for WithTokenSpan<SubtypeConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         match self.item {
             SubtypeConstraint::Array(ref dranges, ref constraint) => {
                 return_if_found!(dranges.search(ctx, searcher));
@@ -676,9 +676,9 @@ impl Search for SubtypeIndication {
     }
 }
 
-impl Search for WithPos<TypeMark> {
+impl Search for WithTokenSpan<TypeMark> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         self.item.name.search(ctx, searcher)
     }
 }
@@ -785,7 +785,7 @@ impl Search for TypeDeclaration {
             TypeDefinition::Incomplete(ref reference) => {
                 // Incomplete type should reference full declaration
                 return_if_found!(searcher
-                    .search_pos_with_ref(ctx, self.ident.pos(), reference)
+                    .search_pos_with_ref(ctx, self.ident.pos(ctx), reference)
                     .or_not_found());
             }
             TypeDefinition::Enumeration(ref literals) => {
@@ -830,14 +830,14 @@ fn search_pos_expr(
     match expr {
         Expression::Binary(ref op, ref left, ref right) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos, &op.item.reference)
+                .search_pos_with_ref(ctx, op.pos(ctx), &op.item.reference)
                 .or_not_found());
             return_if_found!(left.search(ctx, searcher));
             right.search(ctx, searcher)
         }
         Expression::Unary(ref op, ref expr) => {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &op.pos, &op.item.reference)
+                .search_pos_with_ref(ctx, op.pos(ctx), &op.item.reference)
                 .or_not_found());
             expr.search(ctx, searcher)
         }
@@ -845,7 +845,7 @@ fn search_pos_expr(
         Expression::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
         Expression::New(ref alloc) => {
-            return_if_finished!(searcher.search_with_pos(ctx, &alloc.pos));
+            return_if_finished!(searcher.search_with_pos(ctx, &alloc.pos(ctx)));
             match alloc.item {
                 Allocator::Qualified(ref qexpr) => qexpr.search(ctx, searcher),
                 Allocator::Subtype(ref subtype) => subtype.search(ctx, searcher),
@@ -888,12 +888,17 @@ impl Search for AssociationElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
-            return_if_found!(search_pos_name(&formal.pos, &formal.item, searcher, ctx));
+            return_if_found!(search_pos_name(
+                &formal.pos(ctx),
+                &formal.item,
+                searcher,
+                ctx
+            ));
         }
 
         match actual.item {
             ActualPart::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &actual.pos, expr, searcher));
+                return_if_found!(search_pos_expr(ctx, &actual.pos(ctx), expr, searcher));
             }
             ActualPart::Open => {}
         }
@@ -926,9 +931,9 @@ impl Search for Waveform {
     }
 }
 
-impl Search for WithPos<Expression> {
+impl Search for WithTokenSpan<Expression> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        search_pos_expr(ctx, &self.pos, &self.item, searcher)
+        search_pos_expr(ctx, &self.span.pos(ctx), &self.item, searcher)
     }
 }
 
@@ -1004,7 +1009,7 @@ impl Search for Declaration {
                 }) = entity_name
                 {
                     return_if_found!(searcher
-                        .search_pos_with_ref(ctx, &designator.pos, &designator.item.reference)
+                        .search_pos_with_ref(ctx, designator.pos(ctx), &designator.item.reference)
                         .or_not_found());
                     if let Some(signature) = signature {
                         return_if_found!(signature.item.search(ctx, searcher));
@@ -1097,7 +1102,7 @@ impl Search for ModeViewElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         for name in self.names.items.iter() {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &name.item.pos, &name.reference)
+                .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
                 .or_not_found());
         }
         NotFound
@@ -1224,7 +1229,7 @@ impl Search for LibraryClause {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         for name in self.name_list.items.iter() {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, &name.item.pos, &name.reference)
+                .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
                 .or_not_found());
         }
         NotFound
@@ -1421,7 +1426,7 @@ impl<'a> Searcher for ItemAtCursor<'a> {
         }
     }
 
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let ent = self.root.get_ent(id);
 
@@ -1432,7 +1437,7 @@ impl<'a> Searcher for ItemAtCursor<'a> {
             }
 
             if let Some(end_pos) = decl.end_ident_pos() {
-                return self.search_decl_pos(end_pos, ent);
+                return self.search_decl_pos(ctx.get_pos(end_pos), ent);
             }
         }
         NotFinished
@@ -1621,7 +1626,7 @@ impl<'a> FindAllReferences<'a> {
 }
 
 impl<'a> Searcher for FindAllReferences<'a> {
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let other = self.root.get_ent(id);
 
@@ -1630,7 +1635,7 @@ impl<'a> Searcher for FindAllReferences<'a> {
                     self.references.push(decl_pos.clone());
                 }
                 if let Some(pos) = decl.end_ident_pos() {
-                    self.references.push(pos.clone());
+                    self.references.push(ctx.get_pos(pos).clone());
                 }
             }
         }
@@ -1654,38 +1659,38 @@ impl<'a> Searcher for FindAllReferences<'a> {
 }
 
 impl<'a> FoundDeclaration<'a> {
-    fn end_ident_pos(&self) -> Option<&SrcPos> {
+    fn end_ident_pos(&self) -> Option<TokenId> {
         match self {
             FoundDeclaration::InterfaceObject(_) => None,
             FoundDeclaration::ForIndex(..) => None,
             FoundDeclaration::ForGenerateIndex(..) => None,
-            FoundDeclaration::Subprogram(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Subprogram(value) => value.end_ident_pos,
             FoundDeclaration::SubprogramDecl(..) => None,
             FoundDeclaration::Object(..) => None,
             FoundDeclaration::ElementDeclaration(..) => None,
             FoundDeclaration::EnumerationLiteral(..) => None,
             FoundDeclaration::File(..) => None,
-            FoundDeclaration::Type(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Type(value) => value.end_ident_pos,
             FoundDeclaration::InterfaceType(..) => None,
             FoundDeclaration::InterfacePackage(..) => None,
             FoundDeclaration::InterfaceFile(..) => None,
             FoundDeclaration::PhysicalTypePrimary(..) => None,
             FoundDeclaration::PhysicalTypeSecondary(..) => None,
-            FoundDeclaration::Component(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Component(value) => value.end_ident_pos,
             FoundDeclaration::Attribute(..) => None,
             FoundDeclaration::Alias(..) => None,
-            FoundDeclaration::Package(value) => value.end_ident_pos.as_ref(),
-            FoundDeclaration::PackageBody(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Package(value) => value.end_ident_pos,
+            FoundDeclaration::PackageBody(value) => value.end_ident_pos,
             FoundDeclaration::PackageInstance(..) => None,
-            FoundDeclaration::Configuration(value) => value.end_ident_pos.as_ref(),
-            FoundDeclaration::Entity(value) => value.end_ident_pos.as_ref(),
-            FoundDeclaration::Architecture(value) => value.end_ident_pos.as_ref(),
-            FoundDeclaration::Context(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Configuration(value) => value.end_ident_pos,
+            FoundDeclaration::Entity(value) => value.end_ident_pos,
+            FoundDeclaration::Architecture(value) => value.end_ident_pos,
+            FoundDeclaration::Context(value) => value.end_ident_pos,
             FoundDeclaration::GenerateBody(..) => None,
             FoundDeclaration::ConcurrentStatement(..) => None,
             FoundDeclaration::SequentialStatement(..) => None,
             FoundDeclaration::SubprogramInstantiation(_) => None,
-            FoundDeclaration::View(view) => view.end_ident_pos.as_ref(),
+            FoundDeclaration::View(view) => view.end_ident_pos,
         }
     }
 
@@ -1894,7 +1899,8 @@ pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
 }
 
 #[cfg(test)]
-pub fn check_no_unresolved(tree: &mut impl Search) {
+#[allow(clippy::ptr_arg)]
+pub fn check_no_unresolved(tree: &mut impl Search, tokens: &Vec<Token>) {
     #[derive(Default)]
     struct CheckNoUnresolved;
 
@@ -1911,6 +1917,5 @@ pub fn check_no_unresolved(tree: &mut impl Search) {
     }
 
     let mut searcher = CheckNoUnresolved;
-    let tokens: Vec<Token> = Vec::new();
-    let _ = tree.search(&tokens, &mut searcher);
+    let _ = tree.search(tokens, &mut searcher);
 }

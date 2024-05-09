@@ -10,10 +10,8 @@ use super::*;
 use crate::ast::Designator;
 use crate::ast::HasDesignator;
 use crate::ast::WithRef;
-use crate::data::WithPos;
 use crate::named_entity::visibility::Visibility;
 use crate::Diagnostic;
-use crate::SrcPos;
 
 pub enum Design<'a> {
     Entity(Visibility<'a>, Region<'a>),
@@ -78,8 +76,9 @@ impl<'a> DesignEnt<'a> {
 
     pub fn selected(
         &self,
-        prefix_pos: &SrcPos,
-        suffix: &WithPos<WithRef<Designator>>,
+        ctx: &dyn TokenAccess,
+        prefix_pos: TokenSpan,
+        suffix: &WithToken<WithRef<Designator>>,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         match self.kind() {
             Design::Package(_, ref region)
@@ -90,12 +89,15 @@ impl<'a> DesignEnt<'a> {
                 } else {
                     Err(Diagnostic::no_declaration_within(
                         self,
-                        &suffix.pos,
+                        suffix.pos(ctx),
                         &suffix.item.item,
                     ))
                 }
             }
-            _ => Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos)),
+            _ => Err(Diagnostic::invalid_selected_name_prefix(
+                self,
+                &prefix_pos.pos(ctx),
+            )),
         }
     }
 }

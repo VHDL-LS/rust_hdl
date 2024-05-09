@@ -12,6 +12,7 @@ use super::object_declaration::parse_optional_assignment;
 use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
+use crate::ast::token_range::WithToken;
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
@@ -21,8 +22,9 @@ use vhdl_lang::VHDLStandard::VHDL2019;
 
 pub(crate) fn parse_optional_mode(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<WithPos<Mode>>> {
+) -> ParseResult<Option<WithToken<Mode>>> {
     let token = ctx.stream.peek_expect()?;
+    let id = ctx.stream.get_current_token_id();
     let mode = match token.kind {
         In => Mode::In,
         Out => Mode::Out,
@@ -32,7 +34,7 @@ pub(crate) fn parse_optional_mode(
         _ => return Ok(None),
     };
     ctx.stream.skip();
-    Ok(Some(WithPos::new(mode, token.pos.clone())))
+    Ok(Some(WithToken::new(mode, id)))
 }
 
 fn unexpected_object_class_kind(list_type: InterfaceType, token: &Token) -> Diagnostic {
@@ -46,8 +48,9 @@ fn unexpected_object_class_kind(list_type: InterfaceType, token: &Token) -> Diag
 fn parse_optional_object_class(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
-) -> ParseResult<Option<WithPos<ObjectClass>>> {
+) -> ParseResult<Option<WithToken<ObjectClass>>> {
     let token = ctx.stream.peek_expect()?;
+    let id = ctx.stream.get_current_token_id();
 
     let class = match token.kind {
         Constant => ObjectClass::Constant,
@@ -57,7 +60,7 @@ fn parse_optional_object_class(
         _ => return Err(unexpected_object_class_kind(list_type, token)),
     };
     ctx.stream.skip();
-    Ok(Some(WithPos::new(class, token.pos.clone())))
+    Ok(Some(WithToken::new(class, id)))
 }
 
 fn parse_interface_file_declaration(
@@ -71,7 +74,7 @@ fn parse_interface_file_declaration(
     if ctx.stream.next_kind_is(Open) {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
-                ident,
+                ident.pos(ctx),
                 "interface_file_declaration may not have file open information",
             ));
         }
@@ -79,7 +82,7 @@ fn parse_interface_file_declaration(
     if ctx.stream.next_kind_is(Is) {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
-                ident,
+                ident.pos(ctx),
                 "interface_file_declaration may not have file name",
             ));
         }
@@ -152,13 +155,13 @@ fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeV
 fn parse_simple_mode_indication(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
-    explicit_object_class: Option<&WithPos<ObjectClass>>,
+    explicit_object_class: Option<&WithToken<ObjectClass>>,
     idents: &[Ident],
 ) -> ParseResult<SimpleModeIndication> {
-    let object_class_pos = explicit_object_class.map(|class| &class.pos);
+    let object_class_tok = explicit_object_class.map(|class| class.token);
     let mode_with_pos = parse_optional_mode(ctx)?;
     let mode = mode_with_pos.as_ref().map(|mode| mode.item);
-    let mode_pos = mode_with_pos.map(|mode| mode.pos);
+    let mode_tok = mode_with_pos.map(|mode| mode.token);
 
     let object_class = match (
         list_type,
@@ -179,25 +182,25 @@ fn parse_simple_mode_indication(
     // @TODO maybe move this to a semantic check?
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode.unwrap_or_default() != Mode::In {
-            let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
+            let token_id = mode_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(token_id),
                 "Interface constant declaration may only have mode=in",
             ));
         };
 
         if list_type == InterfaceType::Port && object_class != ObjectClass::Signal {
-            let pos = object_class_pos.unwrap_or(&ident.pos);
+            let tok = object_class_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(tok),
                 "Port list only allows signal object class",
             ));
         };
 
         if list_type == InterfaceType::Generic && object_class != ObjectClass::Constant {
-            let pos = object_class_pos.unwrap_or(&ident.pos);
+            let tok = object_class_tok.unwrap_or(ident.token);
             return Err(Diagnostic::syntax_error(
-                pos,
+                ctx.get_pos(tok),
                 "Generic list only allows constant object class",
             ));
         };

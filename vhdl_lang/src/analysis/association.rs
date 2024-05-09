@@ -7,6 +7,7 @@
 use crate::analysis::names::ObjectName;
 use fnv::FnvHashMap;
 use itertools::Itertools;
+use vhdl_lang::TokenSpan;
 
 use super::analyze::*;
 use super::names::ResolvedName;
@@ -83,12 +84,12 @@ impl<'a> ResolvedFormal<'a> {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     fn resolve_formal(
         &self,
         formal_region: &FormalRegion<'a>,
         scope: &Scope<'a>,
-        name_pos: &SrcPos,
+        name_pos: TokenSpan,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ResolvedFormal<'a>> {
@@ -97,14 +98,14 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
                     scope,
-                    &prefix.pos,
+                    prefix.span,
                     &mut prefix.item,
                     diagnostics,
                 )?;
 
                 let suffix_ent = resolved_prefix
                     .type_mark
-                    .selected(&prefix.pos, suffix)
+                    .selected(self.ctx, prefix.span, suffix)
                     .into_eval_result(diagnostics)?;
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
@@ -113,19 +114,28 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         Ok(resolved_formal)
                     } else {
-                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                        bail!(
+                            diagnostics,
+                            Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                        );
                     }
                 } else {
-                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                    bail!(
+                        diagnostics,
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                    );
                 }
             }
 
             Name::SelectedAll(_) => {
-                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                bail!(
+                    diagnostics,
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                );
             }
             Name::Designator(designator) => {
                 let (idx, ent) = formal_region
-                    .lookup(name_pos, designator.designator())
+                    .lookup(&name_pos.pos(self.ctx), designator.item.designator())
                     .into_eval_result(diagnostics)?;
                 designator.set_unique_reference(ent.inner());
                 Ok(ResolvedFormal::new_basic(idx, ent))
@@ -134,30 +144,42 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
                     scope,
-                    &prefix.pos,
+                    prefix.span,
                     &mut prefix.item,
                     diagnostics,
                 )?;
 
                 if resolved_prefix.is_converted {
                     // Converted formals may not be further selected
-                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                    bail!(
+                        diagnostics,
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                    );
                 }
 
                 self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
                 Ok(resolved_prefix.partial())
             }
             Name::Attribute(..) => {
-                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                bail!(
+                    diagnostics,
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                );
             }
             Name::CallOrIndexed(ref mut fcall) => {
                 let prefix = if let Some(prefix) = fcall.name.item.prefix() {
                     prefix
                 } else {
-                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                    bail!(
+                        diagnostics,
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                    );
                 };
 
-                if formal_region.lookup(name_pos, prefix.designator()).is_err() {
+                if formal_region
+                    .lookup(&name_pos.pos(self.ctx), prefix.designator())
+                    .is_err()
+                {
                     // The prefix of the name was not found in the formal region
                     // it must be a type conversion or a single parameter function call
 
@@ -175,12 +197,15 @@ impl<'a> AnalyzeContext<'a> {
                             )?,
                         )
                     } else {
-                        bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
+                        bail!(
+                            diagnostics,
+                            Diagnostic::invalid_formal_conversion(name_pos.pos(self.ctx))
+                        );
                     };
 
                     let converted_typ = match as_fatal(self.name_resolve(
                         scope,
-                        &fcall.name.pos,
+                        fcall.name.span,
                         &mut fcall.name.item,
                         diagnostics,
                     ))? {
@@ -189,7 +214,11 @@ impl<'a> AnalyzeContext<'a> {
                             if !typ.base().is_closely_related(ctyp) {
                                 bail!(
                                     diagnostics,
-                                    Diagnostic::invalid_type_conversion(pos, ctyp, typ)
+                                    Diagnostic::invalid_type_conversion(
+                                        pos.pos(self.ctx),
+                                        ctyp,
+                                        typ
+                                    )
                                 );
                             }
                             typ
@@ -209,7 +238,10 @@ impl<'a> AnalyzeContext<'a> {
 
                             if candidates.len() > 1 {
                                 // Ambiguous call
-                                bail!(diagnostics, Diagnostic::ambiguous_call(&des, candidates));
+                                bail!(
+                                    diagnostics,
+                                    Diagnostic::ambiguous_call(self.ctx, &des, candidates)
+                                );
                             } else if let Some(ent) = candidates.pop() {
                                 fcall.name.set_unique_reference(&ent);
                                 ent.return_type().unwrap()
@@ -218,7 +250,7 @@ impl<'a> AnalyzeContext<'a> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.pos,
+                                        &fcall.name.pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -230,7 +262,10 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                         _ => {
-                            bail!(diagnostics, Diagnostic::invalid_formal_conversion(name_pos));
+                            bail!(
+                                diagnostics,
+                                Diagnostic::invalid_formal_conversion(name_pos.pos(self.ctx))
+                            );
                         }
                     };
 
@@ -239,7 +274,7 @@ impl<'a> AnalyzeContext<'a> {
                     let resolved_prefix = self.resolve_formal(
                         formal_region,
                         scope,
-                        &indexed_name.name.pos,
+                        indexed_name.name.span,
                         &mut indexed_name.name.item,
                         diagnostics,
                     )?;
@@ -256,14 +291,23 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(resolved_formal) = resolved_prefix.partial_with_typ(new_typ) {
                         Ok(resolved_formal)
                     } else {
-                        bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                        bail!(
+                            diagnostics,
+                            Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                        );
                     }
                 } else {
-                    bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                    bail!(
+                        diagnostics,
+                        Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                    );
                 }
             }
             Name::External(..) => {
-                bail!(diagnostics, Diagnostic::invalid_formal(name_pos));
+                bail!(
+                    diagnostics,
+                    Diagnostic::invalid_formal(name_pos.pos(self.ctx))
+                );
             }
         }
     }
@@ -281,7 +325,7 @@ impl<'a> AnalyzeContext<'a> {
                     fail = true;
 
                     diagnostics.add(
-                        formal,
+                        formal.pos(self.ctx),
                         "Named arguments are not allowed before positional arguments",
                         ErrorCode::NamedBeforePositional,
                     );
@@ -304,7 +348,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<(&'e SrcPos, Option<ResolvedFormal<'a>>)>> {
+    ) -> EvalResult<Vec<(TokenSpan, Option<ResolvedFormal<'a>>)>> {
         self.check_positional_before_named(elems, diagnostics)?;
 
         // Formal region index => actual position, resolved formal
@@ -316,46 +360,46 @@ impl<'a> AnalyzeContext<'a> {
                 let resolved_formal = as_fatal(self.resolve_formal(
                     formal_region,
                     scope,
-                    &formal.pos,
+                    formal.span,
                     &mut formal.item,
                     diagnostics,
                 ))?;
 
-                result.push((&formal.pos, resolved_formal));
+                result.push((formal.span, resolved_formal));
             } else if let Some(formal) = formal_region.nth(actual_idx) {
                 // Actual index is same as formal index for positional argument
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
-                result.push((&actual.pos, Some(formal)));
+                result.push((actual.span, Some(formal)));
             } else {
                 diagnostics.add(
-                    &actual.pos,
+                    &actual.pos(self.ctx),
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
                 );
-                result.push((&actual.pos, None));
+                result.push((actual.span, None));
             };
         }
         Ok(result)
     }
 
-    fn check_missing_and_duplicates<'e>(
+    fn check_missing_and_duplicates(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
-        resolved_pairs: &[(&'e SrcPos, Option<ResolvedFormal<'a>>)],
+        resolved_pairs: &[(TokenSpan, Option<ResolvedFormal<'a>>)],
         formal_region: &FormalRegion<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<TypeEnt<'a>>> {
         let mut is_error = false;
         let mut result = Vec::default();
 
-        let mut associated: FnvHashMap<usize, (&SrcPos, ResolvedFormal)> = Default::default();
+        let mut associated: FnvHashMap<usize, (TokenSpan, ResolvedFormal)> = Default::default();
         for (actual_pos, resolved_formal) in resolved_pairs.iter() {
             match resolved_formal {
                 Some(resolved_formal) => {
                     if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
                         if !(resolved_formal.is_partial && prev_formal.is_partial) {
                             let mut diag = Diagnostic::new(
-                                actual_pos,
+                                actual_pos.pos(self.ctx),
                                 format!(
                                     "{} has already been associated",
                                     resolved_formal.iface.describe(),
@@ -363,13 +407,13 @@ impl<'a> AnalyzeContext<'a> {
                                 ErrorCode::AlreadyAssociated,
                             );
 
-                            diag.add_related(prev_pos, "Previously associated here");
+                            diag.add_related(prev_pos.pos(self.ctx), "Previously associated here");
                             is_error = true;
                             diagnostics.push(diag);
                         }
                     }
                     result.push(resolved_formal.type_mark);
-                    associated.insert(resolved_formal.idx, (actual_pos, *resolved_formal));
+                    associated.insert(resolved_formal.idx, (*actual_pos, *resolved_formal));
                 }
                 None => {
                     is_error = true;
@@ -452,19 +496,19 @@ impl<'a> AnalyzeContext<'a> {
                                     resolved_formal,
                                     expr,
                                     scope,
-                                    &actual.pos,
+                                    actual.span,
                                     diagnostics,
                                 )?;
                             }
                             self.expr_pos_with_ttyp(
                                 scope,
                                 resolved_formal.type_mark,
-                                &actual.pos,
+                                actual.span,
                                 expr,
                                 diagnostics,
                             )?;
                         } else {
-                            self.expr_pos_unknown_ttyp(scope, &actual.pos, expr, diagnostics)?;
+                            self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
                         }
                     }
                     ActualPart::Open => {}
@@ -481,7 +525,7 @@ impl<'a> AnalyzeContext<'a> {
         resolved_formal: &ResolvedFormal<'a>,
         expr: &mut Expression,
         scope: &Scope<'a>,
-        actual_pos: &SrcPos,
+        actual_pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match resolved_formal.iface.interface_class() {
@@ -490,7 +534,7 @@ impl<'a> AnalyzeContext<'a> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a signal",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -501,7 +545,7 @@ impl<'a> AnalyzeContext<'a> {
                                                     ) if base.class() == ObjectClass::Signal)
                 {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Name must denote a signal name",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -512,7 +556,7 @@ impl<'a> AnalyzeContext<'a> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a variable or shared variable",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -523,7 +567,7 @@ impl<'a> AnalyzeContext<'a> {
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
                 {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Name must denote a variable name",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -534,7 +578,7 @@ impl<'a> AnalyzeContext<'a> {
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Expression must be a name denoting a file",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -545,7 +589,7 @@ impl<'a> AnalyzeContext<'a> {
                     AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_)
                 )) {
                     diagnostics.add(
-                        actual_pos,
+                        actual_pos.pos(self.ctx),
                         "Name must denote a file name",
                         ErrorCode::InterfaceModeMismatch,
                     );
@@ -560,12 +604,12 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         expr: &mut Expression,
         scope: &Scope<'a>,
-        pos: &SrcPos,
+        span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ResolvedName> {
         match expr {
             Expression::Name(name) => {
-                let resolved = self.name_resolve(scope, pos, name, diagnostics)?;
+                let resolved = self.name_resolve(scope, span, name, diagnostics)?;
                 Ok(resolved)
             }
             _ => Err(EvalError::Unknown),
@@ -575,7 +619,7 @@ impl<'a> AnalyzeContext<'a> {
 
 fn to_formal_conversion_argument(
     parameters: &mut [AssociationElement],
-) -> Option<(&SrcPos, &mut Box<Name>)> {
+) -> Option<(TokenSpan, &mut Box<Name>)> {
     if let &mut [AssociationElement {
         ref formal,
         ref mut actual,
@@ -584,7 +628,7 @@ fn to_formal_conversion_argument(
         if formal.is_some() {
             return None;
         } else if let ActualPart::Expression(Expression::Name(ref mut actual_name)) = actual.item {
-            return Some((&actual.pos, actual_name));
+            return Some((actual.span, actual_name));
         }
     }
     None

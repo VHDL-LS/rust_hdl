@@ -10,6 +10,7 @@ use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause;
 use super::names::{parse_name, parse_selected_name};
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -112,7 +113,7 @@ fn parse_component_configuration_known_spec(
 
 enum ComponentSpecificationOrName {
     ComponentSpec(ComponentSpecification),
-    Name(WithPos<Name>),
+    Name(WithTokenSpan<Name>),
 }
 
 fn parse_component_specification_or_name(
@@ -145,7 +146,7 @@ fn parse_component_specification_or_name(
             match sep_token.kind {
                 Colon => {
                     ctx.stream.skip();
-                    let ident = to_simple_name(name)?;
+                    let ident = to_simple_name(ctx.stream, name)?;
                     let component_name = parse_selected_name(ctx)?;
                     Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
                         instantiation_list: InstantiationList::Labels(vec![ident]),
@@ -154,7 +155,7 @@ fn parse_component_specification_or_name(
                 }
                 Comma => {
                     ctx.stream.skip();
-                    let mut idents = vec![to_simple_name(name)?];
+                    let mut idents = vec![to_simple_name(ctx.stream, name)?];
                     loop {
                         idents.push(ctx.stream.expect_ident()?);
                         expect_token!(
@@ -193,7 +194,7 @@ fn parse_configuration_item_known_keyword(
 
 fn parse_block_configuration_known_name(
     ctx: &mut ParsingContext<'_>,
-    name: WithPos<Name>,
+    name: WithTokenSpan<Name>,
 ) -> ParseResult<BlockConfiguration> {
     let block_spec = name;
     // @TODO use clauses
@@ -340,7 +341,7 @@ pub fn parse_configuration_specification(
             }
         }
         ComponentSpecificationOrName::Name(name) => Err(Diagnostic::syntax_error(
-            name,
+            name.pos(ctx.stream),
             "Expected component specification",
         )),
     }
@@ -404,7 +405,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -437,7 +438,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -472,7 +473,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -501,7 +502,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -545,7 +546,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -592,7 +593,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -650,7 +651,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -699,7 +700,7 @@ end configuration cfg;
                         block_config: None,
                     }),],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }
@@ -779,7 +780,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                end_ident_pos: Some(code.s("cfg", 2).pos())
+                end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
     }

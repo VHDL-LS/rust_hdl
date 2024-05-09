@@ -111,7 +111,7 @@ impl Declaration {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_declarative_part(
         &self,
         scope: &Scope<'a>,
@@ -143,20 +143,21 @@ impl<'a> AnalyzeContext<'a> {
                                     find_full_type_definition(type_decl.ident.name(), remaining);
 
                                 let (decl_pos, span) = match full_definiton {
-                                    Some(full_decl) => {
-                                        (full_decl.ident.pos(), Some(full_decl.span))
-                                    }
+                                    Some(full_decl) => (
+                                        self.ctx.get_pos(full_decl.ident.tree.token),
+                                        Some(full_decl.span),
+                                    ),
                                     None => {
                                         let error = Diagnostic::new(
-                                            type_decl.ident.pos(),
+                                            type_decl.ident.pos(self.ctx),
                                             format!(
                                                 "Missing full type declaration of incomplete type '{}'",
                                                 type_decl.ident.name()
                                             ),
                                             ErrorCode::MissingFullTypeDeclaration,
-                                        ).related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
+                                        ).related(type_decl.ident.pos(self.ctx), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
-                                        (type_decl.ident.pos(), None)
+                                        (type_decl.ident.pos(self.ctx), None)
                                     }
                                 };
 
@@ -173,7 +174,7 @@ impl<'a> AnalyzeContext<'a> {
                                 );
                                 reference.set_unique_reference(ent);
 
-                                entry.insert((ent, type_decl.ident.pos().clone()));
+                                entry.insert((ent, type_decl.ident.pos(self.ctx).clone()));
                                 scope.add(ent, diagnostics);
                             }
                             Entry::Occupied(entry) => {
@@ -181,7 +182,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                 diagnostics.push(Diagnostic::duplicate_error(
                                     &type_decl.ident,
-                                    type_decl.ident.pos(),
+                                    type_decl.ident.pos(self.ctx),
                                     Some(decl_pos),
                                 ));
                             }
@@ -231,7 +232,7 @@ impl<'a> AnalyzeContext<'a> {
             span,
         } = alias;
 
-        let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
+        let resolved_name = self.name_resolve(scope, name.span, &mut name.item, diagnostics);
 
         if let Some(ref mut subtype_indication) = subtype_indication {
             // Object alias
@@ -244,7 +245,10 @@ impl<'a> AnalyzeContext<'a> {
             match resolved_name {
                 ResolvedName::ObjectName(oname) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature(
+                            "Alias",
+                            signature.pos(self.ctx),
+                        ));
                     }
                     match oname.base {
                         ObjectBase::Object(base_object) => AnyEntKind::ObjectAlias {
@@ -269,10 +273,13 @@ impl<'a> AnalyzeContext<'a> {
                 | ResolvedName::Design(_)
                 | ResolvedName::Expression(_) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature(
+                            "Alias",
+                            signature.pos(self.ctx),
+                        ));
                     }
                     diagnostics.add(
-                        &name.pos,
+                        &name.pos(self.ctx),
                         format!("{} cannot be aliased", resolved_name.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -280,7 +287,10 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Type(typ) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature(
+                            "Alias",
+                            signature.pos(self.ctx),
+                        ));
                     }
                     AnyEntKind::Type(Type::Alias(typ))
                 }
@@ -296,14 +306,14 @@ impl<'a> AnalyzeContext<'a> {
                             AnyEntKind::Overloaded(Overloaded::Alias(ent))
                         } else {
                             diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                &des.pos,
+                                des.pos(self.ctx),
                                 &des.item,
                                 &overloaded,
                             ));
                             return Err(EvalError::Unknown);
                         }
                     } else {
-                        diagnostics.push(Diagnostic::signature_required(name));
+                        diagnostics.push(Diagnostic::signature_required(name.pos(self.ctx)));
                         return Err(EvalError::Unknown);
                     }
                 }
@@ -318,7 +328,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
-        Ok(designator.define(self.arena, parent, kind, Some(*span)))
+        Ok(designator.define(self.ctx, self.arena, parent, kind, Some(*span)))
     }
 
     pub(crate) fn analyze_declaration(
@@ -370,7 +380,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.expr_pos_with_ttyp(
                             scope,
                             subtype.type_mark(),
-                            &expr.pos,
+                            expr.span,
                             &mut expr.item,
                             diagnostics,
                         )?;
@@ -410,7 +420,7 @@ impl<'a> AnalyzeContext<'a> {
                             Related::None
                         },
                         kind,
-                        Some(object_decl.ident.tree.pos().clone()),
+                        Some(object_decl.ident.pos(self.ctx).clone()),
                         Some(src_span),
                     );
                     object_decl.ident.decl.set(object_ent.id());
@@ -442,8 +452,13 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(subtype) = subtype {
                     scope.add(
-                        self.arena
-                            .define(ident, parent, AnyEntKind::File(subtype), Some(src_span)),
+                        self.arena.define(
+                            self.ctx,
+                            ident,
+                            parent,
+                            AnyEntKind::File(subtype),
+                            Some(src_span),
+                        ),
                         diagnostics,
                     );
                 }
@@ -451,6 +466,7 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::Component(ref mut component) => {
                 let nested = scope.nested();
                 let ent = self.arena.define(
+                    self.ctx,
                     &mut component.ident,
                     parent,
                     AnyEntKind::Component(Region::default()),
@@ -480,6 +496,7 @@ impl<'a> AnalyzeContext<'a> {
                     ))? {
                         scope.add(
                             self.arena.define(
+                                self.ctx,
                                 &mut attr_decl.ident,
                                 parent,
                                 AnyEntKind::Attribute(typ),
@@ -547,6 +564,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::SubprogramInstantiation(ref mut instance) => {
                 let subpgm_ent = self.arena.define(
+                    self.ctx,
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
@@ -558,7 +576,7 @@ impl<'a> AnalyzeContext<'a> {
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
                     scope,
-                    &referenced_name.pos,
+                    referenced_name.span,
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
@@ -582,6 +600,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Package(ref mut instance) => {
                 let ent = self.arena.define(
+                    self.ctx,
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
@@ -627,7 +646,7 @@ impl<'a> AnalyzeContext<'a> {
             Type::Record(region) => region,
             _ => {
                 let diag = Diagnostic::new(
-                    &view.typ.type_mark,
+                    &view.typ.type_mark.pos(self.ctx),
                     format!(
                         "The type of a view must be a record type, not {}",
                         typ.type_mark().describe()
@@ -647,7 +666,7 @@ impl<'a> AnalyzeContext<'a> {
                 let desi = Designator::Identifier(name.item.item.clone());
                 let Some(record_element) = record_region.lookup(&desi) else {
                     diagnostics.push(Diagnostic::new(
-                        &name.item.pos,
+                        name.item.pos(self.ctx),
                         format!("Not a part of {}", typ.type_mark().describe()),
                         ErrorCode::Unresolved,
                     ));
@@ -659,12 +678,13 @@ impl<'a> AnalyzeContext<'a> {
         }
         if !unassociated.is_empty() {
             diagnostics.add(
-                &view.ident.tree,
+                view.ident.pos(self.ctx),
                 pretty_format_unassociated_message(&unassociated),
                 ErrorCode::Unassociated,
             );
         }
         Ok(self.arena.define(
+            self.ctx,
             &mut view.ident,
             parent,
             AnyEntKind::View(typ),
@@ -701,7 +721,8 @@ impl<'a> AnalyzeContext<'a> {
         } = attr_spec;
 
         let attr_ent = match scope.lookup(
-            &ident.item.pos,
+            self.ctx,
+            ident.item.token,
             &Designator::Identifier(ident.item.name().clone()),
         ) {
             Ok(NamedEntities::Single(ent)) => {
@@ -710,14 +731,14 @@ impl<'a> AnalyzeContext<'a> {
                     self.expr_pos_with_ttyp(
                         scope,
                         attr_ent.typ(),
-                        &expr.pos,
+                        expr.span,
                         &mut expr.item,
                         diagnostics,
                     )?;
                     attr_ent
                 } else {
                     diagnostics.add(
-                        &ident.item.pos,
+                        ident.item.pos(self.ctx),
                         format!("{} is not an attribute", ent.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -726,7 +747,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Ok(NamedEntities::Overloaded(_)) => {
                 diagnostics.add(
-                    &ident.item.pos,
+                    ident.item.pos(self.ctx),
                     format!("Overloaded name '{}' is not an attribute", ident.item),
                     ErrorCode::MismatchedKinds,
                 );
@@ -743,14 +764,15 @@ impl<'a> AnalyzeContext<'a> {
             signature,
         }) = entity_name
         {
-            let ent: EntRef = match scope.lookup(&designator.pos, &designator.item.item) {
+            let ent: EntRef = match scope.lookup(self.ctx, designator.token, &designator.item.item)
+            {
                 Ok(NamedEntities::Single(ent)) => {
                     designator.set_unique_reference(ent);
 
                     if let Some(signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Attribute specification",
-                            &signature.pos,
+                            &signature.pos(self.ctx),
                         ));
                     }
                     ent
@@ -766,7 +788,7 @@ impl<'a> AnalyzeContext<'a> {
                                     ent.into()
                                 } else {
                                     diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                        &designator.pos,
+                                        designator.pos(self.ctx),
                                         &designator.item.item,
                                         &overloaded,
                                     ));
@@ -781,7 +803,7 @@ impl<'a> AnalyzeContext<'a> {
                         designator.set_unique_reference(ent);
                         ent
                     } else {
-                        diagnostics.push(Diagnostic::signature_required(designator));
+                        diagnostics.push(Diagnostic::signature_required(designator.pos(self.ctx)));
                         return Ok(());
                     }
                 }
@@ -796,7 +818,7 @@ impl<'a> AnalyzeContext<'a> {
 
             if Some(*entity_class) != get_entity_class(ent) {
                 diagnostics.add(
-                    designator,
+                    designator.pos(self.ctx),
                     format!("{} is not of class {}", ent.describe(), entity_class),
                     ErrorCode::MismatchedEntityClass,
                 );
@@ -810,7 +832,7 @@ impl<'a> AnalyzeContext<'a> {
                 | EntityClass::Configuration => {
                     if ent != parent {
                         diagnostics.add(
-                            designator,
+                            designator.pos(self.ctx),
                             "Attribute specification must be in the immediate declarative part",
                             ErrorCode::MisplacedAttributeSpec,
                         );
@@ -831,7 +853,7 @@ impl<'a> AnalyzeContext<'a> {
                 | EntityClass::Label => {
                     if ent.parent != Some(parent) {
                         diagnostics.add(
-                            designator,
+                            designator.pos(self.ctx),
                             "Attribute specification must be in the immediate declarative part",
                             ErrorCode::MisplacedAttributeSpec,
                         );
@@ -840,7 +862,10 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            let res = unsafe { self.arena.add_attr(ent.id(), &designator.pos, attr_ent) };
+            let res = unsafe {
+                self.arena
+                    .add_attr(ent.id(), designator.pos(self.ctx), attr_ent)
+            };
 
             if let Err(diagnostic) = res {
                 diagnostics.push(diagnostic);
@@ -865,6 +890,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
                 self.arena.define(
+                    self.ctx,
                     &mut file_decl.ident,
                     parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
@@ -876,6 +902,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InterfaceDeclaration::Type(ref mut ident) => {
                 let typ = TypeEnt::from_any(self.arena.define(
+                    self.ctx,
                     ident,
                     parent,
                     AnyEntKind::Type(Type::Interface),
@@ -916,6 +943,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
 
                 self.arena.define(
+                    self.ctx,
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
@@ -938,6 +966,7 @@ impl<'a> AnalyzeContext<'a> {
                 let (subtype, class) =
                     self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
                 Ok(self.arena.define(
+                    self.ctx,
                     &mut object_decl.ident,
                     parent,
                     AnyEntKind::Object(Object {
@@ -954,8 +983,8 @@ impl<'a> AnalyzeContext<'a> {
             }
             ModeIndication::View(view) => {
                 let resolved =
-                    self.name_resolve(scope, &view.name.pos, &mut view.name.item, diagnostics)?;
-                let view_ent = self.resolve_view_ent(&resolved, diagnostics, &view.name.pos)?;
+                    self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
+                let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
                 if let Some(ast_declared_subtype) = &mut view.subtype_indication {
                     let declared_subtype =
                         self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
@@ -963,7 +992,7 @@ impl<'a> AnalyzeContext<'a> {
                         bail!(
                             diagnostics,
                             Diagnostic::new(
-                                &ast_declared_subtype.type_mark,
+                                &ast_declared_subtype.type_mark.pos(self.ctx),
                                 "Specified subtype must match the subtype declared for the view",
                                 ErrorCode::TypeMismatch
                             )
@@ -971,6 +1000,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 Ok(self.arena.define(
+                    self.ctx,
                     &mut object_decl.ident,
                     parent,
                     AnyEntKind::Object(Object {
@@ -999,7 +1029,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.expr_pos_with_ttyp(
                     scope,
                     subtype.type_mark(),
-                    &expression.pos,
+                    expression.span,
                     &mut expression.item,
                     diagnostics,
                 )?;

@@ -9,15 +9,15 @@ use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
-use crate::data::WithPos;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_optional_assignment(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<WithPos<Expression>>> {
+) -> ParseResult<Option<WithTokenSpan<Expression>>> {
     if ctx.stream.pop_if_kind(ColonEq).is_some() {
         let expr = parse_expression(ctx)?;
         Ok(Some(expr))
@@ -109,7 +109,7 @@ pub fn parse_file_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<F
     if open_info.is_some() && file_name.is_none() {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
-                ident,
+                ident.pos(ctx),
                 "file_declaration must have a file name specified if the file open expression is specified as well",
             ));
         }

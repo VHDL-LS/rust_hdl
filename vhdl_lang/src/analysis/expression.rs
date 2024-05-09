@@ -6,16 +6,19 @@
 
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
+use vhdl_lang::TokenAccess;
 
 use super::analyze::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::overloaded::ResolvedCall;
 use super::scope::*;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
+use crate::{TokenId, TokenSpan};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExpressionType<'a> {
@@ -57,16 +60,16 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
-pub(super) struct TypeMatcher<'c, 'a> {
+pub(super) struct TypeMatcher<'c, 'a, 't> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
 
     // Allow implicit type conversion from abstract types to universal real/integer
     implicit_type_conversion_from_universal: bool,
-    context: &'c AnalyzeContext<'a>,
+    context: &'c AnalyzeContext<'a, 't>,
 }
 
-impl<'c, 'a> TypeMatcher<'c, 'a> {
+impl<'c, 'a, 't> TypeMatcher<'c, 'a, 't> {
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
         if types.match_type(ttyp) {
@@ -153,8 +156,8 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
-    pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
+    pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: false,
             implicit_type_conversion_from_universal: false,
@@ -162,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn any_matcher(&self) -> TypeMatcher<'_, 'a> {
+    pub fn any_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: true,
             implicit_type_conversion_from_universal: true,
@@ -170,7 +173,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a> {
+    pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a, 't> {
         TypeMatcher {
             implicit_type_conversion: true,
             implicit_type_conversion_from_universal: false,
@@ -213,16 +216,16 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expr_unknown_ttyp(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.expr_pos_unknown_ttyp(scope, &expr.pos, &mut expr.item, diagnostics)
+        self.expr_pos_unknown_ttyp(scope, expr.span, &mut expr.item, diagnostics)
     }
 
     pub fn expr_unambiguous_type(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         match self.expr_type(scope, expr, diagnostics)? {
@@ -232,8 +235,8 @@ impl<'a> AnalyzeContext<'a> {
             | ExpressionType::Null
             | ExpressionType::Aggregate => {
                 diagnostics.add(
-                &expr.pos,
-                "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+                    expr.pos(self.ctx),
+                    "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
                     ErrorCode::AmbiguousExpression,
             );
                 Err(EvalError::Unknown)
@@ -245,13 +248,13 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         diagnostics: &mut dyn DiagnosticHandler,
         scope: &Scope<'a>,
-        op_pos: &SrcPos,
+        op_pos: TokenId,
         op: Operator,
         arity: usize,
     ) -> EvalResult<Vec<OverloadedEnt<'a>>> {
         let designator = Designator::OperatorSymbol(op);
         match scope
-            .lookup(op_pos, &designator)
+            .lookup(self.ctx, op_pos, &designator)
             .into_eval_result(diagnostics)?
         {
             NamedEntities::Single(ent) => {
@@ -259,7 +262,7 @@ impl<'a> AnalyzeContext<'a> {
                 bail!(
                     diagnostics,
                     Diagnostic::internal(
-                        op_pos,
+                        op_pos.pos(self.ctx),
                         format!(
                             "Operator symbol cannot denote non-overloaded symbol {}",
                             ent.describe(),
@@ -278,7 +281,7 @@ impl<'a> AnalyzeContext<'a> {
                     bail!(
                         diagnostics,
                         Diagnostic::new(
-                            op_pos,
+                            self.ctx.get_pos(op_pos),
                             format!("Found no match for {}", designator.describe()),
                             ErrorCode::Unresolved,
                         )
@@ -293,7 +296,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn operand_types(
         &self,
         scope: &Scope<'a>,
-        operands: &mut [&mut WithPos<Expression>],
+        operands: &mut [&mut WithTokenSpan<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<ExpressionType<'a>>> {
         let mut operand_types = Vec::with_capacity(operands.len());
@@ -315,15 +318,15 @@ impl<'a> AnalyzeContext<'a> {
     pub fn check_op(
         &self,
         scope: &Scope<'a>,
-        op: &mut WithPos<WithRef<Operator>>,
+        op: &mut WithToken<WithRef<Operator>>,
         overloaded: OverloadedEnt<'a>,
-        exprs: &mut [&mut WithPos<Expression>],
+        exprs: &mut [&mut WithTokenSpan<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         op.set_unique_reference(&overloaded);
         for (idx, expr) in exprs.iter_mut().enumerate() {
             let target_type = overloaded.formals().nth(idx).unwrap().type_mark();
-            self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_pos_with_ttyp(scope, target_type, expr.span, &mut expr.item, diagnostics)?;
         }
         Ok(())
     }
@@ -332,9 +335,9 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>, // Optional target type constraint
-        op: &mut WithPos<WithRef<Operator>>,
+        op: &mut WithToken<WithRef<Operator>>,
         overloaded: Vec<OverloadedEnt<'a>>,
-        exprs: &mut [&mut WithPos<Expression>],
+        exprs: &mut [&mut WithTokenSpan<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Disambiguated<'a>> {
         // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous operators
@@ -407,7 +410,7 @@ impl<'a> AnalyzeContext<'a> {
 
         if candidates.is_empty() {
             diagnostics.add(
-                &op.pos,
+                self.ctx.get_pos(op.token),
                 format!("Found no match for {}", designator.describe()),
                 ErrorCode::Unresolved,
             );
@@ -433,12 +436,12 @@ impl<'a> AnalyzeContext<'a> {
     pub fn operator_type(
         &self,
         scope: &Scope<'a>,
-        op: &mut WithPos<WithRef<Operator>>,
-        exprs: &mut [&mut WithPos<Expression>],
+        op: &mut WithToken<WithRef<Operator>>,
+        exprs: &mut [&mut WithTokenSpan<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ExpressionType<'a>> {
         let op_candidates =
-            self.lookup_operator(diagnostics, scope, &op.pos, op.item.item, exprs.len())?;
+            self.lookup_operator(diagnostics, scope, op.token, op.item.item, exprs.len())?;
 
         match self.disambiguate_op(scope, None, op, op_candidates, exprs, diagnostics)? {
             Disambiguated::Unambiguous(overloaded) => Ok(ExpressionType::Unambiguous(
@@ -456,16 +459,16 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expr_type(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ExpressionType<'a>> {
-        self.expr_pos_type(scope, &expr.pos, &mut expr.item, diagnostics)
+        self.expr_pos_type(scope, expr.span, &mut expr.item, diagnostics)
     }
 
     pub fn expr_pos_type(
         &self,
         scope: &Scope<'a>,
-        expr_pos: &SrcPos,
+        span: TokenSpan,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ExpressionType<'a>> {
@@ -477,7 +480,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.operator_type(scope, op, &mut [inner.as_mut()], diagnostics)
             }
             Expression::Name(ref mut name) => self
-                .expression_name_types(scope, expr_pos, name.as_mut(), diagnostics)
+                .expression_name_types(scope, span, name.as_mut(), diagnostics)
                 .map(ExpressionType::from),
             Expression::Aggregate(_) => Ok(ExpressionType::Aggregate),
             Expression::Qualified(ref mut qexpr) => {
@@ -506,11 +509,11 @@ impl<'a> AnalyzeContext<'a> {
                 Literal::String(_) => Ok(ExpressionType::String),
                 Literal::BitString(_) => Ok(ExpressionType::String),
                 Literal::Character(chr) => {
-                    match scope.lookup(expr_pos, &Designator::Character(*chr)) {
+                    match scope.lookup(self.ctx, span, &Designator::Character(*chr)) {
                         Ok(NamedEntities::Single(ent)) => {
                             // Should never happen but better know if it does
                             diagnostics.add(
-                                expr_pos,
+                                span.pos(self.ctx),
                                 format!(
                                     "Character literal cannot denote non-overloaded symbol {}",
                                     ent.describe(),
@@ -526,7 +529,7 @@ impl<'a> AnalyzeContext<'a> {
                                     Ok(ExpressionType::Unambiguous(return_type))
                                 } else {
                                     diagnostics.add(
-                                        expr_pos,
+                                        span.pos(self.ctx),
                                         format!(
                                             "Character literal cannot denote procedure symbol {}",
                                             ent.describe(),
@@ -566,11 +569,11 @@ impl<'a> AnalyzeContext<'a> {
     pub fn expr_pos_unknown_ttyp(
         &self,
         scope: &Scope<'a>,
-        pos: &SrcPos,
+        span: TokenSpan,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        as_fatal(self.expr_pos_type(scope, pos, expr, diagnostics))?;
+        as_fatal(self.expr_pos_type(scope, span, expr, diagnostics))?;
         Ok(())
     }
 
@@ -587,7 +590,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.expr_pos_with_ttyp(
                     scope,
                     target_type,
-                    &expr.pos,
+                    expr.span,
                     &mut expr.item,
                     diagnostics,
                 )?;
@@ -603,7 +606,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_allocation(
         &self,
         scope: &Scope<'a>,
-        alloc: &mut WithPos<Allocator>,
+        alloc: &mut WithTokenSpan<Allocator>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match &mut alloc.item {
@@ -621,16 +624,18 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)
+        self.expr_pos_with_ttyp(scope, target_type, expr.span, &mut expr.item, diagnostics)
     }
 
-    fn implicit_bool_types(&self, scope: &Scope<'a>, pos: &SrcPos) -> FnvHashSet<BaseType<'a>> {
-        if let Ok(NamedEntities::Overloaded(overloaded)) =
-            scope.lookup(pos, &Designator::OperatorSymbol(Operator::QueQue))
-        {
+    fn implicit_bool_types(&self, scope: &Scope<'a>, span: TokenSpan) -> FnvHashSet<BaseType<'a>> {
+        if let Ok(NamedEntities::Overloaded(overloaded)) = scope.lookup(
+            self.ctx,
+            span,
+            &Designator::OperatorSymbol(Operator::QueQue),
+        ) {
             overloaded
                 .entities()
                 .filter_map(|ent| ent.formals().nth(0).map(|typ| typ.type_mark().base()))
@@ -644,17 +649,17 @@ impl<'a> AnalyzeContext<'a> {
     pub fn boolean_expr(
         &self,
         scope: &Scope<'a>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(types) = as_fatal(self.expr_type(scope, expr, diagnostics))? {
             match types {
                 ExpressionType::Unambiguous(typ) => {
                     if typ.base() != self.boolean().base() {
-                        let implicit_bools = self.implicit_bool_types(scope, &expr.pos);
+                        let implicit_bools = self.implicit_bool_types(scope, expr.span);
                         if !implicit_bools.contains(&typ.base()) {
                             diagnostics.add(
-                                &expr.pos,
+                                expr.pos(self.ctx),
                                 format!(
                                     "{} cannot be implicitly converted to {}. Operator ?? is not defined for this type.",
                                     typ.describe(),
@@ -670,7 +675,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.expr_with_ttyp(scope, self.boolean(), expr, diagnostics)?;
                     } else {
                         let implicit_bool_types: FnvHashSet<_> = self
-                            .implicit_bool_types(scope, &expr.pos)
+                            .implicit_bool_types(scope, expr.span)
                             .intersection(&types)
                             .cloned()
                             .collect();
@@ -682,7 +687,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                             std::cmp::Ordering::Greater => {
                                 let mut diag = Diagnostic::new(
-                                    &expr.pos,
+                                    &expr.pos(self.ctx),
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
@@ -692,7 +697,7 @@ impl<'a> AnalyzeContext<'a> {
 
                             std::cmp::Ordering::Less => {
                                 let mut diag = Diagnostic::new(
-                                    &expr.pos,
+                                    expr.pos(self.ctx),
                                     format!(
                                         "Cannot disambiguate expression to {}",
                                         self.boolean().describe()
@@ -723,22 +728,18 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
-        expr_pos: &SrcPos,
+        span: TokenSpan,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let target_base = target_type.base_type();
         match expr {
-            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
-                scope,
-                target_type,
-                expr_pos,
-                lit,
-                diagnostics,
-            )?,
+            Expression::Literal(ref mut lit) => {
+                self.analyze_literal_with_target_type(scope, target_type, span, lit, diagnostics)?
+            }
             Expression::Name(ref mut name) => self.expression_name_with_ttyp(
                 scope,
-                expr_pos,
+                span,
                 name.as_mut(),
                 target_type,
                 diagnostics,
@@ -749,7 +750,7 @@ impl<'a> AnalyzeContext<'a> {
                 {
                     if !self.can_be_target_type(type_mark, target_base.base()) {
                         diagnostics.push(Diagnostic::type_mismatch(
-                            expr_pos,
+                            &span.pos(self.ctx),
                             &type_mark.describe(),
                             target_type,
                         ));
@@ -760,7 +761,7 @@ impl<'a> AnalyzeContext<'a> {
                 let op_candidates = match as_fatal(self.lookup_operator(
                     diagnostics,
                     scope,
-                    &op.pos,
+                    op.token,
                     op.item.item,
                     2,
                 ))? {
@@ -781,7 +782,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         if !self.can_be_target_type(op_type, target_type.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
-                                expr_pos,
+                                &span.pos(self.ctx),
                                 &op_type.describe(),
                                 target_type,
                             ));
@@ -789,7 +790,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(
-                            &op.pos,
+                            op.pos(self.ctx),
                             op.item.item,
                             candidates,
                         ));
@@ -801,7 +802,7 @@ impl<'a> AnalyzeContext<'a> {
                 let op_candidates = match as_fatal(self.lookup_operator(
                     diagnostics,
                     scope,
-                    &op.pos,
+                    op.token,
                     op.item.item,
                     1,
                 ))? {
@@ -824,7 +825,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         if !self.can_be_target_type(op_type, target_type.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
-                                expr_pos,
+                                &span.pos(self.ctx),
                                 &op_type.describe(),
                                 target_type,
                             ));
@@ -832,7 +833,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(
-                            &op.pos,
+                            op.pos(self.ctx),
                             op.item.item,
                             candidates,
                         ));
@@ -860,7 +861,7 @@ impl<'a> AnalyzeContext<'a> {
                         scope,
                         target_base,
                         record_scope,
-                        expr_pos,
+                        span,
                         assocs,
                         diagnostics,
                     )?;
@@ -869,7 +870,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_aggregate(scope, assocs, diagnostics)?;
 
                     diagnostics.add(
-                        expr_pos,
+                        span.pos(self.ctx),
                         format!("composite does not match {}", target_type.describe()),
                         ErrorCode::TypeMismatch,
                     );
@@ -918,7 +919,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         record_type: TypeEnt<'a>,
         elems: &RecordRegion<'a>,
-        full_pos: &SrcPos,
+        span: TokenSpan,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -930,6 +931,7 @@ impl<'a> AnalyzeContext<'a> {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
                     let typ = if choices.len() == 1 {
                         let choice = choices.first_mut().unwrap();
+                        let choice_span = choice.span;
                         match &mut choice.item {
                             Choice::Expression(choice_expr) => {
                                 if let Some(simple_name) =
@@ -937,13 +939,18 @@ impl<'a> AnalyzeContext<'a> {
                                 {
                                     if let Some(elem) = elems.lookup(&simple_name.item) {
                                         simple_name.set_unique_reference(&elem);
-                                        associated.associate(&elem, &choice.pos, diagnostics);
+                                        associated.associate(
+                                            self.ctx,
+                                            &elem,
+                                            choice.span,
+                                            diagnostics,
+                                        );
                                         Some(elem.type_mark().base())
                                     } else {
                                         is_ok_so_far = false;
                                         diagnostics.push(Diagnostic::no_declaration_within(
                                             &record_type,
-                                            &choice.pos,
+                                            &choice_span.pos(self.ctx),
                                             &simple_name.item,
                                         ));
                                         None
@@ -951,7 +958,7 @@ impl<'a> AnalyzeContext<'a> {
                                 } else {
                                     is_ok_so_far = false;
                                     diagnostics.add(
-                                        &choice.pos,
+                                        &choice.pos(self.ctx),
                                         "Record aggregate choice must be a simple name",
                                         ErrorCode::MismatchedKinds,
                                     );
@@ -961,7 +968,7 @@ impl<'a> AnalyzeContext<'a> {
                             Choice::DiscreteRange(_) => {
                                 is_ok_so_far = false;
                                 diagnostics.add(
-                                    &choice.pos,
+                                    &choice.pos(self.ctx),
                                     "Record aggregate choice must be a simple name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -981,7 +988,7 @@ impl<'a> AnalyzeContext<'a> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::new(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
+                                    let mut diag = Diagnostic::new(&choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1000,7 +1007,7 @@ impl<'a> AnalyzeContext<'a> {
                                 } else if remaining_types.is_empty() {
                                     diagnostics.push(
                                         Diagnostic::new(
-                                            &choice.pos,
+                                            &choice.pos(self.ctx),
                                             format!(
                                             "All elements of record '{}' are already associated",
                                             record_type.designator()
@@ -1019,7 +1026,12 @@ impl<'a> AnalyzeContext<'a> {
 
                                 for elem in elems.iter() {
                                     if !associated.is_associated(&elem) {
-                                        associated.associate(&elem, &choice.pos, diagnostics);
+                                        associated.associate(
+                                            self.ctx,
+                                            &elem,
+                                            choice.span,
+                                            diagnostics,
+                                        );
                                     }
                                 }
 
@@ -1033,9 +1045,9 @@ impl<'a> AnalyzeContext<'a> {
                     } else {
                         if let (Some(first), Some(last)) = (choices.first(), choices.last()) {
                             is_ok_so_far = false;
-                            let pos = first.pos.combine(&last.pos);
+                            let pos = first.span.combine(last.span);
                             diagnostics.add(
-                                &pos,
+                                pos.pos(self.ctx),
                                 "Record aggregate choice must be a simple name",
                                 ErrorCode::MismatchedKinds,
                             );
@@ -1047,7 +1059,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.expr_pos_with_ttyp(
                             scope,
                             typ.into(),
-                            &actual_expr.pos,
+                            actual_expr.span,
                             &mut actual_expr.item,
                             diagnostics,
                         )?;
@@ -1058,13 +1070,13 @@ impl<'a> AnalyzeContext<'a> {
                 ElementAssociation::Positional(ref mut expr) => {
                     if let Some(elem) = elems.nth(idx) {
                         self.expr_with_ttyp(scope, elem.type_mark(), expr, diagnostics)?;
-                        associated.associate(elem, &expr.pos, diagnostics);
+                        associated.associate(self.ctx, elem, expr.span, diagnostics);
                     } else {
                         self.expr_unknown_ttyp(scope, expr, diagnostics)?;
 
                         diagnostics.push(
                             Diagnostic::new(
-                                &expr.pos,
+                                expr.pos(self.ctx),
                                 format!(
                                     "Unexpected positional association for record '{}'",
                                     record_type.designator()
@@ -1087,7 +1099,7 @@ impl<'a> AnalyzeContext<'a> {
                 if !associated.is_associated(&elem) {
                     diagnostics.push(
                         Diagnostic::new(
-                            full_pos,
+                            span.pos(self.ctx),
                             format!(
                                 "Missing association of record element '{}'",
                                 elem.designator()
@@ -1125,7 +1137,7 @@ impl<'a> AnalyzeContext<'a> {
                         Choice::Expression(index_expr) => {
                             match self.expr_as_discrete_range_type(
                                 scope,
-                                &choice.pos,
+                                choice.span,
                                 index_expr,
                                 diagnostics,
                             )? {
@@ -1133,7 +1145,7 @@ impl<'a> AnalyzeContext<'a> {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
-                                                &choice.pos,
+                                                &choice.pos(self.ctx),
                                                 &typ.describe(),
                                                 index_type.into(),
                                             ));
@@ -1147,7 +1159,7 @@ impl<'a> AnalyzeContext<'a> {
                                         self.expr_pos_with_ttyp(
                                             scope,
                                             index_type.into(),
-                                            &choice.pos,
+                                            choice.span,
                                             index_expr,
                                             diagnostics,
                                         )?;
@@ -1193,7 +1205,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             } else {
                 diagnostics.add(
-                    &expr.pos,
+                    &expr.pos(self.ctx),
                     format!(
                         "Expected sub-aggregate for target {}",
                         array_type.describe()
@@ -1209,12 +1221,12 @@ impl<'a> AnalyzeContext<'a> {
 
             if is_elem || !is_array {
                 // Prefer element type in presence of ambiguity
-                self.expr_pos_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
+                self.expr_pos_with_ttyp(scope, elem_type, expr.span, &mut expr.item, diagnostics)?;
             } else if is_array {
-                self.expr_pos_with_ttyp(scope, array_type, &expr.pos, &mut expr.item, diagnostics)?;
+                self.expr_pos_with_ttyp(scope, array_type, expr.span, &mut expr.item, diagnostics)?;
             }
         } else {
-            self.expr_pos_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_pos_with_ttyp(scope, elem_type, expr.span, &mut expr.item, diagnostics)?;
         }
 
         Ok(())
@@ -1241,26 +1253,27 @@ impl Diagnostic {
 }
 
 #[derive(Default)]
-struct RecordAssociations<'a>(FnvHashMap<EntityId, &'a SrcPos>);
+struct RecordAssociations(FnvHashMap<EntityId, TokenSpan>);
 
-impl<'a> RecordAssociations<'a> {
+impl RecordAssociations {
     fn associate(
         &mut self,
+        ctx: &dyn TokenAccess,
         elem: &RecordElement,
-        pos: &'a SrcPos,
+        pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some(prev_pos) = self.0.insert(elem.id(), pos) {
             diagnostics.push(
                 Diagnostic::new(
-                    pos,
+                    pos.pos(ctx),
                     format!(
                         "Record element '{}' has already been associated",
                         elem.designator()
                     ),
                     ErrorCode::AlreadyAssociated,
                 )
-                .related(prev_pos, "Previously associated here"),
+                .related(prev_pos.pos(ctx), "Previously associated here"),
             );
         }
     }
@@ -1286,7 +1299,11 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> Option<ExpressionType<'a>> {
             let mut expr = code.expr();
-            as_fatal(self.ctx().expr_type(&self.scope, &mut expr, diagnostics)).unwrap()
+            as_fatal(
+                self.ctx(&code.tokenize())
+                    .expr_type(&self.scope, &mut expr, diagnostics),
+            )
+            .unwrap()
         }
 
         fn expr_with_ttyp(
@@ -1296,8 +1313,8 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) {
             let mut expr = code.expr();
-            self.ctx()
-                .expr_pos_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)
+            self.ctx(&code.tokenize())
+                .expr_pos_with_ttyp(&self.scope, ttyp, expr.span, &mut expr.item, diagnostics)
                 .unwrap()
         }
     }
@@ -1357,7 +1374,7 @@ mod test {
         assert_eq!(
             test.expr_type(&test.snippet("0"), &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&Vec::new()).universal_integer().into()
             ))
         );
     }
@@ -1368,7 +1385,7 @@ mod test {
         assert_eq!(
             test.expr_type(&test.snippet("0.0"), &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_real().into()
+                test.ctx(&Vec::new()).universal_real().into()
             ))
         );
     }
@@ -1623,7 +1640,7 @@ function \"+\"(a : integer; b : character) return integer;
         assert_eq!(
             test.expr_type(&code, &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(
-                test.ctx().universal_integer().into()
+                test.ctx(&code.tokenize()).universal_integer().into()
             ))
         );
     }
@@ -1644,13 +1661,13 @@ function with_arg(arg : natural) return integer;
         let code = test.snippet("no_arg");
         test.expr_with_ttyp(
             &code,
-            test.ctx().universal_integer().into(),
+            test.ctx(&code.tokenize()).universal_integer().into(),
             &mut NoDiagnostics,
         );
         let code = test.snippet("with_arg(0)");
         test.expr_with_ttyp(
             &code,
-            test.ctx().universal_integer().into(),
+            test.ctx(&code.tokenize()).universal_integer().into(),
             &mut NoDiagnostics,
         );
     }

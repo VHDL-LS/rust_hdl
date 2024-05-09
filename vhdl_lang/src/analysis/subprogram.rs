@@ -5,6 +5,7 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::names::*;
 use super::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -13,7 +14,7 @@ use crate::{ast, HasTokenSpan};
 use analyze::*;
 use itertools::Itertools;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     fn subprogram_header(
         &self,
         scope: &Scope<'a>,
@@ -51,7 +52,7 @@ impl<'a> AnalyzeContext<'a> {
                 .into_designator(),
             parent,
             AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
-            Some(&subprogram.subpgm_designator().pos),
+            Some(subprogram.subpgm_designator().pos(self.ctx)),
             None,
         );
 
@@ -135,7 +136,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_signature(
         &self,
         scope: &Scope<'a>,
-        signature: &mut WithPos<ast::Signature>,
+        signature: &mut WithTokenSpan<ast::Signature>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
@@ -215,7 +216,7 @@ impl<'a> AnalyzeContext<'a> {
         match as_fatal(self.generic_instance(
             inst_subprogram_ent,
             scope,
-            &instance.ident.tree.pos,
+            instance.ident.tree.pos(self.ctx),
             region,
             &mut instance.generic_map,
             diagnostics,
@@ -229,7 +230,8 @@ impl<'a> AnalyzeContext<'a> {
                 ) {
                     Ok(signature) => Ok(signature),
                     Err((err, code)) => {
-                        let mut diag = Diagnostic::new(&instance.ident.tree.pos, err, code);
+                        let mut diag =
+                            Diagnostic::new(instance.ident.tree.pos(self.ctx), err, code);
                         if let Some(pos) = uninstantiated_subprogram.decl_pos() {
                             diag.add_related(pos, "When instantiating this declaration");
                         }
@@ -255,7 +257,7 @@ impl<'a> AnalyzeContext<'a> {
             None => None,
             Some(ref mut signature) => Some((
                 self.resolve_signature(scope, signature, diagnostics)?,
-                signature.pos.clone(),
+                signature.pos(self.ctx),
             )),
         };
         let overloaded_ent = match name {
@@ -266,7 +268,7 @@ impl<'a> AnalyzeContext<'a> {
                     .collect_vec();
                 if choices.is_empty() {
                     diagnostics.add(
-                        &instantiation.ident.tree.pos,
+                        instantiation.ident.tree.pos(self.ctx),
                         format!(
                             "{} does not denote an uninstantiated subprogram",
                             name.describe()
@@ -306,7 +308,7 @@ impl<'a> AnalyzeContext<'a> {
                         resolved_ent
                     } else {
                         diagnostics.add(
-                            &instantiation.subprogram_name.pos,
+                            &instantiation.subprogram_name.pos(self.ctx),
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
@@ -319,7 +321,7 @@ impl<'a> AnalyzeContext<'a> {
                     // There are multiple candidates
                     // and there is no signature to resolve
                     let mut err = Diagnostic::new(
-                        &instantiation.subprogram_name.pos,
+                        &instantiation.subprogram_name.pos(self.ctx),
                         format!("Ambiguous instantiation of '{}'", overloaded.designator()),
                         ErrorCode::AmbiguousInstantiation,
                     );
@@ -334,7 +336,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             _ => {
                 diagnostics.add(
-                    &instantiation.subprogram_name.pos,
+                    &instantiation.subprogram_name.pos(self.ctx),
                     format!(
                         "{} does not denote an uninstantiated subprogram",
                         name.describe()
@@ -348,7 +350,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(overloaded_ent)
         } else {
             diagnostics.add(
-                &instantiation.subprogram_name.pos,
+                &instantiation.subprogram_name.pos(self.ctx),
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
                 ErrorCode::MismatchedKinds,
             );

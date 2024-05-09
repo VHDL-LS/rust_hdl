@@ -7,19 +7,20 @@
 use super::analyze::*;
 use super::scope::*;
 use super::target::AssignmentType;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a> AnalyzeContext<'a> {
+impl<'a, 't> AnalyzeContext<'a, 't> {
     // @TODO maybe make generic function for expression/waveform.
     // wait until type checking to see if it makes sense
     pub fn analyze_expr_assignment(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
-        rhs: &mut AssignmentRightHand<WithPos<Expression>>,
+        rhs: &mut AssignmentRightHand<WithTokenSpan<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let ttyp = as_fatal(self.resolve_target(scope, target, assignment_type, diagnostics))?;
@@ -59,7 +60,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_waveform_assignment(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithPos<Target>,
+        target: &mut WithTokenSpan<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -124,7 +125,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>,
-        expr: &mut WithPos<Expression>,
+        expr: &mut WithTokenSpan<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(ttyp) = ttyp {

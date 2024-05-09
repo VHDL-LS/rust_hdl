@@ -30,6 +30,7 @@ use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer, Value
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
@@ -202,12 +203,80 @@ impl Code {
         self.start_to_pos(substr_match_range.end)
     }
 
+    /// Slices the code from the position given by the substring to the end
+    /// ```
+    /// let code = Code::new("foo bar baz");
+    /// assert_eq!(code.s1_to_end("bar"), Code::new("bar baz"));
+    /// ```
     pub fn s1_to_end(&self, substr: &str) -> Code {
         self.s_to_end(substr, 1)
     }
 
+    /// Slices the code from the start to the position given by the substring
+    /// ```
+    /// let code = Code::new("foo bar baz");
+    /// assert_eq!(code.s1_from_start("bar"), Code::new("foo bar"));
+    /// ```
     pub fn s1_from_start(&self, substr: &str) -> Code {
         self.s_from_start(substr, 1)
+    }
+
+    /// Returns the code in between the begin and end
+    /// ```
+    /// let code = Code::new("foo bar 123 baz foobar");
+    /// assert_eq!(code.between("bar", "baz"), Code::new("bar 123 baz"));
+    /// ```
+    pub fn between(&self, begin: &str, end: &str) -> Code {
+        self.s1_to_end(begin).s1_from_start(end)
+    }
+
+    /// Turns this code object into a new code object.
+    ///
+    /// By default, all operations leave the source untouched and instead only modify an internal
+    /// window. Therefore, the following holds true:
+    /// ```
+    /// use vhdl_lang::{Position, Range};
+    /// let code = Code::new("foo bar baz");
+    /// let code_slice = code.s1("bar");
+    /// assert_eq!(code_slice.pos().range(), Range::new(Position::new(0, 4), Position::new(0, 7)));
+    /// ```
+    /// In other words, even though the code slice only "contains" the 'bar' token,
+    /// the position is still correct.
+    ///
+    /// In contrast, this function will create a new code object with new source information:
+    /// ```
+    /// use vhdl_lang::{Position, Range};
+    /// let code = Code::new("foo bar baz");
+    /// let code_slice = code.s1("bar").to_new();
+    /// assert_eq!(code_slice.pos().range(), Range::new(Position::new(0, 0), Position::new(0, 3)));
+    /// ```
+    /// Note that the symbol table stays the same.
+    ///
+    /// The use-case for this is when dealing with token spans with different primary units.
+    /// For example, the following VHDL snippet defines two units:
+    /// ```vhdl
+    /// entity foo is
+    /// end foo;
+    ///
+    /// entity bar is
+    /// end entity bar;
+    /// ```
+    /// The expression `code.s1("bar").token()` would return the token with offset 7.
+    /// However, tokens are stored per design unit. Therefore, this should return 1 in the
+    /// context of the 'bar' entity.
+    /// The expression `code.between("entity bar", ";").to_new().s1("bar").token()` correctly
+    /// returns 1 as index.
+    /// Note, however, that this will yield an incorrect source position.
+    pub fn to_new(&self) -> Code {
+        let new_contents = self.source().contents().crop(self.pos.range());
+        let range = new_contents.range();
+        let new_source = Source::from_contents(self.source().file_name(), new_contents);
+        let pos = SrcPos::new(new_source, range);
+        Code {
+            pos,
+            standard: self.standard,
+            symbols: self.symbols.clone(),
+        }
     }
 
     /// Create new Code from n:th occurence of substr
@@ -488,7 +557,7 @@ impl Code {
         self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
     }
 
-    pub fn attr_ident(&self) -> WithPos<AttributeDesignator> {
+    pub fn attr_ident(&self) -> WithToken<AttributeDesignator> {
         self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident())
             .map_into(|i| AttributeDesignator::Ident(WithRef::new(i)))
     }
@@ -497,36 +566,37 @@ impl Code {
         WithDecl::new(self.parse_ok_no_diagnostics(|ctx| ctx.stream.expect_ident()))
     }
 
-    pub fn designator(&self) -> WithPos<Designator> {
+    pub fn designator(&self) -> WithToken<Designator> {
         self.parse_ok_no_diagnostics(parse_designator)
     }
 
-    pub fn decl_designator(&self) -> WithDecl<WithPos<Designator>> {
+    pub fn decl_designator(&self) -> WithDecl<WithToken<Designator>> {
         WithDecl::new(self.parse_ok_no_diagnostics(parse_designator))
     }
-    pub fn ref_designator(&self) -> WithPos<WithRef<Designator>> {
+
+    pub fn ref_designator(&self) -> WithToken<WithRef<Designator>> {
         self.parse_ok_no_diagnostics(parse_designator)
             .map_into(WithRef::new)
     }
 
-    pub fn character(&self) -> WithPos<u8> {
+    pub fn character(&self) -> WithToken<u8> {
         self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
             let id = ctx.stream.expect_kind(Kind::Character)?;
-            ctx.stream.get_token(id).to_character_value()
+            ctx.stream.get_token(id).to_character_value(id)
         })
     }
 
     /// Helper method to create expression from first occurrence of substr
     /// Can be used to test all but expression parsing
-    pub fn expr(&self) -> WithPos<Expression> {
+    pub fn expr(&self) -> WithTokenSpan<Expression> {
         self.parse_ok_no_diagnostics(parse_expression)
     }
 
-    pub fn name(&self) -> WithPos<Name> {
+    pub fn name(&self) -> WithTokenSpan<Name> {
         self.parse_ok_no_diagnostics(parse_name)
     }
 
-    pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
+    pub fn name_list(&self) -> SeparatedList<WithTokenSpan<Name>> {
         self.parse_ok_no_diagnostics(parse_name_list)
     }
 
@@ -534,11 +604,11 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
-    pub fn type_mark(&self) -> WithPos<TypeMark> {
+    pub fn type_mark(&self) -> WithTokenSpan<TypeMark> {
         self.parse_ok_no_diagnostics(parse_type_mark)
     }
 
-    pub fn signature(&self) -> WithPos<Signature> {
+    pub fn signature(&self) -> WithTokenSpan<Signature> {
         self.parse_ok_no_diagnostics(parse_signature)
     }
 
@@ -597,18 +667,18 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_parameter)
     }
 
-    pub fn function_call(&self) -> WithPos<CallOrIndexed> {
+    pub fn function_call(&self) -> WithTokenSpan<CallOrIndexed> {
         let name = self.name();
         match name.item {
-            Name::CallOrIndexed(call) => WithPos::new(*call, name.pos),
+            Name::CallOrIndexed(call) => WithTokenSpan::from(*call, name.span),
             _ => {
-                let pos = name.pos.clone();
-                WithPos::new(
+                let span = name.span;
+                WithTokenSpan::from(
                     CallOrIndexed {
                         name,
                         parameters: vec![],
                     },
-                    pos,
+                    span,
                 )
             }
         }
@@ -649,7 +719,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_waveform)
     }
 
-    pub fn aggregate(&self) -> WithPos<Vec<ElementAssociation>> {
+    pub fn aggregate(&self) -> WithTokenSpan<Vec<ElementAssociation>> {
         self.parse_ok_no_diagnostics(parse_aggregate)
     }
 
@@ -661,7 +731,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_discrete_range)
     }
 
-    pub fn choices(&self) -> Vec<WithPos<Choice>> {
+    pub fn choices(&self) -> Vec<WithTokenSpan<Choice>> {
         self.parse_ok_no_diagnostics(parse_choices)
     }
 
@@ -872,6 +942,12 @@ impl AsRef<SrcPos> for Code {
         &self.pos
     }
 }
+
+/* impl AsRef<TokenSpan> for Code {
+    fn as_ref(&self) -> &TokenSpan {
+        &self.token_span()
+    }
+} */
 
 fn value_to_string(value: &Value) -> String {
     match value {

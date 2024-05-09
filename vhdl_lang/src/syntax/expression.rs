@@ -8,16 +8,16 @@ use super::common::ParseResult;
 use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*};
-use crate::ast;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
-use crate::data::{Diagnostic, WithPos};
+use crate::data::Diagnostic;
 use crate::syntax::TokenAccess;
+use crate::{ast, TokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
 
-fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
-    WithPos {
-        item: Expression::Name(Box::new(name.item)),
-        pos: name.pos,
+impl WithTokenSpan<Name> {
+    pub fn into_expression(self) -> WithTokenSpan<Expression> {
+        self.map_into(|name| Expression::Name(Box::new(name)))
     }
 }
 
@@ -145,19 +145,20 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 
 pub fn parse_aggregate_initial_choices(
     ctx: &mut ParsingContext<'_>,
-    choices: Vec<WithPos<Choice>>,
-) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
+    choices: Vec<WithTokenSpan<Choice>>,
+) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
     let mut choices = choices;
     let mut result = Vec::new();
     loop {
         expect_token!(
             ctx.stream,
             token,
+            token_id,
             RightPar => {
                 if choices.len() == 1 {
-                    if let Some(WithPos{item: Choice::Expression(expr), pos}) = choices.pop() {
-                        result.push(ElementAssociation::Positional(WithPos::new(expr, pos)));
-                        return Ok(WithPos::from(result, token.pos.clone()))
+                    if let Some(WithTokenSpan{item: Choice::Expression(expr), span}) = choices.pop() {
+                        result.push(ElementAssociation::Positional(WithTokenSpan::new(expr, span)));
+                        return Ok(WithTokenSpan::from(result, token_id))
                     }
                 }
 
@@ -165,8 +166,8 @@ pub fn parse_aggregate_initial_choices(
             },
             Comma => {
                 if choices.len() == 1 {
-                    if let Some(WithPos{item: Choice::Expression(expr), pos}) = choices.pop() {
-                        result.push(ElementAssociation::Positional(WithPos::new(expr, pos)));
+                    if let Some(WithTokenSpan{item: Choice::Expression(expr), span}) = choices.pop() {
+                        result.push(ElementAssociation::Positional(WithTokenSpan::new(expr, span)));
                         choices = parse_choices(ctx)?;
                         continue;
                     }
@@ -181,8 +182,9 @@ pub fn parse_aggregate_initial_choices(
                 expect_token!(
                     ctx.stream,
                     token,
+                    token_id,
                     RightPar => {
-                        return Ok(WithPos::from(result, token.pos.clone()))
+                        return Ok(WithTokenSpan::from(result, token_id))
                     },
                     Comma => {
                         choices = parse_choices(ctx)?;
@@ -195,10 +197,13 @@ pub fn parse_aggregate_initial_choices(
 
 pub fn parse_aggregate(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
-    ctx.stream.expect_kind(LeftPar)?;
+) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
+    let start_tok = ctx.stream.expect_kind(LeftPar)?;
     if let Some(token) = ctx.stream.pop_if_kind(RightPar) {
-        return Ok(WithPos::from(Vec::new(), ctx.stream.get_pos(token).clone()));
+        return Ok(WithTokenSpan::from(
+            Vec::new(),
+            TokenSpan::new(start_tok, token),
+        ));
     };
     let choices = parse_choices(ctx)?;
     parse_aggregate_initial_choices(ctx, choices)
@@ -206,11 +211,11 @@ pub fn parse_aggregate(
 
 fn parse_half_range(
     ctx: &mut ParsingContext<'_>,
-    left_expr: WithPos<Expression>,
+    left_expr: WithTokenSpan<Expression>,
     direction: Direction,
-) -> ParseResult<WithPos<DiscreteRange>> {
+) -> ParseResult<WithTokenSpan<DiscreteRange>> {
     let right_expr = parse_expression(ctx)?;
-    let pos = left_expr.pos.combine(&right_expr.pos);
+    let pos = left_expr.span.combine(right_expr.span);
 
     let range = DiscreteRange::Range(ast::Range::Range(RangeConstraint {
         direction,
@@ -218,15 +223,12 @@ fn parse_half_range(
         right_expr: Box::new(right_expr),
     }));
 
-    Ok(WithPos::new(range, pos))
+    Ok(WithTokenSpan::new(range, pos))
 }
 
-fn parse_choice(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Choice>> {
+fn parse_choice(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Choice>> {
     if let Some(token) = ctx.stream.pop_if_kind(Others) {
-        return Ok(WithPos::new(
-            Choice::Others,
-            ctx.stream.get_pos(token).clone(),
-        ));
+        return Ok(WithTokenSpan::from(Choice::Others, token));
     }
     let left_expr = parse_expression(ctx)?;
 
@@ -241,7 +243,7 @@ fn parse_choice(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Choice>> {
     }
 }
 
-pub fn parse_choices(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithPos<Choice>>> {
+pub fn parse_choices(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithTokenSpan<Choice>>> {
     let mut choices = Vec::new();
     loop {
         choices.push(parse_choice(ctx)?);
@@ -254,23 +256,23 @@ pub fn parse_choices(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithPos<Ch
 }
 
 /// LRM 9.3.7 Allocators
-fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Allocator>> {
+fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Allocator>> {
     ctx.stream.expect_kind(New)?;
     let type_mark = parse_type_mark(ctx)?;
 
     if ctx.stream.skip_if_kind(Tick) {
         let expr = parse_expression(ctx)?;
-        let pos = type_mark.pos.clone().combine_into(&expr);
-        Ok(WithPos {
+        let span = type_mark.span.combine(expr.span);
+        Ok(WithTokenSpan {
             item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
-            pos,
+            span,
         })
     } else {
-        let mut pos = type_mark.pos.clone();
+        let mut span = type_mark.span;
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(ctx)? {
-                pos = pos.combine(&constraint.pos);
+                span = span.combine(constraint.span);
                 Some(constraint)
             } else {
                 None
@@ -283,15 +285,19 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Allocato
             constraint,
         };
 
-        Ok(WithPos {
+        Ok(WithTokenSpan {
             item: Allocator::Subtype(subtype),
-            pos,
+            span,
         })
     }
 }
 
-pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
-    let pos = name.pos.clone();
+pub fn name_to_type_mark(
+    ctx: &mut ParsingContext<'_>,
+    name: WithTokenSpan<Name>,
+) -> ParseResult<WithTokenSpan<TypeMark>> {
+    let pos = name.pos(ctx);
+    let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
@@ -305,7 +311,7 @@ pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> 
                 }
             }
             _ => Some(TypeMark {
-                name: WithPos::from(name_to_selected_name(name)?, pos.clone()),
+                name: WithTokenSpan::from(name_to_selected_name(name)?, name_span),
                 attr: None,
             }),
         })
@@ -325,34 +331,36 @@ fn name_to_selected_name(name: Name) -> Option<Name> {
     }
 }
 
-fn parse_expression_or_aggregate(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+fn parse_expression_or_aggregate(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<WithTokenSpan<Expression>> {
     let mut choices = parse_choices(ctx)?;
 
     if choices.len() == 1
         && matches!(
             choices.first().unwrap(),
-            WithPos {
+            WithTokenSpan {
                 item: Choice::Expression(_),
                 ..
             }
         )
     {
-        let WithPos {
+        let WithTokenSpan {
             item: Choice::Expression(expr),
-            pos,
+            span,
         } = choices.pop().unwrap()
         else {
             unreachable!();
         };
 
         peek_token!(
-            ctx.stream, token,
+            ctx.stream, token, token_id,
 
             // Was aggregate
             Comma | RightArrow => {
                 Ok(parse_aggregate_initial_choices(
                     ctx,
-                    vec![WithPos::new(Choice::Expression(expr), pos)],
+                    vec![WithTokenSpan::new(Choice::Expression(expr), span)],
                 )?.map_into(Expression::Aggregate))
             },
 
@@ -360,10 +368,10 @@ fn parse_expression_or_aggregate(ctx: &mut ParsingContext<'_>) -> ParseResult<Wi
             RightPar => {
                 ctx.stream.skip();
                 // Lexical position between parenthesis
-                let expr = WithPos {
-                    item: expr,
-                    pos: token.pos.clone(),
-                };
+                let expr = WithTokenSpan::from(
+                    expr,
+                    token_id
+                );
                 Ok(expr)
             }
         )
@@ -377,89 +385,93 @@ fn parse_expression_or_aggregate(ctx: &mut ParsingContext<'_>) -> ParseResult<Wi
 /// 1. CHARACTER_LITERAL|INTEGER_LITERAL|IDENTIFIER|BOOLEAN_LITERAL
 /// 2. (expression)
 /// 3. PREFIX_UNARY_OP expression
-fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expression>> {
     let token = ctx.stream.peek_expect()?;
+    let token_id = ctx.stream.get_current_token_id();
     match token.kind {
         Identifier | LtLt => {
             let name = parse_name(ctx)?;
             if ctx.stream.skip_if_kind(Tick) {
                 let lpar = ctx.stream.expect_kind(LeftPar)?;
-                let expr =
-                    parse_expression_or_aggregate(ctx)?.combine_pos_with(ctx.stream.get_pos(lpar));
-                let pos = name.pos.combine(&expr);
-                Ok(WithPos {
-                    item: Expression::Qualified(Box::new(QualifiedExpression {
-                        type_mark: name_to_type_mark(name)?,
+                let expr = parse_expression_or_aggregate(ctx)?.start_with(lpar);
+                let span = name.span.combine(expr.span);
+                Ok(WithTokenSpan::new(
+                    Expression::Qualified(Box::new(QualifiedExpression {
+                        type_mark: name_to_type_mark(ctx, name)?,
                         expr,
                     })),
-                    pos,
-                })
+                    span,
+                ))
             } else {
-                Ok(name_to_expression(name))
+                Ok(name.into_expression())
             }
         }
         BitString => {
             ctx.stream.skip();
             Ok(token
-                .to_bit_string()?
-                .map_into(|bs| Expression::Literal(Literal::BitString(bs))))
+                .to_bit_string(token_id)?
+                .map_into_span(|bs| Expression::Literal(Literal::BitString(bs))))
         }
         Character => {
             ctx.stream.skip();
             Ok(token
-                .to_character_value()?
-                .map_into(|chr| Expression::Literal(Literal::Character(chr))))
+                .to_character_value(token_id)?
+                .map_into_span(|chr| Expression::Literal(Literal::Character(chr))))
         }
         StringLiteral => {
             if ctx.stream.next_kinds_are(&[StringLiteral, LeftPar]) {
-                // Probably an function call via operator symbol "foo"()
+                // Probably a function call via operator symbol "foo"()
                 parse_name(ctx).map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
             } else {
                 ctx.stream.skip();
                 Ok(token
-                    .to_string_value()?
-                    .map_into(|string| Expression::Literal(Literal::String(string))))
+                    .to_string_value(token_id)?
+                    .map_into_span(|string| Expression::Literal(Literal::String(string))))
             }
         }
         Null => {
             ctx.stream.skip();
-            Ok(WithPos {
-                item: Expression::Literal(Literal::Null),
-                pos: token.pos.clone(),
-            })
+            Ok(WithTokenSpan::from(
+                Expression::Literal(Literal::Null),
+                token_id,
+            ))
         }
         New => {
             let alloc = parse_allocator(ctx)?;
 
-            let new_pos = token.pos.combine(&alloc);
-            Ok(WithPos {
-                item: Expression::New(Box::new(alloc)),
-                pos: new_pos,
-            })
+            let new_pos = TokenSpan::new(token_id, alloc.span.end_token);
+            Ok(WithTokenSpan::new(
+                Expression::New(Box::new(alloc)),
+                new_pos,
+            ))
         }
         AbstractLiteral => {
             ctx.stream.skip();
-            let value = token.to_abstract_literal()?;
+            let value = token.to_abstract_literal(token_id)?;
             // Physical unit
             if let Some(unit_token) = ctx.stream.pop_if_kind(Identifier) {
-                let unit = ctx.stream.get_token(unit_token).to_identifier_value()?;
-                let pos = value.pos.combine_into(&unit);
+                let unit = ctx
+                    .stream
+                    .get_token(unit_token)
+                    .to_identifier_value(unit_token)?;
+                let span = TokenSpan::new(value.token, unit.token);
                 let physical = PhysicalLiteral {
                     value: value.item,
                     unit: WithRef::new(unit),
                 };
-                Ok(WithPos {
-                    item: Expression::Literal(Literal::Physical(physical)),
-                    pos,
-                })
+                Ok(WithTokenSpan::new(
+                    Expression::Literal(Literal::Physical(physical)),
+                    span,
+                ))
             } else {
-                Ok(value.map_into(|value| Expression::Literal(Literal::AbstractLiteral(value))))
+                Ok(value
+                    .map_into_span(|value| Expression::Literal(Literal::AbstractLiteral(value))))
             }
         }
 
         LeftPar => {
             ctx.stream.skip();
-            parse_expression_or_aggregate(ctx).map(|expr| expr.combine_pos_with(&token))
+            parse_expression_or_aggregate(ctx).map(|expr| expr.start_with(token_id))
         }
 
         kind => {
@@ -468,15 +480,15 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression
                 ctx.stream.skip();
 
                 let expr = parse_expr(ctx, op_precedence)?;
-                let pos = token.pos.combine(&expr);
+                let span = TokenSpan::new(token_id, expr.span.end_token);
 
-                Ok(WithPos {
-                    item: Expression::Unary(
-                        WithPos::new(WithRef::new(unary_op), token.pos.clone()),
+                Ok(WithTokenSpan::new(
+                    Expression::Unary(
+                        WithToken::new(WithRef::new(unary_op), token_id),
                         Box::new(expr),
                     ),
-                    pos,
-                })
+                    span,
+                ))
             } else {
                 Err(Diagnostic::syntax_error(
                     ctx.stream.pos_before(token),
@@ -490,9 +502,10 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression
 fn parse_expr(
     ctx: &mut ParsingContext<'_>,
     min_precedence: usize,
-) -> ParseResult<WithPos<Expression>> {
+) -> ParseResult<WithTokenSpan<Expression>> {
     let mut lhs = parse_primary(ctx)?;
     while let Some(token) = ctx.stream.peek() {
+        let token_id = ctx.stream.get_current_token_id();
         if token.kind == RightPar {
             return Ok(lhs);
         };
@@ -502,15 +515,15 @@ fn parse_expr(
             if op_precedence > min_precedence {
                 ctx.stream.skip();
                 let rhs = parse_expr(ctx, op_precedence)?;
-                let pos = lhs.pos.combine(&rhs);
-                lhs = WithPos {
-                    item: Expression::Binary(
-                        WithPos::new(WithRef::new(binary_op), token.pos.clone()),
+                let pos = lhs.span.combine(rhs.span);
+                lhs = WithTokenSpan::new(
+                    Expression::Binary(
+                        WithToken::new(WithRef::new(binary_op), token_id),
                         Box::new(lhs),
                         Box::new(rhs),
                     ),
                     pos,
-                };
+                );
             } else {
                 return Ok(lhs);
             }
@@ -535,7 +548,7 @@ fn parse_expr(
 ///   6. sign: + | -
 ///   7. multiplying_operator: * | / | mod | rem
 ///   8. misc_operator: ** | abs | not
-pub fn parse_expression(ctx: &mut ParsingContext<'_>) -> ParseResult<WithPos<Expression>> {
+pub fn parse_expression(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expression>> {
     let state = ctx.stream.state();
     parse_expr(ctx, 0).map_err(|err| {
         ctx.stream.set_state(state);
@@ -555,9 +568,9 @@ mod tests {
         let code = Code::new("'a'");
         assert_eq!(
             code.with_stream(parse_expression),
-            WithPos {
+            WithTokenSpan {
                 item: Expression::Literal(Literal::Character(b'a')),
-                pos: code.pos()
+                span: code.token_span()
             }
         );
     }
@@ -567,9 +580,9 @@ mod tests {
         let code = Code::new("71");
         assert_eq!(
             code.with_stream(parse_expression),
-            WithPos {
+            WithTokenSpan {
                 item: Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(71))),
-                pos: code.pos()
+                span: code.token_span()
             }
         );
     }
@@ -579,9 +592,9 @@ mod tests {
         let code = Code::new("7.1");
         assert_eq!(
             code.with_stream(parse_expression),
-            WithPos {
+            WithTokenSpan {
                 item: Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Real(7.1))),
-                pos: code.pos()
+                span: code.token_span()
             }
         );
     }
@@ -591,11 +604,11 @@ mod tests {
         let code = Code::new("\"string\"");
         assert_eq!(
             code.with_stream(parse_expression),
-            WithPos {
+            WithTokenSpan {
                 item: Expression::Literal(Literal::String(Latin1String::from_utf8_unchecked(
                     "string"
                 ))),
-                pos: code.pos()
+                span: code.token_span()
             }
         );
     }
@@ -627,9 +640,9 @@ mod tests {
         let code = Code::new("null");
         assert_eq!(
             code.with_stream(parse_expression),
-            WithPos {
+            WithTokenSpan {
                 item: Expression::Literal(Literal::Null),
-                pos: code.pos()
+                span: code.token_span()
             }
         );
     }
@@ -642,23 +655,23 @@ mod tests {
     fn parses_add_expression() {
         let code = Code::new("1 + 2");
 
-        let lhs = WithPos {
+        let lhs = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let rhs = WithPos {
+        let rhs = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
-        let expr_add = WithPos {
+        let expr_add = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Plus), code.s1("+").pos()),
+                WithToken::new(WithRef::new(Operator::Plus), code.s1("+").token()),
                 Box::new(lhs),
                 Box::new(rhs),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_add);
@@ -667,23 +680,23 @@ mod tests {
     #[test]
     fn parses_sub_expression() {
         let code = Code::new("1 - 2");
-        let lhs = WithPos {
+        let lhs = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let rhs = WithPos {
+        let rhs = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
-        let expr_sub = WithPos {
+        let expr_sub = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Minus), code.s1("-").pos()),
+                WithToken::new(WithRef::new(Operator::Minus), code.s1("-").token()),
                 Box::new(lhs),
                 Box::new(rhs),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_sub);
@@ -692,17 +705,17 @@ mod tests {
     #[test]
     fn parses_abs_expression() {
         let code = Code::new("abs 9");
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Literal(int(9)),
-            pos: code.s1("9").pos(),
+            span: code.s1("9").token_span(),
         };
 
-        let expr_abs = WithPos {
+        let expr_abs = WithTokenSpan {
             item: Expression::Unary(
-                WithPos::new(WithRef::new(Operator::Abs), code.s1("abs").pos()),
+                WithToken::new(WithRef::new(Operator::Abs), code.s1("abs").token()),
                 Box::new(expr),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_abs);
@@ -711,17 +724,17 @@ mod tests {
     #[test]
     fn parses_condition_operator() {
         let code = Code::new("?? 9");
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Literal(int(9)),
-            pos: code.s1("9").pos(),
+            span: code.s1("9").token_span(),
         };
 
-        let expr_cond = WithPos {
+        let expr_cond = WithTokenSpan {
             item: Expression::Unary(
-                WithPos::new(WithRef::new(Operator::QueQue), code.s1("??").pos()),
+                WithToken::new(WithRef::new(Operator::QueQue), code.s1("??").token()),
                 Box::new(expr),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_cond);
@@ -730,19 +743,19 @@ mod tests {
     #[test]
     fn parses_not_expression() {
         let code = Code::new("not false");
-        let name_false = WithPos {
+        let name_false = WithTokenSpan {
             item: Expression::Name(Box::new(Name::Designator(
                 Designator::Identifier(code.symbol("false")).into_ref(),
             ))),
-            pos: code.s1("false").pos(),
+            span: code.s1("false").token_span(),
         };
 
-        let expr_not = WithPos {
+        let expr_not = WithTokenSpan {
             item: Expression::Unary(
-                WithPos::new(WithRef::new(Operator::Not), code.s1("not").pos()),
+                WithToken::new(WithRef::new(Operator::Not), code.s1("not").token()),
                 Box::new(name_false),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_not);
@@ -754,14 +767,14 @@ mod tests {
         let type_mark = code.s1("integer_vector").type_mark();
         let expr = code.s1("(0, 1)").expr();
 
-        let alloc = WithPos {
+        let alloc = WithTokenSpan {
             item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
-            pos: code.s1("integer_vector'(0, 1)").pos(),
+            span: code.s1("integer_vector'(0, 1)").token_span(),
         };
 
-        let new_expr = WithPos {
+        let new_expr = WithTokenSpan {
             item: Expression::New(Box::new(alloc)),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), new_expr);
@@ -771,14 +784,14 @@ mod tests {
     fn parses_new_allocator_subtype() {
         let code = Code::new("new integer_vector");
 
-        let alloc = WithPos {
+        let alloc = WithTokenSpan {
             item: Allocator::Subtype(code.s1("integer_vector").subtype_indication()),
-            pos: code.s1("integer_vector").pos(),
+            span: code.s1("integer_vector").token_span(),
         };
 
-        let new_expr = WithPos {
+        let new_expr = WithTokenSpan {
             item: Expression::New(Box::new(alloc)),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), new_expr);
@@ -788,14 +801,14 @@ mod tests {
     fn parses_new_allocator_subtype_constraint() {
         let code = Code::new("new integer_vector(0 to 1)");
 
-        let alloc = WithPos {
+        let alloc = WithTokenSpan {
             item: Allocator::Subtype(code.s1("integer_vector(0 to 1)").subtype_indication()),
-            pos: code.s1("integer_vector(0 to 1)").pos(),
+            span: code.s1("integer_vector(0 to 1)").token_span(),
         };
 
-        let new_expr = WithPos {
+        let new_expr = WithTokenSpan {
             item: Expression::New(Box::new(alloc)),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), new_expr);
@@ -805,14 +818,14 @@ mod tests {
     fn parses_new_allocator_subtype_constraint_range_attribute() {
         let code = Code::new("new integer_vector(foo'range)");
 
-        let alloc = WithPos {
+        let alloc = WithTokenSpan {
             item: Allocator::Subtype(code.s1("integer_vector(foo'range)").subtype_indication()),
-            pos: code.s1("integer_vector(foo'range)").pos(),
+            span: code.s1("integer_vector(foo'range)").token_span(),
         };
 
-        let new_expr = WithPos {
+        let new_expr = WithTokenSpan {
             item: Expression::New(Box::new(alloc)),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), new_expr);
@@ -821,12 +834,12 @@ mod tests {
     #[test]
     fn parses_physical_unit_expression() {
         let code = Code::new("1 ns");
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Literal(Literal::Physical(PhysicalLiteral {
                 value: AbstractLiteral::Integer(1),
                 unit: code.s1("ns").ident().into_ref(),
             })),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -835,12 +848,12 @@ mod tests {
     #[test]
     fn parses_physical_unit_expression_real() {
         let code = Code::new("1.0 ns");
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Literal(Literal::Physical(PhysicalLiteral {
                 value: AbstractLiteral::Real(1.0),
                 unit: code.s1("ns").ident().into_ref(),
             })),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -849,24 +862,24 @@ mod tests {
     #[test]
     fn parses_physical_unit_expression_binary() {
         let code = Code::new("2 * 1 ns");
-        let time_expr = WithPos {
+        let time_expr = WithTokenSpan {
             item: Expression::Literal(Literal::Physical(PhysicalLiteral {
                 value: AbstractLiteral::Integer(1),
                 unit: code.s1("ns").ident().into_ref(),
             })),
-            pos: code.s1("1 ns").pos(),
+            span: code.s1("1 ns").token_span(),
         };
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Times), code.s1("*").pos()),
+                WithToken::new(WithRef::new(Operator::Times), code.s1("*").token()),
                 Box::new(two_expr),
                 Box::new(time_expr),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
         assert_eq!(code.with_stream(parse_expression), expr);
     }
@@ -874,19 +887,19 @@ mod tests {
     #[test]
     fn parses_physical_unit_expression_unary() {
         let code = Code::new("- 1 ns");
-        let time_expr = WithPos {
+        let time_expr = WithTokenSpan {
             item: Expression::Literal(Literal::Physical(PhysicalLiteral {
                 value: AbstractLiteral::Integer(1),
                 unit: code.s1("ns").ident().into_ref(),
             })),
-            pos: code.s1("1 ns").pos(),
+            span: code.s1("1 ns").token_span(),
         };
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Unary(
-                WithPos::new(WithRef::new(Operator::Minus), code.s1("-").pos()),
+                WithToken::new(WithRef::new(Operator::Minus), code.s1("-").token()),
                 Box::new(time_expr),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -898,9 +911,9 @@ mod tests {
         let type_mark = code.s1("foo").type_mark();
         let expr = code.s1("(1+2)").expr();
 
-        let qexpr = WithPos {
+        let qexpr = WithTokenSpan {
             item: Expression::Qualified(Box::new(QualifiedExpression { type_mark, expr })),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), qexpr);
@@ -909,13 +922,13 @@ mod tests {
     #[test]
     fn qualified_expression_precedence() {
         let code = Code::new("mark0'(0) < mark1'(1)");
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::LT), code.s1("<").pos()),
+                WithToken::new(WithRef::new(Operator::LT), code.s1("<").token()),
                 Box::new(code.s1("mark0'(0)").expr()),
                 Box::new(code.s1("mark1'(1)").expr()),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.expr(), expr);
@@ -927,9 +940,9 @@ mod tests {
         let type_mark = code.s1("foo").type_mark();
         let expr = code.s1("(others => '1')").expr();
 
-        let qexpr = WithPos {
+        let qexpr = WithTokenSpan {
             item: Expression::Qualified(Box::new(QualifiedExpression { type_mark, expr })),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), qexpr);
@@ -938,22 +951,22 @@ mod tests {
     #[test]
     fn parses_positional_aggregate() {
         let code = Code::new("(1, 2)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
         let assoc_list = vec![
             ElementAssociation::Positional(one_expr),
             ElementAssociation::Positional(two_expr),
         ];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -962,22 +975,22 @@ mod tests {
     #[test]
     fn parses_named_aggregate() {
         let code = Code::new("(1 => 2)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(
             vec![one_expr.map_into(Choice::Expression)],
             two_expr,
         )];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -986,19 +999,19 @@ mod tests {
     #[test]
     fn parses_named_aggregate_many_choices() {
         let code = Code::new("(1 | 2 => 3)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
-        let three_expr = WithPos {
+        let three_expr = WithTokenSpan {
             item: Expression::Literal(int(3)),
-            pos: code.s1("3").pos(),
+            span: code.s1("3").token_span(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(
@@ -1008,9 +1021,9 @@ mod tests {
             ],
             three_expr,
         )];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -1019,18 +1032,21 @@ mod tests {
     #[test]
     fn parses_others_aggregate() {
         let code = Code::new("(others => 1)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(
-            vec![WithPos::new(Choice::Others, code.s1("others"))],
+            vec![WithTokenSpan::new(
+                Choice::Others,
+                code.s1("others").token_span(),
+            )],
             one_expr,
         )];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -1042,26 +1058,26 @@ mod tests {
             let (pos, code) = {
                 if *direction == Direction::Descending {
                     let code = Code::new("(1 downto 0 => 2)");
-                    (code.s1("1 downto 0").pos(), code)
+                    (code.s1("1 downto 0").token_span(), code)
                 } else {
                     let code = Code::new("(1 to 0 => 2)");
-                    (code.s1("1 to 0").pos(), code)
+                    (code.s1("1 to 0").token_span(), code)
                 }
             };
 
-            let one_expr = WithPos {
+            let one_expr = WithTokenSpan {
                 item: Expression::Literal(int(1)),
-                pos: code.s1("1").pos(),
+                span: code.s1("1").token_span(),
             };
 
-            let zero_expr = WithPos {
+            let zero_expr = WithTokenSpan {
                 item: Expression::Literal(int(0)),
-                pos: code.s1("0").pos(),
+                span: code.s1("0").token_span(),
             };
 
-            let two_expr = WithPos {
+            let two_expr = WithTokenSpan {
                 item: Expression::Literal(int(2)),
-                pos: code.s1("2").pos(),
+                span: code.s1("2").token_span(),
             };
 
             let range = DiscreteRange::Range(ast::Range::Range(RangeConstraint {
@@ -1071,12 +1087,12 @@ mod tests {
             }));
 
             let assoc_list = vec![ElementAssociation::Named(
-                vec![WithPos::new(Choice::DiscreteRange(range), pos)],
+                vec![WithTokenSpan::new(Choice::DiscreteRange(range), pos)],
                 two_expr,
             )];
-            let expr = WithPos {
+            let expr = WithTokenSpan {
                 item: Expression::Aggregate(assoc_list),
-                pos: code.pos(),
+                span: code.token_span(),
             };
 
             assert_eq!(code.with_stream(parse_expression), expr);
@@ -1086,29 +1102,35 @@ mod tests {
     #[test]
     fn parses_multiple_others_aggregate() {
         let code = Code::new("(others => 1, others => 2)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
         let assoc_list = vec![
             ElementAssociation::Named(
-                vec![WithPos::new(Choice::Others, code.s("others", 1))],
+                vec![WithTokenSpan::new(
+                    Choice::Others,
+                    code.s("others", 1).token_span(),
+                )],
                 one_expr,
             ),
             ElementAssociation::Named(
-                vec![WithPos::new(Choice::Others, code.s("others", 2))],
+                vec![WithTokenSpan::new(
+                    Choice::Others,
+                    code.s("others", 2).token_span(),
+                )],
                 two_expr,
             ),
         ];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -1117,26 +1139,26 @@ mod tests {
     #[test]
     fn parses_mixed_aggregate() {
         let code = Code::new("(1 => 2, 3)");
-        let one_expr = WithPos {
+        let one_expr = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
-        let two_expr = WithPos {
+        let two_expr = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
-        let three_expr = WithPos {
+        let three_expr = WithTokenSpan {
             item: Expression::Literal(int(3)),
-            pos: code.s1("3").pos(),
+            span: code.s1("3").token_span(),
         };
 
         let assoc_list = vec![
             ElementAssociation::Named(vec![one_expr.map_into(Choice::Expression)], two_expr),
             ElementAssociation::Positional(three_expr),
         ];
-        let expr = WithPos {
+        let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -1151,44 +1173,44 @@ mod tests {
         }
         code.push_str("11123)");
         let code = Code::new(&code);
-        assert_eq!(code.with_stream(parse_expression).pos, code.pos());
+        assert_eq!(code.with_stream(parse_expression).span, code.token_span());
     }
 
     #[test]
     fn parses_nested_expression_par_second() {
         let code = Code::new("1 + (2 + 3)");
 
-        let one = WithPos {
+        let one = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let two = WithPos {
+        let two = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
-        let three = WithPos {
+        let three = WithTokenSpan {
             item: Expression::Literal(int(3)),
-            pos: code.s1("3").pos(),
+            span: code.s1("3").token_span(),
         };
 
-        let expr_add0 = WithPos {
+        let expr_add0 = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 2).pos()),
+                WithToken::new(WithRef::new(Operator::Plus), code.s("+", 2).token()),
                 Box::new(two),
                 Box::new(three),
             ),
-            pos: code.s1("(2 + 3)").pos(),
+            span: code.s1("(2 + 3)").token_span(),
         };
 
-        let expr_add1 = WithPos {
+        let expr_add1 = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 1).pos()),
+                WithToken::new(WithRef::new(Operator::Plus), code.s("+", 1).token()),
                 Box::new(one),
                 Box::new(expr_add0),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_add1);
@@ -1198,49 +1220,49 @@ mod tests {
     fn parses_nested_expression_par_first() {
         let code = Code::new("(1 + 2) + 3");
 
-        let one = WithPos {
+        let one = WithTokenSpan {
             item: Expression::Literal(int(1)),
-            pos: code.s1("1").pos(),
+            span: code.s1("1").token_span(),
         };
 
-        let two = WithPos {
+        let two = WithTokenSpan {
             item: Expression::Literal(int(2)),
-            pos: code.s1("2").pos(),
+            span: code.s1("2").token_span(),
         };
 
-        let three = WithPos {
+        let three = WithTokenSpan {
             item: Expression::Literal(int(3)),
-            pos: code.s1("3").pos(),
+            span: code.s1("3").token_span(),
         };
 
-        let expr_add0 = WithPos {
+        let expr_add0 = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 1).pos()),
+                WithToken::new(WithRef::new(Operator::Plus), code.s("+", 1).token()),
                 Box::new(one),
                 Box::new(two),
             ),
-            pos: code.s1("(1 + 2)").pos(),
+            span: code.s1("(1 + 2)").token_span(),
         };
 
-        let expr_add1 = WithPos {
+        let expr_add1 = WithTokenSpan {
             item: Expression::Binary(
-                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 2).pos()),
+                WithToken::new(WithRef::new(Operator::Plus), code.s("+", 2).token()),
                 Box::new(expr_add0),
                 Box::new(three),
             ),
-            pos: code.pos(),
+            span: code.token_span(),
         };
 
         assert_eq!(code.with_stream(parse_expression), expr_add1);
     }
 
     /// Format expression as a string to simplify testing of precedence.
-    fn fmt(expr: &WithPos<Expression>) -> String {
+    fn fmt(ctx: &dyn TokenAccess, expr: &WithTokenSpan<Expression>) -> String {
         match expr.item {
             Expression::Binary(ref op, ref lhs, ref rhs) => {
-                format!("({} {:?} {})", fmt(lhs), op.item.item, fmt(rhs))
+                format!("({} {:?} {})", fmt(ctx, lhs), op.item.item, fmt(ctx, rhs))
             }
-            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op.item.item, fmt(rhs)),
+            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op.item.item, fmt(ctx, rhs)),
             Expression::Literal(ref lit) => match lit {
                 Literal::Null => "null".to_string(),
                 // @TODO quote and escape
@@ -1259,22 +1281,21 @@ mod tests {
                     }
                 },
                 _ => {
-                    println!("{}", expr.pos.code_context());
+                    println!("{}", expr.pos(ctx).code_context());
                     panic!("Cannot format {lit:?}");
                 }
             },
             _ => {
-                println!("{}", expr.pos.code_context());
+                println!("{}", expr.pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
             }
         }
     }
 
     fn assert_expression_is(code: &str, expr_str: &str) {
-        assert_eq!(
-            fmt(&Code::new(code).with_stream(parse_expression)),
-            expr_str
-        );
+        let code = Code::new(code);
+        let ctx = code.tokenize();
+        assert_eq!(fmt(&ctx, &code.with_stream(parse_expression)), expr_str);
     }
 
     #[test]
