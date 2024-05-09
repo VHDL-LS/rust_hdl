@@ -149,7 +149,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ),
                                     None => {
                                         let error = Diagnostic::new(
-                                            self.ctx.get_pos(type_decl.ident.tree.token),
+                                            type_decl.ident.pos(self.ctx),
                                             format!(
                                                 "Missing full type declaration of incomplete type '{}'",
                                                 type_decl.ident.name()

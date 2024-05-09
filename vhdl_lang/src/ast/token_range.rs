@@ -1,6 +1,17 @@
+/// For most applications in the context of a language server,
+/// the lexical position (i.e., a position in the source code)
+/// of all AST nodes must be known.
+/// In the context of `vhdl_lang`, this information is provided
+/// using Token information. Each AST element knows the token span that it was declared in.
+/// Information, such as the position can be queried using the `pos(TokenAccess)` method.
+/// A [TokenAccess] is a context object that is passed in all relevant operations
+/// (i.e., when traversing the AST using the [Search] trait
+/// or when getting the source code information when generating code outlines in a language server).
+/// This is also the mechanic used to extract supplementary information, such as comments for
+/// documentation generation.
 use crate::{SrcPos, TokenAccess, TokenId, TokenSpan};
 
-/// A generic struct that contains source code information along with some other information.
+/// A struct that associates some generic item to a single token.
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct WithToken<T> {
     pub item: T,
@@ -12,7 +23,14 @@ impl<T> WithToken<T> {
         WithToken { item, token }
     }
 
-    pub fn map_into<F, U>(self, f: F) -> WithToken<U>
+    /// Retrieves the position of this object using the provided `TokenAccess`.
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &'a SrcPos {
+        ctx.get_pos(self.token)
+    }
+
+    /// Maps this element into another element applying the given function
+    /// but retaining the source location (i.e., the token).
+    pub(crate) fn map_into<F, U>(self, f: F) -> WithToken<U>
     where
         F: FnOnce(T) -> U,
     {
@@ -22,7 +40,10 @@ impl<T> WithToken<T> {
         }
     }
 
-    pub fn map_into_span<F, U>(self, f: F) -> WithTokenSpan<U>
+    /// Maps this element into another element applying the given function
+    /// but retaining the source location.
+    /// The returned object's `TokenSpan` will have this token id as start and end.
+    pub(crate) fn map_into_span<F, U>(self, f: F) -> WithTokenSpan<U>
     where
         F: FnOnce(T) -> U,
     {
@@ -31,13 +52,9 @@ impl<T> WithToken<T> {
             span: self.token.into(),
         }
     }
-
-    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &'a SrcPos {
-        ctx.get_pos(self.token)
-    }
 }
 
-/// A generic object with an associated source file and lexical range.
+/// A struct that associates some generic item to a contiguous span of tokens.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct WithTokenSpan<T> {
     pub item: T,
@@ -45,10 +62,6 @@ pub struct WithTokenSpan<T> {
 }
 
 impl<T> WithTokenSpan<T> {
-    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
-        self.span.pos(ctx)
-    }
-
     pub fn new(item: T, span: TokenSpan) -> WithTokenSpan<T> {
         WithTokenSpan { item, span }
     }
@@ -60,7 +73,14 @@ impl<T> WithTokenSpan<T> {
         }
     }
 
-    pub fn map_into<F, U>(self, f: F) -> WithTokenSpan<U>
+    /// Retrieves the position of this object using the provided `TokenAccess`.
+    pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {
+        self.span.pos(ctx)
+    }
+
+    /// Maps this element into another element applying the given function
+    /// but retaining the source location (i.e., the token span).
+    pub(crate) fn map_into<F, U>(self, f: F) -> WithTokenSpan<U>
     where
         F: FnOnce(T) -> U,
     {
@@ -70,7 +90,10 @@ impl<T> WithTokenSpan<T> {
         }
     }
 
-    pub fn try_map_into<F, U>(self, f: F) -> Option<WithTokenSpan<U>>
+    /// Attempts to map this element into another element applying the given function.
+    /// If the function returns `None`, this will also return `None`.
+    /// Otherwise, the semantics are the same as [map_into](WithTokenSpan::map_into)
+    pub(crate) fn try_map_into<F, U>(self, f: F) -> Option<WithTokenSpan<U>>
     where
         F: FnOnce(T) -> Option<U>,
     {
@@ -80,29 +103,12 @@ impl<T> WithTokenSpan<T> {
         })
     }
 
-    pub fn combine_span_with(self, other: impl Into<TokenSpan>) -> Self {
-        WithTokenSpan {
-            item: self.item,
-            span: TokenSpan::new(self.span.start_token, other.into().end_token),
-        }
-    }
-
-    pub fn start_with(self, id: TokenId) -> Self {
+    /// Returns a new `WithTokenSpan` object that encompasses this item
+    /// but extends the token span starting with the given token.
+    pub(crate) fn start_with(self, id: TokenId) -> Self {
         WithTokenSpan {
             item: self.item,
             span: self.span.start_with(id),
         }
-    }
-}
-
-impl<T> AsRef<TokenSpan> for WithTokenSpan<T> {
-    fn as_ref(&self) -> &TokenSpan {
-        &self.span
-    }
-}
-
-impl<T> From<WithTokenSpan<T>> for TokenSpan {
-    fn from(with_span: WithTokenSpan<T>) -> TokenSpan {
-        with_span.span
     }
 }

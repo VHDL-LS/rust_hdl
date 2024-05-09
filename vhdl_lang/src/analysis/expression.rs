@@ -262,7 +262,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::internal(
-                        self.ctx.get_pos(op_pos),
+                        op_pos.pos(self.ctx),
                         format!(
                             "Operator symbol cannot denote non-overloaded symbol {}",
                             ent.describe(),

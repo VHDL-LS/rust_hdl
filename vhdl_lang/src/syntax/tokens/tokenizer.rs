@@ -443,6 +443,10 @@ impl TokenId {
     pub(crate) fn new(idx: usize) -> TokenId {
         TokenId(idx)
     }
+
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+        ctx.get_pos(*self)
+    }
 }
 
 impl From<TokenId> for TokenSpan {

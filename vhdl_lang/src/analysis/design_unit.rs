@@ -506,7 +506,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             Name::Designator(designator) => {
                 let visible = scope
-                    .lookup(self.ctx, name.span, designator.item.designator())
+                    .lookup(self.ctx, name.span, designator.designator())
                     .into_eval_result(diagnostics)?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
