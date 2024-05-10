@@ -1187,6 +1187,17 @@ impl DesignRoot {
     pub fn symbols(&self) -> &Symbols {
         self.symbols.as_ref()
     }
+
+    /// Gets an entity-ID from a raw `usize` value and checks that the entity ID is
+    /// valid, i.e., points to an existing [AnyEnt].
+    pub fn entity_id_from_raw(&self, raw: usize) -> Option<EntityId> {
+        let id = EntityId::from_raw(raw);
+        if self.arenas.is_valid_id(id) {
+            Some(id)
+        } else {
+            None
+        }
+    }
 }
 
 fn get_all_affected(
@@ -1285,6 +1296,7 @@ fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder};
     use crate::syntax::test::{check_diagnostics, Code};
 
     fn new_library_with_diagnostics(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
@@ -1442,5 +1454,18 @@ end configuration;
         );
         assert_eq!(library.units.len(), 2);
         assert_eq!(library.duplicates.len(), 1);
+    }
+
+    #[test]
+    pub fn rejects_illegal_raw_id() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.in_declarative_region("signal foo : natural;");
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+        let (_, ent) = root
+            .item_at_cursor(code.source(), code.s1("foo").start())
+            .unwrap();
+        assert_eq!(root.entity_id_from_raw(ent.id.to_raw()), Some(ent.id));
+        assert_eq!(root.entity_id_from_raw(0xFFFF << 32), None)
     }
 }

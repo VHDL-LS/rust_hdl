@@ -326,6 +326,10 @@ impl Project {
     ) -> Vec<CompletionItem> {
         list_completion_options(&self.root, source, cursor)
     }
+
+    pub fn entity_id_from_raw(&self, raw: usize) -> Option<EntityId> {
+        self.root.entity_id_from_raw(raw)
+    }
 }
 
 /// Multiply cloneable value by cloning

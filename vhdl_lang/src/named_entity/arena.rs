@@ -115,6 +115,10 @@ impl<'a> FinalArena {
         }
     }
 
+    pub fn is_valid_id(&self, id: EntityId) -> bool {
+        self.refs.contains_key(&id.arena_id().0)
+    }
+
     pub fn link(&mut self, referenced: &FinalArena) {
         for (id, arena) in referenced.refs.iter() {
             self.refs.entry(*id).or_insert_with(|| arena.clone());
@@ -304,7 +308,7 @@ impl EntityId {
 
     /// Returns an `EntityId` from a raw `usize` value
     /// for deserialization purposes.
-    pub fn from_raw(id: usize) -> EntityId {
+    pub(crate) fn from_raw(id: usize) -> EntityId {
         EntityId { id }
     }
 

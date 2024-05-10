@@ -17,7 +17,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef, EntityId,
+    kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef,
     InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, SeverityMap,
     Source, SrcPos, Token, Type, VHDLStandard,
 };
@@ -466,7 +466,7 @@ impl VHDLServer {
             .data
             .clone()
             .and_then(|val| serde_json::from_value::<usize>(val).ok())
-            .map(EntityId::from_raw);
+            .and_then(|raw| self.project.entity_id_from_raw(raw));
         if let Some(id) = eid {
             if let Some(text) = self.project.format_entity(id) {
                 params.documentation = Some(Documentation::MarkupContent(MarkupContent {
