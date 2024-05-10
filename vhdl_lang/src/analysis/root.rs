@@ -1466,6 +1466,6 @@ end configuration;
             .item_at_cursor(code.source(), code.s1("foo").start())
             .unwrap();
         assert_eq!(root.entity_id_from_raw(ent.id.to_raw()), Some(ent.id));
-        assert_eq!(root.entity_id_from_raw(0xFFFF << 32), None)
+        assert_eq!(root.entity_id_from_raw(0xFFFF << 32), None);
     }
 }
