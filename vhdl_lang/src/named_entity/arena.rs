@@ -82,6 +82,10 @@ impl LocalArena {
         std::mem::transmute(std::pin::Pin::into_inner(item) as *mut AnyEnt)
     }
 
+    pub fn contains(&self, id: LocalId) -> bool {
+        (id.0 as usize) < self.items.len()
+    }
+
     fn panic_on_missing(&self, id: LocalId) {
         if (id.0 as usize) < self.items.len() {
             return;
@@ -113,6 +117,12 @@ impl<'a> FinalArena {
             let ent = self.refs[&id.arena_id().0].get(id.local_id());
             &*ent as &'a AnyEnt
         }
+    }
+
+    pub fn is_valid_id(&self, id: EntityId) -> bool {
+        self.refs
+            .get(&id.arena_id().0)
+            .is_some_and(|local_arena| local_arena.contains(id.local_id()))
     }
 
     pub fn link(&mut self, referenced: &FinalArena) {
@@ -304,7 +314,7 @@ impl EntityId {
 
     /// Returns an `EntityId` from a raw `usize` value
     /// for deserialization purposes.
-    pub fn from_raw(id: usize) -> EntityId {
+    pub(crate) fn from_raw(id: usize) -> EntityId {
         EntityId { id }
     }
 
