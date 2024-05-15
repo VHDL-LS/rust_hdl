@@ -194,8 +194,6 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
-    // TODO: There needs to be source information.
-    // Add this information or make this a `SrcPos`?
     pub src_span: TokenSpan,
     pub source: Option<Source>,
 

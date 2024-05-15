@@ -298,11 +298,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
-                let VariableAssignment {
-                    target,
-                    rhs,
-                    // span: _,
-                } = assign;
+                let VariableAssignment { target, rhs } = assign;
                 self.analyze_expr_assignment(
                     scope,
                     target,

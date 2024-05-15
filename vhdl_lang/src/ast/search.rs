@@ -373,11 +373,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(search_assignment(target, rhs, searcher, ctx));
             }
             SequentialStatement::VariableAssignment(ref assign) => {
-                let VariableAssignment {
-                    target,
-                    rhs,
-                    // span: _,
-                } = assign;
+                let VariableAssignment { target, rhs } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher, ctx));
             }
             SequentialStatement::SignalForceAssignment(ref assign) => {

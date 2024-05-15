@@ -423,10 +423,9 @@ fn parse_assignment_or_procedure_call(
         ctx.stream,
         token,
         ColonEq => {
-            let rhs = parse_variable_assignment_right_hand(ctx)?;
             SequentialStatement::VariableAssignment(VariableAssignment {
                 target,
-                rhs,
+                rhs: parse_variable_assignment_right_hand(ctx)?
             })
         },
         LTE => {
@@ -434,13 +433,10 @@ fn parse_assignment_or_procedure_call(
             match token.kind {
                 Force => {
                     ctx.stream.skip();
-                    let force_mode = parse_optional_force_mode(ctx)?;
-                    let rhs = parse_variable_assignment_right_hand(ctx)?;
-                    ctx.stream.get_last_token_id();
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target,
-                        force_mode,
-                        rhs,
+                        force_mode: parse_optional_force_mode(ctx)?,
+                        rhs: parse_variable_assignment_right_hand(ctx)?
                     })
                 },
                 Release => {
@@ -456,12 +452,10 @@ fn parse_assignment_or_procedure_call(
                 }
                 _ => {
                     let delay_mechanism = parse_delay_mechanism(ctx)?;
-                    let rhs = parse_signal_assignment_right_hand(ctx)?;
-                    ctx.stream.get_last_token_id();
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target,
                         delay_mechanism,
-                        rhs,
+                        rhs: parse_signal_assignment_right_hand(ctx)?
                     })
                 }
             }
@@ -510,22 +504,16 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
         },
         LTE => {
             if ctx.stream.skip_if_kind(Force) {
-                let force_mode = parse_optional_force_mode(ctx)?;
-                let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?);
-                ctx.stream.get_last_token_id();
                 Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                     target,
-                    force_mode,
-                    rhs,
+                    force_mode: parse_optional_force_mode(ctx)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?)
                 }))
             } else {
-                let delay_mechanism = parse_delay_mechanism(ctx)?;
-                let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?);
-                ctx.stream.get_last_token_id();
                 Ok(SequentialStatement::SignalAssignment(SignalAssignment {
                     target,
-                    delay_mechanism,
-                    rhs,
+                    delay_mechanism: parse_delay_mechanism(ctx)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?)
             }))
         }
         }
