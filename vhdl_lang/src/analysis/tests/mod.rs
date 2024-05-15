@@ -112,6 +112,7 @@ impl<'a> TestSetup<'a> {
                 &self.root.symbol_utf8("libname"),
                 &self.root.symbol_utf8("dummy"),
             ),
+            Source::inline(&PathBuf::new(), ""),
             &self.arena,
             tokens,
         );
@@ -132,6 +133,7 @@ impl<'a> TestSetup<'a> {
             AnyEntKind::Library,
             None,
             TokenSpan::for_library(),
+            Some(code.source().clone()),
         );
         self.ctx(&code.tokenize())
             .analyze_declarative_part(

@@ -68,6 +68,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             .collect(),
                     ),
                     src_span,
+                    self.source(),
                 );
 
                 let signature =
@@ -80,6 +81,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(literal.pos(self.ctx)),
                         src_span,
+                        Some(self.source()),
                     );
                     literal.decl.set(literal_ent.id());
 
@@ -126,6 +128,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                             Some(ent),
                                             Type::Protected(Region::default(), true),
                                             src_span,
+                                            self.source(),
                                         )
                                         .into();
 
@@ -182,6 +185,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     None,
                     Type::Protected(Region::default(), false),
                     src_span,
+                    self.source(),
                 )
                 .into();
 
@@ -204,6 +208,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 ))),
                                 Some(subprogram.subpgm_designator().pos(self.ctx)),
                                 subprogram.span(),
+                                Some(self.source()),
                             );
                             match as_fatal(self.subprogram_specification(
                                 scope,
@@ -249,6 +254,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     None,
                     Type::Record(RecordRegion::default()),
                     src_span,
+                    self.source(),
                 );
 
                 let mut elems = RecordRegion::default();
@@ -263,6 +269,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             type_ent.into(),
                             AnyEntKind::ElementDeclaration(subtype),
                             src_span,
+                            Some(self.source()),
                         );
                         region.add(elem, diagnostics);
                         elems.add(elem);
@@ -297,6 +304,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         None,
                         Type::Access(subtype),
                         src_span,
+                        self.source(),
                     );
 
                     scope.add(type_ent.into(), diagnostics);
@@ -338,6 +346,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     None,
                     Type::Array { indexes, elem_type },
                     src_span,
+                    self.source(),
                 );
 
                 scope.add(array_ent.into(), diagnostics);
@@ -365,6 +374,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         None,
                         Type::Subtype(subtype),
                         src_span,
+                        self.source(),
                     );
                     scope.add(type_ent.into(), diagnostics);
                 }
@@ -386,6 +396,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     None,
                     Type::Physical,
                     src_span,
+                    self.source(),
                 );
                 scope.add(phys_type.into(), diagnostics);
 
@@ -395,6 +406,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
                     src_span,
+                    Some(self.source()),
                 );
 
                 unsafe {
@@ -426,6 +438,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         parent,
                         AnyEntKind::PhysicalLiteral(phys_type),
                         src_span,
+                        Some(self.source()),
                     );
                     unsafe {
                         self.arena.add_implicit(phys_type.id(), secondary_unit);
@@ -478,6 +491,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         UniversalType::Real => Type::Real,
                     },
                     src_span,
+                    self.source(),
                 );
                 scope.add(type_ent.into(), diagnostics);
 
@@ -499,6 +513,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     None,
                     Type::File,
                     src_span,
+                    self.source(),
                 );
 
                 if let Some(type_mark) =

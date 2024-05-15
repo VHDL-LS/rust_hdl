@@ -55,6 +55,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ))),
             Some(body.specification.subpgm_designator().pos(self.ctx)),
             body.span(),
+            Some(self.source()),
         );
 
         let subpgm_region = match as_fatal(self.subprogram_specification(

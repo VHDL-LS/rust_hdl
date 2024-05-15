@@ -120,6 +120,7 @@ impl Library {
             AnyEntKind::Library,
             None,
             TokenSpan::for_library(),
+            None,
         );
 
         Library {
@@ -732,13 +733,14 @@ impl DesignRoot {
         &self,
         arena_id: ArenaId,
         unit_id: &UnitId,
+        source: Source,
         unit: &mut UnitWriteGuard,
         ctx: &dyn TokenAccess,
     ) {
         // All units reference the standard arena
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);
-        let context = AnalyzeContext::new(self, unit_id, &arena, ctx);
+        let context = AnalyzeContext::new(self, unit_id, source, &arena, ctx);
 
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
@@ -782,6 +784,7 @@ impl DesignRoot {
                 self.analyze_unit(
                     locked_unit.arena_id,
                     locked_unit.unit_id(),
+                    locked_unit.pos().source().clone(),
                     &mut unit,
                     &locked_unit.tokens,
                 );
@@ -1007,6 +1010,7 @@ impl DesignRoot {
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
                 Some(std_package.ident_pos(&locked_unit.tokens)),
                 std_package.span(),
+                Some(locked_unit.source().clone()),
             )
         };
 
@@ -1023,7 +1027,13 @@ impl DesignRoot {
             &mut std_package.decl,
         ));
 
-        let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena, &locked_unit.tokens);
+        let context = AnalyzeContext::new(
+            self,
+            locked_unit.unit_id(),
+            locked_unit.source().clone(),
+            &arena,
+            &locked_unit.tokens,
+        );
 
         let mut diagnostics = Vec::new();
         let root_scope = Scope::default();
@@ -1235,7 +1245,7 @@ impl<'a> EntHierarchy<'a> {
         let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
 
         symbols.retain(|ent| {
-            if let Some(parent) = ent.parent() {
+            if let Some(parent) = ent.parent_in_same_source() {
                 by_parent.entry(parent.id()).or_default().push(ent);
                 false
             } else {

@@ -52,6 +52,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     Some(label.pos(self.ctx)),
                     span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -64,6 +65,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     None,
                     span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
             }
@@ -147,6 +149,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         parent,
                         AnyEntKind::LoopParameter(typ),
                         src_span,
+                        Some(self.source()),
                     ),
                     diagnostics,
                 );
@@ -253,6 +256,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 parent,
                 AnyEntKind::Concurrent(Some(Concurrent::Generate)),
                 span,
+                Some(self.source()),
             );
             scope.add(ent, diagnostics);
             inner_parent = ent;

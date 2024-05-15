@@ -90,6 +90,7 @@ impl<'a> TypeEnt<'a> {
         declared_by: Option<EntRef<'a>>,
         kind: Type<'a>,
         src_span: TokenSpan,
+        source: Source,
     ) -> TypeEnt<'a> {
         let related = if let Some(declared_by) = declared_by {
             Related::DeclaredBy(declared_by)
@@ -107,6 +108,7 @@ impl<'a> TypeEnt<'a> {
                     AnyEntKind::Type(kind),
                     Some(ident.pos(ctx).clone()),
                     src_span,
+                    Some(source),
                 )
             }
         } else {
@@ -117,6 +119,7 @@ impl<'a> TypeEnt<'a> {
                 AnyEntKind::Type(kind),
                 Some(ident.pos(ctx).clone()),
                 src_span,
+                Some(source),
             )
         };
 

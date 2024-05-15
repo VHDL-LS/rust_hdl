@@ -30,6 +30,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     Some(label.pos(self.ctx)),
                     span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -43,6 +44,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     None,
                     span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 ent
@@ -266,6 +268,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 parent,
                                 AnyEntKind::LoopParameter(typ),
                                 index.tree.token.into(),
+                                Some(self.source()),
                             ),
                             diagnostics,
                         );

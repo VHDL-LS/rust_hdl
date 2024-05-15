@@ -174,6 +174,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     AnyEntKind::Type(Type::Incomplete),
                                     Some(decl_pos),
                                     span,
+                                    Some(self.source()),
                                 );
                                 reference.set_unique_reference(ent);
 
@@ -331,7 +332,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        Ok(designator.define(self.ctx, self.arena, parent, kind, src_span))
+        Ok(designator.define(
+            self.ctx,
+            self.arena,
+            parent,
+            kind,
+            src_span,
+            Some(self.source()),
+        ))
     }
 
     pub(crate) fn analyze_declaration(
@@ -362,6 +370,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     AnyEntKind::Overloaded(Overloaded::Alias(implicit)),
                                     ent.decl_pos(),
                                     ent.src_span,
+                                    Some(self.source()),
                                 );
                                 scope.add(impicit_alias, diagnostics);
                             }
@@ -429,6 +438,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         kind,
                         Some(object_decl.ident.pos(self.ctx).clone()),
                         src_span,
+                        Some(self.source()),
                     );
                     object_decl.ident.decl.set(object_ent.id());
 
@@ -464,6 +474,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             parent,
                             AnyEntKind::File(subtype),
                             src_span,
+                            Some(self.source()),
                         ),
                         diagnostics,
                     );
@@ -477,6 +488,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::Component(Region::default()),
                     src_span,
+                    Some(self.source()),
                 );
                 self.analyze_interface_list(
                     &nested,
@@ -507,6 +519,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 parent,
                                 AnyEntKind::Attribute(typ),
                                 src_span,
+                                Some(self.source()),
                             ),
                             diagnostics,
                         );
@@ -534,6 +547,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ))),
                     Some(subdecl.specification.subpgm_designator().pos(self.ctx)),
                     subdecl.span(),
+                    Some(self.source()),
                 );
                 match as_fatal(self.subprogram_specification(
                     scope,
@@ -560,6 +574,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         None,
                     ))),
                     src_span,
+                    Some(self.source()),
                 );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
@@ -593,6 +608,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
                     src_span,
+                    Some(self.source()),
                 );
 
                 if let Some(pkg_region) =
@@ -682,6 +698,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             parent,
             AnyEntKind::View(typ),
             src_span,
+            Some(self.source()),
         ))
     }
 
@@ -888,6 +905,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
                     span,
+                    Some(self.source()),
                 )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
@@ -900,6 +918,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::Type(Type::Interface),
                     span,
+                    Some(self.source()),
                 ))
                 .unwrap();
 
@@ -933,6 +952,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ))),
                     Some(subpgm.specification.subpgm_designator().pos(self.ctx)),
                     subpgm.span(),
+                    Some(self.source()),
                 );
                 self.subprogram_specification(
                     scope,
@@ -956,6 +976,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
                     span,
+                    Some(self.source()),
                 )
             }
         };
@@ -988,6 +1009,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         has_default: mode.expression.is_some(),
                     }),
                     span,
+                    Some(self.source()),
                 ))
             }
             ModeIndication::View(view) => {
@@ -1019,6 +1041,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         has_default: false,
                     }),
                     span,
+                    Some(self.source()),
                 ))
             }
         }

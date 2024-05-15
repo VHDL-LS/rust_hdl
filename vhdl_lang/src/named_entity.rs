@@ -150,6 +150,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
             kind,
             decl_pos,
             src_span,
+            source,
             attrs,
         } = self;
 
@@ -162,6 +163,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
         s.field(stringify!(kind), kind);
         s.field(stringify!(decl_pos), decl_pos);
         s.field(stringify!(src_span), src_span);
+        s.field(stringify!(source), source);
         s.field(stringify!(attrs), attrs);
         s.finish()
     }
@@ -195,6 +197,7 @@ pub struct AnyEnt<'a> {
     // TODO: There needs to be source information.
     // Add this information or make this a `SrcPos`?
     pub src_span: TokenSpan,
+    pub source: Option<Source>,
 
     /// Custom attributes on this entity
     pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
@@ -208,6 +211,7 @@ impl Arena {
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
         src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -216,6 +220,7 @@ impl Arena {
             kind,
             decl_pos.cloned(),
             src_span,
+            source,
         )
     }
 
@@ -226,6 +231,7 @@ impl Arena {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = self.explicit(
             decl.tree.name().clone(),
@@ -233,6 +239,7 @@ impl Arena {
             kind,
             Some(decl.tree.ident_pos(ctx)),
             src_span,
+            source,
         );
         decl.decl.set(ent.id());
         ent
@@ -245,6 +252,7 @@ impl Arena {
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
         src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -253,6 +261,7 @@ impl Arena {
             kind,
             decl_pos.cloned(),
             src_span,
+            source,
         )
     }
 }
@@ -353,24 +362,16 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn parent_in_same_source(&self) -> Option<EntRef<'a>> {
-        let source = self.decl_pos()?.source();
+        let source = self.source.as_ref()?;
         let mut ent = self;
 
         while let Some(parent) = ent.parent {
-            if let Some(pos) = parent.decl_pos() {
-                return if pos.source() == source {
-                    Some(parent)
-                } else {
-                    None
-                };
+            if let Some(pos) = &parent.source {
+                return if pos == source { Some(parent) } else { None };
             }
             ent = parent;
         }
         None
-    }
-
-    pub fn parent(&self) -> Option<EntRef<'a>> {
-        self.parent
     }
 
     pub fn library_name(&self) -> Option<&Symbol> {
@@ -731,6 +732,7 @@ impl WithDecl<Ident> {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.name().clone(),
@@ -738,6 +740,7 @@ impl WithDecl<Ident> {
             kind,
             Some(self.tree.pos(ctx)),
             src_span,
+            source,
         );
         self.decl.set(ent.id());
         ent
@@ -752,6 +755,7 @@ impl WithDecl<WithToken<Designator>> {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.item.clone(),
@@ -759,6 +763,7 @@ impl WithDecl<WithToken<Designator>> {
             kind,
             Some(self.tree.pos(ctx)),
             src_span,
+            source,
         );
         self.decl.set(ent.id());
         ent

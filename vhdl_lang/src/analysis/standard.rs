@@ -32,6 +32,7 @@ impl UniversalTypes {
             AnyEntKind::Type(Type::Universal(UniversalType::Integer)),
             standard_pkg.decl_pos(),
             standard_pkg.src_span,
+            standard_pkg.source.clone(),
         );
 
         let real = arena.explicit(
@@ -40,6 +41,7 @@ impl UniversalTypes {
             AnyEntKind::Type(Type::Universal(UniversalType::Real)),
             standard_pkg.decl_pos(),
             standard_pkg.src_span,
+            standard_pkg.source.clone(),
         );
 
         Self {
@@ -97,6 +99,7 @@ impl StandardTypes {
                         AnyEntKind::Type(Type::Incomplete),
                         Some(type_decl.ident.pos(ctx).clone()),
                         type_decl.span(),
+                        standard_pkg.source.clone(),
                     )
                     .id();
                 let name = type_decl.ident.tree.item.name();
@@ -315,6 +318,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ))),
             implicit_of.decl_pos(),
             implicit_of.src_span,
+            Some(self.source()),
         );
 
         for (name, kind) in formals.into_iter() {
@@ -324,6 +328,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 kind,
                 implicit_of.decl_pos(),
                 implicit_of.src_span,
+                Some(self.source()),
             ));
         }
 
@@ -1064,6 +1069,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )),
                 to_string.decl_pos().cloned(),
                 to_string.src_span,
+                Some(self.source()),
             );
 
             let to_binary_string = self.arena.alloc(
@@ -1075,6 +1081,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )),
                 to_string.decl_pos().cloned(),
                 to_string.src_span,
+                Some(self.source()),
             );
 
             let to_ostring = self.to_x_string("TO_OSTRING", typ);
@@ -1088,6 +1095,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )),
                 to_string.decl_pos().cloned(),
                 to_string.src_span,
+                Some(self.source()),
             );
 
             let to_hstring = self.to_x_string("TO_HSTRING", typ);
@@ -1100,6 +1108,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )),
                 to_string.decl_pos().cloned(),
                 to_string.src_span,
+                Some(self.source()),
             );
 
             let implicits = [

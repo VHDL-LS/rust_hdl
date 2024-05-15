@@ -54,6 +54,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             AnyEntKind::Design(Design::Entity(Visibility::default(), Region::default())),
             Some(unit.ident_pos(self.ctx)),
             unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -125,6 +126,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.work_library(),
             AnyEntKind::Design(Design::Configuration),
             src_span,
+            Some(self.source()),
         );
 
         Ok(())
@@ -141,6 +143,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
             Some(unit.ident_pos(self.ctx)),
             unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -188,6 +191,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             AnyEntKind::Design(Design::PackageInstance(Region::default())),
             Some(unit.ident_pos(self.ctx)),
             unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -226,6 +230,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.work_library(),
             AnyEntKind::Design(Design::Context(scope.into_region())),
             src_span,
+            Some(self.source()),
         );
 
         Ok(())
@@ -275,6 +280,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             primary.into(),
             AnyEntKind::Design(Design::Architecture(primary)),
             src_span,
+            Some(self.source()),
         );
 
         root_scope.add(arch, diagnostics);
@@ -331,6 +337,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             AnyEntKind::Design(Design::PackageBody),
             Some(unit.ident_pos(self.ctx).clone()),
             unit.span(),
+            Some(self.source()),
         );
         unit.ident.decl.set(body.id());
 
