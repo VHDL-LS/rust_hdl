@@ -586,7 +586,7 @@ impl DesignRoot {
 
             let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit());
             let _ = unit.search(&locked_unit.tokens, &mut searcher);
-            searcher.result.sort_by_key(|ent| ent.decl_pos());
+            searcher.result.sort_by_key(|ent| ent.src_span.start_token);
             let hierarchy = EntHierarchy::from_parent(primary_ent, searcher.result);
             result.push((hierarchy, &locked_unit.tokens))
         }
