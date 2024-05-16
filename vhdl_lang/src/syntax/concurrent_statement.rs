@@ -379,7 +379,7 @@ pub fn parse_instantiation_statement(
 
 fn parse_optional_declarative_part(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<Declaration>>> {
+) -> ParseResult<Option<Vec<WithTokenSpan<Declaration>>>> {
     if is_declarative_part(ctx)? {
         let decls = parse_declarative_part(ctx)?;
         ctx.stream.expect_kind(Begin)?;
@@ -1550,7 +1550,7 @@ end generate;",
 
     #[test]
     fn test_for_generate_empty_declarations() {
-        fn test(decl: Option<Vec<Declaration>>, code: Code) {
+        fn test(decl: Option<Vec<WithTokenSpan<Declaration>>>, code: Code) {
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),

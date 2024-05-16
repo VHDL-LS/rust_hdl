@@ -32,7 +32,7 @@ mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
 mod formal_region;
-use crate::ast::token_range::WithToken;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
@@ -150,6 +150,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
             kind,
             decl_pos,
             src_span,
+            source,
             attrs,
         } = self;
 
@@ -162,6 +163,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
         s.field(stringify!(kind), kind);
         s.field(stringify!(decl_pos), decl_pos);
         s.field(stringify!(src_span), src_span);
+        s.field(stringify!(source), source);
         s.field(stringify!(attrs), attrs);
         s.finish()
     }
@@ -192,7 +194,8 @@ pub struct AnyEnt<'a> {
     pub designator: Designator,
     pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
-    pub src_span: Option<TokenSpan>,
+    pub src_span: TokenSpan,
+    pub source: Option<Source>,
 
     /// Custom attributes on this entity
     pub attrs: FnvHashMap<Symbol, (SrcPos, AttributeEnt<'a>)>,
@@ -205,7 +208,8 @@ impl Arena {
         designator: impl Into<Designator>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -214,6 +218,7 @@ impl Arena {
             kind,
             decl_pos.cloned(),
             src_span,
+            source,
         )
     }
 
@@ -223,7 +228,8 @@ impl Arena {
         decl: &mut WithDecl<T>,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = self.explicit(
             decl.tree.name().clone(),
@@ -231,6 +237,7 @@ impl Arena {
             kind,
             Some(decl.tree.ident_pos(ctx)),
             src_span,
+            source,
         );
         decl.decl.set(ent.id());
         ent
@@ -242,7 +249,8 @@ impl Arena {
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
@@ -251,6 +259,7 @@ impl Arena {
             kind,
             decl_pos.cloned(),
             src_span,
+            source,
         )
     }
 }
@@ -351,16 +360,12 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn parent_in_same_source(&self) -> Option<EntRef<'a>> {
-        let source = self.decl_pos()?.source();
+        let source = self.source.as_ref()?;
         let mut ent = self;
 
         while let Some(parent) = ent.parent {
-            if let Some(pos) = parent.decl_pos() {
-                if pos.source() == source {
-                    return Some(parent);
-                } else {
-                    return None;
-                }
+            if let Some(pos) = &parent.source {
+                return if pos == source { Some(parent) } else { None };
             }
             ent = parent;
         }
@@ -488,7 +493,13 @@ impl<'a> AnyEnt<'a> {
             AnyEntKind::Overloaded(_) => OverloadedEnt::from_any(self).unwrap().describe(),
 
             AnyEntKind::Type(_) => TypeEnt::from_any(self).unwrap().describe(),
-            _ => format!("{} '{}'", self.kind.describe(), self.designator),
+            _ => {
+                if matches!(self.designator, Designator::Anonymous(_)) {
+                    self.kind.describe().to_string()
+                } else {
+                    format!("{} '{}'", self.kind.describe(), self.designator)
+                }
+            }
         }
     }
 
@@ -574,7 +585,7 @@ impl HasEntityId for InterfaceDeclaration {
             InterfaceDeclaration::Object(object) => object.ent_id(),
             InterfaceDeclaration::File(file) => file.ent_id(),
             InterfaceDeclaration::Type(typ) => typ.decl.get(),
-            InterfaceDeclaration::Subprogram(decl, _) => decl.ent_id(),
+            InterfaceDeclaration::Subprogram(declaration) => declaration.specification.ent_id(),
             InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
         }
     }
@@ -702,6 +713,15 @@ impl HasEntityId for ModeViewDeclaration {
     }
 }
 
+impl<T> HasEntityId for WithTokenSpan<T>
+where
+    T: HasEntityId,
+{
+    fn ent_id(&self) -> Option<EntityId> {
+        self.item.ent_id()
+    }
+}
+
 impl WithDecl<Ident> {
     pub fn define<'a>(
         &mut self,
@@ -709,7 +729,8 @@ impl WithDecl<Ident> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.name().clone(),
@@ -717,6 +738,7 @@ impl WithDecl<Ident> {
             kind,
             Some(self.tree.pos(ctx)),
             src_span,
+            source,
         );
         self.decl.set(ent.id());
         ent
@@ -730,7 +752,8 @@ impl WithDecl<WithToken<Designator>> {
         arena: &'a Arena,
         parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
             self.tree.item.clone(),
@@ -738,6 +761,7 @@ impl WithDecl<WithToken<Designator>> {
             kind,
             Some(self.tree.pos(ctx)),
             src_span,
+            source,
         );
         self.decl.set(ent.id());
         ent
@@ -782,9 +806,9 @@ pub enum Sequential {
 impl Sequential {
     fn describe(&self) -> &'static str {
         match self {
-            Sequential::Case => "case",
-            Sequential::If => "if",
-            Sequential::Loop => "loop",
+            Sequential::Case => "case statement",
+            Sequential::If => "if statement",
+            Sequential::Loop => "loop statement",
         }
     }
 }

@@ -9,6 +9,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
+use crate::HasTokenSpan;
 use analyze::*;
 use target::AssignmentType;
 
@@ -21,13 +22,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
+            let span = statement.span();
             let parent = if let Some(ref mut label) = statement.label.tree {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     Some(label.pos(self.ctx)),
-                    None,
+                    span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -40,7 +43,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Related::None,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     None,
-                    None,
+                    span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 ent
@@ -263,7 +267,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 index,
                                 parent,
                                 AnyEntKind::LoopParameter(typ),
-                                None,
+                                index.tree.token.into(),
+                                Some(self.source()),
                             ),
                             diagnostics,
                         );
@@ -320,6 +325,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let SignalReleaseAssignment {
                     target,
                     force_mode: _,
+                    span: _,
                 } = assign;
                 as_fatal(self.resolve_target(scope, target, AssignmentType::Signal, diagnostics))?;
             }

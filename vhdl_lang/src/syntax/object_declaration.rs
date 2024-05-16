@@ -29,7 +29,7 @@ pub fn parse_optional_assignment(
 fn parse_object_declaration_kind(
     ctx: &mut ParsingContext<'_>,
     class: ObjectClass,
-) -> ParseResult<Vec<ObjectDeclaration>> {
+) -> ParseResult<Vec<WithTokenSpan<ObjectDeclaration>>> {
     let start_token = ctx.stream.get_current_token_id();
     match class {
         ObjectClass::Signal => {
@@ -55,19 +55,23 @@ fn parse_object_declaration_kind(
 
     Ok(idents
         .into_iter()
-        .map(|ident| ObjectDeclaration {
-            span: TokenSpan::new(start_token, end_token),
-            class,
-            ident: ident.into(),
-            subtype_indication: subtype.clone(),
-            expression: opt_expression.clone(),
+        .map(|ident| {
+            WithTokenSpan::new(
+                ObjectDeclaration {
+                    class,
+                    ident: ident.into(),
+                    subtype_indication: subtype.clone(),
+                    expression: opt_expression.clone(),
+                },
+                TokenSpan::new(start_token, end_token),
+            )
         })
         .collect())
 }
 
 pub fn parse_object_declaration(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<ObjectDeclaration>> {
+) -> ParseResult<Vec<WithTokenSpan<ObjectDeclaration>>> {
     let token = ctx.stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
@@ -81,7 +85,9 @@ pub fn parse_object_declaration(
     Ok(result)
 }
 
-pub fn parse_file_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Vec<WithTokenSpan<FileDeclaration>>> {
     let start_token = ctx.stream.expect_kind(File)?;
     let idents = parse_identifier_list(ctx)?;
     ctx.stream.expect_kind(Colon)?;
@@ -117,12 +123,16 @@ pub fn parse_file_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<F
 
     Ok(idents
         .into_iter()
-        .map(|ident| FileDeclaration {
-            span: TokenSpan::new(start_token, end_token),
-            ident: ident.into(),
-            subtype_indication: subtype.clone(),
-            open_info: open_info.clone(),
-            file_name: file_name.clone(),
+        .map(|ident| {
+            WithTokenSpan::new(
+                FileDeclaration {
+                    ident: ident.into(),
+                    subtype_indication: subtype.clone(),
+                    open_info: open_info.clone(),
+                    file_name: file_name.clone(),
+                },
+                TokenSpan::new(start_token, end_token),
+            )
         })
         .collect())
 }
@@ -140,13 +150,15 @@ mod tests {
         let code = Code::new("constant foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Constant,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: None
-            }]
+            vec![WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: None
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -155,13 +167,15 @@ mod tests {
         let code = Code::new("signal foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Signal,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: None
-            }]
+            vec![WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Signal,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: None
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -170,13 +184,15 @@ mod tests {
         let code = Code::new("variable foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Variable,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: None
-            }]
+            vec![WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Variable,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: None
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -185,13 +201,15 @@ mod tests {
         let code = Code::new("shared variable foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::SharedVariable,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: None
-            }]
+            vec![WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::SharedVariable,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: None
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -200,13 +218,15 @@ mod tests {
         let code = Code::new("file foo : text;");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![FileDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("text").subtype_indication(),
-                open_info: None,
-                file_name: None
-            }]
+            vec![WithTokenSpan::new(
+                FileDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("text").subtype_indication(),
+                    open_info: None,
+                    file_name: None
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -215,13 +235,15 @@ mod tests {
         let code = Code::new("file foo : text is \"file_name\";");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![FileDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("text").subtype_indication(),
-                open_info: None,
-                file_name: Some(code.s1("\"file_name\"").expr())
-            }]
+            vec![WithTokenSpan::new(
+                FileDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("text").subtype_indication(),
+                    open_info: None,
+                    file_name: Some(code.s1("\"file_name\"").expr())
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -230,13 +252,15 @@ mod tests {
         let code = Code::new("file foo : text open write_mode is \"file_name\";");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![FileDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("text").subtype_indication(),
-                open_info: Some(code.s1("write_mode").expr()),
-                file_name: Some(code.s1("\"file_name\"").expr())
-            }]
+            vec![WithTokenSpan::new(
+                FileDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("text").subtype_indication(),
+                    open_info: Some(code.s1("write_mode").expr()),
+                    file_name: Some(code.s1("\"file_name\"").expr())
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -257,13 +281,15 @@ mod tests {
         let code = Code::new("constant foo : natural := 0;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Constant,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: Some(code.s1("0").expr())
-            }]
+            vec![WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(code.s1("0").expr())
+                },
+                code.token_span()
+            )]
         );
     }
 
@@ -272,20 +298,24 @@ mod tests {
         let code = Code::new("constant foo, bar : natural := 0;");
 
         let objects = vec![
-            ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Constant,
-                ident: code.s1("foo").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: Some(code.s1("0").expr()),
-            },
-            ObjectDeclaration {
-                span: code.token_span(),
-                class: ObjectClass::Constant,
-                ident: code.s1("bar").decl_ident(),
-                subtype_indication: code.s1("natural").subtype_indication(),
-                expression: Some(code.s1("0").expr()),
-            },
+            WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    ident: code.s1("foo").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(code.s1("0").expr()),
+                },
+                code.token_span(),
+            ),
+            WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    ident: code.s1("bar").decl_ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(code.s1("0").expr()),
+                },
+                code.token_span(),
+            ),
         ];
 
         assert_eq!(code.with_stream(parse_object_declaration), objects);
@@ -310,8 +340,8 @@ end architecture;
             .decl
             .iter()
             .map(|d| {
-                if let Declaration::Object(obj) = d {
-                    obj
+                if let Declaration::Object(obj) = &d.item {
+                    WithTokenSpan::new(obj, d.span)
                 } else {
                     panic!("Only object declarations are expected!")
                 }

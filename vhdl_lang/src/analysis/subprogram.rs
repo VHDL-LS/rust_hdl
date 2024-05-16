@@ -13,6 +13,7 @@ use crate::named_entity::{Signature, *};
 use crate::{ast, HasTokenSpan};
 use analyze::*;
 use itertools::Itertools;
+use vhdl_lang::TokenSpan;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
     fn subprogram_header(
@@ -35,14 +36,60 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(region)
     }
 
+    pub(crate) fn subprogram_body(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        body: &mut SubprogramBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
+            scope,
+            parent,
+            &mut body.specification,
+            body.span,
+            Overloaded::Subprogram,
+            diagnostics,
+        ))? {
+            Some(r) => r,
+            None => {
+                return Ok(());
+            }
+        };
+
+        scope.add(subpgm_ent, diagnostics);
+
+        self.define_labels_for_sequential_part(
+            &subpgm_region,
+            subpgm_ent,
+            &mut body.statements,
+            diagnostics,
+        )?;
+        self.analyze_declarative_part(
+            &subpgm_region,
+            subpgm_ent,
+            &mut body.declarations,
+            diagnostics,
+        )?;
+
+        self.analyze_sequential_part(
+            &subpgm_region,
+            subpgm_ent,
+            &mut body.statements,
+            diagnostics,
+        )?;
+        Ok(())
+    }
+
     pub(crate) fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
         subprogram: &mut SubprogramSpecification,
+        span: TokenSpan,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<(Scope<'a>, OverloadedEnt<'a>)> {
+    ) -> EvalResult<(Scope<'a>, EntRef<'a>)> {
         let subpgm_region = scope.nested();
         let ent = self.arena.explicit(
             subprogram
@@ -53,7 +100,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             parent,
             AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
             Some(subprogram.subpgm_designator().pos(self.ctx)),
-            None,
+            span,
+            Some(self.source()),
         );
 
         let (signature, generic_map) = match subprogram {
@@ -130,7 +178,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ent.set_kind(AnyEntKind::Overloaded(kind));
         }
         subprogram.set_decl_id(ent.id());
-        Ok((subpgm_region, OverloadedEnt::from_any(ent).unwrap()))
+        Ok((subpgm_region, ent))
     }
 
     pub fn resolve_signature(

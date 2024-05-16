@@ -9,6 +9,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::{Signature, *};
+use crate::HasTokenSpan;
 use analyze::*;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
@@ -50,6 +51,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         overwrite_id: Option<EntityId>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let src_span = type_decl.span();
         match type_decl.def {
             TypeDefinition::Enumeration(ref mut enumeration) => {
                 let enum_type = TypeEnt::define_with_opt_id(
@@ -65,6 +67,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             .map(|literal| literal.tree.item.clone().into_designator())
                             .collect(),
                     ),
+                    src_span,
+                    self.source(),
                 );
 
                 let signature =
@@ -76,7 +80,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         enum_type.into(),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(literal.pos(self.ctx)),
-                        None,
+                        src_span,
+                        Some(self.source()),
                     );
                     literal.decl.set(literal_ent.id());
 
@@ -122,6 +127,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                             parent,
                                             Some(ent),
                                             Type::Protected(Region::default(), true),
+                                            src_span,
+                                            self.source(),
                                         )
                                         .into();
 
@@ -177,6 +184,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     None,
                     Type::Protected(Region::default(), false),
+                    src_span,
+                    self.source(),
                 )
                 .into();
 
@@ -190,11 +199,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 scope,
                                 ptype,
                                 &mut subprogram.specification,
+                                subprogram.span,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
                             ))? {
                                 Some((_, ent)) => {
-                                    region.add(ent.into(), diagnostics);
+                                    region.add(ent, diagnostics);
                                 }
                                 None => {
                                     return Ok(());
@@ -229,6 +239,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     None,
                     Type::Record(RecordRegion::default()),
+                    src_span,
+                    self.source(),
                 );
 
                 let mut elems = RecordRegion::default();
@@ -242,7 +254,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             &mut elem_decl.ident,
                             type_ent.into(),
                             AnyEntKind::ElementDeclaration(subtype),
-                            None,
+                            src_span,
+                            Some(self.source()),
                         );
                         region.add(elem, diagnostics);
                         elems.add(elem);
@@ -276,6 +289,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         parent,
                         None,
                         Type::Access(subtype),
+                        src_span,
+                        self.source(),
                     );
 
                     scope.add(type_ent.into(), diagnostics);
@@ -316,6 +331,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     None,
                     Type::Array { indexes, elem_type },
+                    src_span,
+                    self.source(),
                 );
 
                 scope.add(array_ent.into(), diagnostics);
@@ -342,6 +359,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         parent,
                         None,
                         Type::Subtype(subtype),
+                        src_span,
+                        self.source(),
                     );
                     scope.add(type_ent.into(), diagnostics);
                 }
@@ -362,6 +381,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     None,
                     Type::Physical,
+                    src_span,
+                    self.source(),
                 );
                 scope.add(phys_type.into(), diagnostics);
 
@@ -370,7 +391,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut physical.primary_unit,
                     parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
-                    None,
+                    src_span,
+                    Some(self.source()),
                 );
 
                 unsafe {
@@ -401,7 +423,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         secondary_unit_name,
                         parent,
                         AnyEntKind::PhysicalLiteral(phys_type),
-                        None,
+                        src_span,
+                        Some(self.source()),
                     );
                     unsafe {
                         self.arena.add_implicit(phys_type.id(), secondary_unit);
@@ -453,6 +476,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         UniversalType::Integer => Type::Integer,
                         UniversalType::Real => Type::Real,
                     },
+                    src_span,
+                    self.source(),
                 );
                 scope.add(type_ent.into(), diagnostics);
 
@@ -473,6 +498,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     parent,
                     None,
                     Type::File,
+                    src_span,
+                    self.source(),
                 );
 
                 if let Some(type_mark) =

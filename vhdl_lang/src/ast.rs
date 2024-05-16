@@ -13,6 +13,7 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
+mod ast_span;
 pub mod token_range;
 
 pub(crate) use self::util::*;
@@ -393,6 +394,7 @@ pub enum ArrayIndex {
 }
 
 /// LRM 5.3.3 Record types
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
     pub ident: WithDecl<Ident>,
@@ -470,7 +472,6 @@ impl HasDesignator for WithToken<WithRef<Designator>> {
 }
 
 /// LRM 6.6 Alias declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithToken<Designator>>,
@@ -480,7 +481,6 @@ pub struct AliasDeclaration {
 }
 
 /// LRM 6.7 Attribute declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -528,7 +528,6 @@ pub enum EntityClass {
 }
 
 /// LRM 7.2 Attribute specification
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
@@ -538,7 +537,7 @@ pub struct AttributeSpecification {
 }
 
 /// LRM 7.2 Attribute specification
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Attribute {
     Specification(AttributeSpecification),
     Declaration(AttributeDeclaration),
@@ -553,7 +552,7 @@ pub struct ProtectedTypeDeclaration {
 /// LRM 5.6.3 Protected type bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProtectedTypeBody {
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
 }
 
 /// LRM 5.4.2 Physical type declaration
@@ -626,7 +625,6 @@ pub enum InterfaceType {
     Parameter,
 }
 
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
@@ -635,7 +633,6 @@ pub struct ObjectDeclaration {
     pub expression: Option<WithTokenSpan<Expression>>,
 }
 
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -651,6 +648,7 @@ pub enum SubprogramDesignator {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
@@ -661,6 +659,7 @@ pub struct ProcedureSpecification {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
@@ -677,7 +676,7 @@ pub struct FunctionSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
     pub specification: SubprogramSpecification,
-    pub declarations: Vec<Declaration>,
+    pub declarations: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -717,7 +716,7 @@ pub enum Signature {
     Procedure(Vec<WithTokenSpan<TypeMark>>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum SubprogramSpecification {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
@@ -730,6 +729,7 @@ pub struct SubprogramDeclaration {
     pub specification: SubprogramSpecification,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -737,6 +737,7 @@ pub struct InterfaceFileDeclaration {
 }
 
 /// LRM 6.5.2 Interface object declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
@@ -772,12 +773,6 @@ pub struct ModeViewIndication {
     pub subtype_indication: Option<SubtypeIndication>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum SubprogramDefault {
-    Name(WithTokenSpan<Name>),
-    Box,
-}
-
 /// LRM 6.5.5 Interface package declaration
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfacePackageGenericMapAspect {
@@ -787,6 +782,7 @@ pub enum InterfacePackageGenericMapAspect {
 }
 
 /// LRM 6.5.5 Interface package declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfacePackageDeclaration {
     pub ident: WithDecl<Ident>,
@@ -795,12 +791,25 @@ pub struct InterfacePackageDeclaration {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+pub enum SubprogramDefault {
+    Name(WithTokenSpan<Name>),
+    Box,
+}
+
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfaceSubprogramDeclaration {
+    pub specification: SubprogramSpecification,
+    pub default: Option<SubprogramDefault>,
+}
+
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum InterfaceDeclaration {
     Object(InterfaceObjectDeclaration),
     File(InterfaceFileDeclaration),
     Type(WithDecl<Ident>),
     /// LRM 6.5.4 Interface subprogram declarations
-    Subprogram(SubprogramSpecification, Option<SubprogramDefault>),
+    Subprogram(InterfaceSubprogramDeclaration),
     /// LRM 6.5.5 Interface package declaration
     Package(InterfacePackageDeclaration),
 }
@@ -830,7 +839,7 @@ pub struct ComponentDeclaration {
     pub end_ident_pos: Option<TokenId>,
 }
 
-#[derive(PartialEq, Debug, Clone, TokenSpan)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Declaration {
     Object(ObjectDeclaration),
     File(FileDeclaration),
@@ -921,6 +930,7 @@ pub struct SignalForceAssignment {
     pub rhs: AssignmentRightHand<WithTokenSpan<Expression>>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalReleaseAssignment {
     pub target: WithTokenSpan<Target>,
@@ -1051,7 +1061,7 @@ pub struct LabeledSequentialStatement {
 pub struct BlockStatement {
     pub guard_condition: Option<WithTokenSpan<Expression>>,
     pub header: BlockHeader,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1077,7 +1087,7 @@ pub enum SensitivityList {
 pub struct ProcessStatement {
     pub postponed: bool,
     pub sensitivity_list: Option<SensitivityList>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1165,7 +1175,7 @@ impl InstantiationStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct GenerateBody {
     pub alternative_label: Option<WithDecl<Ident>>,
-    pub decl: Option<Vec<Declaration>>,
+    pub decl: Option<Vec<WithTokenSpan<Declaration>>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_label_pos: Option<SrcPos>,
 }
@@ -1196,7 +1206,6 @@ pub struct CaseGenerateStatement {
 }
 
 /// LRM 6.5.2 Interface Object Declarations - Mode view declarations
-#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewDeclaration {
     pub ident: WithDecl<Ident>,
@@ -1419,7 +1428,7 @@ pub struct EntityDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -1432,7 +1441,7 @@ pub struct ArchitectureBody {
     pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
     pub begin_token: TokenId,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<TokenId>,
 }
@@ -1444,7 +1453,7 @@ pub struct PackageDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1454,7 +1463,7 @@ pub struct PackageDeclaration {
 pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub decl: Vec<Declaration>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub end_ident_pos: Option<TokenId>,
 }
 

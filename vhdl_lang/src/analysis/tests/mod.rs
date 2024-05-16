@@ -33,7 +33,7 @@ mod visibility;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use vhdl_lang::syntax::Kind;
-use vhdl_lang::TokenAccess;
+use vhdl_lang::{TokenAccess, TokenSpan};
 
 pub use self::util::*;
 use crate::ast::Designator;
@@ -112,6 +112,7 @@ impl<'a> TestSetup<'a> {
                 &self.root.symbol_utf8("libname"),
                 &self.root.symbol_utf8("dummy"),
             ),
+            Source::inline(&PathBuf::new(), ""),
             &self.arena,
             tokens,
         );
@@ -131,7 +132,8 @@ impl<'a> TestSetup<'a> {
             Related::None,
             AnyEntKind::Library,
             None,
-            None,
+            TokenSpan::for_library(),
+            Some(code.source().clone()),
         );
         self.ctx(&code.tokenize())
             .analyze_declarative_part(

@@ -11,6 +11,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
+use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
 use target::AssignmentType;
 
@@ -43,13 +44,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
+            let span = statement.span();
             if let Some(ref mut label) = statement.label.tree {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     Some(label.pos(self.ctx)),
-                    None,
+                    span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
                 scope.add(ent, diagnostics);
@@ -61,7 +64,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Related::None,
                     AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     None,
-                    None,
+                    span,
+                    Some(self.source()),
                 );
                 statement.label.decl.set(ent.id());
             }
@@ -77,6 +81,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let src_span = statement.span();
         match statement.statement.item {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
@@ -143,11 +148,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         self.arena,
                         parent,
                         AnyEntKind::LoopParameter(typ),
-                        None,
+                        src_span,
+                        Some(self.source()),
                     ),
                     diagnostics,
                 );
-                self.analyze_generate_body(&nested, parent, body, diagnostics)?;
+                self.analyze_generate_body(&nested, parent, body, src_span, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 let Conditionals {
@@ -158,11 +164,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let Conditional { condition, item } = conditional;
                     self.boolean_expr(scope, condition, diagnostics)?;
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, parent, item, diagnostics)?;
+                    self.analyze_generate_body(&nested, parent, item, src_span, diagnostics)?;
                 }
                 if let Some(ref mut else_item) = else_item {
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, parent, else_item, diagnostics)?;
+                    self.analyze_generate_body(&nested, parent, else_item, src_span, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
@@ -184,7 +190,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, parent, item, diagnostics)?;
+                    self.analyze_generate_body(&nested, parent, item, src_span, diagnostics)?;
                 }
             }
             ConcurrentStatement::Instance(ref mut instance) => {
@@ -232,13 +238,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         parent: EntRef<'a>,
         body: &mut GenerateBody,
+        span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let GenerateBody {
             alternative_label,
             decl,
             statements,
-            end_label_pos: _,
+            ..
         } = body;
 
         let mut inner_parent = parent;
@@ -248,7 +255,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.arena,
                 parent,
                 AnyEntKind::Concurrent(Some(Concurrent::Generate)),
-                None,
+                span,
+                Some(self.source()),
             );
             scope.add(ent, diagnostics);
             inner_parent = ent;

@@ -15,6 +15,7 @@ use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::syntax::{Symbols, Token, TokenAccess};
+use crate::{HasTokenSpan, TokenSpan};
 use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
@@ -118,6 +119,7 @@ impl Library {
             Related::None,
             AnyEntKind::Library,
             None,
+            TokenSpan::for_library(),
             None,
         );
 
@@ -582,10 +584,9 @@ impl DesignRoot {
             };
             let primary_ent = self.get_ent(ent_id);
 
-            let mut searcher =
-                FindAllEnt::new(self, |ent| ent.is_explicit() && !ent.is_anonymous());
+            let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit());
             let _ = unit.search(&locked_unit.tokens, &mut searcher);
-            searcher.result.sort_by_key(|ent| ent.decl_pos());
+            searcher.result.sort_by_key(|ent| ent.src_span.start_token);
             let hierarchy = EntHierarchy::from_parent(primary_ent, searcher.result);
             result.push((hierarchy, &locked_unit.tokens))
         }
@@ -732,13 +733,14 @@ impl DesignRoot {
         &self,
         arena_id: ArenaId,
         unit_id: &UnitId,
+        source: Source,
         unit: &mut UnitWriteGuard,
         ctx: &dyn TokenAccess,
     ) {
         // All units reference the standard arena
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);
-        let context = AnalyzeContext::new(self, unit_id, &arena, ctx);
+        let context = AnalyzeContext::new(self, unit_id, source, &arena, ctx);
 
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
@@ -782,6 +784,7 @@ impl DesignRoot {
                 self.analyze_unit(
                     locked_unit.arena_id,
                     locked_unit.unit_id(),
+                    locked_unit.pos().source().clone(),
                     &mut unit,
                     &locked_unit.tokens,
                 );
@@ -1006,7 +1009,8 @@ impl DesignRoot {
                 // Will be overwritten below
                 AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
                 Some(std_package.ident_pos(&locked_unit.tokens)),
-                None,
+                std_package.span(),
+                Some(locked_unit.source().clone()),
             )
         };
 
@@ -1023,7 +1027,13 @@ impl DesignRoot {
             &mut std_package.decl,
         ));
 
-        let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena, &locked_unit.tokens);
+        let context = AnalyzeContext::new(
+            self,
+            locked_unit.unit_id(),
+            locked_unit.source().clone(),
+            &arena,
+            &locked_unit.tokens,
+        );
 
         let mut diagnostics = Vec::new();
         let root_scope = Scope::default();
@@ -1050,7 +1060,7 @@ impl DesignRoot {
         }
 
         for decl in std_package.decl.iter_mut() {
-            if let Declaration::Type(ref mut type_decl) = decl {
+            if let Declaration::Type(ref mut type_decl) = decl.item {
                 context
                     .analyze_type_declaration(
                         &scope,

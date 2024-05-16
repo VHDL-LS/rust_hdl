@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ElementMode, ModeViewDeclaration, ModeViewElement, WithDecl};
 use crate::syntax::common::ParseResult;
 use crate::syntax::interface_declaration::parse_optional_mode;
@@ -21,7 +22,7 @@ use vhdl_lang::TokenSpan;
 //   `end` `view` [ mode_view_simple_name ] `;`
 pub(crate) fn parse_mode_view_declaration(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<ModeViewDeclaration> {
+) -> ParseResult<WithTokenSpan<ModeViewDeclaration>> {
     let start_tok = ctx.stream.expect_kind(View)?;
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
     ctx.stream.expect_kind(Of)?;
@@ -36,13 +37,15 @@ pub(crate) fn parse_mode_view_declaration(
     let end_ident_pos =
         check_end_identifier_mismatch(ctx, &ident.tree, ctx.stream.pop_optional_ident());
     let end_tok = ctx.stream.expect_kind(SemiColon)?;
-    Ok(ModeViewDeclaration {
-        span: TokenSpan::new(start_tok, end_tok),
-        ident,
-        typ,
-        elements,
-        end_ident_pos,
-    })
+    Ok(WithTokenSpan::new(
+        ModeViewDeclaration {
+            ident,
+            typ,
+            elements,
+            end_ident_pos,
+        },
+        TokenSpan::new(start_tok, end_tok),
+    ))
 }
 
 // mode_view_element_definition ::= record_element_list : element_mode_indication ;
@@ -89,7 +92,7 @@ pub(crate) fn parse_element_mode_indication(
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::token_range::WithToken;
+    use crate::ast::token_range::{WithToken, WithTokenSpan};
     use crate::ast::{Mode, ModeViewDeclaration, ModeViewElement};
     use crate::data::ErrorCode;
     use crate::syntax::test::{check_diagnostics, Code};
@@ -216,13 +219,15 @@ end view;
         );
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_declaration),
-            ModeViewDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                typ: code.s1("bar").subtype_indication(),
-                elements: Vec::new(),
-                end_ident_pos: None,
-            }
+            WithTokenSpan::new(
+                ModeViewDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    typ: code.s1("bar").subtype_indication(),
+                    elements: Vec::new(),
+                    end_ident_pos: None,
+                },
+                code.token_span()
+            )
         );
 
         let code = Code::with_standard(
@@ -234,13 +239,15 @@ end view foo;
         );
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_declaration),
-            ModeViewDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                typ: code.s1("bar").subtype_indication(),
-                elements: Vec::new(),
-                end_ident_pos: Some(code.s("foo", 2).token()),
-            }
+            WithTokenSpan::new(
+                ModeViewDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    typ: code.s1("bar").subtype_indication(),
+                    elements: Vec::new(),
+                    end_ident_pos: Some(code.s("foo", 2).token()),
+                },
+                code.token_span()
+            )
         );
 
         let code = Code::with_standard(
@@ -253,13 +260,15 @@ end view baz;
         let (res, diagnostics) = code.with_stream_diagnostics(parse_mode_view_declaration);
         assert_eq!(
             res,
-            ModeViewDeclaration {
-                span: code.token_span(),
-                ident: code.s1("foo").decl_ident(),
-                typ: code.s1("bar").subtype_indication(),
-                elements: Vec::new(),
-                end_ident_pos: None
-            }
+            WithTokenSpan::new(
+                ModeViewDeclaration {
+                    ident: code.s1("foo").decl_ident(),
+                    typ: code.s1("bar").subtype_indication(),
+                    elements: Vec::new(),
+                    end_ident_pos: None
+                },
+                code.token_span()
+            )
         );
         check_diagnostics(
             diagnostics,
@@ -284,16 +293,18 @@ end view;
         );
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_declaration),
-            ModeViewDeclaration {
-                span: code.token_span(),
-                typ: code.s1("bar").subtype_indication(),
-                ident: code.s1("foo").decl_ident(),
-                elements: vec![
-                    code.s1("baz: in;").mode_view_element(),
-                    code.s1("foo: view some_view;").mode_view_element(),
-                ],
-                end_ident_pos: None,
-            }
+            WithTokenSpan::new(
+                ModeViewDeclaration {
+                    typ: code.s1("bar").subtype_indication(),
+                    ident: code.s1("foo").decl_ident(),
+                    elements: vec![
+                        code.s1("baz: in;").mode_view_element(),
+                        code.s1("foo: view some_view;").mode_view_element(),
+                    ],
+                    end_ident_pos: None,
+                },
+                code.token_span()
+            )
         )
     }
 }

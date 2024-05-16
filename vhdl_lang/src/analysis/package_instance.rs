@@ -294,6 +294,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             AnyEntKind::Library, // Will be immediately overwritten below
             decl_pos,
             uninst.src_span,
+            Some(self.source()),
         );
         let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
         unsafe {

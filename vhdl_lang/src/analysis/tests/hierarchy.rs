@@ -54,9 +54,13 @@ end architecture;
                 "a",
                 vec![
                     single("s0"),
-                    // @TODO add tree for anonymous block and process
-                    single("v0"),
-                    single("loop0"),
+                    nested(
+                        "block",
+                        vec![nested(
+                            "process",
+                            vec![single("v0"), single("loop0"), single("if statement")]
+                        )]
+                    ),
                 ]
             )
         ]
@@ -261,7 +265,11 @@ fn single(name: &str) -> NameHierarchy {
 impl<'a> From<EntHierarchy<'a>> for NameHierarchy {
     fn from(ent: EntHierarchy) -> Self {
         NameHierarchy {
-            name: ent.ent.designator().to_string(),
+            name: if matches!(ent.ent.designator(), Designator::Anonymous(_)) {
+                ent.ent.kind().describe().to_string()
+            } else {
+                ent.ent.designator().to_string()
+            },
             children: ent.children.into_iter().map(NameHierarchy::from).collect(),
         }
     }

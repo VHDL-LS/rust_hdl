@@ -6,6 +6,7 @@
 
 use super::names::*;
 use super::*;
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -16,6 +17,7 @@ use fnv::FnvHashMap;
 use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
+use vhdl_lang::TokenSpan;
 
 impl Declaration {
     pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
@@ -116,7 +118,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
-        declarations: &mut [Declaration],
+        declarations: &mut [WithTokenSpan<Declaration>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
@@ -124,11 +126,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         for i in 0..declarations.len() {
             // Handle incomplete types
 
-            let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
+            let (WithTokenSpan { item: decl, span }, remaining) =
+                declarations[i..].split_first_mut().unwrap();
 
             if !decl.is_allowed_in_context(parent.kind()) {
                 diagnostics.add(
-                    decl.get_pos(self.ctx),
+                    span.pos(self.ctx),
                     format!("{} declaration not allowed here", decl.describe()),
                     ErrorCode::DeclarationNotAllowed,
                 )
@@ -145,7 +148,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 let (decl_pos, span) = match full_definiton {
                                     Some(full_decl) => (
                                         self.ctx.get_pos(full_decl.ident.tree.token),
-                                        Some(full_decl.span),
+                                        full_decl.span,
                                     ),
                                     None => {
                                         let error = Diagnostic::new(
@@ -157,7 +160,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                             ErrorCode::MissingFullTypeDeclaration,
                                         ).related(type_decl.ident.pos(self.ctx), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
-                                        (type_decl.ident.pos(self.ctx), None)
+                                        (type_decl.ident.pos(self.ctx), type_decl.span)
                                     }
                                 };
 
@@ -171,6 +174,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     AnyEntKind::Type(Type::Incomplete),
                                     Some(decl_pos),
                                     span,
+                                    Some(self.source()),
                                 );
                                 reference.set_unique_reference(ent);
 
@@ -222,6 +226,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         parent: EntRef<'a>,
         alias: &mut AliasDeclaration,
+        src_span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
         let AliasDeclaration {
@@ -229,7 +234,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             name,
             subtype_indication,
             signature,
-            span,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, name.span, &mut name.item, diagnostics);
@@ -328,22 +332,33 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        Ok(designator.define(self.ctx, self.arena, parent, kind, Some(*span)))
+        Ok(designator.define(
+            self.ctx,
+            self.arena,
+            parent,
+            kind,
+            src_span,
+            Some(self.source()),
+        ))
     }
 
     pub(crate) fn analyze_declaration(
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
-        decl: &mut Declaration,
+        decl: &mut WithTokenSpan<Declaration>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let src_span = decl.span();
-        match decl {
+        match &mut decl.item {
             Declaration::Alias(alias) => {
-                if let Some(ent) =
-                    as_fatal(self.analyze_alias_declaration(scope, parent, alias, diagnostics))?
-                {
+                if let Some(ent) = as_fatal(self.analyze_alias_declaration(
+                    scope,
+                    parent,
+                    alias,
+                    decl.span,
+                    diagnostics,
+                ))? {
                     scope.add(ent, diagnostics);
 
                     for implicit in ent.as_actual().implicits.iter() {
@@ -355,6 +370,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     AnyEntKind::Overloaded(Overloaded::Alias(implicit)),
                                     ent.decl_pos(),
                                     ent.src_span,
+                                    Some(self.source()),
                                 );
                                 scope.add(impicit_alias, diagnostics);
                             }
@@ -421,7 +437,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         },
                         kind,
                         Some(object_decl.ident.pos(self.ctx).clone()),
-                        Some(src_span),
+                        src_span,
+                        Some(self.source()),
                     );
                     object_decl.ident.decl.set(object_ent.id());
 
@@ -434,7 +451,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     subtype_indication,
                     open_info,
                     file_name,
-                    span: _,
                 } = file;
 
                 let subtype = as_fatal(self.resolve_subtype_indication(
@@ -457,7 +473,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             ident,
                             parent,
                             AnyEntKind::File(subtype),
-                            Some(src_span),
+                            src_span,
+                            Some(self.source()),
                         ),
                         diagnostics,
                     );
@@ -470,7 +487,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut component.ident,
                     parent,
                     AnyEntKind::Component(Region::default()),
-                    Some(src_span),
+                    src_span,
+                    Some(self.source()),
                 );
                 self.analyze_interface_list(
                     &nested,
@@ -500,7 +518,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 &mut attr_decl.ident,
                                 parent,
                                 AnyEntKind::Attribute(typ),
-                                Some(src_span),
+                                src_span,
+                                Some(self.source()),
                             ),
                             diagnostics,
                         );
@@ -511,51 +530,19 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
-                    scope,
-                    parent,
-                    &mut body.specification,
-                    Overloaded::Subprogram,
-                    diagnostics,
-                ))? {
-                    Some(r) => r,
-                    None => {
-                        return Ok(());
-                    }
-                };
-
-                scope.add(subpgm_ent.into(), diagnostics);
-
-                self.define_labels_for_sequential_part(
-                    &subpgm_region,
-                    subpgm_ent.into(),
-                    &mut body.statements,
-                    diagnostics,
-                )?;
-                self.analyze_declarative_part(
-                    &subpgm_region,
-                    subpgm_ent.into(),
-                    &mut body.declarations,
-                    diagnostics,
-                )?;
-
-                self.analyze_sequential_part(
-                    &subpgm_region,
-                    subpgm_ent.into(),
-                    &mut body.statements,
-                    diagnostics,
-                )?;
+                return self.subprogram_body(scope, parent, body, diagnostics);
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 match as_fatal(self.subprogram_specification(
                     scope,
                     parent,
                     &mut subdecl.specification,
+                    subdecl.span,
                     Overloaded::SubprogramDecl,
                     diagnostics,
                 ))? {
                     Some((_, ent)) => {
-                        scope.add(ent.into(), diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                     None => {
                         return Ok(());
@@ -571,7 +558,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         FormalRegion::new_params(),
                         None,
                     ))),
-                    Some(src_span),
+                    src_span,
+                    Some(self.source()),
                 );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
@@ -604,7 +592,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
-                    Some(src_span),
+                    src_span,
+                    Some(self.source()),
                 );
 
                 if let Some(pkg_region) =
@@ -619,9 +608,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             Declaration::Configuration(..) => {}
             Declaration::View(view) => {
-                if let Some(view) =
-                    as_fatal(self.analyze_view_declaration(scope, parent, view, diagnostics))?
-                {
+                if let Some(view) = as_fatal(self.analyze_view_declaration(
+                    scope,
+                    parent,
+                    view,
+                    decl.span,
+                    diagnostics,
+                ))? {
                     scope.add(view, diagnostics);
                 }
             }
@@ -639,6 +632,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         parent: EntRef<'a>,
         view: &mut ModeViewDeclaration,
+        src_span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
         let typ = self.resolve_subtype_indication(scope, &mut view.typ, diagnostics)?;
@@ -688,7 +682,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             &mut view.ident,
             parent,
             AnyEntKind::View(typ),
-            Some(view.span),
+            src_span,
+            Some(self.source()),
         ))
     }
 
@@ -717,7 +712,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             entity_name,
             entity_class,
             expr,
-            span: _,
         } = attr_spec;
 
         let attr_ent = match scope.lookup(
@@ -882,6 +876,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
+        let span = decl.span();
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
                 let file_type = self.resolve_subtype_indication(
@@ -894,7 +889,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut file_decl.ident,
                     parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
-                    None,
+                    span,
+                    Some(self.source()),
                 )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
@@ -906,7 +902,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ident,
                     parent,
                     AnyEntKind::Type(Type::Interface),
-                    None,
+                    span,
+                    Some(self.source()),
                 ))
                 .unwrap();
 
@@ -925,15 +922,16 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 typ.into()
             }
-            InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
+            InterfaceDeclaration::Subprogram(ref mut subpgm) => {
                 let (_, ent) = self.subprogram_specification(
                     scope,
                     parent,
-                    subpgm,
+                    &mut subpgm.specification,
+                    subpgm.span,
                     Overloaded::InterfaceSubprogram,
                     diagnostics,
                 )?;
-                ent.into()
+                ent
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region = self.analyze_package_instance_name(
@@ -947,7 +945,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
-                    None,
+                    span,
+                    Some(self.source()),
                 )
             }
         };
@@ -961,6 +960,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         object_decl: &mut InterfaceObjectDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
+        let span = object_decl.span();
         match &mut object_decl.mode {
             ModeIndication::Simple(mode) => {
                 let (subtype, class) =
@@ -978,7 +978,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         subtype,
                         has_default: mode.expression.is_some(),
                     }),
-                    None,
+                    span,
+                    Some(self.source()),
                 ))
             }
             ModeIndication::View(view) => {
@@ -1009,7 +1010,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         subtype: *view_ent.subtype(),
                         has_default: false,
                     }),
-                    None,
+                    span,
+                    Some(self.source()),
                 ))
             }
         }
@@ -1187,10 +1189,10 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
 
 fn find_full_type_definition<'a>(
     name: &Symbol,
-    decls: &'a [Declaration],
+    decls: &'a [WithTokenSpan<Declaration>],
 ) -> Option<&'a TypeDeclaration> {
     for decl in decls.iter() {
-        if let Declaration::Type(type_decl) = decl {
+        if let Declaration::Type(type_decl) = &decl.item {
             match type_decl.def {
                 TypeDefinition::Incomplete(..) => {
                     // ignored

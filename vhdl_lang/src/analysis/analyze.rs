@@ -154,6 +154,7 @@ pub(super) struct AnalyzeContext<'a, 't> {
     //  - for example when doing 'use library.all' the file is sensitive to adding/removing
     //    anything from library
     current_unit: UnitId,
+    source: Source,
     pub(super) arena: &'a Arena,
     uses: RefCell<FnvHashSet<UnitId>>,
     missing_unit: RefCell<FnvHashSet<(Symbol, Symbol, Option<Symbol>)>>,
@@ -165,6 +166,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn new(
         root: &'a DesignRoot,
         current_unit: &UnitId,
+        source: Source,
         arena: &'a Arena,
         ctx: &'t dyn TokenAccess,
     ) -> AnalyzeContext<'a, 't> {
@@ -179,6 +181,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ),
             root,
             current_unit: current_unit.clone(),
+            source,
             arena,
             uses: RefCell::new(FnvHashSet::default()),
             missing_unit: RefCell::new(FnvHashSet::default()),
@@ -469,5 +472,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         } else {
             None
         }
+    }
+
+    pub fn source(&self) -> Source {
+        self.source.clone()
     }
 }

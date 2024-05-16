@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use fnv::FnvHashMap;
-use vhdl_lang::TokenSpan;
+use vhdl_lang::{Source, TokenSpan};
 
 use crate::ast::Designator;
 use crate::Diagnostic;
@@ -163,6 +163,7 @@ impl Arena {
         self.refs.borrow_mut().link(referenced)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn alloc<'a>(
         &'a self,
         designator: Designator,
@@ -170,7 +171,8 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         let ent = AnyEnt {
             id: EntityId::undefined(),
@@ -181,6 +183,7 @@ impl Arena {
             kind,
             decl_pos,
             src_span,
+            source,
             attrs: Default::default(),
         };
 
@@ -199,7 +202,8 @@ impl Arena {
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
-        src_span: Option<TokenSpan>,
+        src_span: TokenSpan,
+        source: Option<Source>,
     ) -> EntRef<'a> {
         unsafe {
             let local = self.local.borrow_mut();
@@ -215,6 +219,7 @@ impl Arena {
                 kind,
                 decl_pos,
                 src_span,
+                source,
                 attrs: Default::default(),
             };
             &*eref as EntRef<'a>

@@ -80,6 +80,7 @@ impl UniversalType {
 pub struct TypeEnt<'a>(EntRef<'a>);
 
 impl<'a> TypeEnt<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn define_with_opt_id(
         ctx: &dyn TokenAccess,
         arena: &'a Arena,
@@ -88,6 +89,8 @@ impl<'a> TypeEnt<'a> {
         parent: EntRef<'a>,
         declared_by: Option<EntRef<'a>>,
         kind: Type<'a>,
+        src_span: TokenSpan,
+        source: Source,
     ) -> TypeEnt<'a> {
         let related = if let Some(declared_by) = declared_by {
             Related::DeclaredBy(declared_by)
@@ -104,7 +107,8 @@ impl<'a> TypeEnt<'a> {
                     related,
                     AnyEntKind::Type(kind),
                     Some(ident.pos(ctx).clone()),
-                    None,
+                    src_span,
+                    Some(source),
                 )
             }
         } else {
@@ -114,7 +118,8 @@ impl<'a> TypeEnt<'a> {
                 related,
                 AnyEntKind::Type(kind),
                 Some(ident.pos(ctx).clone()),
-                None,
+                src_span,
+                Some(source),
             )
         };
 

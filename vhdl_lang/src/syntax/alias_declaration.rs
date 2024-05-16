@@ -9,10 +9,13 @@ use super::names::{parse_designator, parse_name};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{AliasDeclaration, WithDecl};
 use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_alias_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<AliasDeclaration> {
+pub fn parse_alias_declaration(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<WithTokenSpan<AliasDeclaration>> {
     let start_token = ctx.stream.expect_kind(Alias)?;
     let designator = WithDecl::new(parse_designator(ctx)?);
     let subtype_indication = {
@@ -36,13 +39,15 @@ pub fn parse_alias_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Alia
 
     let end_token = ctx.stream.expect_kind(SemiColon)?;
 
-    Ok(AliasDeclaration {
-        span: TokenSpan::new(start_token, end_token),
-        designator,
-        subtype_indication,
-        name,
-        signature,
-    })
+    Ok(WithTokenSpan::new(
+        AliasDeclaration {
+            designator,
+            subtype_indication,
+            name,
+            signature,
+        },
+        TokenSpan::new(start_token, end_token),
+    ))
 }
 
 #[cfg(test)]
@@ -55,13 +60,15 @@ mod tests {
         let code = Code::new("alias foo is name;");
         assert_eq!(
             code.with_stream(parse_alias_declaration),
-            AliasDeclaration {
-                span: code.token_span(),
-                designator: code.s1("foo").decl_designator(),
-                subtype_indication: None,
-                name: code.s1("name").name(),
-                signature: None
-            }
+            WithTokenSpan::new(
+                AliasDeclaration {
+                    designator: code.s1("foo").decl_designator(),
+                    subtype_indication: None,
+                    name: code.s1("name").name(),
+                    signature: None
+                },
+                code.token_span()
+            )
         );
     }
 
@@ -70,13 +77,15 @@ mod tests {
         let code = Code::new("alias foo : vector(0 to 1) is name;");
         assert_eq!(
             code.with_stream(parse_alias_declaration),
-            AliasDeclaration {
-                span: code.token_span(),
-                designator: code.s1("foo").decl_designator(),
-                subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
-                name: code.s1("name").name(),
-                signature: None
-            }
+            WithTokenSpan::new(
+                AliasDeclaration {
+                    designator: code.s1("foo").decl_designator(),
+                    subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
+                    name: code.s1("name").name(),
+                    signature: None
+                },
+                code.token_span()
+            )
         );
     }
 
@@ -85,13 +94,15 @@ mod tests {
         let code = Code::new("alias foo is name [return natural];");
         assert_eq!(
             code.with_stream(parse_alias_declaration),
-            AliasDeclaration {
-                span: code.token_span(),
-                designator: code.s1("foo").decl_designator(),
-                subtype_indication: None,
-                name: code.s1("name").name(),
-                signature: Some(code.s1("[return natural]").signature())
-            }
+            WithTokenSpan::new(
+                AliasDeclaration {
+                    designator: code.s1("foo").decl_designator(),
+                    subtype_indication: None,
+                    name: code.s1("name").name(),
+                    signature: Some(code.s1("[return natural]").signature())
+                },
+                code.token_span()
+            )
         );
     }
 
@@ -103,13 +114,15 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),
-            AliasDeclaration {
-                span: code.token_span(),
-                designator,
-                subtype_indication: None,
-                name: code.s1("name").name(),
-                signature: None
-            }
+            WithTokenSpan::new(
+                AliasDeclaration {
+                    designator,
+                    subtype_indication: None,
+                    name: code.s1("name").name(),
+                    signature: None
+                },
+                code.token_span()
+            )
         );
     }
 
@@ -121,13 +134,15 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),
-            AliasDeclaration {
-                span: code.token_span(),
-                designator,
-                subtype_indication: None,
-                name: code.s1("'b'").name(),
-                signature: None
-            }
+            WithTokenSpan::new(
+                AliasDeclaration {
+                    designator,
+                    subtype_indication: None,
+                    name: code.s1("'b'").name(),
+                    signature: None
+                },
+                code.token_span()
+            )
         );
     }
 }

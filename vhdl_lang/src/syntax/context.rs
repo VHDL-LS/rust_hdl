@@ -8,6 +8,7 @@ use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
@@ -30,15 +31,18 @@ pub fn parse_library_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<Library
 }
 
 /// LRM 12.4. Use clauses
-pub fn parse_use_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<UseClause> {
+pub fn parse_use_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<UseClause>> {
     let use_token = ctx.stream.expect_kind(Use)?;
 
     let name_list = parse_name_list(ctx)?;
     let semi_token = ctx.stream.expect_kind(SemiColon)?;
-    Ok(UseClause {
-        span: TokenSpan::new(use_token, semi_token),
-        name_list,
-    })
+    Ok(WithTokenSpan::new(
+        UseClause {
+            span: TokenSpan::new(use_token, semi_token),
+            name_list,
+        },
+        TokenSpan::new(use_token, semi_token),
+    ))
 }
 
 pub fn parse_context_reference(ctx: &mut ParsingContext<'_>) -> ParseResult<ContextReference> {
@@ -64,7 +68,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
             try_init_token_kind!(
                 token,
                 Library => items.push(ContextItem::Library(parse_library_clause(ctx)?)),
-                Use => items.push(ContextItem::Use(parse_use_clause(ctx)?)),
+                Use => items.push(ContextItem::Use(parse_use_clause(ctx)?.item)),
                 Context => items.push(ContextItem::Context(parse_context_reference(ctx)?)),
                 End => {
                     ctx.stream.skip();
@@ -108,6 +112,7 @@ mod tests {
     use crate::data::Diagnostic;
     use crate::syntax::test::{token_to_string, Code};
     use crate::HasTokenSpan;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_library_clause_single_name() {
@@ -138,10 +143,13 @@ mod tests {
         let code = Code::new("use lib.foo;");
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
-            UseClause {
-                span: code.token_span(),
-                name_list: code.s1("lib.foo").name_list(),
-            },
+            WithTokenSpan::new(
+                UseClause {
+                    span: code.token_span(),
+                    name_list: code.s1("lib.foo").name_list(),
+                },
+                code.token_span()
+            ),
         )
     }
 
@@ -150,10 +158,13 @@ mod tests {
         let code = Code::new("use foo.'a', lib.bar.all;");
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
-            UseClause {
-                span: code.token_span(),
-                name_list: code.s1("foo.'a', lib.bar.all").name_list(),
-            },
+            WithTokenSpan::new(
+                UseClause {
+                    span: code.token_span(),
+                    name_list: code.s1("foo.'a', lib.bar.all").name_list(),
+                },
+                code.token_span()
+            ),
         )
     }
 
@@ -257,7 +268,7 @@ end context;
                         name_list: code.s1("foo").ident_list(),
                     }),
                     ContextItem::Use(UseClause {
-                        span: TokenSpan::new(code.s1("use").token(), code.s(";", 2).token()),
+                        span: code.s1("use foo.bar;").token_span(),
                         name_list: code.s1("foo.bar").name_list(),
                     }),
                     ContextItem::Context(ContextReference {

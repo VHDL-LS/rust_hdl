@@ -144,6 +144,7 @@ pub fn parse_subprogram_instantiation(
 pub fn parse_subprogram_specification(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<SubprogramSpecification> {
+    let start_token = ctx.stream.get_current_token_id();
     let (is_function, is_pure) = {
         expect_token!(
             ctx.stream,
@@ -178,6 +179,7 @@ pub fn parse_subprogram_specification(
     if is_function {
         ctx.stream.expect_kind(Return)?;
         let return_type = parse_type_mark(ctx)?;
+        let end_token = ctx.stream.get_last_token_id();
         Ok(SubprogramSpecification::Function(FunctionSpecification {
             pure: is_pure,
             param_tok,
@@ -185,13 +187,16 @@ pub fn parse_subprogram_specification(
             header,
             parameter_list,
             return_type,
+            span: TokenSpan::new(start_token, end_token),
         }))
     } else {
+        let end_token = ctx.stream.get_last_token_id();
         Ok(SubprogramSpecification::Procedure(ProcedureSpecification {
             designator: designator.into(),
             param_tok,
             header,
             parameter_list,
+            span: TokenSpan::new(start_token, end_token),
         }))
     }
 }
@@ -282,6 +287,7 @@ mod tests {
 
     use crate::syntax::test::{token_to_string, Code};
     use crate::{HasTokenSpan, Token};
+    use pretty_assertions::assert_eq;
 
     fn check_token_span(tokens: &[Token], expected_str: &str) {
         assert_eq!(
@@ -310,6 +316,7 @@ procedure foo;
                     param_tok: None,
                     header: None,
                     parameter_list: Vec::new(),
+                    span: code.s1("procedure foo").token_span(),
                 })
             }
         );
@@ -336,7 +343,8 @@ function foo return lib.foo.natural;
                     header: None,
                     param_tok: None,
                     parameter_list: Vec::new(),
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -363,7 +371,8 @@ function \"+\" return lib.foo.natural;
                     header: None,
                     param_tok: None,
                     parameter_list: Vec::new(),
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -390,7 +399,8 @@ impure function foo return lib.foo.natural;
                     header: None,
                     param_tok: None,
                     parameter_list: Vec::new(),
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("impure", ".natural").token_span(),
                 })
             }
         );
@@ -416,11 +426,13 @@ pure function foo return lib.foo.natural;
                     header: None,
                     param_tok: None,
                     parameter_list: Vec::new(),
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("pure", ".natural").token_span(),
                 })
             }
         );
     }
+
     #[test]
     pub fn parses_procedure_specification_with_parameters() {
         let code = Code::new(
@@ -441,6 +453,7 @@ procedure foo(foo : natural);
                     header: None,
                     param_tok: None,
                     parameter_list: vec![code.s1("foo : natural").parameter()],
+                    span: code.between("procedure", "natural)").token_span(),
                 })
             }
         );
@@ -467,7 +480,8 @@ function foo(foo : natural) return lib.foo.natural;
                     header: None,
                     param_tok: None,
                     parameter_list: vec![code.s1("foo : natural").parameter()],
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -494,7 +508,8 @@ function foo parameter (foo : natural) return lib.foo.natural;
                     header: None,
                     param_tok: Some(code.s1("parameter").token()),
                     parameter_list: vec![code.s1("foo : natural").parameter()],
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -525,7 +540,8 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                     }),
                     param_tok: Some(code.s1("parameter").token()),
                     parameter_list: vec![code.s1("foo : natural").parameter()],
-                    return_type: code.s1("lib.foo.natural").type_mark()
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    span: code.between("function", ".natural").token_span(),
                 })
             }
         );
@@ -785,6 +801,7 @@ procedure my_proc
                         .subprogram_header(),
                     param_tok: None,
                     parameter_list: vec![],
+                    span: code.between("procedure", "4)").token_span(),
                 })
             }
         );
@@ -816,6 +833,7 @@ procedure my_proc
                         .subprogram_header(),
                     param_tok: None,
                     parameter_list: vec![],
+                    span: code.between("procedure", "42)").token_span(),
                 })
             }
         );
@@ -1008,7 +1026,7 @@ end package;
             .decl
             .iter()
             .map(|d| {
-                if let Declaration::SubprogramDeclaration(sub) = d {
+                if let Declaration::SubprogramDeclaration(sub) = &d.item {
                     sub
                 } else {
                     panic!("Only subprogram declarations are expected!")

@@ -16,6 +16,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
+use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
 
@@ -191,7 +192,7 @@ fn parse_case_statement(
                     is_matching,
                     expression,
                     alternatives,
-                    end_label_pos
+                    end_label_pos,
                 });
             }
         );
@@ -417,6 +418,7 @@ fn parse_assignment_or_procedure_call(
     ctx: &mut ParsingContext<'_>,
     target: WithTokenSpan<Target>,
 ) -> ParseResult<SequentialStatement> {
+    let target_span = target.span();
     Ok(expect_token!(
         ctx.stream,
         token,
@@ -440,11 +442,12 @@ fn parse_assignment_or_procedure_call(
                 Release => {
                     ctx.stream.skip();
                     let force_mode = parse_optional_force_mode(ctx)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    let end_token = ctx.stream.expect_kind(SemiColon)?;
 
                     SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
                         target,
-                        force_mode
+                        force_mode,
+                        span: target_span.end_with(end_token)
                     })
                 }
                 _ => {
@@ -496,7 +499,7 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
             let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?);
             Ok(SequentialStatement::VariableAssignment(VariableAssignment {
                 target,
-                rhs
+                rhs,
             }))
         },
         LTE => {
@@ -522,6 +525,7 @@ fn parse_unlabeled_sequential_statement(
     label: Option<&Ident>,
 ) -> ParseResult<SequentialStatement> {
     let token = ctx.stream.peek_expect()?;
+    ctx.stream.get_current_token_id();
     let statement = {
         try_init_token_kind!(
             token,
@@ -628,7 +632,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
-                        timeout_clause: None
+                        timeout_clause: None,
                     }),
                     code.token_span()
                 )
@@ -647,7 +651,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
-                        timeout_clause: None
+                        timeout_clause: None,
                     }),
                     code.pos_after("foo: ").token_span()
                 )
@@ -666,7 +670,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
                         condition_clause: None,
-                        timeout_clause: None
+                        timeout_clause: None,
                     }),
                     code.token_span()
                 )
@@ -685,7 +689,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: Some(code.s1("a = b").expr()),
-                        timeout_clause: None
+                        timeout_clause: None,
                     }),
                     code.token_span()
                 )
@@ -704,7 +708,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![],
                         condition_clause: None,
-                        timeout_clause: Some(code.s1("2 ns").expr())
+                        timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
                     code.token_span()
                 )
@@ -723,7 +727,7 @@ mod tests {
                     SequentialStatement::Wait(WaitStatement {
                         sensitivity_clause: vec![code.s1("foo").name()],
                         condition_clause: Some(code.s1("bar").expr()),
-                        timeout_clause: Some(code.s1("2 ns").expr())
+                        timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
                     code.token_span()
                 )
@@ -742,7 +746,7 @@ mod tests {
                     SequentialStatement::Assert(AssertStatement {
                         condition: code.s1("false").expr(),
                         report: None,
-                        severity: None
+                        severity: None,
                     }),
                     code.token_span()
                 )
@@ -761,7 +765,7 @@ mod tests {
                     SequentialStatement::Assert(AssertStatement {
                         condition: code.s1("false").expr(),
                         report: Some(code.s1("\"message\"").expr()),
-                        severity: Some(code.s1("error").expr())
+                        severity: Some(code.s1("error").expr()),
                     }),
                     code.token_span()
                 )
@@ -779,7 +783,7 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::Report(ReportStatement {
                         report: code.s1("\"message\"").expr(),
-                        severity: Some(code.s1("error").expr())
+                        severity: Some(code.s1("error").expr()),
                     }),
                     code.token_span()
                 )
@@ -799,7 +803,7 @@ mod tests {
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform()),
                     }),
                     code.token_span()
                 )
@@ -819,7 +823,7 @@ mod tests {
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -837,7 +841,7 @@ mod tests {
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::In),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -855,7 +859,7 @@ mod tests {
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: Some(ForceMode::Out),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -874,7 +878,8 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        force_mode: None
+                        force_mode: None,
+                        span: code.token_span(),
                     }),
                     code.token_span()
                 )
@@ -897,7 +902,7 @@ mod tests {
                             .name()
                             .map_into(Target::Name),
                         delay_mechanism: None,
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
                     }),
                     code.token_span()
                 )
@@ -917,7 +922,7 @@ mod tests {
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
                     }),
                     code.token_span()
                 )
@@ -935,7 +940,7 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -956,7 +961,7 @@ mod tests {
                             .s1("<< variable dut.foo : boolean >>")
                             .name()
                             .map_into(Target::Name),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -977,7 +982,7 @@ mod tests {
                             .s1("(foo, 1 => bar)")
                             .aggregate()
                             .map_into(Target::Aggregate),
-                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr()),
                     }),
                     code.token_span()
                 )
@@ -998,7 +1003,7 @@ mod tests {
                             .s1("(foo, 1 => bar)")
                             .aggregate()
                             .map_into(Target::Aggregate),
-                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr()),
                     }),
                     code.pos_after("name: ").token_span()
                 )
@@ -1016,7 +1021,7 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr()),
                     }),
                     code.pos_after("name: ").token_span()
                 )
@@ -1040,7 +1045,7 @@ mod tests {
                                 item: code.s1("bar(1,2)").expr()
                             }],
                             else_item: None
-                        })
+                        }),
                     }),
                     code.token_span()
                 )
@@ -1078,7 +1083,7 @@ with x(0) + 1 select
                 WithTokenSpan::new(
                     SequentialStatement::VariableAssignment(VariableAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        rhs: AssignmentRightHand::Selected(selection)
+                        rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()
                 )
@@ -1108,7 +1113,7 @@ with x(0) + 1 select
                                 }
                             ],
                             else_item: None
-                        })
+                        }),
                     }),
                     code.token_span()
                 )
@@ -1131,7 +1136,7 @@ with x(0) + 1 select
                                 item: code.s1("bar(1,2)").expr()
                             }],
                             else_item: Some(code.s1("expr2").expr())
-                        })
+                        }),
                     }),
                     code.token_span()
                 )
@@ -1159,7 +1164,7 @@ with x(0) + 1 select
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: None,
-                        rhs: AssignmentRightHand::Conditional(conditionals)
+                        rhs: AssignmentRightHand::Conditional(conditionals),
                     }),
                     code.token_span()
                 )
@@ -1187,7 +1192,7 @@ with x(0) + 1 select
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
-                        rhs: AssignmentRightHand::Conditional(conditionals)
+                        rhs: AssignmentRightHand::Conditional(conditionals),
                     }),
                     code.token_span()
                 )
@@ -1226,7 +1231,7 @@ with x(0) + 1 select
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(DelayMechanism::Transport),
-                        rhs: AssignmentRightHand::Selected(selection)
+                        rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()
                 )
@@ -1265,7 +1270,7 @@ with x(0) + 1 select
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
-                        rhs: AssignmentRightHand::Selected(selection)
+                        rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()
                 )
@@ -1330,7 +1335,7 @@ end if;",
                             }],
                             else_item: None
                         },
-                        end_label_pos: None
+                        end_label_pos: None,
                     }),
                     code.token_span()
                 )
@@ -1362,7 +1367,7 @@ end if mylabel;",
                             }],
                             else_item: None
                         },
-                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                        end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
                     code.pos_after("mylabel: ").token_span()
                 )
@@ -1393,7 +1398,7 @@ end if;",
                             }],
                             else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
                         },
-                        end_label_pos: None
+                        end_label_pos: None,
                     }),
                     code.token_span()
                 )
@@ -1424,7 +1429,7 @@ end if mylabel;",
                             }],
                             else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
                         },
-                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                        end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
                     code.pos_after("mylabel: ").token_span()
                 )
@@ -1500,7 +1505,7 @@ end if mylabel;",
                             ],
                             else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
                         },
-                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                        end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
                     code.pos_after("mylabel: ").token_span()
                 )
@@ -1544,7 +1549,7 @@ end case;",
                                 ]
                             }
                         ],
-                        end_label_pos: None
+                        end_label_pos: None,
                     }),
                     code.token_span()
                 )

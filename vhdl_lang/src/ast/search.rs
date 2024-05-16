@@ -388,6 +388,7 @@ impl Search for LabeledSequentialStatement {
                 let SignalReleaseAssignment {
                     target,
                     force_mode: _,
+                    span: _,
                 } = assign;
                 return_if_found!(target.search(ctx, searcher));
             }
@@ -637,6 +638,12 @@ impl Search for ElementConstraint {
 impl Search for WithTokenSpan<ElementConstraint> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
+        self.item.search(ctx, searcher)
+    }
+}
+
+impl Search for WithTokenSpan<Declaration> {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         self.item.search(ctx, searcher)
     }
 }
@@ -1000,7 +1007,6 @@ impl Search for Declaration {
                 entity_name,
                 entity_class: _,
                 expr,
-                span: _,
             })) => {
                 return_if_found!(searcher.search_ident_ref(ctx, ident).or_not_found());
                 if let EntityName::Name(EntityTag {
@@ -1027,7 +1033,6 @@ impl Search for Declaration {
                     subtype_indication,
                     name,
                     signature,
-                    span: _,
                 } = alias;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(name.search(ctx, searcher));
@@ -1065,7 +1070,6 @@ impl Search for Declaration {
                     subtype_indication,
                     open_info,
                     file_name,
-                    span: _,
                 } = file;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(open_info.search(ctx, searcher));
@@ -1087,7 +1091,6 @@ impl Search for Declaration {
                     ident: _,
                     typ,
                     elements,
-                    span: _,
                     end_ident_pos: _,
                 } = view;
                 return_if_found!(typ.search(ctx, searcher));
@@ -1143,12 +1146,15 @@ impl Search for InterfaceDeclaration {
                     .or_not_found());
                 return_if_found!(decl.mode.search(ctx, searcher));
             }
-            InterfaceDeclaration::Subprogram(ref spec, ref subpgm_default) => {
+            InterfaceDeclaration::Subprogram(ref subprogram_decl) => {
                 return_if_found!(searcher
-                    .search_decl(ctx, FoundDeclaration::SubprogramDecl(spec))
+                    .search_decl(
+                        ctx,
+                        FoundDeclaration::SubprogramDecl(&subprogram_decl.specification)
+                    )
                     .or_not_found());
 
-                if let Some(subpgm_default) = subpgm_default {
+                if let Some(subpgm_default) = &subprogram_decl.default {
                     match subpgm_default {
                         SubprogramDefault::Name(selected_name) => {
                             return_if_found!(selected_name.search(ctx, searcher));

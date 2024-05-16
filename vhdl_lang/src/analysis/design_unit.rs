@@ -53,7 +53,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.work_library(),
             AnyEntKind::Design(Design::Entity(Visibility::default(), Region::default())),
             Some(unit.ident_pos(self.ctx)),
-            Some(unit.span()),
+            unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -124,7 +125,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Configuration),
-            Some(src_span),
+            src_span,
+            Some(self.source()),
         );
 
         Ok(())
@@ -140,7 +142,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.work_library(),
             AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
             Some(unit.ident_pos(self.ctx)),
-            Some(unit.span()),
+            unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -187,7 +190,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.work_library(),
             AnyEntKind::Design(Design::PackageInstance(Region::default())),
             Some(unit.ident_pos(self.ctx)),
-            Some(unit.span()),
+            unit.span(),
+            Some(self.source()),
         );
 
         unit.ident.decl.set(ent.id());
@@ -225,7 +229,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Context(scope.into_region())),
-            Some(src_span),
+            src_span,
+            Some(self.source()),
         );
 
         Ok(())
@@ -274,7 +279,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             &mut unit.ident,
             primary.into(),
             AnyEntKind::Design(Design::Architecture(primary)),
-            Some(src_span),
+            src_span,
+            Some(self.source()),
         );
 
         root_scope.add(arch, diagnostics);
@@ -330,7 +336,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Related::DeclaredBy(primary.into()),
             AnyEntKind::Design(Design::PackageBody),
             Some(unit.ident_pos(self.ctx).clone()),
-            Some(unit.span()),
+            unit.span(),
+            Some(self.source()),
         );
         unit.ident.decl.set(body.id());
 
