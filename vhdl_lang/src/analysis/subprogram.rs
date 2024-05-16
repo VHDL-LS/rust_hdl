@@ -13,6 +13,7 @@ use crate::named_entity::{Signature, *};
 use crate::{ast, HasTokenSpan};
 use analyze::*;
 use itertools::Itertools;
+use vhdl_lang::TokenSpan;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
     fn subprogram_header(
@@ -42,26 +43,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         body: &mut SubprogramBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        let ent = self.arena.explicit(
-            body.specification
-                .subpgm_designator()
-                .item
-                .clone()
-                .into_designator(),
-            parent,
-            AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
-                FormalRegion::new_params(),
-                None,
-            ))),
-            Some(body.specification.subpgm_designator().pos(self.ctx)),
-            body.span(),
-            Some(self.source()),
-        );
-
-        let subpgm_region = match as_fatal(self.subprogram_specification(
+        let (subpgm_region, subpgm_ent) = match as_fatal(self.subprogram_specification(
             scope,
-            ent,
+            parent,
             &mut body.specification,
+            body.span,
             Overloaded::Subprogram,
             diagnostics,
         ))? {
@@ -71,29 +57,52 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        scope.add(ent, diagnostics);
+        scope.add(subpgm_ent, diagnostics);
 
         self.define_labels_for_sequential_part(
             &subpgm_region,
-            ent,
+            subpgm_ent,
             &mut body.statements,
             diagnostics,
         )?;
-        self.analyze_declarative_part(&subpgm_region, ent, &mut body.declarations, diagnostics)?;
+        self.analyze_declarative_part(
+            &subpgm_region,
+            subpgm_ent,
+            &mut body.declarations,
+            diagnostics,
+        )?;
 
-        self.analyze_sequential_part(&subpgm_region, ent, &mut body.statements, diagnostics)?;
+        self.analyze_sequential_part(
+            &subpgm_region,
+            subpgm_ent,
+            &mut body.statements,
+            diagnostics,
+        )?;
         Ok(())
     }
 
     pub(crate) fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
-        ent: EntRef<'a>,
+        parent: EntRef<'a>,
         subprogram: &mut SubprogramSpecification,
+        span: TokenSpan,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Scope<'a>> {
+    ) -> EvalResult<(Scope<'a>, EntRef<'a>)> {
         let subpgm_region = scope.nested();
+        let ent = self.arena.explicit(
+            subprogram
+                .subpgm_designator()
+                .item
+                .clone()
+                .into_designator(),
+            parent,
+            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
+            Some(subprogram.subpgm_designator().pos(self.ctx)),
+            span,
+            Some(self.source()),
+        );
 
         let (signature, generic_map) = match subprogram {
             SubprogramSpecification::Function(fun) => {
@@ -169,7 +178,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ent.set_kind(AnyEntKind::Overloaded(kind));
         }
         subprogram.set_decl_id(ent.id());
-        Ok(subpgm_region)
+        Ok((subpgm_region, ent))
     }
 
     pub fn resolve_signature(

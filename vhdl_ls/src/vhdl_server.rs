@@ -741,7 +741,7 @@ impl VHDLServer {
             ) -> DocumentSymbol {
                 // Use the declaration position, if it exists,
                 // else the position of the first source range token.
-                // This is applicable for unnamed elements, e.g., processes or loops.
+                // The latter is applicable for unnamed elements, e.g., processes or loops.
                 let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
                 let src_range = ent.src_span.pos(ctx).range();
                 #[allow(deprecated)]
