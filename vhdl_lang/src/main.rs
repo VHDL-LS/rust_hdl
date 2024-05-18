@@ -5,43 +5,21 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use clap::Parser;
+use itertools::Itertools;
 use std::path::Path;
-use std::time::SystemTime;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project, Severity, SeverityMap};
+use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap};
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// The number of threads to use. By default the maximum is selected based on process cores
+    /// The number of threads to use. By default, the maximum is selected based on process cores
     #[arg(short = 'p', long)]
     num_threads: Option<usize>,
-
-    /// Prints the number of files processed and the execution time
-    #[arg(long, default_value_t = false)]
-    perf: bool,
-
-    /// Run repeatedly to get a reliable benchmark result
-    #[arg(long, default_value_t = false)]
-    bench: bool,
-
-    /// Hide hint diagnostics
-    #[arg(long, default_value_t = false)]
-    no_hint: bool,
 
     /// Config file in TOML format containing libraries and settings
     #[arg(short, long)]
     config: String,
-
-    /// Dump items that are not resolved into an unique reference
-    /// This is used for development to test where the language server is blind
-    #[arg(long)]
-    dump_unresolved: bool,
-
-    /// Count items that are not resolved into an unique reference
-    /// This is used for development to test where the language server is blind
-    #[arg(long)]
-    count_unresolved: bool,
 }
 
 fn main() {
@@ -59,71 +37,30 @@ fn main() {
         &mut msg_printer,
     );
 
-    let start = SystemTime::now();
-
-    let iterations = if args.bench {
-        let iterations = 10;
-        println!("Running {iterations} iterations for benchmarking");
-        for _ in 0..(iterations - 1) {
-            let mut project = Project::from_config(config.clone(), &mut NullMessages);
-            project.analyse();
-        }
-        iterations
-    } else {
-        1
-    };
-
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
-    let mut diagnostics = project.analyse();
-    let duration = start.elapsed().unwrap() / iterations;
-
-    if args.no_hint {
-        diagnostics.retain(|diag| severity_map[diag.code] != Some(Severity::Hint));
-    }
+    project.enable_unused_declaration_detection();
+    let diagnostics = project.analyse();
 
     show_diagnostics(&diagnostics, &severity_map);
 
-    if args.perf || args.bench {
-        let mut num_files = 0;
-        let mut num_lines = 0;
-        for source_file in project.files() {
-            num_files += 1;
-            num_lines += source_file.num_lines();
-        }
-        let duration_per_line = duration.checked_div(num_lines as u32).unwrap();
-
-        println!("Analyzed {num_files} files with {num_lines} lines of code");
-        println!(
-            "Total time to run was {} ms with an average of {} ns per line",
-            duration.as_millis(),
-            duration_per_line.as_nanos()
-        );
+    if diagnostics
+        .iter()
+        .any(|diag| severity_map[diag.code].is_some_and(|severity| severity == Severity::Error))
+    {
+        std::process::exit(1);
+    } else {
+        std::process::exit(0);
     }
-
-    if args.dump_unresolved || args.count_unresolved {
-        let (total, unresolved) = project.find_all_unresolved();
-
-        if args.dump_unresolved {
-            for pos in unresolved.iter() {
-                println!("{}", pos.show("Unresolved"));
-            }
-        }
-
-        if args.count_unresolved {
-            println!("{} out of {} positions unresolved", unresolved.len(), total);
-        }
-    }
-
-    // Exit without running Drop on entire allocated AST
-    std::process::exit(0);
 }
 
 fn show_diagnostics(diagnostics: &[Diagnostic], severity_map: &SeverityMap) {
-    for diagnostic in diagnostics {
-        if let Some(str) = diagnostic.show(severity_map) {
-            println!("{str}");
-        }
+    let diagnostics = diagnostics
+        .iter()
+        .filter_map(|diag| diag.show(severity_map))
+        .collect_vec();
+    for str in &diagnostics {
+        println!("{str}");
     }
 
     if !diagnostics.is_empty() {
