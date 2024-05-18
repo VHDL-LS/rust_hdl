@@ -1,22 +1,32 @@
 use itertools::Itertools;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use vhdl_lang::{Config, MessagePrinter, Project, Severity};
 
 #[test]
 pub fn parses_example_project_without_errors() {
-    let mut config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    config_path.push("../example_project/vhdl_ls.toml");
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer);
+
+    let mut vhdl_libraries_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // Load the VHDL standard libraries
+    vhdl_libraries_path.push("../vhdl_libraries/vhdl_ls.toml");
     config.append(
-        &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
+        &Config::read_file_path(&vhdl_libraries_path).expect("Failed to read config file"),
+        &mut msg_printer,
+    );
+
+    // Load the configuration from the example project
+    let mut config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    config_path.push("../example_project/vhdl_ls.toml");
+    config.append(
+        &Config::read_file_path(&config_path).expect("Failed to read config file"),
         &mut msg_printer,
     );
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
     project.enable_unused_declaration_detection();
+
     let diagnostics = project.analyse();
     let diagnostics_with_errors = diagnostics
         .iter()
