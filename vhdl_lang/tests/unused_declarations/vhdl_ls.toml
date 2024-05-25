@@ -1,0 +1,6 @@
+[libraries]
+
+my_library.files = ["my_entity.vhd"]
+
+[lint]
+unused = "error"

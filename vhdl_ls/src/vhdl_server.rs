@@ -116,7 +116,7 @@ impl VHDLServer {
         let mut config = Config::default();
 
         if self.use_external_config {
-            config.load_external_config(&mut self.message_filter());
+            config.load_external_config(&mut self.message_filter(), None);
         }
 
         match self.load_root_uri_config() {

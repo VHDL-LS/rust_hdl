@@ -253,7 +253,15 @@ impl Config {
     }
 
     /// Load configuration file from installation folder
-    fn load_installed_config(&mut self, messages: &mut dyn MessageHandler) {
+    fn load_installed_config(
+        &mut self,
+        messages: &mut dyn MessageHandler,
+        location: Option<String>,
+    ) {
+        if let Some(location) = location {
+            self.load_config(&PathBuf::from(location), "Installation", messages);
+            return;
+        }
         let search_paths = [
             "../vhdl_libraries",
             "../../vhdl_libraries",
@@ -325,8 +333,17 @@ impl Config {
     }
 
     /// Load all external configuration
-    pub fn load_external_config(&mut self, messages: &mut dyn MessageHandler) {
-        self.load_installed_config(messages);
+    /// If the `standard_libraries_path` is given, it must point to a valid
+    /// `vhdl_ls.toml` file, which will be used as source for the standard libraries
+    /// i.e., `std` or `ieee`.
+    /// If this path is `None`, a set of standard search paths will be queried for the location
+    /// of this file.
+    pub fn load_external_config(
+        &mut self,
+        messages: &mut dyn MessageHandler,
+        standard_libraries_path: Option<String>,
+    ) {
+        self.load_installed_config(messages, standard_libraries_path);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }
