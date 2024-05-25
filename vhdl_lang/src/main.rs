@@ -17,6 +17,11 @@ struct Args {
     #[arg(short = 'p', long)]
     num_threads: Option<usize>,
 
+    /// Path to the config file for the VHDL standard libraries (i.e., IEEE std_logic_1164).
+    /// If omitted, will search for these libraries in a set of standard paths
+    #[arg(short = 'l', long)]
+    libraries: Option<String>,
+
     /// Config file in TOML format containing libraries and settings
     #[arg(short, long)]
     config: String,
@@ -31,7 +36,7 @@ fn main() {
 
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer);
+    config.load_external_config(&mut msg_printer, args.libraries.clone());
     config.append(
         &Config::read_file_path(Path::new(&args.config)).expect("Failed to read config file"),
         &mut msg_printer,

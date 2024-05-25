@@ -253,7 +253,15 @@ impl Config {
     }
 
     /// Load configuration file from installation folder
-    fn load_installed_config(&mut self, messages: &mut dyn MessageHandler) {
+    fn load_installed_config(
+        &mut self,
+        messages: &mut dyn MessageHandler,
+        location: Option<String>,
+    ) {
+        if let Some(location) = location {
+            self.load_config(&PathBuf::from(location), "Installation", messages);
+            return;
+        }
         let search_paths = [
             "../vhdl_libraries",
             "../../vhdl_libraries",
@@ -325,8 +333,12 @@ impl Config {
     }
 
     /// Load all external configuration
-    pub fn load_external_config(&mut self, messages: &mut dyn MessageHandler) {
-        self.load_installed_config(messages);
+    pub fn load_external_config(
+        &mut self,
+        messages: &mut dyn MessageHandler,
+        location: Option<String>,
+    ) {
+        self.load_installed_config(messages, location);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }

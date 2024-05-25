@@ -49,7 +49,9 @@ fn unused_function_gets_detected() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("vhdl_lang")?;
 
     cmd.arg("--config")
-        .arg("tests/unused_declarations/vhdl_ls.toml");
+        .arg("tests/unused_declarations/vhdl_ls.toml")
+        .arg("--libraries")
+        .arg("../vhdl_libraries/vhdl_ls.toml");
     cmd.assert().failure().stdout(predicate::str::contains(
         "error: Unused declaration of port 'baz' : inout",
     ));
