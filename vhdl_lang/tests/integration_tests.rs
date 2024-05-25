@@ -1,5 +1,9 @@
+use assert_cmd::prelude::*;
 use itertools::Itertools;
+use predicates::prelude::*;
+use std::error::Error;
 use std::path::PathBuf;
+use std::process::Command;
 use vhdl_lang::{Config, MessagePrinter, Project, Severity};
 
 #[test]
@@ -38,4 +42,17 @@ pub fn parses_example_project_without_errors() {
         }
         panic!("Found diagnostics with severity error in the example project");
     }
+}
+
+#[test]
+fn unused_function_gets_detected() -> Result<(), Box<dyn Error>> {
+    let mut cmd = Command::cargo_bin("vhdl_lang")?;
+
+    cmd.arg("--config")
+        .arg("tests/unused_declarations/vhdl_ls.toml");
+    cmd.assert().failure().stdout(predicate::str::contains(
+        "error: Unused declaration of port 'baz' : inout",
+    ));
+
+    Ok(())
 }

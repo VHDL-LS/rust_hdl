@@ -35,6 +35,8 @@ tempfile = "3"
 pretty_assertions = "1"
 assert_matches = "1"
 brunch = "0"
+assert_cmd = "2.0.14"
+predicates = "3.1.0"
 
 [[bench]]
 name = "benchmark"
