@@ -4,22 +4,25 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+mod completion;
+mod lifecycle;
+mod rename;
+mod text_document;
+mod workspace;
+
 use lsp_types::*;
 
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use vhdl_lang::ast::{Designator, ObjectClass};
+use vhdl_lang::ast::ObjectClass;
 
 use crate::rpc_channel::SharedRpcChannel;
-use serde_json::Value;
 use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    kind_str, AnyEntKind, Concurrent, Config, Design, Diagnostic, EntHierarchy, EntRef,
-    InterfaceEnt, Message, MessageHandler, Object, Overloaded, Project, Severity, SeverityMap,
-    Source, SrcPos, Token, Type, VHDLStandard,
+    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
+    Object, Overloaded, Project, Severity, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
 /// Defines how the language server handles files
@@ -140,65 +143,6 @@ impl VHDLServer {
         config
     }
 
-    fn apply_initial_options(&mut self, options: &Value) {
-        let Some(non_project_file_handling) = options.get("nonProjectFiles") else {
-            return;
-        };
-        match non_project_file_handling {
-            Value::String(handling) => match NonProjectFileHandling::from_string(handling) {
-                None => self.message(Message::error(format!(
-                    "Illegal setting {handling} for nonProjectFiles setting"
-                ))),
-                Some(handling) => self.settings.non_project_file_handling = handling,
-            },
-            _ => self.message(Message::error("nonProjectFiles must be a string")),
-        }
-    }
-
-    pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
-        self.config_file = self.root_uri_config_file(&init_params);
-        let config = self.load_config();
-        self.severity_map = *config.severities();
-        self.project = Project::from_config(config, &mut self.message_filter());
-        self.project.enable_unused_declaration_detection();
-        if let Some(options) = &init_params.initialization_options {
-            self.apply_initial_options(options)
-        }
-        self.init_params = Some(init_params);
-        let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
-
-        let capabilities = ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::INCREMENTAL,
-            )),
-            declaration_provider: Some(DeclarationCapability::Simple(true)),
-            definition_provider: Some(OneOf::Left(true)),
-            hover_provider: Some(HoverProviderCapability::Simple(true)),
-            references_provider: Some(OneOf::Left(true)),
-            implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
-            rename_provider: Some(OneOf::Right(RenameOptions {
-                prepare_provider: Some(true),
-                work_done_progress_options: Default::default(),
-            })),
-            workspace_symbol_provider: Some(OneOf::Left(true)),
-            document_symbol_provider: Some(OneOf::Left(true)),
-            completion_provider: Some(CompletionOptions {
-                resolve_provider: Some(true),
-                trigger_characters: Some(trigger_chars),
-                completion_item: Some(CompletionOptionsCompletionItem {
-                    label_details_support: Some(true),
-                }),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        InitializeResult {
-            capabilities,
-            server_info: None,
-        }
-    }
-
     /// Extract path of workspace root configuration file from InitializeParams
     fn root_uri_config_file(&self, params: &InitializeParams) -> Option<PathBuf> {
         #[allow(deprecated)]
@@ -222,260 +166,6 @@ impl VHDLServer {
                 None
             }
         }
-    }
-
-    pub fn shutdown_server(&mut self) {
-        self.init_params = None;
-    }
-
-    pub fn exit_notification(&mut self) {
-        match self.init_params {
-            Some(_) => ::std::process::exit(1),
-            None => ::std::process::exit(0),
-        }
-    }
-
-    /// Register capabilities on the client side:
-    /// - watch workspace config file for changes
-    fn register_capabilities(&mut self) {
-        if self.client_supports_did_change_watched_files() {
-            let register_options = DidChangeWatchedFilesRegistrationOptions {
-                watchers: vec![FileSystemWatcher {
-                    glob_pattern: GlobPattern::String("**/vhdl_ls.toml".to_owned()),
-                    kind: None,
-                }],
-            };
-            let params = RegistrationParams {
-                registrations: vec![Registration {
-                    id: "workspace/didChangeWatchedFiles".to_owned(),
-                    method: "workspace/didChangeWatchedFiles".to_owned(),
-                    register_options: serde_json::to_value(register_options).ok(),
-                }],
-            };
-            self.rpc.send_request("client/registerCapability", params);
-        }
-    }
-
-    pub fn initialized_notification(&mut self) {
-        self.register_capabilities();
-        self.publish_diagnostics();
-    }
-
-    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        let file_name = uri_to_file_name(&params.text_document.uri);
-        if let Some(source) = self.project.get_source(&file_name) {
-            for content_change in params.content_changes.iter() {
-                let range = content_change.range.map(from_lsp_range);
-                source.change(range.as_ref(), &content_change.text);
-            }
-            self.project.update_source(&source);
-            self.publish_diagnostics();
-        } else if self.settings.non_project_file_handling != NonProjectFileHandling::Ignore {
-            self.message(Message::error(format!(
-                "Changing file {} that is not part of the project",
-                file_name.to_string_lossy()
-            )));
-        }
-    }
-
-    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        let TextDocumentItem { uri, text, .. } = &params.text_document;
-        let file_name = uri_to_file_name(uri);
-        if let Some(source) = self.project.get_source(&file_name) {
-            source.change(None, text);
-            self.project.update_source(&source);
-            self.publish_diagnostics();
-        } else {
-            match self.settings.non_project_file_handling {
-                NonProjectFileHandling::Ignore => {}
-                NonProjectFileHandling::Analyze => {
-                    self.message(Message::warning(format!(
-                        "Opening file {} that is not part of the project",
-                        file_name.to_string_lossy()
-                    )));
-                    self.project
-                        .update_source(&Source::inline(&file_name, text));
-                    self.publish_diagnostics();
-                }
-            }
-        }
-    }
-
-    pub fn workspace_did_change_watched_files(&mut self, params: &DidChangeWatchedFilesParams) {
-        if let Some(config_file) = &self.config_file {
-            let config_file_has_changed = params
-                .changes
-                .iter()
-                .any(|change| uri_to_file_name(&change.uri).as_path() == config_file);
-            if config_file_has_changed {
-                self.message(Message::log(
-                    "Configuration file has changed, reloading project...",
-                ));
-                let config = self.load_config();
-                self.severity_map = *config.severities();
-
-                self.project
-                    .update_config(config, &mut self.message_filter());
-                self.publish_diagnostics();
-            }
-        }
-    }
-
-    fn completion_item_to_lsp_item(
-        &self,
-        item: vhdl_lang::CompletionItem,
-    ) -> lsp_types::CompletionItem {
-        match item {
-            vhdl_lang::CompletionItem::Simple(ent) => entity_to_completion_item(ent),
-            vhdl_lang::CompletionItem::Formal(ent) => {
-                let mut item = entity_to_completion_item(ent);
-                if self.client_supports_snippets() {
-                    item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-                    item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
-                }
-                item
-            }
-            vhdl_lang::CompletionItem::Overloaded(desi, count) => CompletionItem {
-                label: desi.to_string(),
-                detail: Some(format!("+{count} overloaded")),
-                kind: match desi {
-                    Designator::Identifier(_) => Some(CompletionItemKind::FUNCTION),
-                    Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
-                    _ => None,
-                },
-                insert_text: Some(desi.to_string()),
-                ..Default::default()
-            },
-            vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
-                label: kind_str(kind).to_string(),
-                detail: Some(kind_str(kind).to_string()),
-                insert_text: Some(kind_str(kind).to_string()),
-                kind: Some(CompletionItemKind::KEYWORD),
-                ..Default::default()
-            },
-            vhdl_lang::CompletionItem::EntityInstantiation(ent, architectures) => {
-                let work_name = "work";
-
-                let library_names = if let Some(lib_name) = ent.library_name() {
-                    vec![work_name.to_string(), lib_name.name().to_string()]
-                } else {
-                    vec![work_name.to_string()]
-                };
-                let (region, is_component_instantiation) = match ent.kind() {
-                    AnyEntKind::Design(Design::Entity(_, region)) => (region, false),
-                    AnyEntKind::Component(region) => (region, true),
-                    // should never happen but better return some value instead of crashing
-                    _ => return entity_to_completion_item(ent),
-                };
-                let template = if self.client_supports_snippets() {
-                    let mut line = if is_component_instantiation {
-                        format!("${{1:{}_inst}}: {}", ent.designator, ent.designator)
-                    } else {
-                        format!(
-                            "${{1:{}_inst}}: entity ${{2|{}|}}.{}",
-                            ent.designator,
-                            library_names.join(","),
-                            ent.designator
-                        )
-                    };
-                    if architectures.len() > 1 {
-                        line.push_str("(${3|");
-                        for (i, architecture) in architectures.iter().enumerate() {
-                            line.push_str(&architecture.designator().to_string());
-                            if i != architectures.len() - 1 {
-                                line.push(',')
-                            }
-                        }
-                        line.push_str("|})");
-                    }
-                    let (ports, generics) = region.ports_and_generics();
-                    let mut idx = 4;
-                    let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
-                        line += &*format!("\n {} map(\n", purpose);
-                        for (i, generic) in elements.iter().enumerate() {
-                            line += &*format!(
-                                "    {} => ${{{}:{}}}",
-                                generic.designator, idx, generic.designator
-                            );
-                            idx += 1;
-                            if i != elements.len() - 1 {
-                                line += ","
-                            }
-                            line += "\n";
-                        }
-                        line += ")";
-                    };
-                    if !generics.is_empty() {
-                        interface_ent(generics, "generic");
-                    }
-                    if !ports.is_empty() {
-                        interface_ent(ports, "port");
-                    }
-                    line += ";";
-                    line
-                } else {
-                    format!("{}", ent.designator)
-                };
-                CompletionItem {
-                    label: format!("{} instantiation", ent.designator),
-                    insert_text: Some(template),
-                    insert_text_format: Some(InsertTextFormat::SNIPPET),
-                    kind: Some(CompletionItemKind::MODULE),
-                    ..Default::default()
-                }
-            }
-        }
-    }
-
-    /// Called when the client requests a completion.
-    /// This function looks in the source code to find suitable options and then returns them
-    pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
-        let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
-        let file = binding.as_path();
-        // 1) get source position, and source file
-        let Some(source) = self.project.get_source(file) else {
-            // Do not enable completions for files that are not part of the project
-            return CompletionList {
-                ..Default::default()
-            };
-        };
-        let cursor = from_lsp_pos(params.text_document_position.position);
-        // 2) Optimization chance: go to last recognizable token before the cursor. For example:
-        //    - Any primary unit (e.g. entity declaration, package declaration, ...)
-        //      => keyword `entity`, `package`, ...
-        //    - Any secondary unit (e.g. package body, architecture)
-        //      => keyword `architecture`, ...
-
-        // 3) Run the parser until the point of the cursor. Then exit with possible completions
-        let options = self
-            .project
-            .list_completion_options(&source, cursor)
-            .into_iter()
-            .map(|item| self.completion_item_to_lsp_item(item))
-            .collect();
-
-        CompletionList {
-            items: options,
-            is_incomplete: true,
-        }
-    }
-
-    pub fn resolve_completion_item(&mut self, params: &CompletionItem) -> CompletionItem {
-        let mut params = params.clone();
-        let eid = params
-            .data
-            .clone()
-            .and_then(|val| serde_json::from_value::<usize>(val).ok())
-            .and_then(|raw| self.project.entity_id_from_raw(raw));
-        if let Some(id) = eid {
-            if let Some(text) = self.project.format_entity(id) {
-                params.documentation = Some(Documentation::MarkupContent(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: format!("```vhdl\n{text}\n```"),
-                }));
-            }
-        }
-        params
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -586,142 +276,6 @@ impl VHDLServer {
         }
     }
 
-    pub fn text_document_declaration(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<Location> {
-        let source = self
-            .project
-            .get_source(&uri_to_file_name(&params.text_document.uri))?;
-
-        let ent = self
-            .project
-            .find_declaration(&source, from_lsp_pos(params.position))?;
-        Some(srcpos_to_location(ent.decl_pos()?))
-    }
-
-    pub fn text_document_definition(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<Location> {
-        let source = self
-            .project
-            .get_source(&uri_to_file_name(&params.text_document.uri))?;
-
-        let ent = self
-            .project
-            .find_definition(&source, from_lsp_pos(params.position))?;
-        Some(srcpos_to_location(ent.decl_pos()?))
-    }
-
-    pub fn text_document_implementation(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<GotoDefinitionResponse> {
-        let source = self
-            .project
-            .get_source(&uri_to_file_name(&params.text_document.uri))?;
-
-        let ents = self
-            .project
-            .find_implementation(&source, from_lsp_pos(params.position));
-
-        Some(GotoDefinitionResponse::Array(
-            ents.into_iter()
-                .filter_map(|ent| ent.decl_pos().map(srcpos_to_location))
-                .collect(),
-        ))
-    }
-
-    pub fn prepare_rename(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<PrepareRenameResponse> {
-        let source = self
-            .project
-            .get_source(&uri_to_file_name(&params.text_document.uri))?;
-
-        let (pos, ent) = self
-            .project
-            .item_at_cursor(&source, from_lsp_pos(params.position))?;
-
-        if let Designator::Identifier(_) = ent.designator() {
-            Some(PrepareRenameResponse::Range(to_lsp_range(pos.range)))
-        } else {
-            // It does not make sense to rename operator symbols and character literals
-            // Also they have different representations that would not be handled consistently
-            // Such as function "+"(arg1, arg2 : integer) but used as foo + bar
-            None
-        }
-    }
-
-    pub fn rename(&mut self, params: &RenameParams) -> Option<WorkspaceEdit> {
-        let source = self.project.get_source(&uri_to_file_name(
-            &params.text_document_position.text_document.uri,
-        ))?;
-
-        let ent = self.project.find_declaration(
-            &source,
-            from_lsp_pos(params.text_document_position.position),
-        )?;
-
-        let mut changes: HashMap<Url, Vec<TextEdit>> = Default::default();
-
-        for srcpos in self.project.find_all_references(ent) {
-            let loc = srcpos_to_location(&srcpos);
-            changes.entry(loc.uri).or_default().push(TextEdit {
-                range: loc.range,
-                new_text: params.new_name.clone(),
-            });
-        }
-
-        Some(WorkspaceEdit {
-            changes: Some(changes),
-            ..Default::default()
-        })
-    }
-
-    pub fn workspace_symbol(
-        &self,
-        params: &WorkspaceSymbolParams,
-    ) -> Option<WorkspaceSymbolResponse> {
-        let trunc_limit = 200;
-        let query = params.query.to_ascii_lowercase();
-        let mut symbols: Vec<_> = self
-            .project
-            .public_symbols()
-            .filter_map(|ent| match ent.designator() {
-                Designator::Identifier(_) | Designator::Character(_) => {
-                    Some((ent, ent.designator().to_string().to_ascii_lowercase()))
-                }
-                Designator::OperatorSymbol(op) => Some((ent, op.to_string().to_ascii_lowercase())),
-                Designator::Anonymous(_) => None,
-            })
-            .collect();
-        symbols.sort_by(|(_, n1), (_, n2)| n1.cmp(n2));
-        Some(WorkspaceSymbolResponse::Nested(
-            symbols
-                .into_iter()
-                .filter_map(|(ent, name)| {
-                    let decl_pos = ent.decl_pos()?;
-                    if name.starts_with(&query) {
-                        Some(WorkspaceSymbol {
-                            name: ent.describe(),
-                            kind: to_symbol_kind(ent.kind()),
-                            tags: None,
-                            container_name: ent.parent.map(|ent| ent.path_name()),
-                            location: OneOf::Left(srcpos_to_location(decl_pos)),
-                            data: None,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .take(trunc_limit)
-                .collect(),
-        ))
-    }
-
     pub fn document_symbol(&self, params: &DocumentSymbolParams) -> Option<DocumentSymbolResponse> {
         let source = self
             .project
@@ -802,49 +356,6 @@ impl VHDLServer {
         }
     }
 
-    pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
-        let source = self
-            .project
-            .get_source(&uri_to_file_name(&params.text_document.uri))?;
-        let ent = self
-            .project
-            .find_declaration(&source, from_lsp_pos(params.position))?;
-
-        let value = self.project.format_declaration(ent)?;
-
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: format!("```vhdl\n{value}\n```"),
-            }),
-            range: None,
-        })
-    }
-
-    pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
-        let ent = self
-            .project
-            .get_source(&uri_to_file_name(
-                &params.text_document_position.text_document.uri,
-            ))
-            .and_then(|source| {
-                self.project.find_declaration(
-                    &source,
-                    from_lsp_pos(params.text_document_position.position),
-                )
-            });
-
-        if let Some(ent) = ent {
-            self.project
-                .find_all_references(ent)
-                .iter()
-                .map(srcpos_to_location)
-                .collect()
-        } else {
-            Vec::new()
-        }
-    }
-
     fn message_filter(&self) -> MessageFilter {
         MessageFilter {
             silent: self.settings.silent,
@@ -854,52 +365,6 @@ impl VHDLServer {
 
     fn message(&self, msg: Message) {
         self.message_filter().push(msg);
-    }
-}
-
-fn entity_to_completion_item(ent: EntRef) -> CompletionItem {
-    CompletionItem {
-        label: ent.designator.to_string(),
-        detail: Some(ent.describe()),
-        kind: Some(entity_kind_to_completion_kind(ent.kind())),
-        data: serde_json::to_value(ent.id.to_raw()).ok(),
-        insert_text: Some(ent.designator.to_string()),
-        ..Default::default()
-    }
-}
-
-fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
-    match kind {
-        AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
-            CompletionItemKind::FIELD
-        }
-        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
-        AnyEntKind::Component(_) => CompletionItemKind::MODULE,
-        AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
-        AnyEntKind::Overloaded(overloaded) => match overloaded {
-            Overloaded::SubprogramDecl(_)
-            | Overloaded::Subprogram(_)
-            | Overloaded::UninstSubprogramDecl(..)
-            | Overloaded::UninstSubprogram(..)
-            | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
-            Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
-            Overloaded::Alias(_) => CompletionItemKind::FIELD,
-        },
-        AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
-        AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
-        AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
-        AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
-        AnyEntKind::Object(object) => match object.class {
-            ObjectClass::Signal => CompletionItemKind::EVENT,
-            ObjectClass::Constant => CompletionItemKind::CONSTANT,
-            ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
-        },
-        AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
-        AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
-        AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
-        AnyEntKind::Library => CompletionItemKind::MODULE,
-        AnyEntKind::Design(_) => CompletionItemKind::MODULE,
-        AnyEntKind::View(_) => CompletionItemKind::INTERFACE,
     }
 }
 
