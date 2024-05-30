@@ -1075,19 +1075,15 @@ impl Search for Declaration {
                 return_if_found!(open_info.search(ctx, searcher));
                 return_if_found!(file_name.search(ctx, searcher));
             }
-
             Declaration::Package(ref package_instance) => {
                 return_if_found!(package_instance.search(ctx, searcher));
             }
-
-            Declaration::PackageDeclaration(ref package_instance) => {
-                return_if_found!(package_instance.search(ctx, searcher)); // @TODO
+            Declaration::PackageDeclaration(ref decl) => {
+                return_if_found!(decl.search(ctx, searcher));
             }
-
-            Declaration::PackageBody(ref package_instance) => {
-                return_if_found!(package_instance.search(ctx, searcher)); // @TODO
+            Declaration::PackageBody(ref body) => {
+                return_if_found!(body.search(ctx, searcher));
             }
-
             Declaration::Configuration(_) => {
                 // @TODO
             }

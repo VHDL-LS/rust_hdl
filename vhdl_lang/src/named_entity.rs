@@ -8,8 +8,9 @@ use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
-    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
+    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageBody, PackageDeclaration,
+    PackageInstantiation, SubprogramBody, SubprogramInstantiation, SubprogramSpecification,
+    TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -631,8 +632,8 @@ impl HasEntityId for Declaration {
             Declaration::SubprogramBody(body) => body.ent_id(),
             Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
-            Declaration::PackageDeclaration(_) => None, // @TODO
-            Declaration::PackageBody(_) => None,        // @TODO
+            Declaration::PackageDeclaration(pkg) => pkg.ent_id(),
+            Declaration::PackageBody(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
             Declaration::View(decl) => decl.ent_id(),
@@ -647,6 +648,18 @@ impl HasEntityId for SubprogramInstantiation {
 }
 
 impl HasEntityId for PackageInstantiation {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl.get()
+    }
+}
+
+impl HasEntityId for PackageDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl.get()
+    }
+}
+
+impl HasEntityId for PackageBody {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
     }

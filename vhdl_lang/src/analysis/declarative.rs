@@ -614,11 +614,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     scope.add(ent, diagnostics);
                 }
             }
-            Declaration::PackageDeclaration(..) => {
-                // TODO
+            Declaration::PackageDeclaration(ref mut unit) => {
+                self.analyze_package(unit, diagnostics)?;
             }
-            Declaration::PackageBody(..) => {
-                // TODO
+            Declaration::PackageBody(ref mut unit) => {
+                self.analyze_package_body(unit, diagnostics)?;
             }
             Declaration::Configuration(..) => {}
             Declaration::View(view) => {
