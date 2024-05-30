@@ -42,6 +42,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | PackageDeclaration(_)
+                    | PackageBody(_)
                     | Configuration(_)
                     | View(_)
             ),
@@ -63,6 +64,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | PackageDeclaration(_)
+                    | PackageBody(_)
                     | View(_)
             ),
             // LRM: package_body_declarative_item
@@ -89,6 +91,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | PackageDeclaration(_)
+                    | PackageBody(_)
             ),
             // LRM: package_declarative_item
             AnyEntKind::Design(Design::Package(..)) => matches!(
@@ -104,6 +107,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | PackageDeclaration(_)
+                    | PackageBody(_)
                     | View(_)
             ),
             _ => {
@@ -611,6 +615,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             }
             Declaration::PackageDeclaration(..) => {
+                // TODO
+            }
+            Declaration::PackageBody(..) => {
                 // TODO
             }
             Declaration::Configuration(..) => {}

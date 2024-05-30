@@ -1846,6 +1846,7 @@ impl Declaration {
             Declaration::Use(_) => "use",
             Declaration::Package(_) => "package instantiation",
             Declaration::PackageDeclaration(_) => "package",
+            Declaration::PackageBody(_) => "package body",
             Declaration::Configuration(_) => "configuration",
             Declaration::View(_) => "view",
         }

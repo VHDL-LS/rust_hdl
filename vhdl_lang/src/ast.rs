@@ -853,6 +853,7 @@ pub enum Declaration {
     Use(UseClause),
     Package(PackageInstantiation),
     PackageDeclaration(PackageDeclaration),
+    PackageBody(PackageBody),
     Configuration(ConfigurationSpecification),
     View(ModeViewDeclaration),
 }
