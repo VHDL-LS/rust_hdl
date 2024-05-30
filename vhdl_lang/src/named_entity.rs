@@ -631,6 +631,7 @@ impl HasEntityId for Declaration {
             Declaration::SubprogramBody(body) => body.ent_id(),
             Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
+            Declaration::PackageDeclaration(_) => None, // @TODO
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
             Declaration::View(decl) => decl.ent_id(),

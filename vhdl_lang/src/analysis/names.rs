@@ -1845,6 +1845,7 @@ impl Declaration {
             Declaration::SubprogramBody(_) => "subprogram body",
             Declaration::Use(_) => "use",
             Declaration::Package(_) => "package instantiation",
+            Declaration::PackageDeclaration(_) => "package",
             Declaration::Configuration(_) => "configuration",
             Declaration::View(_) => "view",
         }

@@ -1080,6 +1080,10 @@ impl Search for Declaration {
                 return_if_found!(package_instance.search(ctx, searcher));
             }
 
+            Declaration::PackageDeclaration(ref package_instance) => {
+                return_if_found!(package_instance.search(ctx, searcher)); // @TODO
+            }
+
             Declaration::Configuration(_) => {
                 // @TODO
             }

@@ -10,6 +10,7 @@ use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::configuration::parse_configuration_specification;
 use super::context::parse_use_clause;
+use super::design_unit::parse_package_declaration;
 use super::names::parse_selected_name;
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::subprogram::parse_subprogram;
@@ -104,7 +105,13 @@ pub fn parse_declarative_part(
                     Type | Subtype => parse_type_declaration(ctx).map(Declaration::Type)?,
                     Component => parse_component_declaration(ctx).map(Declaration::Component)?,
                     Impure | Pure | Function | Procedure => parse_subprogram(ctx)?,
-                    Package => parse_package_instantiation(ctx).map(Declaration::Package)?,
+                    Package => {
+                        if ctx.stream.next_kinds_are(&[Package, Identifier, Is, New]) {
+                            parse_package_instantiation(ctx).map(Declaration::Package)?
+                        } else {
+                            parse_package_declaration(ctx).map(Declaration::PackageDeclaration)?
+                        }
+                    }
                     For => {
                         parse_configuration_specification(ctx).map(Declaration::Configuration)?
                     }

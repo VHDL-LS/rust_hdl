@@ -933,4 +933,27 @@ end entity y;
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
     }
+
+    #[test]
+    fn parse_package_declaration_in_declarative_part() {
+        let code = Code::new(
+            "\
+architecture arch of ent is
+  package my_pkg is
+      -- ...
+   end package;
+begin
+end arch;
+        ",
+        );
+        let file = code.design_file();
+        let (tokens, _) = &file.design_units[0];
+        assert_eq!(tokens[0].kind, Architecture);
+        assert_eq!(tokens[1].kind, Identifier);
+        assert_eq!(tokens[5].kind, Package);
+        assert_eq!(tokens[6].kind, Identifier);
+        assert_eq!(tokens[7].kind, Is);
+        assert_eq!(tokens[8].kind, End);
+        assert_eq!(tokens[9].kind, Package);
+    }
 }

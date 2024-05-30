@@ -852,6 +852,7 @@ pub enum Declaration {
     SubprogramBody(SubprogramBody),
     Use(UseClause),
     Package(PackageInstantiation),
+    PackageDeclaration(PackageDeclaration),
     Configuration(ConfigurationSpecification),
     View(ModeViewDeclaration),
 }

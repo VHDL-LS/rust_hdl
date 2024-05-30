@@ -41,6 +41,7 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
                     | Configuration(_)
                     | View(_)
             ),
@@ -61,6 +62,7 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
                     | View(_)
             ),
             // LRM: package_body_declarative_item
@@ -86,6 +88,7 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
             ),
             // LRM: package_declarative_item
             AnyEntKind::Design(Design::Package(..)) => matches!(
@@ -100,6 +103,7 @@ impl Declaration {
                     | SubprogramInstantiation(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
                     | View(_)
             ),
             _ => {
@@ -605,6 +609,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     scope.add(ent, diagnostics);
                 }
+            }
+            Declaration::PackageDeclaration(..) => {
+                // TODO
             }
             Declaration::Configuration(..) => {}
             Declaration::View(view) => {
