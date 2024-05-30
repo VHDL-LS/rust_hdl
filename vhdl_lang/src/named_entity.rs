@@ -636,6 +636,7 @@ impl HasEntityId for Declaration {
             Declaration::PackageBody(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
+            Declaration::Disconnection(_) => None, // TODO
             Declaration::View(decl) => decl.ent_id(),
         }
     }

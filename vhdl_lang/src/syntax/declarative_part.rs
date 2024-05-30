@@ -19,6 +19,7 @@ use super::type_declaration::parse_type_declaration;
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::disconnection::parse_disconnection_specification;
 use crate::syntax::view::parse_mode_view_declaration;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -63,6 +64,7 @@ pub fn is_declarative_part(ctx: &mut ParsingContext) -> ParseResult<bool> {
             | For
             | View
             | Begin
+            | Disconnect
     ))
 }
 
@@ -93,6 +95,7 @@ pub fn parse_declarative_part(
                 | Alias
                 | Begin
                 | End
+                | Disconnect
         )
     }
 
@@ -179,6 +182,17 @@ pub fn parse_declarative_part(
             View => {
                 match parse_mode_view_declaration(ctx).or_recover_until(ctx, is_recover_token) {
                     Ok(decl) => declarations.push(decl.map_into(Declaration::View)),
+                    Err(err) => {
+                        ctx.diagnostics.push(err);
+                        continue;
+                    }
+                }
+            }
+
+            Disconnect => {
+                match parse_disconnection_specification(ctx).or_recover_until(ctx, is_recover_token)
+                {
+                    Ok(decl) => declarations.push(decl.map_into(Declaration::Disconnection)),
                     Err(err) => {
                         ctx.diagnostics.push(err);
                         continue;
@@ -340,5 +354,17 @@ var not_a_var: broken;
                  'use', 'alias' or 'view'",
             )],
         )
+    }
+
+    #[test]
+    fn parse_declarative_part_with_disconnection() {
+        let code = Code::new(
+            "\
+constant foo: real := 5.1;
+disconnect my_signal : integer after 42 ms;
+signal bar: std_logic;
+",
+        );
+        code.with_stream_no_diagnostics(parse_declarative_part);
     }
 }

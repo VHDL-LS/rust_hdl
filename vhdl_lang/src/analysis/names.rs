@@ -1848,6 +1848,7 @@ impl Declaration {
             Declaration::PackageDeclaration(_) => "package",
             Declaration::PackageBody(_) => "package body",
             Declaration::Configuration(_) => "configuration",
+            Declaration::Disconnection(_) => "disconnection",
             Declaration::View(_) => "view",
         }
     }

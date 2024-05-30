@@ -855,6 +855,7 @@ pub enum Declaration {
     PackageDeclaration(PackageDeclaration),
     PackageBody(PackageBody),
     Configuration(ConfigurationSpecification),
+    Disconnection(DisconnectionSpecification),
     View(ModeViewDeclaration),
 }
 
@@ -1376,6 +1377,10 @@ pub struct ConfigurationSpecification {
     pub bind_ind: BindingIndication,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
 }
+
+/// LRM 7.4 Disconnection specification
+#[derive(PartialEq, Debug, Clone)]
+pub struct DisconnectionSpecification {}
 
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]

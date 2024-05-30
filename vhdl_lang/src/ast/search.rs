@@ -1087,6 +1087,9 @@ impl Search for Declaration {
             Declaration::Configuration(_) => {
                 // @TODO
             }
+            Declaration::Disconnection(_) => {
+                // @TODO
+            }
             Declaration::View(view) => {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::View(view))

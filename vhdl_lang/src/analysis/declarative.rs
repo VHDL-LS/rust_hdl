@@ -44,6 +44,7 @@ impl Declaration {
                     | PackageDeclaration(_)
                     | PackageBody(_)
                     | Configuration(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             // LRM: configuration_declarative_item
@@ -65,6 +66,7 @@ impl Declaration {
                     | Package(_)
                     | PackageDeclaration(_)
                     | PackageBody(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             // LRM: package_body_declarative_item
@@ -76,6 +78,7 @@ impl Declaration {
                 | Overloaded::UninstSubprogram(..),
             )
             | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            // LRM protected type body declarative item
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
                 Object(ObjectDeclaration {
@@ -107,7 +110,7 @@ impl Declaration {
                     | Use(_)
                     | Package(_)
                     | PackageDeclaration(_)
-                    | PackageBody(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             _ => {
@@ -621,6 +624,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.analyze_package_body(unit, diagnostics)?;
             }
             Declaration::Configuration(..) => {}
+            Declaration::Disconnection(..) => {} // @TODO
             Declaration::View(view) => {
                 if let Some(view) = as_fatal(self.analyze_view_declaration(
                     scope,
