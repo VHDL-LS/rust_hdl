@@ -624,7 +624,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.analyze_package_body(unit, diagnostics)?;
             }
             Declaration::Configuration(..) => {}
-            Declaration::Disconnection(..) => {} // @TODO
+            Declaration::Disconnection(ref mut disc) => {
+                let DisconnectionSpecification {
+                    ident: _,
+                    subtype_indication,
+                    expression,
+                } = disc;
+                self.expr_with_ttyp(scope, self.time(), expression, diagnostics)?;
+                self.analyze_subtype_indication(scope, subtype_indication, diagnostics)?;
+            }
             Declaration::View(view) => {
                 if let Some(view) = as_fatal(self.analyze_view_declaration(
                     scope,

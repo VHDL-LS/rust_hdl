@@ -7,10 +7,10 @@
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
-    FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageBody, PackageDeclaration,
-    PackageInstantiation, SubprogramBody, SubprogramInstantiation, SubprogramSpecification,
-    TypeDeclaration, WithDecl,
+    DisconnectionSpecification, FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration,
+    InterfacePackageDeclaration, ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageBody,
+    PackageDeclaration, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
+    SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -636,7 +636,7 @@ impl HasEntityId for Declaration {
             Declaration::PackageBody(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
-            Declaration::Disconnection(_) => None, // TODO
+            Declaration::Disconnection(pkg) => pkg.ent_id(),
             Declaration::View(decl) => decl.ent_id(),
         }
     }
@@ -657,6 +657,12 @@ impl HasEntityId for PackageInstantiation {
 impl HasEntityId for PackageDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
+    }
+}
+
+impl HasEntityId for DisconnectionSpecification {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.as_ref().and_then(|ident| ident.decl.get())
     }
 }
 

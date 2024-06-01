@@ -1378,9 +1378,21 @@ pub struct ConfigurationSpecification {
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
 }
 
+/// LRM 7.4 Guarded Signal List
+#[derive(PartialEq, Debug, Clone)]
+pub enum GuardedSignalList {
+    All,
+    Others,
+    Ident(WithDecl<Ident>)
+}
+
 /// LRM 7.4 Disconnection specification
 #[derive(PartialEq, Debug, Clone)]
-pub struct DisconnectionSpecification {}
+pub struct DisconnectionSpecification {
+    pub ident: GuardedSignalList,
+    pub subtype_indication: SubtypeIndication,
+    pub expression: WithTokenSpan<Expression>,
+}
 
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]

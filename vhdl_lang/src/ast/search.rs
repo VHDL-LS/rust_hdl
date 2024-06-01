@@ -1087,8 +1087,14 @@ impl Search for Declaration {
             Declaration::Configuration(_) => {
                 // @TODO
             }
-            Declaration::Disconnection(_) => {
-                // @TODO
+            Declaration::Disconnection(disconnect) => {
+                let DisconnectionSpecification {
+                    ident: _,
+                    subtype_indication,
+                    expression,
+                } = disconnect;
+                return_if_found!(subtype_indication.search(ctx, searcher));
+                return_if_found!(expression.search(ctx, searcher));
             }
             Declaration::View(view) => {
                 return_if_found!(searcher

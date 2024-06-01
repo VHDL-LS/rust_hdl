@@ -1140,6 +1140,16 @@ impl Display for ConfigurationDeclaration {
     }
 }
 
+impl Display for DisconnectionSpecification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        if let Some(ident) = &self.ident {
+            write!(f, "disconnection {}", ident)
+        } else {
+            write!(f, "disconnection")
+        }
+    }
+}
+
 impl Display for EntityDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         // Not used: context_clause, decl, statements

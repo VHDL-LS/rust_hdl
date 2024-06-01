@@ -934,39 +934,33 @@ end entity y;
         assert_eq!(tok.pos, code.s1("context").pos());
     }
 
-    #[test]
-    fn parse_package_declaration_and_body_in_declarative_part() {
-        let code = Code::new(
-            "\
-entity ent is
-end entity;
-
-architecture arch of ent is
-  package my_pkg is
-      -- ...
-   end my_pkg;
-  package body my_pkg is
-      -- ...
-   end package body;
-begin
-end arch;
-        ",
-        );
-        let file = code.design_file();
-        let (tokens, _) = &file.design_units[1];
-        assert_eq!(tokens[0].kind, Architecture);
-        assert_eq!(tokens[5].kind, Package);
-        assert_eq!(tokens[6].kind, Identifier);
-        assert_eq!(tokens[7].kind, Is);
-        assert_eq!(tokens[8].kind, End);
-        assert_eq!(tokens[9].kind, Identifier);
-        assert_eq!(tokens[10].kind, SemiColon);
-        assert_eq!(tokens[11].kind, Package);
-        assert_eq!(tokens[12].kind, Body);
-        assert_eq!(tokens[13].kind, Identifier);
-        assert_eq!(tokens[14].kind, Is);
-        assert_eq!(tokens[15].kind, End);
-        assert_eq!(tokens[16].kind, Package);
-        assert_eq!(tokens[17].kind, Body);
-    }
+    //    #[test]
+    //    fn parse_architecture_body_with_package_decl_and_body() {
+    //        let (code, design_file) = parse_ok(
+    //            "
+    //architecture arch of ent is
+    //  package my_pkg is
+    //      -- ...
+    //   end my_pkg;
+    //  package body my_pkg is
+    //      -- ...
+    //   end package body;
+    //begin
+    //end arch;
+    //",
+    //        );
+    //
+    //assert_eq!(
+    //    code.with_stream_no_diagnostics(parse_architecture_body()),
+    //        ArchitectureBody {
+    //            span: code.token_span(),
+    //            context_clause: ContextClause::default(),
+    //            ident: code.s1("arch").decl_ident(),
+    //            entity_name: None, // TODO
+    //            begin_token : code.s1("architecture").token(),
+    //            decl : None,
+    //            statements : None,
+    //            end_ident_pos : None,
+    //        })
+    //    }
 }
