@@ -386,6 +386,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             },
             AnyEntKind::View(typ) => AnyEntKind::View(self.map_subtype(mapping, *typ)),
+            AnyEntKind::Disconnection(typ) => {
+                AnyEntKind::Disconnection(self.map_subtype(mapping, *typ))
+            }
         })
     }
 

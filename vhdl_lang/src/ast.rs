@@ -1383,7 +1383,7 @@ pub struct ConfigurationSpecification {
 pub enum GuardedSignalList {
     All,
     Others,
-    Ident(WithDecl<Ident>)
+    Ident(WithDecl<Ident>),
 }
 
 /// LRM 7.4 Disconnection specification

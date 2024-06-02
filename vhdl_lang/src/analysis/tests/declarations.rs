@@ -3,7 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
-use crate::analysis::tests::{check_diagnostics, LibraryBuilder};
+use crate::analysis::tests::{check_diagnostics, check_no_diagnostics, LibraryBuilder};
 use crate::data::error_codes::ErrorCode;
 use crate::Diagnostic;
 
@@ -116,7 +116,7 @@ begin
 end arch;
     ",
     );
-    check_diagnostics(builder.analyze(), vec![])
+    check_no_diagnostics(&builder.analyze())
 }
 
 #[test]
@@ -186,10 +186,17 @@ end arch;
     );
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::new(
-            code.s1("bar"),
-            "No declaration of 'bar'",
-            ErrorCode::Unresolved,
-        )],
+        vec![
+            Diagnostic::new(
+                code.s1("bar"),
+                "No declaration of 'bar'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::new(
+                code.s1("bar"),
+                "No declaration of 'bar'",
+                ErrorCode::Unresolved,
+            ),
+        ],
     )
 }

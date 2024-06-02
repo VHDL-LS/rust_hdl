@@ -190,9 +190,15 @@ pub fn parse_declarative_part(
             }
 
             Disconnect => {
-                match parse_disconnection_specification(ctx).or_recover_until(ctx, is_recover_token)
-                {
-                    Ok(decl) => declarations.push(decl.map_into(Declaration::Disconnection)),
+                let decls: ParseResult<Vec<WithTokenSpan<Declaration>>> =
+                    parse_disconnection_specification(ctx).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|decl| decl.map_into(Declaration::Disconnection))
+                            .collect()
+                    });
+                match decls.or_recover_until(ctx, is_recover_token) {
+                    Ok(ref mut decls) => declarations.append(decls),
                     Err(err) => {
                         ctx.diagnostics.push(err);
                         continue;

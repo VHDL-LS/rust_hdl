@@ -900,6 +900,7 @@ fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
         AnyEntKind::Library => CompletionItemKind::MODULE,
         AnyEntKind::Design(_) => CompletionItemKind::MODULE,
         AnyEntKind::View(_) => CompletionItemKind::INTERFACE,
+        AnyEntKind::Disconnection(_) => CompletionItemKind::FIELD,
     }
 }
 
@@ -1125,6 +1126,7 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::Concurrent(_) => SymbolKind::NAMESPACE,
         AnyEntKind::Library => SymbolKind::NAMESPACE,
         AnyEntKind::View(_) => SymbolKind::INTERFACE,
+        AnyEntKind::Disconnection(_) => SymbolKind::FIELD,
         AnyEntKind::Design(d) => match d {
             vhdl_lang::Design::Entity(_, _) => SymbolKind::MODULE,
             vhdl_lang::Design::Architecture(_) => SymbolKind::MODULE,

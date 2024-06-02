@@ -7,10 +7,10 @@
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
-    DisconnectionSpecification, FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration,
-    InterfacePackageDeclaration, ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageBody,
-    PackageDeclaration, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
-    SubprogramSpecification, TypeDeclaration, WithDecl,
+    DisconnectionSpecification, FileDeclaration, GuardedSignalList, HasIdent, Ident,
+    InterfaceFileDeclaration, InterfacePackageDeclaration, ModeViewDeclaration, ObjectClass,
+    ObjectDeclaration, PackageBody, PackageDeclaration, PackageInstantiation, SubprogramBody,
+    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -66,6 +66,7 @@ pub enum AnyEntKind<'a> {
     Library,
     Design(Design<'a>),
     View(Subtype<'a>),
+    Disconnection(Subtype<'a>),
 }
 
 impl<'a> AnyEntKind<'a> {
@@ -129,6 +130,7 @@ impl<'a> AnyEntKind<'a> {
             Design(design) => design.describe(),
             Type(typ) => typ.describe(),
             View(..) => "view",
+            Disconnection(..) => "disconnection",
         }
     }
 }
@@ -662,7 +664,10 @@ impl HasEntityId for PackageDeclaration {
 
 impl HasEntityId for DisconnectionSpecification {
     fn ent_id(&self) -> Option<EntityId> {
-        self.ident.as_ref().and_then(|ident| ident.decl.get())
+        match &self.ident {
+            GuardedSignalList::Ident(with_decl) => with_decl.decl.get(),
+            _ => None,
+        }
     }
 }
 

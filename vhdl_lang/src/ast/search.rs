@@ -67,6 +67,7 @@ pub enum FoundDeclaration<'a> {
     ConcurrentStatement(&'a LabeledConcurrentStatement),
     SequentialStatement(&'a LabeledSequentialStatement),
     View(&'a ModeViewDeclaration),
+    GuardedSignalListWithIdent(&'a WithDecl<Ident>),
 }
 
 pub trait Searcher {
@@ -1089,13 +1090,19 @@ impl Search for Declaration {
             }
             Declaration::Disconnection(disconnect) => {
                 let DisconnectionSpecification {
-                    ident: _,
+                    ident,
                     subtype_indication,
                     expression,
                 } = disconnect;
+                if let GuardedSignalList::Ident(ident) = ident {
+                    return_if_found!(searcher
+                        .search_decl(ctx, FoundDeclaration::GuardedSignalListWithIdent(ident))
+                        .or_not_found());
+                }
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(expression.search(ctx, searcher));
             }
+
             Declaration::View(view) => {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::View(view))
@@ -1710,6 +1717,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::SequentialStatement(..) => None,
             FoundDeclaration::SubprogramInstantiation(_) => None,
             FoundDeclaration::View(view) => view.end_ident_pos,
+            FoundDeclaration::GuardedSignalListWithIdent(..) => None,
         }
     }
 
@@ -1745,6 +1753,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::ConcurrentStatement(value) => &value.label.decl,
             FoundDeclaration::SequentialStatement(value) => &value.label.decl,
             FoundDeclaration::View(value) => &value.ident.decl,
+            FoundDeclaration::GuardedSignalListWithIdent(value) => &value.decl,
         }
     }
 }
@@ -1850,6 +1859,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 write!(f, "{value}")
             }
             FoundDeclaration::GenerateBody(value) => {
+                write!(f, "{value}")
+            }
+            FoundDeclaration::GuardedSignalListWithIdent(value) => {
                 write!(f, "{value}")
             }
             FoundDeclaration::ConcurrentStatement(value) => {
