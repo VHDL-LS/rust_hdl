@@ -696,17 +696,11 @@ impl VHDLServer {
 
         Some(
             self.project
-                .find_all_references(ent)
+                .find_all_references_in_source(&source, ent)
                 .iter()
-                .filter_map(|pos| {
-                    if pos.source == source {
-                        Some(DocumentHighlight {
-                            range: to_lsp_range(pos.range()),
-                            kind: Some(DocumentHighlightKind::TEXT),
-                        })
-                    } else {
-                        None
-                    }
+                .map(|pos| DocumentHighlight {
+                    range: to_lsp_range(pos.range()),
+                    kind: Some(DocumentHighlightKind::TEXT),
                 })
                 .collect(),
         )
