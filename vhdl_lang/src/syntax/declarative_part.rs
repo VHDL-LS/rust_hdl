@@ -10,6 +10,7 @@ use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::configuration::parse_configuration_specification;
 use super::context::parse_use_clause;
+use super::design_unit::{parse_package_body, parse_package_declaration};
 use super::names::parse_selected_name;
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::subprogram::parse_subprogram;
@@ -18,6 +19,7 @@ use super::type_declaration::parse_type_declaration;
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::disconnection::parse_disconnection_specification;
 use crate::syntax::view::parse_mode_view_declaration;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -62,38 +64,40 @@ pub fn is_declarative_part(ctx: &mut ParsingContext) -> ParseResult<bool> {
             | For
             | View
             | Begin
+            | Disconnect
     ))
+}
+
+pub fn is_recover_token(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Type | Subtype
+            | Component
+            | Impure
+            | Pure
+            | Function
+            | Procedure
+            | Package
+            | For
+            | File
+            | Shared
+            | Constant
+            | Signal
+            | Variable
+            | Attribute
+            | View
+            | Use
+            | Alias
+            | Begin
+            | End
+            | Disconnect
+    )
 }
 
 pub fn parse_declarative_part(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<Vec<WithTokenSpan<Declaration>>> {
     let mut declarations: Vec<WithTokenSpan<Declaration>> = Vec::new();
-
-    fn is_recover_token(kind: Kind) -> bool {
-        matches!(
-            kind,
-            Type | Subtype
-                | Component
-                | Impure
-                | Pure
-                | Function
-                | Procedure
-                | Package
-                | For
-                | File
-                | Shared
-                | Constant
-                | Signal
-                | Variable
-                | Attribute
-                | View
-                | Use
-                | Alias
-                | Begin
-                | End
-        )
-    }
 
     while let Some(token) = ctx.stream.peek() {
         let start_token = ctx.stream.get_current_token_id();
@@ -104,7 +108,15 @@ pub fn parse_declarative_part(
                     Type | Subtype => parse_type_declaration(ctx).map(Declaration::Type)?,
                     Component => parse_component_declaration(ctx).map(Declaration::Component)?,
                     Impure | Pure | Function | Procedure => parse_subprogram(ctx)?,
-                    Package => parse_package_instantiation(ctx).map(Declaration::Package)?,
+                    Package => {
+                        if ctx.stream.next_kinds_are(&[Package, Identifier, Is, New]) {
+                            parse_package_instantiation(ctx).map(Declaration::Package)?
+                        } else if ctx.stream.next_kinds_are(&[Package, Body]) {
+                            parse_package_body(ctx).map(Declaration::PackageBody)?
+                        } else {
+                            parse_package_declaration(ctx).map(Declaration::PackageDeclaration)?
+                        }
+                    }
                     For => {
                         parse_configuration_specification(ctx).map(Declaration::Configuration)?
                     }
@@ -177,16 +189,35 @@ pub fn parse_declarative_part(
                 }
             }
 
+            Disconnect => {
+                let decls: ParseResult<Vec<WithTokenSpan<Declaration>>> =
+                    parse_disconnection_specification(ctx).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|decl| decl.map_into(Declaration::Disconnection))
+                            .collect()
+                    });
+                match decls.or_recover_until(ctx, is_recover_token) {
+                    Ok(ref mut decls) => declarations.append(decls),
+                    Err(err) => {
+                        ctx.diagnostics.push(err);
+                        continue;
+                    }
+                }
+            }
+
             _ => {
                 use crate::VHDLStandard::*;
                 let expected: &[Kind] = match ctx.standard {
                     VHDL2008 | VHDL1993 => &[
                         Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
                         File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                        Disconnect,
                     ],
                     VHDL2019 => &[
                         Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
                         File, Shared, Constant, Signal, Variable, Attribute, Use, Alias, View,
+                        Disconnect,
                     ],
                 };
                 ctx.diagnostics.push(token.kinds_error(expected));
@@ -282,7 +313,7 @@ constant x: natural := 5;
                 "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
                  'function', 'procedure', 'package', 'for', 'file', \
                  'shared', 'constant', 'signal', 'variable', 'attribute', \
-                 'use' or 'alias'"
+                 'use', 'alias' or 'disconnect'"
             )]
         );
     }
@@ -310,7 +341,7 @@ var not_a_var: broken;
                 "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
                  'function', 'procedure', 'package', 'for', 'file', \
                  'shared', 'constant', 'signal', 'variable', 'attribute', \
-                 'use' or 'alias'",
+                 'use', 'alias' or 'disconnect'",
             )],
         );
 
@@ -328,7 +359,7 @@ var not_a_var: broken;
                 "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
                  'function', 'procedure', 'package', 'for', 'file', \
                  'shared', 'constant', 'signal', 'variable', 'attribute', \
-                 'use', 'alias' or 'view'",
+                 'use', 'alias', 'view' or 'disconnect'",
             )],
         )
     }

@@ -132,7 +132,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(())
     }
 
-    fn analyze_package(
+    pub fn analyze_package(
         &self,
         unit: &mut PackageDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -297,7 +297,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(())
     }
 
-    fn analyze_package_body(
+    pub fn analyze_package_body(
         &self,
         unit: &mut PackageBody,
         diagnostics: &mut dyn DiagnosticHandler,

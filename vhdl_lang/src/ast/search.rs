@@ -67,6 +67,7 @@ pub enum FoundDeclaration<'a> {
     ConcurrentStatement(&'a LabeledConcurrentStatement),
     SequentialStatement(&'a LabeledSequentialStatement),
     View(&'a ModeViewDeclaration),
+    GuardedSignalListWithIdent(&'a WithDecl<Ident>),
 }
 
 pub trait Searcher {
@@ -1075,14 +1076,33 @@ impl Search for Declaration {
                 return_if_found!(open_info.search(ctx, searcher));
                 return_if_found!(file_name.search(ctx, searcher));
             }
-
             Declaration::Package(ref package_instance) => {
                 return_if_found!(package_instance.search(ctx, searcher));
             }
-
+            Declaration::PackageDeclaration(ref decl) => {
+                return_if_found!(decl.search(ctx, searcher));
+            }
+            Declaration::PackageBody(ref body) => {
+                return_if_found!(body.search(ctx, searcher));
+            }
             Declaration::Configuration(_) => {
                 // @TODO
             }
+            Declaration::Disconnection(disconnect) => {
+                let DisconnectionSpecification {
+                    ident,
+                    subtype_indication,
+                    expression,
+                } = disconnect;
+                if let GuardedSignalList::Ident(ident) = ident {
+                    return_if_found!(searcher
+                        .search_decl(ctx, FoundDeclaration::GuardedSignalListWithIdent(ident))
+                        .or_not_found());
+                }
+                return_if_found!(subtype_indication.search(ctx, searcher));
+                return_if_found!(expression.search(ctx, searcher));
+            }
+
             Declaration::View(view) => {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::View(view))
@@ -1697,6 +1717,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::SequentialStatement(..) => None,
             FoundDeclaration::SubprogramInstantiation(_) => None,
             FoundDeclaration::View(view) => view.end_ident_pos,
+            FoundDeclaration::GuardedSignalListWithIdent(..) => None,
         }
     }
 
@@ -1732,6 +1753,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::ConcurrentStatement(value) => &value.label.decl,
             FoundDeclaration::SequentialStatement(value) => &value.label.decl,
             FoundDeclaration::View(value) => &value.ident.decl,
+            FoundDeclaration::GuardedSignalListWithIdent(value) => &value.decl,
         }
     }
 }
@@ -1837,6 +1859,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 write!(f, "{value}")
             }
             FoundDeclaration::GenerateBody(value) => {
+                write!(f, "{value}")
+            }
+            FoundDeclaration::GuardedSignalListWithIdent(value) => {
                 write!(f, "{value}")
             }
             FoundDeclaration::ConcurrentStatement(value) => {

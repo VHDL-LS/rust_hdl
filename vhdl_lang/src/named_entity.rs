@@ -7,8 +7,9 @@
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
-    FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
+    DisconnectionSpecification, FileDeclaration, GuardedSignalList, HasIdent, Ident,
+    InterfaceFileDeclaration, InterfacePackageDeclaration, ModeViewDeclaration, ObjectClass,
+    ObjectDeclaration, PackageBody, PackageDeclaration, PackageInstantiation, SubprogramBody,
     SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
@@ -65,6 +66,7 @@ pub enum AnyEntKind<'a> {
     Library,
     Design(Design<'a>),
     View(Subtype<'a>),
+    Disconnection(Subtype<'a>),
 }
 
 impl<'a> AnyEntKind<'a> {
@@ -128,6 +130,7 @@ impl<'a> AnyEntKind<'a> {
             Design(design) => design.describe(),
             Type(typ) => typ.describe(),
             View(..) => "view",
+            Disconnection(..) => "disconnection",
         }
     }
 }
@@ -631,8 +634,11 @@ impl HasEntityId for Declaration {
             Declaration::SubprogramBody(body) => body.ent_id(),
             Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
+            Declaration::PackageDeclaration(pkg) => pkg.ent_id(),
+            Declaration::PackageBody(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
+            Declaration::Disconnection(pkg) => pkg.ent_id(),
             Declaration::View(decl) => decl.ent_id(),
         }
     }
@@ -645,6 +651,27 @@ impl HasEntityId for SubprogramInstantiation {
 }
 
 impl HasEntityId for PackageInstantiation {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl.get()
+    }
+}
+
+impl HasEntityId for PackageDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl.get()
+    }
+}
+
+impl HasEntityId for DisconnectionSpecification {
+    fn ent_id(&self) -> Option<EntityId> {
+        match &self.ident {
+            GuardedSignalList::Ident(with_decl) => with_decl.decl.get(),
+            _ => None,
+        }
+    }
+}
+
+impl HasEntityId for PackageBody {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
     }

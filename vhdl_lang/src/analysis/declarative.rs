@@ -41,7 +41,10 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
+                    | PackageBody(_)
                     | Configuration(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             // LRM: configuration_declarative_item
@@ -61,6 +64,9 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
+                    | PackageBody(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             // LRM: package_body_declarative_item
@@ -72,6 +78,7 @@ impl Declaration {
                 | Overloaded::UninstSubprogram(..),
             )
             | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            // LRM protected type body declarative item
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
                 Object(ObjectDeclaration {
@@ -86,6 +93,8 @@ impl Declaration {
                     | SubprogramBody(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
+                    | PackageBody(_)
             ),
             // LRM: package_declarative_item
             AnyEntKind::Design(Design::Package(..)) => matches!(
@@ -100,6 +109,8 @@ impl Declaration {
                     | SubprogramInstantiation(_)
                     | Use(_)
                     | Package(_)
+                    | PackageDeclaration(_)
+                    | Disconnection(_)
                     | View(_)
             ),
             _ => {
@@ -606,7 +617,43 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     scope.add(ent, diagnostics);
                 }
             }
+            Declaration::PackageDeclaration(ref mut unit) => {
+                self.analyze_package(unit, diagnostics)?;
+            }
+            Declaration::PackageBody(ref mut unit) => {
+                self.analyze_package_body(unit, diagnostics)?;
+            }
             Declaration::Configuration(..) => {}
+            Declaration::Disconnection(ref mut disc) => {
+                let DisconnectionSpecification {
+                    ident,
+                    subtype_indication,
+                    expression,
+                } = disc;
+                self.expr_with_ttyp(scope, self.time(), expression, diagnostics)?;
+                self.analyze_subtype_indication(scope, subtype_indication, diagnostics)?;
+
+                let subtype = as_fatal(self.resolve_subtype_indication(
+                    scope,
+                    subtype_indication,
+                    diagnostics,
+                ));
+                if let Ok(Some(subtype)) = subtype {
+                    if let GuardedSignalList::Ident(ref mut ident) = ident {
+                        scope.add(
+                            self.arena.define(
+                                self.ctx,
+                                ident,
+                                parent,
+                                AnyEntKind::Disconnection(subtype),
+                                src_span,
+                                Some(self.source()),
+                            ),
+                            diagnostics,
+                        );
+                    }
+                }
+            }
             Declaration::View(view) => {
                 if let Some(view) = as_fatal(self.analyze_view_declaration(
                     scope,
@@ -1184,6 +1231,7 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
             Design::Context(_) => None,
         },
         AnyEntKind::View(_) => None,
+        AnyEntKind::Disconnection(_) => None,
     }
 }
 

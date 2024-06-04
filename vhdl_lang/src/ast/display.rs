@@ -1140,6 +1140,12 @@ impl Display for ConfigurationDeclaration {
     }
 }
 
+impl Display for DisconnectionSpecification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "disconnection")
+    }
+}
+
 impl Display for EntityDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         // Not used: context_clause, decl, statements

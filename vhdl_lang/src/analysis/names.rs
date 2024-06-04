@@ -188,6 +188,7 @@ impl<'a> ResolvedName<'a> {
             }),
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             AnyEntKind::View(_) => ResolvedName::Final(ent),
+            AnyEntKind::Disconnection(_) => ResolvedName::Final(ent),
             AnyEntKind::Overloaded(_) => {
                 return Err((
                     "Internal error. Unreachable as overloaded is handled outside".to_owned(),
@@ -258,6 +259,7 @@ impl<'a> ResolvedName<'a> {
             }
             AnyEntKind::File(_)
             | AnyEntKind::View(_)
+            | AnyEntKind::Disconnection(_)
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Concurrent(_)
@@ -1845,7 +1847,10 @@ impl Declaration {
             Declaration::SubprogramBody(_) => "subprogram body",
             Declaration::Use(_) => "use",
             Declaration::Package(_) => "package instantiation",
+            Declaration::PackageDeclaration(_) => "package",
+            Declaration::PackageBody(_) => "package body",
             Declaration::Configuration(_) => "configuration",
+            Declaration::Disconnection(_) => "disconnection",
             Declaration::View(_) => "view",
         }
     }

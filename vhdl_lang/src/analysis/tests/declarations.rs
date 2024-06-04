@@ -3,7 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
-use crate::analysis::tests::{check_diagnostics, LibraryBuilder};
+use crate::analysis::tests::{check_diagnostics, check_no_diagnostics, LibraryBuilder};
 use crate::data::error_codes::ErrorCode;
 use crate::Diagnostic;
 
@@ -98,5 +98,105 @@ end entity test;
             "port 'clk' : in is not of class entity",
             ErrorCode::MismatchedEntityClass,
         )],
+    )
+}
+
+#[test]
+pub fn disconnect_no_analyze_error() {
+    let mut builder = LibraryBuilder::new();
+    let _ = builder.code(
+        "libname",
+        "\
+entity ent is
+end entity;
+architecture arch of ent is
+  constant foo : time := 10 ns;
+  disconnect all : integer after foo;
+begin
+end arch;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze())
+}
+
+#[test]
+pub fn disconnect_expression_error_1() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity ent is
+end entity;
+architecture arch of ent is
+  constant foo : time := 10 ns;
+  disconnect all : integer after bar;
+begin
+end arch;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("bar"),
+            "No declaration of 'bar'",
+            ErrorCode::Unresolved,
+        )],
+    )
+}
+
+#[test]
+pub fn disconnect_expression_error_2() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity ent is
+end entity;
+architecture arch of ent is
+  signal foo : integer;
+  disconnect all : integer after foo;
+begin
+end arch;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("after foo").s1("foo"),
+            "signal 'foo' of integer type 'INTEGER' does not match physical type 'TIME'",
+            ErrorCode::TypeMismatch,
+        )],
+    )
+}
+
+#[test]
+pub fn disconnect_type_error_1() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity ent is
+end entity;
+architecture arch of ent is
+  signal foo : integer;
+  disconnect all : bar after 10 ns;
+begin
+end arch;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![
+            Diagnostic::new(
+                code.s1("bar"),
+                "No declaration of 'bar'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::new(
+                code.s1("bar"),
+                "No declaration of 'bar'",
+                ErrorCode::Unresolved,
+            ),
+        ],
     )
 }
