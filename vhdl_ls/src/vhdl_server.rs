@@ -182,6 +182,7 @@ impl VHDLServer {
             })),
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),
@@ -679,6 +680,30 @@ impl VHDLServer {
             changes: Some(changes),
             ..Default::default()
         })
+    }
+
+    pub fn document_highlight(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Vec<DocumentHighlight>> {
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .find_declaration(&source, from_lsp_pos(params.position))?;
+
+        Some(
+            self.project
+                .find_all_references_in_source(&source, ent)
+                .iter()
+                .map(|pos| DocumentHighlight {
+                    range: to_lsp_range(pos.range()),
+                    kind: Some(DocumentHighlightKind::TEXT),
+                })
+                .collect(),
+        )
     }
 
     pub fn workspace_symbol(
