@@ -28,6 +28,7 @@ lsp-server = "0"
 [dev-dependencies]
 tempfile = "3"
 pretty_assertions = "1"
+regex = "1.10.4"
 
 [features]
 default = []

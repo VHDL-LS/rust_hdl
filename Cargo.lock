@@ -1010,6 +1010,7 @@ dependencies = [
  "lsp-server",
  "lsp-types",
  "pretty_assertions",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

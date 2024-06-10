@@ -48,6 +48,7 @@ impl SharedRpcChannel {
 pub mod test_support {
 
     use pretty_assertions::assert_eq;
+    use regex::Regex;
     use serde_json::Value;
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -60,7 +61,14 @@ pub mod test_support {
             notification: serde_json::Value,
         },
         /// Check that the string representation of the notification contains a string
-        NotificationContainsString { method: String, contains: String },
+        NotificationContainsString {
+            method: String,
+            contains: String,
+        },
+        NotificationContainsRegex {
+            method: String,
+            contains: Regex,
+        },
         Request {
             method: String,
             params: serde_json::Value,
@@ -92,7 +100,7 @@ pub mod test_support {
                 });
         }
 
-        fn expect_notification_contains(
+        pub fn expect_notification_contains(
             &self,
             method: impl Into<String>,
             contains: impl Into<String>,
@@ -102,6 +110,19 @@ pub mod test_support {
                 .push_back(RpcExpected::NotificationContainsString {
                     method: method.into(),
                     contains: contains.into(),
+                });
+        }
+
+        pub fn expect_notification_contains_regex(
+            &self,
+            method: impl Into<String>,
+            contains: Regex,
+        ) {
+            self.expected
+                .borrow_mut()
+                .push_back(RpcExpected::NotificationContainsRegex {
+                    method: method.into(),
+                    contains,
                 });
         }
 
@@ -159,6 +180,21 @@ pub mod test_support {
         }
     }
 
+    fn contains_regex(value: &serde_json::Value, regex: &Regex) -> bool {
+        match value {
+            serde_json::Value::Array(values) => {
+                values.iter().any(|value| contains_regex(value, regex))
+            }
+            serde_json::Value::Object(map) => {
+                map.values().any(|value| contains_regex(value, regex))
+            }
+            serde_json::Value::String(got_string) => regex.is_match(got_string),
+            serde_json::Value::Null => false,
+            serde_json::Value::Bool(..) => false,
+            serde_json::Value::Number(..) => false,
+        }
+    }
+
     impl super::RpcChannel for RpcMock {
         fn send_notification(&self, method: String, notification: Value) {
             let expected = self
@@ -188,6 +224,19 @@ pub mod test_support {
                     );
                     if !contains_string(&notification, &contains) {
                         panic!("{notification:?} does not contain sub-string {contains:?}");
+                    }
+                }
+                RpcExpected::NotificationContainsRegex {
+                    method: exp_method,
+                    contains,
+                } => {
+                    assert_eq!(
+                        method, exp_method,
+                        "{:?} contains {:?}",
+                        notification, contains
+                    );
+                    if !contains_regex(&notification, &contains) {
+                        panic!("{notification:?} does not match regex {contains:?}");
                     }
                 }
                 _ => panic!("Expected {expected:?}, got notification {method} {notification:?}"),
