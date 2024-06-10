@@ -141,3 +141,120 @@ fn to_lsp_diagnostic(
         ..Default::default()
     })
 }
+
+#[cfg(test)]
+pub mod tests {
+    use crate::vhdl_server::tests::{
+        expect_loaded_config_messages, initialize_server, setup_server, temp_root_uri,
+        write_config, write_file,
+    };
+    use lsp_types::{
+        DiagnosticSeverity, DidChangeTextDocumentParams, NumberOrString, Position,
+        PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent,
+        VersionedTextDocumentIdentifier,
+    };
+
+    #[test]
+    fn only_send_diagnostics_once() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let file1_uri = write_file(
+            &root_uri,
+            "file1.vhd",
+            "\
+architecture rtl of ent1 is
+begin
+end;
+",
+        );
+        let file2_uri = write_file(
+            &root_uri,
+            "file2.vhd",
+            "\
+architecture rtl of ent2 is
+begin
+end;
+",
+        );
+        let config_uri = write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+  'file1.vhd',
+  'file2.vhd'
+]
+",
+        );
+
+        let publish_diagnostics1 = PublishDiagnosticsParams {
+            uri: file1_uri.clone(),
+            diagnostics: vec![lsp_types::Diagnostic {
+                range: Range::new(
+                    Position::new(0, "architecture rtl of ".len() as u32),
+                    Position::new(0, "architecture rtl of ent1".len() as u32),
+                ),
+                code: Some(NumberOrString::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::ERROR),
+                source: Some("vhdl ls".to_owned()),
+                message: "No primary unit \'ent1\' within library \'lib\'".to_owned(),
+                ..Default::default()
+            }],
+            version: None,
+        };
+
+        let publish_diagnostics2 = PublishDiagnosticsParams {
+            uri: file2_uri.clone(),
+            diagnostics: vec![lsp_types::Diagnostic {
+                range: Range::new(
+                    Position::new(0, "architecture rtl of ".len() as u32),
+                    Position::new(0, "architecture rtl of ent2".len() as u32),
+                ),
+                code: Some(NumberOrString::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::ERROR),
+                source: Some("vhdl ls".to_owned()),
+                message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
+                ..Default::default()
+            }],
+            version: None,
+        };
+
+        let publish_diagnostics3 = PublishDiagnosticsParams {
+            uri: file2_uri.clone(),
+            diagnostics: vec![lsp_types::Diagnostic {
+                range: Range::new(
+                    Position::new(0, "architecture rtl of ".len() as u32),
+                    Position::new(0, "architecture rtl of ent3".len() as u32),
+                ),
+                code: Some(NumberOrString::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::ERROR),
+                source: Some("vhdl ls".to_owned()),
+                message: "No primary unit \'ent3\' within library \'lib\'".to_owned(),
+                ..Default::default()
+            }],
+            version: None,
+        };
+
+        expect_loaded_config_messages(&mock, &config_uri);
+        // Initially, we get two reports for both files.
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics1);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2);
+        // Only expect one new notification after changing file2
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics3);
+
+        initialize_server(&mut server, root_uri.clone());
+
+        // Change "ent2" to "ent3"
+        server.text_document_did_change_notification(&DidChangeTextDocumentParams {
+            text_document: VersionedTextDocumentIdentifier::new(file2_uri, 0),
+            content_changes: vec![TextDocumentContentChangeEvent {
+                range: Some(Range::new(
+                    Position::new(0, "architecture rtl of ent".len() as u32),
+                    Position::new(0, "architecture rtl of ent2".len() as u32),
+                )),
+                range_length: None,
+                text: "3".to_string(),
+            }],
+        })
+    }
+}

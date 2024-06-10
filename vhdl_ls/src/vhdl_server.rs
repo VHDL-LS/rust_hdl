@@ -496,7 +496,7 @@ mod tests {
     use super::*;
     use crate::rpc_channel::test_support::*;
 
-    fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
+    pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
         let capabilities = ClientCapabilities::default();
 
         #[allow(deprecated)]
@@ -517,13 +517,13 @@ mod tests {
         server.initialized_notification();
     }
 
-    fn temp_root_uri() -> (tempfile::TempDir, Url) {
+    pub(crate) fn temp_root_uri() -> (tempfile::TempDir, Url) {
         let tempdir = tempfile::tempdir().unwrap();
         let root_uri = Url::from_file_path(tempdir.path().canonicalize().unwrap()).unwrap();
         (tempdir, root_uri)
     }
 
-    fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
+    pub(crate) fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
         let file_name = config_uri
             .to_file_path()
             .unwrap()
@@ -547,7 +547,7 @@ mod tests {
     }
 
     /// Create RpcMock and VHDLServer
-    fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
+    pub(crate) fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
         let mock = Rc::new(RpcMock::new());
         let server = VHDLServer::new_external_config(SharedRpcChannel::new(mock.clone()), false);
         (mock, server)
@@ -668,13 +668,17 @@ end entity ent;
         server.text_document_did_change_notification(&did_change);
     }
 
-    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) -> Url {
+    pub(crate) fn write_file(
+        root_uri: &Url,
+        file_name: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> Url {
         let path = root_uri.to_file_path().unwrap().join(file_name.as_ref());
         std::fs::write(&path, contents.as_ref()).unwrap();
         Url::from_file_path(path).unwrap()
     }
 
-    fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
+    pub(crate) fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
         write_file(root_uri, "vhdl_ls.toml", contents)
     }
 
