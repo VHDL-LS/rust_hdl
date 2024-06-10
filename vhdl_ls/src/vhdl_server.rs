@@ -967,8 +967,8 @@ lib.files = [
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics1);
         mock.expect_message_contains("Configuration file has changed, reloading project...");
         expect_loaded_config_messages(&mock, &config_uri);
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2a);
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2b);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2a);
 
         initialize_server(&mut server, root_uri.clone());
 
