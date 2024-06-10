@@ -222,14 +222,6 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        /* let request = match extract::<request::DocumentDiagnosticRequest>(request) {
-            Ok((id, params)) => {
-                let res = server.pull_diagnostics(params);
-                self.send_response(lsp_server::Response::new_ok(id, res));
-                return;
-            }
-            Err(request) => request,
-        }; */
 
         debug!("Unhandled request: {:?}", request);
         self.send_response(lsp_server::Response::new_err(
