@@ -24,16 +24,43 @@ impl VHDLServer {
             }
         };
 
-        let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
-        let by_uri = diagnostics_by_uri(diagnostics);
-        for (file_uri, diagnostics) in by_uri.into_iter() {
-            if self
-                .diagnostic_cache
-                .get(&file_uri)
-                .is_some_and(|diag| diag == &diagnostics)
-            {
+        let mut by_uri = diagnostics_by_uri(diagnostics);
+        for (file_uri, cached_diagnostics) in self.diagnostic_cache.iter_mut() {
+            let Some(new_diagnostics) = by_uri.remove(file_uri) else {
+                // Diagnostics are in the cache, but not in the newly created diagnostics.
+                // This means that there are no longer any diagnostics in the given file.
+                // As a consequence, the client needs to be updated
+                let publish_diagnostics = PublishDiagnosticsParams {
+                    uri: file_uri.clone(),
+                    diagnostics: vec![],
+                    version: None,
+                };
+                self.rpc
+                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                cached_diagnostics.clear();
                 continue;
+            };
+            // Diagnostics are in the cache, but they are not equivalent to the old diagnostics.
+            // This means that we need to update the client, i.e., send a notification.
+            if &new_diagnostics != cached_diagnostics {
+                let lsp_diagnostics = new_diagnostics
+                    .iter()
+                    .filter_map(|diag| to_lsp_diagnostic(diag.clone(), &self.severity_map))
+                    .collect();
+                let publish_diagnostics = PublishDiagnosticsParams {
+                    uri: file_uri.clone(),
+                    diagnostics: lsp_diagnostics,
+                    version: None,
+                };
+                self.rpc
+                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
             }
+            // else: diagnostics are the same in the cache and the new analysis state.
+            // No need to update.
+        }
+
+        // These are new diagnostics that weren't in the cache before.
+        for (file_uri, diagnostics) in by_uri.into_iter() {
             let lsp_diagnostics = diagnostics
                 .iter()
                 .filter_map(|diag| to_lsp_diagnostic(diag.clone(), &self.severity_map))
@@ -45,23 +72,7 @@ impl VHDLServer {
             };
             self.rpc
                 .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
-
-            self.files_with_notifications.insert(file_uri.clone());
             self.diagnostic_cache.insert(file_uri, diagnostics);
-        }
-
-        for file_uri in files_with_notifications.drain() {
-            // File has no longer any diagnostics, publish empty notification to clear them
-            if !self.files_with_notifications.contains(&file_uri) {
-                let publish_diagnostics = PublishDiagnosticsParams {
-                    uri: file_uri.clone(),
-                    diagnostics: vec![],
-                    version: None,
-                };
-
-                self.rpc
-                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
-            }
         }
     }
 }
