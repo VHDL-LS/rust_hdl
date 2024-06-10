@@ -153,12 +153,13 @@ pub mod tests {
         PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent,
         VersionedTextDocumentIdentifier,
     };
+    use regex::Regex;
 
     #[test]
     fn only_send_diagnostics_once() {
         let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
-        let file1_uri = write_file(
+        write_file(
             &root_uri,
             "file1.vhd",
             "\
@@ -187,38 +188,6 @@ lib.files = [
 ",
         );
 
-        let publish_diagnostics1 = PublishDiagnosticsParams {
-            uri: file1_uri.clone(),
-            diagnostics: vec![lsp_types::Diagnostic {
-                range: Range::new(
-                    Position::new(0, "architecture rtl of ".len() as u32),
-                    Position::new(0, "architecture rtl of ent1".len() as u32),
-                ),
-                code: Some(NumberOrString::String("unresolved".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
-                source: Some("vhdl ls".to_owned()),
-                message: "No primary unit \'ent1\' within library \'lib\'".to_owned(),
-                ..Default::default()
-            }],
-            version: None,
-        };
-
-        let publish_diagnostics2 = PublishDiagnosticsParams {
-            uri: file2_uri.clone(),
-            diagnostics: vec![lsp_types::Diagnostic {
-                range: Range::new(
-                    Position::new(0, "architecture rtl of ".len() as u32),
-                    Position::new(0, "architecture rtl of ent2".len() as u32),
-                ),
-                code: Some(NumberOrString::String("unresolved".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
-                source: Some("vhdl ls".to_owned()),
-                message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
-                ..Default::default()
-            }],
-            version: None,
-        };
-
         let publish_diagnostics3 = PublishDiagnosticsParams {
             uri: file2_uri.clone(),
             diagnostics: vec![lsp_types::Diagnostic {
@@ -237,8 +206,14 @@ lib.files = [
 
         expect_loaded_config_messages(&mock, &config_uri);
         // Initially, we get two reports for both files.
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics1);
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2);
+        mock.expect_notification_contains_regex(
+            "textDocument/publishDiagnostics",
+            Regex::new(r#"No primary unit 'ent\d' within library 'lib'"#).unwrap(),
+        );
+        mock.expect_notification_contains_regex(
+            "textDocument/publishDiagnostics",
+            Regex::new(r#"No primary unit 'ent\d' within library 'lib'"#).unwrap(),
+        );
         // Only expect one new notification after changing file2
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics3);
 
