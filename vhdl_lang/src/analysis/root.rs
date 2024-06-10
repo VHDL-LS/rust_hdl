@@ -520,6 +520,12 @@ impl DesignRoot {
         searcher.references
     }
 
+    pub fn find_all_references_in_source(&self, source: &Source, ent: EntRef) -> Vec<SrcPos> {
+        let mut searcher = FindAllReferences::new(self, ent);
+        let _ = self.search_source(source, &mut searcher);
+        searcher.references
+    }
+
     pub fn public_symbols<'a>(&'a self) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
         Box::new(self.libraries.values().flat_map(|library| {
             std::iter::once(self.arenas.get(library.id)).chain(library.units.values().flat_map(

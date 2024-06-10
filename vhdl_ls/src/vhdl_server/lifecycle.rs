@@ -4,6 +4,21 @@ use serde_json::Value;
 use vhdl_lang::{Message, Project};
 
 impl VHDLServer {
+    fn apply_initial_options(&mut self, options: &Value) {
+        let Some(non_project_file_handling) = options.get("nonProjectFiles") else {
+            return;
+        };
+        match non_project_file_handling {
+            Value::String(handling) => match NonProjectFileHandling::from_string(handling) {
+                None => self.message(Message::error(format!(
+                    "Illegal setting {handling} for nonProjectFiles setting"
+                ))),
+                Some(handling) => self.settings.non_project_file_handling = handling,
+            },
+            _ => self.message(Message::error("nonProjectFiles must be a string")),
+        }
+    }
+
     /// Register capabilities on the client side:
     /// - watch workspace config file for changes
     fn register_capabilities(&mut self) {
@@ -57,6 +72,7 @@ impl VHDLServer {
             })),
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),

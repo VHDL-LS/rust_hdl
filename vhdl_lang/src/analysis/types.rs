@@ -254,7 +254,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             &mut elem_decl.ident,
                             type_ent.into(),
                             AnyEntKind::ElementDeclaration(subtype),
-                            src_span,
+                            elem_decl.span,
                             Some(self.source()),
                         );
                         region.add(elem, diagnostics);

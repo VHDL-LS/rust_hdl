@@ -1,11 +1,11 @@
 use crate::vhdl_server::{
-    from_lsp_pos, from_lsp_range, srcpos_to_location, uri_to_file_name, NonProjectFileHandling,
-    VHDLServer,
+    from_lsp_pos, from_lsp_range, srcpos_to_location, to_lsp_range, uri_to_file_name,
+    NonProjectFileHandling, VHDLServer,
 };
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, GotoDefinitionResponse, Hover,
-    HoverContents, Location, MarkupContent, MarkupKind, ReferenceParams, TextDocumentItem,
-    TextDocumentPositionParams,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DocumentHighlight,
+    DocumentHighlightKind, GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent,
+    MarkupKind, ReferenceParams, TextDocumentItem, TextDocumentPositionParams,
 };
 use vhdl_lang::{Message, Source};
 
@@ -138,5 +138,29 @@ impl VHDLServer {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn document_highlight(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Vec<DocumentHighlight>> {
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .find_declaration(&source, from_lsp_pos(params.position))?;
+
+        Some(
+            self.project
+                .find_all_references_in_source(&source, ent)
+                .iter()
+                .map(|pos| DocumentHighlight {
+                    range: to_lsp_range(pos.range()),
+                    kind: Some(DocumentHighlightKind::TEXT),
+                })
+                .collect(),
+        )
     }
 }
