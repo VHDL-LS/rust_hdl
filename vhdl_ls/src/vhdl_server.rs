@@ -13,8 +13,7 @@ mod workspace;
 
 use lsp_types::*;
 
-use fnv::FnvHashMap;
-use std::collections::hash_map::Entry;
+use fnv::{FnvHashMap, FnvHashSet};
 use vhdl_lang::ast::ObjectClass;
 
 use crate::rpc_channel::SharedRpcChannel;
@@ -22,8 +21,8 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
-    Object, Overloaded, Project, Severity, SeverityMap, SrcPos, Token, Type, VHDLStandard,
+    AnyEntKind, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
+    Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
 /// Defines how the language server handles files
@@ -61,7 +60,8 @@ pub struct VHDLServer {
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
     project: Project,
-    files_with_notifications: FnvHashMap<Url, ()>,
+    files_with_notifications: FnvHashSet<Url>,
+    diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
@@ -74,7 +74,8 @@ impl VHDLServer {
             settings,
             use_external_config: true,
             project: Project::new(VHDLStandard::default()),
-            files_with_notifications: FnvHashMap::default(),
+            files_with_notifications: FnvHashSet::default(),
+            diagnostic_cache: FnvHashMap::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
@@ -88,7 +89,8 @@ impl VHDLServer {
             settings: Default::default(),
             use_external_config,
             project: Project::new(VHDLStandard::default()),
-            files_with_notifications: FnvHashMap::default(),
+            files_with_notifications: FnvHashSet::default(),
+            diagnostic_cache: Default::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),

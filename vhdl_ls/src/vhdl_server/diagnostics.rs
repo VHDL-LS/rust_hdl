@@ -8,7 +8,7 @@ use std::collections::hash_map::Entry;
 use vhdl_lang::{Diagnostic, Severity, SeverityMap};
 
 impl VHDLServer {
-    fn publish_diagnostics(&mut self) {
+    pub fn publish_diagnostics(&mut self) {
         let diagnostics = self.project.analyse();
 
         if self.settings.no_lint {
@@ -25,27 +25,34 @@ impl VHDLServer {
         };
 
         let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
-        for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
+        let by_uri = diagnostics_by_uri(diagnostics);
+        for (file_uri, diagnostics) in by_uri.into_iter() {
+            if self
+                .diagnostic_cache
+                .get(&file_uri)
+                .is_some_and(|diag| diag == &diagnostics)
+            {
+                continue;
+            }
             let lsp_diagnostics = diagnostics
-                .into_iter()
-                .filter_map(|diag| to_lsp_diagnostic(diag, &self.severity_map))
+                .iter()
+                .filter_map(|diag| to_lsp_diagnostic(diag.clone(), &self.severity_map))
                 .collect();
-
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
                 diagnostics: lsp_diagnostics,
                 version: None,
             };
-
             self.rpc
                 .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
-            self.files_with_notifications.insert(file_uri.clone(), ());
+            self.files_with_notifications.insert(file_uri.clone());
+            self.diagnostic_cache.insert(file_uri, diagnostics);
         }
 
-        for (file_uri, _) in files_with_notifications.drain() {
+        for file_uri in files_with_notifications.drain() {
             // File has no longer any diagnostics, publish empty notification to clear them
-            if !self.files_with_notifications.contains_key(&file_uri) {
+            if !self.files_with_notifications.contains(&file_uri) {
                 let publish_diagnostics = PublishDiagnosticsParams {
                     uri: file_uri.clone(),
                     diagnostics: vec![],
