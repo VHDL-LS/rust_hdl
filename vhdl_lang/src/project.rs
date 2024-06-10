@@ -307,6 +307,10 @@ impl Project {
         self.root.find_all_references(ent)
     }
 
+    pub fn find_all_references_in_source(&self, source: &Source, ent: &AnyEnt) -> Vec<SrcPos> {
+        self.root.find_all_references_in_source(source, ent)
+    }
+
     /// Get source positions that are not resolved to a declaration
     /// This is used for development to test where the language server is blind
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
