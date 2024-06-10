@@ -100,19 +100,4 @@ impl VHDLServer {
             None => ::std::process::exit(0),
         }
     }
-
-    fn apply_initial_options(&mut self, options: &Value) {
-        let Some(non_project_file_handling) = options.get("nonProjectFiles") else {
-            return;
-        };
-        match non_project_file_handling {
-            Value::String(handling) => match NonProjectFileHandling::from_string(handling) {
-                None => self.message(Message::error(format!(
-                    "Illegal setting {handling} for nonProjectFiles setting"
-                ))),
-                Some(handling) => self.settings.non_project_file_handling = handling,
-            },
-            _ => self.message(Message::error("nonProjectFiles must be a string")),
-        }
-    }
 }
