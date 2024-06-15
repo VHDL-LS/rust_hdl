@@ -319,11 +319,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             prefix.as_type_of_attr_prefix(
                                 self.ctx,
                                 name.span,
-                                &AttributeSuffix {
-                                    signature,
-                                    attr,
-                                    expr,
-                                },
+                                &AttributeSuffix { attr, expr },
                                 diagnostics,
                             )
                         }),

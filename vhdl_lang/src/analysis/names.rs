@@ -427,7 +427,6 @@ pub enum AttrResolveResult<'a> {
 
 #[derive(Debug)]
 pub struct AttributeSuffix<'a> {
-    pub signature: &'a mut Option<WithTokenSpan<crate::ast::Signature>>,
     pub attr: &'a mut WithToken<AttributeDesignator>,
     pub expr: &'a mut Option<Box<WithTokenSpan<Expression>>>,
 }
@@ -462,7 +461,6 @@ impl<'a> SplitName<'a> {
             Name::Attribute(ref mut attr) => SplitName::Suffix(
                 &mut attr.name,
                 Suffix::Attribute(AttributeSuffix {
-                    signature: &mut attr.signature,
                     attr: &mut attr.attr,
                     expr: &mut attr.expr,
                 }),

@@ -65,7 +65,8 @@ impl LocalArena {
 
         let ent_id = EntityId::new_arena(self.id, LocalId(idx as u32));
         ent.id = ent_id;
-        self.items.push(std::mem::transmute(ent));
+        self.items
+            .push(std::mem::transmute::<AnyEnt<'_>, AnyEnt<'_>>(ent));
         self.get(ent_id.local_id())
     }
 

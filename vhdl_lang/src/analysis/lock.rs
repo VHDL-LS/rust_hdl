@@ -181,13 +181,13 @@ mod tests {
         match lock.entry() {
             AnalysisEntry::Occupied(entry) => {
                 assert_eq!(*entry, 2);
-                assert!((*entry.result() - 1.0_f64).abs() < std::f64::EPSILON);
+                assert!((*entry.result() - 1.0_f64).abs() < f64::EPSILON);
             }
             _ => panic!("Expected Occupied entry"),
         };
 
         assert_eq!(*lock.get().unwrap(), 2);
-        assert!((*lock.get().unwrap().result() - 1.0_f64).abs() < std::f64::EPSILON);
+        assert!((*lock.get().unwrap().result() - 1.0_f64).abs() < f64::EPSILON);
 
         // Check that lock is reset
         lock.reset();

@@ -942,10 +942,10 @@ fn parse_exponent(reader: &mut ContentReader) -> Result<i32, TokenError> {
 
     let exp = parse_integer(reader, 10, false)?;
     if negative {
-        if exp <= (-(i32::min_value() as i64)) as u64 {
+        if exp <= (-(i32::MIN as i64)) as u64 {
             return Ok((-(exp as i64)) as i32);
         }
-    } else if exp <= i32::max_value() as u64 {
+    } else if exp <= i32::MAX as u64 {
         return Ok(exp as i32);
     }
 
@@ -2583,7 +2583,7 @@ comment
             ))]
         );
 
-        let exponent_str = ((i32::max_value() as i64) + 1).to_string();
+        let exponent_str = ((i32::MAX as i64) + 1).to_string();
         let large_int = format!("1e{exponent_str}");
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
@@ -2595,7 +2595,7 @@ comment
             ))]
         );
 
-        let exponent_str = ((i32::min_value() as i64) - 1).to_string();
+        let exponent_str = ((i32::MIN as i64) - 1).to_string();
         let large_int = format!("1.0e{exponent_str}");
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
@@ -2607,7 +2607,7 @@ comment
             ))]
         );
 
-        let large_int = ((u64::max_value() as i128) + 1).to_string();
+        let large_int = ((u64::MAX as i128) + 1).to_string();
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
@@ -2618,14 +2618,14 @@ comment
             ))]
         );
 
-        let large_int = u64::max_value().to_string();
+        let large_int = u64::MAX.to_string();
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
-                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
+                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::MAX)),
                 pos: code.pos(),
                 comments: None,
             })]
