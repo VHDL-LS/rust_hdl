@@ -47,14 +47,17 @@ impl VHDLServer {
                 Designator::Anonymous(_) => None,
             });
 
-        Some(WorkspaceSymbolResponse::Nested(self.filter_map_symbols(
-            symbols.into_iter(),
-            &query,
-            trunc_limit,
-        )))
+        Some(WorkspaceSymbolResponse::Nested(
+            self.filter_workspace_symbols(symbols.into_iter(), &query, trunc_limit),
+        ))
     }
 
-    fn filter_map_symbols<'a>(
+    /// Filters found workspace symbols according to a given query.
+    /// This uses a fuzzy matcher internally to improve the results.
+    /// Queries 'close' to the target string will score high and be included in the
+    /// returned vec, while queries 'not close' to the target string will be omitted.
+    /// The returned vec is sorted according to the score of the fuzzy matcher.
+    fn filter_workspace_symbols<'a>(
         &self,
         symbols: impl Iterator<Item = (EntRef<'a>, String)>,
         query: &str,
