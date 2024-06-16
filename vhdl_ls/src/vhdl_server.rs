@@ -17,6 +17,7 @@ use std::collections::hash_map::Entry;
 use vhdl_lang::ast::ObjectClass;
 
 use crate::rpc_channel::SharedRpcChannel;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -64,6 +65,7 @@ pub struct VHDLServer {
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
+    string_matcher: SkimMatcherV2,
 }
 
 impl VHDLServer {
@@ -77,6 +79,7 @@ impl VHDLServer {
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
+            string_matcher: SkimMatcherV2::default().use_cache(true),
         }
     }
 
@@ -91,6 +94,7 @@ impl VHDLServer {
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
+            string_matcher: SkimMatcherV2::default(),
         }
     }
 

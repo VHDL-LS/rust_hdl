@@ -24,6 +24,7 @@ log = "0"
 env_logger = "0"
 clap = { version = "4", features = ["derive"] }
 lsp-server = "0"
+fuzzy-matcher = "0.3.7"
 
 [dev-dependencies]
 tempfile = "3"
