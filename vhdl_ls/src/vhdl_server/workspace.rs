@@ -7,7 +7,7 @@ use lsp_types::{
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use vhdl_lang::ast::Designator;
-use vhdl_lang::Message;
+use vhdl_lang::{EntRef, Message};
 
 impl VHDLServer {
     pub fn workspace_did_change_watched_files(&mut self, params: &DidChangeWatchedFilesParams) {
@@ -36,7 +36,7 @@ impl VHDLServer {
     ) -> Option<WorkspaceSymbolResponse> {
         let trunc_limit = 200;
         let query = params.query.clone();
-        let symbols: Vec<_> = self
+        let symbols = self
             .project
             .public_symbols()
             .filter_map(|ent| match ent.designator() {
@@ -45,9 +45,21 @@ impl VHDLServer {
                 }
                 Designator::OperatorSymbol(op) => Some((ent, op.to_string())),
                 Designator::Anonymous(_) => None,
-            })
-            .collect();
+            });
 
+        Some(WorkspaceSymbolResponse::Nested(self.filter_map_symbols(
+            symbols.into_iter(),
+            &query,
+            trunc_limit,
+        )))
+    }
+
+    fn filter_map_symbols<'a>(
+        &self,
+        symbols: impl Iterator<Item = (EntRef<'a>, String)>,
+        query: &str,
+        trunc_limit: usize,
+    ) -> Vec<WorkspaceSymbol> {
         #[derive(Eq, PartialEq)]
         struct WorkspaceSymbolWithScore {
             symbol: WorkspaceSymbol,
@@ -70,7 +82,7 @@ impl VHDLServer {
             .into_iter()
             .filter_map(|(ent, name)| {
                 let decl_pos = ent.decl_pos()?;
-                self.string_matcher.fuzzy_match(&name, &query).map(|score| {
+                self.string_matcher.fuzzy_match(&name, query).map(|score| {
                     WorkspaceSymbolWithScore {
                         symbol: WorkspaceSymbol {
                             name: ent.describe(),
@@ -86,13 +98,11 @@ impl VHDLServer {
             })
             .take(trunc_limit)
             .collect();
-        Some(WorkspaceSymbolResponse::Nested(
-            symbols_with_scores
-                .into_sorted_vec()
-                .into_iter()
-                .rev()
-                .map(|wsws| wsws.symbol)
-                .collect(),
-        ))
+        symbols_with_scores
+            .into_sorted_vec()
+            .into_iter()
+            .rev()
+            .map(|wsws| wsws.symbol)
+            .collect()
     }
 }
