@@ -79,7 +79,7 @@ impl VHDLServer {
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
-            string_matcher: SkimMatcherV2::default().use_cache(true),
+            string_matcher: SkimMatcherV2::default().use_cache(true).ignore_case(),
         }
     }
 
