@@ -8,12 +8,20 @@ use crate::ast::Designator;
 use std::fmt::{Debug, Formatter};
 
 pub enum Overloaded<'a> {
+    /// A subprogram declaration (meaning: without implementation).
     SubprogramDecl(Signature<'a>),
+    /// A subprogram with an associated implementation.
     Subprogram(Signature<'a>),
+    /// An uninstantiated subprogram (i.e., a subprogram that contains
+    /// generics) without implementation.
     UninstSubprogramDecl(Signature<'a>, Region<'a>),
+    /// An uninstantiated subprogram with implementation.
     UninstSubprogram(Signature<'a>, Region<'a>),
+    /// A subprogram that was declared as part of a generic.
     InterfaceSubprogram(Signature<'a>),
+    /// An enum literal.
     EnumLiteral(Signature<'a>),
+    /// An alias of an overloaded entity.
     Alias(OverloadedEnt<'a>),
 }
 

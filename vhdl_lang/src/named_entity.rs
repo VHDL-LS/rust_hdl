@@ -40,34 +40,97 @@ pub use formal_region::{
     RecordRegion,
 };
 
+/// The kind of [AnyEnt].
+/// This contains relevant information obtained during analysis.
 pub enum AnyEntKind<'a> {
+    /// An alias that references an external name.
     ExternalAlias {
+        /// The class of the external object (can be constant, signal or variable)
+        /// The type of the referenced external name.
         class: ExternalObjectClass,
         type_mark: TypeEnt<'a>,
     },
+    /// An alias that references an object.
     ObjectAlias {
+        /// The named entity that this alias references
         base_object: ObjectEnt<'a>,
+        /// The type of the base object
         type_mark: TypeEnt<'a>,
     },
+    /// A file declared in a declarative region (i.e., an architecture body).
+    /// The associated [Subtype] refers to the type of the file.
     File(Subtype<'a>),
+    /// A file declaration made in an interface (i.e., as part of subprogram arguments)
+    /// The associated [TypeEnt] refers to the type of the file (as it was declared)
     InterfaceFile(TypeEnt<'a>),
+    /// A component declaration.
+    /// The associated [Region] contains generics and ports
+    /// declared in the component.
     Component(Region<'a>),
+    /// A custom attribute.
+    /// The associated [TypeEnt] refers to the return type of the attribute.
     Attribute(TypeEnt<'a>),
+    /// An overloaded entity, i.e., an entity with potentially
+    /// further entities that share the same name but other features to distinguish.
+    /// A good example is a function. Two VHDL functions may exist that share
+    /// the same name, but have a different signature and are hence different.
+    /// The associated [Overloaded] enum contains more information about the
+    /// actual entity.
+    /// Overloaded entities are
+    /// * Subprograms (both functions and procedures),
+    /// * Enum literals
+    /// * Aliases
     Overloaded(Overloaded<'a>),
+    /// A custom type. The associated [Type] references the
+    /// actual type that was declared.
     Type(Type<'a>),
+    /// A record element.
+    /// The associated [Subtype] references the actual type of the record.
     ElementDeclaration(Subtype<'a>),
+    /// A concurrent statement. The associated [Concurrent] data is a reference
+    /// to the exact statement (i.e., block process or generate).
+    /// Not all statements are handled at the moment, therefore the associated
+    /// data is optional.
     Concurrent(Option<Concurrent>),
+    /// A sequential statement. The associated [Sequential] data is a reference
+    /// to the exact statement (i.e., loop, if or else statement).
+    /// Not all statements are handled at the moment, therefore the associated
+    /// data is optional.
     Sequential(Option<Sequential>),
+    /// An object is a signal, constant, variable or shared variable.
+    /// The `File` object is handled in the [AnyEntKind::File] kind.
+    /// The associated object contains more information and data about the
+    /// actual entity.
     Object(Object<'a>),
+    /// A loop parameter from a 'for generate' statement.
+    /// loop, or a simple for loop.
+    /// The type refers to the (inferred) type of the range of the loop.
+    /// If it is `None`, the range expression is erroneous.
     LoopParameter(Option<BaseType<'a>>),
+    /// A literal of some physical type (e.g., time).
+    /// The associated [TypeEnt] refers to the type of the literal.
     PhysicalLiteral(TypeEnt<'a>),
+    /// A constant, declared in a package, where the actual value is not given immediately.
+    /// The actual value is defined in the associated package region.
+    /// The associated [Subtype] data refers to the type of the constant.
     DeferredConstant(Subtype<'a>),
+    /// A VHDL library
     Library,
+    /// A design entity, such as a VHDL entity, an architecture
+    /// or a package.
+    /// The associated [Design] data contains more information about
+    /// the individual named entity.
     Design(Design<'a>),
+    /// A VHDL 2019 View.
+    /// The [Subtype] data is the type of the associated record.
     View(Subtype<'a>),
 }
 
 impl<'a> AnyEntKind<'a> {
+    /// Creates an [AnyEntKind] that denotes a function declaration.
+    /// # Arguments
+    /// * `formals` - The formal arguments of the function
+    /// * `return_type` - The return type of the function
     pub(crate) fn new_function_decl(
         formals: FormalRegion<'a>,
         return_type: TypeEnt<'a>,
@@ -78,14 +141,21 @@ impl<'a> AnyEntKind<'a> {
         )))
     }
 
+    /// Creates an [AnyEntKind] that denotes a procedure declaration.
+    /// In contrast to [Self::new_function_decl], procedures do not have a return type.
+    ///
+    /// # Arguments
+    /// * `formals` - The formal arguments of the procedure
     pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 
+    /// Returns whether this kind is a deferred constant.
     pub fn is_deferred_constant(&self) -> bool {
         matches!(self, AnyEntKind::DeferredConstant(..))
     }
 
+    /// Returns whether this kind is a constant that is not deferred.
     pub fn is_non_deferred_constant(&self) -> bool {
         matches!(
             self,
@@ -97,10 +167,12 @@ impl<'a> AnyEntKind<'a> {
         )
     }
 
+    /// Returns whether this kind refers to a protected type.
     pub fn is_protected_type(&self) -> bool {
         matches!(self, AnyEntKind::Type(Type::Protected(..)))
     }
 
+    /// Returns whether this kind refers to any type declaration.
     pub fn is_type(&self) -> bool {
         matches!(self, AnyEntKind::Type(..))
     }
@@ -189,12 +261,20 @@ pub struct AnyEnt<'a> {
     pub parent: Option<EntRef<'a>>,
     pub related: Related<'a>,
     pub implicits: Vec<EntRef<'a>>,
+    /// The name of the entity.
+    /// This will be a [Designator::Identifier](Identifier) for 'common'
+    /// named entities (such as functions, architectures, e.t.c.)
+    pub designator: Designator,
+    /// contains more information about this named entity
+    pub kind: AnyEntKind<'a>,
     /// The location where the declaration was made.
     /// Builtin and implicit declaration will not have a source position.
-    pub designator: Designator,
-    pub kind: AnyEntKind<'a>,
     pub decl_pos: Option<SrcPos>,
+    /// The whole textual span that this entity encompasses.
     pub src_span: TokenSpan,
+    /// Where this declaration was made.
+    /// Builtin and implicit declaration will not have a source position.
+    // This is here so that replacing `decl_pos` with a simple Token(span) is feasible later.
     pub source: Option<Source>,
 
     /// Custom attributes on this entity
