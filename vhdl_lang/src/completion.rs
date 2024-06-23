@@ -6,15 +6,20 @@
 
 use crate::analysis::DesignRoot;
 use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
-use crate::ast::{ConcurrentStatement, Designator, MapAspect, ObjectClass};
+use crate::ast::{
+    ConcurrentStatement, Designator, MapAspect, ObjectClass, RangeAttribute, SignalAttribute,
+};
 use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer};
-use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
+use crate::{
+    AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Object, Overloaded, Position, Source,
+};
 use std::collections::HashSet;
 use std::iter::once;
 use vhdl_lang::ast::search::Finished;
+use vhdl_lang::ast::AttributeDesignator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItem<'a> {
@@ -48,6 +53,7 @@ pub enum CompletionItem<'a> {
     /// The second argument is a vector of architectures that are associated
     /// to this entity
     EntityInstantiation(EntRef<'a>, Vec<EntRef<'a>>),
+    Attribute(AttributeDesignator),
 }
 
 macro_rules! kind {
@@ -432,6 +438,7 @@ impl DesignRoot {
     }
 }
 
+/// Returns completions applicable when calling `foo.` where `foo` is amn object of some type.
 pub fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
     use named_entity::Type::*;
     match typ {
@@ -439,14 +446,36 @@ pub fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionI
             .iter()
             .map(|item| CompletionItem::Simple(item.ent))
             .collect(),
+        Alias(type_ent) => completions_for_type(type_ent.kind()),
+        Access(subtype) => {
+            let mut completions = completions_for_type(subtype.type_mark().kind());
+            completions.push(CompletionItem::Keyword(All));
+            completions
+        }
+        Protected(region, _) => region
+            .entities
+            .values()
+            .map(|item| match item {
+                NamedEntities::Single(ent) => CompletionItem::Simple(ent),
+                NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
+                    None => CompletionItem::Overloaded(
+                        overloaded.designator().clone(),
+                        overloaded.len(),
+                    ),
+                    Some(ent) => CompletionItem::Simple(ent),
+                },
+            })
+            .collect(),
         _ => vec![],
     }
 }
 
+/// Returns completions applicable when calling `foo.` where `foo` is some design
+/// (i.e. entity or package).
 pub fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>> {
     use Design::*;
     match design {
-        Package(_, region) => region
+        Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => region
             .entities
             .values()
             .map(|item| match item {
@@ -479,6 +508,75 @@ pub fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<C
     }
 }
 
+fn extend_attributes_of_objects(obj: &Object, attributes: &mut Vec<AttributeDesignator>) {
+    extend_attributes_of_type(obj.subtype.type_mark().kind(), attributes);
+    if obj.class == ObjectClass::Signal {
+        use SignalAttribute::*;
+        attributes.extend(
+            [
+                Delayed,
+                Stable,
+                Quiet,
+                Transaction,
+                Event,
+                Active,
+                LastEvent,
+                LastActive,
+                Driving,
+                DrivingValue,
+            ]
+            .map(AttributeDesignator::Signal),
+        );
+    }
+}
+
+fn extend_attributes_of_type(typ: &named_entity::Type, attributes: &mut Vec<AttributeDesignator>) {
+    use AttributeDesignator::*;
+    if typ.is_scalar() {
+        attributes.extend([Left, Right, Low, High, Ascending, Image, Value]);
+    } else if typ.is_array() {
+        attributes.extend([
+            Left,
+            Right,
+            Low,
+            High,
+            Range(RangeAttribute::Range),
+            Range(RangeAttribute::ReverseRange),
+            Length,
+            Ascending,
+        ]);
+    }
+    if typ.is_discrete() {
+        attributes.extend([Pos, Val, Succ, Pred, LeftOf, RightOf]);
+    }
+}
+
+fn attributes_of_ent(ent: EntRef) -> Vec<CompletionItem> {
+    let mut attributes: Vec<AttributeDesignator> = Vec::new();
+    attributes.extend([
+        AttributeDesignator::SimpleName,
+        AttributeDesignator::InstanceName,
+        AttributeDesignator::PathName,
+    ]);
+
+    match ent.kind() {
+        AnyEntKind::Type(typ) => extend_attributes_of_type(typ, &mut attributes),
+        AnyEntKind::Object(obj) => extend_attributes_of_objects(obj, &mut attributes),
+        AnyEntKind::View(_) => attributes.push(AttributeDesignator::Converse),
+        _ => {}
+    }
+    attributes
+        .into_iter()
+        .map(CompletionItem::Attribute)
+        .chain(
+            ent.attrs
+                .values()
+                .map(|(_, b)| b)
+                .map(|ent| CompletionItem::Simple(ent.ent)),
+        )
+        .collect()
+}
+
 /// Main entry point for completion. Given a source-file and a cursor position,
 /// lists available completion options at the cursor position.
 pub fn list_completion_options<'a>(
@@ -497,6 +595,13 @@ pub fn list_completion_options<'a>(
             // Otherwise, we just return an empty value.
             if let Some((_, ent)) = root.item_at_cursor(source, token.pos.start()) {
                 completions_after_dot(root, ent)
+            } else {
+                vec![]
+            }
+        }
+        [.., token, kind!(Tick)] | [.., token, kind!(Tick), kind!(Identifier)] => {
+            if let Some((_, ent)) = root.item_at_cursor(source, token.pos.start()) {
+                attributes_of_ent(ent)
             } else {
                 vec![]
             }

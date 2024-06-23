@@ -117,6 +117,13 @@ impl VHDLServer {
                     ..Default::default()
                 }
             }
+            vhdl_lang::CompletionItem::Attribute(attribute) => CompletionItem {
+                label: format!("{attribute}"),
+                detail: Some(format!("{attribute}")),
+                insert_text: Some(format!("{attribute}")),
+                kind: Some(CompletionItemKind::REFERENCE),
+                ..Default::default()
+            },
         }
     }
 

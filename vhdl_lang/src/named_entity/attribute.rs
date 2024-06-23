@@ -14,7 +14,7 @@ use super::TypeEnt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AttributeEnt<'a> {
-    ent: EntRef<'a>,
+    pub ent: EntRef<'a>,
 }
 
 impl<'a> AttributeEnt<'a> {

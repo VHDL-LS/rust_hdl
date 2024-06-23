@@ -31,7 +31,7 @@ pub enum Type<'a> {
     // Incomplete type will be overwritten when full type is found
     Incomplete,
     Subtype(Subtype<'a>),
-    // The region of the protected type which needs to be extendend by the body
+    // The region of the protected type which needs to be extended by the body
     Protected(Region<'a>, bool),
     File,
     Interface,
@@ -63,6 +63,29 @@ impl<'a> Type<'a> {
             Type::Protected(..) => "protected type",
             Type::Universal(univ) => univ.describe(),
         }
+    }
+
+    pub fn is_scalar(&self) -> bool {
+        use Type::*;
+        matches!(self, Enum(_) | Integer | Real | Physical | Universal(_))
+    }
+
+    pub fn is_discrete(&self) -> bool {
+        use Type::*;
+        matches!(
+            self,
+            Integer | Enum(_) | Universal(UniversalType::Integer) | Physical
+        )
+    }
+
+    pub fn is_physical(&self) -> bool {
+        use Type::*;
+        matches!(self, Physical)
+    }
+
+    pub fn is_array(&self) -> bool {
+        use Type::*;
+        matches!(self, Array { .. })
     }
 }
 
@@ -330,10 +353,7 @@ impl<'a> BaseType<'a> {
     }
 
     pub fn is_scalar(&self) -> bool {
-        matches!(
-            self.kind(),
-            Type::Enum(_) | Type::Integer | Type::Real | Type::Physical | Type::Universal(_)
-        )
+        self.kind().is_scalar()
     }
 
     pub fn is_compatible_with_string_literal(&self) -> bool {
@@ -393,17 +413,11 @@ impl<'a> BaseType<'a> {
     }
 
     pub fn is_discrete(&self) -> bool {
-        matches!(
-            self.kind(),
-            Type::Integer
-                | Type::Enum(_)
-                | Type::Universal(UniversalType::Integer)
-                | Type::Physical
-        )
+        self.kind().is_discrete()
     }
 
     pub fn is_physical(&self) -> bool {
-        matches!(self.kind(), Type::Physical)
+        self.kind().is_physical()
     }
 
     pub fn is_closely_related(&self, other: BaseType<'a>) -> bool {

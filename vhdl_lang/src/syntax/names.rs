@@ -278,7 +278,13 @@ fn parse_attribute_name(
     name: WithTokenSpan<Name>,
     signature: Option<WithTokenSpan<Signature>>,
 ) -> ParseResult<WithTokenSpan<Name>> {
-    let attr = ctx.stream.expect_attribute_designator()?;
+    let attr = match ctx.stream.expect_attribute_designator() {
+        Ok(desi) => desi,
+        Err(e) => {
+            ctx.diagnostics.push(e);
+            return Ok(name);
+        }
+    };
 
     let (expression, span) = {
         if ctx.stream.skip_if_kind(LeftPar) {
