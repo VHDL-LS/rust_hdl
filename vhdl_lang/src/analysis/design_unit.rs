@@ -647,6 +647,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         "Use clause must be a selected name",
                         ErrorCode::MismatchedKinds,
                     );
+                    // We still want to resolve the name,
+                    // so that it is available for completion purposes.
+                    // We ignore the errors here, since there is already a diagnostic at that position.
+                    let mut empty_diag = Vec::new();
+                    let _ = self.name_resolve(scope, name.span(), &mut name.item, &mut empty_diag);
                     continue;
                 }
             }

@@ -760,6 +760,14 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_design_file)
     }
 
+    pub fn design_file_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) -> DesignFile {
+        let (file, new_diagnostics) = self.parse_ok(parse_design_file);
+        for diag in new_diagnostics {
+            diagnostics.push(diag)
+        }
+        file
+    }
+
     pub fn architecture_body(&self) -> ArchitectureBody {
         self.parse_ok_no_diagnostics(parse_architecture_body)
     }

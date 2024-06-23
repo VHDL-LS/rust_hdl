@@ -403,7 +403,16 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
         match token.kind {
             Dot => {
                 ctx.stream.skip();
-                let suffix = parse_suffix(ctx)?;
+                // This is the situation where we have, for example,
+                // use work.<cursor position>
+                // For completion purposes, we want to preserve the 'work' symbol
+                let suffix = match parse_suffix(ctx) {
+                    Ok(suffix) => suffix,
+                    Err(diagnostic) => {
+                        ctx.diagnostics.push(diagnostic);
+                        return Ok(name);
+                    }
+                };
                 let span = name.span.end_with(suffix.token);
 
                 match suffix.item {
@@ -1270,5 +1279,23 @@ mod tests {
             )]
         );
         assert_eq!(list.0.items, vec![code.s1("a => b").association_element()]);
+    }
+
+    #[test]
+    fn separated_name_with_semicolon_diagnostic() {
+        // We still want to be able to resolve a
+        let code = Code::new("work.");
+        let (name, diag) = code.with_stream_diagnostics(parse_name);
+        assert_eq!(
+            diag,
+            vec![Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF",)]
+        );
+        assert_eq!(
+            name,
+            WithTokenSpan::new(
+                Name::Designator(code.s1("work").ref_designator().item),
+                code.s1("work").token_span()
+            )
+        );
     }
 }

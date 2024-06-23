@@ -179,7 +179,7 @@ pub fn parse_design_file(ctx: &mut ParsingContext<'_>) -> ParseResult<DesignFile
             Context => match parse_context(ctx) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
                     if !context_clause.is_empty() {
-                        let mut diagnostic = Diagnostic::syntax_error(context_decl.ident.pos(ctx), "Context declaration may not be preceeded by a context clause");
+                        let mut diagnostic = Diagnostic::syntax_error(context_decl.ident.pos(ctx), "Context declaration may not be preceded by a context clause");
 
                         for context_item in context_clause.iter() {
                             diagnostic.add_related(context_item.get_pos(ctx.stream), context_item_message(context_item, "may not come before context declaration"));
@@ -869,7 +869,7 @@ end entity;
             diagnostics,
             vec![Diagnostic::syntax_error(
                 code.s1("ctx"),
-                "Context declaration may not be preceeded by a context clause",
+                "Context declaration may not be preceded by a context clause",
             )
             .related(
                 code.s1("library lib;"),

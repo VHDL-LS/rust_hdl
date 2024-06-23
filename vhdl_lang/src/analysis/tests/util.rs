@@ -83,7 +83,10 @@ end architecture;"
 
         for (library_name, codes) in self.libraries.iter() {
             for code in codes {
-                root.add_design_file(library_name.clone(), code.design_file());
+                root.add_design_file(
+                    library_name.clone(),
+                    code.design_file_diagnostics(&mut diagnostics),
+                );
             }
         }
         root.analyze(&mut diagnostics);

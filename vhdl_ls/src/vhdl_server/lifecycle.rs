@@ -55,7 +55,7 @@ impl VHDLServer {
             self.apply_initial_options(options)
         }
         self.init_params = Some(init_params);
-        let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
+        let trigger_chars: Vec<String> = r". ".chars().map(|ch| ch.to_string()).collect();
 
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(

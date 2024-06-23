@@ -6,16 +6,13 @@
 
 use crate::analysis::DesignRoot;
 use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
-use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, ConcurrentStatement, Designator, MapAspect, ObjectClass,
-};
+use crate::ast::{ConcurrentStatement, Designator, MapAspect, ObjectClass};
 use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
 use crate::syntax::Kind::*;
-use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
+use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer};
 use crate::{AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Overloaded, Position, Source};
 use std::collections::HashSet;
-use std::default::Default;
 use std::iter::once;
 use vhdl_lang::ast::search::Finished;
 
@@ -32,6 +29,11 @@ pub enum CompletionItem<'a> {
     Overloaded(Designator, usize),
     /// Complete a keyword
     Keyword(Kind),
+    /// Complete the 'work' library.
+    /// This is handled in a special manner because the
+    /// actual work library (using [CompletionItem::Simple] would complete the actual name
+    /// of the library, not the string 'work'.
+    Work,
     /// Entity instantiation, i.e.,
     /// ```vhdl
     /// my_ent: entity work.foo
@@ -51,16 +53,6 @@ pub enum CompletionItem<'a> {
 macro_rules! kind {
     ($kind: pat) => {
         Token { kind: $kind, .. }
-    };
-}
-
-macro_rules! ident {
-    ($bind: pat) => {
-        Token {
-            kind: Identifier,
-            value: Value::Identifier($bind),
-            ..
-        }
     };
 }
 
@@ -267,6 +259,7 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
 fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem> {
     root.libraries()
         .map(|lib| CompletionItem::Simple(root.get_ent(lib.id())))
+        .chain(once(CompletionItem::Work))
         .collect()
 }
 
@@ -280,51 +273,6 @@ fn list_primaries_for_lib<'a>(root: &'a DesignRoot, lib: &Symbol) -> Vec<Complet
         .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
         .map(|id| CompletionItem::Simple(root.get_ent(id)))
         .collect()
-}
-
-/// Lists all available declarations for a primary unit inside a given library
-/// If the library does not exist or there is no primary unit with the given name for that library,
-/// return an empty vector
-fn list_available_declarations<'a>(
-    root: &'a DesignRoot,
-    lib: &Symbol,
-    primary_unit: &Symbol,
-) -> Vec<CompletionItem<'a>> {
-    let Some(unit) = root
-        .get_lib(lib)
-        .and_then(|lib| lib.primary_unit(primary_unit))
-        .and_then(|unit| unit.unit.get())
-    else {
-        return vec![];
-    };
-
-    match unit.data() {
-        AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
-            let Some(pkg_id) = pkg.ident.decl.get() else {
-                return Vec::default();
-            };
-            let ent = root.get_ent(pkg_id);
-            match &ent.kind {
-                AnyEntKind::Design(Design::Package(_, region)) => region
-                    .entities
-                    .values()
-                    .map(|named_ent| match named_ent {
-                        NamedEntities::Single(ent) => CompletionItem::Simple(ent),
-                        NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
-                            None => CompletionItem::Overloaded(
-                                overloaded.designator().clone(),
-                                overloaded.len(),
-                            ),
-                            Some(ent_ref) => CompletionItem::Simple(ent_ref),
-                        },
-                    })
-                    .chain(once(CompletionItem::Keyword(All)))
-                    .collect(),
-                _ => Vec::default(),
-            }
-        }
-        _ => Vec::default(),
-    }
 }
 
 /// General-purpose Completion Searcher
@@ -484,6 +432,53 @@ impl DesignRoot {
     }
 }
 
+pub fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
+    use named_entity::Type::*;
+    match typ {
+        Record(record_region) => record_region
+            .iter()
+            .map(|item| CompletionItem::Simple(item.ent))
+            .collect(),
+        _ => vec![],
+    }
+}
+
+pub fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>> {
+    use Design::*;
+    match design {
+        Package(_, region) => region
+            .entities
+            .values()
+            .map(|item| match item {
+                NamedEntities::Single(single) => CompletionItem::Simple(single),
+                NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
+                    None => CompletionItem::Overloaded(
+                        overloaded.designator().clone(),
+                        overloaded.len(),
+                    ),
+                    Some(ent) => CompletionItem::Simple(ent),
+                },
+            })
+            .chain(once(CompletionItem::Keyword(All)))
+            .collect(),
+        _ => vec![],
+    }
+}
+
+pub fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<CompletionItem<'b>> {
+    use AnyEntKind::*;
+    match ent.kind() {
+        Object(object) => completions_for_type(object.subtype.type_mark().kind()),
+        Type(typ) => completions_for_type(typ),
+        Design(design) => completions_for_design(design),
+        Library => ent
+            .library_name()
+            .map(|sym| list_primaries_for_lib(root, sym))
+            .unwrap_or_default(),
+        _ => vec![],
+    }
+}
+
 /// Main entry point for completion. Given a source-file and a cursor position,
 /// lists available completion options at the cursor position.
 pub fn list_completion_options<'a>(
@@ -496,13 +491,15 @@ pub fn list_completion_options<'a>(
         [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
             list_all_libraries(root)
         }
-        [.., kind!(Use), ident!(library), kind!(Dot)]
-        | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
-            list_primaries_for_lib(root, library)
-        }
-        [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
-        | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
-            list_available_declarations(root, library, selected)
+        [.., token, kind!(Dot)] | [.., token, kind!(Dot), kind!(Identifier)] => {
+            // get the entity before the token.
+            // We rely on the syntax parsing to be resilient enough for this to yield a reasonable value.
+            // Otherwise, we just return an empty value.
+            if let Some((_, ent)) = root.item_at_cursor(source, token.pos.start()) {
+                completions_after_dot(root, ent)
+            } else {
+                vec![]
+            }
         }
         [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
             let mut searcher = MapAspectSearcher::new(root, cursor);
@@ -586,46 +583,80 @@ mod test {
 
     #[test]
     pub fn completing_primaries() {
-        let (root, _) = LibraryBuilder::new().get_analyzed_root();
-        let code = Code::new("use std.");
-        let cursor = code.pos().end();
-        let options = list_completion_options(&root, code.source(), cursor);
-        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
-        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
-        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
-        assert_eq!(options.len(), 3);
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+use std.
 
-        let code = Code::new("use std.t");
-        let cursor = code.pos().end();
+-- Need this package so that the 'use std.' is associated and can be analyzed correctly
+package x is
+end package x;
+",
+        );
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("use std.").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(root.find_textio_pkg()),
+                CompletionItem::Simple(root.find_standard_pkg()),
+                CompletionItem::Simple(root.find_env_pkg()),
+            ],
+        );
+
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+use std.t
+
+-- Need this package so that the 'use std.' is associated and can be analyzed correctly
+package x is
+end package x;
+",
+        );
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("use std.t").end();
         let options = list_completion_options(&root, code.source(), cursor);
         // Note that the filtering only happens at client side
-        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
-        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
-        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
-        assert_eq!(options.len(), 3);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(root.find_textio_pkg()),
+                CompletionItem::Simple(root.find_standard_pkg()),
+                CompletionItem::Simple(root.find_env_pkg()),
+            ],
+        );
     }
 
     #[test]
     pub fn completing_declarations() {
-        let input = LibraryBuilder::new();
-        let code = Code::new("use std.env.");
+        let mut input = LibraryBuilder::new();
+        let code = input.code(
+            "libname",
+            "\
+use std.env.
+
+-- Need this package sp that the 'use std.' is associated and can be analyzed correctly
+package x is
+end package x;
+",
+        );
         let (root, _) = input.get_analyzed_root();
-        let cursor = code.pos().end();
+        let cursor = code.s1("use std.env.").end();
         let options = list_completion_options(&root, code.source(), cursor);
 
-        assert!(options.contains(&CompletionItem::Overloaded(
-            Designator::Identifier(root.symbol_utf8("stop")),
-            2
-        )));
-        assert!(options.contains(&CompletionItem::Overloaded(
-            Designator::Identifier(root.symbol_utf8("finish")),
-            2
-        )));
-        assert!(options.contains(&CompletionItem::Simple(
-            root.find_env_symbol("resolution_limit"),
-        )));
-        assert!(options.contains(&CompletionItem::Keyword(All)));
-        assert_eq!(options.len(), 4);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Overloaded(Designator::Identifier(root.symbol_utf8("stop")), 2),
+                CompletionItem::Overloaded(Designator::Identifier(root.symbol_utf8("finish")), 2),
+                CompletionItem::Simple(root.find_env_symbol("resolution_limit")),
+                CompletionItem::Keyword(All),
+            ],
+        );
     }
 
     #[test]
