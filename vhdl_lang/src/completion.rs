@@ -8,6 +8,7 @@ use crate::analysis::DesignRoot;
 use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
 use crate::ast::{
     ConcurrentStatement, Designator, MapAspect, ObjectClass, RangeAttribute, SignalAttribute,
+    TypeAttribute,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
@@ -439,7 +440,7 @@ impl DesignRoot {
 }
 
 /// Returns completions applicable when calling `foo.` where `foo` is amn object of some type.
-pub fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
     use named_entity::Type::*;
     match typ {
         Record(record_region) => record_region
@@ -472,7 +473,7 @@ pub fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionI
 
 /// Returns completions applicable when calling `foo.` where `foo` is some design
 /// (i.e. entity or package).
-pub fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>> {
     use Design::*;
     match design {
         Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => region
@@ -494,7 +495,7 @@ pub fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>
     }
 }
 
-pub fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<CompletionItem<'b>> {
+fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<CompletionItem<'b>> {
     use AnyEntKind::*;
     match ent.kind() {
         Object(object) => completions_for_type(object.subtype.type_mark().kind()),
@@ -510,6 +511,7 @@ pub fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<C
 
 fn extend_attributes_of_objects(obj: &Object, attributes: &mut Vec<AttributeDesignator>) {
     extend_attributes_of_type(obj.subtype.type_mark().kind(), attributes);
+    attributes.push(AttributeDesignator::Type(TypeAttribute::Subtype));
     if obj.class == ObjectClass::Signal {
         use SignalAttribute::*;
         attributes.extend(
@@ -527,6 +529,9 @@ fn extend_attributes_of_objects(obj: &Object, attributes: &mut Vec<AttributeDesi
             ]
             .map(AttributeDesignator::Signal),
         );
+    }
+    if obj.subtype.type_mark().kind().is_array() {
+        attributes.push(AttributeDesignator::Type(TypeAttribute::Element));
     }
 }
 

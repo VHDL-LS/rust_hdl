@@ -16,6 +16,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
+use crate::syntax::kinds_error;
 use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
@@ -301,18 +302,32 @@ where
     F: Fn(&mut ParsingContext<'_>) -> ParseResult<T>,
 {
     let item = parse_item(ctx)?;
-
-    expect_token!(
-        ctx.stream,
-        token,
+    let token = ctx.stream.peek_expect()?;
+    match token.kind {
         When => {
-            Ok(AssignmentRightHand::Conditional(parse_conditonals(ctx, item, parse_item)?))
-
-        },
+            ctx.stream.skip();
+            Ok(AssignmentRightHand::Conditional(parse_conditonals(
+                ctx, item, parse_item,
+            )?))
+        }
         SemiColon => {
+            ctx.stream.skip();
             Ok(AssignmentRightHand::Simple(item))
         }
-    )
+        Colon => {
+            ctx.stream.skip();
+            ctx.diagnostics
+                .push(kinds_error(token.pos.clone(), &[SemiColon, When]));
+            Ok(AssignmentRightHand::Simple(item))
+        }
+        _ => {
+            ctx.diagnostics.push(kinds_error(
+                ctx.stream.pos_before(token),
+                &[SemiColon, When],
+            ));
+            Ok(AssignmentRightHand::Simple(item))
+        }
+    }
 }
 
 fn parse_conditonals<T, F>(
