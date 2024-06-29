@@ -56,6 +56,7 @@ pub enum CompletionItem<'a> {
     /// The second argument is a vector of architectures that are associated
     /// to this entity
     EntityInstantiation(EntRef<'a>, Vec<EntRef<'a>>),
+    /// Complete an attribute designator (i.e. `'range`, `'stable`, ...)
     Attribute(AttributeDesignator),
 }
 
