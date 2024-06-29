@@ -44,3 +44,58 @@ pub fn expect_semicolon(ctx: &mut ParsingContext<'_>) -> Option<TokenId> {
 pub fn expect_semicolon_or_last(ctx: &mut ParsingContext<'_>) -> TokenId {
     expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::analysis::tests::Code;
+    use crate::ast::token_range::WithTokenSpan;
+    use crate::ast::Declaration;
+    use crate::syntax::declarative_part::parse_declarative_part;
+    use crate::syntax::test::check_diagnostics;
+    use vhdl_lang::ast::{ObjectClass, ObjectDeclaration};
+    use vhdl_lang::Diagnostic;
+
+    #[test]
+    fn recover_from_semicolon_in_declarative_path() {
+        let code = Code::new(
+            "\
+signal x : std_logic := a.
+signal y: bit;
+",
+        );
+        let (declarations, diagnostics) = code.parse_ok(parse_declarative_part);
+        assert_eq!(
+            declarations,
+            vec![
+                WithTokenSpan::new(
+                    Declaration::Object(ObjectDeclaration {
+                        class: ObjectClass::Signal,
+                        ident: code.s1("x").decl_ident(),
+                        subtype_indication: code.s1("std_logic").subtype_indication(),
+                        expression: Some(code.s1("a.").s1("a").expr())
+                    }),
+                    code.s1("signal x : std_logic := a.").token_span()
+                ),
+                WithTokenSpan::new(
+                    Declaration::Object(ObjectDeclaration {
+                        class: ObjectClass::Signal,
+                        ident: code.s1("y").decl_ident(),
+                        subtype_indication: code.s1("bit").subtype_indication(),
+                        expression: None
+                    }),
+                    code.s1("signal y: bit;").token_span()
+                ),
+            ]
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::syntax_error(
+                    code.s1(".").pos().pos_at_end(),
+                    "Expected '{identifier}', '{character}', '{string}' or 'all'",
+                ),
+                Diagnostic::syntax_error(code.s1(".").pos().pos_at_end(), "Expected ';'"),
+            ],
+        );
+    }
+}
