@@ -3,14 +3,13 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-
+/// LRM 6.4.2 Object Declarations
 use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
-/// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::syntax::recover::expect_semicolon;
 use crate::syntax::recover::expect_semicolon_or_last;

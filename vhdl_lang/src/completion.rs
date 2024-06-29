@@ -320,20 +320,26 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                         .filter(|ent| {
                             matches!(
                                 ent.kind(),
-                                AnyEntKind::Object(_) | AnyEntKind::ObjectAlias { .. }
+                                AnyEntKind::Object(_)
+                                    | AnyEntKind::ObjectAlias { .. }
+                                    | AnyEntKind::Overloaded(..)
                             )
                         })
                         .map(CompletionItem::Simple),
                 );
 
-                let Some(eid) = body.entity_name.reference.get() else {
+                let Some(eid) = body.ident.decl.get() else {
                     return Finished(NotFound);
                 };
-                let Some(ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
+                let Some(arch_ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
                     return Finished(NotFound);
                 };
+                let Design::Architecture(ent_ent) = arch_ent.kind() else {
+                    return Finished(NotFound);
+                };
+
                 // Add ports and generics to the list of completed items
-                if let Design::Entity(_, region) = ent.kind() {
+                if let Design::Entity(_, region) = ent_ent.kind() {
                     self.completions
                         .extend(region.entities.values().filter_map(|ent| {
                             if let NamedEntities::Single(ent) = ent {
@@ -341,7 +347,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                             } else {
                                 None
                             }
-                        }))
+                        }));
                 }
                 // Early-exit for when we are inside a statement.
                 for statement in &body.statements {
@@ -358,7 +364,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                 }
                 self.completions.extend(
                     self.root
-                        .get_visible_entities_from_entity(ent)
+                        .get_visible_entities_from_entity(ent_ent)
                         .map(|eid| entity_to_completion_item(self.root, eid)),
                 );
                 Finished(Found)
@@ -404,7 +410,7 @@ impl DesignRoot {
     /// 'list visible entities of some kind of some generic design entity'.
     pub fn get_visible_entities_from_entity(
         &self,
-        ent: DesignEnt,
+        ent: &DesignEnt,
     ) -> impl Iterator<Item = EntityId> {
         let mut entities: HashSet<EntityId> = HashSet::new();
         if let Design::Entity(vis, _) = ent.kind() {

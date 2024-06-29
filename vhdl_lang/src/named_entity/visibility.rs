@@ -91,7 +91,7 @@ impl<'a> Visibility<'a> {
         ent: &'a AnyEnt,
     ) {
         // Add implicit declarations when using declaration
-        // For example all enum literals are made implicititly visible when using an enum type
+        // For example all enum literals are made implicitly visible when using an enum type
         for entity in ent.as_actual().implicits.iter() {
             self.make_potentially_visible_with_name(
                 visible_pos,
