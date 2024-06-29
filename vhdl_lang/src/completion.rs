@@ -5,10 +5,10 @@
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::DesignRoot;
-use crate::ast::search::{Found, FoundDeclaration, NotFinished, NotFound, SearchState, Searcher};
+use crate::ast::search::{Found, FoundDeclaration, NotFinished, SearchState, Searcher};
 use crate::ast::{
-    ConcurrentStatement, Designator, MapAspect, ObjectClass, RangeAttribute, SignalAttribute,
-    TypeAttribute,
+    ArchitectureBody, ConcurrentStatement, Designator, MapAspect, ObjectClass, RangeAttribute,
+    SignalAttribute, TypeAttribute,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::named_entity::{self, AsUnique, DesignEnt, HasEntityId, NamedEntities, Region};
@@ -17,10 +17,12 @@ use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer};
 use crate::{
     AnyEntKind, Design, EntRef, EntityId, HasTokenSpan, Object, Overloaded, Position, Source,
 };
+use itertools::{chain, Itertools};
 use std::collections::HashSet;
 use std::iter::once;
 use vhdl_lang::ast::search::Finished;
 use vhdl_lang::ast::AttributeDesignator;
+use vhdl_lang::named_entity::Visibility;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItem<'a> {
@@ -270,20 +272,11 @@ fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem> {
         .collect()
 }
 
-/// List the name of all primary units for a given library.
-/// If the library is non-resolvable, list an empty vector
-fn list_primaries_for_lib<'a>(root: &'a DesignRoot, lib: &Symbol) -> Vec<CompletionItem<'a>> {
-    let Some(lib) = root.get_lib(lib) else {
-        return vec![];
-    };
-    lib.primary_units()
-        .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
-        .map(|id| CompletionItem::Simple(root.get_ent(id)))
-        .collect()
-}
-
-/// General-purpose Completion Searcher
-/// when no more accurate searcher is available.
+/// This is the most general-purpose completion provider.
+/// This provider publishes all visible symbols reachable from some context.
+/// This will, among other things produce many "non-regular" symbols, such as
+/// operator symbols or specific characters. If possible,
+/// this searcher should therefore be avoided in favor of a more specific completion provider.
 struct CompletionSearcher<'a> {
     root: &'a DesignRoot,
     cursor: Position,
@@ -300,77 +293,73 @@ impl<'a> CompletionSearcher<'a> {
     }
 }
 
+impl<'a> CompletionSearcher<'a> {
+    fn add_entity_instantiations(&mut self, ctx: &dyn TokenAccess, body: &ArchitectureBody) {
+        let Some(ent_id) = body.ident.decl.get() else {
+            return;
+        };
+        let Some(ent) = DesignEnt::from_any(self.root.get_ent(ent_id)) else {
+            return;
+        };
+        // Early-exit for when we are inside a statement.
+        for statement in &body.statements {
+            let pos = &statement.statement.pos(ctx);
+
+            // Early exit. The cursor is below the current statement.
+            if pos.start() > self.cursor {
+                break;
+            }
+
+            if pos.contains(self.cursor) {
+                return;
+            }
+        }
+        self.completions.extend(
+            self.root
+                .get_visible_entities_from_entity(&ent)
+                .map(|eid| entity_to_completion_item(self.root, eid)),
+        );
+    }
+}
+
 impl<'a> Searcher for CompletionSearcher<'a> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        match decl {
-            FoundDeclaration::Architecture(body) => {
-                // ensure we are in the concurrent region
-                if !ctx
-                    .get_span(body.begin_token, body.get_end_token())
-                    .contains(self.cursor)
-                {
-                    return Finished(NotFound);
+        let ent_id = match decl {
+            FoundDeclaration::Entity(ent_decl) => {
+                if !ent_decl.get_pos(ctx).contains(self.cursor) {
+                    return NotFinished;
                 }
-                // Add architecture declarations to the list of completed names
-                self.completions.extend(
-                    body.decl
-                        .iter()
-                        .filter_map(|decl| decl.ent_id())
-                        .map(|eid| self.root.get_ent(eid))
-                        .filter(|ent| {
-                            matches!(
-                                ent.kind(),
-                                AnyEntKind::Object(_)
-                                    | AnyEntKind::ObjectAlias { .. }
-                                    | AnyEntKind::Overloaded(..)
-                            )
-                        })
-                        .map(CompletionItem::Simple),
-                );
-
-                let Some(eid) = body.ident.decl.get() else {
-                    return Finished(NotFound);
-                };
-                let Some(arch_ent) = DesignEnt::from_any(self.root.get_ent(eid)) else {
-                    return Finished(NotFound);
-                };
-                let Design::Architecture(ent_ent) = arch_ent.kind() else {
-                    return Finished(NotFound);
-                };
-
-                // Add ports and generics to the list of completed items
-                if let Design::Entity(_, region) = ent_ent.kind() {
-                    self.completions
-                        .extend(region.entities.values().filter_map(|ent| {
-                            if let NamedEntities::Single(ent) = ent {
-                                Some(CompletionItem::Simple(ent))
-                            } else {
-                                None
-                            }
-                        }));
-                }
-                // Early-exit for when we are inside a statement.
-                for statement in &body.statements {
-                    let pos = &statement.statement.pos(ctx);
-
-                    // Early exit. The cursor is below the current statement.
-                    if pos.start() > self.cursor {
-                        break;
-                    }
-
-                    if pos.contains(self.cursor) {
-                        return Finished(NotFound);
-                    }
-                }
-                self.completions.extend(
-                    self.root
-                        .get_visible_entities_from_entity(ent_ent)
-                        .map(|eid| entity_to_completion_item(self.root, eid)),
-                );
-                Finished(Found)
+                ent_decl.ident.decl.get()
             }
-            _ => NotFinished,
-        }
+            FoundDeclaration::Architecture(body) => {
+                if !body.get_pos(ctx).contains(self.cursor) {
+                    return NotFinished;
+                }
+                self.add_entity_instantiations(ctx, body);
+                body.ident.decl.get()
+            }
+            FoundDeclaration::Package(package) => {
+                if !package.get_pos(ctx).contains(self.cursor) {
+                    return NotFinished;
+                }
+                package.ident.decl.get()
+            }
+            FoundDeclaration::PackageBody(package) => {
+                if !package.get_pos(ctx).contains(self.cursor) {
+                    return NotFinished;
+                }
+                package.ident.decl.get()
+            }
+            _ => return NotFinished,
+        };
+        let Some(ent_id) = ent_id else {
+            return Finished(Found);
+        };
+        let Some(ent) = DesignEnt::from_any(self.root.get_ent(ent_id)) else {
+            return Finished(Found);
+        };
+        self.completions.extend(visible_entities_from(ent.kind()));
+        Finished(Found)
     }
 }
 
@@ -385,7 +374,7 @@ fn entity_to_completion_item(root: &DesignRoot, eid: EntityId) -> CompletionItem
     }
 }
 
-/// Returns a vec populated with all architectures that belong to the given entity
+/// Returns a vec populated with all architectures that belong to a given entity
 fn get_architectures_for_entity<'a>(ent: EntRef<'a>, root: &'a DesignRoot) -> Vec<EntRef<'a>> {
     let Some(lib_symbol) = ent.library_name() else {
         return vec![];
@@ -413,7 +402,7 @@ impl DesignRoot {
         ent: &DesignEnt,
     ) -> impl Iterator<Item = EntityId> {
         let mut entities: HashSet<EntityId> = HashSet::new();
-        if let Design::Entity(vis, _) = ent.kind() {
+        if let Design::Architecture(vis, _, _) = ent.kind() {
             for ent_ref in vis.visible() {
                 match ent_ref.kind() {
                     AnyEntKind::Design(Design::Entity(..)) => {
@@ -445,8 +434,62 @@ impl DesignRoot {
     }
 }
 
+fn visible_entities_from<'a>(design: &'a Design<'a>) -> Vec<CompletionItem<'a>> {
+    use Design::*;
+    match design {
+        Entity(visibility, region)
+        | UninstPackage(visibility, region)
+        | Architecture(visibility, region, _)
+        | Package(visibility, region)
+        | PackageBody(visibility, region) => chain(
+            completion_items_from_region(region),
+            completion_items_from_visibility(visibility),
+        )
+        .collect_vec(),
+        PackageInstance(region) | InterfacePackageInstance(region) | Context(region) => {
+            completion_items_from_region(region).collect_vec()
+        }
+        Configuration => vec![],
+    }
+}
+
+fn named_entities_to_completion_item<'a>(
+    named_entities: &'a NamedEntities<'a>,
+) -> CompletionItem<'a> {
+    match named_entities {
+        NamedEntities::Single(ent) => CompletionItem::Simple(ent),
+        NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
+            None => CompletionItem::Overloaded(overloaded.designator().clone(), overloaded.len()),
+            Some(ent) => CompletionItem::Simple(ent),
+        },
+    }
+}
+
+fn completion_items_from_region<'a>(
+    region: &'a Region<'a>,
+) -> impl Iterator<Item = CompletionItem<'a>> {
+    region
+        .entities
+        .values()
+        .map(named_entities_to_completion_item)
+}
+
+fn completion_items_from_visibility<'a>(
+    visibility: &'a Visibility<'a>,
+) -> impl Iterator<Item = CompletionItem<'a>> {
+    visibility
+        .visible()
+        .unique()
+        .map(CompletionItem::Simple)
+        .chain(
+            visibility
+                .all_in_region()
+                .flat_map(|visible_region| completion_items_from_region(visible_region.region())),
+        )
+}
+
 /// Returns completions applicable when calling `foo.` where `foo` is amn object of some type.
-fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_type<'a>(typ: &'a named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
     use named_entity::Type::*;
     match typ {
         Record(record_region) => record_region
@@ -459,46 +502,35 @@ fn completions_for_type<'a>(typ: &named_entity::Type<'a>) -> Vec<CompletionItem<
             completions.push(CompletionItem::Keyword(All));
             completions
         }
-        Protected(region, _) => region
-            .entities
-            .values()
-            .map(|item| match item {
-                NamedEntities::Single(ent) => CompletionItem::Simple(ent),
-                NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
-                    None => CompletionItem::Overloaded(
-                        overloaded.designator().clone(),
-                        overloaded.len(),
-                    ),
-                    Some(ent) => CompletionItem::Simple(ent),
-                },
-            })
-            .collect(),
+        Protected(region, _) => completion_items_from_region(region).collect_vec(),
         _ => vec![],
     }
 }
 
 /// Returns completions applicable when calling `foo.` where `foo` is some design
 /// (i.e. entity or package).
-fn completions_for_design<'a>(design: &Design<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_design<'a>(design: &'a Design<'a>) -> Vec<CompletionItem<'a>> {
     use Design::*;
     match design {
-        Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => region
-            .entities
-            .values()
-            .map(|item| match item {
-                NamedEntities::Single(single) => CompletionItem::Simple(single),
-                NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
-                    None => CompletionItem::Overloaded(
-                        overloaded.designator().clone(),
-                        overloaded.len(),
-                    ),
-                    Some(ent) => CompletionItem::Simple(ent),
-                },
-            })
-            .chain(once(CompletionItem::Keyword(All)))
-            .collect(),
+        Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => {
+            completion_items_from_region(region)
+                .chain(once(CompletionItem::Keyword(All)))
+                .collect()
+        }
         _ => vec![],
     }
+}
+
+/// List the name of all primary units for a given library.
+/// If the library is non-resolvable, list an empty vector
+fn list_primaries_for_lib<'a>(root: &'a DesignRoot, lib: &Symbol) -> Vec<CompletionItem<'a>> {
+    let Some(lib) = root.get_lib(lib) else {
+        return vec![];
+    };
+    lib.primary_units()
+        .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
+        .map(|id| CompletionItem::Simple(root.get_ent(id)))
+        .collect()
 }
 
 fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<CompletionItem<'b>> {

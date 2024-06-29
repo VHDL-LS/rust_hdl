@@ -278,7 +278,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             self.ctx,
             &mut unit.ident,
             primary.into(),
-            AnyEntKind::Design(Design::Architecture(primary)),
+            AnyEntKind::Design(Design::Architecture(
+                Visibility::default(),
+                Region::default(),
+                primary,
+            )),
             src_span,
             Some(self.source()),
         );
@@ -293,7 +297,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         self.define_labels_for_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&scope, arch, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
-        scope.close(diagnostics);
+
+        let region = scope.into_region();
+        let visibility = root_scope.into_visibility();
+
+        unsafe {
+            arch.set_kind(AnyEntKind::Design(Design::Architecture(
+                visibility, region, primary,
+            )))
+        }
         Ok(())
     }
 
@@ -334,7 +346,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             unit.ident.name().clone().into(),
             Some(self.work_library()),
             Related::DeclaredBy(primary.into()),
-            AnyEntKind::Design(Design::PackageBody),
+            AnyEntKind::Design(Design::PackageBody(
+                Visibility::default(),
+                Region::default(),
+            )),
             Some(unit.ident_pos(self.ctx).clone()),
             unit.span(),
             Some(self.source()),
@@ -354,7 +369,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
         self.analyze_declarative_part(&scope, body, &mut unit.decl, diagnostics)?;
-        scope.close(diagnostics);
+
+        let region = scope.into_region();
+        let visibility = root_scope.into_visibility();
+
+        unsafe { body.set_kind(AnyEntKind::Design(Design::PackageBody(visibility, region))) }
         Ok(())
     }
 

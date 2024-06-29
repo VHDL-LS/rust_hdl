@@ -25,7 +25,7 @@ impl<'a> VisibleEntity<'a> {
 }
 
 #[derive(Clone)]
-struct VisibleRegion<'a> {
+pub struct VisibleRegion<'a> {
     // The position where the entity was made visible
     visible_pos: Vec<Option<SrcPos>>,
     region: &'a Region<'a>,
@@ -37,6 +37,10 @@ impl<'a> VisibleRegion<'a> {
         let mut more = self.clone();
         more.visible_pos.push(visible_pos.cloned());
         more
+    }
+
+    pub fn region(&self) -> &Region<'a> {
+        self.region
     }
 }
 
@@ -57,6 +61,10 @@ impl<'a> Visibility<'a> {
             visible_pos: vec![visible_pos.cloned()],
             region,
         });
+    }
+
+    pub fn all_in_region(&self) -> impl Iterator<Item = &VisibleRegion<'a>> {
+        return self.all_in_regions.iter();
     }
 
     pub fn visible(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
