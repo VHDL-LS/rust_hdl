@@ -29,6 +29,7 @@ mod subtype_indication;
 mod type_declaration;
 mod waveform;
 
+mod recover;
 #[cfg(test)]
 pub mod test;
 mod view;

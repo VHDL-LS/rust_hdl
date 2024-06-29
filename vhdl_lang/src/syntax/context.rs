@@ -11,10 +11,9 @@ use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::syntax::parser::ParsingContext;
+use crate::syntax::recover;
+use crate::syntax::recover::expect_semicolon;
 use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
-use crate::syntax::{kinds_error, kinds_str};
-use crate::TokenId;
-
 #[derive(PartialEq, Debug)]
 pub enum DeclarationOrReference {
     Declaration(ContextDeclaration),
@@ -25,45 +24,11 @@ pub enum DeclarationOrReference {
 pub fn parse_library_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<LibraryClause> {
     let library_token = ctx.stream.expect_kind(Library)?;
     let name_list = parse_ident_list(ctx)?;
-    let semi_token = ctx.stream.expect_kind(SemiColon)?;
+    let semi_token = recover::expect_semicolon_or_last(ctx);
     Ok(LibraryClause {
         span: TokenSpan::new(library_token, semi_token),
         name_list,
     })
-}
-
-/// Special handling for expecting a semicolon.
-/// When the next token is
-/// * a semicolon, then consume that token and produce no error
-/// * a token that could be confused with a semicolon (i.e., a comma),
-///     then consume that token and report an error
-/// * none of these choices: do not consume the token and report an error
-fn expect_semicolon(ctx: &mut ParsingContext<'_>) -> Option<TokenId> {
-    let token = match ctx.stream.peek_expect() {
-        Ok(token) => token,
-        Err(err) => {
-            ctx.diagnostics
-                .push(err.when(format!("expecting {}", kinds_str(&[SemiColon]))));
-            return None;
-        }
-    };
-    match token.kind {
-        SemiColon => {
-            ctx.stream.skip();
-            Some(ctx.stream.get_last_token_id())
-        }
-        Colon => {
-            ctx.stream.skip();
-            ctx.diagnostics
-                .push(kinds_error(token.pos.clone(), &[SemiColon]));
-            Some(ctx.stream.get_last_token_id())
-        }
-        _ => {
-            ctx.diagnostics
-                .push(kinds_error(ctx.stream.pos_before(token), &[SemiColon]));
-            None
-        }
-    }
 }
 
 /// LRM 12.4. Use clauses
@@ -71,7 +36,7 @@ pub fn parse_use_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSp
     let use_token = ctx.stream.expect_kind(Use)?;
 
     let name_list = parse_name_list(ctx)?;
-    let token_id = expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id());
+    let token_id = recover::expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id());
     Ok(WithTokenSpan::new(
         UseClause {
             span: TokenSpan::new(use_token, token_id),
@@ -85,7 +50,7 @@ pub fn parse_context_reference(ctx: &mut ParsingContext<'_>) -> ParseResult<Cont
     let context_token = ctx.stream.expect_kind(Context)?;
 
     let name_list = parse_name_list(ctx)?;
-    let semi_token = ctx.stream.expect_kind(SemiColon)?;
+    let semi_token = recover::expect_semicolon_or_last(ctx);
     Ok(ContextReference {
         span: TokenSpan::new(context_token, semi_token),
         name_list,
@@ -110,7 +75,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
                     ctx.stream.skip();
                     ctx.stream.pop_if_kind(Context);
                     end_ident = ctx.stream.pop_optional_ident();
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                     break;
                 }
             )
@@ -133,7 +98,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
             tokens.push(comma);
         }
         let name_list = SeparatedList { items, tokens };
-        let semi_token = ctx.stream.expect_kind(SemiColon)?;
+        let semi_token = recover::expect_semicolon_or_last(ctx);
         Ok(DeclarationOrReference::Reference(ContextReference {
             span: TokenSpan::new(context_token, semi_token),
             name_list,

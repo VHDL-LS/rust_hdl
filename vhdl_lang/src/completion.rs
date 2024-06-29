@@ -499,7 +499,6 @@ fn completions_after_dot<'b>(root: &'b DesignRoot, ent: EntRef<'b>) -> Vec<Compl
     use AnyEntKind::*;
     match ent.kind() {
         Object(object) => completions_for_type(object.subtype.type_mark().kind()),
-        Type(typ) => completions_for_type(typ),
         Design(design) => completions_for_design(design),
         Library => ent
             .library_name()
@@ -1114,6 +1113,46 @@ end arch;
 
         let ent2 = root
             .search_reference(code.source(), code.s1("bar").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options,
+            &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
+        )
+    }
+
+    #[test]
+    pub fn completes_selected_names() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+entity my_ent is
+end my_ent;
+
+architecture arch of my_ent is
+    type my_record is record
+        abc: bit;
+        def: bit;
+    end record;
+
+    constant y: my_record := ('1', '1');
+    constant z: bit := y.
+begin
+end arch;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("y.").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let ent1 = root
+            .search_reference(code.source(), code.s1("abc").start())
+            .unwrap();
+
+        let ent2 = root
+            .search_reference(code.source(), code.s1("def").start())
             .unwrap();
 
         assert_eq_unordered(

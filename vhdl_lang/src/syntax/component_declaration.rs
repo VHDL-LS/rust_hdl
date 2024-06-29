@@ -10,6 +10,7 @@ use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::Diagnostic;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
@@ -23,7 +24,7 @@ pub fn parse_optional_generic_list(
             Generic => {
                 ctx.stream.skip();
                 let new_list = parse_generic_interface_list(ctx)?;
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
@@ -48,7 +49,7 @@ pub fn parse_optional_port_list(
             Port => {
                 ctx.stream.skip();
                 let new_list = parse_port_interface_list(ctx)?;
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
@@ -59,7 +60,7 @@ pub fn parse_optional_port_list(
             Generic => {
                 ctx.stream.skip();
                 parse_generic_interface_list(ctx)?;
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
                 ctx.diagnostics.push(Diagnostic::syntax_error(
                     token,
                     "Generic clause must come before port clause",
@@ -88,7 +89,7 @@ pub fn parse_component_declaration(
         ctx.stream.pop_if_kind(Component);
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(ComponentDeclaration {
         span: TokenSpan::new(start_token, end_token),

@@ -20,6 +20,7 @@ use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -42,7 +43,7 @@ pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ent
     ctx.stream.pop_if_kind(End);
     ctx.stream.pop_if_kind(Entity);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(EntityDeclaration {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
@@ -71,7 +72,7 @@ pub fn parse_architecture_body(ctx: &mut ParsingContext<'_>) -> ParseResult<Arch
     ctx.stream.pop_if_kind(Architecture);
 
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(ArchitectureBody {
         span: TokenSpan::new(start_token, end_token),
@@ -94,7 +95,7 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     let generic_clause = {
         if ctx.stream.skip_if_kind(Generic) {
             let decl = parse_generic_interface_list(ctx)?;
-            ctx.stream.expect_kind(SemiColon)?;
+            expect_semicolon(ctx);
             Some(decl)
         } else {
             None
@@ -104,7 +105,7 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Package);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(PackageDeclaration {
         span: TokenSpan::new(start_token, end_token),
         context_clause: ContextClause::default(),
@@ -128,7 +129,7 @@ pub fn parse_package_body(ctx: &mut ParsingContext<'_>) -> ParseResult<PackageBo
         ctx.stream.expect_kind(Body)?;
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(PackageBody {
         span: TokenSpan::new(start_token, end_token),

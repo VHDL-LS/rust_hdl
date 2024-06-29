@@ -12,6 +12,8 @@ use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
+use crate::syntax::recover::expect_semicolon;
+use crate::syntax::recover::expect_semicolon_or_last;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -51,7 +53,7 @@ fn parse_object_declaration_kind(
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id());
 
     Ok(idents
         .into_iter()
@@ -108,7 +110,7 @@ pub fn parse_file_declaration(
             None
         }
     };
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     // If the `file_open_information` is present, `file_name` is mandatory
     // LRM 6.4.2.5

@@ -17,6 +17,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
 use crate::syntax::kinds_error;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
@@ -37,7 +38,7 @@ fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStateme
     let condition_clause = parse_optional(ctx, Until, parse_expression)?;
     let timeout_clause = parse_optional(ctx, For, parse_expression)?;
 
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(WaitStatement {
         sensitivity_clause,
         condition_clause,
@@ -52,7 +53,7 @@ pub fn parse_assert_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<Asser
     let report = parse_optional(ctx, Report, parse_expression)?;
     let severity = parse_optional(ctx, Severity, parse_expression)?;
 
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(AssertStatement {
         condition,
         report,
@@ -66,7 +67,7 @@ fn parse_report_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<ReportSta
     let report = parse_expression(ctx)?;
     let severity = parse_optional(ctx, Severity, parse_expression)?;
 
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(ReportStatement { report, severity })
 }
 
@@ -143,7 +144,7 @@ fn parse_if_statement(
 
     let end_label_pos =
         check_label_identifier_mismatch(ctx, label, ctx.stream.pop_optional_ident());
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(IfStatement {
         conds: Conditionals {
             conditionals,
@@ -188,7 +189,7 @@ fn parse_case_statement(
                 }
                 let end_label_pos = check_label_identifier_mismatch(ctx, label, ctx.stream.pop_optional_ident());
                 alternatives.push(alternative);
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
                 return Ok(CaseStatement {
                     is_matching,
                     expression,
@@ -232,7 +233,7 @@ fn parse_loop_statement(
         End => {
             ctx.stream.expect_kind(Loop)?;
             let end_label_pos = check_label_identifier_mismatch(ctx, label, ctx.stream.pop_optional_ident());
-            ctx.stream.expect_kind(SemiColon)?;
+            expect_semicolon(ctx);
             Ok(LoopStatement {
                 iteration_scheme,
                 statements,
@@ -247,7 +248,7 @@ fn parse_next_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<NextStateme
     ctx.stream.expect_kind(Next)?;
     let loop_label = ctx.stream.pop_optional_ident();
     let condition = parse_optional(ctx, When, parse_expression)?;
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(NextStatement {
         loop_label: loop_label.map(WithRef::new),
         condition,
@@ -259,7 +260,7 @@ fn parse_exit_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<ExitStateme
     ctx.stream.expect_kind(Exit)?;
     let loop_label = ctx.stream.pop_optional_ident();
     let condition = parse_optional(ctx, When, parse_expression)?;
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(ExitStatement {
         loop_label: loop_label.map(WithRef::new),
         condition,
@@ -276,7 +277,7 @@ fn parse_return_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<ReturnSta
             Some(parse_expression(ctx)?)
         }
     };
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(ReturnStatement { expression })
 }
 
@@ -457,7 +458,7 @@ fn parse_assignment_or_procedure_call(
                 Release => {
                     ctx.stream.skip();
                     let force_mode = parse_optional_force_mode(ctx)?;
-                    let end_token = ctx.stream.expect_kind(SemiColon)?;
+                    let end_token = expect_semicolon_or_last(ctx);
 
                     SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
                         target,
@@ -557,7 +558,7 @@ fn parse_unlabeled_sequential_statement(
             Return => SequentialStatement::Return(parse_return_statement(ctx)?),
             Null => {
                 ctx.stream.skip();
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
                 SequentialStatement::Null
             },
             With => {

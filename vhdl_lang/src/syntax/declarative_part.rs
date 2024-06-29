@@ -18,6 +18,7 @@ use super::type_declaration::parse_type_declaration;
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::recover::expect_semicolon_or_last;
 use crate::syntax::view::parse_mode_view_declaration;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -30,7 +31,7 @@ pub fn parse_package_instantiation(
     ctx.stream.expect_kind(New)?;
     let package_name = parse_selected_name(ctx)?;
     let generic_map = parse_map_aspect(ctx, Generic)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(PackageInstantiation {
         span: TokenSpan::new(start_token, end_token),

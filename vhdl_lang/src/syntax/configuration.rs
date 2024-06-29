@@ -13,6 +13,7 @@ use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 /// LRM 7.3.2.2
@@ -45,7 +46,7 @@ fn parse_binding_indication_known_entity_aspect(
 ) -> ParseResult<BindingIndication> {
     let (generic_map, port_map) = parse_generic_and_port_map(ctx)?;
 
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(BindingIndication {
         entity_aspect,
         generic_map,
@@ -102,7 +103,7 @@ fn parse_component_configuration_known_spec(
     );
 
     ctx.stream.expect_kind(For)?;
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(ComponentConfiguration {
         spec,
         bind_ind,
@@ -214,7 +215,7 @@ fn parse_block_configuration_known_name(
         );
     }
     ctx.stream.expect_kind(For)?;
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
     Ok(BlockConfiguration {
         block_spec,
         use_clauses,
@@ -295,7 +296,7 @@ pub fn parse_configuration_declaration(
     ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Configuration);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(ConfigurationDeclaration {
         span: TokenSpan::new(start_token, end_token),
@@ -321,7 +322,7 @@ pub fn parse_configuration_specification(
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(ctx)?;
                 ctx.stream.expect_kind(End)?;
                 ctx.stream.expect_kind(For)?;
-                let end_token = ctx.stream.expect_kind(SemiColon)?;
+                let end_token = expect_semicolon_or_last(ctx);
                 Ok(ConfigurationSpecification {
                     span: TokenSpan::new(start_token, end_token),
                     spec,
@@ -331,7 +332,7 @@ pub fn parse_configuration_specification(
             } else {
                 if ctx.stream.skip_if_kind(End) {
                     ctx.stream.expect_kind(For)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                 }
                 let end_token = ctx.stream.get_last_token_id();
                 Ok(ConfigurationSpecification {

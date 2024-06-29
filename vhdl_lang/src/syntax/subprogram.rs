@@ -16,6 +16,7 @@ use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::interface_declaration::parse_generic_interface_list;
 use crate::syntax::names::parse_name;
+use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Signature>> {
@@ -130,7 +131,7 @@ pub fn parse_subprogram_instantiation(
         None
     };
     let generic_map = parse_map_aspect(ctx, Generic)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(SubprogramInstantiation {
         span: TokenSpan::new(start_token, end_token),
         kind,
@@ -206,7 +207,7 @@ pub fn parse_subprogram_declaration(
 ) -> ParseResult<SubprogramDeclaration> {
     let start_token = ctx.stream.get_current_token_id();
     let specification = parse_subprogram_specification(ctx)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(SubprogramDeclaration {
         span: TokenSpan::new(start_token, end_token),
@@ -241,7 +242,7 @@ pub fn parse_subprogram_body(
             } else {
                 None
             };
-            let end_token = ctx.stream.expect_kind(SemiColon)?;
+            let end_token = expect_semicolon_or_last(ctx);
 
             Ok(SubprogramBody {
                 span: TokenSpan::new(specification_start_token, end_token),

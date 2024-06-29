@@ -10,6 +10,7 @@ use crate::syntax::common::ParseResult;
 use crate::syntax::interface_declaration::parse_optional_mode;
 use crate::syntax::names::parse_name;
 use crate::syntax::parser::ParsingContext;
+use crate::syntax::recover::expect_semicolon_or_last;
 use crate::syntax::separated_list::parse_ident_list;
 use crate::syntax::subtype_indication::parse_subtype_indication;
 use crate::syntax::Kind::*;
@@ -36,7 +37,7 @@ pub(crate) fn parse_mode_view_declaration(
     ctx.stream.expect_kind(View)?;
     let end_ident_pos =
         check_end_identifier_mismatch(ctx, &ident.tree, ctx.stream.pop_optional_ident());
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
     Ok(WithTokenSpan::new(
         ModeViewDeclaration {
             ident,
@@ -56,7 +57,7 @@ pub(crate) fn parse_mode_view_element_definition(
     let element_list = parse_ident_list(ctx)?;
     ctx.stream.expect_kind(Colon)?;
     let mode = parse_element_mode_indication(ctx)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(ModeViewElement {
         span: TokenSpan::new(start, end_token),
         mode,
