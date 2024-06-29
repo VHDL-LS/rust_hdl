@@ -221,7 +221,7 @@ impl Code {
         self.s_from_start(substr, 1)
     }
 
-    /// Returns the code in between the begin and end
+    /// Returns the code in between the beginning and end
     /// ```
     /// let code = Code::new("foo bar 123 baz foobar");
     /// assert_eq!(code.between("bar", "baz"), Code::new("bar 123 baz"));
