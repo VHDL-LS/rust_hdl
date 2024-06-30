@@ -1,13 +1,14 @@
-use vhdl_lang::EntRef;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
+
 use crate::analysis::DesignRoot;
 use crate::completion::entity_instantiation::get_architectures_for_entity;
 use crate::named_entity::{AsUnique, NamedEntities, Region};
 use crate::{AnyEntKind, CompletionItem, Design};
+use vhdl_lang::EntRef;
 
 pub(crate) fn completion_items_from_region<'a>(
     root: &'a DesignRoot,
