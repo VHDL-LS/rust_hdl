@@ -11,7 +11,6 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
-use crate::syntax::recover::expect_semicolon;
 use crate::syntax::recover::expect_semicolon_or_last;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
