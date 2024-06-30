@@ -46,7 +46,7 @@ impl VHDLServer {
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
-            vhdl_lang::CompletionItem::EntityInstantiation(ent, architectures) => {
+            vhdl_lang::CompletionItem::Instantiation(ent, architectures) => {
                 let work_name = "work";
 
                 let library_names = if let Some(lib_name) = ent.library_name() {

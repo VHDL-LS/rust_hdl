@@ -42,7 +42,7 @@ pub enum CompletionItem<'a> {
     /// actual work library (using [CompletionItem::Simple] would complete the actual name
     /// of the library, not the string 'work'.
     Work,
-    /// Entity instantiation, i.e.,
+    /// Entity or component instantiation, i.e.,
     /// ```vhdl
     /// my_ent: entity work.foo
     ///     generic map (
@@ -54,8 +54,11 @@ pub enum CompletionItem<'a> {
     /// ```
     ///
     /// The second argument is a vector of architectures that are associated
-    /// to this entity
-    EntityInstantiation(EntRef<'a>, Vec<EntRef<'a>>),
+    /// to the entity, if the first argument is an entity.
+    ///
+    /// For a component instantiation, the first argument is a reference to the
+    /// component. The second argument will always be empty.
+    Instantiation(EntRef<'a>, Vec<EntRef<'a>>),
     /// Complete an attribute designator (i.e. `'range`, `'stable`, ...)
     Attribute(AttributeDesignator),
 }

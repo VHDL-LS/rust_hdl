@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
 use crate::analysis::DesignRoot;
+use crate::completion::region::any_ent_to_completion_item;
 use crate::named_entity::DesignEnt;
 use crate::{AnyEntKind, CompletionItem, Design, EntRef, EntityId, HasEntityId};
 use itertools::Itertools;
@@ -43,19 +44,15 @@ pub(crate) fn get_visible_entities_from_architecture<'a>(
     }
     entities
         .into_iter()
-        .map(|eid| root.get_ent(eid))
-        .map(|ent| match ent.kind() {
-            AnyEntKind::Design(Design::Entity(..)) => {
-                let architectures = get_architectures_for_entity(ent, root);
-                CompletionItem::EntityInstantiation(ent, architectures)
-            }
-            _ => CompletionItem::Simple(ent),
-        })
+        .map(|eid| any_ent_to_completion_item(root.get_ent(eid), root))
         .collect_vec()
 }
 
 /// Returns a vec populated with all architectures that belong to a given entity
-fn get_architectures_for_entity<'a>(ent: EntRef<'a>, root: &'a DesignRoot) -> Vec<EntRef<'a>> {
+pub(crate) fn get_architectures_for_entity<'a>(
+    ent: EntRef<'a>,
+    root: &'a DesignRoot,
+) -> Vec<EntRef<'a>> {
     let Some(lib_symbol) = ent.library_name() else {
         return vec![];
     };
@@ -111,8 +108,8 @@ end arch;
             .search_reference(code.source(), code.s1("my_other_ent").start())
             .unwrap();
 
-        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent, vec![])));
-        assert!(options.contains(&CompletionItem::EntityInstantiation(my_other_ent, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(my_ent, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(my_other_ent, vec![])));
     }
 
     #[test]
@@ -170,7 +167,7 @@ end arch;
             .search_reference(code2.source(), code2.s1("my_ent2").start())
             .unwrap();
 
-        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent2, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(my_ent2, vec![])));
 
         let ent1 = root
             .search_reference(code1.source(), code1.s1("my_ent").start())
@@ -183,8 +180,8 @@ end arch;
             .search_reference(code3.source(), code3.s1("my_ent2").start())
             .unwrap();
 
-        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent2, vec![])));
-        assert!(options.contains(&CompletionItem::EntityInstantiation(ent1, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(my_ent2, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(ent1, vec![])));
     }
 
     #[test]
@@ -238,9 +235,7 @@ end arch;
         let applicable_options = options
             .into_iter()
             .filter_map(|option| match option {
-                CompletionItem::EntityInstantiation(ent, architectures) => {
-                    Some((ent, architectures))
-                }
+                CompletionItem::Instantiation(ent, architectures) => Some((ent, architectures)),
                 _ => None,
             })
             .collect_vec();
@@ -251,6 +246,46 @@ end arch;
                 assert_eq_unordered(architectures, &[arch1, arch2]);
             }
             _ => panic!("Expected entity instantiation"),
+        }
+    }
+
+    #[test]
+    fn component_instantiations() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+package foo is
+    component comp_A is
+    end component;
+end foo;
+
+use work.foo.all;
+
+entity my_ent is
+end my_ent;
+
+architecture arch1 of my_ent is
+    component comp_B is
+    end component;
+
+    component comp_C is
+    end component;
+begin
+end arch1;
+        ",
+        );
+
+        let (root, diag) = builder.get_analyzed_root();
+        check_no_diagnostics(&diag[..]);
+        let cursor = code.s1("begin").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        for component in ["comp_A", "comp_B", "comp_C"] {
+            let entity = root
+                .search_reference(code.source(), code.s1(component).start())
+                .unwrap();
+            assert!(options.contains(&CompletionItem::Instantiation(entity, vec![])))
         }
     }
 }
