@@ -40,18 +40,19 @@ pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ent
     } else {
         Vec::new()
     };
-    ctx.stream.pop_if_kind(End);
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Entity);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
     Ok(EntityDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_clause,
         port_clause,
         decl,
+        end_token,
         statements,
     })
 }
@@ -310,6 +311,7 @@ mod tests {
         ident: Ident,
         span: TokenSpan,
         end_ident_pos: Option<TokenId>,
+        end_token: TokenId,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             span,
@@ -319,6 +321,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            end_token,
             end_ident_pos,
         }))
     }
@@ -335,7 +338,12 @@ end entity;
             design_file.design_units,
             [(
                 code.tokenize(),
-                simple_entity(code.s1("myent").ident(), code.token_span(), None)
+                simple_entity(
+                    code.s1("myent").ident(),
+                    code.token_span(),
+                    None,
+                    code.s1("end").token()
+                )
             )]
         );
 
@@ -353,6 +361,7 @@ end entity myent;
                     code.s1("myent").ident(),
                     code.token_span(),
                     Some(code.s("myent", 2).token()),
+                    code.s1("end").token()
                 )
             )]
         );
@@ -385,6 +394,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -411,6 +421,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -442,6 +453,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -466,6 +478,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -490,6 +503,7 @@ end entity;
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -515,6 +529,7 @@ end entity;
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -570,6 +585,7 @@ end;
                     code_myent.s1("myent").ident(),
                     code_myent.token_span(),
                     None,
+                    code_myent.s1("end").token()
                 )
             )
         );
@@ -581,6 +597,7 @@ end;
                     code_myent2.s1("myent2").ident(),
                     code_myent2.token_span(),
                     Some(code_myent2.s("myent2", 2).token()),
+                    code_myent2.s1("end").token()
                 )
             )
         );
@@ -592,6 +609,7 @@ end;
                     code_myent3.s1("myent3").ident(),
                     code_myent3.token_span(),
                     Some(code_myent3.s("myent3", 2).token()),
+                    code_myent3.s1("end").token()
                 )
             ),
         );
@@ -602,7 +620,8 @@ end;
                 simple_entity(
                     code_myent4.s1("myent4").ident(),
                     code_myent4.token_span(),
-                    None
+                    None,
+                    code_myent4.s1("end").token()
                 )
             )
         );
@@ -806,6 +825,7 @@ end entity;
                         decl: vec![],
                         statements: vec![],
                         end_ident_pos: None,
+                        end_token: code.s1("end").token()
                     }))
                 )]
             }

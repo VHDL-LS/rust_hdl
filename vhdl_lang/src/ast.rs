@@ -1430,7 +1430,16 @@ pub struct EntityDeclaration {
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    /// The `end` token from the declaration `*end* entity foo;`
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
+}
+
+impl EntityDeclaration {
+    /// The `is` token from the declaration `entity foo *is*`
+    pub fn is_token(&self) -> TokenId {
+        self.span.start_token + 2
+    }
 }
 
 /// LRM 3.3 Architecture bodies

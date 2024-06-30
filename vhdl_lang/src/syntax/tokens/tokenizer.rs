@@ -458,6 +458,28 @@ impl From<TokenId> for TokenSpan {
     }
 }
 
+impl AddAssign<usize> for TokenId {
+    fn add_assign(&mut self, rhs: usize) {
+        self.0 += rhs
+    }
+}
+
+impl Sub<usize> for TokenId {
+    type Output = TokenId;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        TokenId(self.0 - rhs)
+    }
+}
+
+impl Add<usize> for TokenId {
+    type Output = TokenId;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        TokenId(self.0 + rhs)
+    }
+}
+
 /// AST elements for which it is necessary to get the underlying tokens can implement the `HasTokenSpan` trait.
 /// The trait provides getters for the start and end token.
 ///
@@ -601,6 +623,61 @@ impl TokenSpan {
     }
 }
 
+struct TokenSpanIterator {
+    end: TokenId,
+    current: TokenId,
+}
+
+impl Iterator for TokenSpanIterator {
+    type Item = TokenId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let old_current = self.current;
+        // Note: in this example, current may point to an
+        // invalid token (as it is greater than and).
+        // This is OK because the invalid ID is never returned.
+        if self.current > self.end {
+            None
+        } else {
+            self.current += 1;
+            Some(old_current)
+        }
+    }
+}
+
+#[test]
+fn token_iterator() {
+    let span = TokenSpan {
+        start_token: TokenId(0),
+        end_token: TokenId(0),
+    };
+    let mut itr = span.iter();
+    assert_eq!(itr.next(), Some(TokenId(0)));
+    assert_eq!(itr.next(), None);
+
+    let span = TokenSpan {
+        start_token: TokenId(0),
+        end_token: TokenId(1),
+    };
+    let mut itr = span.iter();
+    assert_eq!(itr.next(), Some(TokenId(0)));
+    assert_eq!(itr.next(), Some(TokenId(1)));
+    assert_eq!(itr.next(), None);
+}
+
+impl TokenSpan {
+    pub fn iter(&self) -> impl Iterator<Item = TokenId> {
+        TokenSpanIterator {
+            current: self.start_token,
+            end: self.end_token,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.end_token.0 - self.start_token.0 + 1
+    }
+}
+
 /// A type that conforms to `TokenAccess` can be indexed using a `TokenId`.
 /// Convenience methods exist to directly get the `SrcPos` for a given `TokenId`
 /// or a span starting at a certain token and ending at another.
@@ -661,6 +738,7 @@ pub struct Comment {
 use crate::standard::VHDLStandard;
 use std::convert::AsRef;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Add, AddAssign, Sub};
 use strum::IntoStaticStr;
 
 impl AsRef<SrcPos> for Token {

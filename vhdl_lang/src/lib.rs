@@ -21,6 +21,7 @@ mod project;
 mod syntax;
 
 mod completion;
+mod formatting;
 mod standard;
 
 pub use crate::config::Config;
