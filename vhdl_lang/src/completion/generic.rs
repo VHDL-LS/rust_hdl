@@ -106,12 +106,16 @@ impl<'a> Searcher for CompletionSearcher<'a> {
         let Some(ent) = DesignEnt::from_any(self.root.get_ent(ent_id)) else {
             return Finished(Found);
         };
-        self.completions.extend(visible_entities_from(ent.kind()));
+        self.completions
+            .extend(visible_entities_from(self.root, ent.kind()));
         Finished(Found)
     }
 }
 
-fn visible_entities_from<'a>(design: &'a Design<'a>) -> Vec<CompletionItem<'a>> {
+fn visible_entities_from<'a>(
+    root: &'a DesignRoot,
+    design: &'a Design<'a>,
+) -> Vec<CompletionItem<'a>> {
     use Design::*;
     match design {
         Entity(visibility, region)
@@ -119,18 +123,19 @@ fn visible_entities_from<'a>(design: &'a Design<'a>) -> Vec<CompletionItem<'a>> 
         | Architecture(visibility, region, _)
         | Package(visibility, region)
         | PackageBody(visibility, region) => chain(
-            completion_items_from_region(region),
-            completion_items_from_visibility(visibility),
+            completion_items_from_region(root, region),
+            completion_items_from_visibility(root, visibility),
         )
         .collect_vec(),
         PackageInstance(region) | InterfacePackageInstance(region) | Context(region) => {
-            completion_items_from_region(region).collect_vec()
+            completion_items_from_region(root, region).collect_vec()
         }
         Configuration => vec![],
     }
 }
 
 fn completion_items_from_visibility<'a>(
+    root: &'a DesignRoot,
     visibility: &'a Visibility<'a>,
 ) -> impl Iterator<Item = CompletionItem<'a>> {
     visibility
@@ -138,8 +143,8 @@ fn completion_items_from_visibility<'a>(
         .unique()
         .map(CompletionItem::Simple)
         .chain(
-            visibility
-                .all_in_region()
-                .flat_map(|visible_region| completion_items_from_region(visible_region.region())),
+            visibility.all_in_region().flat_map(|visible_region| {
+                completion_items_from_region(root, visible_region.region())
+            }),
         )
 }

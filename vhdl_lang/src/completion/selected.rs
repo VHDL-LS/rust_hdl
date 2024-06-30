@@ -20,8 +20,8 @@ pub(crate) fn completions_for_selected_name<'b>(
 ) -> Vec<CompletionItem<'b>> {
     use crate::named_entity::AnyEntKind::*;
     match ent.kind() {
-        Object(object) => completions_for_type(object.subtype.type_mark().kind()),
-        Design(design) => completions_for_design(design),
+        Object(object) => completions_for_type(root, object.subtype.type_mark().kind()),
+        Design(design) => completions_for_design(root, design),
         Library => ent
             .library_name()
             .map(|sym| list_primaries_for_lib(root, sym))
@@ -31,31 +31,37 @@ pub(crate) fn completions_for_selected_name<'b>(
 }
 
 /// Returns completions applicable when calling `foo.` where `foo` is amn object of some type.
-fn completions_for_type<'a>(typ: &'a named_entity::Type<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_type<'a>(
+    root: &'a DesignRoot,
+    typ: &'a named_entity::Type<'a>,
+) -> Vec<CompletionItem<'a>> {
     use crate::named_entity::Type::*;
     match typ {
         Record(record_region) => record_region
             .iter()
             .map(|item| CompletionItem::Simple(item.ent))
             .collect(),
-        Alias(type_ent) => completions_for_type(type_ent.kind()),
+        Alias(type_ent) => completions_for_type(root, type_ent.kind()),
         Access(subtype) => {
-            let mut completions = completions_for_type(subtype.type_mark().kind());
+            let mut completions = completions_for_type(root, subtype.type_mark().kind());
             completions.push(CompletionItem::Keyword(All));
             completions
         }
-        Protected(region, _) => completion_items_from_region(region).collect(),
+        Protected(region, _) => completion_items_from_region(root, region).collect(),
         _ => vec![],
     }
 }
 
 /// Returns completions applicable when calling `foo.` where `foo` is some design
 /// (i.e. entity or package).
-fn completions_for_design<'a>(design: &'a crate::Design<'a>) -> Vec<CompletionItem<'a>> {
+fn completions_for_design<'a>(
+    root: &'a DesignRoot,
+    design: &'a crate::Design<'a>,
+) -> Vec<CompletionItem<'a>> {
     use crate::named_entity::Design::*;
     match design {
         Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => {
-            completion_items_from_region(region)
+            completion_items_from_region(root, region)
                 .chain(once(CompletionItem::Keyword(All)))
                 .collect()
         }
