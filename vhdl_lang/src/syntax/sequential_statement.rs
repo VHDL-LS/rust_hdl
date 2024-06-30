@@ -541,7 +541,6 @@ fn parse_unlabeled_sequential_statement(
     label: Option<&Ident>,
 ) -> ParseResult<SequentialStatement> {
     let token = ctx.stream.peek_expect()?;
-    ctx.stream.get_current_token_id();
     let statement = {
         try_init_token_kind!(
             token,
@@ -613,9 +612,8 @@ pub fn parse_sequential_statement(
 mod tests {
     use super::*;
     use crate::ast::{DelayMechanism, Ident};
-    use pretty_assertions::assert_eq;
-
     use crate::syntax::test::Code;
+    use pretty_assertions::assert_eq;
 
     fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
         let code = Code::new(code);

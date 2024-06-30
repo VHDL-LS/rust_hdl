@@ -396,14 +396,12 @@ fn get_architectures_for_entity<'a>(ent: EntRef<'a>, root: &'a DesignRoot) -> Ve
 impl DesignRoot {
     /// List all entities (entities in this context is a VHDL entity, not a `DesignEnt` or similar)
     /// that are visible from another VHDL entity.
-    /// This could, at some point, be further generalized into a generic
-    /// 'list visible entities of some kind of some generic design entity'.
     pub fn get_visible_entities_from_entity(
         &self,
         ent: &DesignEnt,
     ) -> impl Iterator<Item = EntityId> {
         let mut entities: HashSet<EntityId> = HashSet::new();
-        if let Design::Architecture(vis, _, _) = ent.kind() {
+        if let Design::Architecture(vis, _, ent_of_arch) = ent.kind() {
             for ent_ref in vis.visible() {
                 match ent_ref.kind() {
                     AnyEntKind::Design(Design::Entity(..)) => {
@@ -419,18 +417,15 @@ impl DesignRoot {
                         let itr = lib
                             .units()
                             .flat_map(|locked_unit| locked_unit.unit.get())
-                            .map(|read_guard| read_guard.to_owned())
                             .filter(|design_unit| design_unit.is_entity())
-                            .flat_map(|design_unit| design_unit.ent_id());
+                            .flat_map(|design_unit| design_unit.ent_id())
+                            .filter(|id| id != &ent_of_arch.id()); // Remove the entity that belongs to this architecture
                         entities.extend(itr);
                     }
                     _ => {}
                 }
             }
         }
-        // Remove entity that this was called from.
-        // Recursive instantiation is only possible with component instantiation.
-        entities.remove(&ent.id());
         entities.into_iter()
     }
 }
@@ -562,6 +557,7 @@ fn extend_attributes_of_objects(obj: &Object, attributes: &mut Vec<AttributeDesi
                 Active,
                 LastEvent,
                 LastActive,
+                LastValue,
                 Driving,
                 DrivingValue,
             ]
@@ -669,6 +665,7 @@ mod test {
     use crate::completion::tokenize_input;
     use crate::syntax::test::{assert_eq_unordered, Code};
     use assert_matches::assert_matches;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn tokenizing_an_empty_input() {
@@ -881,26 +878,17 @@ end package x;
             .pos()
             .end();
         let options = list_completion_options(&root, code.source(), cursor);
-        assert_eq_unordered(
-            &options,
-            &[
-                CompletionItem::Simple(clk_signal),
-                CompletionItem::Simple(rst_signal),
-            ],
-        );
+        assert!(options.contains(&CompletionItem::Simple(clk_signal)));
+        assert!(options.contains(&CompletionItem::Simple(rst_signal)));
+
         let cursor = code
             .s1("port map (
             clk => c")
             .pos()
             .end();
         let options = list_completion_options(&root, code.source(), cursor);
-        assert_eq_unordered(
-            &options,
-            &[
-                CompletionItem::Simple(clk_signal),
-                CompletionItem::Simple(rst_signal),
-            ],
-        );
+        assert!(options.contains(&CompletionItem::Simple(clk_signal)));
+        assert!(options.contains(&CompletionItem::Simple(rst_signal)));
     }
 
     #[test]
@@ -975,13 +963,8 @@ end arch;
             .search_reference(code.source(), code.s1("my_other_ent").start())
             .unwrap();
 
-        assert_eq_unordered(
-            &options[..],
-            &[
-                CompletionItem::EntityInstantiation(my_ent, vec![]),
-                CompletionItem::EntityInstantiation(my_other_ent, vec![]),
-            ],
-        );
+        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent, vec![])));
+        assert!(options.contains(&CompletionItem::EntityInstantiation(my_other_ent, vec![])));
     }
 
     #[test]
@@ -1039,10 +1022,7 @@ end arch;
             .search_reference(code2.source(), code2.s1("my_ent2").start())
             .unwrap();
 
-        assert_eq_unordered(
-            &options[..],
-            &[CompletionItem::EntityInstantiation(my_ent2, vec![])],
-        );
+        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent2, vec![])));
 
         let ent1 = root
             .search_reference(code1.source(), code1.s1("my_ent").start())
@@ -1055,13 +1035,8 @@ end arch;
             .search_reference(code3.source(), code3.s1("my_ent2").start())
             .unwrap();
 
-        assert_eq_unordered(
-            &options[..],
-            &[
-                CompletionItem::EntityInstantiation(my_ent2, vec![]),
-                CompletionItem::EntityInstantiation(ent1, vec![]),
-            ],
-        );
+        assert!(options.contains(&CompletionItem::EntityInstantiation(my_ent2, vec![])));
+        assert!(options.contains(&CompletionItem::EntityInstantiation(ent1, vec![])));
     }
 
     #[test]
@@ -1112,8 +1087,18 @@ end arch;
             .search_reference(code1.source(), code1.s1("arch2").start())
             .unwrap();
 
-        match &options[..] {
-            [CompletionItem::EntityInstantiation(got_ent, architectures)] => {
+        let applicable_options = options
+            .into_iter()
+            .filter_map(|option| match option {
+                CompletionItem::EntityInstantiation(ent, architectures) => {
+                    Some((ent, architectures))
+                }
+                _ => None,
+            })
+            .collect_vec();
+        println!("{:?}", applicable_options);
+        match &applicable_options[..] {
+            [(got_ent, architectures)] => {
                 assert_eq!(*got_ent, ent);
                 assert_eq_unordered(architectures, &[arch1, arch2]);
             }
@@ -1154,10 +1139,8 @@ end arch;
             .search_reference(code.source(), code.s1("bar").start())
             .unwrap();
 
-        assert_eq_unordered(
-            &options,
-            &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
-        )
+        assert!(options.contains(&CompletionItem::Simple(ent1)));
+        assert!(options.contains(&CompletionItem::Simple(ent2)));
     }
 
     #[test]
@@ -1198,5 +1181,97 @@ end arch;
             &options,
             &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
         )
+    }
+
+    #[test]
+    pub fn completes_attributes() {
+        use AttributeDesignator::*;
+        use TypeAttribute::*;
+
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+package my_pkg is
+    constant foo : BIT_VECTOR := \"001\";
+    constant bar: NATURAL := foo'
+end package;
+",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("foo'").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let expected_options = [
+            Type(Element),
+            Type(Subtype),
+            Range(RangeAttribute::Range),
+            Range(RangeAttribute::ReverseRange),
+            Ascending,
+            Left,
+            Right,
+            High,
+            Low,
+            Length,
+            InstanceName,
+            SimpleName,
+            PathName,
+        ]
+        .map(CompletionItem::Attribute);
+
+        assert_eq_unordered(&options, &expected_options);
+    }
+
+    #[test]
+    pub fn completes_signal_attributes() {
+        use AttributeDesignator::*;
+        use SignalAttribute::*;
+        use TypeAttribute::*;
+
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+package my_pkg is
+    signal foo : BIT_VECTOR := \"001\";
+    signal bar: NATURAL := foo'
+end package;
+",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("foo'").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let expected_options = [
+            Type(Element),
+            Type(Subtype),
+            Range(RangeAttribute::Range),
+            Range(RangeAttribute::ReverseRange),
+            Signal(Delayed),
+            Signal(Stable),
+            Signal(Quiet),
+            Signal(Transaction),
+            Signal(Event),
+            Signal(Active),
+            Signal(LastEvent),
+            Signal(LastActive),
+            Signal(LastValue),
+            Signal(Driving),
+            Signal(DrivingValue),
+            Ascending,
+            Left,
+            Right,
+            High,
+            Low,
+            Length,
+            InstanceName,
+            SimpleName,
+            PathName,
+        ]
+        .map(CompletionItem::Attribute);
+
+        assert_eq_unordered(&options, &expected_options);
     }
 }

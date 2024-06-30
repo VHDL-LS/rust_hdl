@@ -953,12 +953,6 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
-/* impl AsRef<TokenSpan> for Code {
-    fn as_ref(&self) -> &TokenSpan {
-        &self.token_span()
-    }
-} */
-
 fn value_to_string(value: &Value) -> String {
     match value {
         Value::Identifier(ident) => ident.name_utf8(),

@@ -297,6 +297,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         self.define_labels_for_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&scope, arch, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
+        scope.close(diagnostics);
 
         let region = scope.into_region();
         let visibility = root_scope.into_visibility();
@@ -369,7 +370,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
         self.analyze_declarative_part(&scope, body, &mut unit.decl, diagnostics)?;
-
+        scope.close(diagnostics);
         let region = scope.into_region();
         let visibility = root_scope.into_visibility();
 

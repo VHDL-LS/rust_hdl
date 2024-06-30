@@ -2225,8 +2225,6 @@ my_other_ident",
         );
     }
 
-    // @TODO test incorrect value for base, ex: 2x"ff"
-    // @TODO test incorrect value for length ex: 2x"1111"
     #[test]
     fn tokenize_bit_string_literal() {
         use BaseSpecifier::{B, D, O, SB, SO, SX, UB, UO, UX, X};
