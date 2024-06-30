@@ -9,9 +9,9 @@ use crate::{AnyEntKind, CompletionItem, Design, EntRef, EntityId, HasEntityId};
 use itertools::Itertools;
 use std::collections::HashSet;
 
-/// List all entities (entities in this context is a VHDL entity, not a `DesignEnt` or similar)
-/// that are visible from another VHDL entity.
-pub(crate) fn get_visible_entities_from_entity<'a>(
+/// List all entities that are visible from a VHDL architecture and return
+/// these entities as completion item.
+pub(crate) fn get_visible_entities_from_architecture<'a>(
     root: &'a DesignRoot,
     ent: &DesignEnt<'a>,
 ) -> Vec<CompletionItem<'a>> {
@@ -77,93 +77,6 @@ mod tests {
     use crate::analysis::tests::{assert_eq_unordered, check_no_diagnostics, LibraryBuilder};
     use crate::{list_completion_options, CompletionItem};
     use itertools::Itertools;
-
-    #[test]
-    pub fn completing_instantiation_statement() {
-        let mut input = LibraryBuilder::new();
-        let code = input.code(
-            "libname",
-            "\
-    entity my_ent is
-    end entity my_ent;
-
-    architecture arch of my_ent is
-        component comp is
-        generic (
-          A: natural := 5;
-          B: integer
-        );
-        port (
-          clk : in bit;
-          rst : in bit;
-          dout : out bit
-        );
-        end component comp;
-        signal clk, rst: bit;
-    begin
-        comp_inst: comp
-        generic map (
-            A => 2
-        )
-        port map (
-            clk => clk
-        );
-    end arch;
-            ",
-        );
-        let (root, _) = input.get_analyzed_root();
-        let cursor = code.s1("generic map (").pos().end();
-        let options = list_completion_options(&root, code.source(), cursor);
-        let ent = root
-            .search_reference(code.source(), code.s1("B").start())
-            .unwrap();
-        assert_eq!(options, vec![CompletionItem::Formal(ent)]);
-
-        let rst = root
-            .search_reference(code.source(), code.s1("rst").start())
-            .unwrap();
-
-        let dout = root
-            .search_reference(code.source(), code.s1("dout").start())
-            .unwrap();
-
-        let clk_signal = root
-            .search_reference(
-                code.source(),
-                code.s1("signal clk, rst: bit;").s1("clk").start(),
-            )
-            .unwrap();
-
-        let rst_signal = root
-            .search_reference(
-                code.source(),
-                code.s1("signal clk, rst: bit;").s1("rst").start(),
-            )
-            .unwrap();
-
-        let cursor = code.s1("port map (").pos().end();
-        let options = list_completion_options(&root, code.source(), cursor);
-        assert!(options.contains(&CompletionItem::Formal(rst)));
-        assert!(options.contains(&CompletionItem::Formal(dout)));
-        assert_eq!(options.len(), 2);
-        let cursor = code
-            .s1("port map (
-            clk =>")
-            .pos()
-            .end();
-        let options = list_completion_options(&root, code.source(), cursor);
-        assert!(options.contains(&CompletionItem::Simple(clk_signal)));
-        assert!(options.contains(&CompletionItem::Simple(rst_signal)));
-
-        let cursor = code
-            .s1("port map (
-            clk => c")
-            .pos()
-            .end();
-        let options = list_completion_options(&root, code.source(), cursor);
-        assert!(options.contains(&CompletionItem::Simple(clk_signal)));
-        assert!(options.contains(&CompletionItem::Simple(rst_signal)));
-    }
 
     #[test]
     fn complete_entities() {

@@ -52,7 +52,7 @@ fn parse_object_declaration_kind(
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
-    let end_token = expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id());
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(idents
         .into_iter()

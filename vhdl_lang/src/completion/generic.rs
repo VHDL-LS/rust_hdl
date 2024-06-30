@@ -5,7 +5,7 @@
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
 use crate::ast::search::{Finished, Found, FoundDeclaration, NotFinished, SearchState, Searcher};
 use crate::ast::ArchitectureBody;
-use crate::completion::entity_instantiation::get_visible_entities_from_entity;
+use crate::completion::entity_instantiation::get_visible_entities_from_architecture;
 use crate::completion::region::completion_items_from_region;
 use crate::named_entity::{DesignEnt, Visibility};
 use crate::{CompletionItem, Design, HasTokenSpan, Position, Source, TokenAccess};
@@ -44,6 +44,7 @@ impl<'a> CompletionSearcher<'a> {
 }
 
 impl<'a> CompletionSearcher<'a> {
+    /// Add entity instantiation completions that are visible from within an architecture body
     fn add_entity_instantiations(&mut self, ctx: &dyn TokenAccess, body: &ArchitectureBody) {
         let Some(ent_id) = body.ident.decl.get() else {
             return;
@@ -65,7 +66,7 @@ impl<'a> CompletionSearcher<'a> {
             }
         }
         self.completions
-            .extend(get_visible_entities_from_entity(self.root, &ent));
+            .extend(get_visible_entities_from_architecture(self.root, &ent));
     }
 }
 

@@ -18,8 +18,8 @@ pub(crate) fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem> {
 #[cfg(test)]
 mod tests {
     use crate::analysis::tests::{Code, LibraryBuilder};
-    use crate::completion::libraries::list_all_libraries;
-    use crate::list_completion_options;
+    use crate::syntax::test::assert_eq_unordered;
+    use crate::{list_completion_options, CompletionItem};
 
     #[test]
     pub fn completing_libraries() {
@@ -28,6 +28,14 @@ mod tests {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.end();
         let options = list_completion_options(&root, code.source(), cursor);
-        assert_eq!(options, list_all_libraries(&root))
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(
+                    root.get_ent(root.get_lib(&root.symbol_utf8("std")).unwrap().id()),
+                ),
+                CompletionItem::Work,
+            ],
+        )
     }
 }

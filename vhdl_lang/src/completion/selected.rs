@@ -176,7 +176,7 @@ end package x;
             "\
 use std.env.
 
--- Need this package sp that the 'use std.' is associated and can be analyzed correctly
+-- Need this so that the 'use std.env.' is associated to a context and can be analyzed correctly
 package x is
 end package x;
 ",
