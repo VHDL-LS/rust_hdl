@@ -64,7 +64,7 @@ impl Declaration {
                     | View(_)
             ),
             // LRM: package_body_declarative_item
-            AnyEntKind::Design(Design::PackageBody | Design::UninstPackage(..))
+            AnyEntKind::Design(Design::PackageBody(..) | Design::UninstPackage(..))
             | AnyEntKind::Overloaded(
                 Overloaded::SubprogramDecl(_)
                 | Overloaded::Subprogram(_)
@@ -1173,11 +1173,11 @@ fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
         AnyEntKind::Library => None,
         AnyEntKind::Design(des) => match des {
             Design::Entity(_, _) => Some(EntityClass::Entity),
-            Design::Architecture(_) => Some(EntityClass::Architecture),
+            Design::Architecture(..) => Some(EntityClass::Architecture),
             Design::Configuration => Some(EntityClass::Configuration),
             Design::Package(_, _) => Some(EntityClass::Package),
             // Should never be target of attribute
-            Design::PackageBody => None,
+            Design::PackageBody(..) => None,
             Design::UninstPackage(_, _) => None,
             Design::PackageInstance(_) => None,
             Design::InterfacePackageInstance(_) => None,

@@ -22,6 +22,7 @@ use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use crate::syntax::{Kind, TokenAccess};
 use crate::TokenId;
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -53,7 +54,7 @@ pub fn parse_block_statement(
     ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Block)?;
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
     Ok(BlockStatement {
         guard_condition,
         header,
@@ -94,7 +95,7 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                         ));
                     }
                     let (list, closing_paren) = parse_association_list(ctx)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                     if generic_map.is_none() {
                         generic_map = Some(MapAspect {
                             start: token_id,
@@ -113,7 +114,7 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                             .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                     }
                     let parsed_generic_list = parse_generic_interface_list(ctx)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                     if generic_clause.is_none() {
                         generic_clause = Some(parsed_generic_list);
                     }
@@ -134,7 +135,7 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                         ));
                     }
                     let (list, closing_paren) = parse_association_list(ctx)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                     if port_map.is_none() {
                         port_map = Some(MapAspect {
                             start: token_id,
@@ -153,7 +154,7 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                             .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                     }
                     let parsed_port_list = parse_port_interface_list(ctx)?;
-                    ctx.stream.expect_kind(SemiColon)?;
+                    expect_semicolon(ctx);
                     if port_clause.is_none() {
                         port_clause = Some(parsed_port_list);
                     }
@@ -230,7 +231,7 @@ pub fn parse_process_statement(
     }
     ctx.stream.expect_kind(Process)?;
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
     Ok(ProcessStatement {
         postponed: postponed.is_some(),
         sensitivity_list,
@@ -367,7 +368,7 @@ pub fn parse_instantiation_statement(
 ) -> ParseResult<InstantiationStatement> {
     let (generic_map, port_map) = parse_generic_and_port_map(ctx)?;
 
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
 
     Ok(InstantiationStatement {
         unit,
@@ -411,7 +412,7 @@ fn parse_generate_body(
             alternative_label.as_ref().map(|label| &label.tree),
             Some(end_ident),
         );
-        ctx.stream.expect_kind(SemiColon)?;
+        expect_semicolon(ctx);
     }
 
     let body = GenerateBody {
@@ -438,7 +439,7 @@ fn parse_for_generate_statement(
     ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
 
     Ok(ForGenerateStatement {
         index_name,
@@ -508,7 +509,7 @@ fn parse_if_generate_statement(
 
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
 
     Ok(IfGenerateStatement {
         conds: Conditionals {
@@ -559,7 +560,7 @@ fn parse_case_generate_statement(
 
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_tok = ctx.stream.expect_kind(SemiColon)?;
+    let end_tok = expect_semicolon_or_last(ctx);
 
     Ok(CaseGenerateStatement {
         sels: Selection {
@@ -625,7 +626,7 @@ pub fn parse_concurrent_statement(
                     With => ConcurrentStatement::Assignment(parse_selected_signal_assignment(ctx, true)?),
                     _ => {
                         let target = parse_name(ctx)?.map_into(Target::Name);
-                        ctx.stream.expect_kind(SemiColon)?;
+                        expect_semicolon(ctx);
                         ConcurrentStatement::ProcedureCall(to_procedure_call(ctx, target, true)?)
                     }
                 }

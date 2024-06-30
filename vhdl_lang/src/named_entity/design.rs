@@ -17,10 +17,10 @@ pub enum Design<'a> {
     Entity(Visibility<'a>, Region<'a>),
     /// A VHDL architecture.
     /// The linked `DesignEnt` is the entity that belongs to the architecture.
-    Architecture(DesignEnt<'a>),
+    Architecture(Visibility<'a>, Region<'a>, DesignEnt<'a>),
     Configuration,
     Package(Visibility<'a>, Region<'a>),
-    PackageBody,
+    PackageBody(Visibility<'a>, Region<'a>),
     UninstPackage(Visibility<'a>, Region<'a>),
     /// An instantiated Package, i.e.,
     /// ```vhdl
@@ -45,7 +45,7 @@ impl<'a> Design<'a> {
             Architecture(..) => "architecture",
             Configuration => "configuration",
             Package(..) => "package",
-            PackageBody => "package body",
+            PackageBody(..) => "package body",
             UninstPackage(..) => "uninstantiated package",
             PackageInstance(_) | InterfacePackageInstance(_) => "package instance",
             Context(..) => "context",
@@ -58,7 +58,7 @@ impl<'a> Design<'a> {
 pub struct DesignEnt<'a>(pub EntRef<'a>);
 
 impl<'a> DesignEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Option<DesignEnt<'a>> {
+    pub fn from_any(ent: &'a AnyEnt<'a>) -> Option<DesignEnt<'a>> {
         if matches!(ent.kind(), AnyEntKind::Design(..)) {
             Some(DesignEnt(ent))
         } else {
@@ -66,7 +66,7 @@ impl<'a> DesignEnt<'a> {
         }
     }
 
-    pub fn kind(&self) -> &Design<'a> {
+    pub fn kind(&self) -> &'a Design<'a> {
         if let AnyEntKind::Design(typ) = self.0.kind() {
             typ
         } else {

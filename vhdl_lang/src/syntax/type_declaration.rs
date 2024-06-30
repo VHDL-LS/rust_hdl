@@ -16,6 +16,7 @@ use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 /// LRM 5.2.2 Enumeration types
@@ -85,7 +86,7 @@ fn parse_record_type_definition(
         let idents = parse_identifier_list(ctx)?;
         ctx.stream.expect_kind(Colon)?;
         let subtype = parse_subtype_indication(ctx)?;
-        let end_token = ctx.stream.expect_kind(SemiColon)?;
+        let end_token = expect_semicolon_or_last(ctx);
         for ident in idents {
             elem_decls.push(ElementDeclaration {
                 ident: ident.into(),
@@ -101,7 +102,7 @@ pub fn parse_subtype_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ty
     let ident = ctx.stream.expect_ident()?;
     ctx.stream.expect_kind(Is)?;
     let subtype_indication = parse_subtype_indication(ctx)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(TypeDeclaration {
         span: TokenSpan::new(start_token, end_token),
         ident: ident.into(),
@@ -141,7 +142,7 @@ fn parse_physical_type_definition(
     range: Range,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let primary_unit = WithDecl::new(ctx.stream.expect_ident()?);
-    ctx.stream.expect_kind(SemiColon)?;
+    expect_semicolon(ctx);
 
     let mut secondary_units = Vec::new();
 
@@ -172,7 +173,7 @@ fn parse_physical_type_definition(
                 };
 
                 secondary_units.push((ident, literal));
-                ctx.stream.expect_kind(SemiColon)?;
+                expect_semicolon(ctx);
             }
         )
     }
@@ -275,7 +276,7 @@ pub fn parse_type_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeD
         LeftPar => parse_enumeration_type_definition(ctx)?
     );
 
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
     Ok(TypeDeclaration {
         span: TokenSpan::new(start_token, end_token),
         ident,

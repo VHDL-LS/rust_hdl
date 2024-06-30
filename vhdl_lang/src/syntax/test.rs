@@ -221,7 +221,7 @@ impl Code {
         self.s_from_start(substr, 1)
     }
 
-    /// Returns the code in between the begin and end
+    /// Returns the code in between the beginning and end
     /// ```
     /// let code = Code::new("foo bar 123 baz foobar");
     /// assert_eq!(code.between("bar", "baz"), Code::new("bar 123 baz"));
@@ -760,6 +760,14 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_design_file)
     }
 
+    pub fn design_file_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) -> DesignFile {
+        let (file, new_diagnostics) = self.parse_ok(parse_design_file);
+        for diag in new_diagnostics {
+            diagnostics.push(diag)
+        }
+        file
+    }
+
     pub fn architecture_body(&self) -> ArchitectureBody {
         self.parse_ok_no_diagnostics(parse_architecture_body)
     }
@@ -944,12 +952,6 @@ impl AsRef<SrcPos> for Code {
         &self.pos
     }
 }
-
-/* impl AsRef<TokenSpan> for Code {
-    fn as_ref(&self) -> &TokenSpan {
-        &self.token_span()
-    }
-} */
 
 fn value_to_string(value: &Value) -> String {
     match value {

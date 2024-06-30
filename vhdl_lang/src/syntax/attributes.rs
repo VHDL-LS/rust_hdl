@@ -14,6 +14,7 @@ use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
 };
+use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 fn parse_entity_class(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityClass> {
@@ -87,7 +88,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
     Ok(expect_token!(ctx.stream, token,
         Colon => {
             let type_mark = parse_type_mark(ctx)?;
-            let end_token = ctx.stream.expect_kind(SemiColon)?;
+            let end_token = expect_semicolon_or_last(ctx);
             vec![WithTokenSpan::new(Attribute::Declaration(AttributeDeclaration {
                 ident: ident.into(),
                 type_mark,
@@ -99,7 +100,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
             let entity_class = parse_entity_class(ctx)?;
             ctx.stream.expect_kind(Is)?;
             let expr = parse_expression(ctx)?;
-            let end_token = ctx.stream.expect_kind(SemiColon)?;
+            let end_token = expect_semicolon_or_last(ctx);
 
             entity_names
                 .into_iter()

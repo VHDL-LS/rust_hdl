@@ -11,6 +11,7 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{AliasDeclaration, WithDecl};
+use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_alias_declaration(
@@ -37,7 +38,7 @@ pub fn parse_alias_declaration(
         }
     };
 
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(WithTokenSpan::new(
         AliasDeclaration {

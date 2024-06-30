@@ -3,15 +3,15 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-
+/// LRM 6.4.2 Object Declarations
 use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
-/// LRM 6.4.2 Object Declarations
 use crate::ast::*;
+use crate::syntax::recover::expect_semicolon_or_last;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -51,7 +51,7 @@ fn parse_object_declaration_kind(
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     Ok(idents
         .into_iter()
@@ -108,7 +108,7 @@ pub fn parse_file_declaration(
             None
         }
     };
-    let end_token = ctx.stream.expect_kind(SemiColon)?;
+    let end_token = expect_semicolon_or_last(ctx);
 
     // If the `file_open_information` is present, `file_name` is mandatory
     // LRM 6.4.2.5

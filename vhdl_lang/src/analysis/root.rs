@@ -475,7 +475,7 @@ impl DesignRoot {
                                 )
                             }
                             // Find all architectures which implement the entity
-                            AnyEntKind::Design(Design::Architecture(ent_of_arch)) => {
+                            AnyEntKind::Design(Design::Architecture(.., ent_of_arch)) => {
                                 ent_of_arch.id == ent_id
                             }
                             _ => false,

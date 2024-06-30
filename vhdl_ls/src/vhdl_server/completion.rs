@@ -13,6 +13,13 @@ impl VHDLServer {
     ) -> lsp_types::CompletionItem {
         match item {
             vhdl_lang::CompletionItem::Simple(ent) => entity_to_completion_item(ent),
+            vhdl_lang::CompletionItem::Work => CompletionItem {
+                label: "work".to_string(),
+                detail: Some("work library".to_string()),
+                kind: Some(CompletionItemKind::MODULE),
+                insert_text: Some("work".to_string()),
+                ..Default::default()
+            },
             vhdl_lang::CompletionItem::Formal(ent) => {
                 let mut item = entity_to_completion_item(ent);
                 if self.client_supports_snippets() {
@@ -110,6 +117,13 @@ impl VHDLServer {
                     ..Default::default()
                 }
             }
+            vhdl_lang::CompletionItem::Attribute(attribute) => CompletionItem {
+                label: format!("{attribute}"),
+                detail: Some(format!("{attribute}")),
+                insert_text: Some(format!("{attribute}")),
+                kind: Some(CompletionItemKind::REFERENCE),
+                ..Default::default()
+            },
         }
     }
 

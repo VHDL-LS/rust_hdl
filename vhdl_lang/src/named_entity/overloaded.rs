@@ -229,7 +229,7 @@ impl<'a> SignatureKey<'a> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OverloadedEnt<'a> {
-    ent: EntRef<'a>,
+    pub ent: EntRef<'a>,
 }
 
 impl<'a> OverloadedEnt<'a> {
