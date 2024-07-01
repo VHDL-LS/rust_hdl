@@ -11,17 +11,23 @@ impl DesignUnitFormatter<'_, '_> {
         result
             .push_str(&self.format_token_span(TokenSpan::new(span.start_token, entity.is_token())));
         result.push('\n');
-        if let Some(_) = &entity.generic_clause {
+        if entity.generic_clause.is_some() {
             unimplemented!();
         }
         if entity.port_clause.is_some() {
             unimplemented!();
         }
-        if !entity.decl.is_empty() {
-            unimplemented!();
+        for (i, decl) in entity.decl.iter().enumerate() {
+            self.format_declaration(decl);
+            if i < entity.decl.len() - 1 {
+                result.push('\n');
+            }
         }
-        if !entity.statements.is_empty() {
-            unimplemented!();
+        for (i, statement) in entity.statements.iter().enumerate() {
+            self.format_concurrent_statement(statement);
+            if i < entity.decl.len() - 1 {
+                result.push('\n');
+            }
         }
         result.push_str(
             &self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1)),

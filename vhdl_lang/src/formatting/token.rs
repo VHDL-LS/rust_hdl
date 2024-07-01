@@ -7,7 +7,7 @@ fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     if !comment.multi_line {
         return false;
     }
-    if comment.range.start.line != comment.range.start.line {
+    if comment.range.start.line != comment.range.end.line {
         return false;
     }
     token.pos.start().line == comment.range.start.line
