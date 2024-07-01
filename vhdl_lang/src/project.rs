@@ -229,9 +229,7 @@ impl Project {
                 self.root.add_design_file(library_name.clone(), design_file);
             }
 
-            for diagnostic in source_file.parser_diagnostics.iter().cloned() {
-                diagnostics.push(diagnostic);
-            }
+            diagnostics.extend(source_file.parser_diagnostics.iter().cloned());
         }
 
         for library_name in self.empty_libraries.iter() {
