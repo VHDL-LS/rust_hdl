@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 mod completion;
+mod diagnostics;
 mod lifecycle;
 mod rename;
 mod text_document;
@@ -13,7 +14,6 @@ mod workspace;
 use lsp_types::*;
 
 use fnv::FnvHashMap;
-use std::collections::hash_map::Entry;
 use vhdl_lang::ast::ObjectClass;
 
 use crate::rpc_channel::SharedRpcChannel;
@@ -22,8 +22,8 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
-    Object, Overloaded, Project, Severity, SeverityMap, SrcPos, Token, Type, VHDLStandard,
+    AnyEntKind, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
+    Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
 /// Defines how the language server handles files
@@ -61,7 +61,7 @@ pub struct VHDLServer {
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
     project: Project,
-    files_with_notifications: FnvHashMap<Url, ()>,
+    diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
@@ -75,7 +75,7 @@ impl VHDLServer {
             settings,
             use_external_config: true,
             project: Project::new(VHDLStandard::default()),
-            files_with_notifications: FnvHashMap::default(),
+            diagnostic_cache: FnvHashMap::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
@@ -90,7 +90,7 @@ impl VHDLServer {
             settings: Default::default(),
             use_external_config,
             project: Project::new(VHDLStandard::default()),
-            files_with_notifications: FnvHashMap::default(),
+            diagnostic_cache: Default::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
@@ -228,56 +228,6 @@ impl VHDLServer {
                 .hierarchical_document_symbol_support
         };
         try_fun().unwrap_or(false)
-    }
-
-    fn publish_diagnostics(&mut self) {
-        let diagnostics = self.project.analyse();
-
-        if self.settings.no_lint {
-            return;
-        }
-
-        let supports_related_information = self.client_supports_related_information();
-        let diagnostics = {
-            if supports_related_information {
-                diagnostics
-            } else {
-                flatten_related(diagnostics)
-            }
-        };
-
-        let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
-        for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
-            let lsp_diagnostics = diagnostics
-                .into_iter()
-                .filter_map(|diag| to_lsp_diagnostic(diag, &self.severity_map))
-                .collect();
-
-            let publish_diagnostics = PublishDiagnosticsParams {
-                uri: file_uri.clone(),
-                diagnostics: lsp_diagnostics,
-                version: None,
-            };
-
-            self.rpc
-                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
-
-            self.files_with_notifications.insert(file_uri.clone(), ());
-        }
-
-        for (file_uri, _) in files_with_notifications.drain() {
-            // File has no longer any diagnostics, publish empty notification to clear them
-            if !self.files_with_notifications.contains_key(&file_uri) {
-                let publish_diagnostics = PublishDiagnosticsParams {
-                    uri: file_uri.clone(),
-                    diagnostics: vec![],
-                    version: None,
-                };
-
-                self.rpc
-                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
-            }
-        }
     }
 
     pub fn document_symbol(&self, params: &DocumentSymbolParams) -> Option<DocumentSymbolResponse> {
@@ -449,32 +399,6 @@ fn from_lsp_range(range: lsp_types::Range) -> vhdl_lang::Range {
     }
 }
 
-fn diagnostics_by_uri(diagnostics: Vec<Diagnostic>) -> FnvHashMap<Url, Vec<Diagnostic>> {
-    let mut map: FnvHashMap<Url, Vec<Diagnostic>> = FnvHashMap::default();
-
-    for diagnostic in diagnostics {
-        let uri = file_name_to_uri(diagnostic.pos.source.file_name());
-        match map.entry(uri) {
-            Entry::Occupied(mut entry) => entry.get_mut().push(diagnostic),
-            Entry::Vacant(entry) => {
-                let vec = vec![diagnostic];
-                entry.insert(vec);
-            }
-        }
-    }
-
-    map
-}
-
-fn flatten_related(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
-    let mut flat_diagnostics = Vec::new();
-    for mut diagnostic in diagnostics {
-        flat_diagnostics.extend(diagnostic.drain_related());
-        flat_diagnostics.push(diagnostic);
-    }
-    flat_diagnostics
-}
-
 fn file_name_to_uri(file_name: &Path) -> Url {
     // @TODO return error to client
     Url::from_file_path(file_name).unwrap()
@@ -483,45 +407,6 @@ fn file_name_to_uri(file_name: &Path) -> Url {
 fn uri_to_file_name(uri: &Url) -> PathBuf {
     // @TODO return error to client
     uri.to_file_path().unwrap()
-}
-
-fn to_lsp_diagnostic(
-    diagnostic: Diagnostic,
-    severity_map: &SeverityMap,
-) -> Option<lsp_types::Diagnostic> {
-    let severity = match severity_map[diagnostic.code]? {
-        Severity::Error => DiagnosticSeverity::ERROR,
-        Severity::Warning => DiagnosticSeverity::WARNING,
-        Severity::Info => DiagnosticSeverity::INFORMATION,
-        Severity::Hint => DiagnosticSeverity::HINT,
-    };
-
-    let related_information = if !diagnostic.related.is_empty() {
-        let mut related_information = Vec::new();
-        for (pos, msg) in diagnostic.related {
-            let uri = file_name_to_uri(pos.source.file_name());
-            related_information.push(DiagnosticRelatedInformation {
-                location: Location {
-                    uri: uri.to_owned(),
-                    range: to_lsp_range(pos.range()),
-                },
-                message: msg,
-            })
-        }
-        Some(related_information)
-    } else {
-        None
-    };
-
-    Some(lsp_types::Diagnostic {
-        range: to_lsp_range(diagnostic.pos.range()),
-        severity: Some(severity),
-        code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
-        source: Some("vhdl ls".to_owned()),
-        message: diagnostic.message,
-        related_information,
-        ..Default::default()
-    })
 }
 
 fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {
@@ -615,7 +500,7 @@ mod tests {
     use super::*;
     use crate::rpc_channel::test_support::*;
 
-    fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
+    pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
         let capabilities = ClientCapabilities::default();
 
         #[allow(deprecated)]
@@ -636,13 +521,13 @@ mod tests {
         server.initialized_notification();
     }
 
-    fn temp_root_uri() -> (tempfile::TempDir, Url) {
+    pub(crate) fn temp_root_uri() -> (tempfile::TempDir, Url) {
         let tempdir = tempfile::tempdir().unwrap();
         let root_uri = Url::from_file_path(tempdir.path().canonicalize().unwrap()).unwrap();
         (tempdir, root_uri)
     }
 
-    fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
+    pub(crate) fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
         let file_name = config_uri
             .to_file_path()
             .unwrap()
@@ -666,7 +551,7 @@ mod tests {
     }
 
     /// Create RpcMock and VHDLServer
-    fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
+    pub(crate) fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
         let mock = Rc::new(RpcMock::new());
         let server = VHDLServer::new_external_config(SharedRpcChannel::new(mock.clone()), false);
         (mock, server)
@@ -787,13 +672,17 @@ end entity ent;
         server.text_document_did_change_notification(&did_change);
     }
 
-    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) -> Url {
+    pub(crate) fn write_file(
+        root_uri: &Url,
+        file_name: impl AsRef<str>,
+        contents: impl AsRef<str>,
+    ) -> Url {
         let path = root_uri.to_file_path().unwrap().join(file_name.as_ref());
         std::fs::write(&path, contents.as_ref()).unwrap();
         Url::from_file_path(path).unwrap()
     }
 
-    fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
+    pub(crate) fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
         write_file(root_uri, "vhdl_ls.toml", contents)
     }
 
@@ -1086,8 +975,8 @@ lib.files = [
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics1);
         mock.expect_message_contains("Configuration file has changed, reloading project...");
         expect_loaded_config_messages(&mock, &config_uri);
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2a);
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2b);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2a);
 
         initialize_server(&mut server, root_uri.clone());
 
