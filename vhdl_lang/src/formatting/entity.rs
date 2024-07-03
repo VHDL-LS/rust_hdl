@@ -17,8 +17,14 @@ impl DesignUnitFormatter<'_> {
                 TokenSpan::new(span.start_token, span.start_token + 1),
                 buffer,
             );
+            self.increase_indentation();
             for item in &generic_clause.item {
-                self.format_interface_declaration(item);
+                self.newline(buffer);
+                self.format_interface_declaration(item, buffer);
+            }
+            self.decrease_indentation();
+            if !generic_clause.item.is_empty() {
+                self.newline(buffer);
             }
             // );
             self.format_token_id(span.end_token - 1, buffer);
@@ -153,6 +159,22 @@ end foo;",
 entity foo is
     -- Generics come here
     generic (); --<This is it
+end foo;",
+        );
+    }
+
+    #[test]
+    fn test_entity_with_simple_generic() {
+        check_entity_formatted(
+            "\
+entity foo is
+    generic (foo : in std_logic);
+end foo;",
+            "\
+entity foo is
+    generic (
+        foo: in std_logic
+    );
 end foo;",
         );
     }

@@ -973,7 +973,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         class,
                         iface: Some(ObjectInterface::simple(
                             object_decl.list_type,
-                            mode.mode.unwrap_or_default(),
+                            mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
                         )),
                         subtype,
                         has_default: mode.expression.is_some(),

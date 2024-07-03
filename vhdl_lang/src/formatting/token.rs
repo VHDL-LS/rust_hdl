@@ -45,6 +45,12 @@ impl DesignUnitFormatter<'_> {
         }
     }
 
+    pub(crate) fn join_token_span(&self, span: TokenSpan, buffer: &mut String) {
+        for id in span.iter() {
+            self.format_token_id(id, buffer);
+        }
+    }
+
     pub(crate) fn format_token(&self, token: &Token, buffer: &mut String) {
         if let Some(comments) = &token.comments {
             // This is for example the case for situations like

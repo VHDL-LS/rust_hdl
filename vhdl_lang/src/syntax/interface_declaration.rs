@@ -166,7 +166,7 @@ fn parse_simple_mode_indication(
     let object_class_tok = explicit_object_class.map(|class| class.token);
     let mode_with_pos = parse_optional_mode(ctx)?;
     let mode = mode_with_pos.as_ref().map(|mode| mode.item);
-    let mode_tok = mode_with_pos.map(|mode| mode.token);
+    let mode_tok = mode_with_pos.as_ref().map(|mode| mode.token);
 
     let object_class = match (
         list_type,
@@ -212,7 +212,7 @@ fn parse_simple_mode_indication(
     }
 
     Ok(SimpleModeIndication {
-        mode,
+        mode: mode_with_pos,
         class: object_class,
         subtype_indication: subtype,
         expression: expr,
@@ -677,7 +677,7 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::In),
+                mode: Some(WithToken { item: Mode::In, .. }),
                 class: ObjectClass::Constant,
                 ..
             })
@@ -688,7 +688,10 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::Out),
+                mode: Some(WithToken {
+                    item: Mode::Out,
+                    ..
+                }),
                 class: ObjectClass::Variable,
                 ..
             })
@@ -699,7 +702,10 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::InOut),
+                mode: Some(WithToken {
+                    item: Mode::InOut,
+                    ..
+                }),
                 class: ObjectClass::Variable,
                 ..
             })

@@ -946,7 +946,7 @@ impl Display for ModeIndication {
 
 impl Display for SimpleModeIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        if let Some(mode) = self.mode {
+        if let Some(mode) = &self.mode {
             write!(f, "{mode} ")?;
         }
         write!(f, "{}", self.subtype_indication)?;

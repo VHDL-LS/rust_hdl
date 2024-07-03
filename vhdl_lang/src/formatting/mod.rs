@@ -6,7 +6,9 @@ mod context;
 mod declaration;
 mod design;
 mod entity;
+mod expression;
 mod interface;
+mod name;
 mod statement;
 mod token;
 

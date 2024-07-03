@@ -745,6 +745,13 @@ pub struct InterfaceObjectDeclaration {
     pub mode: ModeIndication,
 }
 
+impl InterfaceObjectDeclaration {
+    // Location of the ':' token
+    pub fn colon_token(&self) -> TokenId {
+        self.ident.tree.token + 1
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum ModeIndication {
     Simple(SimpleModeIndication),
@@ -753,7 +760,7 @@ pub enum ModeIndication {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SimpleModeIndication {
-    pub mode: Option<Mode>,
+    pub mode: Option<WithToken<Mode>>,
     pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
     pub bus: bool,
@@ -822,11 +829,6 @@ pub enum Mode {
     InOut,
     Buffer,
     Linkage,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct PortClause {
-    pub port_list: Vec<InterfaceDeclaration>,
 }
 
 /// LRM 6.8 Component declarations
