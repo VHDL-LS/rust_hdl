@@ -10,53 +10,56 @@ impl Formatter {
     pub fn format_design_file(&self, file: &DesignFile) -> String {
         let mut result = String::new();
         for (tokens, design_unit) in &file.design_units {
-            let formatter = DesignUnitFormatter {
-                formatter: self,
-                tokens,
-            };
-            result.push_str(&formatter.format_any_design_unit(design_unit))
+            let formatter = DesignUnitFormatter::new(tokens);
+            formatter.format_any_design_unit(design_unit, &mut result);
         }
         result
     }
 }
 
-impl DesignUnitFormatter<'_, '_> {
-    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit) -> String {
+impl DesignUnitFormatter<'_> {
+    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut String) {
         use AnyDesignUnit::*;
         match unit {
-            Primary(primary) => self.format_any_primary_unit(primary),
-            Secondary(secondary) => self.format_any_secondary_unit(secondary),
+            Primary(primary) => self.format_any_primary_unit(primary, buffer),
+            Secondary(secondary) => self.format_any_secondary_unit(secondary, buffer),
         }
     }
 
-    pub fn format_any_primary_unit(&self, unit: &AnyPrimaryUnit) -> String {
+    pub fn format_any_primary_unit(&self, unit: &AnyPrimaryUnit, buffer: &mut String) {
         use AnyPrimaryUnit::*;
         match unit {
-            Entity(entity) => self.format_entity(entity),
-            Configuration(configuration) => self.format_configuration(configuration),
-            Package(package) => self.format_package(package),
-            PackageInstance(package_instance) => self.format_package_instance(package_instance),
-            Context(context) => self.format_context(context),
+            Entity(entity) => self.format_entity(entity, buffer),
+            Configuration(configuration) => self.format_configuration(configuration, buffer),
+            Package(package) => self.format_package(package, buffer),
+            PackageInstance(package_instance) => {
+                self.format_package_instance(package_instance, buffer)
+            }
+            Context(context) => self.format_context(context, buffer),
         }
     }
 
-    pub fn format_any_secondary_unit(&self, unit: &AnySecondaryUnit) -> String {
+    pub fn format_any_secondary_unit(&self, unit: &AnySecondaryUnit, buffer: &mut String) {
         unimplemented!()
     }
 
-    pub fn format_configuration(&self, configuration: &ConfigurationDeclaration) -> String {
+    pub fn format_configuration(
+        &self,
+        configuration: &ConfigurationDeclaration,
+        buffer: &mut String,
+    ) {
         unimplemented!()
     }
 
-    pub fn format_package(&self, package: &PackageDeclaration) -> String {
+    pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut String) {
         unimplemented!()
     }
 
-    pub fn format_package_instance(&self, instance: &PackageInstantiation) -> String {
+    pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut String) {
         unimplemented!()
     }
 
-    pub fn format_context(&self, context: &ContextDeclaration) -> String {
+    pub fn format_context(&self, context: &ContextDeclaration, buffer: &mut String) {
         unimplemented!()
     }
 }

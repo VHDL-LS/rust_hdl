@@ -16,7 +16,6 @@ use crate::ast::token_range::WithToken;
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
-use vhdl_lang::data::error_codes::ErrorCode;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
@@ -353,13 +352,13 @@ fn parse_interface_list(
         let token = ctx.stream.peek_expect()?;
         match token.kind {
             RightPar => {
-                if interface_list.is_empty() {
+                /* if interface_list.is_empty() {
                     ctx.diagnostics.add(
                         ctx.stream.get_pos(left_par).combine(token),
                         "Interface list must not be empty",
                         ErrorCode::SyntaxError,
                     );
-                }
+                } */
                 ctx.stream.skip();
                 break;
             }

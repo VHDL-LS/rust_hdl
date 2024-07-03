@@ -66,7 +66,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let primary_scope = root_scope.nested();
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&primary_scope, ent, list, diagnostics)?;
+            self.analyze_interface_list(&primary_scope, ent, &mut list.item, diagnostics)?;
         }
         if let Some(ref mut list) = unit.port_clause {
             self.analyze_interface_list(&primary_scope, ent, list, diagnostics)?;

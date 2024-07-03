@@ -276,6 +276,7 @@ mod tests {
     use itertools::Itertools;
     use vhdl_lang::TokenId;
 
+    use crate::ast::token_range::WithTokenSpan;
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
     use crate::syntax::{HasTokenSpan, TokenAccess};
@@ -389,7 +390,10 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(Vec::new()),
+                generic_clause: Some(WithTokenSpan::new(
+                    Vec::new(),
+                    code.s1("generic ();").token_span(),
+                )),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -416,7 +420,10 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
+                generic_clause: Some(WithTokenSpan::new(
+                    vec![code.s1("runner_cfg : string").generic()],
+                    code.between("generic", ");").token_span()
+                )),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],

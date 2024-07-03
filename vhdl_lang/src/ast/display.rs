@@ -1147,7 +1147,7 @@ impl Display for EntityDeclaration {
 
         if let Some(generic_clause) = &self.generic_clause {
             let mut first = true;
-            for generic in generic_clause {
+            for generic in &generic_clause.item {
                 if first {
                     write!(f, "\n  generic (\n    {generic}")?;
                 } else {

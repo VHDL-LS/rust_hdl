@@ -7,6 +7,7 @@
 use super::common::{check_end_identifier_mismatch, ParseResult};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::Diagnostic;
@@ -16,20 +17,24 @@ use vhdl_lang::VHDLStandard::VHDL2019;
 
 pub fn parse_optional_generic_list(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<WithTokenSpan<Vec<InterfaceDeclaration>>>> {
     let mut list = None;
     loop {
         let token = ctx.stream.peek_expect()?;
         match token.kind {
             Generic => {
+                let generic_token = ctx.stream.get_current_token_id();
                 ctx.stream.skip();
                 let new_list = parse_generic_interface_list(ctx)?;
-                expect_semicolon(ctx);
+                let semicolon = expect_semicolon_or_last(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(WithTokenSpan::new(
+                        new_list,
+                        TokenSpan::new(generic_token, semicolon),
+                    ));
                 }
             }
             _ => break,
@@ -80,7 +85,7 @@ pub fn parse_component_declaration(
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
     ctx.stream.pop_if_kind(Is);
 
-    let generic_list = parse_optional_generic_list(ctx)?;
+    let generic_list = parse_optional_generic_list(ctx)?.map(|it| it.item);
     let port_list = parse_optional_port_list(ctx)?;
     ctx.stream.expect_kind(End)?;
     if ctx.standard < VHDL2019 {
@@ -253,7 +258,13 @@ end
                 "Duplicate generic clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").generic()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithTokenSpan::new(
+                vec![code.s1("foo : natural").generic()],
+                code.between("generic", ");").token_span()
+            ))),
+        );
     }
 
     #[test]

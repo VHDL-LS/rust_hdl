@@ -2,17 +2,28 @@ use crate::ast::EntityDeclaration;
 use crate::formatting::DesignUnitFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 
-impl DesignUnitFormatter<'_, '_> {
-    pub fn format_entity(&self, entity: &EntityDeclaration) -> String {
-        let mut result = String::new();
-        result.push_str(&self.format_context_clause(&entity.context_clause));
+impl DesignUnitFormatter<'_> {
+    pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut String) {
+        self.format_context_clause(&entity.context_clause, buffer);
         let span = entity.span();
         // entity <ident> is
-        result
-            .push_str(&self.format_token_span(TokenSpan::new(span.start_token, entity.is_token())));
-        result.push('\n');
-        if entity.generic_clause.is_some() {
-            unimplemented!();
+        self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
+        if let Some(generic_clause) = &entity.generic_clause {
+            self.increase_indentation();
+            self.newline(buffer);
+            let span = generic_clause.span;
+            // generic (
+            self.format_token_span(
+                TokenSpan::new(span.start_token, span.start_token + 1),
+                buffer,
+            );
+            for item in &generic_clause.item {
+                self.format_interface_declaration(item);
+            }
+            // );
+            self.format_token_id(span.end_token - 1, buffer);
+            self.format_token_id(span.end_token, buffer);
+            self.decrease_indentation();
         }
         if entity.port_clause.is_some() {
             unimplemented!();
@@ -20,37 +31,34 @@ impl DesignUnitFormatter<'_, '_> {
         for (i, decl) in entity.decl.iter().enumerate() {
             self.format_declaration(decl);
             if i < entity.decl.len() - 1 {
-                result.push('\n');
+                self.newline(buffer);
             }
         }
         for (i, statement) in entity.statements.iter().enumerate() {
             self.format_concurrent_statement(statement);
             if i < entity.decl.len() - 1 {
-                result.push('\n');
+                self.newline(buffer);
             }
         }
-        result.push_str(
-            &self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1)),
-        );
-        result.push_str(&self.format_token_id(span.end_token));
-        result
+        self.newline(buffer);
+        self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1), buffer);
+        self.format_token_id(span.end_token, buffer);
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::analysis::tests::Code;
-    use crate::formatting::{DesignUnitFormatter, Formatter};
+    use crate::formatting::DesignUnitFormatter;
 
     fn check_entity_formatted(input: &str, expected: &str) {
         let code = Code::new(input);
         let ent = code.entity_decl();
-        let parent_formatter = Formatter {};
-        let formatter = DesignUnitFormatter {
-            formatter: &parent_formatter,
-            tokens: &code.tokenize(),
-        };
-        assert_eq!(&formatter.format_entity(&ent), expected);
+        let tokens = code.tokenize();
+        let formatter = DesignUnitFormatter::new(&tokens);
+        let mut buffer = String::new();
+        formatter.format_entity(&ent, &mut buffer);
+        assert_eq!(&buffer, expected);
     }
 
     #[test]
@@ -120,6 +128,32 @@ end entity;",
             "\
 entity /* Why would you put a comment here? */ my_ent is -- this is an entity
 end entity;",
+        );
+    }
+
+    #[test]
+    fn test_entity_with_generic() {
+        check_entity_formatted(
+            "\
+entity foo is
+    generic ();
+end foo;",
+            "\
+entity foo is
+    generic ();
+end foo;",
+        );
+        check_entity_formatted(
+            "\
+entity foo is
+    -- Generics come here
+    generic (); --<This is it
+end foo;",
+            "\
+entity foo is
+    -- Generics come here
+    generic (); --<This is it
+end foo;",
         );
     }
 }

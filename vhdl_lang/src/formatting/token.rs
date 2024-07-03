@@ -13,82 +13,74 @@ fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     token.pos.start().line == comment.range.start.line
 }
 
-impl DesignUnitFormatter<'_, '_> {
-    fn format_comment(&self, comment: &Comment) -> String {
-        let mut result = String::new();
+impl DesignUnitFormatter<'_> {
+    fn format_comment(&self, comment: &Comment, buffer: &mut String) {
         if !comment.multi_line {
-            result.push_str("--");
-            result.push_str(comment.value.trim_end())
+            buffer.push_str("--");
+            buffer.push_str(comment.value.trim_end())
         } else {
-            result.push_str("/*");
-            result.push_str(&comment.value);
-            result.push_str("*/");
+            buffer.push_str("/*");
+            buffer.push_str(&comment.value);
+            buffer.push_str("*/");
         }
-        result
     }
 
-    fn format_leading_comments(&self, comments: &[Comment]) -> String {
-        let mut result = String::new();
+    fn format_leading_comments(&self, comments: &[Comment], buffer: &mut String) {
         for comment in comments {
-            result.push_str(&self.format_comment(comment));
-            result.push('\n');
+            self.format_comment(comment, buffer);
+            self.newline(buffer);
         }
-        result
     }
 
-    pub(crate) fn format_token_id(&self, id: TokenId) -> String {
-        self.format_token(self.tokens.get_token(id))
+    pub(crate) fn format_token_id(&self, id: TokenId, buffer: &mut String) {
+        self.format_token(self.tokens.get_token(id), buffer);
     }
 
-    pub(crate) fn format_token_span(&self, span: TokenSpan) -> String {
-        let mut result = String::new();
+    pub(crate) fn format_token_span(&self, span: TokenSpan, buffer: &mut String) {
         for (index, id) in span.iter().enumerate() {
-            result.push_str(&self.format_token_id(id));
+            self.format_token_id(id, buffer);
             if index < span.len() - 1 {
-                result.push(' ');
+                buffer.push(' ');
             }
         }
-        result
     }
 
-    pub(crate) fn format_token(&self, token: &Token) -> String {
-        let mut result = String::new();
+    pub(crate) fn format_token(&self, token: &Token, buffer: &mut String) {
         if let Some(comments) = &token.comments {
             // This is for example the case for situations like
             // some_token /* comment in between */ some_other token
             if comments.leading.len() == 1
                 && leading_comment_is_on_token_line(&comments.leading[0], token)
             {
-                result.push_str(&self.format_comment(&comments.leading[0]));
-                result.push(' ');
+                self.format_comment(&comments.leading[0], buffer);
+                buffer.push(' ');
             } else {
-                result.push_str(&self.format_leading_comments(comments.leading.as_slice()));
+                self.format_leading_comments(comments.leading.as_slice(), buffer);
             }
         }
         match &token.value {
-            Value::Identifier(ident) => result.push_str(&ident.to_string()),
+            Value::Identifier(ident) => buffer.push_str(&ident.to_string()),
             Value::String(string) => {
-                result.push('"');
-                result.push_str(&string.to_string());
-                result.push('"');
+                buffer.push('"');
+                buffer.push_str(&string.to_string());
+                buffer.push('"');
             }
             Value::BitString(..) => unimplemented!(),
             Value::AbstractLiteral(_) => {}
             Value::Character(char) => {
-                result.push('\'');
-                result.push((*char) as char);
-                result.push('\'');
+                buffer.push('\'');
+                buffer.push((*char) as char);
+                buffer.push('\'');
             }
             Value::Text(_) => unimplemented!(),
-            Value::None => result.push_str(kind_str(token.kind)),
+            Value::None => buffer.push_str(kind_str(token.kind)),
         }
         if let Some(comments) = &token.comments {
             if let Some(trailing_comment) = &comments.trailing {
-                result.push(' ');
-                result.push_str(&self.format_comment(trailing_comment));
+                buffer.push(' ');
+                self.format_comment(trailing_comment, buffer);
             }
         }
-        result
     }
 }
 
@@ -96,18 +88,15 @@ impl DesignUnitFormatter<'_, '_> {
 mod tests {
     use crate::analysis::tests::Code;
     use crate::formatting::DesignUnitFormatter;
-    use vhdl_lang::formatting::Formatter;
 
     fn check_token_formatted(input: &str, expected: &[&str]) {
         let code = Code::new(input);
         let tokens = code.tokenize();
-        let parent_formatter = Formatter {};
-        let formatter = DesignUnitFormatter {
-            formatter: &parent_formatter,
-            tokens: &tokens,
-        };
+        let formatter = DesignUnitFormatter::new(&tokens);
         for (i, str) in expected.iter().enumerate() {
-            assert_eq!(&formatter.format_token(&tokens[i]), str);
+            let mut buffer = String::new();
+            formatter.format_token(&tokens[i], &mut buffer);
+            assert_eq!(&buffer, str);
         }
     }
 
