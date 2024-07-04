@@ -295,7 +295,7 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Al
 pub fn name_to_type_mark(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
-) -> ParseResult<WithTokenSpan<TypeMark>> {
+) -> ParseResult<WithTokenSpan<Name>> {
     let pos = name.pos(ctx);
     let type_mark = name
         .try_map_into(|name| match name {

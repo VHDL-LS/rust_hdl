@@ -51,7 +51,7 @@ pub fn parse_selected_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithToke
     Ok(name)
 }
 
-pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<TypeMark>> {
+pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
     let name = parse_selected_name(ctx)?;
     parse_type_mark_starting_with_name(ctx, name)
 }
@@ -59,7 +59,7 @@ pub fn parse_type_mark(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpa
 pub fn parse_type_mark_starting_with_name(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
-) -> ParseResult<WithTokenSpan<TypeMark>> {
+) -> ParseResult<WithTokenSpan<Name>> {
     let state = ctx.stream.state();
     let name_span = name.span;
 
