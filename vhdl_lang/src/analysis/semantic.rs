@@ -21,22 +21,29 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         type_mark: &mut WithTokenSpan<TypeMark>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        let name = self.name_resolve(
-            scope,
-            type_mark.item.name.span,
-            &mut type_mark.item.name.item,
-            diagnostics,
-        )?;
+        let span = type_mark.span;
+        let (name, attr) = if let Name::Attribute(attribute_name) = &mut type_mark.item {
+            (
+                &mut attribute_name.name,
+                Some(attribute_name.attr.item.clone()),
+            )
+        } else {
+            (type_mark, None)
+        };
+        let old_span = name.span;
+        let name = self.name_resolve(scope, name.span, &mut name.item, diagnostics)?;
 
-        if let Some(attr) = &type_mark.item.attr {
-            let span = type_mark.item.name.suffix_pos();
+        if let Some(attr) = &attr {
+            let AttributeDesignator::Type(attr) = *attr else {
+                panic!("");
+            };
 
             let typ = match name {
-                ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
+                ResolvedName::Type(typ) if attr == TypeAttribute::Element => typ,
                 ResolvedName::ObjectName(obj) => obj.type_mark(),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark.pos(self.ctx),
+                        span.pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -55,7 +62,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Ok(elem_type)
                     } else {
                         diagnostics.add(
-                            span.pos(self.ctx),
+                            old_span.pos(self.ctx),
                             format!("array type expected for '{attr} attribute",),
                             ErrorCode::TypeMismatch,
                         );
@@ -68,7 +75,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ResolvedName::Type(typ) => Ok(typ),
                 other => {
                     let mut diag = Diagnostic::new(
-                        type_mark.pos(self.ctx),
+                        span.pos(self.ctx),
                         format!("Expected type, got {}", other.describe()),
                         ErrorCode::MismatchedKinds,
                     );

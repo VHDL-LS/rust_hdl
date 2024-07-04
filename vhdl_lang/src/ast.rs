@@ -368,11 +368,7 @@ pub enum ResolutionIndication {
     Unresolved,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct TypeMark {
-    pub name: WithTokenSpan<Name>,
-    pub attr: Option<TypeAttribute>,
-}
+pub type TypeMark = Name;
 
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]

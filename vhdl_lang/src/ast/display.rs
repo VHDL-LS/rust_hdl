@@ -598,16 +598,6 @@ impl Display for SubtypeIndication {
     }
 }
 
-impl Display for TypeMark {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.name)?;
-        if let Some(attr) = self.attr {
-            write!(f, "'{attr}")?;
-        }
-        Ok(())
-    }
-}
-
 impl Display for ArrayIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

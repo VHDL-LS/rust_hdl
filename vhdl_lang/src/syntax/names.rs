@@ -67,13 +67,16 @@ pub fn parse_type_mark_starting_with_name(
     // Example: signal sig0 : sig1'subtype;
     if ctx.stream.pop_if_kind(Tick).is_some() {
         if let Ok(attr) = ctx.stream.expect_attribute_designator() {
+            let token = attr.token;
             if let AttributeDesignator::Type(typattr) = attr.item {
                 return Ok(WithTokenSpan {
-                    item: TypeMark {
+                    item: Name::Attribute(Box::new(AttributeName {
                         name,
-                        attr: Some(typattr),
-                    },
-                    span: name_span.end_with(attr.token),
+                        attr,
+                        signature: None,
+                        expr: None,
+                    })),
+                    span: name_span.end_with(token),
                 });
             }
         }
@@ -81,10 +84,7 @@ pub fn parse_type_mark_starting_with_name(
         ctx.stream.set_state(state);
     };
 
-    Ok(WithTokenSpan {
-        item: TypeMark { name, attr: None },
-        span: name_span,
-    })
+    Ok(name)
 }
 
 impl Name {
@@ -875,13 +875,7 @@ mod tests {
         let code = Code::new("prefix");
         let name = code.s1("prefix").name();
 
-        assert_eq!(
-            code.with_stream(parse_type_mark),
-            WithTokenSpan {
-                span: name.span,
-                item: TypeMark { name, attr: None },
-            }
-        );
+        assert_eq!(code.with_stream(parse_type_mark), name,);
     }
 
     #[test]
@@ -890,13 +884,7 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_type_mark),
-            WithTokenSpan {
-                span: code.token_span(),
-                item: TypeMark {
-                    name: code.s1("prefix").name(),
-                    attr: Some(TypeAttribute::Subtype)
-                },
-            }
+            code.s1("prefix'subtype").name()
         );
     }
 
@@ -906,13 +894,7 @@ mod tests {
 
         assert_eq!(
             code.with_stream(parse_type_mark),
-            WithTokenSpan {
-                span: code.token_span(),
-                item: TypeMark {
-                    name: code.s1("prefix").name(),
-                    attr: Some(TypeAttribute::Element)
-                },
-            }
+            code.s1("prefix'element").name()
         );
     }
 
