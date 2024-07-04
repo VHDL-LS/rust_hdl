@@ -117,8 +117,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut fun.parameter_list,
                     diagnostics,
                 );
-                let return_type =
-                    self.resolve_type_mark(&subpgm_region, &mut fun.return_type, diagnostics);
+                let return_type = self.type_name(
+                    &subpgm_region,
+                    fun.return_type.span,
+                    &mut fun.return_type.item,
+                    diagnostics,
+                );
                 (Signature::new(params?, Some(return_type?)), generic_map)
             }
             SubprogramSpecification::Procedure(procedure) => {
@@ -191,15 +195,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(scope, arg, diagnostics))
+                    .map(|arg| self.type_name(scope, arg.span, &mut arg.item, diagnostics))
                     .collect();
-                let return_type = self.resolve_type_mark(scope, ret, diagnostics);
+                let return_type = self.type_name(scope, ret.span, &mut ret.item, diagnostics);
                 (args, Some(return_type))
             }
             ast::Signature::Procedure(args) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(scope, arg, diagnostics))
+                    .map(|arg| self.type_name(scope, arg.span, &mut arg.item, diagnostics))
                     .collect();
                 (args, None)
             }

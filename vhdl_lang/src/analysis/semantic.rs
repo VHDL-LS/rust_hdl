@@ -15,15 +15,6 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
-    pub fn resolve_type_mark(
-        &self,
-        scope: &Scope<'a>,
-        type_mark: &mut WithTokenSpan<TypeMark>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<TypeEnt<'a>> {
-        self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)
-    }
-
     pub fn choice_with_ttyp(
         &self,
         scope: &Scope<'a>,

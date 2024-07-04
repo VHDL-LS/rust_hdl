@@ -256,7 +256,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let typ = match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
                 let typ = self
-                    .resolve_type_mark(scope, type_mark, diagnostics)?
+                    .type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)?
                     .base();
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, typ.into(), range, diagnostics)?;
@@ -366,7 +366,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                let _ = as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?;
+                let _ = as_fatal(self.name_resolve(
+                    scope,
+                    type_mark.span,
+                    &mut type_mark.item,
+                    diagnostics,
+                ))?;
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, target_type, range, diagnostics)?;
                 }
