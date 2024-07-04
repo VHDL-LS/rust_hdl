@@ -297,11 +297,10 @@ pub fn name_to_type_mark(
     name: WithTokenSpan<Name>,
 ) -> ParseResult<WithTokenSpan<TypeMark>> {
     let pos = name.pos(ctx);
-    let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
-                if let Some(typattr) = attr.as_type() {
+                if attr.as_type().is_some() {
                     Some(Name::Attribute(Box::new(AttributeName {
                         name: attr.name.try_map_into(name_to_selected_name)?,
                         attr: attr.attr,

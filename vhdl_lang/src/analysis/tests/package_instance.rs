@@ -184,7 +184,7 @@ package bad_pkg2 is new work.gpkg
             ),
             Diagnostic::new(
                 code.s1("=> work").s1("work"),
-                "Expected type name, got library libname",
+                "Expected type, got library libname",
                 ErrorCode::MismatchedKinds,
             ),
         ],

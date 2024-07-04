@@ -669,14 +669,14 @@ subtype bad2_t is integer'element;
                 ErrorCode::TypeMismatch,
             ),
             Diagnostic::new(
-                code.s1("good2'element").s1("good2"),
+                code.s1("good2'element"),
                 "array type expected for 'element attribute",
-                ErrorCode::TypeMismatch,
+                ErrorCode::IllegalAttribute,
             ),
             Diagnostic::new(
-                code.s1("integer'element").s1("integer"),
+                code.s1("integer'element"),
                 "array type expected for 'element attribute",
-                ErrorCode::TypeMismatch,
+                ErrorCode::IllegalAttribute,
             ),
         ],
     );

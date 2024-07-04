@@ -399,14 +399,6 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Final(_) => None,
         }
     }
-
-    /// Convenience function that returns `Some(name)` when self is an object name, else `None`
-    fn as_object_name(&self) -> Option<ObjectName<'a>> {
-        match self {
-            ResolvedName::ObjectName(oname) => Some(*oname),
-            _ => None,
-        }
-    }
 }
 
 /// Represents the result when resolving an attribute.
@@ -1158,28 +1150,49 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        // all type attribute suffixes require that the prefix be an object type
-        let Some(obj) = prefix.as_object_name() else {
-            diagnostics.add(
-                pos.pos(self.ctx),
-                format!(
-                    "The {} attribute can only be used on objects, not {}",
-                    suffix,
-                    prefix.describe()
-                ),
-                ErrorCode::IllegalAttribute,
-            );
-            return Err(EvalError::Unknown);
+        let typ = match prefix {
+            ResolvedName::Type(typ) => {
+                if *suffix == TypeAttribute::Element {
+                    *typ
+                } else {
+                    let mut diag = Diagnostic::new(
+                        pos.pos(self.ctx),
+                        format!(
+                            "The {} attribute can only be used on objects, not {}",
+                            suffix,
+                            typ.describe()
+                        ),
+                        ErrorCode::IllegalAttribute,
+                    );
+                    if let Some(pos) = typ.decl_pos() {
+                        diag.add_related(pos, "Defined here");
+                    }
+                    bail!(diagnostics, diag);
+                }
+            }
+            ResolvedName::ObjectName(obj) => obj.type_mark(),
+            other => {
+                let mut diag = Diagnostic::new(
+                    pos.pos(self.ctx),
+                    format!("Expected type, got {}", other.describe()),
+                    ErrorCode::MismatchedKinds,
+                );
+                if let Some(pos) = other.decl_pos() {
+                    diag.add_related(pos, "Defined here");
+                }
+                bail!(diagnostics, diag);
+            }
         };
+
         match suffix {
-            TypeAttribute::Subtype => Ok(obj.type_mark()),
+            TypeAttribute::Subtype => Ok(typ),
             TypeAttribute::Element => {
-                if let Some((elem_type, _)) = obj.type_mark().array_type() {
+                if let Some((elem_type, _)) = typ.array_type() {
                     Ok(elem_type)
                 } else {
                     diagnostics.add(
                         pos.pos(self.ctx),
-                        "The element attribute can only be used for array types",
+                        format!("array type expected for '{suffix} attribute",),
                         ErrorCode::IllegalAttribute,
                     );
                     Err(EvalError::Unknown)
@@ -1582,10 +1595,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
-                diagnostics.add(
-                    name_pos.pos(self.ctx),
-                    format!("Expected type name, got {}", resolved.describe()),
-                    ErrorCode::MismatchedKinds,
+                diagnostics.push(
+                    Diagnostic::new(
+                        name_pos.pos(self.ctx),
+                        format!("Expected type, got {}", resolved.describe()),
+                        ErrorCode::MismatchedKinds,
+                    )
+                    .opt_related(resolved.decl_pos(), "Defined here"),
                 );
                 Err(EvalError::Unknown)
             }
@@ -2106,7 +2122,7 @@ variable thevar : integer;
             diagnostics,
             vec![Diagnostic::new(
                 code.s1("thevar'element"),
-                "The element attribute can only be used for array types",
+                "array type expected for 'element attribute",
                 ErrorCode::IllegalAttribute,
             )],
         )
@@ -2115,7 +2131,7 @@ variable thevar : integer;
     #[test]
     fn element_type_attributes_on_non_object_types() {
         let test = TestSetup::new();
-        test.declarative_part(
+        let declarative_code = test.declarative_part(
             "
 type my_type is array(natural range<>) of integer;
         ",
@@ -2132,7 +2148,8 @@ type my_type is array(natural range<>) of integer;
                 code.s1("my_type'subtype"),
                 "The subtype attribute can only be used on objects, not array type 'my_type'",
                 ErrorCode::IllegalAttribute,
-            )],
+            )
+            .related(declarative_code.s1("my_type"), "Defined here")],
         )
     }
 
@@ -2150,13 +2167,20 @@ variable x: integer;
             test.name_resolve(&code, None, &mut diagnostics),
             Err(EvalError::Unknown)
         );
+        let integer_pos = test
+            .ctx(&Vec::new())
+            .root
+            .find_standard_symbol("INTEGER")
+            .decl_pos()
+            .unwrap();
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::new(
                 code.s1("x'subtype'subtype"),
                 "The subtype attribute can only be used on objects, not integer type 'INTEGER'",
                 ErrorCode::IllegalAttribute,
-            )],
+            )
+            .related(integer_pos, "Defined here")],
         )
     }
 

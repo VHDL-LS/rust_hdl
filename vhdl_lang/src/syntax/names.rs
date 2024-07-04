@@ -68,7 +68,7 @@ pub fn parse_type_mark_starting_with_name(
     if ctx.stream.pop_if_kind(Tick).is_some() {
         if let Ok(attr) = ctx.stream.expect_attribute_designator() {
             let token = attr.token;
-            if let AttributeDesignator::Type(typattr) = attr.item {
+            if let AttributeDesignator::Type(_) = attr.item {
                 return Ok(WithTokenSpan {
                     item: Name::Attribute(Box::new(AttributeName {
                         name,

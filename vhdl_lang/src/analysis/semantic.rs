@@ -21,72 +21,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         type_mark: &mut WithTokenSpan<TypeMark>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        let span = type_mark.span;
-        let (name, attr) = if let Name::Attribute(attribute_name) = &mut type_mark.item {
-            (
-                &mut attribute_name.name,
-                Some(attribute_name.attr.item.clone()),
-            )
-        } else {
-            (type_mark, None)
-        };
-        let old_span = name.span;
-        let name = self.name_resolve(scope, name.span, &mut name.item, diagnostics)?;
-
-        if let Some(attr) = &attr {
-            let AttributeDesignator::Type(attr) = *attr else {
-                panic!("");
-            };
-
-            let typ = match name {
-                ResolvedName::Type(typ) if attr == TypeAttribute::Element => typ,
-                ResolvedName::ObjectName(obj) => obj.type_mark(),
-                other => {
-                    let mut diag = Diagnostic::new(
-                        span.pos(self.ctx),
-                        format!("Expected type, got {}", other.describe()),
-                        ErrorCode::MismatchedKinds,
-                    );
-                    if let Some(pos) = other.decl_pos() {
-                        diag.add_related(pos, "Defined here");
-                    }
-                    diagnostics.push(diag);
-                    return Err(EvalError::Unknown);
-                }
-            };
-
-            match attr {
-                TypeAttribute::Subtype => Ok(typ),
-                TypeAttribute::Element => {
-                    if let Some((elem_type, _)) = typ.array_type() {
-                        Ok(elem_type)
-                    } else {
-                        diagnostics.add(
-                            old_span.pos(self.ctx),
-                            format!("array type expected for '{attr} attribute",),
-                            ErrorCode::TypeMismatch,
-                        );
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
-        } else {
-            match name {
-                ResolvedName::Type(typ) => Ok(typ),
-                other => {
-                    let mut diag = Diagnostic::new(
-                        span.pos(self.ctx),
-                        format!("Expected type, got {}", other.describe()),
-                        ErrorCode::MismatchedKinds,
-                    );
-                    if let Some(pos) = other.decl_pos() {
-                        diag.add_related(pos, "Defined here");
-                    }
-                    diagnostics.push(diag);
-                    Err(EvalError::Unknown)
-                }
-            }
-        }
+        self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)
     }
 
     pub fn choice_with_ttyp(
