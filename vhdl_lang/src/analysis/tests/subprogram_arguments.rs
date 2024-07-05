@@ -74,10 +74,9 @@ end architecture;
                 code.s("subpgm", 1),
                 "function subpgm[NATURAL return NATURAL] is not a procedure",
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("thesig", 2),
                 "signal 'thesig' of array type 'INTEGER_VECTOR' is not a procedure",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );

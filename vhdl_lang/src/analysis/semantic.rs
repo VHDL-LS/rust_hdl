@@ -15,73 +15,6 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
-    pub fn resolve_type_mark(
-        &self,
-        scope: &Scope<'a>,
-        type_mark: &mut WithTokenSpan<TypeMark>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<TypeEnt<'a>> {
-        let name = self.name_resolve(
-            scope,
-            type_mark.item.name.span,
-            &mut type_mark.item.name.item,
-            diagnostics,
-        )?;
-
-        if let Some(attr) = &type_mark.item.attr {
-            let span = type_mark.item.name.suffix_pos();
-
-            let typ = match name {
-                ResolvedName::Type(typ) if *attr == TypeAttribute::Element => typ,
-                ResolvedName::ObjectName(obj) => obj.type_mark(),
-                other => {
-                    let mut diag = Diagnostic::new(
-                        type_mark.pos(self.ctx),
-                        format!("Expected type, got {}", other.describe()),
-                        ErrorCode::MismatchedKinds,
-                    );
-                    if let Some(pos) = other.decl_pos() {
-                        diag.add_related(pos, "Defined here");
-                    }
-                    diagnostics.push(diag);
-                    return Err(EvalError::Unknown);
-                }
-            };
-
-            match attr {
-                TypeAttribute::Subtype => Ok(typ),
-                TypeAttribute::Element => {
-                    if let Some((elem_type, _)) = typ.array_type() {
-                        Ok(elem_type)
-                    } else {
-                        diagnostics.add(
-                            span.pos(self.ctx),
-                            format!("array type expected for '{attr} attribute",),
-                            ErrorCode::TypeMismatch,
-                        );
-                        Err(EvalError::Unknown)
-                    }
-                }
-            }
-        } else {
-            match name {
-                ResolvedName::Type(typ) => Ok(typ),
-                other => {
-                    let mut diag = Diagnostic::new(
-                        type_mark.pos(self.ctx),
-                        format!("Expected type, got {}", other.describe()),
-                        ErrorCode::MismatchedKinds,
-                    );
-                    if let Some(pos) = other.decl_pos() {
-                        diag.add_related(pos, "Defined here");
-                    }
-                    diagnostics.push(diag);
-                    Err(EvalError::Unknown)
-                }
-            }
-        }
-    }
-
     pub fn choice_with_ttyp(
         &self,
         scope: &Scope<'a>,
@@ -265,10 +198,9 @@ impl Diagnostic {
 
 impl<'a> ResolvedName<'a> {
     pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
-        let mut error = Diagnostic::new(
+        let mut error = Diagnostic::mismatched_kinds(
             pos,
-            format!("Expected {}, got {}", expected, self.describe()),
-            ErrorCode::MismatchedKinds,
+            format!("Expected {expected}, got {}", self.describe()),
         );
         if let Some(decl_pos) = self.decl_pos() {
             error.add_related(decl_pos, "Defined here");
@@ -290,13 +222,12 @@ impl Diagnostic {
         named_entity: &AnyEnt,
         prefix: &SrcPos,
     ) -> Diagnostic {
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             prefix,
             capitalize(&format!(
                 "{} may not be the prefix of a selected name",
                 named_entity.describe(),
             )),
-            ErrorCode::MismatchedKinds,
         )
     }
 

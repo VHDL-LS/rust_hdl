@@ -271,7 +271,7 @@ pub enum Allocator {
 /// LRM 9.3.5 Qualified expressions
 #[derive(PartialEq, Debug, Clone)]
 pub struct QualifiedExpression {
-    pub type_mark: WithTokenSpan<TypeMark>,
+    pub type_mark: WithTokenSpan<Name>,
     pub expr: WithTokenSpan<Expression>,
 }
 
@@ -317,7 +317,7 @@ pub enum Direction {
 ///   | simple_expression direction simple_expression
 #[derive(PartialEq, Debug, Clone)]
 pub enum DiscreteRange {
-    Discrete(WithTokenSpan<TypeMark>, Option<Range>),
+    Discrete(WithTokenSpan<Name>, Option<Range>),
     Range(Range),
 }
 
@@ -368,17 +368,11 @@ pub enum ResolutionIndication {
     Unresolved,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct TypeMark {
-    pub name: WithTokenSpan<Name>,
-    pub attr: Option<TypeAttribute>,
-}
-
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
-    pub type_mark: WithTokenSpan<TypeMark>,
+    pub type_mark: WithTokenSpan<Name>,
     pub constraint: Option<WithTokenSpan<SubtypeConstraint>>,
 }
 
@@ -387,7 +381,7 @@ pub struct SubtypeIndication {
 pub enum ArrayIndex {
     /// Unbounded
     /// {identifier} range <>
-    IndexSubtypeDefintion(WithTokenSpan<TypeMark>),
+    IndexSubtypeDefintion(WithTokenSpan<Name>),
 
     /// Constraint
     Discrete(DiscreteRange),
@@ -484,7 +478,7 @@ pub struct AliasDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: WithDecl<Ident>,
-    pub type_mark: WithTokenSpan<TypeMark>,
+    pub type_mark: WithTokenSpan<Name>,
 }
 
 /// LRM 7.2 Attribute specification
@@ -592,7 +586,7 @@ pub enum TypeDefinition {
     /// LRM 5.4.2 Incomplete type declarations
     Incomplete(Reference),
     /// LRM 5.5 File types
-    File(WithTokenSpan<TypeMark>),
+    File(WithTokenSpan<Name>),
     /// LRM 5.6 Protected types
     Protected(ProtectedTypeDeclaration),
     ProtectedBody(ProtectedTypeBody),
@@ -668,7 +662,7 @@ pub struct FunctionSpecification {
     // The `parameter` token, if such a token exists
     pub param_tok: Option<TokenId>,
     pub parameter_list: Vec<InterfaceDeclaration>,
-    pub return_type: WithTokenSpan<TypeMark>,
+    pub return_type: WithTokenSpan<Name>,
 }
 
 /// LRM 4.3 Subprogram bodies
@@ -712,8 +706,8 @@ pub struct SubprogramInstantiation {
 /// LRM 4.5.3 Signatures
 #[derive(PartialEq, Debug, Clone)]
 pub enum Signature {
-    Function(Vec<WithTokenSpan<TypeMark>>, WithTokenSpan<TypeMark>),
-    Procedure(Vec<WithTokenSpan<TypeMark>>),
+    Function(Vec<WithTokenSpan<Name>>, WithTokenSpan<Name>),
+    Procedure(Vec<WithTokenSpan<Name>>),
 }
 
 #[derive(PartialEq, Debug, Clone, TokenSpan)]

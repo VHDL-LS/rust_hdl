@@ -186,10 +186,9 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("std'myattr"),
             "library std may not be the prefix of a user defined attribute",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }

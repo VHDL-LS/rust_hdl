@@ -295,25 +295,23 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Al
 pub fn name_to_type_mark(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
-) -> ParseResult<WithTokenSpan<TypeMark>> {
+) -> ParseResult<WithTokenSpan<Name>> {
     let pos = name.pos(ctx);
-    let name_span = name.span;
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
-                if let Some(typattr) = attr.as_type() {
-                    Some(TypeMark {
+                if attr.as_type().is_some() {
+                    Some(Name::Attribute(Box::new(AttributeName {
                         name: attr.name.try_map_into(name_to_selected_name)?,
-                        attr: Some(typattr),
-                    })
+                        attr: attr.attr,
+                        expr: None,
+                        signature: None,
+                    })))
                 } else {
                     None
                 }
             }
-            _ => Some(TypeMark {
-                name: WithTokenSpan::from(name_to_selected_name(name)?, name_span),
-                attr: None,
-            }),
+            _ => Some(name_to_selected_name(name)?),
         })
         .ok_or_else(|| Diagnostic::syntax_error(&pos, "Expected type mark"))?;
 

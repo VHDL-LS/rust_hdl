@@ -171,15 +171,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 if let Some(ent) = overloaded.get(&signature) {
                                     name.set_unique_reference(&ent);
                                 } else {
-                                    let mut diag = Diagnostic::new(
+                                    let mut diag = Diagnostic::mismatched_kinds(
                                         &assoc.actual.pos(self.ctx),
                                         format!(
-                                            "Cannot map '{}' to subprogram generic {}{}",
-                                            des,
+                                            "Cannot map '{des}' to subprogram generic {}{}",
                                             target.designator(),
                                             signature.key().describe()
                                         ),
-                                        ErrorCode::MismatchedKinds,
                                     );
 
                                     diag.add_subprogram_candidates(

@@ -34,15 +34,13 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo1", 2),
             "function foo1[return NATURAL] may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo2", 2),
             "foo2[return enum_t] may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -70,10 +68,9 @@ end architecture;
 ",
     );
 
-    let expected = vec![Diagnostic::new(
+    let expected = vec![Diagnostic::mismatched_kinds(
         code.s("foo'stable", 1),
         "Expression may not be the target of an assignment",
-        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();
@@ -118,25 +115,21 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s1("work.pkg.foo1(2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s1("foo2(2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s1("work.pkg.foo1(arg => 2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s1("foo2(arg => 2)"),
             "Expression may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -167,15 +160,13 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo1", 3),
             "constant 'foo1' may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo2", 2),
             "alias 'foo2' of constant may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -300,15 +291,13 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo1", 2),
             "interface constant 'foo1' may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo2", 2),
             "interface variable 'foo2' of mode in may not be the target of an assignment",
-            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -348,25 +337,21 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo1", 2),
             "interface signal 'foo1' of mode out may not be the target of a variable assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo2", 2),
             "interface variable 'foo2' of mode out may not be the target of a signal assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo3", 2),
             "signal 'foo3' may not be the target of a variable assignment",
-            ErrorCode::MismatchedKinds,
         ),
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             code.s("foo4", 2),
             "variable 'foo4' may not be the target of a signal assignment",
-            ErrorCode::MismatchedKinds,
         ),
     ];
 
@@ -391,10 +376,9 @@ end architecture;
 ",
     );
 
-    let expected = vec![Diagnostic::new(
+    let expected = vec![Diagnostic::mismatched_kinds(
         code.s("foo", 2),
         "signal 'foo' of subtype 'NATURAL' cannot be indexed",
-        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();
@@ -418,10 +402,9 @@ end architecture;
 ",
     );
 
-    let expected = vec![Diagnostic::new(
+    let expected = vec![Diagnostic::mismatched_kinds(
         code.s("foo", 2),
         "signal 'foo' of subtype 'NATURAL' cannot be sliced",
-        ErrorCode::MismatchedKinds,
     )];
 
     let diagnostics = builder.analyze();

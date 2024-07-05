@@ -507,9 +507,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    if let Some(typ) = as_fatal(self.resolve_type_mark(
+                    if let Some(typ) = as_fatal(self.type_name(
                         scope,
-                        &mut attr_decl.type_mark,
+                        attr_decl.type_mark.span,
+                        &mut attr_decl.type_mark.item,
                         diagnostics,
                     ))? {
                         scope.add(
@@ -1088,7 +1089,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> EvalResult<BaseType<'a>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => self
-                .resolve_type_mark(scope, type_mark, diagnostics)
+                .type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)
                 .map(|typ| typ.base()),
             ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
         }
