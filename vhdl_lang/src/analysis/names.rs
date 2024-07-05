@@ -1164,10 +1164,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             ResolvedName::ObjectName(obj) => obj.type_mark(),
             other => {
-                let diag = Diagnostic::new(
+                let diag = Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
                     format!("Expected type, got {}", other.describe()),
-                    ErrorCode::MismatchedKinds,
                 )
                 .opt_related(other.decl_pos(), "Defined here");
                 bail!(diagnostics, diag);
