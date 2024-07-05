@@ -1182,7 +1182,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     let diag = Diagnostic::illegal_attribute(
                         prefix_pos.pos(self.ctx),
-                        format!("array type expected for '{suffix} attribute",),
+                        format!("array type expected for '{suffix} attribute"),
                     );
                     bail!(diagnostics, diag);
                 }
@@ -1584,15 +1584,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
-                diagnostics.push(
-                    Diagnostic::new(
+                bail!(
+                    diagnostics,
+                    Diagnostic::mismatched_kinds(
                         name_pos.pos(self.ctx),
-                        format!("Expected type, got {}", resolved.describe()),
-                        ErrorCode::MismatchedKinds,
+                        format!("Expected type, got {}", resolved.describe())
                     )
-                    .opt_related(resolved.decl_pos(), "Defined here"),
+                    .opt_related(resolved.decl_pos(), "Defined here")
                 );
-                Err(EvalError::Unknown)
             }
         }
     }
