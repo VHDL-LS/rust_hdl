@@ -1123,7 +1123,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Err(EvalError::Unknown)
             }
             AttributeDesignator::Type(attr) => self
-                .resolve_type_attribute_suffix(prefix, &attr, name_pos, diagnostics)
+                .resolve_type_attribute_suffix(prefix, prefix_pos, &attr, name_pos, diagnostics)
                 .map(|typ| AttrResolveResult::Type(typ.base())),
             AttributeDesignator::Converse => {
                 let view = self.resolve_view_ent(prefix, diagnostics, prefix_pos)?;
@@ -1146,6 +1146,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     fn resolve_type_attribute_suffix(
         &self,
         prefix: &ResolvedName<'a>,
+        prefix_pos: TokenSpan,
         suffix: &TypeAttribute,
         pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -1191,7 +1192,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(elem_type)
                 } else {
                     diagnostics.add(
-                        pos.pos(self.ctx),
+                        prefix_pos.pos(self.ctx),
                         format!("array type expected for '{suffix} attribute",),
                         ErrorCode::IllegalAttribute,
                     );
@@ -2121,7 +2122,7 @@ variable thevar : integer;
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::new(
-                code.s1("thevar'element"),
+                code.s1("thevar"),
                 "array type expected for 'element attribute",
                 ErrorCode::IllegalAttribute,
             )],
