@@ -446,10 +446,9 @@ constant bar : natural := foo(0);
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s("foo", 2),
             "constant 'foo' of subtype 'NATURAL' cannot be indexed",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -467,10 +466,9 @@ constant bar : natural := foo(0 to 0);
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s("foo", 2),
             "constant 'foo' of subtype 'NATURAL' cannot be sliced",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -668,15 +666,13 @@ subtype bad2_t is integer'element;
                 "character literal does not match integer type 'INTEGER'",
                 ErrorCode::TypeMismatch,
             ),
-            Diagnostic::new(
+            Diagnostic::illegal_attribute(
                 code.s1("good2'element").s1("good2"),
                 "array type expected for 'element attribute",
-                ErrorCode::IllegalAttribute,
             ),
-            Diagnostic::new(
+            Diagnostic::illegal_attribute(
                 code.s1("integer'element").s1("integer"),
                 "array type expected for 'element attribute",
-                ErrorCode::IllegalAttribute,
             ),
         ],
     );
@@ -938,20 +934,17 @@ constant bad3 : rec_t := (field | 0 => 0);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("field(0)"),
                 "Record aggregate choice must be a simple name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("0 to 1"),
                 "Record aggregate choice must be a simple name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("field | 0"),
                 "Record aggregate choice must be a simple name",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );

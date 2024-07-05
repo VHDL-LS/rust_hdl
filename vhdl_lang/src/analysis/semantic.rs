@@ -198,10 +198,9 @@ impl Diagnostic {
 
 impl<'a> ResolvedName<'a> {
     pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
-        let mut error = Diagnostic::new(
+        let mut error = Diagnostic::mismatched_kinds(
             pos,
-            format!("Expected {}, got {}", expected, self.describe()),
-            ErrorCode::MismatchedKinds,
+            format!("Expected {expected}, got {}", self.describe()),
         );
         if let Some(decl_pos) = self.decl_pos() {
             error.add_related(decl_pos, "Defined here");
@@ -223,13 +222,12 @@ impl Diagnostic {
         named_entity: &AnyEnt,
         prefix: &SrcPos,
     ) -> Diagnostic {
-        Diagnostic::new(
+        Diagnostic::mismatched_kinds(
             prefix,
             capitalize(&format!(
                 "{} may not be the prefix of a selected name",
                 named_entity.describe(),
             )),
-            ErrorCode::MismatchedKinds,
         )
     }
 

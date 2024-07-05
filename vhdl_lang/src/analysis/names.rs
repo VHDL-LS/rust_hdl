@@ -497,10 +497,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> Result<Option<DisambiguatedType<'a>>, Diagnostic> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::new(
+                Err(Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -512,10 +511,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(Some(DisambiguatedType::Unambiguous(subtype.type_mark())))
                 }
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(DisambiguatedType::Unambiguous(*typ))),
-                _ => Err(Diagnostic::new(
+                _ => Err(Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -547,10 +545,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> Result<Option<TypeEnt<'a>>, Diagnostic> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::new(
+                Err(Diagnostic::mismatched_kinds(
                     span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -558,10 +555,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(*typ)),
                 AnyEntKind::File(subtype) => Ok(Some(subtype.type_mark())),
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(*typ)),
-                _ => Err(Diagnostic::new(
+                _ => Err(Diagnostic::mismatched_kinds(
                     span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -651,10 +647,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     bail!(
                         diagnostics,
-                        Diagnostic::new(
+                        Diagnostic::mismatched_kinds(
                             expr_pos.pos(self.ctx),
                             format!("{} cannot be used as a discrete range", typ.describe()),
-                            ErrorCode::MismatchedKinds,
                         )
                     );
                 };
@@ -1156,31 +1151,25 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if *suffix == TypeAttribute::Element {
                     *typ
                 } else {
-                    let mut diag = Diagnostic::new(
+                    let diag = Diagnostic::illegal_attribute(
                         pos.pos(self.ctx),
                         format!(
-                            "The {} attribute can only be used on objects, not {}",
-                            suffix,
+                            "The {suffix} attribute can only be used on objects, not {}",
                             typ.describe()
                         ),
-                        ErrorCode::IllegalAttribute,
-                    );
-                    if let Some(pos) = typ.decl_pos() {
-                        diag.add_related(pos, "Defined here");
-                    }
+                    )
+                    .opt_related(typ.decl_pos(), "Defined here");
                     bail!(diagnostics, diag);
                 }
             }
             ResolvedName::ObjectName(obj) => obj.type_mark(),
             other => {
-                let mut diag = Diagnostic::new(
+                let diag = Diagnostic::new(
                     pos.pos(self.ctx),
                     format!("Expected type, got {}", other.describe()),
                     ErrorCode::MismatchedKinds,
-                );
-                if let Some(pos) = other.decl_pos() {
-                    diag.add_related(pos, "Defined here");
-                }
+                )
+                .opt_related(other.decl_pos(), "Defined here");
                 bail!(diagnostics, diag);
             }
         };
@@ -1191,12 +1180,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some((elem_type, _)) = typ.array_type() {
                     Ok(elem_type)
                 } else {
-                    diagnostics.add(
+                    let diag = Diagnostic::illegal_attribute(
                         prefix_pos.pos(self.ctx),
                         format!("array type expected for '{suffix} attribute",),
-                        ErrorCode::IllegalAttribute,
                     );
-                    Err(EvalError::Unknown)
+                    bail!(diagnostics, diag);
                 }
             }
         }
@@ -2121,10 +2109,9 @@ variable thevar : integer;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::illegal_attribute(
                 code.s1("thevar"),
                 "array type expected for 'element attribute",
-                ErrorCode::IllegalAttribute,
             )],
         )
     }
@@ -2145,10 +2132,9 @@ type my_type is array(natural range<>) of integer;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::illegal_attribute(
                 code.s1("my_type'subtype"),
                 "The subtype attribute can only be used on objects, not array type 'my_type'",
-                ErrorCode::IllegalAttribute,
             )
             .related(declarative_code.s1("my_type"), "Defined here")],
         )
@@ -2176,10 +2162,9 @@ variable x: integer;
             .unwrap();
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::illegal_attribute(
                 code.s1("x'subtype'subtype"),
                 "The subtype attribute can only be used on objects, not integer type 'INTEGER'",
-                ErrorCode::IllegalAttribute,
             )
             .related(integer_pos, "Defined here")],
         )

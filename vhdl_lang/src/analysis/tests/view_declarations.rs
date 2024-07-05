@@ -246,10 +246,9 @@ end entity;
     let diag = builder.analyze();
     check_diagnostics(
         diag,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("bit"),
             "type 'BIT' is not a view",
-            ErrorCode::MismatchedKinds,
         )],
     );
 

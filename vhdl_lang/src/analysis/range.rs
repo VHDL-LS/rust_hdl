@@ -469,10 +469,9 @@ mod tests {
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::mismatched_kinds(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
-                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -636,10 +635,9 @@ function myfun return arr_t;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::mismatched_kinds(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
-                ErrorCode::MismatchedKinds,
             )],
         );
     }
