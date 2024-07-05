@@ -604,7 +604,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
-    pub fn type_mark(&self) -> WithTokenSpan<TypeMark> {
+    pub fn type_mark(&self) -> WithTokenSpan<Name> {
         self.parse_ok_no_diagnostics(parse_type_mark)
     }
 

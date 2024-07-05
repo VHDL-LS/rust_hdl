@@ -47,10 +47,9 @@ function proc is new x;
     let diagnostics = builder.analyze();
     assert_eq!(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("new x").s1("x"),
             "signal 'x' does not denote an uninstantiated subprogram",
-            ErrorCode::MismatchedKinds
         )]
     )
 }
@@ -247,10 +246,9 @@ procedure proc is new proc;
 
     check_diagnostics(
         builder.analyze(),
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("procedure proc is new").s("proc", 2).pos(),
             "procedure proc[] does not denote an uninstantiated subprogram",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }

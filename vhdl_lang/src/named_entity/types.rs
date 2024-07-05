@@ -234,13 +234,12 @@ impl<'a> TypeEnt<'a> {
             Type::Protected(region, _) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     match decl {
-                        NamedEntities::Single(ent) => Err(Diagnostic::new(
+                        NamedEntities::Single(ent) => Err(Diagnostic::mismatched_kinds(
                             suffix.pos(ctx),
                             format!(
                                 "Protected type selection must be a method, got {}",
                                 ent.describe()
                             ),
-                            ErrorCode::MismatchedKinds,
                         )),
                         NamedEntities::Overloaded(overloaded) => {
                             Ok(TypedSelection::ProtectedMethod(overloaded.clone()))

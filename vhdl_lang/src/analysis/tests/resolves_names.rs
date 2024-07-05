@@ -1732,10 +1732,9 @@ attribute bad of ram : signal is 0;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("attribute bad").s1("bad"),
             "constant 'bad' is not an attribute",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }

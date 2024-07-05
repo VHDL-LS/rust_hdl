@@ -585,7 +585,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> EvalResult<TypeEnt<'a>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
-        match as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))? {
+        match as_fatal(self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics))? {
             Some(target_type) => {
                 self.expr_pos_with_ttyp(
                     scope,

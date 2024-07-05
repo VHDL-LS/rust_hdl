@@ -26,7 +26,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ..
         } = subtype_indication;
 
-        let base_type = self.resolve_type_mark(scope, type_mark, diagnostics)?;
+        let base_type = self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)?;
 
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
@@ -502,9 +502,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.source(),
                 );
 
-                if let Some(type_mark) =
-                    as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?
-                {
+                if let Some(type_mark) = as_fatal(self.type_name(
+                    scope,
+                    type_mark.span,
+                    &mut type_mark.item,
+                    diagnostics,
+                ))? {
                     for ent in self.create_implicit_file_type_subprograms(file_type, type_mark) {
                         unsafe {
                             self.arena.add_implicit(file_type.id(), ent);

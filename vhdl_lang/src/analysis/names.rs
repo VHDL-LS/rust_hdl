@@ -399,14 +399,6 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Final(_) => None,
         }
     }
-
-    /// Convenience function that returns `Some(name)` when self is an object name, else `None`
-    fn as_object_name(&self) -> Option<ObjectName<'a>> {
-        match self {
-            ResolvedName::ObjectName(oname) => Some(*oname),
-            _ => None,
-        }
-    }
 }
 
 /// Represents the result when resolving an attribute.
@@ -505,10 +497,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> Result<Option<DisambiguatedType<'a>>, Diagnostic> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::new(
+                Err(Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -520,10 +511,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(Some(DisambiguatedType::Unambiguous(subtype.type_mark())))
                 }
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(DisambiguatedType::Unambiguous(*typ))),
-                _ => Err(Diagnostic::new(
+                _ => Err(Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -555,10 +545,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> Result<Option<TypeEnt<'a>>, Diagnostic> {
         match name {
             ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::new(
+                Err(Diagnostic::mismatched_kinds(
                     span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
@@ -566,10 +555,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(*typ)),
                 AnyEntKind::File(subtype) => Ok(Some(subtype.type_mark())),
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(*typ)),
-                _ => Err(Diagnostic::new(
+                _ => Err(Diagnostic::mismatched_kinds(
                     span.pos(self.ctx),
                     format!("{} cannot be used in an expression", name.describe_type()),
-                    ErrorCode::MismatchedKinds,
                 )),
             },
             ResolvedName::Overloaded(des, overloaded) => {
@@ -659,10 +647,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     bail!(
                         diagnostics,
-                        Diagnostic::new(
+                        Diagnostic::mismatched_kinds(
                             expr_pos.pos(self.ctx),
                             format!("{} cannot be used as a discrete range", typ.describe()),
-                            ErrorCode::MismatchedKinds,
                         )
                     );
                 };
@@ -1131,7 +1118,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Err(EvalError::Unknown)
             }
             AttributeDesignator::Type(attr) => self
-                .resolve_type_attribute_suffix(prefix, &attr, name_pos, diagnostics)
+                .resolve_type_attribute_suffix(prefix, prefix_pos, &attr, name_pos, diagnostics)
                 .map(|typ| AttrResolveResult::Type(typ.base())),
             AttributeDesignator::Converse => {
                 let view = self.resolve_view_ent(prefix, diagnostics, prefix_pos)?;
@@ -1154,35 +1141,49 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     fn resolve_type_attribute_suffix(
         &self,
         prefix: &ResolvedName<'a>,
+        prefix_pos: TokenSpan,
         suffix: &TypeAttribute,
         pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
-        // all type attribute suffixes require that the prefix be an object type
-        let Some(obj) = prefix.as_object_name() else {
-            diagnostics.add(
-                pos.pos(self.ctx),
-                format!(
-                    "The {} attribute can only be used on objects, not {}",
-                    suffix,
-                    prefix.describe()
-                ),
-                ErrorCode::IllegalAttribute,
-            );
-            return Err(EvalError::Unknown);
+        let typ = match prefix {
+            ResolvedName::Type(typ) => {
+                if *suffix == TypeAttribute::Element {
+                    *typ
+                } else {
+                    let diag = Diagnostic::illegal_attribute(
+                        pos.pos(self.ctx),
+                        format!(
+                            "The {suffix} attribute can only be used on objects, not {}",
+                            typ.describe()
+                        ),
+                    )
+                    .opt_related(typ.decl_pos(), "Defined here");
+                    bail!(diagnostics, diag);
+                }
+            }
+            ResolvedName::ObjectName(obj) => obj.type_mark(),
+            other => {
+                let diag = Diagnostic::mismatched_kinds(
+                    pos.pos(self.ctx),
+                    format!("Expected type, got {}", other.describe()),
+                )
+                .opt_related(other.decl_pos(), "Defined here");
+                bail!(diagnostics, diag);
+            }
         };
+
         match suffix {
-            TypeAttribute::Subtype => Ok(obj.type_mark()),
+            TypeAttribute::Subtype => Ok(typ),
             TypeAttribute::Element => {
-                if let Some((elem_type, _)) = obj.type_mark().array_type() {
+                if let Some((elem_type, _)) = typ.array_type() {
                     Ok(elem_type)
                 } else {
-                    diagnostics.add(
-                        pos.pos(self.ctx),
-                        "The element attribute can only be used for array types",
-                        ErrorCode::IllegalAttribute,
+                    let diag = Diagnostic::illegal_attribute(
+                        prefix_pos.pos(self.ctx),
+                        format!("array type expected for '{suffix} attribute"),
                     );
-                    Err(EvalError::Unknown)
+                    bail!(diagnostics, diag);
                 }
             }
         }
@@ -1582,12 +1583,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
             | ResolvedName::Final(_) => {
-                diagnostics.add(
-                    name_pos.pos(self.ctx),
-                    format!("Expected type name, got {}", resolved.describe()),
-                    ErrorCode::MismatchedKinds,
+                bail!(
+                    diagnostics,
+                    Diagnostic::mismatched_kinds(
+                        name_pos.pos(self.ctx),
+                        format!("Expected type, got {}", resolved.describe())
+                    )
+                    .opt_related(resolved.decl_pos(), "Defined here")
                 );
-                Err(EvalError::Unknown)
             }
         }
     }
@@ -2104,10 +2107,9 @@ variable thevar : integer;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
-                code.s1("thevar'element"),
-                "The element attribute can only be used for array types",
-                ErrorCode::IllegalAttribute,
+            vec![Diagnostic::illegal_attribute(
+                code.s1("thevar"),
+                "array type expected for 'element attribute",
             )],
         )
     }
@@ -2115,7 +2117,7 @@ variable thevar : integer;
     #[test]
     fn element_type_attributes_on_non_object_types() {
         let test = TestSetup::new();
-        test.declarative_part(
+        let declarative_code = test.declarative_part(
             "
 type my_type is array(natural range<>) of integer;
         ",
@@ -2128,11 +2130,11 @@ type my_type is array(natural range<>) of integer;
         );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::illegal_attribute(
                 code.s1("my_type'subtype"),
                 "The subtype attribute can only be used on objects, not array type 'my_type'",
-                ErrorCode::IllegalAttribute,
-            )],
+            )
+            .related(declarative_code.s1("my_type"), "Defined here")],
         )
     }
 
@@ -2150,13 +2152,19 @@ variable x: integer;
             test.name_resolve(&code, None, &mut diagnostics),
             Err(EvalError::Unknown)
         );
+        let integer_pos = test
+            .ctx(&Vec::new())
+            .root
+            .find_standard_symbol("INTEGER")
+            .decl_pos()
+            .unwrap();
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::illegal_attribute(
                 code.s1("x'subtype'subtype"),
                 "The subtype attribute can only be used on objects, not integer type 'INTEGER'",
-                ErrorCode::IllegalAttribute,
-            )],
+            )
+            .related(integer_pos, "Defined here")],
         )
     }
 

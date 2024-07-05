@@ -256,7 +256,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let typ = match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
                 let typ = self
-                    .resolve_type_mark(scope, type_mark, diagnostics)?
+                    .type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)?
                     .base();
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, typ.into(), range, diagnostics)?;
@@ -366,7 +366,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                let _ = as_fatal(self.resolve_type_mark(scope, type_mark, diagnostics))?;
+                let _ = as_fatal(self.name_resolve(
+                    scope,
+                    type_mark.span,
+                    &mut type_mark.item,
+                    diagnostics,
+                ))?;
                 if let Some(ref mut range) = range {
                     self.range_with_ttyp(scope, target_type, range, diagnostics)?;
                 }
@@ -464,10 +469,9 @@ mod tests {
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::mismatched_kinds(
                 code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
-                ErrorCode::MismatchedKinds,
             )],
         )
     }
@@ -631,10 +635,9 @@ function myfun return arr_t;
 
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::new(
+            vec![Diagnostic::mismatched_kinds(
                 code.s1("character"),
                 "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
-                ErrorCode::MismatchedKinds,
             )],
         );
     }

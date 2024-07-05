@@ -66,15 +66,13 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("work.pkg"),
                 "'work.pkg' is not an uninstantiated generic package",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("work.pkg.const"),
                 "'work.pkg.const' is not an uninstantiated generic package",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -172,20 +170,17 @@ package bad_pkg2 is new work.gpkg
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("16#bad#", 1),
                 "Cannot map expression to type generic",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("natural"),
                 "subtype 'NATURAL' cannot be used in an expression",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("=> work").s1("work"),
-                "Expected type name, got library libname",
-                ErrorCode::MismatchedKinds,
+                "Expected type, got library libname",
             ),
         ],
     );
@@ -295,10 +290,9 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s1("character"),
             "Cannot map type 'CHARACTER' to subprogram generic",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }
@@ -331,10 +325,9 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.sa("to_string => ", "my_to_string"),
             "Cannot map 'my_to_string' to subprogram generic to_string[INTEGER return STRING]",
-            ErrorCode::MismatchedKinds,
         )
         .related(
             code.s1("my_to_string"),

@@ -258,11 +258,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             if let Design::Entity(ref visibility, ref region) = primary.kind() {
                 (visibility, region)
             } else {
-                let mut diagnostic = Diagnostic::new(
-                    unit.ident_pos(self.ctx),
-                    "Expected an entity",
-                    ErrorCode::MismatchedKinds,
-                );
+                let mut diagnostic =
+                    Diagnostic::mismatched_kinds(unit.ident_pos(self.ctx), "Expected an entity");
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -329,11 +326,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Design::Package(ref visibility, ref region)
             | Design::UninstPackage(ref visibility, ref region) => (visibility, region),
             _ => {
-                let mut diagnostic = Diagnostic::new(
-                    unit.ident_pos(self.ctx),
-                    "Expected a package",
-                    ErrorCode::MismatchedKinds,
-                );
+                let mut diagnostic =
+                    Diagnostic::mismatched_kinds(unit.ident_pos(self.ctx), "Expected a package");
 
                 if let Some(pos) = primary.decl_pos() {
                     diagnostic.add_related(pos, format!("Found {}", primary.describe()))
@@ -491,10 +485,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Err(_) => {
                     bail!(
                         diagnostics,
-                        Diagnostic::new(
+                        Diagnostic::mismatched_kinds(
                             &prefix.pos(self.ctx),
                             "Invalid prefix of a selected name",
-                            ErrorCode::MismatchedKinds
                         )
                     );
                 }
@@ -502,10 +495,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             UsedNames::AllWithin(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::new(
+                    Diagnostic::mismatched_kinds(
                         &prefix.pos(self.ctx),
                         "'.all' may not be the prefix of a selected name",
-                        ErrorCode::MismatchedKinds
                     )
                 );
             }
@@ -545,11 +537,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | Name::External(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::new(
-                        &name.pos(self.ctx),
-                        "Invalid selected name",
-                        ErrorCode::MismatchedKinds
-                    )
+                    Diagnostic::mismatched_kinds(&name.pos(self.ctx), "Invalid selected name",)
                 );
             }
         }

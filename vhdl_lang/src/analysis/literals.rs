@@ -205,10 +205,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ))
                 }
             }
-            NamedEntities::Overloaded(_) => Err(Diagnostic::new(
+            NamedEntities::Overloaded(_) => Err(Diagnostic::mismatched_kinds(
                 unit.item.pos(self.ctx),
                 "Overloaded name may not be physical unit",
-                ErrorCode::MismatchedKinds,
             )),
         }
     }

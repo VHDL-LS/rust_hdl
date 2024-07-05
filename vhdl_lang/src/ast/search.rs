@@ -683,13 +683,6 @@ impl Search for SubtypeIndication {
     }
 }
 
-impl Search for WithTokenSpan<TypeMark> {
-    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
-        self.item.name.search(ctx, searcher)
-    }
-}
-
 impl Search for RangeConstraint {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         let RangeConstraint {

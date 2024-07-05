@@ -438,10 +438,9 @@ end entity;
 
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s("pkg", 2),
             "package 'pkg' does not denote a context declaration",
-            ErrorCode::MismatchedKinds,
         )],
     )
 }
@@ -471,30 +470,22 @@ end entity;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("libname", 2),
                 "Context reference must be a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
-                code.s1("work"),
-                "Use clause must be a selected name",
-                ErrorCode::MismatchedKinds,
-            ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(code.s1("work"), "Use clause must be a selected name"),
+            Diagnostic::mismatched_kinds(
                 code.s("libname", 3),
                 "Use clause must be a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("work.pkg(0)"),
                 "Use clause must be a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s1("work.ctx'range"),
                 "Context reference must be a selected name",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -616,15 +607,13 @@ end entity;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.all", 1),
                 "'.all' may not be the prefix of a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.all", 2),
                 "'.all' may not be the prefix of a selected name",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -651,15 +640,13 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.gpkg", 1),
                 "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.gpkg", 2),
                 "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -687,15 +674,13 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.pkg.enum_t", 1),
                 "Type 'enum_t' may not be the prefix of a selected name",
-                ErrorCode::MismatchedKinds,
             ),
-            Diagnostic::new(
+            Diagnostic::mismatched_kinds(
                 code.s("work.pkg.const", 1),
                 "Invalid prefix for selected name",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );
@@ -936,10 +921,9 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::new(
+        vec![Diagnostic::mismatched_kinds(
             code.s("work.pkg1.typ_t", 1),
             "Subtype 'typ_t' may not be the prefix of a selected name",
-            ErrorCode::MismatchedKinds,
         )],
     );
 }

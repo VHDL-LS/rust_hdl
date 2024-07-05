@@ -569,6 +569,14 @@ impl Diagnostic {
     pub fn internal(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, ErrorCode::Internal)
     }
+
+    pub fn illegal_attribute(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
+        Self::new(item, msg, ErrorCode::IllegalAttribute)
+    }
+
+    pub fn mismatched_kinds(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
+        Self::new(item, msg, ErrorCode::MismatchedKinds)
+    }
 }
 
 impl Display for ErrorCode {
