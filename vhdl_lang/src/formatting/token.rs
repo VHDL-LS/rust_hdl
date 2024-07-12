@@ -72,7 +72,9 @@ impl DesignUnitFormatter<'_> {
                 buffer.push('"');
             }
             Value::BitString(..) => unimplemented!(),
-            Value::AbstractLiteral(_) => {}
+            Value::AbstractLiteral(_) => {
+                println!("{token:?}")
+            }
             Value::Character(char) => {
                 buffer.push('\'');
                 buffer.push((*char) as char);

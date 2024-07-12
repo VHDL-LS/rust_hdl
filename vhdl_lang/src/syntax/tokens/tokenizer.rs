@@ -1222,9 +1222,7 @@ fn parse_abstract_literal(
                     let exp = parse_exponent(reader)?;
                     Ok((
                         AbstractLiteral,
-                        Value::AbstractLiteral(ast::AbstractLiteral::Real(
-                            real * (10.0_f64).powi(exp),
-                        )),
+                        Value::AbstractLiteral(ast::AbstractLiteral::Real(real * 10_f64.powi(exp))),
                     ))
                 }
                 _ => Ok((
