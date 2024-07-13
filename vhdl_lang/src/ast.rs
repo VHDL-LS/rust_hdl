@@ -638,8 +638,14 @@ impl ObjectDeclaration {
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
-    pub open_info: Option<WithTokenSpan<Expression>>,
-    pub file_name: Option<WithTokenSpan<Expression>>,
+    pub open_info: Option<(TokenId, WithTokenSpan<Expression>)>,
+    pub file_name: Option<(TokenId, WithTokenSpan<Expression>)>,
+}
+
+impl FileDeclaration {
+    pub fn colon_token(&self) -> TokenId {
+        self.ident.tree.token + 1
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]

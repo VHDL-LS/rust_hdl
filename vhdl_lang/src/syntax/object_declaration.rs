@@ -94,16 +94,16 @@ pub fn parse_file_declaration(
     let subtype = parse_subtype_indication(ctx)?;
 
     let open_info = {
-        if ctx.stream.skip_if_kind(Open) {
-            Some(parse_expression(ctx)?)
+        if let Some(token) = ctx.stream.pop_if_kind(Open) {
+            Some((token, parse_expression(ctx)?))
         } else {
             None
         }
     };
 
     let file_name = {
-        if ctx.stream.skip_if_kind(Is) {
-            Some(parse_expression(ctx)?)
+        if let Some(token) = ctx.stream.pop_if_kind(Is) {
+            Some((token, parse_expression(ctx)?))
         } else {
             None
         }
@@ -240,7 +240,7 @@ mod tests {
                     ident: code.s1("foo").decl_ident(),
                     subtype_indication: code.s1("text").subtype_indication(),
                     open_info: None,
-                    file_name: Some(code.s1("\"file_name\"").expr())
+                    file_name: Some((code.s1("id").token(), code.s1("\"file_name\"").expr()))
                 },
                 code.token_span()
             )]
@@ -256,8 +256,8 @@ mod tests {
                 FileDeclaration {
                     ident: code.s1("foo").decl_ident(),
                     subtype_indication: code.s1("text").subtype_indication(),
-                    open_info: Some(code.s1("write_mode").expr()),
-                    file_name: Some(code.s1("\"file_name\"").expr())
+                    open_info: Some((code.s1("open").token(), code.s1("write_mode").expr())),
+                    file_name: Some((code.s1("is").token(), code.s1("\"file_name\"").expr()))
                 },
                 code.token_span()
             )]

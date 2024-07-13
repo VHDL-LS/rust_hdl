@@ -1065,8 +1065,12 @@ impl Search for Declaration {
                     file_name,
                 } = file;
                 return_if_found!(subtype_indication.search(ctx, searcher));
-                return_if_found!(open_info.search(ctx, searcher));
-                return_if_found!(file_name.search(ctx, searcher));
+                if let Some((_, open_info)) = open_info {
+                    return_if_found!(open_info.search(ctx, searcher));
+                }
+                if let Some((_, file_name)) = file_name {
+                    return_if_found!(file_name.search(ctx, searcher));
+                }
             }
 
             Declaration::Package(ref package_instance) => {

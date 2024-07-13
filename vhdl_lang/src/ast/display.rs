@@ -770,10 +770,10 @@ impl Display for FileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "file {} : {}", self.ident, self.subtype_indication)?;
         if let Some(ref expr) = self.open_info {
-            write!(f, " open {expr}")?;
+            write!(f, " open {}", expr.1)?;
         }
         match self.file_name {
-            Some(ref expr) => write!(f, " is {expr};"),
+            Some(ref expr) => write!(f, " is {};", expr.1),
             None => write!(f, ";"),
         }
     }

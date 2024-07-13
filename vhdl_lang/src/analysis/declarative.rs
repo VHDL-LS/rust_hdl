@@ -459,10 +459,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     diagnostics,
                 ))?;
 
-                if let Some(ref mut expr) = open_info {
+                if let Some((_, ref mut expr)) = open_info {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
-                if let Some(ref mut expr) = file_name {
+                if let Some((_, ref mut expr)) = file_name {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
 
