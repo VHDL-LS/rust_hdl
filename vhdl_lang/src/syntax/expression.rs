@@ -280,7 +280,7 @@ fn parse_allocator(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Al
         };
 
         let subtype = SubtypeIndication {
-            resolution: ResolutionIndication::Unresolved,
+            resolution: None,
             type_mark,
             constraint,
         };

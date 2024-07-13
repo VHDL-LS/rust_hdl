@@ -76,7 +76,7 @@ impl DesignUnitFormatter<'_> {
             self.format_token_id(mode.token, buffer);
             buffer.push(' ');
         }
-        self.format_subtype(&mode.subtype_indication, buffer);
+        self.format_subtype_indication(&mode.subtype_indication, buffer);
         self.format_default_expression(mode.expression.as_ref(), buffer);
     }
 }

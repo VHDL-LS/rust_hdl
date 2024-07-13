@@ -18,11 +18,12 @@ pub mod token_range;
 
 pub(crate) use self::util::*;
 use crate::ast::token_range::*;
-pub(crate) use any_design_unit::*;
-
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
+use crate::TokenSpan;
+pub(crate) use any_design_unit::*;
+use vhdl_lang::HasTokenSpan;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -370,14 +371,31 @@ pub struct RecordElementResolution {
 pub enum ResolutionIndication {
     FunctionName(WithTokenSpan<Name>),
     ArrayElement(WithTokenSpan<Name>),
-    Record(Vec<RecordElementResolution>),
-    Unresolved,
+    Record(WithTokenSpan<Vec<RecordElementResolution>>),
+}
+
+impl HasTokenSpan for ResolutionIndication {
+    fn get_start_token(&self) -> TokenId {
+        match self {
+            ResolutionIndication::FunctionName(name) => name.get_start_token(),
+            ResolutionIndication::ArrayElement(name) => name.get_start_token() - 1,
+            ResolutionIndication::Record(record) => record.get_start_token(),
+        }
+    }
+
+    fn get_end_token(&self) -> TokenId {
+        match self {
+            ResolutionIndication::FunctionName(name) => name.get_end_token(),
+            ResolutionIndication::ArrayElement(name) => name.get_end_token() + 1,
+            ResolutionIndication::Record(record) => record.get_end_token(),
+        }
+    }
 }
 
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubtypeIndication {
-    pub resolution: ResolutionIndication,
+    pub resolution: Option<ResolutionIndication>,
     pub type_mark: WithTokenSpan<Name>,
     pub constraint: Option<WithTokenSpan<SubtypeConstraint>>,
 }

@@ -565,7 +565,7 @@ impl Display for ResolutionIndication {
             }
             ResolutionIndication::Record(elem_resolutions) => {
                 let mut first = true;
-                for elem_resolution in elem_resolutions {
+                for elem_resolution in &elem_resolutions.item {
                     if first {
                         write!(f, "({elem_resolution}")?;
                     } else {
@@ -579,16 +579,14 @@ impl Display for ResolutionIndication {
                     Ok(())
                 }
             }
-            ResolutionIndication::Unresolved => Ok(()),
         }
     }
 }
 
 impl Display for SubtypeIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.resolution {
-            ResolutionIndication::Unresolved => (),
-            _ => write!(f, "{} ", self.resolution)?,
+        if let Some(resolution) = &self.resolution {
+            write!(f, "{resolution} ")?;
         }
         write!(f, "{}", self.type_mark)?;
         match self.constraint {

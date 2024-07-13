@@ -2,7 +2,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{Expression, ResolutionIndication, SubtypeIndication};
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
-use crate::TokenAccess;
+use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
@@ -38,14 +38,53 @@ impl DesignUnitFormatter<'_> {
         }
     }
 
-    pub fn format_subtype(&self, subtype: &SubtypeIndication, buffer: &mut String) {
-        match &subtype.resolution {
-            ResolutionIndication::Unresolved => {}
-            _ => unimplemented!(),
+    pub fn format_subtype_indication(&self, indication: &SubtypeIndication, buffer: &mut String) {
+        if let Some(resolution) = &indication.resolution {
+            self.format_resolution_indication(resolution, buffer);
+            buffer.push(' ');
         }
-        self.format_name(&subtype.type_mark.item, subtype.type_mark.span, buffer);
-        if let Some(constraint) = &subtype.constraint {
-            self.format_subtype_constraint(constraint, buffer);
+        self.format_name(
+            &indication.type_mark.item,
+            indication.type_mark.span,
+            buffer,
+        );
+        if let Some(constraint) = &indication.constraint {
+            self.format_subtype_constraint(constraint, buffer)
+        }
+    }
+
+    pub fn format_resolution_indication(
+        &self,
+        indication: &ResolutionIndication,
+        buffer: &mut String,
+    ) {
+        match &indication {
+            ResolutionIndication::FunctionName(name) => {
+                self.format_name(&name.item, name.span, buffer)
+            }
+            ResolutionIndication::ArrayElement(element) => {
+                self.format_token_id(element.span.start_token - 1, buffer);
+                self.format_name(&element.item, element.span, buffer);
+                self.format_token_id(element.span.end_token + 1, buffer);
+            }
+            ResolutionIndication::Record(record) => {
+                let span = record.span;
+                self.format_token_id(span.start_token, buffer);
+                for (i, element_resolution) in record.item.iter().enumerate() {
+                    self.format_token_id(element_resolution.ident.token, buffer);
+                    buffer.push(' ');
+                    self.format_resolution_indication(&element_resolution.resolution, buffer);
+                    if i < record.item.len() - 1 {
+                        // ,
+                        self.format_token_id(
+                            element_resolution.resolution.get_end_token() + 1,
+                            buffer,
+                        );
+                        buffer.push(' ');
+                    }
+                }
+                self.format_token_id(span.end_token, buffer);
+            }
         }
     }
 
@@ -76,6 +115,16 @@ mod test {
         let formatter = DesignUnitFormatter::new(&tokens);
         let mut buffer = String::new();
         formatter.format_expression(&expression.item, code.token_span(), &mut buffer);
+        assert_eq!(&buffer, expected);
+    }
+
+    fn check_subtype_indication(input: &str, expected: &str) {
+        let code = Code::new(input);
+        let subtype_indication = code.subtype_indication();
+        let tokens = code.tokenize();
+        let formatter = DesignUnitFormatter::new(&tokens);
+        let mut buffer = String::new();
+        formatter.format_subtype_indication(&subtype_indication, &mut buffer);
         assert_eq!(&buffer, expected);
     }
 
@@ -112,5 +161,16 @@ mod test {
         check_expression("A + B - C", "A + B - C");
         check_expression("(A * B) + C", "(A * B) + C");
         check_expression("((A * B) + C)", "((A * B) + C)");
+    }
+
+    #[test]
+    fn resolution_indication() {
+        check_subtype_indication("resolve std_logic", "resolve std_logic");
+        check_subtype_indication("(resolve) integer_vector", "(resolve) integer_vector");
+        check_subtype_indication("(elem resolve) rec_t", "(elem resolve) rec_t");
+        check_subtype_indication(
+            "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
+            "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
+        );
     }
 }

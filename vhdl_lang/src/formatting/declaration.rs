@@ -63,7 +63,7 @@ impl DesignUnitFormatter<'_> {
         self.format_token_id(object_decl.ident.tree.token, buffer);
         self.format_token_id(object_decl.colon_token(), buffer);
         buffer.push(' ');
-        self.format_subtype(&object_decl.subtype_indication, buffer);
+        self.format_subtype_indication(&object_decl.subtype_indication, buffer);
         self.format_default_expression(object_decl.expression.as_ref(), buffer);
 
         self.format_token_id(span.end_token, buffer);
@@ -80,7 +80,7 @@ impl DesignUnitFormatter<'_> {
         self.format_ident(&file_decl.ident, buffer);
         self.format_token_id(file_decl.colon_token(), buffer);
         buffer.push(' ');
-        self.format_subtype(&file_decl.subtype_indication, buffer);
+        self.format_subtype_indication(&file_decl.subtype_indication, buffer);
         if let Some((token, open_information)) = &file_decl.open_info {
             buffer.push(' ');
             self.format_token_id(*token, buffer);
@@ -164,7 +164,7 @@ impl DesignUnitFormatter<'_> {
                 // access
                 self.format_token_id(span.start_token, buffer);
                 buffer.push(' ');
-                self.format_subtype(subtype_indication, buffer);
+                self.format_subtype_indication(subtype_indication, buffer);
             }
             Incomplete(_) => {
                 // nothing to do
@@ -182,7 +182,7 @@ impl DesignUnitFormatter<'_> {
             ProtectedBody(protected_body) => {
                 self.format_protected_body_type_declaration(protected_body, span, buffer)
             }
-            Subtype(subtype) => self.format_subtype_indication(subtype, span, buffer),
+            Subtype(subtype) => self.format_subtype_indication(subtype, buffer),
         }
     }
 
@@ -266,7 +266,7 @@ impl DesignUnitFormatter<'_> {
         // of
         self.format_token_id(of_token, buffer);
         buffer.push(' ');
-        self.format_subtype(subtype, buffer);
+        self.format_subtype_indication(subtype, buffer);
     }
 
     pub fn format_record_declaration(
@@ -299,7 +299,7 @@ impl DesignUnitFormatter<'_> {
         // :
         self.format_token_id(declaration.ident.tree.token + 1, buffer);
         buffer.push(' ');
-        self.format_subtype(&declaration.subtype, buffer);
+        self.format_subtype_indication(&declaration.subtype, buffer);
         // ;
         self.format_token_id(declaration.span.end_token, buffer);
     }
@@ -351,30 +351,6 @@ impl DesignUnitFormatter<'_> {
             .unwrap_or(span.start_token + 1);
         // end protected body
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
-    }
-
-    pub fn format_subtype_indication(
-        &self,
-        indication: &SubtypeIndication,
-        span: TokenSpan,
-        buffer: &mut String,
-    ) {
-        self.format_resolution_indication(&indication.resolution, buffer);
-        self.format_name(
-            &indication.type_mark.item,
-            indication.type_mark.span,
-            buffer,
-        );
-        if let Some(constraint) = &indication.constraint {
-            self.format_subtype_constraint(constraint, buffer)
-        }
-    }
-
-    pub fn format_resolution_indication(
-        &self,
-        indication: &ResolutionIndication,
-        buffer: &mut String,
-    ) {
     }
 }
 
