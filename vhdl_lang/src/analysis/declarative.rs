@@ -490,13 +490,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     src_span,
                     Some(self.source()),
                 );
-                self.analyze_interface_list(
-                    &nested,
-                    ent,
-                    &mut component.generic_list,
-                    diagnostics,
-                )?;
-                self.analyze_interface_list(&nested, ent, &mut component.port_list, diagnostics)?;
+                if let Some(generic_list) = &mut component.generic_list {
+                    self.analyze_interface_list(&nested, ent, &mut generic_list.item, diagnostics)?;
+                }
+                if let Some(port_list) = &mut component.generic_list {
+                    self.analyze_interface_list(&nested, ent, &mut port_list.item, diagnostics)?;
+                }
 
                 let kind = AnyEntKind::Component(nested.into_region());
                 unsafe {

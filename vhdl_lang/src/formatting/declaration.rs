@@ -1,7 +1,6 @@
 use crate::ast::{
-    ArrayIndex, ElementDeclaration, FileDeclaration, ObjectDeclaration,
-    ProtectedTypeDeclarativeItem, ResolutionIndication, SubtypeIndication, TypeDeclaration,
-    TypeDefinition,
+    ArrayIndex, ComponentDeclaration, ElementDeclaration, FileDeclaration, ObjectDeclaration,
+    ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -40,12 +39,39 @@ impl DesignUnitFormatter<'_> {
             }
             File(file_decl) => self.format_file_declaration(file_decl, declaration.span, buffer),
             Type(type_decl) => self.format_type_declaration(type_decl, declaration.span, buffer),
+            Component(component) => self.format_component_declaration(component, buffer),
             SubprogramDeclaration(subprogram_declaration) => {
                 self.format_subprogram_declaration(subprogram_declaration, buffer)
             }
             SubprogramBody(subprogram_body) => self.format_subprogram_body(subprogram_body, buffer),
             _ => unimplemented!(),
         }
+    }
+
+    pub fn format_component_declaration(
+        &self,
+        component: &ComponentDeclaration,
+        buffer: &mut String,
+    ) {
+        self.format_token_span(
+            TokenSpan::new(
+                component.span.start_token,
+                component.is_token.unwrap_or(component.span.start_token + 1),
+            ),
+            buffer,
+        );
+        if let Some(generic_clause) = &component.generic_list {
+            self.format_port_or_generic(generic_clause, buffer);
+        }
+        if let Some(port_clause) = &component.port_list {
+            self.format_port_or_generic(port_clause, buffer);
+        }
+        self.newline(buffer);
+        self.format_token_span(
+            TokenSpan::new(component.end_token, component.span.end_token - 1),
+            buffer,
+        );
+        self.format_token_id(component.span.end_token, buffer);
     }
 
     pub fn format_object_declaration(
@@ -356,17 +382,15 @@ impl DesignUnitFormatter<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::formatting::DesignUnitFormatter;
-    use crate::syntax::test::Code;
+    use crate::formatting::test_utils::check_formatted;
 
     fn check_declaration(input: &str, expected: &str) {
-        let code = Code::new(input);
-        let declaration = code.declarative_part().into_iter().next().unwrap();
-        let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
-        let mut buffer = String::new();
-        formatter.format_declaration(&declaration, &mut buffer);
-        assert_eq!(&buffer, expected);
+        check_formatted(
+            input,
+            expected,
+            |code| code.declarative_part().into_iter().next().unwrap(),
+            |formatter, ast, buffer| formatter.format_declaration(ast, buffer),
+        );
     }
 
     #[test]
@@ -621,6 +645,62 @@ end protected body;",
         check_declaration(
             "subtype vec_t is integer_vector(2-1 downto 0);",
             "subtype vec_t is integer_vector(2 - 1 downto 0);",
+        );
+    }
+
+    #[test]
+    fn component_declaration() {
+        check_declaration(
+            "\
+component foo
+end component;",
+            "\
+component foo
+end component;",
+        );
+        check_declaration(
+            "\
+component foo is
+end component;",
+            "\
+component foo is
+end component;",
+        );
+        check_declaration(
+            "\
+component foo is
+end component foo;",
+            "\
+component foo is
+end component foo;",
+        );
+        check_declaration(
+            "\
+component foo is
+  generic (
+    foo : natural
+  );
+end component;",
+            "\
+component foo is
+    generic (
+        foo: natural
+    );
+end component;",
+        );
+        check_declaration(
+            "\
+component foo is
+  port (
+    foo : natural
+  );
+end component;",
+            "\
+component foo is
+    port (
+        foo: natural
+    );
+end component;",
         );
     }
 }

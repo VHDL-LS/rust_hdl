@@ -1051,30 +1051,35 @@ impl Display for ComponentDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "component {}", self.ident)?;
 
-        let mut first = true;
-        for generic in &self.generic_list {
-            if first {
-                write!(f, "\n  generic (\n    {generic}")?;
-            } else {
-                write!(f, ";\n    {generic}")?;
+        if let Some(generic_list) = &self.generic_list {
+            let mut first = true;
+
+            for generic in &generic_list.item {
+                if first {
+                    write!(f, "\n  generic (\n    {generic}")?;
+                } else {
+                    write!(f, ";\n    {generic}")?;
+                }
+                first = false;
             }
-            first = false;
-        }
-        if !first {
-            write!(f, "\n  );")?;
+            if !first {
+                write!(f, "\n  );")?;
+            }
         }
 
         let mut first = true;
-        for port in &self.port_list {
-            if first {
-                write!(f, "\n  port (\n    {port}")?;
-            } else {
-                write!(f, ";\n    {port}")?;
+        if let Some(port_list) = &self.generic_list {
+            for port in &port_list.item {
+                if first {
+                    write!(f, "\n  port (\n    {port}")?;
+                } else {
+                    write!(f, ";\n    {port}")?;
+                }
+                first = false;
             }
-            first = false;
-        }
-        if !first {
-            write!(f, "\n  );")?;
+            if !first {
+                write!(f, "\n  );")?;
+            }
         }
 
         write!(f, "\nend component;")

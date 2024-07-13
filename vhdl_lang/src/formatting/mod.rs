@@ -22,7 +22,7 @@ struct FormatterConfig {
     indent_size: usize,
 }
 
-struct DesignUnitFormatter<'b> {
+pub(crate) struct DesignUnitFormatter<'b> {
     tokens: &'b Vec<Token>,
     indentation: Cell<usize>,
     config: FormatterConfig,
@@ -56,5 +56,26 @@ impl DesignUnitFormatter<'_> {
 
     pub fn decrease_indentation(&self) {
         self.indentation.replace(self.indentation.get() - 1);
+    }
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use crate::formatting::DesignUnitFormatter;
+    use crate::syntax::test::Code;
+
+    pub(crate) fn check_formatted<T>(
+        input: &str,
+        expected: &str,
+        to_ast: impl FnOnce(&Code) -> T,
+        format: impl FnOnce(&DesignUnitFormatter, &T, &mut String),
+    ) {
+        let code = Code::new(input);
+        let ast_element = to_ast(&code);
+        let tokens = code.tokenize();
+        let formatter = DesignUnitFormatter::new(&tokens);
+        let mut buffer = String::new();
+        format(&formatter, &ast_element, &mut buffer);
+        assert_eq!(&buffer, expected);
     }
 }

@@ -1050,14 +1050,16 @@ impl Search for Declaration {
                     .search_decl(ctx, FoundDeclaration::Component(component))
                     .or_not_found());
                 let ComponentDeclaration {
-                    ident: _,
                     generic_list,
                     port_list,
-                    end_ident_pos: _,
-                    span: _,
+                    ..
                 } = component;
-                return_if_found!(generic_list.search(ctx, searcher));
-                return_if_found!(port_list.search(ctx, searcher));
+                if let Some(generic_list) = generic_list {
+                    return_if_found!(generic_list.item.search(ctx, searcher));
+                }
+                if let Some(port_list) = port_list {
+                    return_if_found!(port_list.item.search(ctx, searcher));
+                }
             }
 
             Declaration::File(file) => {

@@ -21,7 +21,6 @@ use crate::ast::token_range::*;
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
-use crate::TokenSpan;
 pub(crate) use any_design_unit::*;
 use vhdl_lang::HasTokenSpan;
 
@@ -880,8 +879,10 @@ pub enum Mode {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
-    pub generic_list: Vec<InterfaceDeclaration>,
-    pub port_list: Vec<InterfaceDeclaration>,
+    pub is_token: Option<TokenId>,
+    pub generic_list: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
+    pub port_list: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 

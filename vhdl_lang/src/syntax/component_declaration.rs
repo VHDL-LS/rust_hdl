@@ -86,25 +86,27 @@ pub fn parse_component_declaration(
 ) -> ParseResult<ComponentDeclaration> {
     let start_token = ctx.stream.expect_kind(Component)?;
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
 
-    let generic_list = parse_optional_generic_list(ctx)?.map(|it| it.item);
-    let port_list = parse_optional_port_list(ctx)?.map(|it| it.item);
-    ctx.stream.expect_kind(End)?;
+    let generic_list = parse_optional_generic_list(ctx)?;
+    let port_list = parse_optional_port_list(ctx)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     if ctx.standard < VHDL2019 {
         ctx.stream.expect_kind(Component)?;
     } else {
         ctx.stream.pop_if_kind(Component);
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(ComponentDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
+        is_token,
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
-        generic_list: generic_list.unwrap_or_default(),
-        port_list: port_list.unwrap_or_default(),
+        generic_list,
+        port_list,
+        end_token,
     })
 }
 
@@ -112,26 +114,8 @@ pub fn parse_component_declaration(
 mod tests {
     use super::*;
 
-    use crate::ast::Ident;
     use crate::syntax::test::Code;
-    use crate::TokenId;
     use crate::VHDLStandard::VHDL2019;
-
-    fn to_component(
-        ident: WithDecl<Ident>,
-        span: TokenSpan,
-        generic_list: Vec<InterfaceDeclaration>,
-        port_list: Vec<InterfaceDeclaration>,
-        end_ident_pos: Option<TokenId>,
-    ) -> ComponentDeclaration {
-        ComponentDeclaration {
-            span,
-            ident,
-            generic_list,
-            port_list,
-            end_ident_pos,
-        }
-    }
 
     #[test]
     fn test_component() {
@@ -144,13 +128,15 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                is_token: None,
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
+            }
         );
 
         let code = Code::new(
@@ -162,13 +148,15 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                is_token: None,
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
+            }
         );
 
         let code = Code::new(
@@ -180,13 +168,15 @@ end component foo;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                Some(code.s("foo", 2).token())
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                is_token: Some(code.s1("foo").token()),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: Some(code.s("foo", 2).token()),
+                end_token: code.s1("end").token(),
+            }
         );
     }
 
@@ -204,13 +194,18 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![code.s1("foo : natural").generic()],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                is_token: Some(code.s1("foo").token()),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: Some(WithTokenSpan::new(
+                    vec![code.s1("foo : natural").generic()],
+                    code.between("generic", ");").token_span()
+                )),
+                port_list: None,
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
+            }
         );
     }
 
@@ -228,13 +223,18 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![code.s1("foo : natural").port()],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                is_token: Some(code.s1("foo").token()),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: Some(WithTokenSpan::new(
+                    vec![code.s1("foo : natural").port()],
+                    code.between("generic", ");").token_span()
+                )),
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
+            }
         );
     }
 
