@@ -603,6 +603,12 @@ pub struct TypeDeclaration {
     pub end_ident_pos: Option<TokenId>,
 }
 
+impl TypeDeclaration {
+    pub fn is_token(&self) -> TokenId {
+        self.ident.tree.token + 1
+    }
+}
+
 /// LRM 6.4.2 Object Declarations
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ObjectClass {

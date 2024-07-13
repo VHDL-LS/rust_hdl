@@ -1,6 +1,7 @@
-use crate::ast::{FileDeclaration, ObjectDeclaration};
+use crate::ast::{FileDeclaration, ObjectDeclaration, TypeDeclaration, TypeDefinition};
 use crate::formatting::DesignUnitFormatter;
-use crate::TokenSpan;
+use crate::syntax::Kind;
+use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{Declaration, ObjectClass};
 
@@ -32,6 +33,7 @@ impl DesignUnitFormatter<'_> {
                 self.format_object_declaration(object_decl, declaration.span, buffer)
             }
             File(file_decl) => self.format_file_declaration(file_decl, declaration.span, buffer),
+            Type(type_decl) => self.format_type_declaration(type_decl, declaration.span, buffer),
             _ => unimplemented!(),
         }
     }
@@ -65,7 +67,7 @@ impl DesignUnitFormatter<'_> {
     ) {
         self.format_token_id(span.start_token, buffer);
         buffer.push(' ');
-        self.format_token_id(file_decl.ident.tree.token, buffer);
+        self.format_ident(&file_decl.ident, buffer);
         self.format_token_id(file_decl.colon_token(), buffer);
         buffer.push(' ');
         self.format_subtype(&file_decl.subtype_indication, buffer);
@@ -82,6 +84,55 @@ impl DesignUnitFormatter<'_> {
             self.format_expression(&file_name.item, file_name.span, buffer);
         }
         self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_type_declaration(
+        &self,
+        type_decl: &TypeDeclaration,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_token_span(
+            TokenSpan::new(span.start_token, type_decl.is_token()),
+            buffer,
+        );
+        buffer.push(' ');
+        self.format_type_definition(
+            &type_decl.def,
+            TokenSpan::new(
+                type_decl.is_token() + 1,
+                type_decl.end_ident_pos.unwrap_or(span.end_token) - 1,
+            ),
+            buffer,
+        );
+        if let Some(end_ident) = type_decl.end_ident_pos {
+            self.format_token_id(end_ident, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_type_definition(
+        &self,
+        definition: &TypeDefinition,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        use TypeDefinition::*;
+        match definition {
+            Enumeration(literals) => {
+                self.format_token_id(span.start_token, buffer);
+                for literal in literals {
+                    self.format_token_id(literal.tree.token, buffer);
+                    if self.tokens.get_token(literal.tree.token + 1).kind == Kind::Comma {
+                        self.format_token_id(literal.tree.token + 1, buffer);
+                        buffer.push(' ');
+                    }
+                }
+                self.format_token_id(span.end_token, buffer);
+            }
+            Numeric(range) => ,
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -132,6 +183,16 @@ mod tests {
         check_declaration(
             "file my_file : text open mode is \"my_file.txt\";",
             "file my_file: text open mode is \"my_file.txt\";",
+        );
+    }
+
+    #[test]
+    fn enum_declaration() {
+        check_declaration("type my_enum is (A);", "type my_enum is (A);");
+        check_declaration("type my_enum is (A,B);", "type my_enum is (A, B);");
+        check_declaration(
+            "type my_enum is ('0', '1', 'U', 'X');",
+            "type my_enum is ('0', '1', 'U', 'X');",
         );
     }
 }

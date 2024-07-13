@@ -736,7 +736,7 @@ impl Search for TypeDeclaration {
             .search_decl(ctx, FoundDeclaration::Type(self))
             .or_not_found());
 
-        match self.def {
+        match &self.def {
             TypeDefinition::ProtectedBody(ref body) => {
                 return_if_found!(body.decl.search(ctx, searcher));
             }

@@ -733,7 +733,7 @@ impl Display for TypeDefinition {
 
 impl Display for TypeDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.def {
+        match &self.def {
             TypeDefinition::Subtype(..) => write!(f, "subtype")?,
             _ => write!(f, "type")?,
         }

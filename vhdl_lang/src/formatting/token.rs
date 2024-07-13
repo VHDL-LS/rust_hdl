@@ -1,6 +1,8 @@
+use crate::ast::WithDecl;
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::{Comment, Value};
 use crate::{kind_str, Token, TokenAccess, TokenId};
+use vhdl_lang::ast::Ident;
 use vhdl_lang::TokenSpan;
 
 fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
@@ -87,6 +89,10 @@ impl DesignUnitFormatter<'_> {
                 self.format_comment(trailing_comment, buffer);
             }
         }
+    }
+
+    pub(crate) fn format_ident(&self, ident: &WithDecl<Ident>, buffer: &mut String) {
+        self.format_token_id(ident.tree.token, buffer)
     }
 }
 
