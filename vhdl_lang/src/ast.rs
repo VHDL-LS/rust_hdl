@@ -654,8 +654,6 @@ pub struct InterfaceList {
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
-    // The `parameter` token, if such a token exists
-    pub param_tok: Option<TokenId>,
     pub parameter_list: Option<InterfaceList>,
 }
 
@@ -666,8 +664,6 @@ pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
-    // The `parameter` token, if such a token exists
-    pub param_tok: Option<TokenId>,
     pub parameter_list: Option<InterfaceList>,
     pub return_type: WithTokenSpan<Name>,
 }

@@ -1130,7 +1130,6 @@ function foo() return bit;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
                     parameter_list: Some(InterfaceList {
                         interface_type: InterfaceType::Parameter,
                         items: vec![],
