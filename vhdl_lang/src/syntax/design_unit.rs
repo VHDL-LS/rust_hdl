@@ -456,7 +456,7 @@ end entity;
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
-                port_clause: Some(vec![]),
+                port_clause: Some(WithTokenSpan::new(vec![], code.s1("port ();").token_span())),
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,

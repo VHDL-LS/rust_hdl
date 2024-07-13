@@ -1,3 +1,4 @@
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     InterfaceDeclaration, InterfaceObjectDeclaration, ModeIndication, SimpleModeIndication,
 };
@@ -5,6 +6,35 @@ use crate::formatting::DesignUnitFormatter;
 use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
+    pub(crate) fn format_port_or_generic(
+        &self,
+        clause: &WithTokenSpan<Vec<InterfaceDeclaration>>,
+        buffer: &mut String,
+    ) {
+        self.increase_indentation();
+        self.newline(buffer);
+        let span = clause.span;
+        // port (
+        // generic (
+        self.format_token_span(
+            TokenSpan::new(span.start_token, span.start_token + 1),
+            buffer,
+        );
+        self.increase_indentation();
+        for item in &clause.item {
+            self.newline(buffer);
+            self.format_interface_declaration(item, buffer);
+        }
+        self.decrease_indentation();
+        if !clause.item.is_empty() {
+            self.newline(buffer);
+        }
+        // );
+        self.format_token_id(span.end_token - 1, buffer);
+        self.format_token_id(span.end_token, buffer);
+        self.decrease_indentation();
+    }
+
     pub fn format_interface_declaration(
         &self,
         declaration: &InterfaceDeclaration,

@@ -1423,7 +1423,7 @@ pub struct EntityDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_clause: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     /// The `end` token from the declaration `*end* entity foo;`

@@ -11,7 +11,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::Diagnostic;
-use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
@@ -46,26 +46,29 @@ pub fn parse_optional_generic_list(
 
 pub fn parse_optional_port_list(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<WithTokenSpan<Vec<InterfaceDeclaration>>>> {
     let mut list = None;
     loop {
         let token = ctx.stream.peek_expect()?;
         match token.kind {
             Port => {
+                let port_token = ctx.stream.get_current_token_id();
                 ctx.stream.skip();
                 let new_list = parse_port_interface_list(ctx)?;
-                expect_semicolon(ctx);
+                let semicolon = expect_semicolon_or_last(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(WithTokenSpan::new(
+                        new_list,
+                        TokenSpan::new(port_token, semicolon),
+                    ));
                 }
             }
             Generic => {
                 ctx.stream.skip();
                 parse_generic_interface_list(ctx)?;
-                expect_semicolon(ctx);
                 ctx.diagnostics.push(Diagnostic::syntax_error(
                     token,
                     "Generic clause must come before port clause",
@@ -86,7 +89,7 @@ pub fn parse_component_declaration(
     ctx.stream.pop_if_kind(Is);
 
     let generic_list = parse_optional_generic_list(ctx)?.map(|it| it.item);
-    let port_list = parse_optional_port_list(ctx)?;
+    let port_list = parse_optional_port_list(ctx)?.map(|it| it.item);
     ctx.stream.expect_kind(End)?;
     if ctx.standard < VHDL2019 {
         ctx.stream.expect_kind(Component)?;
@@ -288,7 +291,13 @@ end
                 "Duplicate port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithTokenSpan::new(
+                vec![code.s1("foo : natural").port()],
+                code.between("port", ";").token_span()
+            ))),
+        );
     }
 
     #[test]
@@ -312,7 +321,13 @@ end
                 "Generic clause must come before port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithTokenSpan::new(
+                vec![code.s1("foo : natural").port()],
+                code.between("port", ";").token_span()
+            )))
+        );
     }
 
     #[test]

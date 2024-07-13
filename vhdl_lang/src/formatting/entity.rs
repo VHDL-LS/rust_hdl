@@ -9,30 +9,10 @@ impl DesignUnitFormatter<'_> {
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
         if let Some(generic_clause) = &entity.generic_clause {
-            self.increase_indentation();
-            self.newline(buffer);
-            let span = generic_clause.span;
-            // generic (
-            self.format_token_span(
-                TokenSpan::new(span.start_token, span.start_token + 1),
-                buffer,
-            );
-            self.increase_indentation();
-            for item in &generic_clause.item {
-                self.newline(buffer);
-                self.format_interface_declaration(item, buffer);
-            }
-            self.decrease_indentation();
-            if !generic_clause.item.is_empty() {
-                self.newline(buffer);
-            }
-            // );
-            self.format_token_id(span.end_token - 1, buffer);
-            self.format_token_id(span.end_token, buffer);
-            self.decrease_indentation();
+            self.format_port_or_generic(generic_clause, buffer);
         }
-        if entity.port_clause.is_some() {
-            unimplemented!();
+        if let Some(port_clause) = &entity.port_clause {
+            self.format_port_or_generic(port_clause, buffer);
         }
         for (i, decl) in entity.decl.iter().enumerate() {
             self.format_declaration(decl);

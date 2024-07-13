@@ -1152,7 +1152,7 @@ impl Display for EntityDeclaration {
 
         if let Some(port_clause) = &self.port_clause {
             let mut first = true;
-            for port in port_clause {
+            for port in &port_clause.item {
                 if first {
                     write!(f, "\n  port (\n    {port}")?;
                 } else {

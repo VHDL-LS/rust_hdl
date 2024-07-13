@@ -1280,7 +1280,9 @@ impl Search for EntityDeclaration {
         if let Some(clause) = &self.generic_clause {
             return_if_found!(clause.item.search(ctx, searcher));
         }
-        return_if_found!(self.port_clause.search(ctx, searcher));
+        if let Some(clause) = &self.port_clause {
+            return_if_found!(clause.item.search(ctx, searcher));
+        }
         return_if_found!(self.decl.search(ctx, searcher));
         self.statements.search(ctx, searcher)
     }
