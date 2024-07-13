@@ -25,23 +25,21 @@ impl DesignUnitFormatter<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::formatting::DesignUnitFormatter;
     use crate::syntax::test::Code;
+    use vhdl_lang::formatting::test_utils::check_formatted;
 
-    fn check_architecture_formatted(input: &str, expected: &str) {
-        let code = Code::new(input);
-        let arch = code.architecture_body();
-        let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
-        let mut buffer = String::new();
-        formatter.format_architecture(&arch, &mut buffer);
-        assert_eq!(&buffer, expected);
+    fn check_architecture_formatted(input: &str) {
+        check_formatted(
+            input,
+            input,
+            Code::architecture_body,
+            |formatter, arch, buffer| formatter.format_architecture(arch, buffer),
+        )
     }
 
     #[test]
     fn format_empty_architecture() {
         check_architecture_formatted(
-            "architecture foo of bar is begin end foo;",
             "\
 architecture foo of bar is
 begin
@@ -49,7 +47,6 @@ end foo;",
         );
 
         check_architecture_formatted(
-            "architecture foo of bar is begin end architecture foo;",
             "\
 architecture foo of bar is
 begin
@@ -57,7 +54,6 @@ end architecture foo;",
         );
 
         check_architecture_formatted(
-            "architecture foo of bar is begin end;",
             "\
 architecture foo of bar is
 begin
@@ -68,11 +64,6 @@ end;",
     #[test]
     fn format_architecture_with_declarations() {
         check_architecture_formatted(
-            "
-architecture foo of bar is
-constant x: foo := bar;
-begin
-end foo;",
             "\
 architecture foo of bar is
     constant x: foo := bar;
@@ -81,12 +72,6 @@ end foo;",
         );
 
         check_architecture_formatted(
-            "
-architecture foo of bar is
-constant x: foo := bar;
-signal y : bar := foobar;
-begin
-end foo;",
             "\
 architecture foo of bar is
     constant x: foo := bar;

@@ -45,7 +45,7 @@ impl DesignUnitFormatter<'_> {
         if specification.header.is_some() {
             unimplemented!()
         }
-        for parameter in &specification.parameter_list {
+        if let Some(parameter) = &specification.parameter_list {
             self.format_interface_list(parameter, buffer);
         }
     }
@@ -66,7 +66,7 @@ impl DesignUnitFormatter<'_> {
         if specification.header.is_some() {
             unimplemented!()
         }
-        for parameter in &specification.parameter_list {
+        if let Some(parameter) = &specification.parameter_list {
             self.format_interface_list(parameter, buffer);
         }
         buffer.push(' ');
@@ -171,5 +171,15 @@ mod test {
         check_subprogram_declaration("function \"+\" return natural;");
         check_subprogram_declaration("impure function foo return natural;");
         check_subprogram_declaration("pure function foo return natural;");
+    }
+
+    #[test]
+    fn test_subprogram_declaration_with_parameters() {
+        check_subprogram_declaration(
+            "\
+procedure foo(
+    a: std_logic
+);",
+        );
     }
 }

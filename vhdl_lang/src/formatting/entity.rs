@@ -9,11 +9,18 @@ impl DesignUnitFormatter<'_> {
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
         if let Some(generic_clause) = &entity.generic_clause {
+            self.increase_indentation();
+            self.newline(buffer);
             self.format_interface_list(generic_clause, buffer);
+            self.decrease_indentation();
         }
         if let Some(port_clause) = &entity.port_clause {
+            self.increase_indentation();
+            self.newline(buffer);
             self.format_interface_list(port_clause, buffer);
+            self.decrease_indentation();
         }
+
         self.increase_indentation();
         self.format_declarations(&entity.decl, buffer);
         self.decrease_indentation();
@@ -34,48 +41,41 @@ impl DesignUnitFormatter<'_> {
 #[cfg(test)]
 mod test {
     use crate::analysis::tests::Code;
-    use crate::formatting::DesignUnitFormatter;
+    use vhdl_lang::formatting::test_utils::check_formatted;
 
-    fn check_entity_formatted(input: &str, expected: &str) {
-        let code = Code::new(input);
-        let ent = code.entity_decl();
-        let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
-        let mut buffer = String::new();
-        formatter.format_entity(&ent, &mut buffer);
-        assert_eq!(&buffer, expected);
+    fn check_entity_formatted(input: &str) {
+        check_formatted(
+            input,
+            input,
+            Code::entity_decl,
+            |formatter, entity, buffer| formatter.format_entity(entity, buffer),
+        );
     }
 
     #[test]
     fn test_format_simple_entity() {
         check_entity_formatted(
-            "entity my_ent is end entity my_ent;",
             "\
 entity my_ent is
 end entity my_ent;",
         );
         check_entity_formatted(
-            "entity my_ent is end my_ent;",
             "\
 entity my_ent is
 end my_ent;",
         );
-
         check_entity_formatted(
-            "entity my_ent is end;",
             "\
 entity my_ent is
 end;",
         );
 
         check_entity_formatted(
-            "entity my_ent is end entity;",
             "\
 entity my_ent is
 end entity;",
         );
         check_entity_formatted(
-            "entity my_ent is begin end entity;",
             "\
 entity my_ent is
 begin
@@ -88,9 +88,6 @@ end entity;",
         check_entity_formatted(
             "\
 -- Some comment about the entity
-entity my_ent is end entity;",
-            "\
--- Some comment about the entity
 entity my_ent is
 end entity;",
         );
@@ -99,24 +96,15 @@ end entity;",
             "\
 entity my_ent is -- trailing comment
 end entity;",
-            "\
-entity my_ent is -- trailing comment
-end entity;",
         );
 
         check_entity_formatted(
             "\
 entity /* Why would you put a comment here? */ my_ent is
 end entity;",
-            "\
-entity /* Why would you put a comment here? */ my_ent is
-end entity;",
         );
 
         check_entity_formatted(
-            "\
-entity /* Why would you put a comment here? */ my_ent is -- this is an entity
-end entity;",
             "\
 entity /* Why would you put a comment here? */ my_ent is -- this is an entity
 end entity;",
@@ -126,12 +114,6 @@ end entity;",
     #[test]
     fn test_entity_with_simple_generic() {
         check_entity_formatted(
-            "\
-entity foo is
-    -- Generics come here
-    generic (foo : in std_logic --<This is it
-);
-end foo;",
             "\
 entity foo is
     -- Generics come here
@@ -147,10 +129,6 @@ end foo;",
         check_entity_formatted(
             "\
 entity foo is
-    generic (foo : in std_logic := '1');
-end foo;",
-            "\
-entity foo is
     generic (
         foo: in std_logic := '1'
     );
@@ -163,10 +141,6 @@ end foo;",
         check_entity_formatted(
             "\
 entity foo is
-    port (foo : in std_logic := '1');
-end foo;",
-            "\
-entity foo is
     port (
         foo: in std_logic := '1'
     );
@@ -177,11 +151,6 @@ end foo;",
     #[test]
     fn test_entity_with_generics_and_ports() {
         check_entity_formatted(
-            "\
-entity foo is
-    generic (a : in std_logic := '1');
-    port (B : in std_logic := '1');
-end foo;",
             "\
 entity foo is
     generic (
@@ -197,12 +166,6 @@ end foo;",
     #[test]
     fn test_entity_with_declarations() {
         check_entity_formatted(
-            "\
-entity foo is
-    port (foo : in std_logic := '1');
-    constant x: foo := bar;
-    signal y: bar := foobar;
-end foo;",
             "\
 entity foo is
     port (

@@ -270,7 +270,6 @@ mod tests {
     use itertools::Itertools;
     use vhdl_lang::TokenId;
 
-    use crate::ast::token_range::WithTokenSpan;
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
     use crate::syntax::{HasTokenSpan, TokenAccess};

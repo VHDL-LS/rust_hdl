@@ -65,10 +65,16 @@ impl DesignUnitFormatter<'_> {
             buffer,
         );
         if let Some(generic_clause) = &component.generic_list {
+            self.increase_indentation();
+            self.newline(buffer);
             self.format_interface_list(generic_clause, buffer);
+            self.decrease_indentation();
         }
         if let Some(port_clause) = &component.port_list {
+            self.increase_indentation();
+            self.newline(buffer);
             self.format_interface_list(port_clause, buffer);
+            self.decrease_indentation();
         }
         self.newline(buffer);
         self.format_token_span(

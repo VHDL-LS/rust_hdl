@@ -78,19 +78,19 @@ mod test {
     use crate::formatting::DesignUnitFormatter;
     use crate::syntax::test::Code;
 
-    fn check_range(input: &str, expected: &str) {
+    fn check_range(input: &str) {
         let code = Code::new(input);
         let range = code.range();
         let tokens = code.tokenize();
         let formatter = DesignUnitFormatter::new(&tokens);
         let mut buffer = String::new();
         formatter.format_range(&range, code.token_span(), &mut buffer);
-        assert_eq!(&buffer, expected);
+        assert_eq!(&buffer, input);
     }
 
     #[test]
     fn check_simple_range() {
-        check_range("0 to 5", "0 to 5");
-        check_range("0 downto 5 - C_OFFSET", "0 downto 5 - C_OFFSET");
+        check_range("0 to 5");
+        check_range("0 downto 5 - C_OFFSET");
     }
 }

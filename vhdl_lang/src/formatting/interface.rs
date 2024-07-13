@@ -9,8 +9,6 @@ use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
     pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut String) {
-        self.increase_indentation();
-        self.newline(buffer);
         let span = clause.span;
         let end_token = if self.tokens.get_token(span.start_token).kind == Kind::LeftPar {
             // We start with a `(` immediately
@@ -34,10 +32,13 @@ impl DesignUnitFormatter<'_> {
         if !clause.items.is_empty() {
             self.newline(buffer);
         }
-        // );
-        self.format_token_id(span.end_token - 1, buffer);
-        self.format_token_id(span.end_token, buffer);
-        self.decrease_indentation();
+        if self.tokens.get_token(span.end_token).kind == Kind::SemiColon {
+            // );
+            self.format_token_id(span.end_token - 1, buffer);
+            self.format_token_id(span.end_token, buffer);
+        } else {
+            self.format_token_id(span.end_token, buffer);
+        }
     }
 
     pub fn format_interface_declaration(
@@ -89,42 +90,37 @@ impl DesignUnitFormatter<'_> {
 #[cfg(test)]
 mod tests {
     use crate::analysis::tests::Code;
-    use crate::formatting::DesignUnitFormatter;
+    use crate::formatting::test_utils::check_formatted;
 
-    fn check_generic(input: &str, expected: &str) {
-        let code = Code::new(input);
-        let interface = code.generic();
-        let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
-        let mut buffer = String::new();
-        formatter.format_interface_declaration(&interface, &mut buffer);
-        assert_eq!(&buffer, expected);
+    fn check_generic(input: &str) {
+        check_formatted(
+            input,
+            input,
+            Code::generic,
+            |formatter, interface, buffer| {
+                formatter.format_interface_declaration(interface, buffer)
+            },
+        );
     }
 
     #[test]
     fn format_simple_object() {
-        check_generic("my_generic: natural", "my_generic: natural");
+        check_generic("my_generic: natural");
     }
 
     #[test]
     fn format_simple_object_with_default() {
-        check_generic("my_generic: natural := 7", "my_generic: natural := 7");
+        check_generic("my_generic: natural := 7");
     }
 
     #[test]
     fn format_simple_object_with_explicit_mode() {
-        check_generic("my_generic: in natural", "my_generic: in natural");
+        check_generic("my_generic: in natural");
     }
 
     #[test]
     fn format_object_with_class() {
-        check_generic(
-            "constant my_generic: in natural",
-            "constant my_generic: in natural",
-        );
-        check_generic(
-            "constant my_generic: natural",
-            "constant my_generic: natural",
-        );
+        check_generic("constant my_generic: in natural");
+        check_generic("constant my_generic: natural");
     }
 }

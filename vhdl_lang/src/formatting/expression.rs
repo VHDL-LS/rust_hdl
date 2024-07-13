@@ -107,69 +107,70 @@ impl DesignUnitFormatter<'_> {
 mod test {
     use crate::analysis::tests::Code;
     use crate::formatting::DesignUnitFormatter;
+    use vhdl_lang::formatting::test_utils::check_formatted;
 
-    fn check_expression(input: &str, expected: &str) {
+    fn check_expression(input: &str) {
         let code = Code::new(input);
         let expression = code.expr();
         let tokens = code.tokenize();
         let formatter = DesignUnitFormatter::new(&tokens);
         let mut buffer = String::new();
         formatter.format_expression(&expression.item, code.token_span(), &mut buffer);
-        assert_eq!(&buffer, expected);
-    }
-
-    fn check_subtype_indication(input: &str, expected: &str) {
-        let code = Code::new(input);
-        let subtype_indication = code.subtype_indication();
-        let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
-        let mut buffer = String::new();
-        formatter.format_subtype_indication(&subtype_indication, &mut buffer);
-        assert_eq!(&buffer, expected);
+        assert_eq!(&buffer, input);
     }
 
     #[test]
     fn test_simple_expression() {
-        check_expression("name", "name")
+        check_expression("name")
     }
 
     #[test]
     fn test_parenthesized_expression() {
-        check_expression("(name)", "(name)")
+        check_expression("(name)")
     }
 
     #[test]
     fn formal_literal() {
-        check_expression("12387.44e7", "12387.44e7");
-        check_expression("7", "7");
+        check_expression("12387.44e7");
+        check_expression("7");
     }
 
     #[test]
     fn binary_expressions() {
-        check_expression("1 + B", "1 + B");
-        check_expression("2 sll 2", "2 sll 2");
+        check_expression("1 + B");
+        check_expression("2 sll 2");
     }
 
     #[test]
     fn unary_expressions() {
-        check_expression("+ B", "+B");
-        check_expression("-2", "-2");
+        check_expression("+B");
+        check_expression("-2");
     }
 
     #[test]
     fn complex_expression() {
-        check_expression("A + B - C", "A + B - C");
-        check_expression("(A * B) + C", "(A * B) + C");
-        check_expression("((A * B) + C)", "((A * B) + C)");
+        check_expression("A + B - C");
+        check_expression("(A * B) + C");
+        check_expression("((A * B) + C)");
+    }
+
+    fn check_subtype_indication(input: &str) {
+        check_formatted(
+            input,
+            input,
+            Code::subtype_indication,
+            |formatter, subtype_indication, buffer| {
+                formatter.format_subtype_indication(subtype_indication, buffer)
+            },
+        );
     }
 
     #[test]
     fn resolution_indication() {
-        check_subtype_indication("resolve std_logic", "resolve std_logic");
-        check_subtype_indication("(resolve) integer_vector", "(resolve) integer_vector");
-        check_subtype_indication("(elem resolve) rec_t", "(elem resolve) rec_t");
+        check_subtype_indication("resolve std_logic");
+        check_subtype_indication("(resolve) integer_vector");
+        check_subtype_indication("(elem resolve) rec_t");
         check_subtype_indication(
-            "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
             "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
         );
     }
