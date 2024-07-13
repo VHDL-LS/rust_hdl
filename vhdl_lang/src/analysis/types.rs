@@ -303,7 +303,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 }
             }
-            TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
+            TypeDefinition::Array(ref mut array_indexes, _, ref mut subtype_indication) => {
                 let mut indexes: Vec<Option<BaseType>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
                     indexes.push(as_fatal(self.analyze_array_index(

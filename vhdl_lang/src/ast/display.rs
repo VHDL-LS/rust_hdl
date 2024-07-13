@@ -687,7 +687,7 @@ impl Display for TypeDefinition {
                 }
                 write!(f, "end units;")
             }
-            TypeDefinition::Array(ref indexes, ref subtype_indication) => {
+            TypeDefinition::Array(ref indexes, _, ref subtype_indication) => {
                 write!(f, " is array (")?;
                 let mut first = true;
                 for index in indexes {

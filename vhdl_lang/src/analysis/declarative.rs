@@ -1091,7 +1091,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => self
                 .type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)
                 .map(|typ| typ.base()),
-            ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
+            ArrayIndex::Discrete(ref mut drange) => {
+                self.drange_type(scope, &mut drange.item, diagnostics)
+            }
         }
     }
 }

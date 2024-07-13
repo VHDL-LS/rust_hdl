@@ -383,14 +383,14 @@ pub struct SubtypeIndication {
 }
 
 /// LRM 5.3 Array Types
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum ArrayIndex {
     /// Unbounded
     /// {identifier} range <>
     IndexSubtypeDefintion(WithTokenSpan<Name>),
 
     /// Constraint
-    Discrete(DiscreteRange),
+    Discrete(WithTokenSpan<DiscreteRange>),
 }
 
 /// LRM 5.3.3 Record types
@@ -585,7 +585,7 @@ pub enum TypeDefinition {
     // @TODO floating
     /// LRM 5.3 Composite Types
     /// LRM 5.3.2 Array types
-    Array(Vec<ArrayIndex>, SubtypeIndication),
+    Array(Vec<ArrayIndex>, TokenId, SubtypeIndication),
     /// LRM 5.3.3 Record types
     Record(Vec<ElementDeclaration>),
     /// LRM 5.4 Access types

@@ -1,5 +1,5 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::SubtypeConstraint;
+use crate::ast::{DiscreteRange, SubtypeConstraint};
 use crate::formatting::DesignUnitFormatter;
 use crate::TokenSpan;
 use vhdl_lang::ast::{Range, RangeConstraint};
@@ -33,6 +33,27 @@ impl DesignUnitFormatter<'_> {
         match range {
             Range::Range(constraint) => self.format_range_constraint(constraint, buffer),
             Range::Attribute(attribute) => self.format_attribute_name(attribute, span, buffer),
+        }
+    }
+
+    pub fn format_discrete_range(
+        &self,
+        range: &DiscreteRange,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        match range {
+            DiscreteRange::Discrete(name, range) => {
+                self.format_name(&name.item, name.span, buffer);
+                buffer.push(' ');
+                if let Some(range) = range {
+                    // range
+                    self.format_token_id(name.span.end_token + 1, buffer);
+                    buffer.push(' ');
+                    self.format_range(range, span, buffer);
+                }
+            }
+            DiscreteRange::Range(range) => self.format_range(range, span, buffer),
         }
     }
 }

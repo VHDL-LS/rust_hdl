@@ -760,14 +760,14 @@ impl Search for TypeDeclaration {
             TypeDefinition::Access(ref subtype_indication) => {
                 return_if_found!(subtype_indication.search(ctx, searcher));
             }
-            TypeDefinition::Array(ref indexes, ref subtype_indication) => {
+            TypeDefinition::Array(ref indexes, _, ref subtype_indication) => {
                 for index in indexes.iter() {
                     match index {
                         ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
                             return_if_found!(type_mark.search(ctx, searcher));
                         }
                         ArrayIndex::Discrete(ref drange) => {
-                            return_if_found!(drange.search(ctx, searcher));
+                            return_if_found!(drange.item.search(ctx, searcher));
                         }
                     }
                 }

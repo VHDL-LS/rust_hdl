@@ -1,7 +1,10 @@
-use crate::ast::{FileDeclaration, ObjectDeclaration, TypeDeclaration, TypeDefinition};
+use crate::ast::{
+    ArrayIndex, FileDeclaration, ObjectDeclaration, SubtypeIndication, TypeDeclaration,
+    TypeDefinition,
+};
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
-use crate::{TokenAccess, TokenSpan};
+use crate::{TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{Declaration, ObjectClass, PhysicalTypeDeclaration};
 
@@ -138,6 +141,9 @@ impl DesignUnitFormatter<'_> {
             Physical(physical_type) => {
                 self.format_physical_type_declaration(physical_type, span, buffer)
             }
+            Array(indices, of_token, subtype) => {
+                self.format_array_type_declaration(indices, *of_token, subtype, span, buffer)
+            }
             _ => unimplemented!(),
         }
     }
@@ -180,6 +186,49 @@ impl DesignUnitFormatter<'_> {
         // end units
         self.format_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
         self.decrease_indentation();
+    }
+
+    pub fn format_array_type_declaration(
+        &self,
+        indices: &[ArrayIndex],
+        of_token: TokenId,
+        subtype: &SubtypeIndication,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // array
+        self.format_token_id(span.start_token, buffer);
+        buffer.push(' ');
+        // (
+        self.format_token_id(span.start_token + 1, buffer);
+        for (i, index) in indices.iter().enumerate() {
+            let end_token = match index {
+                ArrayIndex::IndexSubtypeDefintion(name) => {
+                    self.format_name(&name.item, name.span, buffer);
+                    buffer.push(' ');
+                    self.format_token_span(
+                        TokenSpan::new(name.span.end_token + 1, name.span.end_token + 2),
+                        buffer,
+                    );
+                    name.span.end_token + 3
+                }
+                ArrayIndex::Discrete(discrete_range) => {
+                    self.format_discrete_range(&discrete_range.item, discrete_range.span, buffer);
+                    discrete_range.span.end_token + 1
+                }
+            };
+            if i < indices.len() - 1 {
+                self.format_token_id(end_token, buffer);
+                buffer.push(' ');
+            }
+        }
+        // )
+        self.format_token_id(of_token - 1, buffer);
+        buffer.push(' ');
+        // of
+        self.format_token_id(of_token, buffer);
+        buffer.push(' ');
+        self.format_subtype(subtype, buffer);
     }
 }
 
@@ -289,6 +338,36 @@ type TIME is range -9223372036854775807 to 9223372036854775807
         min = 60 sec; -- minute
         hr = 60 min; -- hour
     end units;",
+        );
+
+        check_declaration(
+            "type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+      fs; -- femtosecond
+      ps = fs; -- picosecond
+    end units;",
+            "\
+type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+        fs; -- femtosecond
+        ps = fs; -- picosecond
+    end units;",
+        );
+    }
+
+    #[test]
+    fn array_type_definition() {
+        check_declaration(
+            "type my_array is array (natural range <>) of std_logic_vector;",
+            "type my_array is array (natural range <>) of std_logic_vector;",
+        );
+        check_declaration(
+            "type foo is array (2-1 downto 0, integer range <>) of boolean;",
+            "type foo is array (2 - 1 downto 0, integer range <>) of boolean;",
+        );
+        check_declaration(
+            "type foo is array (2-1 downto 0) of boolean;",
+            "type foo is array (2 - 1 downto 0) of boolean;",
         );
     }
 }

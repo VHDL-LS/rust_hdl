@@ -65,9 +65,13 @@ fn parse_array_index_constraints(ctx: &mut ParsingContext<'_>) -> ParseResult<Ve
 /// LRM 5.3.2 Array types
 fn parse_array_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
     let index_constraints = parse_array_index_constraints(ctx)?;
-    ctx.stream.expect_kind(Of)?;
+    let of_token = ctx.stream.expect_kind(Of)?;
     let element_subtype = parse_subtype_indication(ctx)?;
-    Ok(TypeDefinition::Array(index_constraints, element_subtype))
+    Ok(TypeDefinition::Array(
+        index_constraints,
+        of_token,
+        element_subtype,
+    ))
 }
 
 /// LRM 5.3.3 Record types
@@ -403,6 +407,7 @@ mod tests {
                 vec![ArrayIndex::IndexSubtypeDefintion(
                     code.s1("natural").type_mark(),
                 )],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -422,10 +427,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("natural").type_mark(),
-                    None,
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Discrete(code.s1("natural").type_mark(), None),
+                    code.s1("natural").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -445,10 +451,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("lib.pkg.foo").type_mark(),
-                    None,
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Discrete(code.s1("lib.pkg.foo").type_mark(), None),
+                    code.s1("lib.pkg.foo").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -468,9 +475,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Range(
-                    code.s1("arr_t'range").range(),
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Range(code.s1("arr_t'range").range()),
+                    code.s1("arr_t'range").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -486,12 +495,19 @@ mod tests {
     fn parse_array_type_definition_with_constraint() {
         let code = Code::new("type foo is array (2-1 downto 0) of boolean;");
 
-        let index = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
+        let index = ArrayIndex::Discrete(WithTokenSpan::new(
+            DiscreteRange::Range(code.s1("2-1 downto 0").range()),
+            code.s1("2-1 downto 0").token_span(),
+        ));
 
         let type_decl = TypeDeclaration {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
-            def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
+            def: TypeDefinition::Array(
+                vec![index],
+                code.s1("of").token(),
+                code.s1("boolean").subtype_indication(),
+            ),
             end_ident_pos: None,
         };
 
@@ -505,7 +521,10 @@ mod tests {
     fn parse_array_type_definition_mixed() {
         let code = Code::new("type foo is array (2-1 downto 0, integer range <>) of boolean;");
 
-        let index0 = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
+        let index0 = ArrayIndex::Discrete(WithTokenSpan::new(
+            DiscreteRange::Range(code.s1("2-1 downto 0").range()),
+            code.s1("2-1 downto 0").token_span(),
+        ));
 
         let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").type_mark());
 
@@ -514,6 +533,7 @@ mod tests {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![index0, index1],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
