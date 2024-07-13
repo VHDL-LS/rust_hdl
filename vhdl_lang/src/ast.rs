@@ -611,8 +611,13 @@ pub struct TypeDeclaration {
 }
 
 impl TypeDeclaration {
-    pub fn is_token(&self) -> TokenId {
-        self.ident.tree.token + 1
+    pub fn is_token(&self) -> Option<TokenId> {
+        if matches!(self.def, TypeDefinition::Incomplete(_)) {
+            // incomplete types have no `is` token
+            None
+        } else {
+            Some(self.ident.tree.token + 1)
+        }
     }
 }
 

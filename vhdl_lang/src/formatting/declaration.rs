@@ -96,18 +96,25 @@ impl DesignUnitFormatter<'_> {
         buffer: &mut String,
     ) {
         self.format_token_span(
-            TokenSpan::new(span.start_token, type_decl.is_token()),
+            TokenSpan::new(span.start_token, type_decl.ident.tree.token),
             buffer,
         );
-        buffer.push(' ');
-        self.format_type_definition(
-            &type_decl.def,
-            TokenSpan::new(
-                type_decl.is_token() + 1,
-                type_decl.end_ident_pos.unwrap_or(span.end_token) - 1,
-            ),
-            buffer,
-        );
+        if let Some(is_token) = type_decl.is_token() {
+            buffer.push(' ');
+            self.format_token_id(is_token, buffer);
+        }
+        if let Some(is_token) = type_decl.is_token() {
+            buffer.push(' ');
+
+            self.format_type_definition(
+                &type_decl.def,
+                TokenSpan::new(
+                    is_token + 1,
+                    type_decl.end_ident_pos.unwrap_or(span.end_token) - 1,
+                ),
+                buffer,
+            );
+        }
         if let Some(end_ident) = type_decl.end_ident_pos {
             buffer.push(' ');
             self.format_token_id(end_ident, buffer);
@@ -146,6 +153,15 @@ impl DesignUnitFormatter<'_> {
                 self.format_array_type_declaration(indices, *of_token, subtype, span, buffer)
             }
             Record(elements) => self.format_record_declaration(elements, span, buffer),
+            Access(subtype_indication) => {
+                // access
+                self.format_token_id(span.start_token, buffer);
+                buffer.push(' ');
+                self.format_subtype(subtype_indication, buffer);
+            }
+            Incomplete(_) => {
+                // nothing to do
+            }
             _ => unimplemented!(),
         }
     }
@@ -449,5 +465,18 @@ type dummy_rec is record
     dummy: bit;
 end record;",
         );
+    }
+
+    #[test]
+    fn access_definition() {
+        check_declaration(
+            "type dummy_rec is access bit;",
+            "type dummy_rec is access bit;",
+        );
+    }
+
+    #[test]
+    fn incomplete_type_definition() {
+        check_declaration("type incomplete;", "type incomplete;");
     }
 }

@@ -872,7 +872,7 @@ end units;
                                 value: AbstractLiteral::Integer(1),
                                 unit: code.s("primary_unit", 2).ident().into_ref()
                             },
-                            code.s1("primary_unit").token_span()
+                            code.s("primary_unit", 2).token_span()
                         )
                     ),]
                 }),
