@@ -162,6 +162,15 @@ impl DesignUnitFormatter<'_> {
             Incomplete(_) => {
                 // nothing to do
             }
+            File(name) => {
+                // file of
+                self.format_token_span(
+                    TokenSpan::new(span.start_token, span.start_token + 1),
+                    buffer,
+                );
+                buffer.push(' ');
+                self.format_name(&name.item, name.span, buffer);
+            }
             _ => unimplemented!(),
         }
     }
@@ -478,5 +487,13 @@ end record;",
     #[test]
     fn incomplete_type_definition() {
         check_declaration("type incomplete;", "type incomplete;");
+    }
+
+    #[test]
+    fn file_definitions() {
+        check_declaration(
+            "type foo is file of character;",
+            "type foo is file of character;",
+        );
     }
 }
