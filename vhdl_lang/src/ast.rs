@@ -702,6 +702,7 @@ pub struct FunctionSpecification {
 pub struct SubprogramBody {
     pub specification: SubprogramSpecification,
     pub declarations: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<TokenId>,
 }

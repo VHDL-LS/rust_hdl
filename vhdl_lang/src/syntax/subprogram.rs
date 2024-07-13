@@ -228,7 +228,7 @@ pub fn parse_subprogram_body(
         }
     };
     let declarations = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_sequential_statements(ctx)?;
     expect_token!(
@@ -247,6 +247,7 @@ pub fn parse_subprogram_body(
             Ok(SubprogramBody {
                 span: TokenSpan::new(specification_start_token, end_token),
                 end_ident_pos: check_end_identifier_mismatch(ctx, specification.subpgm_designator(), end_ident),
+                begin_token,
                 specification,
                 declarations,
                 statements,
@@ -654,6 +655,7 @@ end function;
         let body = SubprogramBody {
             span: code.token_span(),
             specification,
+            begin_token: code.s1("begin").token(),
             declarations,
             statements,
             end_ident_pos: None,
@@ -696,6 +698,7 @@ end function foo;
             span: code.token_span(),
             specification,
             declarations: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_ident_pos: Some(code.s("foo", 2).token()),
         };
@@ -721,6 +724,7 @@ end function \"+\";
             span: code.token_span(),
             specification,
             declarations: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_ident_pos: Some(code.s("\"+\"", 2).token()),
         };
@@ -859,6 +863,7 @@ end function;
         let body = SubprogramBody {
             span: code.token_span(),
             specification,
+            begin_token: code.s1("begin").token(),
             declarations,
             statements,
             end_ident_pos: None,
@@ -892,6 +897,7 @@ end procedure swap;
             span: code.token_span(),
             specification,
             declarations: code.s1("variable temp : T;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![
                 code.s1("temp := a;").sequential_statement(),
                 code.s1("a := b;").sequential_statement(),

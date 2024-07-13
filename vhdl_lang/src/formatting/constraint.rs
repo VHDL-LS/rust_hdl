@@ -5,12 +5,27 @@ use crate::TokenSpan;
 use vhdl_lang::ast::{Range, RangeConstraint};
 
 impl DesignUnitFormatter<'_> {
+    // TODO: has bugs + not tested properly
     pub fn format_subtype_constraint(
         &self,
         constraint: &WithTokenSpan<SubtypeConstraint>,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        self.format_token_id(constraint.span.start_token, buffer);
+        let span = TokenSpan::new(
+            constraint.span.start_token + 1,
+            constraint.span.end_token - 1,
+        );
+        match &constraint.item {
+            SubtypeConstraint::Range(range) => self.format_range(range, constraint.span, buffer),
+            SubtypeConstraint::Array(ranges, opt_constraint) => {
+                for range in ranges {
+                    self.format_discrete_range(range, span, buffer);
+                }
+            }
+            SubtypeConstraint::Record(_) => unimplemented!(),
+        }
+        self.format_token_id(constraint.span.end_token, buffer);
     }
 
     pub fn format_range_constraint(&self, constraint: &RangeConstraint, buffer: &mut String) {

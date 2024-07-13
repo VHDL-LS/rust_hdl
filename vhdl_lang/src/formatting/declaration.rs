@@ -1,12 +1,15 @@
 use crate::ast::{
-    ArrayIndex, ElementDeclaration, FileDeclaration, ObjectDeclaration, SubtypeIndication,
-    TypeDeclaration, TypeDefinition,
+    ArrayIndex, ElementDeclaration, FileDeclaration, ObjectDeclaration,
+    ProtectedTypeDeclarativeItem, ResolutionIndication, SubtypeIndication, TypeDeclaration,
+    TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
-use vhdl_lang::ast::{Declaration, ObjectClass, PhysicalTypeDeclaration};
+use vhdl_lang::ast::{
+    Declaration, ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
+};
 
 impl DesignUnitFormatter<'_> {
     pub(crate) fn format_declarations(
@@ -37,6 +40,10 @@ impl DesignUnitFormatter<'_> {
             }
             File(file_decl) => self.format_file_declaration(file_decl, declaration.span, buffer),
             Type(type_decl) => self.format_type_declaration(type_decl, declaration.span, buffer),
+            SubprogramDeclaration(subprogram_declaration) => {
+                self.format_subprogram_declaration(subprogram_declaration, buffer)
+            }
+            SubprogramBody(subprogram_body) => self.format_subprogram_body(subprogram_body, buffer),
             _ => unimplemented!(),
         }
     }
@@ -171,7 +178,11 @@ impl DesignUnitFormatter<'_> {
                 buffer.push(' ');
                 self.format_name(&name.item, name.span, buffer);
             }
-            _ => unimplemented!(),
+            Protected(protected) => self.format_protected_type_declaration(protected, span, buffer),
+            ProtectedBody(protected_body) => {
+                self.format_protected_body_type_declaration(protected_body, span, buffer)
+            }
+            Subtype(subtype) => self.format_subtype_indication(subtype, span, buffer),
         }
     }
 
@@ -291,6 +302,79 @@ impl DesignUnitFormatter<'_> {
         self.format_subtype(&declaration.subtype, buffer);
         // ;
         self.format_token_id(declaration.span.end_token, buffer);
+    }
+
+    pub fn format_protected_type_declaration(
+        &self,
+        declaration: &ProtectedTypeDeclaration,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // protected
+        self.format_token_id(span.start_token, buffer);
+        let mut last_token = span.start_token;
+        self.increase_indentation();
+        for element in &declaration.items {
+            self.newline(buffer);
+            match element {
+                ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
+                    self.format_subprogram_declaration(subprogram, buffer);
+                    last_token = subprogram.span.end_token;
+                }
+            }
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        // end protected
+        self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
+    }
+
+    pub fn format_protected_body_type_declaration(
+        &self,
+        declaration: &ProtectedTypeBody,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // protected body
+        self.format_token_span(
+            TokenSpan::new(span.start_token, span.start_token + 1),
+            buffer,
+        );
+        self.increase_indentation();
+        self.format_declarations(&declaration.decl, buffer);
+        self.decrease_indentation();
+        self.newline(buffer);
+        let last_token = declaration
+            .decl
+            .last()
+            .map(|last| last.span.end_token)
+            .unwrap_or(span.start_token + 1);
+        // end protected body
+        self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
+    }
+
+    pub fn format_subtype_indication(
+        &self,
+        indication: &SubtypeIndication,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_resolution_indication(&indication.resolution, buffer);
+        self.format_name(
+            &indication.type_mark.item,
+            indication.type_mark.span,
+            buffer,
+        );
+        if let Some(constraint) = &indication.constraint {
+            self.format_subtype_constraint(constraint, buffer)
+        }
+    }
+
+    pub fn format_resolution_indication(
+        &self,
+        indication: &ResolutionIndication,
+        buffer: &mut String,
+    ) {
     }
 }
 
@@ -494,6 +578,73 @@ end record;",
         check_declaration(
             "type foo is file of character;",
             "type foo is file of character;",
+        );
+    }
+
+    #[test]
+    fn protected_declaration() {
+        check_declaration(
+            "type foo is protected
+end protected;
+",
+            "type foo is protected
+end protected;",
+        );
+
+        check_declaration(
+            "type foo is protected
+end protected foo;
+",
+            "type foo is protected
+end protected foo;",
+        );
+
+        check_declaration(
+            "type foo is protected
+  procedure proc;
+  function fun return ret;
+end protected;
+",
+            "type foo is protected
+    procedure proc;
+    function fun return ret;
+end protected;",
+        );
+    }
+
+    #[test]
+    fn protected_body_declaration() {
+        check_declaration(
+            "type foo is protected body
+end protected body;
+",
+            "type foo is protected body
+end protected body;",
+        );
+
+        check_declaration(
+            "type foo is protected body
+  variable foo : natural;
+  procedure proc is
+  begin
+  end;
+end protected body;
+",
+            "\
+type foo is protected body
+    variable foo: natural;
+    procedure proc is
+    begin
+    end;
+end protected body;",
+        );
+    }
+
+    #[test]
+    fn protected_subtype_declaration() {
+        check_declaration(
+            "subtype vec_t is integer_vector(2-1 downto 0);",
+            "subtype vec_t is integer_vector(2 - 1 downto 0);",
         );
     }
 }
