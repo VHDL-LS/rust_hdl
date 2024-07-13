@@ -966,6 +966,12 @@ impl Search for Signature {
     }
 }
 
+impl Search for InterfaceList {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        self.items.search(ctx, searcher)
+    }
+}
+
 impl Search for Declaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self {

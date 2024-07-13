@@ -791,17 +791,21 @@ impl Display for SubprogramDesignator {
 impl Display for ProcedureSpecification {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "procedure {}", self.designator)?;
-        let mut first = true;
-        for param in &self.parameter_list {
-            if first {
-                write!(f, "(\n  {param}")?;
-            } else {
-                write!(f, ";\n  {param}")?;
+        if let Some(parameter_list) = &self.parameter_list {
+            let mut first = true;
+            for param in &parameter_list.items {
+                if first {
+                    write!(f, "(\n  {param}")?;
+                } else {
+                    write!(f, ";\n  {param}")?;
+                }
+                first = false;
             }
-            first = false;
-        }
-        if !first {
-            write!(f, "\n)")
+            if !first {
+                write!(f, "\n)")
+            } else {
+                Ok(())
+            }
         } else {
             Ok(())
         }
@@ -815,16 +819,18 @@ impl Display for FunctionSpecification {
         }
         write!(f, "function {}", self.designator)?;
         let mut first = true;
-        for param in &self.parameter_list {
-            if first {
-                write!(f, "(\n  {param}")?;
-            } else {
-                write!(f, ";\n  {param}")?;
+        if let Some(parameter_list) = &self.parameter_list {
+            for param in &parameter_list.items {
+                if first {
+                    write!(f, "(\n  {param}")?;
+                } else {
+                    write!(f, ";\n  {param}")?;
+                }
+                first = false;
             }
-            first = false;
-        }
-        if !first {
-            write!(f, "\n)")?;
+            if !first {
+                write!(f, "\n)")?;
+            }
         }
         write!(f, " return {}", self.return_type)
     }
@@ -1053,32 +1059,35 @@ impl Display for ComponentDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "component {}", self.ident)?;
 
-        let mut first = true;
-        for generic in &self.generic_list {
-            if first {
-                write!(f, "\n  generic (\n    {generic}")?;
-            } else {
-                write!(f, ";\n    {generic}")?;
+        if let Some(generic_list) = &self.generic_list {
+            let mut first = true;
+            for generic in &generic_list.items {
+                if first {
+                    write!(f, "\n  generic (\n    {generic}")?;
+                } else {
+                    write!(f, ";\n    {generic}")?;
+                }
+                first = false;
             }
-            first = false;
-        }
-        if !first {
-            write!(f, "\n  );")?;
+            if !first {
+                write!(f, "\n  );")?;
+            }
         }
 
-        let mut first = true;
-        for port in &self.port_list {
-            if first {
-                write!(f, "\n  port (\n    {port}")?;
-            } else {
-                write!(f, ";\n    {port}")?;
+        if let Some(port_list) = &self.port_list {
+            let mut first = true;
+            for generic in &port_list.items {
+                if first {
+                    write!(f, "\n  port (\n    {generic}")?;
+                } else {
+                    write!(f, ";\n    {generic}")?;
+                }
+                first = false;
             }
-            first = false;
+            if !first {
+                write!(f, "\n  );")?;
+            }
         }
-        if !first {
-            write!(f, "\n  );")?;
-        }
-
         write!(f, "\nend component;")
     }
 }
@@ -1137,7 +1146,7 @@ impl Display for EntityDeclaration {
 
         if let Some(generic_clause) = &self.generic_clause {
             let mut first = true;
-            for generic in generic_clause {
+            for generic in &generic_clause.items {
                 if first {
                     write!(f, "\n  generic (\n    {generic}")?;
                 } else {
@@ -1152,7 +1161,7 @@ impl Display for EntityDeclaration {
 
         if let Some(port_clause) = &self.port_clause {
             let mut first = true;
-            for port in port_clause {
+            for port in &port_clause.items {
                 if first {
                     write!(f, "\n  port (\n    {port}")?;
                 } else {
@@ -1176,7 +1185,7 @@ impl Display for PackageDeclaration {
             write!(f, "package {} is", self.ident)?;
 
             let mut first = true;
-            for generic in generic_clause {
+            for generic in &generic_clause.items {
                 if first {
                     write!(f, "\n  generic (\n    {generic}")?;
                 } else {

@@ -641,15 +641,20 @@ pub enum SubprogramDesignator {
     OperatorSymbol(Operator),
 }
 
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfaceList {
+    pub interface_type: InterfaceType,
+    pub items: Vec<InterfaceDeclaration>,
+}
+
 /// LRM 4.2 Subprogram declaration
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
-    // The `parameter` token, if such a token exists
-    pub param_tok: Option<TokenId>,
-    pub parameter_list: Vec<InterfaceDeclaration>,
+    pub parameter_list: Option<InterfaceList>,
 }
 
 /// LRM 4.2 Subprogram declaration
@@ -659,9 +664,7 @@ pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
-    // The `parameter` token, if such a token exists
-    pub param_tok: Option<TokenId>,
-    pub parameter_list: Vec<InterfaceDeclaration>,
+    pub parameter_list: Option<InterfaceList>,
     pub return_type: WithTokenSpan<Name>,
 }
 
@@ -681,8 +684,7 @@ pub struct SubprogramBody {
 /// mark this element as optional.
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramHeader {
-    pub generic_tok: TokenId,
-    pub generic_list: Vec<InterfaceDeclaration>,
+    pub generic_list: InterfaceList,
     pub map_aspect: Option<MapAspect>,
 }
 
@@ -818,18 +820,13 @@ pub enum Mode {
     Linkage,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct PortClause {
-    pub port_list: Vec<InterfaceDeclaration>,
-}
-
 /// LRM 6.8 Component declarations
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
-    pub generic_list: Vec<InterfaceDeclaration>,
-    pub port_list: Vec<InterfaceDeclaration>,
+    pub generic_list: Option<InterfaceList>,
+    pub port_list: Option<InterfaceList>,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1063,9 +1060,9 @@ pub struct BlockStatement {
 /// LRM 11.2 Block statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockHeader {
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub generic_clause: Option<InterfaceList>,
     pub generic_map: Option<MapAspect>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_clause: Option<InterfaceList>,
     pub port_map: Option<MapAspect>,
 }
 
@@ -1420,8 +1417,8 @@ pub struct ConfigurationDeclaration {
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub generic_clause: Option<InterfaceList>,
+    pub port_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<TokenId>,
@@ -1446,7 +1443,7 @@ pub struct ArchitectureBody {
 pub struct PackageDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub generic_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub end_ident_pos: Option<TokenId>,
 }

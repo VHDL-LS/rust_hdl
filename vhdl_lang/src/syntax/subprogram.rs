@@ -95,11 +95,11 @@ pub fn parse_optional_subprogram_header(
     let Some(generic) = ctx.stream.pop_if_kind(Generic) else {
         return Ok(None);
     };
-    let generic_list = parse_generic_interface_list(ctx)?;
+    let mut generic_list = parse_generic_interface_list(ctx)?;
+    generic_list.span.start_token = generic;
     let map_aspect = parse_map_aspect(ctx, Generic)?;
 
     Ok(Some(SubprogramHeader {
-        generic_tok: generic,
         generic_list,
         map_aspect,
     }))
@@ -167,14 +167,15 @@ pub fn parse_subprogram_specification(
 
     let header = parse_optional_subprogram_header(ctx)?;
 
-    let (parameter_list, param_tok) = {
-        if let Some(parameter) = ctx.stream.pop_if_kind(Parameter) {
-            (parse_parameter_interface_list(ctx)?, Some(parameter))
-        } else if ctx.stream.peek_kind() == Some(LeftPar) {
-            (parse_parameter_interface_list(ctx)?, None)
-        } else {
-            (Vec::new(), None)
+    let param_tok = ctx.stream.pop_if_kind(Parameter);
+    let parameter_list = if ctx.stream.peek_kind() == Some(LeftPar) {
+        let mut interface_list = parse_parameter_interface_list(ctx)?;
+        if let Some(param_tok) = param_tok {
+            interface_list.span.start_token = param_tok
         }
+        Some(interface_list)
+    } else {
+        None
     };
 
     if is_function {
@@ -183,7 +184,6 @@ pub fn parse_subprogram_specification(
         let end_token = ctx.stream.get_last_token_id();
         Ok(SubprogramSpecification::Function(FunctionSpecification {
             pure: is_pure,
-            param_tok,
             designator: designator.into(),
             header,
             parameter_list,
@@ -194,7 +194,6 @@ pub fn parse_subprogram_specification(
         let end_token = ctx.stream.get_last_token_id();
         Ok(SubprogramSpecification::Procedure(ProcedureSpecification {
             designator: designator.into(),
-            param_tok,
             header,
             parameter_list,
             span: TokenSpan::new(start_token, end_token),
@@ -314,9 +313,8 @@ procedure foo;
                         .ident()
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
-                    param_tok: None,
                     header: None,
-                    parameter_list: Vec::new(),
+                    parameter_list: None,
                     span: code.s1("procedure foo").token_span(),
                 })
             }
@@ -342,8 +340,7 @@ function foo return lib.foo.natural;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: Vec::new(),
+                    parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("function", ".natural").token_span(),
                 })
@@ -370,8 +367,7 @@ function \"+\" return lib.foo.natural;
                     }
                     .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: Vec::new(),
+                    parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("function", ".natural").token_span(),
                 })
@@ -398,8 +394,7 @@ impure function foo return lib.foo.natural;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: Vec::new(),
+                    parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("impure", ".natural").token_span(),
                 })
@@ -425,8 +420,7 @@ pure function foo return lib.foo.natural;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: Vec::new(),
+                    parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("pure", ".natural").token_span(),
                 })
@@ -452,8 +446,11 @@ procedure foo(foo : natural);
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    parameter_list: Some(InterfaceList {
+                        interface_type: InterfaceType::Parameter,
+                        items: vec![code.s1("foo : natural").parameter()],
+                        span: code.between("(", ")").token_span()
+                    }),
                     span: code.between("procedure", "natural)").token_span(),
                 })
             }
@@ -479,8 +476,11 @@ function foo(foo : natural) return lib.foo.natural;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: None,
-                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    parameter_list: Some(InterfaceList {
+                        interface_type: InterfaceType::Parameter,
+                        items: vec![code.s1("foo : natural").parameter()],
+                        span: code.between("(", ")").token_span()
+                    }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("function", ".natural").token_span(),
                 })
@@ -507,8 +507,11 @@ function foo parameter (foo : natural) return lib.foo.natural;
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: None,
-                    param_tok: Some(code.s1("parameter").token()),
-                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    parameter_list: Some(InterfaceList {
+                        interface_type: InterfaceType::Parameter,
+                        items: vec![code.s1("foo : natural").parameter()],
+                        span: code.between("parameter (", ")").token_span()
+                    }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("function", ".natural").token_span(),
                 })
@@ -535,12 +538,18 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: Some(SubprogramHeader {
-                        generic_list: vec![code.s1("abc_def: natural").generic(),],
+                        generic_list: InterfaceList {
+                            interface_type: InterfaceType::Generic,
+                            items: vec![code.s1("abc_def: natural").generic()],
+                            span: code.s1("generic (abc_def: natural)").token_span()
+                        },
                         map_aspect: None,
-                        generic_tok: code.s1("generic").token()
                     }),
-                    param_tok: Some(code.s1("parameter").token()),
-                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    parameter_list: Some(InterfaceList {
+                        interface_type: InterfaceType::Parameter,
+                        items: vec![code.s1("foo : natural").parameter()],
+                        span: code.s1("parameter (foo : natural)").token_span()
+                    }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
                     span: code.between("function", ".natural").token_span(),
                 })
@@ -739,12 +748,15 @@ end function \"+\";
         assert_eq!(
             header,
             SubprogramHeader {
-                generic_tok: code.s1("generic").token(),
                 map_aspect: None,
-                generic_list: vec![
-                    code.s1("x: natural := 1").generic(),
-                    code.s1("y: real").generic()
-                ]
+                generic_list: InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![
+                        code.s1("x: natural := 1").generic(),
+                        code.s1("y: real").generic()
+                    ],
+                    span: code.between("generic (", ")").token_span()
+                }
             }
         )
     }
@@ -758,7 +770,6 @@ end function \"+\";
         assert_eq!(
             header,
             SubprogramHeader {
-                generic_tok: code.s1("generic").token(),
                 map_aspect: Some(MapAspect {
                     start: code.s("generic", 2).token(),
                     list: SeparatedList {
@@ -770,10 +781,14 @@ end function \"+\";
                     },
                     closing_paren: code.s(")", 2).token()
                 }),
-                generic_list: vec![
-                    code.s1("x: natural := 1").generic(),
-                    code.s1("y: real").generic()
-                ]
+                generic_list: InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![
+                        code.s1("x: natural := 1").generic(),
+                        code.s1("y: real").generic()
+                    ],
+                    span: code.between("generic (", ")").token_span()
+                }
             }
         )
     }
@@ -800,8 +815,7 @@ procedure my_proc
                     header: code
                         .s1("generic (x: natural := 4; y: real := 4)")
                         .subprogram_header(),
-                    param_tok: None,
-                    parameter_list: vec![],
+                    parameter_list: None,
                     span: code.between("procedure", "4)").token_span(),
                 })
             }
@@ -832,8 +846,7 @@ procedure my_proc
                         .s1("generic (x: natural := 4; y: real := 4)
     generic map (x => 42)")
                         .subprogram_header(),
-                    param_tok: None,
-                    parameter_list: vec![],
+                    parameter_list: None,
                     span: code.between("procedure", "42)").token_span(),
                 })
             }
