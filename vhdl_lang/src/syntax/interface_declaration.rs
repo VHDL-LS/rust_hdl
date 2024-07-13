@@ -458,11 +458,6 @@ pub fn parse_generic(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclarati
 }
 
 #[cfg(test)]
-pub fn parse_parameter_list(ctx: &mut ParsingContext) -> ParseResult<InterfaceList> {
-    parse_interface_list(ctx, InterfaceType::Parameter)
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::analysis::tests::check_diagnostics;
@@ -551,7 +546,7 @@ mod tests {
     fn parses_interface_file_declaration_no_open_info() {
         let code = Code::new("(file foo : text open read_mode)");
         assert_eq!(
-            code.with_stream_diagnostics(parse_parameter_list),
+            code.with_stream_diagnostics(parse_parameter_interface_list),
             (
                 InterfaceList {
                     interface_type: InterfaceType::Parameter,
@@ -570,7 +565,7 @@ mod tests {
     fn parses_interface_file_declaration_no_file_name() {
         let code = Code::new("(file foo : text is \"file_name\")");
         assert_eq!(
-            code.with_stream_diagnostics(parse_parameter_list),
+            code.with_stream_diagnostics(parse_parameter_interface_list),
             (
                 InterfaceList {
                     interface_type: InterfaceType::Parameter,
@@ -589,7 +584,7 @@ mod tests {
     fn parses_interface_file_declaration_list_with_errors() {
         let code = Code::new("(file with_name: text is \"file_name\"; file valid : text; file open_info: text open read_mode)");
         assert_eq!(
-            code.with_stream_diagnostics(parse_parameter_list),
+            code.with_stream_diagnostics(parse_parameter_interface_list),
             (
                 InterfaceList {
                     interface_type: InterfaceType::Parameter,
