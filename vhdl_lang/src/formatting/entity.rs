@@ -178,4 +178,36 @@ entity foo is
 end foo;",
         );
     }
+
+    #[test]
+    fn test_entity_generic_default_value() {
+        check_entity_formatted(
+            "\
+entity foo is
+    generic (foo : in std_logic := '1');
+end foo;",
+            "\
+entity foo is
+    generic (
+        foo: in std_logic := '1'
+    );
+end foo;",
+        );
+    }
+
+    #[test]
+    fn test_entity_with_ports() {
+        check_entity_formatted(
+            "\
+entity foo is
+    port (foo : in std_logic := '1');
+end foo;",
+            "\
+entity foo is
+    port (
+        foo: in std_logic := '1'
+    );
+end foo;",
+        );
+    }
 }

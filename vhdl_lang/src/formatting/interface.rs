@@ -48,8 +48,10 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_subtype(&mode.subtype_indication, buffer);
         if let Some(expression) = &mode.expression {
-            self.format_token_id(expression.span.start_token, buffer);
-            self.format_expression(expression, buffer);
+            buffer.push(' ');
+            self.format_token_id(expression.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&expression.item, expression.span, buffer);
         }
     }
 }
@@ -72,6 +74,11 @@ mod tests {
     #[test]
     fn format_simple_object() {
         check_generic("my_generic: natural", "my_generic: natural");
+    }
+
+    #[test]
+    fn format_simple_object_with_default() {
+        check_generic("my_generic: natural := 7", "my_generic: natural := 7");
     }
 
     #[test]
