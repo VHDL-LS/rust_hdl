@@ -240,7 +240,7 @@ mod tests {
                     ident: code.s1("foo").decl_ident(),
                     subtype_indication: code.s1("text").subtype_indication(),
                     open_info: None,
-                    file_name: Some((code.s1("id").token(), code.s1("\"file_name\"").expr()))
+                    file_name: Some((code.s1("is").token(), code.s1("\"file_name\"").expr()))
                 },
                 code.token_span()
             )]

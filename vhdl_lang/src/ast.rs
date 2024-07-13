@@ -328,6 +328,12 @@ pub struct RangeConstraint {
     pub right_expr: Box<WithTokenSpan<Expression>>,
 }
 
+impl RangeConstraint {
+    pub fn direction_token(&self) -> TokenId {
+        self.left_expr.span.end_token + 1
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Range {
     Range(RangeConstraint),

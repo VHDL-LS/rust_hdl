@@ -130,7 +130,11 @@ impl DesignUnitFormatter<'_> {
                 }
                 self.format_token_id(span.end_token, buffer);
             }
-            Numeric(range) => ,
+            Numeric(range) => {
+                self.format_token_id(span.start_token, buffer);
+                buffer.push(' ');
+                self.format_range(range, span.start_with(span.start_token + 1), buffer)
+            }
             _ => unimplemented!(),
         }
     }
@@ -193,6 +197,14 @@ mod tests {
         check_declaration(
             "type my_enum is ('0', '1', 'U', 'X');",
             "type my_enum is ('0', '1', 'U', 'X');",
+        );
+    }
+
+    #[test]
+    fn numeric_type_declaration() {
+        check_declaration(
+            "type my_enum is range 0 to 5;",
+            "type my_enum is range 0 to 5;",
         );
     }
 }

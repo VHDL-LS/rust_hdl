@@ -3,6 +3,7 @@ use std::cell::Cell;
 use std::iter;
 
 mod architecture;
+mod constraint;
 mod context;
 mod declaration;
 mod design;

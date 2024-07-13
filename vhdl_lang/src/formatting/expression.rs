@@ -45,7 +45,7 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_name(&subtype.type_mark.item, subtype.type_mark.span, buffer);
         if let Some(constraint) = &subtype.constraint {
-            unimplemented!();
+            self.format_subtype_constraint(constraint, buffer);
         }
     }
 
