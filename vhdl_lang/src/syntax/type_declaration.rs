@@ -12,12 +12,14 @@ use super::range::{parse_array_index_constraint, parse_range};
 use super::subprogram::parse_subprogram_declaration;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::TokenId;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
@@ -140,6 +142,7 @@ pub fn parse_protected_type_declaration(
 fn parse_physical_type_definition(
     ctx: &mut ParsingContext<'_>,
     range: Range,
+    units_token: TokenId,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let primary_unit = WithDecl::new(ctx.stream.expect_ident()?);
     expect_semicolon(ctx);
@@ -162,12 +165,13 @@ fn parse_physical_type_definition(
                         value_token_id,
                         AbstractLiteral => {
                             let value = value_token.to_abstract_literal(value_token_id)?.item;
+                            let unit_token = ctx.stream.get_current_token_id();
                             let unit = ctx.stream.expect_ident()?;
-                            PhysicalLiteral {value, unit: unit.into_ref()}
+                            WithTokenSpan::new(PhysicalLiteral {value, unit: unit.into_ref()}, TokenSpan::new(value_token_id, unit_token))
                         },
                         Identifier => {
                             let unit = value_token.to_identifier_value(value_token_id)?;
-                            PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
+                            WithTokenSpan::new(PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}, TokenSpan::new(value_token_id, value_token_id))
                         }
                     )
                 };
@@ -185,6 +189,7 @@ fn parse_physical_type_definition(
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
             range,
+            units_token,
             primary_unit,
             secondary_units,
         }),
@@ -227,13 +232,13 @@ pub fn parse_type_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeD
         Range => {
             let constraint = parse_range(ctx)?.item;
             expect_token!(
-                ctx.stream, token,
+                ctx.stream, token, token_id,
                 SemiColon => {
                     ctx.stream.back(); // The ';' is consumed at the end of the function
                     TypeDefinition::Numeric(constraint)
                 },
                 Units => {
-                    let (def, end_ident) = parse_physical_type_definition(ctx, constraint)?;
+                    let (def, end_ident) = parse_physical_type_definition(ctx, constraint, token_id)?;
                     end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
                     def
                 }
@@ -775,6 +780,7 @@ end units phys;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![]
                 }),
@@ -801,13 +807,17 @@ end units;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        PhysicalLiteral {
-                            value: AbstractLiteral::Integer(5),
-                            unit: code.s("primary_unit", 2).ident().into_ref()
-                        }
+                        WithTokenSpan::new(
+                            PhysicalLiteral {
+                                value: AbstractLiteral::Integer(5),
+                                unit: code.s("primary_unit", 2).ident().into_ref()
+                            },
+                            code.s1("5 primary_unit").token_span()
+                        )
                     ),]
                 }),
                 end_ident_pos: None,
@@ -833,13 +843,17 @@ end units;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        PhysicalLiteral {
-                            value: AbstractLiteral::Integer(1),
-                            unit: code.s("primary_unit", 2).ident().into_ref()
-                        }
+                        WithTokenSpan::new(
+                            PhysicalLiteral {
+                                value: AbstractLiteral::Integer(1),
+                                unit: code.s("primary_unit", 2).ident().into_ref()
+                            },
+                            code.s1("primary_unit").token_span()
+                        )
                     ),]
                 }),
                 end_ident_pos: None,

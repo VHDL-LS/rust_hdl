@@ -801,6 +801,7 @@ impl Search for TypeDeclaration {
             TypeDefinition::Physical(ref physical) => {
                 let PhysicalTypeDeclaration {
                     range,
+                    units_token: _,
                     primary_unit,
                     secondary_units,
                 } = physical;
@@ -810,9 +811,14 @@ impl Search for TypeDeclaration {
                     .or_not_found());
                 for (ident, literal) in secondary_units.iter() {
                     return_if_found!(searcher
-                        .search_decl(ctx, FoundDeclaration::PhysicalTypeSecondary(ident, literal))
+                        .search_decl(
+                            ctx,
+                            FoundDeclaration::PhysicalTypeSecondary(ident, &literal.item)
+                        )
                         .or_not_found());
-                    return_if_found!(searcher.search_ident_ref(ctx, &literal.unit).or_not_found());
+                    return_if_found!(searcher
+                        .search_ident_ref(ctx, &literal.item.unit)
+                        .or_not_found());
                 }
             }
         }

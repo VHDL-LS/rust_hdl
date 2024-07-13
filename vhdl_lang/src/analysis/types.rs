@@ -401,11 +401,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 scope.add(primary, diagnostics);
 
                 for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
-                    match self.resolve_physical_unit(scope, &mut value.unit) {
+                    match self.resolve_physical_unit(scope, &mut value.item.unit) {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != phys_type {
                                 diagnostics.add(
-                                    value.unit.item.pos(self.ctx),
+                                    value.item.unit.item.pos(self.ctx),
                                     format!(
                                         "Physical unit of type '{}' does not match {}",
                                         secondary_unit_type.designator(),

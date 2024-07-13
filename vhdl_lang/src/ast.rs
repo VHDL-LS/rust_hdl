@@ -559,8 +559,9 @@ pub struct ProtectedTypeBody {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PhysicalTypeDeclaration {
     pub range: Range,
+    pub units_token: TokenId,
     pub primary_unit: WithDecl<Ident>,
-    pub secondary_units: Vec<(WithDecl<Ident>, PhysicalLiteral)>,
+    pub secondary_units: Vec<(WithDecl<Ident>, WithTokenSpan<PhysicalLiteral>)>,
 }
 
 /// LRM 5.2.2 Enumeration types

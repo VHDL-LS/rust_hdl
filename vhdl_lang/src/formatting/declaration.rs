@@ -3,7 +3,7 @@ use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
-use vhdl_lang::ast::{Declaration, ObjectClass};
+use vhdl_lang::ast::{Declaration, ObjectClass, PhysicalTypeDeclaration};
 
 impl DesignUnitFormatter<'_> {
     pub(crate) fn format_declarations(
@@ -135,8 +135,51 @@ impl DesignUnitFormatter<'_> {
                 buffer.push(' ');
                 self.format_range(range, span.start_with(span.start_token + 1), buffer)
             }
+            Physical(physical_type) => {
+                self.format_physical_type_declaration(physical_type, span, buffer)
+            }
             _ => unimplemented!(),
         }
+    }
+
+    pub fn format_physical_type_declaration(
+        &self,
+        declaration: &PhysicalTypeDeclaration,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // range
+        self.format_token_id(span.start_token, buffer);
+        buffer.push(' ');
+        self.format_range(
+            &declaration.range,
+            TokenSpan::new(span.start_token + 1, declaration.units_token - 1),
+            buffer,
+        );
+        self.increase_indentation();
+        self.newline(buffer);
+        self.format_token_id(declaration.units_token, buffer);
+        self.increase_indentation();
+        self.newline(buffer);
+        // primary_unit;
+        self.format_ident(&declaration.primary_unit, buffer);
+        self.format_token_id(declaration.primary_unit.tree.token + 1, buffer);
+        for (ident, literal) in &declaration.secondary_units {
+            self.newline(buffer);
+            self.format_ident(ident, buffer);
+            buffer.push(' ');
+            // =
+            self.format_token_id(ident.tree.token + 1, buffer);
+            buffer.push(' ');
+            self.format_token_span(literal.span, buffer);
+            // ;
+            self.format_token_id(literal.span.end_token + 1, buffer);
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        // end units
+        self.format_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
+        self.decrease_indentation();
     }
 }
 
@@ -205,6 +248,47 @@ mod tests {
         check_declaration(
             "type my_enum is range 0 to 5;",
             "type my_enum is range 0 to 5;",
+        );
+    }
+
+    #[test]
+    fn physical_types() {
+        check_declaration(
+            "type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+      fs; -- femtosecond
+    end units;",
+            "\
+type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+        fs; -- femtosecond
+    end units;",
+        );
+
+        check_declaration(
+            "type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+      fs; -- femtosecond
+      ps = 1000 fs; -- picosecond
+      ns = 1000 ps; -- nanosecond
+      us = 1000 ns; -- microsecond
+      ms = 1000 us; -- millisecond
+      sec = 1000 ms; -- second
+      min = 60 sec; -- minute
+      hr= 60 min; -- hour
+    end units;",
+            "\
+type TIME is range -9223372036854775807 to 9223372036854775807
+    units
+        fs; -- femtosecond
+        ps = 1000 fs; -- picosecond
+        ns = 1000 ps; -- nanosecond
+        us = 1000 ns; -- microsecond
+        ms = 1000 us; -- millisecond
+        sec = 1000 ms; -- second
+        min = 60 sec; -- minute
+        hr = 60 min; -- hour
+    end units;",
         );
     }
 }

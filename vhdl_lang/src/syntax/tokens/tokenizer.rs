@@ -565,7 +565,12 @@ impl Debug for TokenSpan {
 
 impl TokenSpan {
     pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
-        debug_assert!(start_token <= end_token);
+        debug_assert!(
+            start_token <= end_token,
+            "start token {:} is past end token {}",
+            start_token.0,
+            end_token.0
+        );
         Self {
             start_token,
             end_token,

@@ -198,6 +198,26 @@ end foo;",
     }
 
     #[test]
+    fn test_entity_with_generics_and_ports() {
+        check_entity_formatted(
+            "\
+entity foo is
+    generic (a : in std_logic := '1');
+    port (B : in std_logic := '1');
+end foo;",
+            "\
+entity foo is
+    generic (
+        a: in std_logic := '1'
+    );
+    port (
+        B: in std_logic := '1'
+    );
+end foo;",
+        );
+    }
+
+    #[test]
     fn test_entity_with_declarations() {
         check_entity_formatted(
             "\
