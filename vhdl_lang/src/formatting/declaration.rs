@@ -8,8 +8,8 @@ use crate::syntax::Kind;
 use crate::{TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
-    Attribute, AttributeDeclaration, AttributeSpecification, Declaration, ObjectClass,
-    PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration, Signature,
+    AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, Declaration,
+    ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
 };
 
 impl DesignUnitFormatter<'_> {
@@ -43,6 +43,7 @@ impl DesignUnitFormatter<'_> {
             Type(type_decl) => self.format_type_declaration(type_decl, declaration.span, buffer),
             Component(component) => self.format_component_declaration(component, buffer),
             Attribute(attribute) => self.format_attribute(attribute, declaration.span, buffer),
+            Alias(alias) => self.format_alias_declaration(alias, declaration.span, buffer),
             SubprogramDeclaration(subprogram_declaration) => {
                 self.format_subprogram_declaration(subprogram_declaration, buffer)
             }
@@ -439,16 +440,43 @@ impl DesignUnitFormatter<'_> {
         self.format_expression(&attribute.expr.item, attribute.expr.span, buffer);
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_alias_declaration(
+        &self,
+        alias: &AliasDeclaration,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // alias <name>
+        self.format_token_span(
+            TokenSpan::new(span.start_token, span.start_token + 1),
+            buffer,
+        );
+        if let Some(subtype) = &alias.subtype_indication {
+            // :
+            self.format_token_id(span.start_token + 2, buffer);
+            buffer.push(' ');
+            self.format_subtype_indication(subtype, buffer);
+        }
+        buffer.push(' ');
+        self.format_token_id(alias.is_token, buffer);
+        buffer.push(' ');
+        self.format_name(&alias.name.item, alias.name.span, buffer);
+        if let Some(signature) = &alias.signature {
+            self.format_signature(signature, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::formatting::test_utils::check_formatted;
 
-    fn check_declaration(input: &str, expected: &str) {
+    fn check_declaration(input: &str) {
         check_formatted(
             input,
-            expected,
+            input,
             |code| code.declarative_part().into_iter().next().unwrap(),
             |formatter, ast, buffer| formatter.format_declaration(ast, buffer),
         );
@@ -456,64 +484,36 @@ mod tests {
 
     #[test]
     fn object_declarations() {
-        check_declaration(
-            "constant my_const : std_logic;",
-            "constant my_const: std_logic;",
-        );
-        check_declaration(
-            "variable my_var : std_logic;",
-            "variable my_var: std_logic;",
-        );
-        check_declaration("signal foo : std_logic;", "signal foo: std_logic;");
-        check_declaration(
-            "shared variable bar : std_logic;",
-            "shared variable bar: std_logic;",
-        );
+        check_declaration("constant my_const: std_logic;");
+        check_declaration("variable my_var: std_logic;");
+        check_declaration("signal foo: std_logic;");
+        check_declaration("shared variable bar: std_logic;");
 
-        check_declaration(
-            "shared variable bar : std_logic := '0';",
-            "shared variable bar: std_logic := '0';",
-        );
+        check_declaration("shared variable bar: std_logic := '0';");
     }
 
     #[test]
     fn file_declarations() {
-        check_declaration("file my_file : text;", "file my_file: text;");
-        check_declaration(
-            "file my_file : text is \"my_file.txt\";",
-            "file my_file: text is \"my_file.txt\";",
-        );
-        check_declaration(
-            "file my_file : text open mode is \"my_file.txt\";",
-            "file my_file: text open mode is \"my_file.txt\";",
-        );
+        check_declaration("file my_file: text;");
+        check_declaration("file my_file: text is \"my_file.txt\";");
+        check_declaration("file my_file: text open mode is \"my_file.txt\";");
     }
 
     #[test]
     fn enum_declaration() {
-        check_declaration("type my_enum is (A);", "type my_enum is (A);");
-        check_declaration("type my_enum is (A,B);", "type my_enum is (A, B);");
-        check_declaration(
-            "type my_enum is ('0', '1', 'U', 'X');",
-            "type my_enum is ('0', '1', 'U', 'X');",
-        );
+        check_declaration("type my_enum is (A);");
+        check_declaration("type my_enum is (A, B);");
+        check_declaration("type my_enum is ('0', '1', 'U', 'X');");
     }
 
     #[test]
     fn numeric_type_declaration() {
-        check_declaration(
-            "type my_enum is range 0 to 5;",
-            "type my_enum is range 0 to 5;",
-        );
+        check_declaration("type my_enum is range 0 to 5;");
     }
 
     #[test]
     fn physical_types() {
         check_declaration(
-            "type TIME is range -9223372036854775807 to 9223372036854775807
-    units
-      fs; -- femtosecond
-    end units;",
             "\
 type TIME is range -9223372036854775807 to 9223372036854775807
     units
@@ -522,18 +522,7 @@ type TIME is range -9223372036854775807 to 9223372036854775807
         );
 
         check_declaration(
-            "type TIME is range -9223372036854775807 to 9223372036854775807
-    units
-      fs; -- femtosecond
-      ps = 1000 fs; -- picosecond
-      ns = 1000 ps; -- nanosecond
-      us = 1000 ns; -- microsecond
-      ms = 1000 us; -- millisecond
-      sec = 1000 ms; -- second
-      min = 60 sec; -- minute
-      hr= 60 min; -- hour
-    end units;",
-            "\
+            "
 type TIME is range -9223372036854775807 to 9223372036854775807
     units
         fs; -- femtosecond
@@ -548,11 +537,6 @@ type TIME is range -9223372036854775807 to 9223372036854775807
         );
 
         check_declaration(
-            "type TIME is range -9223372036854775807 to 9223372036854775807
-    units
-      fs; -- femtosecond
-      ps = fs; -- picosecond
-    end units;",
             "\
 type TIME is range -9223372036854775807 to 9223372036854775807
     units
@@ -564,24 +548,14 @@ type TIME is range -9223372036854775807 to 9223372036854775807
 
     #[test]
     fn array_type_definition() {
-        check_declaration(
-            "type my_array is array (natural range <>) of std_logic_vector;",
-            "type my_array is array (natural range <>) of std_logic_vector;",
-        );
-        check_declaration(
-            "type foo is array (2-1 downto 0, integer range <>) of boolean;",
-            "type foo is array (2 - 1 downto 0, integer range <>) of boolean;",
-        );
-        check_declaration(
-            "type foo is array (2-1 downto 0) of boolean;",
-            "type foo is array (2 - 1 downto 0) of boolean;",
-        );
+        check_declaration("type my_array is array (natural range <>) of std_logic_vector;");
+        check_declaration("type foo is array (2 - 1 downto 0, integer range <>) of boolean;");
+        check_declaration("type foo is array (2 - 1 downto 0) of boolean;");
     }
 
     #[test]
     fn record_type_definition() {
         check_declaration(
-            "type x is record end record;",
             "\
 type x is record
 end record;",
@@ -589,19 +563,10 @@ end record;",
         check_declaration(
             "\
 type foo is record
-  element : boolean;
-end record;",
-            "\
-type foo is record
     element: boolean;
 end record;",
         );
         check_declaration(
-            "\
-type foo is record
-  element : boolean;
-  other_element : std_logic_vector;
-end foo;",
             "\
 type foo is record
     element: boolean;
@@ -609,11 +574,6 @@ type foo is record
 end foo;",
         );
         check_declaration(
-            "\
-type dummy_rec is
-        record
-            dummy: bit;
-        end record;",
             "\
 type dummy_rec is record
     dummy: bit;
@@ -623,49 +583,32 @@ end record;",
 
     #[test]
     fn access_definition() {
-        check_declaration(
-            "type dummy_rec is access bit;",
-            "type dummy_rec is access bit;",
-        );
+        check_declaration("type dummy_rec is access bit;");
     }
 
     #[test]
     fn incomplete_type_definition() {
-        check_declaration("type incomplete;", "type incomplete;");
+        check_declaration("type incomplete;");
     }
 
     #[test]
     fn file_definitions() {
-        check_declaration(
-            "type foo is file of character;",
-            "type foo is file of character;",
-        );
+        check_declaration("type foo is file of character;");
     }
 
     #[test]
     fn protected_declaration() {
         check_declaration(
             "type foo is protected
-end protected;
-",
-            "type foo is protected
 end protected;",
         );
 
         check_declaration(
             "type foo is protected
-end protected foo;
-",
-            "type foo is protected
 end protected foo;",
         );
 
         check_declaration(
-            "type foo is protected
-  procedure proc;
-  function fun return ret;
-end protected;
-",
             "type foo is protected
     procedure proc;
     function fun return ret;
@@ -677,20 +620,10 @@ end protected;",
     fn protected_body_declaration() {
         check_declaration(
             "type foo is protected body
-end protected body;
-",
-            "type foo is protected body
 end protected body;",
         );
 
         check_declaration(
-            "type foo is protected body
-  variable foo : natural;
-  procedure proc is
-  begin
-  end;
-end protected body;
-",
             "\
 type foo is protected body
     variable foo: natural;
@@ -703,10 +636,7 @@ end protected body;",
 
     #[test]
     fn protected_subtype_declaration() {
-        check_declaration(
-            "subtype vec_t is integer_vector(2-1 downto 0);",
-            "subtype vec_t is integer_vector(2 - 1 downto 0);",
-        );
+        check_declaration("subtype vec_t is integer_vector(2 - 1 downto 0);");
     }
 
     #[test]
@@ -715,14 +645,8 @@ end protected body;",
             "\
 component foo
 end component;",
-            "\
-component foo
-end component;",
         );
         check_declaration(
-            "\
-component foo is
-end component;",
             "\
 component foo is
 end component;",
@@ -731,17 +655,8 @@ end component;",
             "\
 component foo is
 end component foo;",
-            "\
-component foo is
-end component foo;",
         );
         check_declaration(
-            "\
-component foo is
-  generic (
-    foo : natural
-  );
-end component;",
             "\
 component foo is
     generic (
@@ -750,12 +665,6 @@ component foo is
 end component;",
         );
         check_declaration(
-            "\
-component foo is
-  port (
-    foo : natural
-  );
-end component;",
             "\
 component foo is
     port (
@@ -767,22 +676,19 @@ end component;",
 
     #[test]
     fn check_attribute_declaration() {
-        check_declaration("attribute foo : name;", "attribute foo: name;");
-        check_declaration(
-            "attribute attr_name of foo : signal is 0+1;",
-            "attribute attr_name of foo: signal is 0 + 1;",
-        );
-        check_declaration(
-            "attribute attr_name of \"**\" : function is 0+1;",
-            "attribute attr_name of \"**\": function is 0 + 1;",
-        );
-        check_declaration(
-            "attribute attr_name of all : signal is 0+1;",
-            "attribute attr_name of all: signal is 0 + 1;",
-        );
-        check_declaration(
-            "attribute attr_name of foo[return natural] : function is 0+1;",
-            "attribute attr_name of foo[return natural]: function is 0 + 1;",
-        );
+        check_declaration("attribute foo: name;");
+        check_declaration("attribute attr_name of foo: signal is 0 + 1;");
+        check_declaration("attribute attr_name of \"**\": function is 0 + 1;");
+        check_declaration("attribute attr_name of all: signal is 0 + 1;");
+        check_declaration("attribute attr_name of foo[return natural]: function is 0 + 1;");
+    }
+
+    #[test]
+    fn check_alias_declaration() {
+        check_declaration("alias foo is name;");
+        check_declaration("alias foo: vector(0 to 1) is name;");
+        check_declaration("alias foo is name[return natural];");
+        check_declaration("alias \"and\" is name;");
+        check_declaration("alias 'c' is 'b';");
     }
 }

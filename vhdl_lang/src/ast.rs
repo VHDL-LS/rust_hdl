@@ -493,6 +493,7 @@ impl HasDesignator for WithToken<WithRef<Designator>> {
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithToken<Designator>>,
     pub subtype_indication: Option<SubtypeIndication>,
+    pub is_token: TokenId,
     pub name: WithTokenSpan<Name>,
     pub signature: Option<WithTokenSpan<Signature>>,
 }

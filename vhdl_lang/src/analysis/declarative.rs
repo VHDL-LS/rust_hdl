@@ -234,6 +234,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             name,
             subtype_indication,
             signature,
+            is_token: _,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, name.span, &mut name.item, diagnostics);

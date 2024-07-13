@@ -1028,10 +1028,10 @@ impl Search for Declaration {
                     .search_decl(ctx, FoundDeclaration::Alias(alias))
                     .or_not_found());
                 let AliasDeclaration {
-                    designator: _,
                     subtype_indication,
                     name,
                     signature,
+                    ..
                 } = alias;
                 return_if_found!(subtype_indication.search(ctx, searcher));
                 return_if_found!(name.search(ctx, searcher));
