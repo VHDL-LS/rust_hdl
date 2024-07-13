@@ -1068,7 +1068,7 @@ impl Display for ComponentDeclaration {
         }
 
         let mut first = true;
-        if let Some(port_list) = &self.generic_list {
+        if let Some(port_list) = &self.port_list {
             for port in &port_list.item {
                 if first {
                     write!(f, "\n  port (\n    {port}")?;

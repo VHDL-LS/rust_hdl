@@ -1,13 +1,15 @@
 use crate::ast::{
-    ArrayIndex, ComponentDeclaration, ElementDeclaration, FileDeclaration, ObjectDeclaration,
-    ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
+    ArrayIndex, ComponentDeclaration, ElementDeclaration, EntityName, FileDeclaration,
+    ObjectDeclaration, ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration,
+    TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
-    Declaration, ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
+    Attribute, AttributeDeclaration, AttributeSpecification, Declaration, ObjectClass,
+    PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration, Signature,
 };
 
 impl DesignUnitFormatter<'_> {
@@ -40,6 +42,7 @@ impl DesignUnitFormatter<'_> {
             File(file_decl) => self.format_file_declaration(file_decl, declaration.span, buffer),
             Type(type_decl) => self.format_type_declaration(type_decl, declaration.span, buffer),
             Component(component) => self.format_component_declaration(component, buffer),
+            Attribute(attribute) => self.format_attribute(attribute, declaration.span, buffer),
             SubprogramDeclaration(subprogram_declaration) => {
                 self.format_subprogram_declaration(subprogram_declaration, buffer)
             }
@@ -378,6 +381,64 @@ impl DesignUnitFormatter<'_> {
         // end protected body
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
     }
+
+    pub fn format_attribute(&self, attribute: &Attribute, span: TokenSpan, buffer: &mut String) {
+        use Attribute::*;
+        match attribute {
+            Specification(spec) => self.format_attribute_specification(spec, span, buffer),
+            Declaration(dec) => self.format_attribute_declaration(dec, span, buffer),
+        }
+    }
+
+    pub fn format_attribute_declaration(
+        &self,
+        attribute: &AttributeDeclaration,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_token_span(
+            TokenSpan::new(span.start_token, attribute.ident.tree.token),
+            buffer,
+        );
+        // :
+        self.format_token_id(attribute.ident.tree.token + 1, buffer);
+        buffer.push(' ');
+        self.format_name(&attribute.type_mark.item, attribute.type_mark.span, buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_attribute_specification(
+        &self,
+        attribute: &AttributeSpecification,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // attribute <name> of
+        self.format_token_span(
+            TokenSpan::new(span.start_token, attribute.ident.item.token + 1),
+            buffer,
+        );
+        buffer.push(' ');
+        match &attribute.entity_name {
+            EntityName::Name(name) => {
+                self.format_token_id(name.designator.token, buffer);
+                if let Some(signature) = &name.signature {
+                    self.format_signature(signature, buffer);
+                }
+            }
+            EntityName::All | EntityName::Others => {
+                self.format_token_id(attribute.ident.item.token + 2, buffer)
+            }
+        }
+        // : <entity_class> is
+        self.format_token_span(
+            TokenSpan::new(attribute.colon_token, attribute.colon_token + 2),
+            buffer,
+        );
+        buffer.push(' ');
+        self.format_expression(&attribute.expr.item, attribute.expr.span, buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -701,6 +762,27 @@ component foo is
         foo: natural
     );
 end component;",
+        );
+    }
+
+    #[test]
+    fn check_attribute_declaration() {
+        check_declaration("attribute foo : name;", "attribute foo: name;");
+        check_declaration(
+            "attribute attr_name of foo : signal is 0+1;",
+            "attribute attr_name of foo: signal is 0 + 1;",
+        );
+        check_declaration(
+            "attribute attr_name of \"**\" : function is 0+1;",
+            "attribute attr_name of \"**\": function is 0 + 1;",
+        );
+        check_declaration(
+            "attribute attr_name of all : signal is 0+1;",
+            "attribute attr_name of all: signal is 0 + 1;",
+        );
+        check_declaration(
+            "attribute attr_name of foo[return natural] : function is 0+1;",
+            "attribute attr_name of foo[return natural]: function is 0 + 1;",
         );
     }
 }

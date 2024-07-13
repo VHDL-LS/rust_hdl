@@ -1004,8 +1004,8 @@ impl Search for Declaration {
             Declaration::Attribute(Attribute::Specification(AttributeSpecification {
                 ident,
                 entity_name,
-                entity_class: _,
                 expr,
+                ..
             })) => {
                 return_if_found!(searcher.search_ident_ref(ctx, ident).or_not_found());
                 if let EntityName::Name(EntityTag {

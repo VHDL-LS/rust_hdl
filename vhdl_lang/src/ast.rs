@@ -549,6 +549,7 @@ pub enum EntityClass {
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
     pub entity_name: EntityName,
+    pub colon_token: TokenId,
     pub entity_class: EntityClass,
     pub expr: WithTokenSpan<Expression>,
 }

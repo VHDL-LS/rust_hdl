@@ -1,4 +1,5 @@
-use crate::ast::{SubprogramDeclaration, SubprogramSpecification};
+use crate::ast::token_range::WithTokenSpan;
+use crate::ast::{Signature, SubprogramDeclaration, SubprogramSpecification};
 use crate::formatting::DesignUnitFormatter;
 use crate::HasTokenSpan;
 use vhdl_lang::ast::{FunctionSpecification, ProcedureSpecification, SubprogramBody};
@@ -97,5 +98,58 @@ impl DesignUnitFormatter<'_> {
         self.format_token_id(body.span.end_token - 1, buffer);
         // ;
         self.format_token_id(body.span.end_token, buffer);
+    }
+
+    pub fn format_signature(&self, signature: &WithTokenSpan<Signature>, buffer: &mut String) {
+        self.format_token_id(signature.span.start_token, buffer);
+        match &signature.item {
+            Signature::Function(functions, return_type) => {
+                for (i, function) in functions.iter().enumerate() {
+                    self.format_name(&function.item, function.span, buffer);
+                    if i < functions.len() - 1 {
+                        // ,
+                        self.format_token_id(function.span.end_token + 1, buffer);
+                    }
+                    buffer.push(' ');
+                }
+                // return
+                self.format_token_id(return_type.span.start_token - 1, buffer);
+                buffer.push(' ');
+                self.format_name(&return_type.item, return_type.span, buffer);
+            }
+            Signature::Procedure(procedures) => {
+                for (i, procedure) in procedures.iter().enumerate() {
+                    self.format_name(&procedure.item, procedure.span, buffer);
+                    if i < procedures.len() - 1 {
+                        // ,
+                        self.format_token_id(procedure.span.end_token + 1, buffer);
+                        buffer.push(' ');
+                    }
+                }
+            }
+        }
+        self.format_token_id(signature.span.end_token, buffer);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::formatting::test_utils::check_formatted;
+
+    fn check_signature(input: &str) {
+        check_formatted(
+            input,
+            input,
+            |code| code.signature(),
+            |formatter, ast, buffer| formatter.format_signature(ast, buffer),
+        );
+    }
+
+    #[test]
+    fn test_signature() {
+        check_signature("[return type_mark]");
+        check_signature("[foo return bar]");
+        check_signature("[type_mark]");
+        check_signature("[foo, foo2 return bar]");
     }
 }

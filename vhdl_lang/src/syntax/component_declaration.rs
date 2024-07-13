@@ -150,7 +150,7 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
-                is_token: None,
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: None,
@@ -170,7 +170,7 @@ end component foo;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
-                is_token: Some(code.s1("foo").token()),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: None,
@@ -196,7 +196,7 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
-                is_token: Some(code.s1("foo").token()),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: Some(WithTokenSpan::new(
                     vec![code.s1("foo : natural").generic()],
@@ -225,12 +225,12 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
-                is_token: Some(code.s1("foo").token()),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: Some(WithTokenSpan::new(
                     vec![code.s1("foo : natural").port()],
-                    code.between("generic", ");").token_span()
+                    code.between("port", ");").token_span()
                 )),
                 end_ident_pos: None,
                 end_token: code.s1("end").token(),

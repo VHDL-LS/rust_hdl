@@ -493,7 +493,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some(generic_list) = &mut component.generic_list {
                     self.analyze_interface_list(&nested, ent, &mut generic_list.item, diagnostics)?;
                 }
-                if let Some(port_list) = &mut component.generic_list {
+                if let Some(port_list) = &mut component.port_list {
                     self.analyze_interface_list(&nested, ent, &mut port_list.item, diagnostics)?;
                 }
 
@@ -712,6 +712,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             entity_name,
             entity_class,
             expr,
+            colon_token: _,
         } = attr_spec;
 
         let attr_ent = match scope.lookup(
