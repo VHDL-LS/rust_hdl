@@ -726,6 +726,7 @@ pub struct SubprogramBody {
     pub declarations: Vec<WithTokenSpan<Declaration>>,
     pub begin_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1186,23 +1187,16 @@ impl InstantiatedUnit {
     }
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct MapAspect {
-    // `generic` or `map`
-    pub start: TokenId,
     pub list: SeparatedList<AssociationElement>,
-    pub closing_paren: TokenId,
 }
 
 impl MapAspect {
     /// Returns an iterator over the formal elements of this map
     pub fn formals(&self) -> impl Iterator<Item = Option<EntityId>> + '_ {
         self.list.formals()
-    }
-
-    /// Returns the span that this aspect encompasses
-    pub fn span(&self, ctx: &dyn TokenAccess) -> SrcPos {
-        ctx.get_span(self.start, self.closing_paren)
     }
 }
 

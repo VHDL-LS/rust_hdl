@@ -98,9 +98,8 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                     expect_semicolon(ctx);
                     if generic_map.is_none() {
                         generic_map = Some(MapAspect {
-                            start: token_id,
                             list,
-                            closing_paren,
+                            span: TokenSpan::new(token_id, closing_paren),
                         });
                     }
                 } else {
@@ -140,9 +139,8 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                     expect_semicolon(ctx);
                     if port_map.is_none() {
                         port_map = Some(MapAspect {
-                            start: token_id,
+                            span: TokenSpan::new(token_id, closing_paren),
                             list,
-                            closing_paren,
                         });
                     }
                 } else {
@@ -347,9 +345,8 @@ pub fn parse_map_aspect(
         ctx.stream.expect_kind(Map)?;
         let (list, closing_paren) = parse_association_list(ctx)?;
         Ok(Some(MapAspect {
-            start: aspect,
+            span: TokenSpan::new(aspect, closing_paren),
             list,
-            closing_paren,
         }))
     } else {
         Ok(None)

@@ -8,8 +8,8 @@ use crate::ast::search::{Finished, Found, FoundDeclaration, NotFinished, SearchS
 use crate::ast::{ConcurrentStatement, MapAspect, ObjectClass};
 use crate::named_entity::{AsUnique, Region};
 use crate::{
-    named_entity, AnyEntKind, CompletionItem, Design, EntityId, Overloaded, Position, Source,
-    TokenAccess,
+    named_entity, AnyEntKind, CompletionItem, Design, EntityId, HasTokenSpan, Overloaded, Position,
+    Source, TokenAccess,
 };
 use std::collections::HashSet;
 
@@ -53,7 +53,7 @@ impl<'a> MapAspectSearcher<'a> {
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
     ) -> bool {
-        if !map.span(ctx).contains(self.cursor) {
+        if !map.get_span(ctx).contains(self.cursor) {
             return false;
         }
         let formals_in_map: HashSet<EntityId> = HashSet::from_iter(map.formals().flatten());

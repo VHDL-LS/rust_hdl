@@ -47,6 +47,9 @@ impl DesignUnitFormatter<'_> {
             SubprogramDeclaration(subprogram_declaration) => {
                 self.format_subprogram_declaration(subprogram_declaration, buffer)
             }
+            SubprogramInstantiation(subprogram_instantiation) => {
+                self.format_subprogram_instantiation(subprogram_instantiation, buffer)
+            }
             SubprogramBody(subprogram_body) => self.format_subprogram_body(subprogram_body, buffer),
             _ => unimplemented!(),
         }

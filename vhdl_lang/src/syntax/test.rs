@@ -23,7 +23,8 @@ use super::range::{parse_discrete_range, parse_range};
 use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{
-    parse_signature, parse_subprogram_declaration, parse_subprogram_specification,
+    parse_signature, parse_subprogram_body, parse_subprogram_declaration,
+    parse_subprogram_specification,
 };
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer, Value};

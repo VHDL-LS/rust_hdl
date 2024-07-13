@@ -1,10 +1,11 @@
 use crate::ast::{
-    InterfaceDeclaration, InterfaceList, InterfaceObjectDeclaration, ModeIndication,
-    SimpleModeIndication,
+    ActualPart, AssociationElement, InterfaceDeclaration, InterfaceList,
+    InterfaceObjectDeclaration, MapAspect, ModeIndication, SimpleModeIndication,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
-use crate::TokenAccess;
+use crate::{HasTokenSpan, TokenAccess};
+use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
@@ -24,9 +25,12 @@ impl DesignUnitFormatter<'_> {
         // (
         self.format_token_span(TokenSpan::new(span.start_token, end_token), buffer);
         self.increase_indentation();
-        for item in &clause.items {
+        for (i, item) in clause.items.iter().enumerate() {
             self.newline(buffer);
             self.format_interface_declaration(item, buffer);
+            if i < clause.items.len() - 1 {
+                self.format_token_id(item.get_end_token() + 1, buffer);
+            }
         }
         self.decrease_indentation();
         if !clause.items.is_empty() {
@@ -38,6 +42,48 @@ impl DesignUnitFormatter<'_> {
             self.format_token_id(span.end_token, buffer);
         } else {
             self.format_token_id(span.end_token, buffer);
+        }
+    }
+
+    pub fn format_map_aspect(&self, aspect: &MapAspect, buffer: &mut String) {
+        // port map (
+        // generic map (
+        self.format_token_span(
+            TokenSpan::new(aspect.span.start_token, aspect.span.start_token + 2),
+            buffer,
+        );
+        self.increase_indentation();
+        for (i, item) in aspect.list.items.iter().enumerate() {
+            self.newline(buffer);
+            self.format_association_element(item, buffer);
+            if let Some(token) = aspect.list.tokens.get(i) {
+                self.format_token_id(*token, buffer);
+            }
+        }
+        self.decrease_indentation();
+        if !aspect.list.items.is_empty() {
+            self.newline(buffer);
+        }
+        // )
+        self.format_token_id(aspect.span.end_token, buffer);
+    }
+
+    pub fn format_association_element(&self, element: &AssociationElement, buffer: &mut String) {
+        if let Some(formal) = &element.formal {
+            self.format_name(&formal.item, formal.span, buffer);
+            buffer.push(' ');
+            self.format_token_id(formal.span.end_token + 1, buffer);
+            buffer.push(' ');
+        }
+        self.format_actual_part(&element.actual, buffer)
+    }
+
+    pub fn format_actual_part(&self, actual_part: &WithTokenSpan<ActualPart>, buffer: &mut String) {
+        match &actual_part.item {
+            ActualPart::Expression(expression) => {
+                self.format_expression(expression, actual_part.span, buffer)
+            }
+            ActualPart::Open => self.format_token_span(actual_part.span, buffer),
         }
     }
 
