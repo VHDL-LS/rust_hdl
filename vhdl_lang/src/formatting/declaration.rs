@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArrayIndex, FileDeclaration, ObjectDeclaration, SubtypeIndication, TypeDeclaration,
-    TypeDefinition,
+    ArrayIndex, ElementDeclaration, FileDeclaration, ObjectDeclaration, SubtypeIndication,
+    TypeDeclaration, TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -109,6 +109,7 @@ impl DesignUnitFormatter<'_> {
             buffer,
         );
         if let Some(end_ident) = type_decl.end_ident_pos {
+            buffer.push(' ');
             self.format_token_id(end_ident, buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -144,6 +145,7 @@ impl DesignUnitFormatter<'_> {
             Array(indices, of_token, subtype) => {
                 self.format_array_type_declaration(indices, *of_token, subtype, span, buffer)
             }
+            Record(elements) => self.format_record_declaration(elements, span, buffer),
             _ => unimplemented!(),
         }
     }
@@ -229,6 +231,41 @@ impl DesignUnitFormatter<'_> {
         self.format_token_id(of_token, buffer);
         buffer.push(' ');
         self.format_subtype(subtype, buffer);
+    }
+
+    pub fn format_record_declaration(
+        &self,
+        elements: &[ElementDeclaration],
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // record
+        self.format_token_id(span.start_token, buffer);
+        let mut last_token = span.start_token;
+        self.increase_indentation();
+        for element in elements {
+            self.newline(buffer);
+            self.format_element_declaration(element, buffer);
+            last_token = element.span.end_token;
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        // end record
+        self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
+    }
+
+    pub fn format_element_declaration(
+        &self,
+        declaration: &ElementDeclaration,
+        buffer: &mut String,
+    ) {
+        self.format_ident(&declaration.ident, buffer);
+        // :
+        self.format_token_id(declaration.ident.tree.token + 1, buffer);
+        buffer.push(' ');
+        self.format_subtype(&declaration.subtype, buffer);
+        // ;
+        self.format_token_id(declaration.span.end_token, buffer);
     }
 }
 
@@ -368,6 +405,49 @@ type TIME is range -9223372036854775807 to 9223372036854775807
         check_declaration(
             "type foo is array (2-1 downto 0) of boolean;",
             "type foo is array (2 - 1 downto 0) of boolean;",
+        );
+    }
+
+    #[test]
+    fn record_type_definition() {
+        check_declaration(
+            "type x is record end record;",
+            "\
+type x is record
+end record;",
+        );
+        check_declaration(
+            "\
+type foo is record
+  element : boolean;
+end record;",
+            "\
+type foo is record
+    element: boolean;
+end record;",
+        );
+        check_declaration(
+            "\
+type foo is record
+  element : boolean;
+  other_element : std_logic_vector;
+end foo;",
+            "\
+type foo is record
+    element: boolean;
+    other_element: std_logic_vector;
+end foo;",
+        );
+        check_declaration(
+            "\
+type dummy_rec is
+        record
+            dummy: bit;
+        end record;",
+            "\
+type dummy_rec is record
+    dummy: bit;
+end record;",
         );
     }
 }
