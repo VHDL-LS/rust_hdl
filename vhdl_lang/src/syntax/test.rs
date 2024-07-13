@@ -960,7 +960,7 @@ fn value_to_string(value: &Value) -> String {
         Value::BitString(_) => {
             panic!("value_to_string is currently not supported for BitString literals!")
         }
-        Value::AbstractLiteral(lit) => match lit {
+        Value::AbstractLiteral(_, lit) => match lit {
             AbstractLiteral::Integer(i) => i.to_string(),
             AbstractLiteral::Real(f) => f.to_string(),
         },

@@ -72,9 +72,7 @@ impl DesignUnitFormatter<'_> {
                 buffer.push('"');
             }
             Value::BitString(..) => unimplemented!(),
-            Value::AbstractLiteral(_) => {
-                println!("{token:?}")
-            }
+            Value::AbstractLiteral(value, _) => buffer.push_str(&value.to_string()),
             Value::Character(char) => {
                 buffer.push('\'');
                 buffer.push((*char) as char);
@@ -112,6 +110,7 @@ mod tests {
     fn format_simple_token() {
         check_token_formatted("entity", &["entity"]);
         check_token_formatted("foobar", &["foobar"]);
+        check_token_formatted("1 23 4E5 4e5", &["1", "23", "4E5", "4e5"]);
     }
 
     #[test]

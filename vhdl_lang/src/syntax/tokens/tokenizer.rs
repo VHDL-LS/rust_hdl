@@ -413,7 +413,7 @@ pub enum Value {
     Identifier(Symbol),
     String(Latin1String),
     BitString(ast::BitString),
-    AbstractLiteral(ast::AbstractLiteral),
+    AbstractLiteral(Latin1String, ast::AbstractLiteral),
     Character(u8),
     // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
     Text(Latin1String),
@@ -676,6 +676,10 @@ impl TokenSpan {
     pub fn len(&self) -> usize {
         self.end_token.0 - self.start_token.0 + 1
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// A type that conforms to `TokenAccess` can be indexed using a `TokenId`.
@@ -810,7 +814,7 @@ impl Token {
     ) -> DiagnosticResult<WithToken<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
-            value: Value::AbstractLiteral(value),
+            value: Value::AbstractLiteral(_, value),
             ..
         } = self
         {
@@ -935,8 +939,9 @@ fn parse_integer(
     reader: &mut ContentReader,
     base: u64,
     stop_on_suffix: bool,
-) -> Result<u64, TokenError> {
+) -> Result<(u64, Latin1String), TokenError> {
     let mut result = Some(0_u64);
+    let mut result_str = Latin1String::empty();
     let mut too_large_digit = None;
     let mut invalid_character = None;
 
@@ -957,10 +962,12 @@ fn parse_integer(
             b'a'..=b'f' => 10 + b - b'a',
             b'A'..=b'F' => 10 + b - b'A',
             b'_' => {
+                result_str.push(b);
                 reader.skip();
                 continue;
             }
             b'g'..=b'z' | b'G'..=b'Z' => {
+                result_str.push(b);
                 invalid_character = Some((b, reader.pos()));
                 reader.skip();
                 continue;
@@ -974,6 +981,7 @@ fn parse_integer(
             too_large_digit = Some((b, reader.pos()));
         }
 
+        result_str.push(b);
         reader.skip();
 
         result = result
@@ -996,7 +1004,7 @@ fn parse_integer(
             ),
         ))
     } else if let Some(result) = result {
-        Ok(result)
+        Ok((result, result_str))
     } else {
         Err(TokenError::range(
             start,
@@ -1006,25 +1014,30 @@ fn parse_integer(
     }
 }
 
-fn parse_exponent(reader: &mut ContentReader) -> Result<i32, TokenError> {
+fn parse_exponent(reader: &mut ContentReader) -> Result<(i32, Latin1String), TokenError> {
     let start = reader.pos();
+    let mut buffer = Latin1String::empty();
     let negative = {
         if reader.peek()? == Some(b'-') {
+            buffer.push(b'-');
             reader.skip();
             true
         } else {
-            reader.skip_if(b'+')?;
+            if reader.skip_if(b'+')? {
+                buffer.push(b'+');
+            }
             false
         }
     };
 
-    let exp = parse_integer(reader, 10, false)?;
+    let (exp, mut exp_name) = parse_integer(reader, 10, false)?;
+    buffer.append(&mut exp_name);
     if negative {
         if exp <= (-(i32::MIN as i64)) as u64 {
-            return Ok((-(exp as i64)) as i32);
+            return Ok(((-(exp as i64)) as i32, buffer));
         }
     } else if exp <= i32::MAX as u64 {
-        return Ok(exp as i32);
+        return Ok((exp as i32, buffer));
     }
 
     Err(TokenError::range(
@@ -1162,8 +1175,9 @@ fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, Token
 fn parse_real_literal(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
-) -> Result<f64, TokenError> {
-    buffer.bytes.clear();
+) -> Result<(f64, Latin1String), TokenError> {
+    buffer.clear();
+    let mut text = Latin1String::empty();
     let start = reader.pos();
     while let Some(b) = reader.peek_lowercase()? {
         match b {
@@ -1174,10 +1188,12 @@ fn parse_real_literal(
                 break;
             }
             b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
+                text.push(b);
                 reader.skip();
-                buffer.bytes.push(b);
+                buffer.push(b);
             }
             b'_' => {
+                text.push(b);
                 reader.skip();
                 continue;
             }
@@ -1189,15 +1205,16 @@ fn parse_real_literal(
 
     let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
 
-    let result: Result<f64, TokenError> =
-        string.parse().map_err(|err: std::num::ParseFloatError| {
+    string
+        .parse::<f64>()
+        .map(|val| (val, text))
+        .map_err(|err: std::num::ParseFloatError| {
             TokenError::range(start, reader.pos(), err.to_string())
-        });
-    result
+        })
 }
 
 fn exponentiate(value: u64, exp: u32) -> Option<u64> {
-    (10_u64).checked_pow(exp).and_then(|x| x.checked_mul(value))
+    10_u64.checked_pow(exp).and_then(|x| x.checked_mul(value))
 }
 
 /// LRM 15.5 Abstract literals
@@ -1213,35 +1230,44 @@ fn parse_abstract_literal(
         // Real
         Some(b'.') => {
             reader.set_state(state);
-            let real = parse_real_literal(buffer, reader)?;
+            let (real, mut text) = parse_real_literal(buffer, reader)?;
 
             match reader.peek()? {
                 // Exponent
                 Some(b'e') | Some(b'E') => {
+                    text.push(reader.peek().unwrap().unwrap());
                     reader.skip();
-                    let exp = parse_exponent(reader)?;
+                    let (exp, mut exp_text) = parse_exponent(reader)?;
+                    text.append(&mut exp_text);
                     Ok((
                         AbstractLiteral,
-                        Value::AbstractLiteral(ast::AbstractLiteral::Real(real * 10_f64.powi(exp))),
+                        Value::AbstractLiteral(
+                            text,
+                            ast::AbstractLiteral::Real(real * 10_f64.powi(exp)),
+                        ),
                     ))
                 }
                 _ => Ok((
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(real)),
+                    Value::AbstractLiteral(text, ast::AbstractLiteral::Real(real)),
                 )),
             }
         }
 
         // Integer exponent
         Some(b'e') => {
-            let integer = initial?;
+            let mut text = Latin1String::empty();
+            let (integer, mut int_text) = initial?;
+            text.append(&mut int_text);
+            text.push(reader.peek().unwrap().unwrap());
             reader.skip();
-            let exp = parse_exponent(reader)?;
+            let (exp, mut exp_text) = parse_exponent(reader)?;
+            text.append(&mut exp_text);
             if exp >= 0 {
                 if let Some(value) = exponentiate(integer, exp as u32) {
                     Ok((
                         AbstractLiteral,
-                        Value::AbstractLiteral(ast::AbstractLiteral::Integer(value)),
+                        Value::AbstractLiteral(text, ast::AbstractLiteral::Integer(value)),
                     ))
                 } else {
                     Err(TokenError::range(
@@ -1261,17 +1287,20 @@ fn parse_abstract_literal(
 
         // Based integer
         Some(b'#') => {
-            let base = initial?;
+            let (base, mut base_text) = initial?;
+            base_text.push(b'#');
             reader.skip();
             let base_result = parse_integer(reader, base, false);
 
             if let Some(b'#') = reader.peek()? {
                 reader.skip();
-                let integer = base_result?;
+                let (integer, mut int_text) = base_result?;
+                base_text.append(&mut int_text);
+                base_text.push(b'#');
                 if (2..=16).contains(&base) {
                     Ok((
                         AbstractLiteral,
-                        Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),
+                        Value::AbstractLiteral(base_text, ast::AbstractLiteral::Integer(integer)),
                     ))
                 } else {
                     Err(TokenError::range(
@@ -1291,7 +1320,7 @@ fn parse_abstract_literal(
 
         // Bit string literal
         Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
-            let integer = initial?;
+            let (integer, _) = initial?;
 
             if let Some(base_spec) = parse_base_specifier(reader)? {
                 // @TODO check overflow
@@ -1306,9 +1335,10 @@ fn parse_abstract_literal(
         }
         _ => {
             // Plain integer
+            let (integer, integer_text) = initial?;
             Ok((
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Integer(initial?)),
+                Value::AbstractLiteral(integer_text, ast::AbstractLiteral::Integer(integer)),
             ))
         }
     }
@@ -2090,24 +2120,39 @@ my_other_ident",
             vec![
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(100))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"100"),
+                        ast::AbstractLiteral::Integer(100)
+                    )
                 ),
                 (Minus, Value::None),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(123))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"123"),
+                        ast::AbstractLiteral::Integer(123)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(162))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"1_6_2"),
+                        ast::AbstractLiteral::Integer(162)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(1000))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"1e3"),
+                        ast::AbstractLiteral::Integer(1000)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(20000))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"2E4"),
+                        ast::AbstractLiteral::Integer(20000)
+                    )
                 ),
             ]
         );
@@ -2155,32 +2200,53 @@ my_other_ident",
             vec![
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(0.1))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"0.1"),
+                        ast::AbstractLiteral::Real(0.1)
+                    )
                 ),
                 (Minus, Value::None),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(22.33))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"2_2.3_3"),
+                        ast::AbstractLiteral::Real(22.33)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(2000.0))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"2.0e3"),
+                        ast::AbstractLiteral::Real(2000.0)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(333.0))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"3.33E2"),
+                        ast::AbstractLiteral::Real(333.0)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(0.021))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"2.1e-2"),
+                        ast::AbstractLiteral::Real(0.021)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(44.0))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"4.4e+1"),
+                        ast::AbstractLiteral::Real(44.0)
+                    )
                 ),
                 (
                     AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Real(2500.0))
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"2.5E+3"),
+                        ast::AbstractLiteral::Real(2500.0)
+                    )
                 ),
             ]
         );
@@ -2192,7 +2258,10 @@ my_other_ident",
             kind_value_tokenize("0.1000_0000_0000_0000_0000_0000_0000_0000"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e-1))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"0.1000_0000_0000_0000_0000_0000_0000_0000"),
+                    ast::AbstractLiteral::Real(1e-1)
+                )
             )]
         );
     }
@@ -2203,7 +2272,10 @@ my_other_ident",
             kind_value_tokenize("1000_0000_0000_0000_0000_0000_0000_0000.0"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e31))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"1000_0000_0000_0000_0000_0000_0000_0000.0"),
+                    ast::AbstractLiteral::Real(1e31)
+                )
             )]
         );
     }
@@ -2215,7 +2287,10 @@ my_other_ident",
             kind_value_tokenize("2.71828182845904523536"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Real(2.718_281_828_459_045))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2.71828182845904523536"),
+                    ast::AbstractLiteral::Real(2.718_281_828_459_045)
+                )
             )]
         );
     }
@@ -2393,21 +2468,30 @@ my_other_ident",
             kind_value_tokenize("2#101#"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Integer(5))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2#101#"),
+                    ast::AbstractLiteral::Integer(5)
+                )
             ),]
         );
         assert_eq!(
             kind_value_tokenize("8#321#"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Integer(3 * 8 * 8 + 2 * 8 + 1))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"8#321#"),
+                    ast::AbstractLiteral::Integer(3 * 8 * 8 + 2 * 8 + 1)
+                )
             ),]
         );
         assert_eq!(
             kind_value_tokenize("16#eEFfa#"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Integer(0xeeffa))
+                Value::AbstractLiteral(
+                    Latin1String::new(b"16#eEFfa#"),
+                    ast::AbstractLiteral::Integer(0xeeffa)
+                )
             ),]
         );
     }
@@ -2428,6 +2512,17 @@ my_other_ident",
 
     #[test]
     fn tokenize_illegal_based_integer() {
+        // May not use digit larger than or equal base
+        let code = Code::new("3#3#");
+        let (tokens, _) = code.tokenize_result();
+        println!("{:?}", tokens);
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                &code.s("3", 2),
+                "Illegal digit '3' for base 3",
+            ))]
+        );
         // Base may only be 2-16
         let code = Code::new("1#0#");
         let (tokens, _) = code.tokenize_result();
@@ -2445,16 +2540,6 @@ my_other_ident",
             vec![Err(Diagnostic::syntax_error(
                 &code.s1("17"),
                 "Base must be at least 2 and at most 16, got 17",
-            ))]
-        );
-        // May not use digit larger than or equal base
-        let code = Code::new("3#3#");
-        let (tokens, _) = code.tokenize_result();
-        assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
-                &code.s("3", 2),
-                "Illegal digit '3' for base 3",
             ))]
         );
         let code = Code::new("15#f#");
@@ -2699,7 +2784,10 @@ comment
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
-                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::MAX)),
+                value: Value::AbstractLiteral(
+                    Latin1String::from_utf8_unchecked(&u64::MAX.to_string()),
+                    ast::AbstractLiteral::Integer(u64::MAX)
+                ),
                 pos: code.pos(),
                 comments: None,
             })]
@@ -2859,7 +2947,10 @@ bar*/
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
-                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
+                value: Value::AbstractLiteral(
+                    Latin1String::new(b"2"),
+                    ast::AbstractLiteral::Integer(2)
+                ),
                 pos: code.s1("2").pos(),
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
