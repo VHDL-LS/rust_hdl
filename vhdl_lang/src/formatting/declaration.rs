@@ -522,7 +522,7 @@ type TIME is range -9223372036854775807 to 9223372036854775807
         );
 
         check_declaration(
-            "
+            "\
 type TIME is range -9223372036854775807 to 9223372036854775807
     units
         fs; -- femtosecond

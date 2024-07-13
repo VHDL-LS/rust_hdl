@@ -1,7 +1,7 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{Signature, SubprogramDeclaration, SubprogramSpecification};
 use crate::formatting::DesignUnitFormatter;
-use crate::HasTokenSpan;
+use crate::{HasTokenSpan, TokenSpan};
 use vhdl_lang::ast::{FunctionSpecification, ProcedureSpecification, SubprogramBody};
 
 impl DesignUnitFormatter<'_> {
@@ -34,10 +34,14 @@ impl DesignUnitFormatter<'_> {
         specification: &ProcedureSpecification,
         buffer: &mut String,
     ) {
-        // procedure
-        self.format_token_id(specification.span.start_token, buffer);
-        buffer.push(' ');
-        self.format_token_id(specification.designator.tree.token, buffer);
+        // procedure <name>
+        self.format_token_span(
+            TokenSpan::new(
+                specification.span.start_token,
+                specification.designator.tree.token,
+            ),
+            buffer,
+        );
         if specification.header.is_some() {
             unimplemented!()
         }
@@ -55,9 +59,13 @@ impl DesignUnitFormatter<'_> {
         buffer: &mut String,
     ) {
         // function
-        self.format_token_id(specification.span.start_token, buffer);
-        buffer.push(' ');
-        self.format_token_id(specification.designator.tree.token, buffer);
+        self.format_token_span(
+            TokenSpan::new(
+                specification.span.start_token,
+                specification.designator.tree.token,
+            ),
+            buffer,
+        );
         if specification.header.is_some() {
             unimplemented!()
         }
@@ -151,5 +159,23 @@ mod test {
         check_signature("[foo return bar]");
         check_signature("[type_mark]");
         check_signature("[foo, foo2 return bar]");
+    }
+
+    fn check_subprogram_declaration(input: &str) {
+        check_formatted(
+            input,
+            input,
+            |code| code.subprogram_decl(),
+            |formatter, ast, buffer| formatter.format_subprogram_declaration(ast, buffer),
+        );
+    }
+
+    #[test]
+    fn test_subprogram_declaration_without_parameters() {
+        check_subprogram_declaration("procedure foo;");
+        check_subprogram_declaration("function foo return natural;");
+        check_subprogram_declaration("function \"+\" return natural;");
+        check_subprogram_declaration("impure function foo return natural;");
+        check_subprogram_declaration("pure function foo return natural;");
     }
 }
