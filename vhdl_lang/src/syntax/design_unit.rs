@@ -20,7 +20,7 @@ use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
-use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use crate::syntax::recover::expect_semicolon_or_last;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -93,9 +93,11 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
 
     ctx.stream.expect_kind(Is)?;
     let generic_clause = {
-        if ctx.stream.skip_if_kind(Generic) {
-            let decl = parse_generic_interface_list(ctx)?;
-            expect_semicolon(ctx);
+        if let Some(generic_tok) = ctx.stream.pop_if_kind(Generic) {
+            let mut decl = parse_generic_interface_list(ctx)?;
+            let semicolon_token = expect_semicolon_or_last(ctx);
+            decl.span.start_token = generic_tok;
+            decl.span.end_token = semicolon_token;
             Some(decl)
         } else {
             None
@@ -380,7 +382,11 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(Vec::new()),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: Vec::new(),
+                    span: code.s1("generic ();").token_span()
+                }),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -406,7 +412,11 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("runner_cfg : string").generic()],
+                    span: code.between("generic", ");").token_span()
+                }),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -438,7 +448,11 @@ end entity;
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
-                port_clause: Some(vec![]),
+                port_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Port,
+                    items: Vec::new(),
+                    span: code.s1("port ();").token_span()
+                }),
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -768,10 +782,11 @@ end package;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").decl_ident(),
-                generic_clause: Some(vec![
-                    code.s1("type foo").generic(),
-                    code.s1("type bar").generic(),
-                ]),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("type foo").generic(), code.s1("type bar").generic()],
+                    span: code.between("generic (", ");").token_span()
+                }),
                 decl: vec![],
                 end_ident_pos: None,
             }

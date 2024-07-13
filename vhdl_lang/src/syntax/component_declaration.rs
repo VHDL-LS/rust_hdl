@@ -7,29 +7,35 @@
 use super::common::{check_end_identifier_mismatch, ParseResult};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::tokens::{Kind::*, TokenSpan};
-use crate::ast::WithDecl;
-use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
+use crate::ast::ComponentDeclaration;
+use crate::ast::{InterfaceList, WithDecl};
 use crate::data::Diagnostic;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use vhdl_lang::ast::InterfaceType;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
 pub fn parse_optional_generic_list(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<InterfaceList>> {
     let mut list = None;
     loop {
         let token = ctx.stream.peek_expect()?;
+        let token_id = ctx.stream.get_current_token_id();
         match token.kind {
             Generic => {
                 ctx.stream.skip();
                 let new_list = parse_generic_interface_list(ctx)?;
-                expect_semicolon(ctx);
+                let semicolon = expect_semicolon_or_last(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(InterfaceList {
+                        interface_type: InterfaceType::Generic,
+                        items: new_list.items,
+                        span: TokenSpan::new(token_id, semicolon),
+                    });
                 }
             }
             _ => break,
@@ -41,20 +47,25 @@ pub fn parse_optional_generic_list(
 
 pub fn parse_optional_port_list(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<InterfaceList>> {
     let mut list = None;
     loop {
         let token = ctx.stream.peek_expect()?;
+        let token_id = ctx.stream.get_current_token_id();
         match token.kind {
             Port => {
                 ctx.stream.skip();
                 let new_list = parse_port_interface_list(ctx)?;
-                expect_semicolon(ctx);
+                let semicolon = expect_semicolon_or_last(ctx);
                 if list.is_some() {
                     ctx.diagnostics
                         .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(InterfaceList {
+                        interface_type: InterfaceType::Port,
+                        items: new_list.items,
+                        span: TokenSpan::new(token_id, semicolon),
+                    });
                 }
             }
             Generic => {
@@ -95,35 +106,17 @@ pub fn parse_component_declaration(
         span: TokenSpan::new(start_token, end_token),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
-        generic_list: generic_list.unwrap_or_default(),
-        port_list: port_list.unwrap_or_default(),
+        generic_list,
+        port_list,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use crate::ast::Ident;
     use crate::syntax::test::Code;
-    use crate::TokenId;
     use crate::VHDLStandard::VHDL2019;
-
-    fn to_component(
-        ident: WithDecl<Ident>,
-        span: TokenSpan,
-        generic_list: Vec<InterfaceDeclaration>,
-        port_list: Vec<InterfaceDeclaration>,
-        end_ident_pos: Option<TokenId>,
-    ) -> ComponentDeclaration {
-        ComponentDeclaration {
-            span,
-            ident,
-            generic_list,
-            port_list,
-            end_ident_pos,
-        }
-    }
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_component() {
@@ -136,13 +129,13 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: None,
+            }
         );
 
         let code = Code::new(
@@ -154,13 +147,13 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: None,
+            }
         );
 
         let code = Code::new(
@@ -172,13 +165,13 @@ end component foo;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![],
-                Some(code.s("foo", 2).token())
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: None,
+                end_ident_pos: Some(code.s("foo", 2).token())
+            }
         );
     }
 
@@ -196,13 +189,17 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![code.s1("foo : natural").generic()],
-                vec![],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("foo : natural").generic()],
+                    span: code.between("generic", ");").token_span()
+                }),
+                port_list: None,
+                end_ident_pos: None
+            }
         );
     }
 
@@ -220,13 +217,17 @@ end component;
         let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(
-                code.s1("foo").decl_ident(),
-                code.token_span(),
-                vec![],
-                vec![code.s1("foo : natural").port()],
-                None
-            )
+            ComponentDeclaration {
+                span: code.token_span(),
+                ident: code.s1("foo").decl_ident(),
+                generic_list: None,
+                port_list: Some(InterfaceList {
+                    interface_type: InterfaceType::Port,
+                    items: vec![code.s1("foo : natural").port()],
+                    span: code.between("port", ");").token_span()
+                }),
+                end_ident_pos: None
+            }
         );
     }
 
@@ -253,7 +254,14 @@ end
                 "Duplicate generic clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").generic()])),);
+        assert_eq!(
+            result,
+            Ok(Some(InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![code.s1("foo : natural").generic()],
+                span: code.between("generic", ");").token_span()
+            })),
+        );
     }
 
     #[test]
@@ -277,7 +285,14 @@ end
                 "Duplicate port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(InterfaceList {
+                interface_type: InterfaceType::Port,
+                items: vec![code.s1("foo : natural").port()],
+                span: code.between("port", ");").token_span()
+            })),
+        );
     }
 
     #[test]
@@ -301,7 +316,14 @@ end
                 "Generic clause must come before port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(InterfaceList {
+                interface_type: InterfaceType::Port,
+                items: vec![code.s1("foo : natural").port()],
+                span: code.between("port", ");").token_span()
+            })),
+        );
     }
 
     #[test]

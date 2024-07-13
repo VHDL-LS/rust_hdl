@@ -113,8 +113,10 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                         ctx.diagnostics
                             .push(Diagnostic::syntax_error(token, "Duplicate generic clause"));
                     }
-                    let parsed_generic_list = parse_generic_interface_list(ctx)?;
-                    expect_semicolon(ctx);
+                    let mut parsed_generic_list = parse_generic_interface_list(ctx)?;
+                    let semicolon = expect_semicolon_or_last(ctx);
+                    parsed_generic_list.span.start_token = token_id;
+                    parsed_generic_list.span.end_token = semicolon;
                     if generic_clause.is_none() {
                         generic_clause = Some(parsed_generic_list);
                     }
@@ -153,8 +155,10 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                         ctx.diagnostics
                             .push(Diagnostic::syntax_error(token, "Duplicate port clause"));
                     }
-                    let parsed_port_list = parse_port_interface_list(ctx)?;
-                    expect_semicolon(ctx);
+                    let mut parsed_port_list = parse_port_interface_list(ctx)?;
+                    let semicolon = expect_semicolon_or_last(ctx);
+                    parsed_port_list.span.start_token = token_id;
+                    parsed_port_list.span.end_token = semicolon;
                     if port_clause.is_none() {
                         port_clause = Some(parsed_port_list);
                     }
@@ -952,9 +956,17 @@ end block;",
         let block = BlockStatement {
             guard_condition: None,
             header: BlockHeader {
-                generic_clause: Some(vec![code.s1("gen: integer := 1").generic()]),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("gen: integer := 1").generic()],
+                    span: code.s1("generic(gen: integer := 1);").token_span(),
+                }),
                 generic_map: Some(code.s1("generic map(gen => 1)").generic_map_aspect()),
-                port_clause: Some(vec![code.s1("prt: integer := 1").port()]),
+                port_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Port,
+                    items: vec![code.s1("prt: integer := 1").port()],
+                    span: code.s1("port(prt: integer := 1);").token_span(),
+                }),
                 port_map: Some(code.s1("port map(prt => 2)").port_map_aspect()),
             },
             decl: vec![],

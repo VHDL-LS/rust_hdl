@@ -24,12 +24,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Region<'a>> {
         let mut region = Region::default();
-        for decl in header.generic_list.iter_mut() {
-            if let Some(ent) =
-                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
-            {
-                region.add(ent, diagnostics);
-                scope.add(ent, diagnostics);
+        if let Some(generic_list) = &mut header.generic_list {
+            for decl in generic_list.items.iter_mut() {
+                if let Some(ent) =
+                    as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
+                {
+                    region.add(ent, diagnostics);
+                    scope.add(ent, diagnostics);
+                }
             }
         }
         self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;
@@ -111,12 +113,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     None
                 };
-                let params = self.analyze_parameter_list(
-                    &subpgm_region,
-                    ent,
-                    &mut fun.parameter_list,
-                    diagnostics,
-                );
+                let params = if let Some(parameter_list) = &mut fun.parameter_list {
+                    self.analyze_interface_list(&subpgm_region, ent, parameter_list, diagnostics)
+                } else {
+                    Ok(FormalRegion::new_params())
+                };
                 let return_type = self.type_name(
                     &subpgm_region,
                     fun.return_type.span,
@@ -131,12 +132,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } else {
                     None
                 };
-                let params = self.analyze_parameter_list(
-                    &subpgm_region,
-                    ent,
-                    &mut procedure.parameter_list,
-                    diagnostics,
-                );
+                let params = if let Some(parameter_list) = &mut procedure.parameter_list {
+                    self.analyze_interface_list(&subpgm_region, ent, parameter_list, diagnostics)
+                } else {
+                    Ok(FormalRegion::new_params())
+                };
                 (Signature::new(params?, None), generic_map)
             }
         };

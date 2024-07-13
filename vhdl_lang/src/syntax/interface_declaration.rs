@@ -16,7 +16,6 @@ use crate::ast::token_range::WithToken;
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
-use vhdl_lang::data::error_codes::ErrorCode;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
@@ -344,10 +343,11 @@ fn is_sync_kind(list_type: InterfaceType, kind: Kind) -> bool {
 fn parse_interface_list(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+) -> ParseResult<InterfaceList> {
     let mut interface_list = Vec::new();
 
     let left_par = ctx.stream.expect_kind(LeftPar)?;
+    let right_par;
 
     'outer: loop {
         let token = ctx.stream.peek_expect()?;
@@ -360,6 +360,7 @@ fn parse_interface_list(
                         ErrorCode::SyntaxError,
                     );
                 }
+                right_par = ctx.stream.get_current_token_id();
                 ctx.stream.skip();
                 break;
             }
@@ -390,6 +391,7 @@ fn parse_interface_list(
                                     continue 'outer;
                                 }
                                 RightPar => {
+                                    right_par = ctx.stream.get_current_token_id();
                                     ctx.stream.skip();
                                     break 'outer;
                                 }
@@ -410,24 +412,22 @@ fn parse_interface_list(
         }
     }
 
-    Ok(interface_list)
+    Ok(InterfaceList {
+        interface_type: list_type,
+        items: interface_list,
+        span: TokenSpan::new(left_par, right_par),
+    })
 }
 
-pub fn parse_generic_interface_list(
-    ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+pub fn parse_generic_interface_list(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceList> {
     parse_interface_list(ctx, InterfaceType::Generic)
 }
 
-pub fn parse_port_interface_list(
-    ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+pub fn parse_port_interface_list(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceList> {
     parse_interface_list(ctx, InterfaceType::Port)
 }
 
-pub fn parse_parameter_interface_list(
-    ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+pub fn parse_parameter_interface_list(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceList> {
     parse_interface_list(ctx, InterfaceType::Parameter)
 }
 
@@ -458,7 +458,7 @@ pub fn parse_generic(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclarati
 }
 
 #[cfg(test)]
-pub fn parse_parameter_list(ctx: &mut ParsingContext) -> ParseResult<Vec<InterfaceDeclaration>> {
+pub fn parse_parameter_list(ctx: &mut ParsingContext) -> ParseResult<InterfaceList> {
     parse_interface_list(ctx, InterfaceType::Parameter)
 }
 
@@ -478,34 +478,38 @@ mod tests {
         let code = Code::new("(constant foo, bar : natural)");
         assert_eq!(
             code.with_stream_no_diagnostics(parse_generic_interface_list),
-            vec![
-                InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                    list_type: InterfaceType::Generic,
-                    mode: ModeIndication::Simple(SimpleModeIndication {
-                        bus: false,
-                        mode: None,
-                        class: ObjectClass::Constant,
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                        list_type: InterfaceType::Generic,
+                        mode: ModeIndication::Simple(SimpleModeIndication {
+                            bus: false,
+                            mode: None,
+                            class: ObjectClass::Constant,
 
-                        subtype_indication: code.s1("natural").subtype_indication(),
-                        expression: None
+                            subtype_indication: code.s1("natural").subtype_indication(),
+                            expression: None
+                        }),
+                        ident: code.s1("foo").decl_ident(),
+                        span: code.between("constant", "natural").token_span()
                     }),
-                    ident: code.s1("foo").decl_ident(),
-                    span: code.between("constant", "natural").token_span()
-                }),
-                InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                    list_type: InterfaceType::Generic,
-                    mode: ModeIndication::Simple(SimpleModeIndication {
-                        bus: false,
-                        mode: None,
-                        class: ObjectClass::Constant,
+                    InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                        list_type: InterfaceType::Generic,
+                        mode: ModeIndication::Simple(SimpleModeIndication {
+                            bus: false,
+                            mode: None,
+                            class: ObjectClass::Constant,
 
-                        subtype_indication: code.s1("natural").subtype_indication(),
-                        expression: None
-                    }),
-                    ident: code.s1("bar").decl_ident(),
-                    span: code.between("constant", "natural").token_span()
-                })
-            ]
+                            subtype_indication: code.s1("natural").subtype_indication(),
+                            expression: None
+                        }),
+                        ident: code.s1("bar").decl_ident(),
+                        span: code.between("constant", "natural").token_span()
+                    })
+                ],
+                span: code.token_span(),
+            }
         );
     }
 
@@ -549,7 +553,11 @@ mod tests {
         assert_eq!(
             code.with_stream_diagnostics(parse_parameter_list),
             (
-                vec![],
+                InterfaceList {
+                    interface_type: InterfaceType::Parameter,
+                    items: vec![],
+                    span: code.token_span()
+                },
                 vec![Diagnostic::syntax_error(
                     code.s1("foo"),
                     "interface_file_declaration may not have file open information"
@@ -564,7 +572,11 @@ mod tests {
         assert_eq!(
             code.with_stream_diagnostics(parse_parameter_list),
             (
-                vec![],
+                InterfaceList {
+                    interface_type: InterfaceType::Parameter,
+                    items: vec![],
+                    span: code.token_span()
+                },
                 vec![Diagnostic::syntax_error(
                     code.s1("foo"),
                     "interface_file_declaration may not have file name"
@@ -579,11 +591,15 @@ mod tests {
         assert_eq!(
             code.with_stream_diagnostics(parse_parameter_list),
             (
-                vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
-                    ident: code.s1("valid").decl_ident(),
-                    subtype_indication: code.s("text", 2).subtype_indication(),
-                    span: code.s1("file valid : text").token_span()
-                })],
+                InterfaceList {
+                    interface_type: InterfaceType::Parameter,
+                    items: vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
+                        ident: code.s1("valid").decl_ident(),
+                        subtype_indication: code.s("text", 2).subtype_indication(),
+                        span: code.s1("file valid : text").token_span()
+                    })],
+                    span: code.token_span()
+                },
                 vec![
                     Diagnostic::syntax_error(
                         code.s1("with_name"),
@@ -769,10 +785,14 @@ bar : natural)",
 
         assert_eq!(
             code.with_stream_no_diagnostics(parse_generic_interface_list),
-            vec![
-                code.s1("constant foo : std_logic").generic(),
-                code.s1("bar : natural").generic()
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    code.s1("constant foo : std_logic").generic(),
+                    code.s1("bar : natural").generic()
+                ],
+                span: code.token_span()
+            }
         );
     }
 
@@ -788,10 +808,14 @@ bar : natural)",
 
         assert_eq!(
             result,
-            vec![
-                code.s1("constant foo : std_logic").generic(),
-                code.s1("bar : natural").generic()
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    code.s1("constant foo : std_logic").generic(),
+                    code.s1("bar : natural").generic()
+                ],
+                span: code.token_span()
+            }
         );
         assert_eq!(
             diagnostics,
@@ -812,10 +836,14 @@ bar : natural)",
 
         assert_eq!(
             result,
-            vec![
-                code.s1("constant foo : std_logic").generic(),
-                code.s1("bar : natural").generic()
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    code.s1("constant foo : std_logic").generic(),
+                    code.s1("bar : natural").generic()
+                ],
+                span: code.token_span()
+            }
         );
     }
 
@@ -829,10 +857,14 @@ bar : natural)",
 
         assert_eq!(
             code.with_stream_no_diagnostics(parse_port_interface_list),
-            vec![
-                code.s1("signal foo : in std_logic").port(),
-                code.s1("bar : natural").port()
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Port,
+                items: vec![
+                    code.s1("signal foo : in std_logic").port(),
+                    code.s1("bar : natural").port()
+                ],
+                span: code.token_span()
+            }
         );
     }
 
@@ -847,11 +879,15 @@ bar : natural)",
 
         assert_eq!(
             code.with_stream_no_diagnostics(parse_parameter_interface_list),
-            vec![
-                code.s1("signal foo : in std_logic").parameter(),
-                code.s1("constant bar : natural").parameter(),
-                code.s1("variable xyz : var").parameter(),
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Parameter,
+                items: vec![
+                    code.s1("signal foo : in std_logic").parameter(),
+                    code.s1("constant bar : natural").parameter(),
+                    code.s1("variable xyz : var").parameter(),
+                ],
+                span: code.token_span()
+            }
         );
     }
 
@@ -866,10 +902,14 @@ bar : natural)",
         let (result, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
             result,
-            vec![
-                code.s1("constant c1 : natural").generic(),
-                code.s1("constant c2 : natural").generic(),
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    code.s1("constant c1 : natural").generic(),
+                    code.s1("constant c2 : natural").generic(),
+                ],
+                span: code.token_span()
+            }
         );
         assert_eq!(
             diagnostics,
@@ -922,12 +962,16 @@ bar : natural)",
         let (result, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
             result,
-            vec![
-                code.s1("constant c2 : natural").generic(),
-                code.s1("constant c3 : natural").generic(),
-                code.s1("constant c4 : natural").generic(),
-                code.s1("constant c6 : natural").generic()
-            ]
+            InterfaceList {
+                interface_type: InterfaceType::Generic,
+                items: vec![
+                    code.s1("constant c2 : natural").generic(),
+                    code.s1("constant c3 : natural").generic(),
+                    code.s1("constant c4 : natural").generic(),
+                    code.s1("constant c6 : natural").generic()
+                ],
+                span: code.token_span()
+            }
         );
         assert_eq!(diagnostics.len(), 4);
     }
@@ -1087,7 +1131,11 @@ function foo() return bit;
                         .into(),
                     header: None,
                     param_tok: None,
-                    parameter_list: vec![],
+                    parameter_list: Some(InterfaceList {
+                        interface_type: InterfaceType::Parameter,
+                        items: vec![],
+                        span: code.s1("()").token_span()
+                    }),
                     return_type: code.s1("bit").type_mark(),
                     span: code.s1("function foo() return bit").token_span()
                 })
