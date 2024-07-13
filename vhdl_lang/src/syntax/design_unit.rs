@@ -16,7 +16,6 @@ use super::context::{
     parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
 };
 use super::declarative_part::{parse_declarative_part, parse_package_instantiation};
-use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -92,17 +91,7 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
 
     ctx.stream.expect_kind(Is)?;
-    let generic_clause = {
-        if let Some(generic_tok) = ctx.stream.pop_if_kind(Generic) {
-            let mut decl = parse_generic_interface_list(ctx)?;
-            let semicolon_token = expect_semicolon_or_last(ctx);
-            decl.span.start_token = generic_tok;
-            decl.span.end_token = semicolon_token;
-            Some(decl)
-        } else {
-            None
-        }
-    };
+    let generic_clause = parse_optional_generic_list(ctx)?;
     let decl = parse_declarative_part(ctx)?;
     ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Package);
