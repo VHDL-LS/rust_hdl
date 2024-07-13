@@ -95,12 +95,12 @@ pub fn parse_optional_subprogram_header(
     let Some(generic) = ctx.stream.pop_if_kind(Generic) else {
         return Ok(None);
     };
-    let generic_list = Some(parse_generic_interface_list(ctx)?);
+    let mut generic_list = parse_generic_interface_list(ctx)?;
+    generic_list.span.start_token = generic;
     let map_aspect = parse_map_aspect(ctx, Generic)?;
 
     Ok(Some(SubprogramHeader {
-        generic_tok: generic,
-        generic_list,
+        generic_list: Some(generic_list),
         map_aspect,
     }))
 }
@@ -541,10 +541,9 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                         generic_list: Some(InterfaceList {
                             interface_type: InterfaceType::Generic,
                             items: vec![code.s1("abc_def: natural").generic()],
-                            span: code.s1("(abc_def: natural)").token_span()
+                            span: code.s1("generic (abc_def: natural)").token_span()
                         }),
                         map_aspect: None,
-                        generic_tok: code.s1("generic").token()
                     }),
                     parameter_list: Some(InterfaceList {
                         interface_type: InterfaceType::Parameter,
@@ -749,7 +748,6 @@ end function \"+\";
         assert_eq!(
             header,
             SubprogramHeader {
-                generic_tok: code.s1("generic").token(),
                 map_aspect: None,
                 generic_list: Some(InterfaceList {
                     interface_type: InterfaceType::Generic,
@@ -757,7 +755,7 @@ end function \"+\";
                         code.s1("x: natural := 1").generic(),
                         code.s1("y: real").generic()
                     ],
-                    span: code.between("(", ")").token_span()
+                    span: code.between("generic (", ")").token_span()
                 })
             }
         )
@@ -772,7 +770,6 @@ end function \"+\";
         assert_eq!(
             header,
             SubprogramHeader {
-                generic_tok: code.s1("generic").token(),
                 map_aspect: Some(MapAspect {
                     start: code.s("generic", 2).token(),
                     list: SeparatedList {
@@ -790,7 +787,7 @@ end function \"+\";
                         code.s1("x: natural := 1").generic(),
                         code.s1("y: real").generic()
                     ],
-                    span: code.between("(", ")").token_span()
+                    span: code.between("generic (", ")").token_span()
                 })
             }
         )
