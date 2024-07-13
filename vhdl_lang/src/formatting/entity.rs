@@ -14,12 +14,16 @@ impl DesignUnitFormatter<'_> {
         if let Some(port_clause) = &entity.port_clause {
             self.format_port_or_generic(port_clause, buffer);
         }
+        self.increase_indentation();
         self.format_declarations(&entity.decl, buffer);
+        self.decrease_indentation();
         if let Some(token) = entity.begin_token {
             self.newline(buffer);
             self.format_token_id(token, buffer);
         }
+        self.increase_indentation();
         self.format_concurrent_statements(&entity.statements, buffer);
+        self.decrease_indentation();
         self.newline(buffer);
         // end [entity] [name];
         self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1), buffer);
@@ -189,6 +193,26 @@ entity foo is
     port (
         foo: in std_logic := '1'
     );
+end foo;",
+        );
+    }
+
+    #[test]
+    fn test_entity_with_declarations() {
+        check_entity_formatted(
+            "\
+entity foo is
+    port (foo : in std_logic := '1');
+    constant x: foo := bar;
+    signal y: bar := foobar;
+end foo;",
+            "\
+entity foo is
+    port (
+        foo: in std_logic := '1'
+    );
+    constant x: foo := bar;
+    signal y: bar := foobar;
 end foo;",
         );
     }

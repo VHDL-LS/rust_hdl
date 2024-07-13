@@ -1,3 +1,4 @@
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{Expression, ResolutionIndication, SubtypeIndication};
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -45,6 +46,20 @@ impl DesignUnitFormatter<'_> {
         self.format_name(&subtype.type_mark.item, subtype.type_mark.span, buffer);
         if let Some(constraint) = &subtype.constraint {
             unimplemented!();
+        }
+    }
+
+    // Helper to format ` := <expression>`
+    pub(crate) fn format_default_expression(
+        &self,
+        expression: Option<&WithTokenSpan<Expression>>,
+        buffer: &mut String,
+    ) {
+        if let Some(expr) = expression {
+            buffer.push(' ');
+            self.format_token_id(expr.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&expr.item, expr.span, buffer);
         }
     }
 }

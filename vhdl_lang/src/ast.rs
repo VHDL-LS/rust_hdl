@@ -627,6 +627,13 @@ pub struct ObjectDeclaration {
     pub expression: Option<WithTokenSpan<Expression>>,
 }
 
+impl ObjectDeclaration {
+    /// The position of the ':' token before the subtype indication
+    pub fn colon_token(&self) -> TokenId {
+        self.ident.tree.token + 1
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
     pub ident: WithDecl<Ident>,

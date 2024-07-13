@@ -8,11 +8,15 @@ impl DesignUnitFormatter<'_> {
         let span = arch.span();
         // architecture <ident> of <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, arch.is_token()), buffer);
+        self.increase_indentation();
         self.format_declarations(&arch.decl, buffer);
+        self.decrease_indentation();
         self.newline(buffer);
         self.format_token_id(arch.begin_token, buffer);
         self.newline(buffer);
+        self.increase_indentation();
         self.format_concurrent_statements(&arch.statements, buffer);
+        self.decrease_indentation();
         // end [architecture] [name];
         self.format_token_span(TokenSpan::new(arch.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);
@@ -58,6 +62,37 @@ end architecture foo;",
 architecture foo of bar is
 begin
 end;",
+        );
+    }
+
+    #[test]
+    fn format_architecture_with_declarations() {
+        check_architecture_formatted(
+            "
+architecture foo of bar is
+constant x: foo := bar;
+begin
+end foo;",
+            "\
+architecture foo of bar is
+    constant x: foo := bar;
+begin
+end foo;",
+        );
+
+        check_architecture_formatted(
+            "
+architecture foo of bar is
+constant x: foo := bar;
+signal y : bar := foobar;
+begin
+end foo;",
+            "\
+architecture foo of bar is
+    constant x: foo := bar;
+    signal y: bar := foobar;
+begin
+end foo;",
         );
     }
 }

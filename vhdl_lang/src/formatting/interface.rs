@@ -77,12 +77,7 @@ impl DesignUnitFormatter<'_> {
             buffer.push(' ');
         }
         self.format_subtype(&mode.subtype_indication, buffer);
-        if let Some(expression) = &mode.expression {
-            buffer.push(' ');
-            self.format_token_id(expression.span.start_token - 1, buffer);
-            buffer.push(' ');
-            self.format_expression(&expression.item, expression.span, buffer);
-        }
+        self.format_default_expression(mode.expression.as_ref(), buffer);
     }
 }
 
