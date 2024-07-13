@@ -1480,7 +1480,10 @@ pub struct EntityDeclaration {
     pub generic_clause: Option<InterfaceList>,
     pub port_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: Option<TokenId>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    /// The `end` token from the declaration `*end* entity foo;`
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 

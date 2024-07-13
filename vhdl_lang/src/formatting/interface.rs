@@ -1,32 +1,37 @@
-use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    InterfaceDeclaration, InterfaceObjectDeclaration, ModeIndication, SimpleModeIndication,
+    InterfaceDeclaration, InterfaceList, InterfaceObjectDeclaration, ModeIndication,
+    SimpleModeIndication,
 };
 use crate::formatting::DesignUnitFormatter;
+use crate::syntax::Kind;
+use crate::TokenAccess;
 use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
-    pub(crate) fn format_port_or_generic(
-        &self,
-        clause: &WithTokenSpan<Vec<InterfaceDeclaration>>,
-        buffer: &mut String,
-    ) {
+    pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut String) {
         self.increase_indentation();
         self.newline(buffer);
         let span = clause.span;
+        let end_token = if self.tokens.get_token(span.start_token).kind == Kind::LeftPar {
+            // We start with a `(` immediately
+            // applicable for parameters (though VHDL 2008 allows an optional `parameter` keyword)
+            span.start_token
+        } else {
+            // We start with a `generic`, `port` or `parameter` keyword
+            span.start_token + 1
+        };
         // port (
         // generic (
-        self.format_token_span(
-            TokenSpan::new(span.start_token, span.start_token + 1),
-            buffer,
-        );
+        // parameter (
+        // (
+        self.format_token_span(TokenSpan::new(span.start_token, end_token), buffer);
         self.increase_indentation();
-        for item in &clause.item {
+        for item in &clause.items {
             self.newline(buffer);
             self.format_interface_declaration(item, buffer);
         }
         self.decrease_indentation();
-        if !clause.item.is_empty() {
+        if !clause.items.is_empty() {
             self.newline(buffer);
         }
         // );

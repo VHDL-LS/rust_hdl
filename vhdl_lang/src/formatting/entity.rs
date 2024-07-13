@@ -9,10 +9,10 @@ impl DesignUnitFormatter<'_> {
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
         if let Some(generic_clause) = &entity.generic_clause {
-            self.format_port_or_generic(generic_clause, buffer);
+            self.format_interface_list(generic_clause, buffer);
         }
         if let Some(port_clause) = &entity.port_clause {
-            self.format_port_or_generic(port_clause, buffer);
+            self.format_interface_list(port_clause, buffer);
         }
         self.increase_indentation();
         self.format_declarations(&entity.decl, buffer);
@@ -124,42 +124,19 @@ end entity;",
     }
 
     #[test]
-    fn test_entity_with_generic() {
-        check_entity_formatted(
-            "\
-entity foo is
-    generic ();
-end foo;",
-            "\
-entity foo is
-    generic ();
-end foo;",
-        );
-        check_entity_formatted(
-            "\
-entity foo is
-    -- Generics come here
-    generic (); --<This is it
-end foo;",
-            "\
-entity foo is
-    -- Generics come here
-    generic (); --<This is it
-end foo;",
-        );
-    }
-
-    #[test]
     fn test_entity_with_simple_generic() {
         check_entity_formatted(
             "\
 entity foo is
-    generic (foo : in std_logic);
+    -- Generics come here
+    generic (foo : in std_logic --<This is it
+);
 end foo;",
             "\
 entity foo is
+    -- Generics come here
     generic (
-        foo: in std_logic
+        foo: in std_logic --<This is it
     );
 end foo;",
         );

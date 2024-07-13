@@ -45,11 +45,8 @@ impl DesignUnitFormatter<'_> {
         if specification.header.is_some() {
             unimplemented!()
         }
-        if let Some(tok) = specification.param_tok {
-            self.format_token_id(tok, buffer);
-        }
         for parameter in &specification.parameter_list {
-            unimplemented!()
+            self.format_interface_list(parameter, buffer);
         }
     }
 
@@ -69,11 +66,8 @@ impl DesignUnitFormatter<'_> {
         if specification.header.is_some() {
             unimplemented!()
         }
-        if let Some(tok) = specification.param_tok {
-            self.format_token_id(tok, buffer);
-        }
         for parameter in &specification.parameter_list {
-            unimplemented!()
+            self.format_interface_list(parameter, buffer);
         }
         buffer.push(' ');
         // return

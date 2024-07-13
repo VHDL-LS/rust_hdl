@@ -7,11 +7,10 @@
 use super::common::{check_end_identifier_mismatch, ParseResult};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::tokens::{Kind::*, TokenSpan};
-use crate::ast::token_range::WithTokenSpan;
 use crate::ast::ComponentDeclaration;
 use crate::ast::{InterfaceList, WithDecl};
 use crate::data::Diagnostic;
-use crate::syntax::recover::{expect_semicolon_or_last, expect_semicolon};
+use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::ast::InterfaceType;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
@@ -121,7 +120,6 @@ mod tests {
     use crate::syntax::test::Code;
     use crate::VHDLStandard::VHDL2019;
     use pretty_assertions::assert_eq;
-
 
     #[test]
     fn test_component() {

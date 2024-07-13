@@ -1061,10 +1061,10 @@ impl Search for Declaration {
                     ..
                 } = component;
                 if let Some(generic_list) = generic_list {
-                    return_if_found!(generic_list.item.search(ctx, searcher));
+                    return_if_found!(generic_list.search(ctx, searcher));
                 }
                 if let Some(port_list) = port_list {
-                    return_if_found!(port_list.item.search(ctx, searcher));
+                    return_if_found!(port_list.search(ctx, searcher));
                 }
             }
 
@@ -1296,10 +1296,10 @@ impl Search for EntityDeclaration {
             .search_decl(ctx, FoundDeclaration::Entity(self))
             .or_not_found());
         if let Some(clause) = &self.generic_clause {
-            return_if_found!(clause.item.search(ctx, searcher));
+            return_if_found!(clause.search(ctx, searcher));
         }
         if let Some(clause) = &self.port_clause {
-            return_if_found!(clause.item.search(ctx, searcher));
+            return_if_found!(clause.search(ctx, searcher));
         }
         return_if_found!(self.decl.search(ctx, searcher));
         self.statements.search(ctx, searcher)
