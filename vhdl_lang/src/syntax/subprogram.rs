@@ -100,7 +100,7 @@ pub fn parse_optional_subprogram_header(
     let map_aspect = parse_map_aspect(ctx, Generic)?;
 
     Ok(Some(SubprogramHeader {
-        generic_list: Some(generic_list),
+        generic_list,
         map_aspect,
     }))
 }
@@ -538,11 +538,11 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                         .map_into(SubprogramDesignator::Identifier)
                         .into(),
                     header: Some(SubprogramHeader {
-                        generic_list: Some(InterfaceList {
+                        generic_list: InterfaceList {
                             interface_type: InterfaceType::Generic,
                             items: vec![code.s1("abc_def: natural").generic()],
                             span: code.s1("generic (abc_def: natural)").token_span()
-                        }),
+                        },
                         map_aspect: None,
                     }),
                     parameter_list: Some(InterfaceList {
@@ -749,14 +749,14 @@ end function \"+\";
             header,
             SubprogramHeader {
                 map_aspect: None,
-                generic_list: Some(InterfaceList {
+                generic_list: InterfaceList {
                     interface_type: InterfaceType::Generic,
                     items: vec![
                         code.s1("x: natural := 1").generic(),
                         code.s1("y: real").generic()
                     ],
                     span: code.between("generic (", ")").token_span()
-                })
+                }
             }
         )
     }
@@ -781,14 +781,14 @@ end function \"+\";
                     },
                     closing_paren: code.s(")", 2).token()
                 }),
-                generic_list: Some(InterfaceList {
+                generic_list: InterfaceList {
                     interface_type: InterfaceType::Generic,
                     items: vec![
                         code.s1("x: natural := 1").generic(),
                         code.s1("y: real").generic()
                     ],
                     span: code.between("generic (", ")").token_span()
-                })
+                }
             }
         )
     }

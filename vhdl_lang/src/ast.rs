@@ -684,7 +684,7 @@ pub struct SubprogramBody {
 /// mark this element as optional.
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramHeader {
-    pub generic_list: Option<InterfaceList>,
+    pub generic_list: InterfaceList,
     pub map_aspect: Option<MapAspect>,
 }
 
