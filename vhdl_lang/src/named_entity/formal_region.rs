@@ -43,7 +43,11 @@ impl<'a> InterfaceEnt<'a> {
 
     pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         match ent.kind() {
-            AnyEntKind::Object(Object { iface: Some(_), .. }) | AnyEntKind::InterfaceFile(..) => {
+            AnyEntKind::Object(Object { iface: Some(_), .. })
+            | AnyEntKind::InterfaceFile(..)
+            | AnyEntKind::Design(Design::InterfacePackageInstance(_))
+            | AnyEntKind::Type(Type::Interface)
+            | AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => {
                 Some(InterfaceEnt { ent })
             }
             _ => None,
@@ -215,6 +219,7 @@ impl<'a> FormalRegion<'a> {
         if let Some(ent) = InterfaceEnt::from_any(param) {
             self.entities.push(ent);
         } else {
+            println!("kind: {:?}", param);
             debug_assert!(false);
         }
     }

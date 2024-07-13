@@ -492,10 +492,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Some(self.source()),
                 );
                 if let Some(generic_list) = &mut component.generic_list {
-                    self.analyze_interface_list(&nested, ent, &mut generic_list.item, diagnostics)?;
+                    self.analyze_interface_list(&nested, ent, generic_list, diagnostics)?;
                 }
                 if let Some(port_list) = &mut component.port_list {
-                    self.analyze_interface_list(&nested, ent, &mut port_list.item, diagnostics)?;
+                    self.analyze_interface_list(&nested, ent, port_list, diagnostics)?;
                 }
 
                 let kind = AnyEntKind::Component(nested.into_region());
@@ -1049,29 +1049,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         scope: &Scope<'a>,
         parent: EntRef<'a>,
-        declarations: &mut [InterfaceDeclaration],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        for decl in declarations.iter_mut() {
-            if let Some(ent) =
-                as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
-            {
-                scope.add(ent, diagnostics);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn analyze_parameter_list(
-        &self,
-        scope: &Scope<'a>,
-        parent: EntRef<'a>,
-        declarations: &mut [InterfaceDeclaration],
+        interface_list: &mut InterfaceList,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion<'a>> {
-        let mut params = FormalRegion::new(InterfaceType::Parameter);
+        let mut params = FormalRegion::new(interface_list.interface_type);
 
-        for decl in declarations.iter_mut() {
+        for decl in interface_list.items.iter_mut() {
             if let Some(ent) =
                 as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
             {

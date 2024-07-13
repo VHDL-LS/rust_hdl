@@ -16,11 +16,10 @@ use super::context::{
     parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
 };
 use super::declarative_part::{parse_declarative_part, parse_package_instantiation};
-use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
-use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use crate::syntax::recover::expect_semicolon_or_last;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -96,15 +95,7 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
 
     ctx.stream.expect_kind(Is)?;
-    let generic_clause = {
-        if ctx.stream.skip_if_kind(Generic) {
-            let decl = parse_generic_interface_list(ctx)?;
-            expect_semicolon(ctx);
-            Some(decl)
-        } else {
-            None
-        }
-    };
+    let generic_clause = parse_optional_generic_list(ctx)?;
     let decl = parse_declarative_part(ctx)?;
     ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Package);
@@ -394,10 +385,11 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(WithTokenSpan::new(
-                    Vec::new(),
-                    code.s1("generic ();").token_span(),
-                )),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: Vec::new(),
+                    span: code.s1("generic ();").token_span()
+                }),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -425,10 +417,11 @@ end entity;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(WithTokenSpan::new(
-                    vec![code.s1("runner_cfg : string").generic()],
-                    code.between("generic", ");").token_span()
-                )),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("runner_cfg : string").generic()],
+                    span: code.between("generic", ");").token_span()
+                }),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -462,7 +455,11 @@ end entity;
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
-                port_clause: Some(WithTokenSpan::new(vec![], code.s1("port ();").token_span())),
+                port_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Port,
+                    items: Vec::new(),
+                    span: code.s1("port ();").token_span()
+                }),
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -809,10 +806,11 @@ end package;
                 span: code.token_span(),
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").decl_ident(),
-                generic_clause: Some(vec![
-                    code.s1("type foo").generic(),
-                    code.s1("type bar").generic(),
-                ]),
+                generic_clause: Some(InterfaceList {
+                    interface_type: InterfaceType::Generic,
+                    items: vec![code.s1("type foo").generic(), code.s1("type bar").generic()],
+                    span: code.between("generic (", ");").token_span()
+                }),
                 decl: vec![],
                 end_ident_pos: None,
             }
