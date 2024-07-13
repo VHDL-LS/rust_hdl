@@ -1425,6 +1425,7 @@ pub struct EntityDeclaration {
     pub generic_clause: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
     pub port_clause: Option<WithTokenSpan<Vec<InterfaceDeclaration>>>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: Option<TokenId>,
     pub statements: Vec<LabeledConcurrentStatement>,
     /// The `end` token from the declaration `*end* entity foo;`
     pub end_token: TokenId,
@@ -1448,7 +1449,16 @@ pub struct ArchitectureBody {
     pub begin_token: TokenId,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
+}
+
+impl ArchitectureBody {
+    /// Location of the `is` token from
+    /// `architecture arch of ent is`
+    pub fn is_token(&self) -> TokenId {
+        self.span.start_token + 4
+    }
 }
 
 /// LRM 4.7 Package declarations

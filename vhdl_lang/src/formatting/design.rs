@@ -40,7 +40,11 @@ impl DesignUnitFormatter<'_> {
     }
 
     pub fn format_any_secondary_unit(&self, unit: &AnySecondaryUnit, buffer: &mut String) {
-        unimplemented!()
+        use AnySecondaryUnit::*;
+        match unit {
+            Architecture(architecture) => self.format_architecture(architecture, buffer),
+            PackageBody(_) => unimplemented!(),
+        }
     }
 
     pub fn format_configuration(

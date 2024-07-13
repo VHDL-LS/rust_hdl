@@ -14,19 +14,14 @@ impl DesignUnitFormatter<'_> {
         if let Some(port_clause) = &entity.port_clause {
             self.format_port_or_generic(port_clause, buffer);
         }
-        for (i, decl) in entity.decl.iter().enumerate() {
-            self.format_declaration(decl);
-            if i < entity.decl.len() - 1 {
-                self.newline(buffer);
-            }
+        self.format_declarations(&entity.decl, buffer);
+        if let Some(token) = entity.begin_token {
+            self.newline(buffer);
+            self.format_token_id(token, buffer);
         }
-        for (i, statement) in entity.statements.iter().enumerate() {
-            self.format_concurrent_statement(statement);
-            if i < entity.decl.len() - 1 {
-                self.newline(buffer);
-            }
-        }
+        self.format_concurrent_statements(&entity.statements, buffer);
         self.newline(buffer);
+        // end [entity] [name];
         self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);
     }
@@ -73,6 +68,13 @@ end;",
             "entity my_ent is end entity;",
             "\
 entity my_ent is
+end entity;",
+        );
+        check_entity_formatted(
+            "entity my_ent is begin end entity;",
+            "\
+entity my_ent is
+begin
 end entity;",
         );
     }

@@ -35,7 +35,8 @@ pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ent
 
     let decl = parse_declarative_part(ctx)?;
 
-    let statements = if ctx.stream.skip_if_kind(Begin) {
+    let begin_token = ctx.stream.pop_if_kind(Begin);
+    let statements = if begin_token.is_some() {
         parse_labeled_concurrent_statements(ctx)?
     } else {
         Vec::new()
@@ -51,6 +52,7 @@ pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ent
         ident,
         generic_clause,
         port_clause,
+        begin_token,
         decl,
         end_token,
         statements,
@@ -69,20 +71,21 @@ pub fn parse_architecture_body(ctx: &mut ParsingContext<'_>) -> ParseResult<Arch
     let begin_token = ctx.stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Architecture);
 
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(ArchitectureBody {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         begin_token,
         ident,
         entity_name: entity_name.into_ref(),
         decl,
+        end_token,
         statements,
     })
 }
@@ -322,6 +325,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            begin_token: None,
             end_token,
             end_ident_pos,
         }))
@@ -398,6 +402,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
                 end_token: code.s1("end").token()
             }
         );
@@ -428,6 +433,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
                 end_token: code.s1("end").token()
             }
         );
@@ -460,6 +466,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
                 end_token: code.s1("end").token()
             }
         );
@@ -485,6 +492,7 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: Some(code.s1("begin").token()),
                 end_token: code.s1("end").token()
             }
         );
@@ -510,6 +518,7 @@ end entity;
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
                 end_token: code.s1("end").token()
             }
         );
@@ -533,6 +542,7 @@ end entity;
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: None,
+                begin_token: Some(code.s1("begin").token()),
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
                 end_ident_pos: None,
@@ -642,6 +652,7 @@ end;
         span: TokenSpan,
         begin_token: TokenId,
         end_ident_pos: Option<TokenId>,
+        end_token: TokenId,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             span,
@@ -651,6 +662,7 @@ end;
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
+            end_token,
             end_ident_pos,
         }))
     }
@@ -674,6 +686,7 @@ end architecture;
                     code.token_span(),
                     code.s1("begin").token(),
                     None,
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -698,6 +711,7 @@ end architecture arch_name;
                     code.token_span(),
                     code.s1("begin").token(),
                     Some(code.s("arch_name", 2).token()),
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -722,6 +736,7 @@ end;
                     code.token_span(),
                     code.s1("begin").token(),
                     None,
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -830,6 +845,7 @@ end entity;
                         generic_clause: None,
                         port_clause: None,
                         decl: vec![],
+                        begin_token: None,
                         statements: vec![],
                         end_ident_pos: None,
                         end_token: code.s1("end").token()

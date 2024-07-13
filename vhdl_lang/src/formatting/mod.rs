@@ -2,6 +2,7 @@ use crate::Token;
 use std::cell::Cell;
 use std::iter;
 
+mod architecture;
 mod context;
 mod declaration;
 mod design;
