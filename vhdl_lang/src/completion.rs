@@ -79,6 +79,11 @@ pub fn list_completion_options<'a>(
     use crate::syntax::Kind::*;
     let tokens = tokenize_input(root.symbols(), source, cursor);
     match &tokens[..] {
+        // With the current implementation of completions, this is annoying, rather than helpful.
+        // SemiColons will try to complete the ';' character, which when pressing enter will cause
+        // ';' to appear instead of a simple ; character.
+        // Therefore, we do not return any completions here.
+        [.., kind!(SemiColon)] => vec![],
         [.., kind!(Library)]
         | [.., kind!(Library), kind!(Identifier)]
         | [.., kind!(Use)]

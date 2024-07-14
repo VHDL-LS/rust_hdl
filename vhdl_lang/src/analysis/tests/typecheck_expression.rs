@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use std::vec;
 use vhdl_lang::data::error_codes::ErrorCode;
 
 #[test]
@@ -1968,4 +1969,28 @@ end package;
 
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
+}
+
+// Issue #317
+#[test]
+fn type_mismatch_in_binary_expression() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+package foo is
+    function takes_slv(din : bit_vector) return boolean;
+    constant bar : boolean := takes_slv(true) and true;
+end package;",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("true"),
+            "'true' does not match array type 'BIT_VECTOR'",
+            ErrorCode::TypeMismatch,
+        )],
+    );
 }
