@@ -257,6 +257,12 @@ impl Search for WithTokenSpan<Choice> {
     }
 }
 
+impl Search for WithTokenSpan<ElementAssociation> {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        self.item.search(ctx, searcher)
+    }
+}
+
 impl Search for WithTokenSpan<Target> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {

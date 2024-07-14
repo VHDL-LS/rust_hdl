@@ -842,7 +842,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             target_base,
                             indexes,
                             *elem_type,
-                            assoc,
+                            &mut assoc.item,
                             diagnostics,
                         ))?;
                     }
@@ -878,11 +878,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_aggregate(
         &self,
         scope: &Scope<'a>,
-        assocs: &mut [ElementAssociation],
+        assocs: &mut [WithTokenSpan<ElementAssociation>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for assoc in assocs.iter_mut() {
-            match assoc {
+            match &mut assoc.item {
                 ElementAssociation::Named(ref mut choices, ref mut expr) => {
                     for choice in choices.iter_mut() {
                         match choice.item {
@@ -911,14 +911,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         record_type: TypeEnt<'a>,
         elems: &RecordRegion<'a>,
         span: TokenSpan,
-        assocs: &mut [ElementAssociation],
+        assocs: &mut [WithTokenSpan<ElementAssociation>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let mut associated = RecordAssociations::default();
         let mut is_ok_so_far = true;
 
         for (idx, assoc) in assocs.iter_mut().enumerate() {
-            match assoc {
+            match &mut assoc.item {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
                     let typ = if choices.len() == 1 {
                         let choice = choices.first_mut().unwrap();
@@ -1190,7 +1190,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         array_type,
                         &index_types[1..],
                         elem_type,
-                        assoc,
+                        &mut assoc.item,
                         diagnostics,
                     ))?;
                 }

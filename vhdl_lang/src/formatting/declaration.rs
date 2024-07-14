@@ -9,8 +9,8 @@ use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
-    AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, ContextClause,
-    Declaration, LibraryClause, ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody,
+    AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, Declaration,
+    LibraryClause, ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody,
     ProtectedTypeDeclaration, UseClause,
 };
 

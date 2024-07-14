@@ -12,7 +12,7 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
 use crate::data::Diagnostic;
 use crate::syntax::TokenAccess;
-use crate::{ast, TokenSpan};
+use crate::{ast, HasTokenSpan, TokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 impl WithTokenSpan<Name> {
@@ -146,7 +146,7 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 pub fn parse_aggregate_initial_choices(
     ctx: &mut ParsingContext<'_>,
     choices: Vec<WithTokenSpan<Choice>>,
-) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
+) -> ParseResult<WithTokenSpan<Vec<WithTokenSpan<ElementAssociation>>>> {
     let mut choices = choices;
     let mut result = Vec::new();
     loop {
@@ -157,7 +157,12 @@ pub fn parse_aggregate_initial_choices(
             RightPar => {
                 if choices.len() == 1 {
                     if let Some(WithTokenSpan{item: Choice::Expression(expr), span}) = choices.pop() {
-                        result.push(ElementAssociation::Positional(WithTokenSpan::new(expr, span)));
+                        result.push(
+                            WithTokenSpan::new(
+                                ElementAssociation::Positional(WithTokenSpan::new(expr, span)),
+                                span,
+                            )
+                        );
                         return Ok(WithTokenSpan::from(result, token_id))
                     }
                 }
@@ -167,7 +172,12 @@ pub fn parse_aggregate_initial_choices(
             Comma => {
                 if choices.len() == 1 {
                     if let Some(WithTokenSpan{item: Choice::Expression(expr), span}) = choices.pop() {
-                        result.push(ElementAssociation::Positional(WithTokenSpan::new(expr, span)));
+                        result.push(
+                            WithTokenSpan::new(
+                                ElementAssociation::Positional(WithTokenSpan::new(expr, span)),
+                                span
+                            )
+                        );
                         choices = parse_choices(ctx)?;
                         continue;
                     }
@@ -177,7 +187,13 @@ pub fn parse_aggregate_initial_choices(
             },
             RightArrow => {
                 let rhs = parse_expression(ctx)?;
-                result.push(ElementAssociation::Named(choices, rhs));
+                let span = TokenSpan::new(choices[0].get_start_token(), rhs.get_end_token());
+                result.push(
+                    WithTokenSpan::new(
+                        ElementAssociation::Named(choices, rhs),
+                        span,
+                    )
+                );
 
                 expect_token!(
                     ctx.stream,
@@ -197,7 +213,7 @@ pub fn parse_aggregate_initial_choices(
 
 pub fn parse_aggregate(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<WithTokenSpan<Vec<ElementAssociation>>> {
+) -> ParseResult<WithTokenSpan<Vec<WithTokenSpan<ElementAssociation>>>> {
     let start_tok = ctx.stream.expect_kind(LeftPar)?;
     if let Some(token) = ctx.stream.pop_if_kind(RightPar) {
         return Ok(WithTokenSpan::from(
@@ -959,8 +975,14 @@ mod tests {
         };
 
         let assoc_list = vec![
-            ElementAssociation::Positional(one_expr),
-            ElementAssociation::Positional(two_expr),
+            WithTokenSpan::new(
+                ElementAssociation::Positional(one_expr),
+                code.s1("1").token_span(),
+            ),
+            WithTokenSpan::new(
+                ElementAssociation::Positional(two_expr),
+                code.s1("2").token_span(),
+            ),
         ];
         let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
@@ -982,9 +1004,9 @@ mod tests {
             span: code.s1("2").token_span(),
         };
 
-        let assoc_list = vec![ElementAssociation::Named(
-            vec![one_expr.map_into(Choice::Expression)],
-            two_expr,
+        let assoc_list = vec![WithTokenSpan::new(
+            ElementAssociation::Named(vec![one_expr.map_into(Choice::Expression)], two_expr),
+            code.s1("1 => 2").token_span(),
         )];
         let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
@@ -1012,12 +1034,15 @@ mod tests {
             span: code.s1("3").token_span(),
         };
 
-        let assoc_list = vec![ElementAssociation::Named(
-            vec![
-                one_expr.map_into(Choice::Expression),
-                two_expr.map_into(Choice::Expression),
-            ],
-            three_expr,
+        let assoc_list = vec![WithTokenSpan::new(
+            ElementAssociation::Named(
+                vec![
+                    one_expr.map_into(Choice::Expression),
+                    two_expr.map_into(Choice::Expression),
+                ],
+                three_expr,
+            ),
+            code.s1("1 | 2 => 3").token_span(),
         )];
         let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
@@ -1035,12 +1060,15 @@ mod tests {
             span: code.s1("1").token_span(),
         };
 
-        let assoc_list = vec![ElementAssociation::Named(
-            vec![WithTokenSpan::new(
-                Choice::Others,
-                code.s1("others").token_span(),
-            )],
-            one_expr,
+        let assoc_list = vec![WithTokenSpan::new(
+            ElementAssociation::Named(
+                vec![WithTokenSpan::new(
+                    Choice::Others,
+                    code.s1("others").token_span(),
+                )],
+                one_expr,
+            ),
+            code.s1("others => 1").token_span(),
         )];
         let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),
@@ -1084,9 +1112,16 @@ mod tests {
                 right_expr: Box::new(zero_expr),
             }));
 
-            let assoc_list = vec![ElementAssociation::Named(
-                vec![WithTokenSpan::new(Choice::DiscreteRange(range), pos)],
-                two_expr,
+            let assoc_list = vec![WithTokenSpan::new(
+                ElementAssociation::Named(
+                    vec![WithTokenSpan::new(Choice::DiscreteRange(range), pos)],
+                    two_expr,
+                ),
+                if *direction == Direction::Descending {
+                    code.s1("1 downto 0 => 2").token_span()
+                } else {
+                    code.s1("1 to 0 => 2").token_span()
+                },
             )];
             let expr = WithTokenSpan {
                 item: Expression::Aggregate(assoc_list),
@@ -1111,19 +1146,25 @@ mod tests {
         };
 
         let assoc_list = vec![
-            ElementAssociation::Named(
-                vec![WithTokenSpan::new(
-                    Choice::Others,
-                    code.s("others", 1).token_span(),
-                )],
-                one_expr,
+            WithTokenSpan::new(
+                ElementAssociation::Named(
+                    vec![WithTokenSpan::new(
+                        Choice::Others,
+                        code.s("others", 1).token_span(),
+                    )],
+                    one_expr,
+                ),
+                code.s1("others => 1").token_span(),
             ),
-            ElementAssociation::Named(
-                vec![WithTokenSpan::new(
-                    Choice::Others,
-                    code.s("others", 2).token_span(),
-                )],
-                two_expr,
+            WithTokenSpan::new(
+                ElementAssociation::Named(
+                    vec![WithTokenSpan::new(
+                        Choice::Others,
+                        code.s("others", 2).token_span(),
+                    )],
+                    two_expr,
+                ),
+                code.s1("others => 2").token_span(),
             ),
         ];
         let expr = WithTokenSpan {
@@ -1151,8 +1192,14 @@ mod tests {
         };
 
         let assoc_list = vec![
-            ElementAssociation::Named(vec![one_expr.map_into(Choice::Expression)], two_expr),
-            ElementAssociation::Positional(three_expr),
+            WithTokenSpan::new(
+                ElementAssociation::Named(vec![one_expr.map_into(Choice::Expression)], two_expr),
+                code.s1("1 => 2").token_span(),
+            ),
+            WithTokenSpan::new(
+                ElementAssociation::Positional(three_expr),
+                code.s1("3").token_span(),
+            ),
         ];
         let expr = WithTokenSpan {
             item: Expression::Aggregate(assoc_list),

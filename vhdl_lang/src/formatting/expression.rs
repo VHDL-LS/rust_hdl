@@ -1,5 +1,5 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{Expression, ResolutionIndication, SubtypeIndication};
+use crate::ast::{ElementAssociation, Expression, ResolutionIndication, SubtypeIndication};
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
@@ -17,8 +17,6 @@ impl VHDLFormatter<'_> {
             span
         };
         match &expression {
-            Name(name) => self.format_name(name, reduced_span, buffer),
-            Literal(_) => self.format_token_span(reduced_span, buffer),
             Binary(op, lhs, rhs) => {
                 self.format_expression(&lhs.item, lhs.span, buffer);
                 buffer.push(' ');
@@ -30,10 +28,45 @@ impl VHDLFormatter<'_> {
                 self.format_token_id(op.token, buffer);
                 self.format_expression(&rhs.item, rhs.span, buffer);
             }
+            Aggregate(aggregate) => self.format_element_associations(aggregate, buffer),
+            Name(name) => self.format_name(name, reduced_span, buffer),
+            Literal(_) => self.format_token_span(reduced_span, buffer),
             _ => unimplemented!(),
         }
         if is_parenthesized {
             self.format_token_id(span.end_token, buffer);
+        }
+    }
+
+    pub fn format_element_associations(
+        &self,
+        associations: &[WithTokenSpan<ElementAssociation>],
+        buffer: &mut String,
+    ) {
+        for (i, association) in associations.iter().enumerate() {
+            match &association.item {
+                ElementAssociation::Positional(expression) => {
+                    self.format_expression(&expression.item, expression.span, buffer)
+                }
+                ElementAssociation::Named(choices, expression) => {
+                    for (j, choice) in choices.iter().enumerate() {
+                        self.format_choice(choice, buffer);
+                        if j < choices.len() - 1 {
+                            buffer.push(' ');
+                            self.format_token_id(choice.span.end_token + 1, buffer);
+                            buffer.push(' ');
+                        }
+                    }
+                    buffer.push(' ');
+                    self.format_token_id(expression.span.start_token - 1, buffer);
+                    buffer.push(' ');
+                    self.format_expression(&expression.item, expression.span, buffer);
+                }
+            }
+            if i < associations.len() - 1 {
+                self.format_token_id(association.span.end_token + 1, buffer);
+                buffer.push(' ');
+            }
         }
     }
 
@@ -151,6 +184,16 @@ mod test {
         check_expression("A + B - C");
         check_expression("(A * B) + C");
         check_expression("((A * B) + C)");
+    }
+
+    #[test]
+    fn aggregate() {
+        check_expression("(1, 2)");
+        check_expression("(1 => 2, 3)");
+        check_expression("(others => 1, others => 2)");
+        check_expression("(1 downto 0 => 2)");
+        check_expression("(0 to 1 => 2)");
+        check_expression("(1 | 2 => 3)");
     }
 
     fn check_subtype_indication(input: &str) {

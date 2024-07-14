@@ -712,7 +712,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_waveform)
     }
 
-    pub fn aggregate(&self) -> WithTokenSpan<Vec<ElementAssociation>> {
+    pub fn aggregate(&self) -> WithTokenSpan<Vec<WithTokenSpan<ElementAssociation>>> {
         self.parse_ok_no_diagnostics(parse_aggregate)
     }
 

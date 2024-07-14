@@ -286,7 +286,7 @@ pub enum Expression {
     Unary(WithToken<WithRef<Operator>>, Box<WithTokenSpan<Expression>>),
 
     /// LRM 9.3.3 Aggregates
-    Aggregate(Vec<ElementAssociation>),
+    Aggregate(Vec<WithTokenSpan<ElementAssociation>>),
 
     /// LRM 9.3.5 Qualified expressions
     Qualified(Box<QualifiedExpression>),
@@ -935,7 +935,7 @@ pub struct ReportStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Target {
     Name(Name),
-    Aggregate(Vec<ElementAssociation>),
+    Aggregate(Vec<WithTokenSpan<ElementAssociation>>),
 }
 
 /// LRM 10.5 Signal assignment statement
