@@ -13,10 +13,10 @@ impl DesignUnitFormatter<'_> {
         self.decrease_indentation();
         self.newline(buffer);
         self.format_token_id(arch.begin_token, buffer);
-        self.newline(buffer);
         self.increase_indentation();
         self.format_concurrent_statements(&arch.statements, buffer);
         self.decrease_indentation();
+        self.newline(buffer);
         // end [architecture] [name];
         self.format_token_span(TokenSpan::new(arch.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);
@@ -77,6 +77,22 @@ architecture foo of bar is
     constant x: foo := bar;
     signal y: bar := foobar;
 begin
+end foo;",
+        );
+    }
+
+    #[test]
+    fn format_full_architecture() {
+        check_architecture_formatted(
+            "\
+architecture foo of bar is
+    constant x: foo := bar;
+    signal y: bar := foobar;
+begin
+    bar: process(clk) is
+        variable z: baz;
+    begin
+    end process bar;
 end foo;",
         );
     }

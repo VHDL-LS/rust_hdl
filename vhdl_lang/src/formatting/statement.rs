@@ -3,22 +3,21 @@ use crate::ast::{
     BlockStatement, ConcurrentAssertStatement, ConcurrentStatement, LabeledConcurrentStatement,
     LabeledSequentialStatement, ProcessStatement, SensitivityList,
 };
+use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
 use crate::TokenAccess;
 use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
-impl crate::formatting::DesignUnitFormatter<'_> {
+impl DesignUnitFormatter<'_> {
     pub fn format_concurrent_statements(
         &self,
         statements: &[LabeledConcurrentStatement],
         buffer: &mut String,
     ) {
-        for (i, statement) in statements.iter().enumerate() {
+        for statement in statements {
+            self.newline(buffer);
             self.format_labeled_concurrent_statement(statement, buffer);
-            if i < statements.len() - 1 {
-                self.newline(buffer);
-            }
         }
     }
 
@@ -27,11 +26,9 @@ impl crate::formatting::DesignUnitFormatter<'_> {
         statements: &[LabeledSequentialStatement],
         buffer: &mut String,
     ) {
-        for (i, statement) in statements.iter().enumerate() {
+        for statement in statements {
+            self.newline(buffer);
             self.format_sequential_statement(statement, buffer);
-            if i < statements.len() - 1 {
-                self.newline(buffer);
-            }
         }
     }
 
