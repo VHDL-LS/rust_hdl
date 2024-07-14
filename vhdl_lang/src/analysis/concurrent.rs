@@ -198,12 +198,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
-                let ConcurrentSignalAssignment { target, rhs, .. } = assign;
+                let ConcurrentSignalAssignment { assignment, .. } = assign;
                 self.analyze_waveform_assignment(
                     scope,
-                    target,
+                    &mut assignment.target,
                     AssignmentType::Signal,
-                    rhs,
+                    &mut assignment.rhs,
                     diagnostics,
                 )?;
             }

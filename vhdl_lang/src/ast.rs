@@ -1102,9 +1102,7 @@ pub struct ConcurrentAssertStatement {
 pub struct ConcurrentSignalAssignment {
     pub postponed: bool,
     pub guarded: bool,
-    pub target: WithTokenSpan<Target>,
-    pub delay_mechanism: Option<DelayMechanism>,
-    pub rhs: AssignmentRightHand<Waveform>,
+    pub assignment: SignalAssignment,
 }
 
 /// 11.7 Component instantiation statements

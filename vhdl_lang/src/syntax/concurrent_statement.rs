@@ -287,9 +287,11 @@ fn parse_assignment_known_target(
         ConcurrentSignalAssignment {
             postponed,
             guarded,
-            target,
-            delay_mechanism,
-            rhs: parse_signal_assignment_right_hand(ctx)?,
+            assignment: SignalAssignment {
+                target,
+                delay_mechanism,
+                rhs: parse_signal_assignment_right_hand(ctx)?,
+            },
         },
     ))
 }
@@ -323,9 +325,11 @@ fn parse_selected_signal_assignment(
     Ok(ConcurrentSignalAssignment {
         postponed,
         guarded,
-        target,
-        delay_mechanism,
-        rhs,
+        assignment: SignalAssignment {
+            target,
+            delay_mechanism,
+            rhs,
+        },
     })
 }
 
@@ -1245,9 +1249,11 @@ end process;",
         let assign = ConcurrentSignalAssignment {
             postponed: false,
             guarded: false,
-            target: code.s1("foo").name().map_into(Target::Name),
-            delay_mechanism: None,
-            rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+            assignment: SignalAssignment {
+                target: code.s1("foo").name().map_into(Target::Name),
+                delay_mechanism: None,
+                rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+            },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1263,12 +1269,14 @@ end process;",
         let assign = ConcurrentSignalAssignment {
             postponed: false,
             guarded: false,
-            target: code
-                .s1("<< signal dut.foo : std_logic >>")
-                .name()
-                .map_into(Target::Name),
-            delay_mechanism: None,
-            rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+            assignment: SignalAssignment {
+                target: code
+                    .s1("<< signal dut.foo : std_logic >>")
+                    .name()
+                    .map_into(Target::Name),
+                delay_mechanism: None,
+                rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+            },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
@@ -1301,9 +1309,11 @@ with x(0) + 1 select
             ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
                 postponed: false,
                 guarded: false,
-                target: code.s1("foo(0)").name().map_into(Target::Name),
-                delay_mechanism: Some(DelayMechanism::Transport),
-                rhs: AssignmentRightHand::Selected(selection)
+                assignment: SignalAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    delay_mechanism: Some(DelayMechanism::Transport),
+                    rhs: AssignmentRightHand::Selected(selection)
+                }
             })
         );
         assert_eq!(stmt.statement.span, code.token_span());
