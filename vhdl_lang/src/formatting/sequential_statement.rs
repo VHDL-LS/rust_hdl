@@ -1,11 +1,12 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    CaseStatement, Choice, LabeledSequentialStatement, ReportStatement, SequentialStatement,
-    SignalAssignment, WaitStatement,
+    CaseStatement, Choice, IterationScheme, LabeledSequentialStatement, LoopStatement,
+    ReportStatement, SequentialStatement, SignalAssignment, WaitStatement,
 };
-use crate::{TokenAccess, TokenSpan};
+use crate::TokenSpan;
 use vhdl_lang::ast::{
-    IfStatement, SignalForceAssignment, SignalReleaseAssignment, VariableAssignment,
+    ExitStatement, IfStatement, NextStatement, SignalForceAssignment, SignalReleaseAssignment,
+    VariableAssignment,
 };
 use vhdl_lang::formatting::DesignUnitFormatter;
 
@@ -68,6 +69,12 @@ impl DesignUnitFormatter<'_> {
             Case(case_statement) => {
                 self.format_case_statement(case_statement, span, buffer);
             }
+            Loop(loop_statement) => {
+                self.format_loop_statement(loop_statement, span, buffer);
+            }
+            Next(next_statement) => self.format_next_statement(next_statement, span, buffer),
+            Exit(exit_statement) => self.format_exit_statement(exit_statement, span, buffer),
+
             Return(stmt) => {
                 self.format_token_id(span.start_token, buffer);
                 if let Some(expr) = &stmt.expression {
@@ -77,7 +84,6 @@ impl DesignUnitFormatter<'_> {
                 self.format_token_id(span.end_token, buffer);
             }
             Null => self.join_token_span(span, buffer),
-            _ => unimplemented!(),
         }
     }
 
@@ -333,6 +339,89 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_loop_statement(
+        &self,
+        statement: &LoopStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        if let Some(scheme) = &statement.iteration_scheme {
+            match scheme {
+                IterationScheme::While(expression) => {
+                    // while
+                    self.format_token_id(expression.span.start_token - 1, buffer);
+                    buffer.push(' ');
+                    self.format_expression(&expression.item, expression.span, buffer);
+                    buffer.push(' ');
+                }
+                IterationScheme::For(ident, range) => {
+                    // for <ident> in
+                    self.format_token_span(
+                        TokenSpan::new(ident.tree.token - 1, ident.tree.token + 1),
+                        buffer,
+                    );
+                    buffer.push(' ');
+                    self.format_discrete_range(range, buffer);
+                    buffer.push(' ');
+                }
+            }
+        }
+        self.format_token_id(statement.loop_token, buffer);
+        self.increase_indentation();
+        self.format_sequential_statements(&statement.statements, buffer);
+        self.decrease_indentation();
+        self.newline(buffer);
+        self.format_token_span(
+            TokenSpan::new(statement.end_token, span.end_token - 1),
+            buffer,
+        );
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_next_statement(
+        &self,
+        statement: &NextStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // next
+        self.format_token_id(span.start_token, buffer);
+        if let Some(label) = &statement.loop_label {
+            buffer.push(' ');
+            self.format_token_id(label.item.token, buffer);
+        }
+        if let Some(condition) = &statement.condition {
+            buffer.push(' ');
+            // when
+            self.format_token_id(condition.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&condition.item, condition.span, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_exit_statement(
+        &self,
+        statement: &ExitStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // next
+        self.format_token_id(span.start_token, buffer);
+        if let Some(label) = &statement.loop_label {
+            buffer.push(' ');
+            self.format_token_id(label.item.token, buffer);
+        }
+        if let Some(condition) = &statement.condition {
+            buffer.push(' ');
+            // when
+            self.format_token_id(condition.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&condition.item, condition.span, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -484,5 +573,49 @@ case? foo(1) is
         null;
 end case?;",
         ])
+    }
+
+    #[test]
+    fn check_loop() {
+        check_statements(&[
+            "\
+lbl: loop
+end loop lbl;",
+            "\
+lbl: loop
+    stmt1;
+    stmt2;
+end loop lbl;",
+            "\
+while foo = true loop
+    stmt1;
+    stmt2;
+end loop;",
+            "\
+for idx in 0 to 3 loop
+    stmt1;
+    stmt2;
+end loop;",
+        ]);
+    }
+
+    #[test]
+    fn check_next_statement() {
+        check_statements(&[
+            "next;",
+            "next foo;",
+            "next when condition;",
+            "next foo when condition;",
+        ]);
+    }
+
+    #[test]
+    fn check_exit_statement() {
+        check_statements(&[
+            "exit;",
+            "exit foo;",
+            "exit when condition;",
+            "exit foo when condition;",
+        ]);
     }
 }

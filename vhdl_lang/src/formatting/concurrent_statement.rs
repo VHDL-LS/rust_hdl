@@ -187,10 +187,10 @@ impl DesignUnitFormatter<'_> {
         self.decrease_indentation();
         self.newline(buffer);
         self.format_token_id(process.begin_token, buffer);
-        self.newline(buffer);
         self.increase_indentation();
         self.format_sequential_statements(&process.statements, buffer);
         self.decrease_indentation();
+        self.newline(buffer);
         self.format_token_span(
             TokenSpan::new(process.end_token, process.span.end_token - 1),
             buffer,

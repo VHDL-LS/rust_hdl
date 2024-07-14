@@ -256,7 +256,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
-                    end_label_pos: _,
+                    ..
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {

@@ -92,6 +92,13 @@ begin
     bar: process(clk) is
         variable z: baz;
     begin
+        if rising_edge(clk) then
+            if rst = '1' then
+                foo <= '0';
+            else
+                foo <= bar and baz;
+            end if;
+        end if;
     end process bar;
     y <= x; -- An assignment
 end foo;",

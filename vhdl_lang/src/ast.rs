@@ -1070,7 +1070,9 @@ pub enum IterationScheme {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LoopStatement {
     pub iteration_scheme: Option<IterationScheme>,
+    pub loop_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 

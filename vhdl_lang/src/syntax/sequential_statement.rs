@@ -206,21 +206,21 @@ fn parse_loop_statement(
     ctx: &mut ParsingContext<'_>,
     label: Option<&Ident>,
 ) -> ParseResult<LoopStatement> {
-    let iteration_scheme = {
+    let (iteration_scheme, loop_token) = {
         expect_token!(
-            ctx.stream, token,
-            Loop => None,
+            ctx.stream, token, token_id,
+            Loop => (None, token_id),
             While => {
                 let expression = parse_expression(ctx)?;
-                ctx.stream.expect_kind(Loop)?;
-                Some(IterationScheme::While(expression))
+                let loop_token = ctx.stream.expect_kind(Loop)?;
+                (Some(IterationScheme::While(expression)), loop_token)
             },
             For => {
                 let ident = ctx.stream.expect_ident()?;
                 ctx.stream.expect_kind(In)?;
                 let discrete_range = parse_discrete_range(ctx)?;
-                ctx.stream.expect_kind(Loop)?;
-                Some(IterationScheme::For(ident.into(), discrete_range))
+                let loop_token = ctx.stream.expect_kind(Loop)?;
+                (Some(IterationScheme::For(ident.into(), discrete_range)), loop_token)
             }
         )
     };
@@ -230,13 +230,16 @@ fn parse_loop_statement(
     expect_token!(
         ctx.stream,
         end_token,
+        end_token_id,
         End => {
             ctx.stream.expect_kind(Loop)?;
             let end_label_pos = check_label_identifier_mismatch(ctx, label, ctx.stream.pop_optional_ident());
             expect_semicolon(ctx);
             Ok(LoopStatement {
                 iteration_scheme,
+                loop_token,
                 statements,
+                end_token: end_token_id,
                 end_label_pos,
             })
         }
@@ -1633,10 +1636,12 @@ end loop lbl;",
                 WithTokenSpan::new(
                     SequentialStatement::Loop(LoopStatement {
                         iteration_scheme: None,
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: Some(code.s("lbl", 2).pos()),
                     }),
                     code.pos_after("lbl: ").token_span()
@@ -1663,10 +1668,12 @@ end loop;",
                         iteration_scheme: Some(IterationScheme::While(
                             code.s1("foo = true").expr()
                         )),
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()
@@ -1693,10 +1700,12 @@ end loop;",
                             code.s1("idx").decl_ident(),
                             code.s1("0 to 3").discrete_range()
                         )),
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()

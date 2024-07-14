@@ -348,7 +348,7 @@ impl Search for LabeledSequentialStatement {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
-                    end_label_pos: _,
+                    ..
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref index, ref drange)) => {
