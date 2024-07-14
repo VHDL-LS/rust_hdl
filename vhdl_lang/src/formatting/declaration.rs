@@ -1,15 +1,15 @@
 use crate::ast::{
-    ArrayIndex, ComponentDeclaration, ElementDeclaration, EntityName, FileDeclaration,
-    ObjectDeclaration, ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration,
-    TypeDefinition,
+    ArrayIndex, ComponentDeclaration, ConfigurationSpecification, ElementDeclaration, EntityName,
+    FileDeclaration, ModeViewDeclaration, ObjectDeclaration, PackageInstantiation,
+    ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
-use crate::{TokenAccess, TokenId, TokenSpan};
+use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
     AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, Declaration,
-    ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
+    ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration, UseClause,
 };
 
 impl DesignUnitFormatter<'_> {
@@ -51,7 +51,14 @@ impl DesignUnitFormatter<'_> {
                 self.format_subprogram_instantiation(subprogram_instantiation, buffer)
             }
             SubprogramBody(subprogram_body) => self.format_subprogram_body(subprogram_body, buffer),
-            _ => unimplemented!(),
+            Use(use_clause) => self.format_use_clause(use_clause, buffer),
+            Package(package_instantiation) => {
+                self.format_package_instance(package_instantiation, buffer)
+            }
+            Configuration(configuration) => {
+                self.format_configuration_specification(configuration, buffer)
+            }
+            View(view_declaration) => self.format_view(view_declaration, declaration.span, buffer),
         }
     }
 
@@ -476,16 +483,91 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_use_clause(&self, use_clause: &UseClause, buffer: &mut String) {
+        // use
+        self.format_token_id(use_clause.get_start_token(), buffer);
+        buffer.push(' ');
+        for (i, name) in use_clause.name_list.items.iter().enumerate() {
+            self.format_name(&name.item, name.span, buffer);
+            if let Some(token) = use_clause.name_list.tokens.get(i) {
+                self.format_token_id(*token, buffer);
+                buffer.push(' ');
+            }
+        }
+        self.format_token_id(use_clause.get_end_token(), buffer);
+    }
+
+    pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut String) {
+        self.format_context_clause(&instance.context_clause, buffer);
+        // package <name> is new
+        self.format_token_span(
+            TokenSpan::new(instance.get_start_token(), instance.get_start_token() + 3),
+            buffer,
+        );
+        buffer.push(' ');
+        self.format_name(
+            &instance.package_name.item,
+            instance.package_name.span,
+            buffer,
+        );
+        if let Some(generic_map) = &instance.generic_map {
+            buffer.push(' ');
+            self.format_map_aspect(generic_map, buffer);
+        }
+        self.format_token_id(instance.get_end_token(), buffer);
+    }
+
+    pub fn format_configuration_specification(
+        &self,
+        _configuration: &ConfigurationSpecification,
+        _buffer: &mut String,
+    ) {
+        unimplemented!()
+    }
+
+    pub fn format_view(&self, view: &ModeViewDeclaration, span: TokenSpan, buffer: &mut String) {
+        // view <name> of
+        self.format_token_span(
+            TokenSpan::new(span.start_token, span.start_token + 2),
+            buffer,
+        );
+        buffer.push(' ');
+        self.format_subtype_indication(&view.typ, buffer);
+        buffer.push(' ');
+        self.format_token_id(view.is_token, buffer);
+        self.increase_indentation();
+        for element in &view.elements {
+            self.newline(buffer);
+            self.format_mode_view_element(element, buffer);
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        self.format_token_span(TokenSpan::new(view.end_token, span.end_token - 1), buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::formatting::test_utils::check_formatted;
+    use crate::formatting::test_utils::{check_formatted, check_formatted_std};
+    use crate::VHDLStandard;
+    use crate::VHDLStandard::VHDL2019;
 
     fn check_declaration(input: &str) {
         check_formatted(
             input,
             input,
+            |code| code.declarative_part().into_iter().next().unwrap(),
+            |formatter, ast, buffer| formatter.format_declaration(ast, buffer),
+        );
+    }
+
+    fn check_declaration_std(input: &str, std: VHDLStandard) {
+        check_formatted_std(
+            input,
+            input,
+            std,
             |code| code.declarative_part().into_iter().next().unwrap(),
             |formatter, ast, buffer| formatter.format_declaration(ast, buffer),
         );
@@ -699,5 +781,53 @@ end component;",
         check_declaration("alias foo is name[return natural];");
         check_declaration("alias \"and\" is name;");
         check_declaration("alias 'c' is 'b';");
+    }
+
+    #[test]
+    fn check_use_clause() {
+        check_declaration("use foo;");
+        check_declaration("use foo, bar;");
+        check_declaration("use foo, bar, baz;");
+    }
+
+    #[test]
+    fn format_package_instance() {
+        check_declaration("package ident is new foo;");
+        check_declaration(
+            "package ident is new foo generic map (
+    foo => bar
+);",
+        );
+    }
+
+    #[test]
+    fn format_view() {
+        check_declaration_std(
+            "\
+view foo of bar is
+end view;",
+            VHDL2019,
+        );
+        check_declaration_std(
+            "\
+view foo of bar is
+end view foo;",
+            VHDL2019,
+        );
+        check_declaration_std(
+            "\
+view foo of bar is
+    baz: in;
+end view;",
+            VHDL2019,
+        );
+        check_declaration_std(
+            "\
+view foo of bar is
+    baz: in;
+    bar: view foo;
+end view;",
+            VHDL2019,
+        );
     }
 }

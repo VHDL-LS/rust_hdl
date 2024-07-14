@@ -1255,7 +1255,9 @@ pub struct CaseGenerateStatement {
 pub struct ModeViewDeclaration {
     pub ident: WithDecl<Ident>,
     pub typ: SubtypeIndication,
+    pub is_token: TokenId,
     pub elements: Vec<ModeViewElement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1263,6 +1265,7 @@ pub struct ModeViewDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewElement {
     pub names: IdentList,
+    pub colon_token: TokenId,
     pub mode: ElementMode,
 }
 

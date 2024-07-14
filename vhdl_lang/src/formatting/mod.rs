@@ -63,6 +63,7 @@ impl DesignUnitFormatter<'_> {
 pub mod test_utils {
     use crate::formatting::DesignUnitFormatter;
     use crate::syntax::test::Code;
+    use vhdl_lang::VHDLStandard;
 
     pub(crate) fn check_formatted<T>(
         input: &str,
@@ -70,7 +71,17 @@ pub mod test_utils {
         to_ast: impl FnOnce(&Code) -> T,
         format: impl FnOnce(&DesignUnitFormatter, &T, &mut String),
     ) {
-        let code = Code::new(input);
+        check_formatted_std(input, expected, VHDLStandard::default(), to_ast, format)
+    }
+
+    pub(crate) fn check_formatted_std<T>(
+        input: &str,
+        expected: &str,
+        std: VHDLStandard,
+        to_ast: impl FnOnce(&Code) -> T,
+        format: impl FnOnce(&DesignUnitFormatter, &T, &mut String),
+    ) {
+        let code = Code::with_standard(input, std);
         let ast_element = to_ast(&code);
         let tokens = code.tokenize();
         let formatter = DesignUnitFormatter::new(&tokens);

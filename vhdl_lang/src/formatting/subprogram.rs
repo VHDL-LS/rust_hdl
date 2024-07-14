@@ -97,7 +97,7 @@ impl DesignUnitFormatter<'_> {
         self.decrease_indentation();
         if let Some(map_aspect) = &header.map_aspect {
             buffer.push(' ');
-            self.format_map_aspect(&map_aspect, buffer);
+            self.format_map_aspect(map_aspect, buffer);
         }
     }
 

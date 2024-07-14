@@ -1,6 +1,6 @@
 use crate::ast::{
-    ActualPart, AssociationElement, InterfaceDeclaration, InterfaceList,
-    InterfaceObjectDeclaration, MapAspect, ModeIndication, SimpleModeIndication,
+    ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
+    InterfaceObjectDeclaration, MapAspect, ModeIndication, ModeViewElement, SimpleModeIndication,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -123,6 +123,46 @@ impl DesignUnitFormatter<'_> {
         }
     }
 
+    pub fn format_element_mode(&self, mode: &ElementMode, buffer: &mut String) {
+        match mode {
+            ElementMode::Simple(simple) => self.format_token_id(simple.token, buffer),
+            ElementMode::Record(name) => {
+                // view
+                self.format_token_id(name.get_start_token() - 1, buffer);
+                buffer.push(' ');
+                self.format_name(&name.item, name.span, buffer)
+            }
+            ElementMode::Array(name) => {
+                //view (
+                self.format_token_span(
+                    TokenSpan::new(name.get_start_token() - 2, name.get_start_token() - 1),
+                    buffer,
+                );
+                self.format_name(&name.item, name.span, buffer);
+                // )
+                self.format_token_id(name.get_end_token() + 1, buffer);
+            }
+        }
+    }
+
+    pub fn format_ident_list(&self, ident_list: &IdentList, buffer: &mut String) {
+        for (i, item) in ident_list.items.iter().enumerate() {
+            self.format_token_id(item.item.token, buffer);
+            if let Some(token) = ident_list.tokens.get(i) {
+                self.format_token_id(*token, buffer);
+            }
+        }
+    }
+
+    pub fn format_mode_view_element(&self, mode: &ModeViewElement, buffer: &mut String) {
+        self.format_ident_list(&mode.names, buffer);
+        self.format_token_id(mode.colon_token, buffer);
+        buffer.push(' ');
+        self.format_element_mode(&mode.mode, buffer);
+        // ;
+        self.format_token_id(mode.span.end_token, buffer);
+    }
+
     pub fn format_simple_mode(&self, mode: &SimpleModeIndication, buffer: &mut String) {
         if let Some(mode) = &mode.mode {
             self.format_token_id(mode.token, buffer);
@@ -136,7 +176,8 @@ impl DesignUnitFormatter<'_> {
 #[cfg(test)]
 mod tests {
     use crate::analysis::tests::Code;
-    use crate::formatting::test_utils::check_formatted;
+    use crate::formatting::test_utils::{check_formatted, check_formatted_std};
+    use crate::VHDLStandard::VHDL2019;
 
     fn check_generic(input: &str) {
         check_formatted(
@@ -168,5 +209,26 @@ mod tests {
     fn format_object_with_class() {
         check_generic("constant my_generic: in natural");
         check_generic("constant my_generic: natural");
+    }
+
+    fn check_element_mode(input: &str) {
+        check_formatted_std(
+            input,
+            input,
+            VHDL2019,
+            Code::element_mode,
+            |formatter, mode, buffer| formatter.format_element_mode(mode, buffer),
+        );
+    }
+
+    #[test]
+    fn format_element_mode() {
+        check_element_mode("in");
+        check_element_mode("out");
+        check_element_mode("inout");
+        check_element_mode("buffer");
+        check_element_mode("linkage");
+        check_element_mode("view foo");
+        check_element_mode("view (foo)");
     }
 }

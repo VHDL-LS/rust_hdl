@@ -1098,12 +1098,7 @@ impl Search for Declaration {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::View(view))
                     .or_not_found());
-                let ModeViewDeclaration {
-                    ident: _,
-                    typ,
-                    elements,
-                    end_ident_pos: _,
-                } = view;
+                let ModeViewDeclaration { typ, elements, .. } = view;
                 return_if_found!(typ.search(ctx, searcher));
                 return_if_found!(elements.search(ctx, searcher));
             }

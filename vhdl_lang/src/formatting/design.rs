@@ -1,6 +1,6 @@
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ConfigurationDeclaration, ContextDeclaration,
-    DesignFile, PackageInstantiation,
+    DesignFile,
 };
 use crate::formatting::Formatter;
 use vhdl_lang::ast::PackageDeclaration;
@@ -49,17 +49,13 @@ impl DesignUnitFormatter<'_> {
 
     pub fn format_configuration(
         &self,
-        configuration: &ConfigurationDeclaration,
-        buffer: &mut String,
+        _configuration: &ConfigurationDeclaration,
+        _buffer: &mut String,
     ) {
         unimplemented!()
     }
 
     pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut String) {
-        unimplemented!()
-    }
-
-    pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut String) {
         unimplemented!()
     }
 

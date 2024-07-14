@@ -28,12 +28,12 @@ pub(crate) fn parse_mode_view_declaration(
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
     ctx.stream.expect_kind(Of)?;
     let typ = parse_subtype_indication(ctx)?;
-    ctx.stream.expect_kind(Is)?;
+    let is_token = ctx.stream.expect_kind(Is)?;
     let mut elements = Vec::new();
     while ctx.stream.peek_kind() != Some(End) {
         elements.push(parse_mode_view_element_definition(ctx)?);
     }
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(View)?;
     let end_ident_pos =
         check_end_identifier_mismatch(ctx, &ident.tree, ctx.stream.pop_optional_ident());
@@ -42,7 +42,9 @@ pub(crate) fn parse_mode_view_declaration(
         ModeViewDeclaration {
             ident,
             typ,
+            is_token,
             elements,
+            end_token,
             end_ident_pos,
         },
         TokenSpan::new(start_tok, end_tok),
@@ -55,12 +57,13 @@ pub(crate) fn parse_mode_view_element_definition(
 ) -> ParseResult<ModeViewElement> {
     let start = ctx.stream.get_current_token_id();
     let element_list = parse_ident_list(ctx)?;
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let mode = parse_element_mode_indication(ctx)?;
     let end_token = expect_semicolon_or_last(ctx);
     Ok(ModeViewElement {
         span: TokenSpan::new(start, end_token),
         mode,
+        colon_token,
         names: element_list,
     })
 }
@@ -173,6 +176,7 @@ mod tests {
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
                 names: code.s1("foo").ident_list(),
+                colon_token: code.s1(":").token(),
                 mode: code.s1("in").element_mode(),
                 span: code.token_span(),
             }
@@ -183,6 +187,7 @@ mod tests {
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
                 names: code.s1("foo, bar, baz").ident_list(),
+                colon_token: code.s1(":").token(),
                 mode: code.s1("linkage").element_mode(),
                 span: code.token_span(),
             }
@@ -193,6 +198,7 @@ mod tests {
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
                 names: code.s1("foo").ident_list(),
+                colon_token: code.s1(":").token(),
                 mode: code.s1("view bar").element_mode(),
                 span: code.token_span(),
             }
@@ -203,6 +209,7 @@ mod tests {
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
                 names: code.s1("foo").ident_list(),
+                colon_token: code.s1(":").token(),
                 mode: code.s1("view (bar_array)").element_mode(),
                 span: code.token_span(),
             }
@@ -224,7 +231,9 @@ end view;
                 ModeViewDeclaration {
                     ident: code.s1("foo").decl_ident(),
                     typ: code.s1("bar").subtype_indication(),
+                    is_token: code.s1("is").token(),
                     elements: Vec::new(),
+                    end_token: code.s1("end").token(),
                     end_ident_pos: None,
                 },
                 code.token_span()
@@ -244,7 +253,9 @@ end view foo;
                 ModeViewDeclaration {
                     ident: code.s1("foo").decl_ident(),
                     typ: code.s1("bar").subtype_indication(),
+                    is_token: code.s1("is").token(),
                     elements: Vec::new(),
+                    end_token: code.s1("end").token(),
                     end_ident_pos: Some(code.s("foo", 2).token()),
                 },
                 code.token_span()
@@ -265,7 +276,9 @@ end view baz;
                 ModeViewDeclaration {
                     ident: code.s1("foo").decl_ident(),
                     typ: code.s1("bar").subtype_indication(),
+                    is_token: code.s1("is").token(),
                     elements: Vec::new(),
+                    end_token: code.s1("end").token(),
                     end_ident_pos: None
                 },
                 code.token_span()
@@ -296,12 +309,14 @@ end view;
             code.parse_ok_no_diagnostics(parse_mode_view_declaration),
             WithTokenSpan::new(
                 ModeViewDeclaration {
-                    typ: code.s1("bar").subtype_indication(),
                     ident: code.s1("foo").decl_ident(),
+                    typ: code.s1("bar").subtype_indication(),
+                    is_token: code.s1("is").token(),
                     elements: vec![
                         code.s1("baz: in;").mode_view_element(),
                         code.s1("foo: view some_view;").mode_view_element(),
                     ],
+                    end_token: code.s1("end").token(),
                     end_ident_pos: None,
                 },
                 code.token_span()
