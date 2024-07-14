@@ -3,6 +3,7 @@ use std::cell::Cell;
 use std::iter;
 
 mod architecture;
+mod concurrent_statement;
 mod constraint;
 mod context;
 mod declaration;
@@ -11,7 +12,7 @@ mod entity;
 mod expression;
 mod interface;
 mod name;
-mod statement;
+mod sequential_statement;
 mod subprogram;
 mod token;
 

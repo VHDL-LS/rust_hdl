@@ -1,9 +1,9 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentSignalAssignment,
-    ConcurrentStatement, ForGenerateStatement, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, LabeledSequentialStatement, ProcessStatement, SensitivityList,
-    Target, Waveform, WaveformElement,
+    ConcurrentStatement, ForGenerateStatement, Ident, InstantiatedUnit, InstantiationStatement,
+    LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target, Waveform,
+    WaveformElement,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -36,20 +36,13 @@ impl DesignUnitFormatter<'_> {
         );
     }
 
-    pub fn format_sequential_statements(
-        &self,
-        statements: &[LabeledSequentialStatement],
-        buffer: &mut String,
-    ) {
-        self.join_on_newline(statements, Self::format_sequential_statement, buffer);
-    }
-
-    pub fn format_sequential_statement(
-        &self,
-        statement: &LabeledSequentialStatement,
-        buffer: &mut String,
-    ) {
-        unimplemented!()
+    pub fn format_optional_label(&self, label: Option<&Ident>, buffer: &mut String) {
+        if let Some(label) = label {
+            self.format_token_id(label.token, buffer);
+            // :
+            self.format_token_id(label.token + 1, buffer);
+            buffer.push(' ');
+        }
     }
 
     pub fn format_labeled_concurrent_statement(
@@ -57,12 +50,7 @@ impl DesignUnitFormatter<'_> {
         statement: &LabeledConcurrentStatement,
         buffer: &mut String,
     ) {
-        if let Some(label) = &statement.label.tree {
-            self.format_token_id(label.token, buffer);
-            // :
-            self.format_token_id(label.token + 1, buffer);
-            buffer.push(' ');
-        }
+        self.format_optional_label(statement.label.tree.as_ref(), buffer);
         self.format_concurrent_statement(&statement.statement, buffer);
     }
 

@@ -93,6 +93,7 @@ begin
         variable z: baz;
     begin
     end process bar;
+    y <= x; -- An assignment
 end foo;",
         );
     }
