@@ -300,18 +300,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<ExpressionType<'a>>> {
         let mut operand_types = Vec::with_capacity(operands.len());
-
-        let mut expr_diagnostics = Vec::new();
         for expr in operands.iter_mut() {
-            if let Some(types) = as_fatal(self.expr_type(scope, expr, &mut expr_diagnostics))? {
-                operand_types.push(types);
-            } else {
-                // bail if any operator argument is unknown
-                diagnostics.append(expr_diagnostics);
-                return Err(EvalError::Unknown);
-            }
+            operand_types.push(self.expr_type(scope, expr, diagnostics)?);
         }
-
         Ok(operand_types)
     }
 
