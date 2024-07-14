@@ -1376,10 +1376,9 @@ impl Search for ContextDeclaration {
 impl Search for CaseStatement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         let CaseStatement {
-            is_matching: _,
             expression,
             alternatives,
-            end_label_pos: _,
+            ..
         } = self;
         return_if_found!(expression.search(ctx, searcher));
         return_if_found!(search_alternatives(alternatives, false, searcher, ctx));

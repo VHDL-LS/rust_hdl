@@ -241,10 +241,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             SequentialStatement::Case(ref mut case_stmt) => {
                 let CaseStatement {
-                    is_matching: _,
                     expression,
                     alternatives,
-                    end_label_pos: _,
+                    ..
                 } = case_stmt;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for alternative in alternatives.iter_mut() {

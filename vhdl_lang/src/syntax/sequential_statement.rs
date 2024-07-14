@@ -176,6 +176,7 @@ fn parse_case_statement(
         expect_token!(
             ctx.stream,
             end_token,
+            end_token_id,
             When => {
                 alternatives.push(alternative);
                 continue;
@@ -192,6 +193,7 @@ fn parse_case_statement(
                     is_matching,
                     expression,
                     alternatives,
+                    end_token: end_token_id,
                     end_label_pos,
                 });
             }
@@ -1577,6 +1579,7 @@ end case;",
                                 ]
                             }
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()
@@ -1605,6 +1608,7 @@ end case?;",
                             choices: code.s1("others").choices(),
                             item: vec![code.s1("null;").sequential_statement(),]
                         }],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()

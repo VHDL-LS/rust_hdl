@@ -1,9 +1,9 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    LabeledSequentialStatement, ReportStatement, SequentialStatement, SignalAssignment,
-    WaitStatement,
+    CaseStatement, Choice, LabeledSequentialStatement, ReportStatement, SequentialStatement,
+    SignalAssignment, WaitStatement,
 };
-use crate::TokenSpan;
+use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::{
     IfStatement, SignalForceAssignment, SignalReleaseAssignment, VariableAssignment,
 };
@@ -64,6 +64,9 @@ impl DesignUnitFormatter<'_> {
             }
             If(if_statement) => {
                 self.format_if_statement(if_statement, span, buffer);
+            }
+            Case(case_statement) => {
+                self.format_case_statement(case_statement, span, buffer);
             }
             Return(stmt) => {
                 self.format_token_id(span.start_token, buffer);
@@ -258,6 +261,78 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_choice(&self, choice: &WithTokenSpan<Choice>, buffer: &mut String) {
+        match &choice.item {
+            Choice::Expression(expr) => self.format_expression(expr, choice.span, buffer),
+            Choice::DiscreteRange(range) => self.format_discrete_range(range, buffer),
+            Choice::Others => self.format_token_span(choice.span, buffer),
+        }
+    }
+
+    pub fn format_case_statement(
+        &self,
+        statement: &CaseStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // case
+        self.format_token_id(span.start_token, buffer);
+        if statement.is_matching {
+            // ?
+            self.format_token_id(span.start_token + 1, buffer);
+        }
+        buffer.push(' ');
+        self.format_expression(
+            &statement.expression.item,
+            statement.expression.span,
+            buffer,
+        );
+        buffer.push(' ');
+        // is
+        self.format_token_id(statement.expression.span.end_token + 1, buffer);
+        self.increase_indentation();
+        for alternative in &statement.alternatives {
+            self.newline(buffer);
+            for (i, choice) in alternative.choices.iter().enumerate() {
+                if i == 0 {
+                    // when
+                    self.format_token_id(choice.span.start_token - 1, buffer);
+                    buffer.push(' ');
+                }
+                self.format_choice(choice, buffer);
+                if i < alternative.choices.len() - 1 {
+                    buffer.push(' ');
+                    // |
+                    self.format_token_id(choice.span.end_token + 1, buffer);
+                    buffer.push(' ');
+                }
+                if i == alternative.choices.len() - 1 {
+                    buffer.push(' ');
+                    // =>
+                    self.format_token_id(choice.span.end_token + 1, buffer);
+                }
+            }
+            self.increase_indentation();
+            self.format_sequential_statements(&alternative.item, buffer);
+            self.decrease_indentation();
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        if statement.is_matching {
+            self.format_token_span(
+                TokenSpan::new(statement.end_token, span.end_token - 2),
+                buffer,
+            );
+            self.format_token_id(span.end_token - 1, buffer);
+        } else {
+            self.format_token_span(
+                TokenSpan::new(statement.end_token, span.end_token - 1),
+                buffer,
+            );
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -389,5 +464,25 @@ else
     x := 1;
 end if mylabel;",
         ]);
+    }
+
+    #[test]
+    fn case_statements() {
+        check_statements(&[
+            "\
+case foo(1) is
+    when 1 | 2 =>
+        stmt1;
+        stmt2;
+    when others =>
+        stmt3;
+        stmt4;
+end case;",
+            "\
+case? foo(1) is
+    when others =>
+        null;
+end case?;",
+        ])
     }
 }

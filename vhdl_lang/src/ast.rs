@@ -1055,6 +1055,7 @@ pub struct CaseStatement {
     pub is_matching: bool,
     pub expression: WithTokenSpan<Expression>,
     pub alternatives: Vec<Alternative<Vec<LabeledSequentialStatement>>>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
