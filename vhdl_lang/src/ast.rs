@@ -1115,6 +1115,7 @@ pub struct BlockStatement {
     pub header: BlockHeader,
     pub is_token: Option<TokenId>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,

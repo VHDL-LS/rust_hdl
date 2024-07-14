@@ -49,7 +49,7 @@ pub fn parse_block_statement(
     let is_token = ctx.stream.pop_if_kind(Is);
     let header = parse_block_header(ctx)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
     let statements = parse_labeled_concurrent_statements(ctx)?;
     let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Block)?;
@@ -60,6 +60,7 @@ pub fn parse_block_statement(
         is_token,
         header,
         decl,
+        begin_token,
         statements,
         end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
@@ -824,6 +825,7 @@ end block;",
                 port_map: None,
             },
             decl: code.s1("constant const : natural := 0;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![LabeledConcurrentStatement {
                 label: Some(code.s1("name2").ident()).into(),
                 statement: WithTokenSpan::new(
@@ -864,6 +866,7 @@ end block name;",
                 port_map: None,
             },
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_token: code.s1("end").token(),
             end_label_pos: Some(code.s("name", 2).pos()),
@@ -898,6 +901,7 @@ end block;",
             },
             is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_token: code.s1("end").token(),
             end_label_pos: None,
@@ -932,6 +936,7 @@ end block;",
             },
             is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_token: code.s1("end").token(),
             end_label_pos: None,
@@ -978,6 +983,7 @@ end block;",
             },
             is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
             end_token: code.s1("end").token(),
             end_label_pos: None,
