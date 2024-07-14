@@ -95,7 +95,11 @@ impl DesignUnitFormatter<'_> {
         match declaration {
             InterfaceDeclaration::Object(object) => self.format_interface_object(object, buffer),
             InterfaceDeclaration::File(_) => unimplemented!(),
-            InterfaceDeclaration::Type(_) => unimplemented!(),
+            InterfaceDeclaration::Type(type_decl) => {
+                self.format_token_id(type_decl.tree.token - 1, buffer);
+                buffer.push(' ');
+                self.format_ident(type_decl, buffer);
+            }
             InterfaceDeclaration::Subprogram(_) => unimplemented!(),
             InterfaceDeclaration::Package(_) => unimplemented!(),
         }

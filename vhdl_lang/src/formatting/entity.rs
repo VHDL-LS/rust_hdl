@@ -5,6 +5,10 @@ use crate::{HasTokenSpan, TokenSpan};
 impl DesignUnitFormatter<'_> {
     pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut String) {
         self.format_context_clause(&entity.context_clause, buffer);
+        if !entity.context_clause.is_empty() {
+            self.newline(buffer);
+            self.newline(buffer);
+        }
         let span = entity.span();
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);

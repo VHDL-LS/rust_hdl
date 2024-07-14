@@ -1393,6 +1393,7 @@ pub enum ContextItem {
 pub struct ContextDeclaration {
     pub ident: WithDecl<Ident>,
     pub items: ContextClause,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1550,6 +1551,7 @@ pub struct PackageDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1560,6 +1562,7 @@ pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 

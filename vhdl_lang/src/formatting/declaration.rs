@@ -1,15 +1,17 @@
 use crate::ast::{
-    ArrayIndex, ComponentDeclaration, ConfigurationSpecification, ElementDeclaration, EntityName,
-    FileDeclaration, ModeViewDeclaration, ObjectDeclaration, PackageInstantiation,
-    ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
+    ArrayIndex, ComponentDeclaration, ConfigurationSpecification, ContextReference,
+    ElementDeclaration, EntityName, FileDeclaration, ModeViewDeclaration, ObjectDeclaration,
+    PackageInstantiation, ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration,
+    TypeDefinition,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
-    AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, Declaration,
-    ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration, UseClause,
+    AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, ContextClause,
+    Declaration, LibraryClause, ObjectClass, PhysicalTypeDeclaration, ProtectedTypeBody,
+    ProtectedTypeDeclaration, UseClause,
 };
 
 impl DesignUnitFormatter<'_> {
@@ -492,6 +494,38 @@ impl DesignUnitFormatter<'_> {
             }
         }
         self.format_token_id(use_clause.get_end_token(), buffer);
+    }
+
+    pub fn format_library_clause(&self, library_clause: &LibraryClause, buffer: &mut String) {
+        // use
+        self.format_token_id(library_clause.get_start_token(), buffer);
+        buffer.push(' ');
+        for (i, name) in library_clause.name_list.items.iter().enumerate() {
+            self.format_token_id(name.item.token, buffer);
+            if let Some(token) = library_clause.name_list.tokens.get(i) {
+                self.format_token_id(*token, buffer);
+                buffer.push(' ');
+            }
+        }
+        self.format_token_id(library_clause.get_end_token(), buffer);
+    }
+
+    pub fn format_context_reference(
+        &self,
+        context_reference: &ContextReference,
+        buffer: &mut String,
+    ) {
+        // use
+        self.format_token_id(context_reference.get_start_token(), buffer);
+        buffer.push(' ');
+        for (i, name) in context_reference.name_list.items.iter().enumerate() {
+            self.format_name(&name.item, name.span, buffer);
+            if let Some(token) = context_reference.name_list.tokens.get(i) {
+                self.format_token_id(*token, buffer);
+                buffer.push(' ');
+            }
+        }
+        self.format_token_id(context_reference.get_end_token(), buffer);
     }
 
     pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut String) {

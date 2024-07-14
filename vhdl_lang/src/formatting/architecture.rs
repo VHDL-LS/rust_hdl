@@ -5,6 +5,10 @@ use crate::{HasTokenSpan, TokenSpan};
 impl DesignUnitFormatter<'_> {
     pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut String) {
         self.format_context_clause(&arch.context_clause, buffer);
+        if !arch.context_clause.is_empty() {
+            self.newline(buffer);
+            self.newline(buffer);
+        }
         let span = arch.span();
         // architecture <ident> of <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, arch.is_token()), buffer);

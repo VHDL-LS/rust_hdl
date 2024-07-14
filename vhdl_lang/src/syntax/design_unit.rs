@@ -97,15 +97,16 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     ctx.stream.expect_kind(Is)?;
     let generic_clause = parse_optional_generic_list(ctx)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Package);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon = expect_semicolon_or_last(ctx);
     Ok(PackageDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
+        end_token,
         generic_clause,
         decl,
     })
@@ -119,18 +120,19 @@ pub fn parse_package_body(ctx: &mut ParsingContext<'_>) -> ParseResult<PackageBo
 
     ctx.stream.expect_kind(Is)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     if ctx.stream.skip_if_kind(Package) {
         ctx.stream.expect_kind(Body)?;
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(PackageBody {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         decl,
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident, end_ident),
+        end_token,
         ident: ident.into(),
     })
 }
@@ -754,6 +756,7 @@ end package;
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );
@@ -782,6 +785,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );
@@ -811,6 +815,7 @@ end package;
                     span: code.between("generic (", ");").token_span()
                 }),
                 decl: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );

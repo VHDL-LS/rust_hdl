@@ -64,6 +64,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
     if ctx.stream.skip_if_kind(Is) {
         let mut items = Vec::with_capacity(16);
         let end_ident;
+        let end_token;
         loop {
             let token = ctx.stream.peek_expect()?;
             try_init_token_kind!(
@@ -72,6 +73,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
                 Use => items.push(ContextItem::Use(parse_use_clause(ctx)?.item)),
                 Context => items.push(ContextItem::Context(parse_context_reference(ctx)?)),
                 End => {
+                    end_token = ctx.stream.get_current_token_id();
                     ctx.stream.skip();
                     ctx.stream.pop_if_kind(Context);
                     end_ident = ctx.stream.pop_optional_ident();
@@ -82,11 +84,12 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
         }
 
         let ident = WithDecl::new(to_simple_name(ctx, name)?);
-        let end_token = ctx.stream.get_last_token_id();
+        let semicolon = ctx.stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
-            span: TokenSpan::new(context_token, end_token),
+            span: TokenSpan::new(context_token, semicolon),
             end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
             ident,
+            end_token,
             items,
         }))
     } else {
@@ -210,6 +213,7 @@ end context ident;
                     span: code.token_span(),
                     ident: code.s1("ident").decl_ident(),
                     items: vec![],
+                    end_token: code.s1("end").token(),
                     end_ident_pos: if has_end_ident {
                         Some(code.s("ident", 2).token())
                     } else {
@@ -242,6 +246,7 @@ end context ident2;
                 span: code.token_span(),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             })
         );
@@ -277,6 +282,7 @@ end context;
                         name_list: code.s1("foo.ctx").name_list(),
                     }),
                 ],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             })
         )
