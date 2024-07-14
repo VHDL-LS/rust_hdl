@@ -459,7 +459,7 @@ impl<'a> SplitName<'a> {
             ),
             Name::CallOrIndexed(ref mut fcall) => SplitName::Suffix(
                 &mut fcall.name,
-                Suffix::CallOrIndexed(&mut fcall.parameters),
+                Suffix::CallOrIndexed(&mut fcall.parameters.items),
             ),
         }
     }

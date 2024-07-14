@@ -75,7 +75,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Some(resolved) => resolved,
                 None => {
                     // Continue checking missing names even if procedure is not found
-                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                    self.analyze_assoc_elems(scope, &mut parameters.items, diagnostics)?;
                     return Ok(());
                 }
             };
@@ -86,7 +86,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     scope,
                     &fcall_span.pos(self.ctx),
                     des,
-                    parameters,
+                    &mut parameters.items,
                     SubprogramKind::Procedure,
                     names.entities().collect(),
                     diagnostics,
@@ -147,7 +147,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         format!("{} is not a procedure", resolved.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
-                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                    self.analyze_assoc_elems(scope, &mut parameters.items, diagnostics)?;
                 }
             }
             resolved => {
@@ -156,7 +156,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     format!("{} is not a procedure", resolved.describe_type()),
                     ErrorCode::MismatchedKinds,
                 );
-                self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                self.analyze_assoc_elems(scope, &mut parameters.items, diagnostics)?;
             }
         };
 

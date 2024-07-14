@@ -242,7 +242,7 @@ impl Display for CallOrIndexed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
         let mut first = true;
-        for param in &self.parameters {
+        for param in &self.parameters.items {
             if first {
                 write!(f, "({param}")?;
             } else {

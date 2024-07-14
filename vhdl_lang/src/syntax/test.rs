@@ -126,15 +126,6 @@ impl CodeBuilder {
     }
 }
 
-impl<T> SeparatedList<T> {
-    pub fn single(item: T) -> SeparatedList<T> {
-        SeparatedList {
-            items: vec![item],
-            tokens: vec![],
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Code {
     pub symbols: Arc<Symbols>,
@@ -678,7 +669,7 @@ impl Code {
                 WithTokenSpan::from(
                     CallOrIndexed {
                         name,
-                        parameters: vec![],
+                        parameters: SeparatedList::default(),
                     },
                     span,
                 )

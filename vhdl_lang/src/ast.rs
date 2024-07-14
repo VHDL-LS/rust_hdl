@@ -197,7 +197,7 @@ pub enum Name {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CallOrIndexed {
     pub name: WithTokenSpan<Name>,
-    pub parameters: Vec<AssociationElement>,
+    pub parameters: SeparatedList<AssociationElement>,
 }
 
 /// LRM 9.3.3 Aggregates
@@ -1113,8 +1113,10 @@ pub struct LabeledSequentialStatement {
 pub struct BlockStatement {
     pub guard_condition: Option<WithTokenSpan<Expression>>,
     pub header: BlockHeader,
+    pub is_token: Option<TokenId>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1330,6 +1332,15 @@ impl SeparatedList<AssociationElement> {
                 _ => None,
             },
         })
+    }
+}
+
+impl<T> SeparatedList<T> {
+    pub fn single(item: T) -> SeparatedList<T> {
+        SeparatedList {
+            items: vec![item],
+            tokens: vec![],
+        }
     }
 }
 

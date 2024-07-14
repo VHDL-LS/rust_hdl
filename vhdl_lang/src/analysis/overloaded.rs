@@ -467,7 +467,7 @@ mod tests {
                 &self.scope,
                 &fcall.pos(&code.tokenize()),
                 &des,
-                &mut fcall.item.parameters,
+                &mut fcall.item.parameters.items,
                 overloaded::SubprogramKind::Function(ttyp),
                 overloaded.entities().collect(),
                 diagnostics,

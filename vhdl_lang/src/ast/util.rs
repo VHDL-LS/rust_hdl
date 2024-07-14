@@ -369,9 +369,9 @@ impl CallOrIndexed {
             ref mut parameters,
         } = self;
 
-        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.len());
+        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.items.len());
 
-        for elem in parameters.iter_mut() {
+        for elem in parameters.items.iter_mut() {
             if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {
                 indexes.push(Index {
                     pos: elem.actual.span,
@@ -385,6 +385,7 @@ impl CallOrIndexed {
 
     pub fn could_be_indexed_name(&self) -> bool {
         self.parameters
+            .items
             .iter()
             .all(|assoc| assoc.formal.is_none() && !matches!(assoc.actual.item, ActualPart::Open))
     }

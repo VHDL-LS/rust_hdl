@@ -46,20 +46,22 @@ pub fn parse_block_statement(
             _ => None,
         }
     };
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
     let header = parse_block_header(ctx)?;
     let decl = parse_declarative_part(ctx)?;
     ctx.stream.expect_kind(Begin)?;
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Block)?;
     let end_ident = ctx.stream.pop_optional_ident();
     let end_tok = expect_semicolon_or_last(ctx);
     Ok(BlockStatement {
         guard_condition,
+        is_token,
         header,
         decl,
         statements,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(start_tok, end_tok),
     })
@@ -259,7 +261,7 @@ fn to_procedure_call(
             call: WithTokenSpan::new(
                 CallOrIndexed {
                     name: WithTokenSpan::new(name, target.span),
-                    parameters: vec![],
+                    parameters: SeparatedList::default(),
                 },
                 target.span,
             ),
@@ -814,6 +816,7 @@ end block;",
 
         let block = BlockStatement {
             guard_condition: None,
+            is_token: None,
             header: BlockHeader {
                 generic_clause: None,
                 generic_map: None,
@@ -828,6 +831,7 @@ end block;",
                     code.s1("foo(clk);").token_span(),
                 ),
             }],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -852,6 +856,7 @@ end block name;",
         );
         let block = BlockStatement {
             guard_condition: None,
+            is_token: Some(code.s1("is").token()),
             header: BlockHeader {
                 generic_clause: None,
                 generic_map: None,
@@ -860,6 +865,7 @@ end block name;",
             },
             decl: vec![],
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: Some(code.s("name", 2).pos()),
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -890,8 +896,10 @@ end block;",
                 port_clause: None,
                 port_map: None,
             },
+            is_token: None,
             decl: vec![],
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -922,8 +930,10 @@ end block;",
                 port_clause: None,
                 port_map: None,
             },
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -966,8 +976,10 @@ end block;",
                 }),
                 port_map: Some(code.s1("port map(prt => 2)").port_map_aspect()),
             },
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };

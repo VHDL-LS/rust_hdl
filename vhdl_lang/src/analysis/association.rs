@@ -184,7 +184,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     // it must be a type conversion or a single parameter function call
 
                     let (pos, resolved_formal) = if let Some((inner_pos, inner_name)) =
-                        to_formal_conversion_argument(&mut fcall.parameters)
+                        to_formal_conversion_argument(&mut fcall.parameters.items)
                     {
                         (
                             inner_pos,

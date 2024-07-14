@@ -485,7 +485,7 @@ fn parse_assignment_or_procedure_call(
                     SequentialStatement::ProcedureCall(
                         WithTokenSpan::from(CallOrIndexed {
                             name: WithTokenSpan::from(name, target.span),
-                            parameters: vec![]
+                            parameters: SeparatedList::default(),
                         }, target.span))
                 }
                 Target::Aggregate(..) => {
