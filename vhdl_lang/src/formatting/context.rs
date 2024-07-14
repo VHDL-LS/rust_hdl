@@ -1,8 +1,8 @@
 use crate::ast::{ContextClause, ContextDeclaration, ContextItem};
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::TokenSpan;
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_context(&self, context: &ContextDeclaration, buffer: &mut String) {
         // context <name> is
         self.format_token_span(

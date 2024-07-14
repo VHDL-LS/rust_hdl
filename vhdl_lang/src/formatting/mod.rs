@@ -1,3 +1,4 @@
+use crate::ast::DesignFile;
 use crate::Token;
 use std::cell::Cell;
 use std::iter;
@@ -16,22 +17,33 @@ mod sequential_statement;
 mod subprogram;
 mod token;
 
-struct Formatter {}
-
 struct FormatterConfig {
     indent_char: char,
     indent_size: usize,
 }
 
-pub(crate) struct DesignUnitFormatter<'b> {
+pub struct VHDLFormatter<'b> {
     tokens: &'b Vec<Token>,
     indentation: Cell<usize>,
     config: FormatterConfig,
 }
 
-impl<'b> DesignUnitFormatter<'b> {
-    pub fn new(tokens: &'b Vec<Token>) -> DesignUnitFormatter<'b> {
-        DesignUnitFormatter {
+pub fn format_design_file(file: &DesignFile) -> String {
+    let mut result = String::new();
+    for (i, (tokens, design_unit)) in file.design_units.iter().enumerate() {
+        let formatter = VHDLFormatter::new(tokens);
+        formatter.format_any_design_unit(
+            design_unit,
+            &mut result,
+            i == file.design_units.len() - 1,
+        );
+    }
+    result
+}
+
+impl<'b> VHDLFormatter<'b> {
+    pub fn new(tokens: &'b Vec<Token>) -> VHDLFormatter<'b> {
+        VHDLFormatter {
             tokens,
             indentation: Cell::new(0),
             config: FormatterConfig {
@@ -42,7 +54,7 @@ impl<'b> DesignUnitFormatter<'b> {
     }
 }
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn newline(&self, buffer: &mut String) {
         buffer.push('\n');
         buffer.extend(
@@ -62,7 +74,7 @@ impl DesignUnitFormatter<'_> {
 
 #[cfg(test)]
 pub mod test_utils {
-    use crate::formatting::DesignUnitFormatter;
+    use crate::formatting::VHDLFormatter;
     use crate::syntax::test::Code;
     use vhdl_lang::VHDLStandard;
 
@@ -70,7 +82,7 @@ pub mod test_utils {
         input: &str,
         expected: &str,
         to_ast: impl FnOnce(&Code) -> T,
-        format: impl FnOnce(&DesignUnitFormatter, &T, &mut String),
+        format: impl FnOnce(&VHDLFormatter, &T, &mut String),
     ) {
         check_formatted_std(input, expected, VHDLStandard::default(), to_ast, format)
     }
@@ -80,12 +92,12 @@ pub mod test_utils {
         expected: &str,
         std: VHDLStandard,
         to_ast: impl FnOnce(&Code) -> T,
-        format: impl FnOnce(&DesignUnitFormatter, &T, &mut String),
+        format: impl FnOnce(&VHDLFormatter, &T, &mut String),
     ) {
         let code = Code::with_standard(input, std);
         let ast_element = to_ast(&code);
         let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
+        let formatter = VHDLFormatter::new(&tokens);
         let mut buffer = String::new();
         format(&formatter, &ast_element, &mut buffer);
         assert_eq!(&buffer, expected);

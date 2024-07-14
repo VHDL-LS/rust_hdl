@@ -1,10 +1,10 @@
 use crate::ast::CallOrIndexed;
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::{AttributeName, Name};
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_name(&self, name: &Name, span: TokenSpan, buffer: &mut String) {
         use Name::*;
         match name {

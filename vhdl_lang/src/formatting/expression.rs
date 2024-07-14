@@ -1,11 +1,11 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{Expression, ResolutionIndication, SubtypeIndication};
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::TokenSpan;
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_expression(&self, expression: &Expression, span: TokenSpan, buffer: &mut String) {
         use Expression::*;
         let is_parenthesized = self.tokens.get_token(span.start_token).kind == Kind::LeftPar
@@ -105,14 +105,14 @@ impl DesignUnitFormatter<'_> {
 #[cfg(test)]
 mod test {
     use crate::analysis::tests::Code;
-    use crate::formatting::DesignUnitFormatter;
+    use crate::formatting::VHDLFormatter;
     use vhdl_lang::formatting::test_utils::check_formatted;
 
     fn check_expression(input: &str) {
         let code = Code::new(input);
         let expression = code.expr();
         let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
+        let formatter = VHDLFormatter::new(&tokens);
         let mut buffer = String::new();
         formatter.format_expression(&expression.item, code.token_span(), &mut buffer);
         assert_eq!(&buffer, input);

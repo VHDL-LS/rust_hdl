@@ -3,11 +3,11 @@ use crate::ast::{
     Signature, SubprogramDeclaration, SubprogramHeader, SubprogramInstantiation,
     SubprogramSpecification,
 };
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 use vhdl_lang::ast::{FunctionSpecification, ProcedureSpecification, SubprogramBody};
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_subprogram_declaration(
         &self,
         declaration: &SubprogramDeclaration,
@@ -112,9 +112,7 @@ impl DesignUnitFormatter<'_> {
         self.decrease_indentation();
         self.format_token_id(body.begin_token, buffer);
         self.increase_indentation();
-        if !body.statements.is_empty() {
-            unimplemented!()
-        }
+        self.format_sequential_statements(&body.statements, buffer);
         self.decrease_indentation();
         self.newline(buffer);
         // end

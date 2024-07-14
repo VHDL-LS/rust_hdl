@@ -6,8 +6,23 @@
 
 use clap::Parser;
 use itertools::Itertools;
-use std::path::Path;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap};
+use std::path::{Path, PathBuf};
+use vhdl_lang::{
+    format_design_file, Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap,
+    VHDLParser, VHDLStandard,
+};
+
+#[derive(Debug, clap::Args)]
+#[group(required = true, multiple = false)]
+pub struct Group {
+    /// Config file in TOML format containing libraries and settings
+    #[arg(short, long)]
+    config: Option<String>,
+
+    /// Format the passed file and write the contents to stdout
+    #[arg(short, long)]
+    format: Option<String>,
+}
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
@@ -22,40 +37,61 @@ struct Args {
     #[arg(short = 'l', long)]
     libraries: Option<String>,
 
-    /// Config file in TOML format containing libraries and settings
-    #[arg(short, long)]
-    config: String,
+    #[clap(flatten)]
+    group: Group,
 }
 
 fn main() {
     let args = Args::parse();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_threads.unwrap_or(0))
-        .build_global()
-        .unwrap();
+    if let Some(config_path) = args.group.config {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(args.num_threads.unwrap_or(0))
+            .build_global()
+            .unwrap();
 
-    let mut config = Config::default();
-    let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer, args.libraries.clone());
-    config.append(
-        &Config::read_file_path(Path::new(&args.config)).expect("Failed to read config file"),
-        &mut msg_printer,
-    );
+        let mut config = Config::default();
+        let mut msg_printer = MessagePrinter::default();
+        config.load_external_config(&mut msg_printer, args.libraries.clone());
+        config.append(
+            &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
+            &mut msg_printer,
+        );
 
-    let severity_map = *config.severities();
-    let mut project = Project::from_config(config, &mut msg_printer);
-    project.enable_unused_declaration_detection();
-    let diagnostics = project.analyse();
+        let severity_map = *config.severities();
+        let mut project = Project::from_config(config, &mut msg_printer);
+        project.enable_unused_declaration_detection();
+        let diagnostics = project.analyse();
 
-    show_diagnostics(&diagnostics, &severity_map);
+        show_diagnostics(&diagnostics, &severity_map);
 
-    if diagnostics
-        .iter()
-        .any(|diag| severity_map[diag.code].is_some_and(|severity| severity == Severity::Error))
-    {
-        std::process::exit(1);
-    } else {
-        std::process::exit(0);
+        if diagnostics
+            .iter()
+            .any(|diag| severity_map[diag.code].is_some_and(|severity| severity == Severity::Error))
+        {
+            std::process::exit(1);
+        } else {
+            std::process::exit(0);
+        }
+    } else if let Some(format) = args.group.format {
+        let path = PathBuf::from(format);
+        let parser = VHDLParser::new(VHDLStandard::VHDL2008);
+        let mut diagnostics = Vec::new();
+        let result = parser.parse_design_file(&path, &mut diagnostics);
+        match result {
+            Ok((_, design_file)) => {
+                if !diagnostics.is_empty() {
+                    show_diagnostics(&diagnostics, &SeverityMap::default());
+                    std::process::exit(1);
+                }
+                let result = format_design_file(&design_file);
+                println!("{result}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                println!("{err}");
+                std::process::exit(1);
+            }
+        }
     }
 }
 

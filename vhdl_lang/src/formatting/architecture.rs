@@ -1,8 +1,8 @@
 use crate::ast::ArchitectureBody;
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut String) {
         self.format_context_clause(&arch.context_clause, buffer);
         if !arch.context_clause.is_empty() {

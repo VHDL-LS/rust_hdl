@@ -1,8 +1,8 @@
 use crate::ast::EntityDeclaration;
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut String) {
         self.format_context_clause(&entity.context_clause, buffer);
         if !entity.context_clause.is_empty() {

@@ -8,9 +8,9 @@ use vhdl_lang::ast::{
     ExitStatement, IfStatement, NextStatement, SignalForceAssignment, SignalReleaseAssignment,
     VariableAssignment,
 };
-use vhdl_lang::formatting::DesignUnitFormatter;
+use vhdl_lang::formatting::VHDLFormatter;
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn format_sequential_statements(
         &self,
         statements: &[LabeledSequentialStatement],

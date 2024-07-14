@@ -4,7 +4,7 @@ use crate::ast::{
     PackageInstantiation, ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration,
     TypeDefinition,
 };
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
@@ -14,7 +14,7 @@ use vhdl_lang::ast::{
     ProtectedTypeDeclaration, UseClause,
 };
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub(crate) fn format_declarations(
         &self,
         declarations: &[WithTokenSpan<Declaration>],

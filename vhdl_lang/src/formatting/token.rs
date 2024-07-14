@@ -1,5 +1,5 @@
 use crate::ast::WithDecl;
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::{Comment, Value};
 use crate::{kind_str, Token, TokenAccess, TokenId};
 use vhdl_lang::ast::Ident;
@@ -15,7 +15,7 @@ fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     token.pos.start().line == comment.range.start.line
 }
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     fn format_comment(&self, comment: &Comment, buffer: &mut String) {
         if !comment.multi_line {
             buffer.push_str("--");
@@ -99,12 +99,12 @@ impl DesignUnitFormatter<'_> {
 #[cfg(test)]
 mod tests {
     use crate::analysis::tests::Code;
-    use crate::formatting::DesignUnitFormatter;
+    use crate::formatting::VHDLFormatter;
 
     fn check_token_formatted(input: &str, expected: &[&str]) {
         let code = Code::new(input);
         let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
+        let formatter = VHDLFormatter::new(&tokens);
         for (i, str) in expected.iter().enumerate() {
             let mut buffer = String::new();
             formatter.format_token(&tokens[i], &mut buffer);

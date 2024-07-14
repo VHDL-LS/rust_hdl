@@ -5,13 +5,13 @@ use crate::ast::{
     LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target, Waveform,
     WaveformElement,
 };
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub fn join_on_newline<T>(
         &self,
         items: &[T],

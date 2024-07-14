@@ -2,13 +2,13 @@ use crate::ast::{
     ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
     InterfaceObjectDeclaration, MapAspect, ModeIndication, ModeViewElement, SimpleModeIndication,
 };
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::TokenSpan;
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut String) {
         let span = clause.span;
         let end_token = if self.tokens.get_token(span.start_token).kind == Kind::LeftPar {

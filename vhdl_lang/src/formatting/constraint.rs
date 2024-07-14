@@ -1,10 +1,10 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{DiscreteRange, SubtypeConstraint};
-use crate::formatting::DesignUnitFormatter;
+use crate::formatting::VHDLFormatter;
 use crate::TokenSpan;
 use vhdl_lang::ast::{Range, RangeConstraint};
 
-impl DesignUnitFormatter<'_> {
+impl VHDLFormatter<'_> {
     // TODO: has bugs + not tested properly
     pub fn format_subtype_constraint(
         &self,
@@ -70,14 +70,14 @@ impl DesignUnitFormatter<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::formatting::DesignUnitFormatter;
+    use crate::formatting::VHDLFormatter;
     use crate::syntax::test::Code;
 
     fn check_range(input: &str) {
         let code = Code::new(input);
         let range = code.range();
         let tokens = code.tokenize();
-        let formatter = DesignUnitFormatter::new(&tokens);
+        let formatter = VHDLFormatter::new(&tokens);
         let mut buffer = String::new();
         formatter.format_range(&range, &mut buffer);
         assert_eq!(&buffer, input);

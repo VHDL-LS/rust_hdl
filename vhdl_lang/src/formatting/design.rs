@@ -1,29 +1,20 @@
 use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ConfigurationDeclaration, ContextDeclaration,
-    DesignFile, PackageBody,
+    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ConfigurationDeclaration, PackageBody,
 };
-use crate::formatting::Formatter;
 use vhdl_lang::ast::PackageDeclaration;
-use vhdl_lang::formatting::DesignUnitFormatter;
+use vhdl_lang::formatting::VHDLFormatter;
 use vhdl_lang::TokenSpan;
 
-impl Formatter {
-    pub fn format_design_file(&self, file: &DesignFile) -> String {
-        let mut result = String::new();
-        for (tokens, design_unit) in &file.design_units {
-            let formatter = DesignUnitFormatter::new(tokens);
-            formatter.format_any_design_unit(design_unit, &mut result);
-        }
-        result
-    }
-}
-
-impl DesignUnitFormatter<'_> {
-    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut String) {
+impl VHDLFormatter<'_> {
+    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut String, is_last: bool) {
         use AnyDesignUnit::*;
         match unit {
             Primary(primary) => self.format_any_primary_unit(primary, buffer),
             Secondary(secondary) => self.format_any_secondary_unit(secondary, buffer),
+        }
+        if !is_last {
+            self.newline(buffer);
+            self.newline(buffer);
         }
     }
 
@@ -221,7 +212,7 @@ end context;",
             input,
             Code::design_file,
             |formatter, file, buffer| {
-                formatter.format_any_design_unit(&file.design_units[0].1, buffer)
+                formatter.format_any_design_unit(&file.design_units[0].1, buffer, true)
             },
         );
     }
