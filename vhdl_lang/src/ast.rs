@@ -1141,9 +1141,12 @@ pub enum SensitivityList {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcessStatement {
     pub postponed: bool,
-    pub sensitivity_list: Option<SensitivityList>,
+    pub sensitivity_list: Option<WithTokenSpan<SensitivityList>>,
+    pub is_token: Option<TokenId>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 

@@ -120,7 +120,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ..
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
-                    match sensitivity_list {
+                    match &mut sensitivity_list.item {
                         SensitivityList::Names(names) => {
                             self.sensitivity_list_check(scope, names, diagnostics)?;
                         }

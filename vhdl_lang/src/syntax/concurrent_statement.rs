@@ -184,19 +184,20 @@ pub fn parse_process_statement(
     postponed: Option<TokenId>,
 ) -> ParseResult<ProcessStatement> {
     let process_token = ctx.stream.expect_kind(Process)?;
-    let sensitivity_list = if ctx.stream.skip_if_kind(LeftPar) {
+    let sensitivity_list = if let Some(left_par) = ctx.stream.pop_if_kind(LeftPar) {
         peek_token!(ctx.stream, token,
         All => {
             ctx.stream.skip();
-            ctx.stream.expect_kind(RightPar)?;
-            Some(SensitivityList::All)
+            let right_par = ctx.stream.expect_kind(RightPar)?;
+            Some(WithTokenSpan::new(SensitivityList::All, TokenSpan::new(left_par, right_par)))
         },
         RightPar => {
+            let right_par = ctx.stream.get_current_token_id();
             ctx.stream.skip();
             ctx.diagnostics.push(
                 Diagnostic::syntax_error(token, "Processes with sensitivity lists must contain at least one element.")
             );
-            Some(SensitivityList::Names(Vec::new()))
+            Some(WithTokenSpan::new(SensitivityList::Names(Vec::new()), TokenSpan::new(left_par, right_par)))
         },
         Identifier => {
             let mut names = Vec::with_capacity(1);
@@ -204,8 +205,9 @@ pub fn parse_process_statement(
                 names.push(parse_name(ctx)?);
                 peek_token!(ctx.stream, token,
                     RightPar => {
+                        let right_par = ctx.stream.get_current_token_id();
                         ctx.stream.skip();
-                        break Some(SensitivityList::Names(names));
+                        break Some(WithTokenSpan::new(SensitivityList::Names(names), TokenSpan::new(left_par, right_par)));
                     },
                     Comma => {
                         ctx.stream.skip();
@@ -220,11 +222,11 @@ pub fn parse_process_statement(
         None
     };
 
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
     let statements = parse_labeled_sequential_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
 
     if let Some(token) = ctx.stream.pop_if_kind(Postponed) {
         if postponed.is_none() {
@@ -240,8 +242,11 @@ pub fn parse_process_statement(
     Ok(ProcessStatement {
         postponed: postponed.is_some(),
         sensitivity_list,
+        is_token,
         decl,
+        begin_token,
         statements,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(postponed.unwrap_or(process_token), end_tok),
     })
@@ -1011,8 +1016,11 @@ end process;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1035,8 +1043,11 @@ end process name;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: Some(code.s("name", 2).pos()),
             span: code.token_span().skip_to(code.s1("process").token()),
         };
@@ -1062,8 +1073,11 @@ end process;",
         let process = ProcessStatement {
             postponed: true,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1086,8 +1100,11 @@ end postponed process;",
         let process = ProcessStatement {
             postponed: true,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1111,8 +1128,11 @@ end postponed process;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: Some(code.s1("is").token()),
             decl: Vec::new(),
+            begin_token: code.s1("begin").token(),
             statements: Vec::new(),
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1139,12 +1159,15 @@ end process;",
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::Names(vec![
-                code.s1("clk").name(),
-                code.s1("vec(1)").name(),
-            ])),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::Names(vec![code.s1("clk").name(), code.s1("vec(1)").name()]),
+                code.between("(", "))").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1167,9 +1190,15 @@ end process;",
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::Names(Vec::new())),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::Names(Vec::new()),
+                code.s1("()").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: Vec::new(),
+            begin_token: code.s1("begin").token(),
             statements: Vec::new(),
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1199,12 +1228,18 @@ end process;",
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::All),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::All,
+                code.s1("(all)").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: code.s1("variable foo : boolean;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![
                 code.s1("foo <= true;").sequential_statement(),
                 code.s1("wait;").sequential_statement(),
             ],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };

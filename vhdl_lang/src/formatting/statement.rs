@@ -1,8 +1,11 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{BlockStatement, CallOrIndexed, ConcurrentStatement, LabeledConcurrentStatement};
+use crate::ast::{
+    BlockStatement, ConcurrentAssertStatement, ConcurrentStatement, LabeledConcurrentStatement,
+    LabeledSequentialStatement, ProcessStatement, SensitivityList,
+};
 use crate::syntax::Kind;
 use crate::TokenAccess;
-use vhdl_lang::ast::ConcurrentProcedureCall;
+use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
 impl crate::formatting::DesignUnitFormatter<'_> {
@@ -17,6 +20,27 @@ impl crate::formatting::DesignUnitFormatter<'_> {
                 self.newline(buffer);
             }
         }
+    }
+
+    pub fn format_sequential_statements(
+        &self,
+        statements: &[LabeledSequentialStatement],
+        buffer: &mut String,
+    ) {
+        for (i, statement) in statements.iter().enumerate() {
+            self.format_sequential_statement(statement, buffer);
+            if i < statements.len() - 1 {
+                self.newline(buffer);
+            }
+        }
+    }
+
+    pub fn format_sequential_statement(
+        &self,
+        statement: &LabeledSequentialStatement,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
     }
 
     pub fn format_labeled_concurrent_statement(
@@ -42,7 +66,9 @@ impl crate::formatting::DesignUnitFormatter<'_> {
         let span = statement.span;
         match &statement.item {
             ProcedureCall(call) => self.format_procedure_call(call, span, buffer),
-            Block(block) => self.format_block(block, span, buffer),
+            Block(block) => self.format_block_statement(block, span, buffer),
+            Process(process) => self.format_process_statement(process, span, buffer),
+            Assert(assert) => self.format_assert_statement(assert, span, buffer),
             _ => unimplemented!(),
         }
     }
@@ -57,12 +83,17 @@ impl crate::formatting::DesignUnitFormatter<'_> {
             self.format_token_id(span.start_token, buffer);
             buffer.push(' ');
         }
-        self.format_call_or_indexed(&call.call, buffer);
+        self.format_call_or_indexed(&call.call.item, call.call.span, buffer);
         // ;
         self.format_token_id(span.end_token, buffer);
     }
 
-    pub fn format_block(&self, block: &BlockStatement, span: TokenSpan, buffer: &mut String) {
+    pub fn format_block_statement(
+        &self,
+        block: &BlockStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
         // block
         self.format_token_id(span.start_token, buffer);
         if let Some(guard_condition) = &block.guard_condition {
@@ -111,23 +142,66 @@ impl crate::formatting::DesignUnitFormatter<'_> {
         self.format_token_id(block.span.end_token, buffer);
     }
 
-    pub fn format_call_or_indexed(&self, call: &WithTokenSpan<CallOrIndexed>, buffer: &mut String) {
-        self.format_name(&call.item.name.item, call.item.name.span, buffer);
-        let open_paren = call.item.name.span.end_token + 1;
-        if self.tokens.get_token(open_paren).kind == Kind::LeftPar {
-            self.format_token_id(open_paren, buffer);
+    pub fn format_process_statement(
+        &self,
+        process: &ProcessStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
+            // postponed process
+            self.format_token_span(
+                TokenSpan::new(span.start_token, span.start_token + 1),
+                buffer,
+            );
+        } else {
+            // process
+            self.format_token_id(span.start_token, buffer);
         }
-        for (i, parameter) in call.item.parameters.items.iter().enumerate() {
-            self.format_association_element(parameter, buffer);
-            if let Some(token) = call.item.parameters.tokens.get(i) {
-                self.format_token_id(*token, buffer);
-                buffer.push(' ');
+        if let Some(sensitivity_list) = &process.sensitivity_list {
+            match &sensitivity_list.item {
+                SensitivityList::Names(names) => {
+                    self.format_token_id(sensitivity_list.span.start_token, buffer);
+                    for (i, name) in names.iter().enumerate() {
+                        self.format_name(&name.item, name.span, buffer);
+                        if i < names.len() - 1 {
+                            self.format_token_id(name.span.end_token + 1, buffer);
+                            buffer.push(' ');
+                        }
+                    }
+                    self.format_token_id(sensitivity_list.span.end_token, buffer);
+                }
+                SensitivityList::All => self.join_token_span(sensitivity_list.span, buffer),
             }
         }
-        let close_paren = call.span.end_token;
-        if self.tokens.get_token(close_paren).kind == Kind::RightPar {
-            self.format_token_id(close_paren, buffer);
+        if let Some(is_token) = process.is_token {
+            buffer.push(' ');
+            self.format_token_id(is_token, buffer);
         }
+        self.increase_indentation();
+        self.format_declarations(&process.decl, buffer);
+        self.decrease_indentation();
+        self.newline(buffer);
+        self.format_token_id(process.begin_token, buffer);
+        self.newline(buffer);
+        self.increase_indentation();
+        self.format_sequential_statements(&process.statements, buffer);
+        self.decrease_indentation();
+        self.format_token_span(
+            TokenSpan::new(process.end_token, process.span.end_token - 1),
+            buffer,
+        );
+        // ;
+        self.format_token_id(process.span.end_token, buffer);
+    }
+
+    pub fn format_assert_statement(
+        &self,
+        statement: &ConcurrentAssertStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
     }
 }
 
@@ -203,6 +277,47 @@ name: block is
     );
 begin
 end block;",
+        );
+    }
+
+    #[test]
+    fn check_processes() {
+        check_statement(
+            "\
+process
+begin
+end process;",
+        );
+        check_statement(
+            "\
+name: process is
+begin
+end process name;",
+        );
+        check_statement(
+            "\
+postponed process
+begin
+end process;",
+        );
+        check_statement(
+            "\
+postponed process
+begin
+end postponed process;",
+        );
+        check_statement(
+            "\
+process(clk, vec(1)) is
+begin
+end process;",
+        );
+        check_statement(
+            "\
+process(all) is
+    variable foo: boolean;
+begin
+end process;",
         );
     }
 }

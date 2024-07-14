@@ -491,7 +491,9 @@ impl Search for LabeledConcurrentStatement {
                     end_label_pos: _,
                     ..
                 } = process;
-                return_if_found!(sensitivity_list.search(ctx, searcher));
+                if let Some(sensitivity_list) = sensitivity_list {
+                    return_if_found!(sensitivity_list.item.search(ctx, searcher));
+                }
                 return_if_found!(decl.search(ctx, searcher));
                 return_if_found!(statements.search(ctx, searcher));
             }
