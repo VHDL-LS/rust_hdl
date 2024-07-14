@@ -1,8 +1,9 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentSignalAssignment,
-    ConcurrentStatement, LabeledConcurrentStatement, LabeledSequentialStatement, ProcessStatement,
-    SensitivityList, Target, Waveform, WaveformElement,
+    ConcurrentStatement, InstantiatedUnit, InstantiationStatement, LabeledConcurrentStatement,
+    LabeledSequentialStatement, ProcessStatement, SensitivityList, Target, Waveform,
+    WaveformElement,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -78,6 +79,9 @@ impl DesignUnitFormatter<'_> {
             Process(process) => self.format_process_statement(process, span, buffer),
             Assert(assert) => self.format_concurrent_assert_statement(assert, span, buffer),
             Assignment(assignment) => self.format_assignment_statement(assignment, span, buffer),
+            Instance(instantiation_statement) => {
+                self.format_instantiation_statement(instantiation_statement, span, buffer)
+            }
             _ => unimplemented!(),
         }
     }
@@ -308,6 +312,48 @@ impl DesignUnitFormatter<'_> {
             Target::Aggregate(_) => unimplemented!(),
         }
     }
+
+    pub fn format_instantiation_statement(
+        &self,
+        statement: &InstantiationStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        if matches!(
+            self.tokens.get_token(span.start_token).kind,
+            Kind::Component | Kind::Entity | Kind::Configuration
+        ) {
+            self.format_token_id(span.start_token, buffer);
+            buffer.push(' ');
+        }
+        match &statement.unit {
+            InstantiatedUnit::Component(name) | InstantiatedUnit::Configuration(name) => {
+                self.format_name(&name.item, name.span, buffer);
+            }
+            InstantiatedUnit::Entity(name, architecture) => {
+                self.format_name(&name.item, name.span, buffer);
+                if let Some(arch) = architecture {
+                    self.join_token_span(
+                        TokenSpan::new(arch.item.token - 1, arch.item.token + 1),
+                        buffer,
+                    )
+                }
+            }
+        }
+        if let Some(generic_map) = &statement.generic_map {
+            self.increase_indentation();
+            self.newline(buffer);
+            self.format_map_aspect(generic_map, buffer);
+            self.decrease_indentation();
+        }
+        if let Some(port_map) = &statement.port_map {
+            self.increase_indentation();
+            self.newline(buffer);
+            self.format_map_aspect(port_map, buffer);
+            self.decrease_indentation();
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -439,5 +485,41 @@ end process;",
         check_statement("foo <= bar(2 to 3);");
         check_statement("x <= bar(1 to 3) after 2 ns;");
         check_statement("foo <= bar(1 to 3) after 2 ns, expr after 1 ns;");
+    }
+
+    #[test]
+    fn check_simple_instantiation_statement() {
+        check_statement("inst: component lib.foo.bar;");
+        check_statement("inst: configuration lib.foo.bar;");
+        check_statement("inst: entity lib.foo.bar;");
+        check_statement("inst: entity lib.foo.bar(arch);");
+    }
+
+    #[test]
+    fn check_instantiation_statement_generic_map() {
+        check_statement(
+            "\
+inst: component lib.foo.bar
+    generic map (
+        const => 1
+    );",
+        );
+        check_statement(
+            "\
+inst: component lib.foo.bar
+    port map (
+        clk => clk_foo
+    );",
+        );
+        check_statement(
+            "\
+inst: component lib.foo.bar
+    generic map (
+        const => 1
+    )
+    port map (
+        clk => clk_foo
+    );",
+        );
     }
 }
