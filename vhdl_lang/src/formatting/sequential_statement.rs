@@ -1,5 +1,6 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{LabeledSequentialStatement, SequentialStatement};
+use crate::ast::{LabeledSequentialStatement, SequentialStatement, WaitStatement};
+use crate::TokenSpan;
 use vhdl_lang::formatting::DesignUnitFormatter;
 
 impl DesignUnitFormatter<'_> {
@@ -31,6 +32,7 @@ impl DesignUnitFormatter<'_> {
         use SequentialStatement::*;
         let span = statement.span;
         match &statement.item {
+            Wait(wait_statement) => self.format_wait_statement(wait_statement, span, buffer),
             Assert(assert) => {
                 self.format_token_id(span.start_token, buffer);
                 buffer.push(' ');
@@ -52,6 +54,44 @@ impl DesignUnitFormatter<'_> {
             Null => self.join_token_span(span, buffer),
             _ => unimplemented!(),
         }
+    }
+
+    pub fn format_wait_statement(
+        &self,
+        statement: &WaitStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // wait
+        self.format_token_id(span.start_token, buffer);
+        if let Some(name_list) = &statement.sensitivity_clause {
+            buffer.push(' ');
+            // on
+            self.format_token_id(span.start_token + 1, buffer);
+            buffer.push(' ');
+            for (i, item) in name_list.items.iter().enumerate() {
+                self.format_name(&item.item, item.span, buffer);
+                if let Some(token) = name_list.tokens.get(i) {
+                    self.format_token_id(*token, buffer);
+                    buffer.push(' ');
+                }
+            }
+        }
+        if let Some(condition_clause) = &statement.condition_clause {
+            buffer.push(' ');
+            self.format_token_id(condition_clause.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&condition_clause.item, condition_clause.span, buffer);
+        }
+        if let Some(timeout_clause) = &statement.timeout_clause {
+            buffer.push(' ');
+            self.format_token_id(timeout_clause.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&timeout_clause.item, timeout_clause.span, buffer);
+        }
+
+        // ;
+        self.format_token_id(span.end_token, buffer);
     }
 }
 #[cfg(test)]
@@ -90,5 +130,15 @@ mod tests {
         check_statement("assert x;");
         check_statement("assert x report y;");
         check_statement("assert x report y severity NOTE;");
+    }
+
+    #[test]
+    fn wait_statement() {
+        check_statement("wait;");
+        check_statement("foo: wait;");
+        check_statement("wait on foo, bar;");
+        check_statement("wait until a = b;");
+        check_statement("wait for 2 ns;");
+        check_statement("wait on foo until bar for 2 ns;");
     }
 }

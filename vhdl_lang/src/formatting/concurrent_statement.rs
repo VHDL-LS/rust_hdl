@@ -247,15 +247,22 @@ impl DesignUnitFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        self.format_target(&assignment_statement.target, buffer);
+        self.format_target(&assignment_statement.assignment.target, buffer);
         buffer.push(' ');
         // <=
-        self.format_token_id(assignment_statement.target.span.end_token + 1, buffer);
+        self.format_token_id(
+            assignment_statement.assignment.target.span.end_token + 1,
+            buffer,
+        );
         buffer.push(' ');
-        if let Some(_mechanism) = &assignment_statement.delay_mechanism {
+        if let Some(_mechanism) = &assignment_statement.assignment.delay_mechanism {
             unimplemented!()
         }
-        self.format_assignment_right_hand(&assignment_statement.rhs, Self::format_waveform, buffer);
+        self.format_assignment_right_hand(
+            &assignment_statement.assignment.rhs,
+            Self::format_waveform,
+            buffer,
+        );
         self.format_token_id(span.end_token, buffer);
     }
 

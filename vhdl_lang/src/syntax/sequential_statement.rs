@@ -18,6 +18,7 @@ use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
 use crate::syntax::kinds_error;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use crate::syntax::separated_list::parse_name_list;
 use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
@@ -25,15 +26,11 @@ use vhdl_lang::TokenSpan;
 /// LRM 10.2 Wait statement
 fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStatement> {
     ctx.stream.expect_kind(Wait)?;
-    let mut sensitivity_clause = vec![];
-    if ctx.stream.skip_if_kind(On) {
-        loop {
-            sensitivity_clause.push(parse_name(ctx)?);
-            if !ctx.stream.skip_if_kind(Comma) {
-                break;
-            }
-        }
-    }
+    let sensitivity_clause = if ctx.stream.skip_if_kind(On) {
+        Some(parse_name_list(ctx)?)
+    } else {
+        None
+    };
 
     let condition_clause = parse_optional(ctx, Until, parse_expression)?;
     let timeout_clause = parse_optional(ctx, For, parse_expression)?;
@@ -644,7 +641,7 @@ mod tests {
                 None,
                 WithTokenSpan::from(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -663,7 +660,7 @@ mod tests {
                 Some(code.s1("foo").ident()),
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -682,7 +679,10 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
+                        sensitivity_clause: Some(NameList {
+                            items: vec![code.s1("foo").name(), code.s1("bar").name()],
+                            tokens: vec![code.s1(",").token()]
+                        }),
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -701,7 +701,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: Some(code.s1("a = b").expr()),
                         timeout_clause: None,
                     }),
@@ -720,7 +720,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
@@ -739,7 +739,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![code.s1("foo").name()],
+                        sensitivity_clause: Some(NameList::single(code.s1("foo").name())),
                         condition_clause: Some(code.s1("bar").expr()),
                         timeout_clause: Some(code.s1("2 ns").expr()),
                     }),

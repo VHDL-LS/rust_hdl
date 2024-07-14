@@ -911,7 +911,7 @@ pub enum Declaration {
 /// LRM 10.2 Wait statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
-    pub sensitivity_clause: Vec<WithTokenSpan<Name>>,
+    pub sensitivity_clause: Option<NameList>,
     pub condition_clause: Option<WithTokenSpan<Expression>>,
     pub timeout_clause: Option<WithTokenSpan<Expression>>,
 }
