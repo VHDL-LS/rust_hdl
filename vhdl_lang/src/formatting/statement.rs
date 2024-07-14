@@ -10,15 +10,28 @@ use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
 impl DesignUnitFormatter<'_> {
+    pub fn join_on_newline<T>(
+        &self,
+        items: &[T],
+        joiner: impl Fn(&Self, &T, &mut String),
+        buffer: &mut String,
+    ) {
+        for item in items {
+            self.newline(buffer);
+            joiner(self, item, buffer);
+        }
+    }
+
     pub fn format_concurrent_statements(
         &self,
         statements: &[LabeledConcurrentStatement],
         buffer: &mut String,
     ) {
-        for statement in statements {
-            self.newline(buffer);
-            self.format_labeled_concurrent_statement(statement, buffer);
-        }
+        self.join_on_newline(
+            statements,
+            Self::format_labeled_concurrent_statement,
+            buffer,
+        );
     }
 
     pub fn format_sequential_statements(
@@ -26,10 +39,7 @@ impl DesignUnitFormatter<'_> {
         statements: &[LabeledSequentialStatement],
         buffer: &mut String,
     ) {
-        for statement in statements {
-            self.newline(buffer);
-            self.format_sequential_statement(statement, buffer);
-        }
+        self.join_on_newline(statements, Self::format_sequential_statement, buffer);
     }
 
     pub fn format_sequential_statement(

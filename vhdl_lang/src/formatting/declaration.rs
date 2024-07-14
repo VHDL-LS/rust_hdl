@@ -537,10 +537,7 @@ impl DesignUnitFormatter<'_> {
         buffer.push(' ');
         self.format_token_id(view.is_token, buffer);
         self.increase_indentation();
-        for element in &view.elements {
-            self.newline(buffer);
-            self.format_mode_view_element(element, buffer);
-        }
+        self.join_on_newline(&view.elements, Self::format_mode_view_element, buffer);
         self.decrease_indentation();
         self.newline(buffer);
         self.format_token_span(TokenSpan::new(view.end_token, span.end_token - 1), buffer);
