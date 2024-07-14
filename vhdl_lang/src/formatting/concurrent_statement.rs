@@ -1,9 +1,9 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentSignalAssignment,
-    ConcurrentStatement, ForGenerateStatement, Ident, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target, Waveform,
-    WaveformElement,
+    AssignmentRightHand, BlockStatement, CaseGenerateStatement, ConcurrentAssertStatement,
+    ConcurrentSignalAssignment, ConcurrentStatement, ForGenerateStatement, Ident,
+    IfGenerateStatement, InstantiatedUnit, InstantiationStatement, LabeledConcurrentStatement,
+    ProcessStatement, SensitivityList, Target, Waveform, WaveformElement,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
@@ -73,7 +73,10 @@ impl VHDLFormatter<'_> {
             ForGenerate(for_generate) => {
                 self.format_for_generate_statement(for_generate, span, buffer)
             }
-            _ => unimplemented!(),
+            IfGenerate(if_generate) => self.format_if_generate_statement(if_generate, span, buffer),
+            CaseGenerate(case_generate) => {
+                self.format_case_generate_statement(case_generate, span, buffer)
+            }
         }
     }
 
@@ -356,6 +359,24 @@ impl VHDLFormatter<'_> {
     pub fn format_for_generate_statement(
         &self,
         statement: &ForGenerateStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
+    }
+
+    pub fn format_if_generate_statement(
+        &self,
+        statement: &IfGenerateStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
+    }
+
+    pub fn format_case_generate_statement(
+        &self,
+        statement: &CaseGenerateStatement,
         span: TokenSpan,
         buffer: &mut String,
     ) {

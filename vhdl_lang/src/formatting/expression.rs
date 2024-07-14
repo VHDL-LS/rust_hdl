@@ -3,6 +3,7 @@ use crate::ast::{ElementAssociation, Expression, ResolutionIndication, SubtypeIn
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
+use vhdl_lang::ast::QualifiedExpression;
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
@@ -29,6 +30,7 @@ impl VHDLFormatter<'_> {
                 self.format_expression(&rhs.item, rhs.span, buffer);
             }
             Aggregate(aggregate) => self.format_element_associations(aggregate, buffer),
+            Qualified(qualified_expr) => self.format_qualified_expression(qualified_expr, buffer),
             Name(name) => self.format_name(name, reduced_span, buffer),
             Literal(_) => self.format_token_span(reduced_span, buffer),
             _ => unimplemented!(),
@@ -133,6 +135,21 @@ impl VHDLFormatter<'_> {
             self.format_expression(&expr.item, expr.span, buffer);
         }
     }
+
+    pub fn format_qualified_expression(
+        &self,
+        expression: &QualifiedExpression,
+        buffer: &mut String,
+    ) {
+        self.format_name(
+            &expression.type_mark.item,
+            expression.type_mark.span,
+            buffer,
+        );
+        // '
+        self.format_token_id(expression.type_mark.span.end_token + 1, buffer);
+        self.format_expression(&expression.expr.item, expression.expr.span, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -194,6 +211,13 @@ mod test {
         check_expression("(1 downto 0 => 2)");
         check_expression("(0 to 1 => 2)");
         check_expression("(1 | 2 => 3)");
+    }
+
+    #[test]
+    fn qualified_expressions() {
+        check_expression("integer_vector'(0, 1)");
+        check_expression("foo'(1 + 2)");
+        check_expression("foo'(others => '1')");
     }
 
     fn check_subtype_indication(input: &str) {
