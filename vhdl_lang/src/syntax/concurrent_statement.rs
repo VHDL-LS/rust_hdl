@@ -491,7 +491,7 @@ fn parse_if_generate_statement(
         conditionals.push(conditional);
 
         expect_token!(
-            ctx.stream, end_token,
+            ctx.stream, end_token, token_id,
             End => {
                 else_branch = None;
                 break;
@@ -515,7 +515,7 @@ fn parse_if_generate_statement(
                 );
                 let body = parse_generate_body(ctx, alternative_label)?;
                 ctx.stream.expect_kind(End)?;
-                else_branch = Some(body);
+                else_branch = Some((body, token_id));
                 break;
             }
         );
@@ -1827,12 +1827,15 @@ end generate;",
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: None,
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: None,
+                        decl: None,
+                        statements: vec![],
+                        end_label_pos: None,
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1887,12 +1890,15 @@ end generate;",
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: None,
-                    decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
-                    statements: vec![code.s1("foo3(clk);").concurrent_statement()],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: None,
+                        decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
+                        statements: vec![code.s1("foo3(clk);").concurrent_statement()],
+                        end_label_pos: None,
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1941,12 +1947,15 @@ end generate;",
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: Some(code.s1("alt3").decl_ident()),
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: Some(code.s1("alt3").decl_ident()),
+                        decl: None,
+                        statements: vec![],
+                        end_label_pos: None,
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -2005,12 +2014,15 @@ end generate;",
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: Some(code.s1("alt3").decl_ident()),
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: Some(code.s("alt3", 2).pos()),
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: Some(code.s1("alt3").decl_ident()),
+                        decl: None,
+                        statements: vec![],
+                        end_label_pos: Some(code.s("alt3", 2).pos()),
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),

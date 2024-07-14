@@ -4,7 +4,9 @@ use crate::ast::{
     WaitStatement,
 };
 use crate::TokenSpan;
-use vhdl_lang::ast::{SignalForceAssignment, SignalReleaseAssignment, VariableAssignment};
+use vhdl_lang::ast::{
+    IfStatement, SignalForceAssignment, SignalReleaseAssignment, VariableAssignment,
+};
 use vhdl_lang::formatting::DesignUnitFormatter;
 
 impl DesignUnitFormatter<'_> {
@@ -59,6 +61,9 @@ impl DesignUnitFormatter<'_> {
             ProcedureCall(call_or_indexed) => {
                 self.format_call_or_indexed(&call_or_indexed.item, call_or_indexed.span, buffer);
                 self.format_token_id(span.end_token, buffer);
+            }
+            If(if_statement) => {
+                self.format_if_statement(if_statement, span, buffer);
             }
             Return(stmt) => {
                 self.format_token_id(span.start_token, buffer);
@@ -210,6 +215,49 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_if_statement(
+        &self,
+        statement: &IfStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        for cond in &statement.conds.conditionals {
+            let condition = &cond.condition;
+            // if | elsif
+            self.format_token_id(condition.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&condition.item, condition.span, buffer);
+            buffer.push(' ');
+            // then
+            self.format_token_id(condition.span.end_token + 1, buffer);
+            self.increase_indentation();
+            self.format_sequential_statements(&cond.item, buffer);
+            self.decrease_indentation();
+            self.newline(buffer);
+        }
+        if let Some((statements, token)) = &statement.conds.else_item {
+            self.format_token_id(*token, buffer);
+            self.increase_indentation();
+            self.format_sequential_statements(statements, buffer);
+            self.decrease_indentation();
+            self.newline(buffer);
+        }
+        if statement.end_label_pos.is_some() {
+            // end if <label>
+            self.format_token_span(
+                TokenSpan::new(span.end_token - 3, span.end_token - 1),
+                buffer,
+            )
+        } else {
+            // end if
+            self.format_token_span(
+                TokenSpan::new(span.end_token - 2, span.end_token - 1),
+                buffer,
+            )
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -296,6 +344,50 @@ mod tests {
             "foo(0) <= release;",
             "foo(0) <= release out;",
             "foo(0) <= release in;",
+        ]);
+    }
+
+    #[test]
+    fn if_statements() {
+        check_statements(&[
+            "\
+if cond = true then
+    foo(1, 2);
+    x := 1;
+end if;",
+            "\
+mylabel: if cond = true then
+    foo(1, 2);
+    x := 1;
+end if mylabel;",
+            "\
+if cond = true then
+    foo(1, 2);
+else
+    x := 1;
+end if;",
+            "\
+mylabel: if cond = true then
+    foo(1, 2);
+else
+    x := 1;
+end if mylabel;",
+            "\
+if cond = true then
+    foo(1, 2);
+elsif cond2 = false then
+    y := 2;
+else
+    x := 1;
+end if;",
+            "\
+mylabel: if cond = true then
+    foo(1, 2);
+elsif cond2 = false then
+    y := 2;
+else
+    x := 1;
+end if mylabel;",
         ]);
     }
 }

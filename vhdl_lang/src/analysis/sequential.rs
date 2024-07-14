@@ -67,7 +67,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             diagnostics,
                         )?;
                     }
-                    if let Some(else_item) = else_item {
+                    if let Some((else_item, _)) = else_item {
                         self.define_labels_for_sequential_part(
                             scope,
                             parent,
@@ -235,7 +235,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.boolean_expr(scope, condition, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }
-                if let Some(else_item) = else_item {
+                if let Some((else_item, _)) = else_item {
                     self.analyze_sequential_part(scope, parent, else_item, diagnostics)?;
                 }
             }

@@ -38,7 +38,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.boolean_expr(scope, condition, diagnostics)?;
                 }
-                if let Some(expr) = else_item {
+                if let Some((expr, _)) = else_item {
                     self.analyze_expression_for_target(scope, ttyp, expr, diagnostics)?;
                 }
             }
@@ -83,7 +83,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.boolean_expr(scope, condition, diagnostics)?;
                 }
-                if let Some(wavf) = else_item {
+                if let Some((wavf, _)) = else_item {
                     self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
                 }
             }

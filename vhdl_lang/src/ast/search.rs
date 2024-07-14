@@ -167,7 +167,7 @@ fn search_conditionals<T: Search>(
             return_if_found!(item.search(ctx, searcher));
         }
     }
-    if let Some(expr) = else_item {
+    if let Some((expr, _)) = else_item {
         return_if_found!(expr.search(ctx, searcher));
     }
     NotFound

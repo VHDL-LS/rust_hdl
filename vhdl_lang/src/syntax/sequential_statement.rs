@@ -112,6 +112,7 @@ fn parse_if_statement(
         expect_token!(
             ctx.stream,
             end_token,
+            token_id,
             Elsif => {
                 conditionals.push(conditional);
                 continue;
@@ -126,7 +127,7 @@ fn parse_if_statement(
                     end_token,
                     End => {
                         ctx.stream.expect_kind(If)?;
-                        else_branch = Some(statements);
+                        else_branch = Some((statements, token_id));
                         break;
                     }
                 );
@@ -349,6 +350,7 @@ where
         expect_token!(
             ctx.stream,
             token,
+            token_id,
             SemiColon => {
                 break;
             },
@@ -358,7 +360,7 @@ where
                     ctx.stream,
                     token,
                     SemiColon =>  {
-                        else_item = Some(item);
+                        else_item = Some((item, token_id));
                         break;
                     },
                     When => {
@@ -1149,7 +1151,7 @@ with x(0) + 1 select
                                 condition: code.s1("cond = true").expr(),
                                 item: code.s1("bar(1,2)").expr()
                             }],
-                            else_item: Some(code.s1("expr2").expr())
+                            else_item: Some((code.s1("expr2").expr(), code.s1("else").token()))
                         }),
                     }),
                     code.token_span()
@@ -1410,7 +1412,10 @@ end if;",
                                 condition: code.s1("cond = true").expr(),
                                 item: vec![code.s1("foo(1,2);").sequential_statement()]
                             }],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: None,
                     }),
@@ -1441,7 +1446,10 @@ end if mylabel;",
                                 condition: code.s1("cond = true").expr(),
                                 item: vec![code.s1("foo(1,2);").sequential_statement()]
                             }],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
@@ -1479,7 +1487,10 @@ end if;",
                                     item: vec![code.s1("y := 2;").sequential_statement()]
                                 }
                             ],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: None,
                     }),
@@ -1517,7 +1528,10 @@ end if mylabel;",
                                     item: vec![code.s1("y := 2;").sequential_statement()]
                                 }
                             ],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),

@@ -1027,7 +1027,7 @@ pub struct Conditional<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Conditionals<T> {
     pub conditionals: Vec<Conditional<T>>,
-    pub else_item: Option<T>,
+    pub else_item: Option<(T, TokenId)>,
 }
 
 /// LRM 10.8 If statement

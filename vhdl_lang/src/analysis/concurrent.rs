@@ -165,7 +165,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, parent, item, src_span, diagnostics)?;
                 }
-                if let Some(ref mut else_item) = else_item {
+                if let Some((ref mut else_item, _)) = else_item {
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, parent, else_item, src_span, diagnostics)?;
                 }
