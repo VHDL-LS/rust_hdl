@@ -283,6 +283,7 @@ fn parse_assignment_known_target(
     // @TODO guarded
     let guarded = false;
     let delay_mechanism = parse_delay_mechanism(ctx)?;
+    let rhs = parse_signal_assignment_right_hand(ctx)?;
     Ok(ConcurrentStatement::Assignment(
         ConcurrentSignalAssignment {
             postponed,
@@ -290,7 +291,7 @@ fn parse_assignment_known_target(
             assignment: SignalAssignment {
                 target,
                 delay_mechanism,
-                rhs: parse_signal_assignment_right_hand(ctx)?,
+                rhs,
             },
         },
     ))

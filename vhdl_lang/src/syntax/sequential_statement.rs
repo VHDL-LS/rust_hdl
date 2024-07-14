@@ -530,8 +530,8 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
                     target,
                     delay_mechanism: parse_delay_mechanism(ctx)?,
                     rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?)
-            }))
-        }
+                }))
+            }
         }
     )
 }

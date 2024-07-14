@@ -199,13 +199,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { assignment, .. } = assign;
-                self.analyze_waveform_assignment(
-                    scope,
-                    &mut assignment.target,
-                    AssignmentType::Signal,
-                    &mut assignment.rhs,
-                    diagnostics,
-                )?;
+                self.analyze_waveform_assignment(scope, assignment, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall { call, .. } = pcall;
