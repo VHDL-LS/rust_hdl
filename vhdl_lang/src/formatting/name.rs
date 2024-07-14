@@ -1,4 +1,4 @@
-use crate::ast::CallOrIndexed;
+use crate::ast::{CallOrIndexed, ExternalName};
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan};
@@ -30,7 +30,7 @@ impl VHDLFormatter<'_> {
             CallOrIndexed(call_or_indexed) => {
                 self.format_call_or_indexed(call_or_indexed, span, buffer)
             }
-            _ => unimplemented!(),
+            External(external) => self.format_external_name(external, buffer),
         }
     }
 
@@ -71,6 +71,10 @@ impl VHDLFormatter<'_> {
             self.format_expression(&expr.item, expr.span, buffer);
             self.format_token_id(expr.span.end_token + 1, buffer);
         }
+    }
+
+    pub fn format_external_name(&self, name: &ExternalName, buffer: &mut String) {
+        unimplemented!()
     }
 }
 

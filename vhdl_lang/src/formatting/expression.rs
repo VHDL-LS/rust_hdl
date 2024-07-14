@@ -3,7 +3,7 @@ use crate::ast::{ElementAssociation, Expression, ResolutionIndication, SubtypeIn
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
-use vhdl_lang::ast::QualifiedExpression;
+use vhdl_lang::ast::{Allocator, QualifiedExpression};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
@@ -33,7 +33,7 @@ impl VHDLFormatter<'_> {
             Qualified(qualified_expr) => self.format_qualified_expression(qualified_expr, buffer),
             Name(name) => self.format_name(name, reduced_span, buffer),
             Literal(_) => self.format_token_span(reduced_span, buffer),
-            _ => unimplemented!(),
+            New(allocator) => self.format_allocator(allocator, buffer),
         }
         if is_parenthesized {
             self.format_token_id(span.end_token, buffer);
@@ -150,6 +150,16 @@ impl VHDLFormatter<'_> {
         self.format_token_id(expression.type_mark.span.end_token + 1, buffer);
         self.format_expression(&expression.expr.item, expression.expr.span, buffer);
     }
+
+    pub fn format_allocator(&self, allocator: &WithTokenSpan<Allocator>, buffer: &mut String) {
+        // new
+        self.format_token_id(allocator.span.start_token - 1, buffer);
+        buffer.push(' ');
+        match &allocator.item {
+            Allocator::Qualified(expr) => self.format_qualified_expression(expr, buffer),
+            Allocator::Subtype(subtype) => self.format_subtype_indication(subtype, buffer),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -218,6 +228,14 @@ mod test {
         check_expression("integer_vector'(0, 1)");
         check_expression("foo'(1 + 2)");
         check_expression("foo'(others => '1')");
+    }
+
+    #[test]
+    fn allocator_expressions() {
+        check_expression("new integer_vector'(0, 1)");
+        check_expression("new integer_vector");
+        check_expression("new integer_vector(0 to 1)");
+        check_expression("new integer_vector(foo'range)");
     }
 
     fn check_subtype_indication(input: &str) {
