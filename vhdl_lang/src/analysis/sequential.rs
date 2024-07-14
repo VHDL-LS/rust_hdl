@@ -287,15 +287,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.analyze_procedure_call(scope, pcall, diagnostics)?;
             }
             SequentialStatement::SignalAssignment(ref mut assign) => {
-                // @TODO more
-                let SignalAssignment { target, rhs, .. } = assign;
-                self.analyze_waveform_assignment(
-                    scope,
-                    target,
-                    AssignmentType::Signal,
-                    rhs,
-                    diagnostics,
-                )?;
+                self.analyze_waveform_assignment(scope, assign, diagnostics)?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;

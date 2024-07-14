@@ -524,8 +524,13 @@ impl Search for LabeledConcurrentStatement {
                 return_if_found!(inst.search(ctx, searcher));
             }
             ConcurrentStatement::Assignment(ref assign) => {
-                let ConcurrentSignalAssignment { target, rhs, .. } = assign;
-                return_if_found!(search_assignment(target, rhs, searcher, ctx));
+                let ConcurrentSignalAssignment { assignment, .. } = assign;
+                return_if_found!(search_assignment(
+                    &assignment.target,
+                    &assignment.rhs,
+                    searcher,
+                    ctx
+                ));
             }
             ConcurrentStatement::ProcedureCall(ref pcall) => {
                 let ConcurrentProcedureCall {

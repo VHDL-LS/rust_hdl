@@ -60,13 +60,16 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_waveform_assignment(
         &self,
         scope: &Scope<'a>,
-        target: &mut WithTokenSpan<Target>,
-        assignment_type: AssignmentType,
-        rhs: &mut AssignmentRightHand<Waveform>,
+        assignment: &mut SignalAssignment,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        let ttyp = as_fatal(self.resolve_target(scope, target, assignment_type, diagnostics))?;
-        match rhs {
+        let ttyp = as_fatal(self.resolve_target(
+            scope,
+            &mut assignment.target,
+            AssignmentType::Signal,
+            diagnostics,
+        ))?;
+        match &mut assignment.rhs {
             AssignmentRightHand::Simple(wavf) => {
                 self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
             }

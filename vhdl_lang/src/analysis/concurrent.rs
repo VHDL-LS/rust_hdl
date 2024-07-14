@@ -13,7 +13,6 @@ use crate::data::*;
 use crate::named_entity::*;
 use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
-use target::AssignmentType;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_concurrent_part(
@@ -198,14 +197,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
-                let ConcurrentSignalAssignment { target, rhs, .. } = assign;
-                self.analyze_waveform_assignment(
-                    scope,
-                    target,
-                    AssignmentType::Signal,
-                    rhs,
-                    diagnostics,
-                )?;
+                let ConcurrentSignalAssignment { assignment, .. } = assign;
+                self.analyze_waveform_assignment(scope, assignment, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall { call, .. } = pcall;

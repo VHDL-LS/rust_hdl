@@ -8,7 +8,7 @@ use crate::ast::ArchitectureBody;
 use crate::completion::entity_instantiation::get_visible_entities_from_architecture;
 use crate::completion::region::completion_items_from_region;
 use crate::named_entity::{DesignEnt, Visibility};
-use crate::{CompletionItem, Design, HasTokenSpan, Position, Source, TokenAccess};
+use crate::{CompletionItem, Design, HasEntityId, HasTokenSpan, Position, Source, TokenAccess};
 use itertools::{chain, Itertools};
 use vhdl_lang::analysis::DesignRoot;
 
@@ -98,6 +98,19 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                 }
                 package.ident.decl.get()
             }
+            FoundDeclaration::Subprogram(subprogram) => {
+                if !subprogram.get_pos(ctx).contains(self.cursor) {
+                    return NotFinished;
+                }
+                self.completions.extend(
+                    subprogram
+                        .declarations
+                        .iter()
+                        .flat_map(|decl| decl.item.ent_id())
+                        .map(|id| CompletionItem::Simple(self.root.get_ent(id))),
+                );
+                return NotFinished;
+            }
             _ => return NotFinished,
         };
         let Some(ent_id) = ent_id else {
@@ -108,7 +121,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
         };
         self.completions
             .extend(visible_entities_from(self.root, ent.kind()));
-        Finished(Found)
+        NotFinished
     }
 }
 
