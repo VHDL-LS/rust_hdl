@@ -8,10 +8,9 @@ use vhdl_lang::TokenSpan;
 impl DesignUnitFormatter<'_> {
     pub fn format_expression(&self, expression: &Expression, span: TokenSpan, buffer: &mut String) {
         use Expression::*;
-        let reduced_span: TokenSpan = if self.tokens.get_token(span.start_token).kind
-            == Kind::LeftPar
-            && self.tokens.get_token(span.end_token).kind == Kind::RightPar
-        {
+        let is_parenthesized = self.tokens.get_token(span.start_token).kind == Kind::LeftPar
+            && self.tokens.get_token(span.end_token).kind == Kind::RightPar;
+        let reduced_span: TokenSpan = if is_parenthesized {
             self.format_token_id(span.start_token, buffer);
             TokenSpan::new(span.start_token + 1, span.end_token - 1)
         } else {
@@ -33,7 +32,7 @@ impl DesignUnitFormatter<'_> {
             }
             _ => unimplemented!(),
         }
-        if self.tokens.get_token(span.end_token).kind == Kind::RightPar {
+        if is_parenthesized {
             self.format_token_id(span.end_token, buffer);
         }
     }

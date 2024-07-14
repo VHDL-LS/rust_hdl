@@ -945,11 +945,24 @@ pub struct WaveformElement {
     pub after: Option<WithTokenSpan<Expression>>,
 }
 
+impl HasTokenSpan for WaveformElement {
+    fn get_start_token(&self) -> TokenId {
+        self.value.get_start_token()
+    }
+
+    fn get_end_token(&self) -> TokenId {
+        self.after
+            .as_ref()
+            .map(|expr| expr.get_end_token())
+            .unwrap_or(self.value.get_end_token())
+    }
+}
+
 /// LRM 10.5 Signal assignment statement
 #[derive(PartialEq, Debug, Clone)]
 pub enum Waveform {
     Elements(Vec<WaveformElement>),
-    Unaffected,
+    Unaffected(TokenId),
 }
 
 /// LRM 10.5 Signal assignment statement

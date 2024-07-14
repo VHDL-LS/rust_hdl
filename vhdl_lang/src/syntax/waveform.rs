@@ -35,8 +35,8 @@ pub fn parse_delay_mechanism(ctx: &mut ParsingContext<'_>) -> ParseResult<Option
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_waveform(ctx: &mut ParsingContext<'_>) -> ParseResult<Waveform> {
-    if ctx.stream.skip_if_kind(Unaffected) {
-        return Ok(Waveform::Unaffected);
+    if let Some(token) = ctx.stream.pop_if_kind(Unaffected) {
+        return Ok(Waveform::Unaffected(token));
     }
 
     let mut elems = Vec::new();
@@ -133,6 +133,9 @@ mod tests {
     #[test]
     fn test_unaffected_waveform() {
         let code = Code::new("unaffected");
-        assert_eq!(code.with_stream(parse_waveform), Waveform::Unaffected);
+        assert_eq!(
+            code.with_stream(parse_waveform),
+            Waveform::Unaffected(code.token())
+        );
     }
 }

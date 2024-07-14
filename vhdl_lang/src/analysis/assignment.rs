@@ -116,7 +116,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 }
             }
-            Waveform::Unaffected => {}
+            Waveform::Unaffected(_) => {}
         }
         Ok(())
     }

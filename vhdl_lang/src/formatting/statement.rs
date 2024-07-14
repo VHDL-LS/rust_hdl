@@ -1,11 +1,12 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    BlockStatement, ConcurrentAssertStatement, ConcurrentStatement, LabeledConcurrentStatement,
-    LabeledSequentialStatement, ProcessStatement, SensitivityList,
+    AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentSignalAssignment,
+    ConcurrentStatement, LabeledConcurrentStatement, LabeledSequentialStatement, ProcessStatement,
+    SensitivityList, Target, Waveform, WaveformElement,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
-use crate::TokenAccess;
+use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
@@ -76,6 +77,7 @@ impl DesignUnitFormatter<'_> {
             Block(block) => self.format_block_statement(block, span, buffer),
             Process(process) => self.format_process_statement(process, span, buffer),
             Assert(assert) => self.format_concurrent_assert_statement(assert, span, buffer),
+            Assignment(assignment) => self.format_assignment_statement(assignment, span, buffer),
             _ => unimplemented!(),
         }
     }
@@ -243,6 +245,69 @@ impl DesignUnitFormatter<'_> {
             self.format_expression(&severity.item, severity.span, bufer);
         }
     }
+
+    pub fn format_assignment_statement(
+        &self,
+        assignment_statement: &ConcurrentSignalAssignment,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_target(&assignment_statement.target, buffer);
+        buffer.push(' ');
+        // <=
+        self.format_token_id(assignment_statement.target.span.end_token + 1, buffer);
+        buffer.push(' ');
+        if let Some(_mechanism) = &assignment_statement.delay_mechanism {
+            unimplemented!()
+        }
+        self.format_assignment_right_hand(&assignment_statement.rhs, Self::format_waveform, buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_assignment_right_hand<T>(
+        &self,
+        right_hand: &AssignmentRightHand<T>,
+        formatter: impl Fn(&Self, &T, &mut String),
+        buffer: &mut String,
+    ) {
+        match right_hand {
+            AssignmentRightHand::Simple(simple) => formatter(self, simple, buffer),
+            AssignmentRightHand::Conditional(_) => unimplemented!(),
+            AssignmentRightHand::Selected(_) => unimplemented!(),
+        }
+    }
+
+    pub fn format_waveform(&self, waveform: &Waveform, buffer: &mut String) {
+        match waveform {
+            Waveform::Elements(elements) => {
+                for (i, element) in elements.iter().enumerate() {
+                    self.format_waveform_element(element, buffer);
+                    if i < elements.len() - 1 {
+                        self.format_token_id(element.get_end_token() + 1, buffer);
+                        buffer.push(' ');
+                    }
+                }
+            }
+            Waveform::Unaffected(token) => self.format_token_id(*token, buffer),
+        }
+    }
+
+    pub fn format_waveform_element(&self, element: &WaveformElement, buffer: &mut String) {
+        self.format_expression(&element.value.item, element.value.span, buffer);
+        if let Some(after) = &element.after {
+            buffer.push(' ');
+            self.format_token_id(after.get_start_token() - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&after.item, after.span, buffer);
+        }
+    }
+
+    pub fn format_target(&self, target: &WithTokenSpan<Target>, buffer: &mut String) {
+        match &target.item {
+            Target::Name(name) => self.format_name(name, target.span, buffer),
+            Target::Aggregate(_) => unimplemented!(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -367,5 +432,12 @@ end process;",
         check_statement("assert cond = true;");
         check_statement("postponed assert cond = true;");
         check_statement("assert false report \"message\" severity error;");
+    }
+
+    #[test]
+    fn check_signal_assignment() {
+        check_statement("foo <= bar(2 to 3);");
+        check_statement("x <= bar(1 to 3) after 2 ns;");
+        check_statement("foo <= bar(1 to 3) after 2 ns, expr after 1 ns;");
     }
 }

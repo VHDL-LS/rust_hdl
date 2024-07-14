@@ -933,7 +933,7 @@ impl Search for Waveform {
                     return_if_found!(after.search(ctx, searcher));
                 }
             }
-            Waveform::Unaffected => {}
+            Waveform::Unaffected(_) => {}
         }
         NotFound
     }
