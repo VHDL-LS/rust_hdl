@@ -1,5 +1,5 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{LabeledSequentialStatement, SequentialStatement, WaitStatement};
+use crate::ast::{LabeledSequentialStatement, ReportStatement, SequentialStatement, WaitStatement};
 use crate::TokenSpan;
 use vhdl_lang::formatting::DesignUnitFormatter;
 
@@ -39,6 +39,7 @@ impl DesignUnitFormatter<'_> {
                 self.format_assert_statement(assert, buffer);
                 self.format_token_id(span.end_token, buffer);
             }
+            Report(report) => self.format_report_statement(report, span, buffer),
             ProcedureCall(call_or_indexed) => {
                 self.format_call_or_indexed(&call_or_indexed.item, call_or_indexed.span, buffer);
                 self.format_token_id(span.end_token, buffer);
@@ -93,7 +94,27 @@ impl DesignUnitFormatter<'_> {
         // ;
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_report_statement(
+        &self,
+        report: &ReportStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // report
+        self.format_token_id(span.start_token, buffer);
+        buffer.push(' ');
+        self.format_expression(&report.report.item, report.report.span, buffer);
+        if let Some(severity) = &report.severity {
+            buffer.push(' ');
+            self.format_token_id(severity.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&severity.item, severity.span, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::formatting::test_utils::check_formatted;
@@ -140,5 +161,11 @@ mod tests {
         check_statement("wait until a = b;");
         check_statement("wait for 2 ns;");
         check_statement("wait on foo until bar for 2 ns;");
+    }
+
+    #[test]
+    fn report_statement() {
+        check_statement("report \"message\" severity error;");
+        check_statement("report \"message\";");
     }
 }
