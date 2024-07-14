@@ -1,6 +1,10 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{LabeledSequentialStatement, ReportStatement, SequentialStatement, WaitStatement};
+use crate::ast::{
+    LabeledSequentialStatement, ReportStatement, SequentialStatement, SignalAssignment,
+    WaitStatement,
+};
 use crate::TokenSpan;
+use vhdl_lang::ast::{SignalForceAssignment, SignalReleaseAssignment, VariableAssignment};
 use vhdl_lang::formatting::DesignUnitFormatter;
 
 impl DesignUnitFormatter<'_> {
@@ -40,6 +44,18 @@ impl DesignUnitFormatter<'_> {
                 self.format_token_id(span.end_token, buffer);
             }
             Report(report) => self.format_report_statement(report, span, buffer),
+            VariableAssignment(variable_assignment) => {
+                self.format_variable_assignment(variable_assignment, span, buffer)
+            }
+            SignalAssignment(signal_assignment) => {
+                self.format_signal_assignment(signal_assignment, span, buffer)
+            }
+            SignalForceAssignment(signal_assignment) => {
+                self.format_signal_force_assignment(signal_assignment, span, buffer)
+            }
+            SignalReleaseAssignment(signal_assignment) => {
+                self.format_signal_release_assignment(signal_assignment, span, buffer)
+            }
             ProcedureCall(call_or_indexed) => {
                 self.format_call_or_indexed(&call_or_indexed.item, call_or_indexed.span, buffer);
                 self.format_token_id(span.end_token, buffer);
@@ -113,6 +129,87 @@ impl DesignUnitFormatter<'_> {
         }
         self.format_token_id(span.end_token, buffer);
     }
+
+    pub fn format_variable_assignment(
+        &self,
+        assignment: &VariableAssignment,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_target(&assignment.target, buffer);
+        buffer.push(' ');
+        self.format_token_id(assignment.target.span.end_token + 1, buffer);
+        buffer.push(' ');
+        self.format_assignment_right_hand(
+            &assignment.rhs,
+            |formatter, expr, buffer| formatter.format_expression(&expr.item, expr.span, buffer),
+            buffer,
+        );
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_signal_assignment(
+        &self,
+        assignment: &SignalAssignment,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_target(&assignment.target, buffer);
+        buffer.push(' ');
+        self.format_token_id(assignment.target.span.end_token + 1, buffer);
+        buffer.push(' ');
+        if let Some(_delay_mechanism) = &assignment.delay_mechanism {
+            unimplemented!()
+        }
+        self.format_assignment_right_hand(&assignment.rhs, Self::format_waveform, buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_signal_force_assignment(
+        &self,
+        assignment: &SignalForceAssignment,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_target(&assignment.target, buffer);
+        buffer.push(' ');
+        // <=
+        self.format_token_id(assignment.target.span.end_token + 1, buffer);
+        buffer.push(' ');
+        // force
+        self.format_token_id(assignment.target.span.end_token + 2, buffer);
+        buffer.push(' ');
+        if assignment.force_mode.is_some() {
+            self.format_token_id(assignment.target.span.end_token + 3, buffer);
+            buffer.push(' ');
+        }
+        self.format_assignment_right_hand(
+            &assignment.rhs,
+            |formatter, expr, buffer| formatter.format_expression(&expr.item, expr.span, buffer),
+            buffer,
+        );
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_signal_release_assignment(
+        &self,
+        assignment: &SignalReleaseAssignment,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        self.format_target(&assignment.target, buffer);
+        buffer.push(' ');
+        // <=
+        self.format_token_id(assignment.target.span.end_token + 1, buffer);
+        buffer.push(' ');
+        // release
+        self.format_token_id(assignment.target.span.end_token + 2, buffer);
+        if assignment.force_mode.is_some() {
+            buffer.push(' ');
+            self.format_token_id(assignment.target.span.end_token + 3, buffer);
+        }
+        self.format_token_id(span.end_token, buffer);
+    }
 }
 
 #[cfg(test)]
@@ -127,6 +224,12 @@ mod tests {
             Code::sequential_statement,
             |formatter, ast, buffer| formatter.format_labeled_sequential_statement(ast, buffer),
         )
+    }
+
+    fn check_statements(inputs: &[&str]) {
+        for input in inputs {
+            check_statement(input)
+        }
     }
 
     #[test]
@@ -165,7 +268,34 @@ mod tests {
 
     #[test]
     fn report_statement() {
-        check_statement("report \"message\" severity error;");
-        check_statement("report \"message\";");
+        check_statements(&["report \"message\" severity error;", "report \"message\";"]);
+    }
+
+    #[test]
+    fn variable_assignment() {
+        check_statements(&["foo(0) := bar(1, 2);", "name: foo(0) := bar(1, 2);"]);
+    }
+
+    #[test]
+    fn signal_assignment() {
+        check_statements(&["foo(0) <= bar(1, 2);", "name: foo(0) <= bar(1, 2);"]);
+    }
+
+    #[test]
+    fn signal_force_assignment() {
+        check_statements(&[
+            "foo(0) <= force bar(1, 2);",
+            "foo(0) <= force out bar(1, 2);",
+            "foo(0) <= force in bar(1, 2);",
+        ]);
+    }
+
+    #[test]
+    fn signal_release_assignment() {
+        check_statements(&[
+            "foo(0) <= release;",
+            "foo(0) <= release out;",
+            "foo(0) <= release in;",
+        ]);
     }
 }
