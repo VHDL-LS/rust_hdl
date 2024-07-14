@@ -17,10 +17,10 @@ impl DesignUnitFormatter<'_> {
             constraint.span.end_token - 1,
         );
         match &constraint.item {
-            SubtypeConstraint::Range(range) => self.format_range(range, constraint.span, buffer),
+            SubtypeConstraint::Range(range) => self.format_range(range, buffer),
             SubtypeConstraint::Array(ranges, opt_constraint) => {
                 for range in ranges {
-                    self.format_discrete_range(range, span, buffer);
+                    self.format_discrete_range(range, buffer);
                 }
             }
             SubtypeConstraint::Record(_) => unimplemented!(),
@@ -44,19 +44,14 @@ impl DesignUnitFormatter<'_> {
         );
     }
 
-    pub fn format_range(&self, range: &Range, span: TokenSpan, buffer: &mut String) {
+    pub fn format_range(&self, range: &Range, buffer: &mut String) {
         match range {
             Range::Range(constraint) => self.format_range_constraint(constraint, buffer),
-            Range::Attribute(attribute) => self.format_attribute_name(attribute, span, buffer),
+            Range::Attribute(attribute) => self.format_attribute_name(attribute, buffer),
         }
     }
 
-    pub fn format_discrete_range(
-        &self,
-        range: &DiscreteRange,
-        span: TokenSpan,
-        buffer: &mut String,
-    ) {
+    pub fn format_discrete_range(&self, range: &DiscreteRange, buffer: &mut String) {
         match range {
             DiscreteRange::Discrete(name, range) => {
                 self.format_name(&name.item, name.span, buffer);
@@ -65,10 +60,10 @@ impl DesignUnitFormatter<'_> {
                     // range
                     self.format_token_id(name.span.end_token + 1, buffer);
                     buffer.push(' ');
-                    self.format_range(range, span, buffer);
+                    self.format_range(range, buffer);
                 }
             }
-            DiscreteRange::Range(range) => self.format_range(range, span, buffer),
+            DiscreteRange::Range(range) => self.format_range(range, buffer),
         }
     }
 }
@@ -84,7 +79,7 @@ mod test {
         let tokens = code.tokenize();
         let formatter = DesignUnitFormatter::new(&tokens);
         let mut buffer = String::new();
-        formatter.format_range(&range, code.token_span(), &mut buffer);
+        formatter.format_range(&range, &mut buffer);
         assert_eq!(&buffer, input);
     }
 

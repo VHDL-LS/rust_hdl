@@ -197,7 +197,7 @@ impl DesignUnitFormatter<'_> {
             Numeric(range) => {
                 self.format_token_id(span.start_token, buffer);
                 buffer.push(' ');
-                self.format_range(range, span.start_with(span.start_token + 1), buffer)
+                self.format_range(range, buffer)
             }
             Physical(physical_type) => {
                 self.format_physical_type_declaration(physical_type, span, buffer)
@@ -241,11 +241,7 @@ impl DesignUnitFormatter<'_> {
         // range
         self.format_token_id(span.start_token, buffer);
         buffer.push(' ');
-        self.format_range(
-            &declaration.range,
-            TokenSpan::new(span.start_token + 1, declaration.units_token - 1),
-            buffer,
-        );
+        self.format_range(&declaration.range, buffer);
         self.increase_indentation();
         self.newline(buffer);
         self.format_token_id(declaration.units_token, buffer);
@@ -297,7 +293,7 @@ impl DesignUnitFormatter<'_> {
                     name.span.end_token + 3
                 }
                 ArrayIndex::Discrete(discrete_range) => {
-                    self.format_discrete_range(&discrete_range.item, discrete_range.span, buffer);
+                    self.format_discrete_range(&discrete_range.item, buffer);
                     discrete_range.span.end_token + 1
                 }
             };

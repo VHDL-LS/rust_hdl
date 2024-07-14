@@ -1,9 +1,9 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentSignalAssignment,
-    ConcurrentStatement, InstantiatedUnit, InstantiationStatement, LabeledConcurrentStatement,
-    LabeledSequentialStatement, ProcessStatement, SensitivityList, Target, Waveform,
-    WaveformElement,
+    ConcurrentStatement, ForGenerateStatement, InstantiatedUnit, InstantiationStatement,
+    LabeledConcurrentStatement, LabeledSequentialStatement, ProcessStatement, SensitivityList,
+    Target, Waveform, WaveformElement,
 };
 use crate::formatting::DesignUnitFormatter;
 use crate::syntax::Kind;
@@ -81,6 +81,9 @@ impl DesignUnitFormatter<'_> {
             Assignment(assignment) => self.format_assignment_statement(assignment, span, buffer),
             Instance(instantiation_statement) => {
                 self.format_instantiation_statement(instantiation_statement, span, buffer)
+            }
+            ForGenerate(for_generate) => {
+                self.format_for_generate_statement(for_generate, span, buffer)
             }
             _ => unimplemented!(),
         }
@@ -353,6 +356,15 @@ impl DesignUnitFormatter<'_> {
             self.decrease_indentation();
         }
         self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_for_generate_statement(
+        &self,
+        statement: &ForGenerateStatement,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
     }
 }
 

@@ -23,14 +23,10 @@ impl DesignUnitFormatter<'_> {
             Slice(name, range) => {
                 self.format_name(&name.item, name.span, buffer);
                 self.format_token_id(name.span.end_token + 1, buffer);
-                self.format_discrete_range(
-                    range,
-                    TokenSpan::new(name.span.end_token + 2, span.end_token - 1),
-                    buffer,
-                );
+                self.format_discrete_range(range, buffer);
                 self.format_token_id(span.end_token, buffer);
             }
-            Attribute(attr_name) => self.format_attribute_name(attr_name, span, buffer),
+            Attribute(attr_name) => self.format_attribute_name(attr_name, buffer),
             CallOrIndexed(call_or_indexed) => {
                 self.format_call_or_indexed(call_or_indexed, span, buffer)
             }
@@ -62,12 +58,7 @@ impl DesignUnitFormatter<'_> {
         }
     }
 
-    pub fn format_attribute_name(
-        &self,
-        name: &AttributeName,
-        _span: TokenSpan,
-        buffer: &mut String,
-    ) {
+    pub fn format_attribute_name(&self, name: &AttributeName, buffer: &mut String) {
         self.format_name(&name.name.item, name.name.span, buffer);
         if let Some(signature) = &name.signature {
             self.format_signature(signature, buffer);
