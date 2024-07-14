@@ -13,7 +13,6 @@ use crate::data::*;
 use crate::named_entity::*;
 use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
-use target::AssignmentType;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn analyze_concurrent_part(
