@@ -68,7 +68,7 @@ impl crate::formatting::DesignUnitFormatter<'_> {
             ProcedureCall(call) => self.format_procedure_call(call, span, buffer),
             Block(block) => self.format_block_statement(block, span, buffer),
             Process(process) => self.format_process_statement(process, span, buffer),
-            Assert(assert) => self.format_assert_statement(assert, span, buffer),
+            Assert(assert) => self.format_concurrent_assert_statement(assert, span, buffer),
             _ => unimplemented!(),
         }
     }
@@ -195,13 +195,46 @@ impl crate::formatting::DesignUnitFormatter<'_> {
         self.format_token_id(process.span.end_token, buffer);
     }
 
-    pub fn format_assert_statement(
+    pub fn format_concurrent_assert_statement(
         &self,
         statement: &ConcurrentAssertStatement,
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
+            // postponed assert
+            self.format_token_span(
+                TokenSpan::new(span.start_token, span.start_token + 1),
+                buffer,
+            );
+        } else {
+            // assert
+            self.format_token_id(span.start_token, buffer);
+        }
+        buffer.push(' ');
+        self.format_assert_statement(&statement.statement, buffer);
+        // ;
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_assert_statement(&self, assert_statement: &AssertStatement, bufer: &mut String) {
+        self.format_expression(
+            &assert_statement.condition.item,
+            assert_statement.condition.span,
+            bufer,
+        );
+        if let Some(report) = &assert_statement.report {
+            bufer.push(' ');
+            self.format_token_id(report.span.start_token - 1, bufer);
+            bufer.push(' ');
+            self.format_expression(&report.item, report.span, bufer);
+        }
+        if let Some(severity) = &assert_statement.severity {
+            bufer.push(' ');
+            self.format_token_id(severity.span.start_token - 1, bufer);
+            bufer.push(' ');
+            self.format_expression(&severity.item, severity.span, bufer);
+        }
     }
 }
 
@@ -319,5 +352,13 @@ process(all) is
 begin
 end process;",
         );
+    }
+
+    #[test]
+    fn check_assert() {
+        check_statement("assert false;");
+        check_statement("assert cond = true;");
+        check_statement("postponed assert cond = true;");
+        check_statement("assert false report \"message\" severity error;");
     }
 }
