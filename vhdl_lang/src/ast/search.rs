@@ -756,9 +756,11 @@ impl Search for TypeDeclaration {
             }
             TypeDefinition::Record(ref element_decls) => {
                 for elem in element_decls {
-                    return_if_found!(searcher
-                        .search_decl(ctx, FoundDeclaration::ElementDeclaration(elem))
-                        .or_not_found());
+                    for ident in &elem.idents {
+                        return_if_found!(searcher
+                            .search_decl(ctx, FoundDeclaration::ElementDeclaration(elem))
+                            .or_not_found());
+                    }
                     return_if_found!(elem.subtype.search(ctx, searcher));
                 }
             }
@@ -1713,7 +1715,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::SubprogramDecl(value) => value.ent_id_ref(),
             FoundDeclaration::SubprogramInstantiation(value) => &value.ident.decl,
             FoundDeclaration::Object(value) => &value.ident.decl,
-            FoundDeclaration::ElementDeclaration(elem) => &elem.ident.decl,
+            FoundDeclaration::ElementDeclaration(_) => todo!(),
             FoundDeclaration::EnumerationLiteral(_, elem) => &elem.decl,
             FoundDeclaration::File(value) => &value.ident.decl,
             FoundDeclaration::Type(value) => &value.ident.decl,

@@ -391,7 +391,7 @@ pub enum ArrayIndex {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype: SubtypeIndication,
 }
 

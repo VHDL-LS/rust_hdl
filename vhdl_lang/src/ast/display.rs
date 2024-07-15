@@ -7,6 +7,7 @@
 //! Implementation of Display
 
 use super::*;
+use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result};
 
 impl<T: Display> Display for WithTokenSpan<T> {
@@ -613,7 +614,12 @@ impl Display for ArrayIndex {
 
 impl Display for ElementDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{} : {}", self.ident, self.subtype)
+        write!(
+            f,
+            "{} : {}",
+            self.idents.iter().map(|item| format!("{item}")).join(", "),
+            self.subtype
+        )
     }
 }
 

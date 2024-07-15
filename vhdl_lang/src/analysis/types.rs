@@ -249,16 +249,18 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let subtype =
                         self.resolve_subtype_indication(scope, &mut elem_decl.subtype, diagnostics);
                     if let Some(subtype) = as_fatal(subtype)? {
-                        let elem = self.arena.define(
-                            self.ctx,
-                            &mut elem_decl.ident,
-                            type_ent.into(),
-                            AnyEntKind::ElementDeclaration(subtype),
-                            elem_decl.span,
-                            Some(self.source()),
-                        );
-                        region.add(elem, diagnostics);
-                        elems.add(elem);
+                        for ident in &mut elem_decl.idents {
+                            let elem = self.arena.define(
+                                self.ctx,
+                                ident,
+                                type_ent.into(),
+                                AnyEntKind::ElementDeclaration(subtype),
+                                elem_decl.span,
+                                Some(self.source()),
+                            );
+                            region.add(elem, diagnostics);
+                            elems.add(elem);
+                        }
                     }
                 }
                 region.close(diagnostics);
