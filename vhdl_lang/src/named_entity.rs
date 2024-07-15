@@ -426,6 +426,23 @@ impl<'a> AnyEnt<'a> {
         false
     }
 
+    pub fn is_implicit_of(&self, other: EntityId) -> bool {
+        match &self.related {
+            Related::ImplicitOf(ent) => ent.id() == other,
+            Related::InstanceOf(ent) => ent.is_implicit_of(other),
+            Related::None => false,
+            Related::DeclaredBy(_) => false,
+        }
+    }
+
+    pub fn is_instance_of(&self, other: EntRef) -> bool {
+        if let Related::InstanceOf(ent) = &self.related {
+            ent.id() == other.id()
+        } else {
+            false
+        }
+    }
+
     pub fn is_explicit(&self) -> bool {
         !self.is_implicit()
     }
