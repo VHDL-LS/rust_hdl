@@ -406,43 +406,43 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
 
                 if let Some(subtype) = as_fatal(subtype)? {
-                    let kind = if object_decl.class == ObjectClass::Constant
-                        && object_decl.expression.is_none()
-                    {
-                        AnyEntKind::DeferredConstant(subtype)
-                    } else {
-                        AnyEntKind::Object(Object {
-                            class: object_decl.class,
-                            iface: None,
-                            has_default: object_decl.expression.is_some(),
-                            subtype,
-                        })
-                    };
-
-                    let declared_by = if object_decl.class == ObjectClass::Constant
-                        && object_decl.expression.is_some()
-                    {
-                        self.find_deferred_constant_declaration(scope, &object_decl.ident.tree.item)
-                    } else {
-                        None
-                    };
-
-                    let object_ent = self.arena.alloc(
-                        object_decl.ident.tree.item.clone().into(),
-                        Some(parent),
-                        if let Some(declared_by) = declared_by {
-                            Related::DeclaredBy(declared_by)
+                    for ident in &mut object_decl.idents {
+                        let kind = if object_decl.class == ObjectClass::Constant
+                            && object_decl.expression.is_none()
+                        {
+                            AnyEntKind::DeferredConstant(subtype)
                         } else {
-                            Related::None
-                        },
-                        kind,
-                        Some(object_decl.ident.pos(self.ctx).clone()),
-                        src_span,
-                        Some(self.source()),
-                    );
-                    object_decl.ident.decl.set(object_ent.id());
+                            AnyEntKind::Object(Object {
+                                class: object_decl.class,
+                                iface: None,
+                                has_default: object_decl.expression.is_some(),
+                                subtype,
+                            })
+                        };
+                        let declared_by = if object_decl.class == ObjectClass::Constant
+                            && object_decl.expression.is_some()
+                        {
+                            self.find_deferred_constant_declaration(scope, &ident.tree.item)
+                        } else {
+                            None
+                        };
+                        let object_ent = self.arena.alloc(
+                            ident.tree.item.clone().into(),
+                            Some(parent),
+                            if let Some(declared_by) = declared_by {
+                                Related::DeclaredBy(declared_by)
+                            } else {
+                                Related::None
+                            },
+                            kind,
+                            Some(ident.pos(self.ctx).clone()),
+                            src_span,
+                            Some(self.source()),
+                        );
+                        ident.decl.set(object_ent.id());
 
-                    scope.add(object_ent, diagnostics);
+                        scope.add(object_ent, diagnostics);
+                    }
                 }
             }
             Declaration::File(ref mut file) => {

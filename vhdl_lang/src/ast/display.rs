@@ -763,7 +763,12 @@ impl Display for ObjectDeclaration {
         write!(
             f,
             "{} {} : {}",
-            self.class, self.ident, self.subtype_indication,
+            self.class,
+            self.idents
+                .iter()
+                .map(|ident| format!("{}", ident))
+                .join(", "),
+            self.subtype_indication,
         )?;
         match self.expression {
             Some(ref expr) => write!(f, " := {expr};"),

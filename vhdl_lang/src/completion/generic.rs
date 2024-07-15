@@ -10,7 +10,7 @@ use crate::ast::ArchitectureBody;
 use crate::completion::entity_instantiation::get_visible_entities_from_architecture;
 use crate::completion::region::completion_items_from_region;
 use crate::named_entity::{DesignEnt, Visibility};
-use crate::{CompletionItem, Design, HasEntityId, HasTokenSpan, Position, Source, TokenAccess};
+use crate::{CompletionItem, Design, HasTokenSpan, Position, Source, TokenAccess};
 use itertools::{chain, Itertools};
 use vhdl_lang::analysis::DesignRoot;
 
@@ -108,7 +108,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                     subprogram
                         .declarations
                         .iter()
-                        .flat_map(|decl| decl.item.ent_id())
+                        .flat_map(|decl| decl.item.declarations())
                         .map(|id| CompletionItem::Simple(self.root.get_ent(id))),
                 );
                 return NotFinished;

@@ -1,3 +1,4 @@
+use itertools::Itertools;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -29,7 +30,7 @@ pub fn parse_optional_assignment(
 fn parse_object_declaration_kind(
     ctx: &mut ParsingContext<'_>,
     class: ObjectClass,
-) -> ParseResult<Vec<WithTokenSpan<ObjectDeclaration>>> {
+) -> ParseResult<WithTokenSpan<ObjectDeclaration>> {
     let start_token = ctx.stream.get_current_token_id();
     match class {
         ObjectClass::Signal => {
@@ -47,31 +48,28 @@ fn parse_object_declaration_kind(
         }
     }
 
-    let idents = parse_identifier_list(ctx)?;
+    let idents = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithDecl::new)
+        .collect_vec();
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
     let end_token = expect_semicolon_or_last(ctx);
-
-    Ok(idents
-        .into_iter()
-        .map(|ident| {
-            WithTokenSpan::new(
-                ObjectDeclaration {
-                    class,
-                    ident: ident.into(),
-                    subtype_indication: subtype.clone(),
-                    expression: opt_expression.clone(),
-                },
-                TokenSpan::new(start_token, end_token),
-            )
-        })
-        .collect())
+    Ok(WithTokenSpan::new(
+        ObjectDeclaration {
+            class,
+            idents,
+            subtype_indication: subtype.clone(),
+            expression: opt_expression.clone(),
+        },
+        TokenSpan::new(start_token, end_token),
+    ))
 }
 
 pub fn parse_object_declaration(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<WithTokenSpan<ObjectDeclaration>>> {
+) -> ParseResult<WithTokenSpan<ObjectDeclaration>> {
     let token = ctx.stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
@@ -150,15 +148,15 @@ mod tests {
         let code = Code::new("constant foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -167,15 +165,15 @@ mod tests {
         let code = Code::new("signal foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::Signal,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -184,15 +182,15 @@ mod tests {
         let code = Code::new("variable foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::Variable,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -201,15 +199,15 @@ mod tests {
         let code = Code::new("shared variable foo : natural;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::SharedVariable,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -281,15 +279,15 @@ mod tests {
         let code = Code::new("constant foo : natural := 0;");
         assert_eq!(
             code.with_stream(parse_object_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr())
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -297,28 +295,18 @@ mod tests {
     fn parses_identifier_list() {
         let code = Code::new("constant foo, bar : natural := 0;");
 
-        let objects = vec![
+        assert_eq!(
+            code.with_stream(parse_object_declaration),
             WithTokenSpan::new(
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr()),
                 },
                 code.token_span(),
-            ),
-            WithTokenSpan::new(
-                ObjectDeclaration {
-                    class: ObjectClass::Constant,
-                    ident: code.s1("bar").decl_ident(),
-                    subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr()),
-                },
-                code.token_span(),
-            ),
-        ];
-
-        assert_eq!(code.with_stream(parse_object_declaration), objects);
+            )
+        );
     }
 
     #[test]

@@ -622,7 +622,7 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithTokenSpan<Expression>>,
 }
@@ -845,6 +845,12 @@ pub enum Declaration {
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
     View(ModeViewDeclaration),
+}
+
+impl Declaration {
+    pub fn declarations(&self) -> Vec<EntityId> {
+        todo!()
+    }
 }
 
 /// LRM 10.2 Wait statement

@@ -999,12 +999,14 @@ impl Search for WithTokenSpan<Expression> {
 
 impl Search for ObjectDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher
-            .search_decl(
-                ctx,
-                FoundDeclaration::new(&self.ident.decl, DeclarationItem::Object(self))
-            )
-            .or_not_found());
+        for ident in &self.idents {
+            return_if_found!(searcher
+                .search_decl(
+                    ctx,
+                    FoundDeclaration::new(&ident.decl, DeclarationItem::Object(self))
+                )
+                .or_not_found());
+        }
         return_if_found!(self.subtype_indication.search(ctx, searcher));
         if let Some(ref expr) = self.expression {
             expr.search(ctx, searcher)

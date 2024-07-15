@@ -6,9 +6,9 @@
 
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
-    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
+    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
+    ModeViewDeclaration, ObjectClass, PackageInstantiation, SubprogramBody,
     SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
@@ -715,26 +715,6 @@ impl HasEntityId for InterfacePackageDeclaration {
     }
 }
 
-impl HasEntityId for Declaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        match self {
-            Declaration::Object(object) => object.ent_id(),
-            Declaration::File(file) => file.ent_id(),
-            Declaration::Type(typ) => typ.ent_id(),
-            Declaration::Component(comp) => comp.ent_id(),
-            Declaration::Attribute(attr) => attr.ent_id(),
-            Declaration::Alias(alias) => alias.ent_id(),
-            Declaration::SubprogramDeclaration(decl) => decl.specification.ent_id(),
-            Declaration::SubprogramBody(body) => body.ent_id(),
-            Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
-            Declaration::Package(pkg) => pkg.ent_id(),
-            Declaration::Use(_) => None,
-            Declaration::Configuration(_) => None,
-            Declaration::View(decl) => decl.ent_id(),
-        }
-    }
-}
-
 impl HasEntityId for SubprogramInstantiation {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
@@ -756,12 +736,6 @@ impl HasEntityId for SubprogramBody {
 impl HasEntityId for AliasDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.designator.decl.get()
-    }
-}
-
-impl HasEntityId for ObjectDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
     }
 }
 
