@@ -642,17 +642,17 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         };
         let mut unassociated: HashSet<_> = record_region.elems.iter().collect();
         for element in view.elements.iter_mut() {
-            for name in element.names.items.iter_mut() {
-                let desi = Designator::Identifier(name.item.item.clone());
+            for name in element.names.iter_mut() {
+                let desi = Designator::Identifier(name.tree.item.clone());
                 let Some(record_element) = record_region.lookup(&desi) else {
                     diagnostics.push(Diagnostic::new(
-                        name.item.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!("Not a part of {}", typ.type_mark().describe()),
                         ErrorCode::Unresolved,
                     ));
                     continue;
                 };
-                name.set_unique_reference(&record_element);
+                name.decl.set_unique_reference(&record_element);
                 unassociated.remove(&record_element);
             }
         }

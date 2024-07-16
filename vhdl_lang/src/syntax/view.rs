@@ -8,12 +8,12 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{ElementMode, ModeViewDeclaration, ModeViewElement, WithDecl};
 use crate::syntax::common::ParseResult;
 use crate::syntax::interface_declaration::parse_optional_mode;
-use crate::syntax::names::parse_name;
+use crate::syntax::names::{parse_identifier_list, parse_name};
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::recover::expect_semicolon_or_last;
-use crate::syntax::separated_list::parse_ident_list;
 use crate::syntax::subtype_indication::parse_subtype_indication;
 use crate::syntax::Kind::*;
+use itertools::Itertools;
 use vhdl_lang::syntax::common::check_end_identifier_mismatch;
 use vhdl_lang::TokenSpan;
 
@@ -56,7 +56,10 @@ pub(crate) fn parse_mode_view_element_definition(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ModeViewElement> {
     let start = ctx.stream.get_current_token_id();
-    let element_list = parse_ident_list(ctx)?;
+    let names = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithDecl::new)
+        .collect_vec();
     let colon_token = ctx.stream.expect_kind(Colon)?;
     let mode = parse_element_mode_indication(ctx)?;
     let end_token = expect_semicolon_or_last(ctx);
@@ -64,7 +67,7 @@ pub(crate) fn parse_mode_view_element_definition(
         span: TokenSpan::new(start, end_token),
         mode,
         colon_token,
-        names: element_list,
+        names,
     })
 }
 
@@ -175,7 +178,7 @@ mod tests {
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
-                names: code.s1("foo").ident_list(),
+                names: vec![code.s1("foo").decl_ident()],
                 colon_token: code.s1(":").token(),
                 mode: code.s1("in").element_mode(),
                 span: code.token_span(),
@@ -186,7 +189,11 @@ mod tests {
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
-                names: code.s1("foo, bar, baz").ident_list(),
+                names: vec![
+                    code.s1("foo").decl_ident(),
+                    code.s1("bar").decl_ident(),
+                    code.s1("baz").decl_ident()
+                ],
                 colon_token: code.s1(":").token(),
                 mode: code.s1("linkage").element_mode(),
                 span: code.token_span(),
@@ -197,7 +204,7 @@ mod tests {
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
-                names: code.s1("foo").ident_list(),
+                names: vec![code.s1("foo").decl_ident()],
                 colon_token: code.s1(":").token(),
                 mode: code.s1("view bar").element_mode(),
                 span: code.token_span(),
@@ -208,7 +215,7 @@ mod tests {
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_mode_view_element_definition),
             ModeViewElement {
-                names: code.s1("foo").ident_list(),
+                names: vec![code.s1("foo").decl_ident()],
                 colon_token: code.s1(":").token(),
                 mode: code.s1("view (bar_array)").element_mode(),
                 span: code.token_span(),

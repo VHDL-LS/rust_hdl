@@ -1206,9 +1206,9 @@ impl Search for Declaration {
 
 impl Search for ModeViewElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        for name in self.names.items.iter() {
+        for name in self.names.iter() {
             return_if_found!(searcher
-                .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
+                .search_pos_with_ref(ctx, name.pos(ctx), &name.decl)
                 .or_not_found());
         }
         NotFound

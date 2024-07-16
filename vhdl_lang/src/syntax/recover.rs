@@ -76,6 +76,7 @@ signal y: bit;
                     Declaration::Object(ObjectDeclaration {
                         class: ObjectClass::Signal,
                         idents: vec![code.s1("x").decl_ident()],
+                        colon_token: code.s1(":").token(),
                         subtype_indication: code.s1("std_logic").subtype_indication(),
                         expression: Some(code.s1("a.").s1("a").expr())
                     }),
@@ -85,6 +86,7 @@ signal y: bit;
                     Declaration::Object(ObjectDeclaration {
                         class: ObjectClass::Signal,
                         idents: vec![code.s1("y").decl_ident()],
+                        colon_token: code.s(":", 3).token(),
                         subtype_indication: code.s1("bit").subtype_indication(),
                         expression: None
                     }),

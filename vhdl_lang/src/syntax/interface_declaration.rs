@@ -112,7 +112,7 @@ fn parse_interface_object_declaration(
         .map(WithDecl::new)
         .collect_vec();
 
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let mode = if ctx.stream.next_kind_is(View) {
         ModeIndication::View(parse_view_mode_indication(ctx)?)
     } else {
@@ -129,6 +129,7 @@ fn parse_interface_object_declaration(
         list_type,
         mode: mode.clone(),
         idents,
+        colon_token,
         span: TokenSpan::new(start_token, end_token),
     }))
 }
@@ -479,6 +480,7 @@ mod tests {
                         subtype_indication: code.s1("natural").subtype_indication(),
                         expression: None
                     }),
+                    colon_token: code.s1(":").token(),
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     span: code.between("constant", "natural").token_span()
                 })],
@@ -502,6 +504,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -604,6 +607,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -718,6 +722,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -738,6 +743,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -1137,6 +1143,7 @@ function foo() return bit;
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -1154,6 +1161,7 @@ function foo() return bit;
                     subtype_indication: None,
                     kind: ModeViewIndicationKind::Record
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -1170,6 +1178,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Array
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -1183,6 +1192,7 @@ function foo() return bit;
                     subtype_indication: Some(code.s1("baz").subtype_indication()),
                     kind: ModeViewIndicationKind::Record
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -1198,6 +1208,7 @@ function foo() return bit;
                     kind: ModeViewIndicationKind::Array
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );

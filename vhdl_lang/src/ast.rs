@@ -415,6 +415,7 @@ pub enum ArrayIndex {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
     pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype: SubtypeIndication,
 }
 
@@ -659,16 +660,10 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
+    pub colon_token: TokenId,
     pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithTokenSpan<Expression>>,
-}
-
-impl ObjectDeclaration {
-    /// The position of the ':' token before the subtype indication
-    pub fn colon_token(&self) -> TokenId {
-        self.ident.tree.token + 1
-    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -789,15 +784,9 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
+    pub colon_token: TokenId,
     pub idents: Vec<WithDecl<Ident>>,
     pub mode: ModeIndication,
-}
-
-impl InterfaceObjectDeclaration {
-    // Location of the ':' token
-    pub fn colon_token(&self) -> TokenId {
-        self.ident.tree.token + 1
-    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -1290,7 +1279,7 @@ pub struct ModeViewDeclaration {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewElement {
-    pub names: IdentList,
+    pub names: Vec<WithDecl<Ident>>,
     pub colon_token: TokenId,
     pub mode: ElementMode,
 }

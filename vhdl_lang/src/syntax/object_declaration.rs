@@ -52,7 +52,7 @@ fn parse_object_declaration_kind(
         .into_iter()
         .map(WithDecl::new)
         .collect_vec();
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
     let end_token = expect_semicolon_or_last(ctx);
@@ -60,6 +60,7 @@ fn parse_object_declaration_kind(
         ObjectDeclaration {
             class,
             idents,
+            colon_token,
             subtype_indication: subtype.clone(),
             expression: opt_expression.clone(),
         },
@@ -152,6 +153,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -169,6 +171,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Signal,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -186,6 +189,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Variable,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -203,6 +207,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::SharedVariable,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -283,6 +288,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr())
                 },
@@ -301,6 +307,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr()),
                 },

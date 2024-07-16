@@ -94,12 +94,13 @@ fn parse_record_type_definition(
             .into_iter()
             .map(WithDecl::new)
             .collect_vec();
-        ctx.stream.expect_kind(Colon)?;
+        let colon_token = ctx.stream.expect_kind(Colon)?;
         let subtype = parse_subtype_indication(ctx)?;
         let end_token = expect_semicolon_or_last(ctx);
         elem_decls.push(ElementDeclaration {
             idents,
             subtype: subtype.clone(),
+            colon_token,
             span: TokenSpan::new(start_token, end_token),
         });
     }
@@ -559,6 +560,7 @@ end record;",
         let elem_decl = ElementDeclaration {
             idents: vec![code.s1("element").decl_ident()],
             subtype: code.s1("boolean").subtype_indication(),
+            colon_token: code.s1(":").token(),
             span: code.s1("element : boolean;").token_span(),
         };
 
@@ -590,12 +592,14 @@ end foo;",
                 code.s1("element").decl_ident(),
                 code.s1("field").decl_ident(),
             ],
+            colon_token: code.s1(":").token(),
             subtype: code.s1("boolean").subtype_indication(),
             span: code.s1("element, field : boolean;").token_span(),
         };
 
         let elem_decl1 = ElementDeclaration {
             idents: vec![code.s1("other_element").decl_ident()],
+            colon_token: code.s(":", 2).token(),
             subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
             span: code
                 .s1("other_element : std_logic_vector(0 to 1);")

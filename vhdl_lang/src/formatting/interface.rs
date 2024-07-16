@@ -112,10 +112,10 @@ impl VHDLFormatter<'_> {
     ) {
         // [signal] my_signal :
         self.format_token_span(
-            TokenSpan::new(object.span.start_token, object.ident.tree.token),
+            TokenSpan::new(object.span.start_token, object.colon_token - 1),
             buffer,
         );
-        self.format_token_id(object.colon_token(), buffer);
+        self.format_token_id(object.colon_token, buffer);
         buffer.push(' ');
         self.format_mode(&object.mode, buffer);
     }
@@ -149,7 +149,7 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_ident_list(&self, ident_list: &IdentList, buffer: &mut String) {
+    pub fn format_ident_separated_list(&self, ident_list: &IdentList, buffer: &mut String) {
         for (i, item) in ident_list.items.iter().enumerate() {
             self.format_token_id(item.item.token, buffer);
             if let Some(token) = ident_list.tokens.get(i) {

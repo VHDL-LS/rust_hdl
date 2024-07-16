@@ -1,7 +1,9 @@
 use crate::ast::DesignFile;
-use crate::Token;
+use crate::syntax::Kind;
+use crate::{Token, TokenAccess};
 use std::cell::Cell;
 use std::iter;
+use vhdl_lang::ast::HasIdent;
 
 mod architecture;
 mod concurrent_statement;
@@ -69,6 +71,17 @@ impl VHDLFormatter<'_> {
 
     pub fn decrease_indentation(&self) {
         self.indentation.replace(self.indentation.get() - 1);
+    }
+
+    pub fn format_ident_list<T: HasIdent>(&self, idents: &[T], buffer: &mut String) {
+        for ident in idents {
+            let token = ident.ident().token;
+            self.format_token_id(token, buffer);
+            if self.tokens.get_token(token + 1).kind == Kind::Comma {
+                self.format_token_id(token + 1, buffer);
+                buffer.push(' ');
+            }
+        }
     }
 }
 

@@ -108,8 +108,8 @@ impl VHDLFormatter<'_> {
             self.format_token_id(span.start_token + 1, buffer);
         }
         buffer.push(' ');
-        self.format_token_id(object_decl.ident.tree.token, buffer);
-        self.format_token_id(object_decl.colon_token(), buffer);
+        self.format_ident_list(&object_decl.idents, buffer);
+        self.format_token_id(object_decl.colon_token, buffer);
         buffer.push(' ');
         self.format_subtype_indication(&object_decl.subtype_indication, buffer);
         self.format_default_expression(object_decl.expression.as_ref(), buffer);
@@ -339,9 +339,9 @@ impl VHDLFormatter<'_> {
         declaration: &ElementDeclaration,
         buffer: &mut String,
     ) {
-        self.format_ident(&declaration.ident, buffer);
+        self.format_ident_list(&declaration.idents, buffer);
         // :
-        self.format_token_id(declaration.ident.tree.token + 1, buffer);
+        self.format_token_id(declaration.colon_token, buffer);
         buffer.push(' ');
         self.format_subtype_indication(&declaration.subtype, buffer);
         // ;
@@ -852,7 +852,7 @@ end view;",
             "\
 view foo of bar is
     baz: in;
-    bar: view foo;
+    bar, baz: view foo;
 end view;",
             VHDL2019,
         );
