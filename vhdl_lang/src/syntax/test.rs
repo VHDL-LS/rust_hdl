@@ -613,9 +613,7 @@ impl Code {
     }
 
     pub fn object_decl(&self) -> ObjectDeclaration {
-        self.parse_ok_no_diagnostics(parse_object_declaration)
-            .remove(0)
-            .item
+        self.parse_ok_no_diagnostics(parse_object_declaration).item
     }
 
     pub fn file_decl(&self) -> FileDeclaration {

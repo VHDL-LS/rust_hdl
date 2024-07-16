@@ -263,13 +263,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         let typ = as_fatal(self.drange_type(scope, drange, diagnostics))?;
                         let region = scope.nested();
                         region.add(
-                            self.arena.define(
-                                self.ctx,
+                            self.define(
                                 index,
                                 parent,
                                 AnyEntKind::LoopParameter(typ),
                                 index.tree.token.into(),
-                                Some(self.source()),
                             ),
                             diagnostics,
                         );

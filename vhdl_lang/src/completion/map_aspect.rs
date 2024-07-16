@@ -4,7 +4,9 @@
 //
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
 use crate::analysis::DesignRoot;
-use crate::ast::search::{Finished, Found, FoundDeclaration, NotFinished, SearchState, Searcher};
+use crate::ast::search::{
+    DeclarationItem, Finished, Found, FoundDeclaration, NotFinished, SearchState, Searcher,
+};
 use crate::ast::{ConcurrentStatement, MapAspect, ObjectClass};
 use crate::named_entity::{AsUnique, Region};
 use crate::{
@@ -75,8 +77,8 @@ impl<'a> MapAspectSearcher<'a> {
 impl<'a> Searcher for MapAspectSearcher<'a> {
     /// Visit an instantiation statement extracting completions for ports or generics.
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        match decl {
-            FoundDeclaration::ConcurrentStatement(stmt) => {
+        match &decl.ast {
+            DeclarationItem::ConcurrentStatement(stmt) => {
                 if let ConcurrentStatement::Instance(inst) = &stmt.statement.item {
                     if let Some(map) = &inst.generic_map {
                         if self.load_completions_for_map_aspect(
@@ -100,7 +102,7 @@ impl<'a> Searcher for MapAspectSearcher<'a> {
                     }
                 }
             }
-            FoundDeclaration::PackageInstance(inst) => {
+            DeclarationItem::PackageInstance(inst) => {
                 if let Some(map) = &inst.generic_map {
                     if self.load_completions_for_map_aspect(
                         inst.package_name.item.get_suffix_reference(),

@@ -4,14 +4,14 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast::ExternalObjectClass;
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
-    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
-    FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
-    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
+    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Designator,
+    FileDeclaration, HasIdent, Ident, InterfacePackageDeclaration, ModeViewDeclaration,
+    ObjectClass, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
+    SubprogramSpecification, TypeDeclaration, WithDecl,
 };
-use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
 mod types;
 use fnv::FnvHashMap;
@@ -426,6 +426,23 @@ impl<'a> AnyEnt<'a> {
         false
     }
 
+    pub fn is_implicit_of(&self, other: EntityId) -> bool {
+        match &self.related {
+            Related::ImplicitOf(ent) => ent.id() == other,
+            Related::InstanceOf(ent) => ent.is_implicit_of(other),
+            Related::None => false,
+            Related::DeclaredBy(_) => false,
+        }
+    }
+
+    pub fn is_instance_of(&self, other: EntRef) -> bool {
+        if let Related::InstanceOf(ent) = &self.related {
+            ent.id() == other.id()
+        } else {
+            false
+        }
+    }
+
     pub fn is_explicit(&self) -> bool {
         !self.is_implicit()
     }
@@ -659,30 +676,6 @@ impl HasEntityId for AnyDesignUnit {
     }
 }
 
-impl HasEntityId for InterfaceDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        match self {
-            InterfaceDeclaration::Object(object) => object.ent_id(),
-            InterfaceDeclaration::File(file) => file.ent_id(),
-            InterfaceDeclaration::Type(typ) => typ.decl.get(),
-            InterfaceDeclaration::Subprogram(declaration) => declaration.specification.ent_id(),
-            InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
-        }
-    }
-}
-
-impl HasEntityId for InterfaceObjectDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
-    }
-}
-
-impl HasEntityId for InterfaceFileDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
-    }
-}
-
 impl HasEntityId for SubprogramSpecification {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
@@ -695,26 +688,6 @@ impl HasEntityId for SubprogramSpecification {
 impl HasEntityId for InterfacePackageDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.ident.decl.get()
-    }
-}
-
-impl HasEntityId for Declaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        match self {
-            Declaration::Object(object) => object.ent_id(),
-            Declaration::File(file) => file.ent_id(),
-            Declaration::Type(typ) => typ.ent_id(),
-            Declaration::Component(comp) => comp.ent_id(),
-            Declaration::Attribute(attr) => attr.ent_id(),
-            Declaration::Alias(alias) => alias.ent_id(),
-            Declaration::SubprogramDeclaration(decl) => decl.specification.ent_id(),
-            Declaration::SubprogramBody(body) => body.ent_id(),
-            Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
-            Declaration::Package(pkg) => pkg.ent_id(),
-            Declaration::Use(_) => None,
-            Declaration::Configuration(_) => None,
-            Declaration::View(decl) => decl.ent_id(),
-        }
     }
 }
 
@@ -739,12 +712,6 @@ impl HasEntityId for SubprogramBody {
 impl HasEntityId for AliasDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.designator.decl.get()
-    }
-}
-
-impl HasEntityId for ObjectDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
     }
 }
 

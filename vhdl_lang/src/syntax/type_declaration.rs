@@ -18,6 +18,7 @@ use crate::ast::{AbstractLiteral, Range};
 use crate::named_entity::Reference;
 use crate::syntax::names::parse_type_mark;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use itertools::Itertools;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenId;
 
@@ -89,17 +90,18 @@ fn parse_record_type_definition(
 
         let start_token = ctx.stream.get_current_token_id();
 
-        let idents = parse_identifier_list(ctx)?;
+        let idents = parse_identifier_list(ctx)?
+            .into_iter()
+            .map(WithDecl::new)
+            .collect_vec();
         ctx.stream.expect_kind(Colon)?;
         let subtype = parse_subtype_indication(ctx)?;
         let end_token = expect_semicolon_or_last(ctx);
-        for ident in idents {
-            elem_decls.push(ElementDeclaration {
-                ident: ident.into(),
-                subtype: subtype.clone(),
-                span: TokenSpan::new(start_token, end_token),
-            });
-        }
+        elem_decls.push(ElementDeclaration {
+            idents,
+            subtype: subtype.clone(),
+            span: TokenSpan::new(start_token, end_token),
+        });
     }
 }
 
@@ -555,7 +557,7 @@ end record;",
         );
 
         let elem_decl = ElementDeclaration {
-            ident: code.s1("element").decl_ident(),
+            idents: vec![code.s1("element").decl_ident()],
             subtype: code.s1("boolean").subtype_indication(),
             span: code.s1("element : boolean;").token_span(),
         };
@@ -583,20 +585,17 @@ end record;",
 end foo;",
         );
 
-        let elem_decl0a = ElementDeclaration {
-            ident: code.s1("element").decl_ident(),
-            subtype: code.s1("boolean").subtype_indication(),
-            span: code.s1("element, field : boolean;").token_span(),
-        };
-
-        let elem_decl0b = ElementDeclaration {
-            ident: code.s1("field").decl_ident(),
+        let elem_decl0 = ElementDeclaration {
+            idents: vec![
+                code.s1("element").decl_ident(),
+                code.s1("field").decl_ident(),
+            ],
             subtype: code.s1("boolean").subtype_indication(),
             span: code.s1("element, field : boolean;").token_span(),
         };
 
         let elem_decl1 = ElementDeclaration {
-            ident: code.s1("other_element").decl_ident(),
+            idents: vec![code.s1("other_element").decl_ident()],
             subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
             span: code
                 .s1("other_element : std_logic_vector(0 to 1);")
@@ -606,7 +605,7 @@ end foo;",
         let type_decl = TypeDeclaration {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
-            def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
+            def: TypeDefinition::Record(vec![elem_decl0, elem_decl1]),
             end_ident_pos: Some(code.s("foo", 2).token()),
         };
 

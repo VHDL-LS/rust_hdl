@@ -414,7 +414,7 @@ pub enum ArrayIndex {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype: SubtypeIndication,
 }
 
@@ -659,7 +659,7 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithTokenSpan<Expression>>,
 }
@@ -780,7 +780,7 @@ pub struct SubprogramDeclaration {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
 }
 
@@ -789,7 +789,7 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub mode: ModeIndication,
 }
 
@@ -906,6 +906,12 @@ pub enum Declaration {
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
     View(ModeViewDeclaration),
+}
+
+impl Declaration {
+    pub fn declarations(&self) -> Vec<EntityId> {
+        todo!()
+    }
 }
 
 /// LRM 10.2 Wait statement
