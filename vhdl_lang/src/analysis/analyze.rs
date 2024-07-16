@@ -11,6 +11,7 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 use crate::syntax::TokenAccess;
+use crate::TokenSpan;
 use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -476,5 +477,16 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
     pub fn source(&self) -> Source {
         self.source.clone()
+    }
+
+    pub fn define<T: HasIdent>(
+        &self,
+        decl: &mut WithDecl<T>,
+        parent: EntRef<'a>,
+        kind: AnyEntKind<'a>,
+        src_span: TokenSpan,
+    ) -> EntRef<'a> {
+        self.arena
+            .define(self.ctx, decl, parent, kind, src_span, Some(self.source()))
     }
 }

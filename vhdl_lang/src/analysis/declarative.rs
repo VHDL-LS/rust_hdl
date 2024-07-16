@@ -468,27 +468,18 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 if let Some(subtype) = subtype {
                     scope.add(
-                        self.arena.define(
-                            self.ctx,
-                            ident,
-                            parent,
-                            AnyEntKind::File(subtype),
-                            src_span,
-                            Some(self.source()),
-                        ),
+                        self.define(ident, parent, AnyEntKind::File(subtype), src_span),
                         diagnostics,
                     );
                 }
             }
             Declaration::Component(ref mut component) => {
                 let nested = scope.nested();
-                let ent = self.arena.define(
-                    self.ctx,
+                let ent = self.define(
                     &mut component.ident,
                     parent,
                     AnyEntKind::Component(Region::default()),
                     src_span,
-                    Some(self.source()),
                 );
                 if let Some(generic_list) = &mut component.generic_list {
                     self.analyze_interface_list(&nested, ent, generic_list, diagnostics)?;
@@ -513,13 +504,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         diagnostics,
                     ))? {
                         scope.add(
-                            self.arena.define(
-                                self.ctx,
+                            self.define(
                                 &mut attr_decl.ident,
                                 parent,
                                 AnyEntKind::Attribute(typ),
                                 src_span,
-                                Some(self.source()),
                             ),
                             diagnostics,
                         );
@@ -550,8 +539,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             }
             Declaration::SubprogramInstantiation(ref mut instance) => {
-                let subpgm_ent = self.arena.define(
-                    self.ctx,
+                let subpgm_ent = self.define(
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
@@ -559,7 +547,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         None,
                     ))),
                     src_span,
-                    Some(self.source()),
                 );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
@@ -587,13 +574,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.analyze_use_clause(scope, use_clause, diagnostics)?;
             }
             Declaration::Package(ref mut instance) => {
-                let ent = self.arena.define(
-                    self.ctx,
+                let ent = self.define(
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::PackageInstance(Region::default())),
                     src_span,
-                    Some(self.source()),
                 );
 
                 if let Some(pkg_region) =
@@ -677,14 +662,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ErrorCode::Unassociated,
             );
         }
-        Ok(self.arena.define(
-            self.ctx,
-            &mut view.ident,
-            parent,
-            AnyEntKind::View(typ),
-            src_span,
-            Some(self.source()),
-        ))
+        Ok(self.define(&mut view.ident, parent, AnyEntKind::View(typ), src_span))
     }
 
     fn find_deferred_constant_declaration(
@@ -888,28 +866,24 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     .idents
                     .iter_mut()
                     .map(|ident| {
-                        self.arena.define(
-                            self.ctx,
+                        self.define(
                             ident,
                             parent,
                             AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
                             span,
-                            Some(self.source()),
                         )
                     })
-                    .collect_vec()
+                    .collect()
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 self.analyze_interface_object_declaration(scope, parent, object_decl, diagnostics)?
             }
             InterfaceDeclaration::Type(ref mut ident) => {
-                let typ = TypeEnt::from_any(self.arena.define(
-                    self.ctx,
+                let typ = TypeEnt::from_any(self.define(
                     ident,
                     parent,
                     AnyEntKind::Type(Type::Interface),
                     span,
-                    Some(self.source()),
                 ))
                 .unwrap();
 
@@ -946,13 +920,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     diagnostics,
                 )?;
 
-                vec![self.arena.define(
-                    self.ctx,
+                vec![self.define(
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
                     span,
-                    Some(self.source()),
                 )]
             }
         };
@@ -975,8 +947,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     .idents
                     .iter_mut()
                     .map(|ident| {
-                        self.arena.define(
-                            self.ctx,
+                        self.define(
                             ident,
                             parent,
                             AnyEntKind::Object(Object {
@@ -989,7 +960,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 has_default: mode.expression.is_some(),
                             }),
                             span,
-                            Some(self.source()),
                         )
                     })
                     .collect_vec())
@@ -1016,8 +986,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     .idents
                     .iter_mut()
                     .map(|ident| {
-                        self.arena.define(
-                            self.ctx,
+                        self.define(
                             ident,
                             parent,
                             AnyEntKind::Object(Object {
@@ -1027,7 +996,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 has_default: false,
                             }),
                             span,
-                            Some(self.source()),
                         )
                     })
                     .collect_vec())
