@@ -938,7 +938,15 @@ fn write_separated_list<T: Display>(
 
 impl Display for InterfaceFileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "file {} : {}", self.ident, self.subtype_indication)
+        write!(
+            f,
+            "file {} : {}",
+            self.idents
+                .iter()
+                .map(|ident| format!("{ident}"))
+                .join(", "),
+            self.subtype_indication
+        )
     }
 }
 
@@ -985,16 +993,37 @@ impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
             InterfaceType::Port => {
-                write!(f, "{} : {}", self.ident, self.mode)
+                write!(
+                    f,
+                    "{} : {}",
+                    self.idents.iter().map(|el| format!("{el}")).join(", "),
+                    self.mode
+                )
             }
             InterfaceType::Generic => {
-                write!(f, "{} : {}", self.ident, self.mode)
+                write!(
+                    f,
+                    "{} : {}",
+                    self.idents.iter().map(|el| format!("{el}")).join(", "),
+                    self.mode
+                )
             }
             InterfaceType::Parameter => {
                 if let ModeIndication::Simple(mode) = &self.mode {
-                    write!(f, "{} {} : {}", mode.class, self.ident, self.mode)
+                    write!(
+                        f,
+                        "{} {} : {}",
+                        mode.class,
+                        self.idents.iter().map(|el| format!("{el}")).join(", "),
+                        self.mode
+                    )
                 } else {
-                    write!(f, "{} : {}", self.ident, self.mode)
+                    write!(
+                        f,
+                        "{} : {}",
+                        self.idents.iter().map(|el| format!("{el}")).join(", "),
+                        self.mode
+                    )
                 }
             }
         }

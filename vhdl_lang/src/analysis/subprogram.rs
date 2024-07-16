@@ -25,11 +25,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> FatalResult<Region<'a>> {
         let mut region = Region::default();
         for decl in header.generic_list.items.iter_mut() {
-            if let Some(ent) =
+            if let Some(ents) =
                 as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
             {
-                region.add(ent, diagnostics);
-                scope.add(ent, diagnostics);
+                for ent in ents {
+                    region.add(ent, diagnostics);
+                    scope.add(ent, diagnostics);
+                }
             }
         }
         self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;

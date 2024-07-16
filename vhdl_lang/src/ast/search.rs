@@ -1232,15 +1232,17 @@ impl Search for InterfaceDeclaration {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             InterfaceDeclaration::Object(ref decl) => {
-                return_if_found!(searcher
-                    .search_decl(
-                        ctx,
-                        FoundDeclaration::new(
-                            &decl.ident.decl,
-                            DeclarationItem::InterfaceObject(decl)
+                for ident in &decl.idents {
+                    return_if_found!(searcher
+                        .search_decl(
+                            ctx,
+                            FoundDeclaration::new(
+                                &ident.decl,
+                                DeclarationItem::InterfaceObject(decl)
+                            )
                         )
-                    )
-                    .or_not_found());
+                        .or_not_found());
+                }
                 return_if_found!(decl.mode.search(ctx, searcher));
             }
             InterfaceDeclaration::Subprogram(ref subprogram_decl) => {
@@ -1291,15 +1293,17 @@ impl Search for InterfaceDeclaration {
                 }
             }
             InterfaceDeclaration::File(decl) => {
-                return_if_found!(searcher
-                    .search_decl(
-                        ctx,
-                        FoundDeclaration::new(
-                            &decl.ident.decl,
-                            DeclarationItem::InterfaceFile(decl)
+                for ident in &decl.idents {
+                    return_if_found!(searcher
+                        .search_decl(
+                            ctx,
+                            FoundDeclaration::new(
+                                &ident.decl,
+                                DeclarationItem::InterfaceFile(decl)
+                            )
                         )
-                    )
-                    .or_not_found());
+                        .or_not_found());
+                }
             }
         };
         NotFound

@@ -728,7 +728,7 @@ pub struct SubprogramDeclaration {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
 }
 
@@ -737,7 +737,7 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
     pub mode: ModeIndication,
 }
 

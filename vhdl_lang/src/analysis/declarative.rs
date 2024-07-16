@@ -875,7 +875,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: EntRef<'a>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
+    ) -> EvalResult<Vec<EntRef<'a>>> {
         let span = decl.span();
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
@@ -884,14 +884,20 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &mut file_decl.subtype_indication,
                     diagnostics,
                 )?;
-                self.arena.define(
-                    self.ctx,
-                    &mut file_decl.ident,
-                    parent,
-                    AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
-                    span,
-                    Some(self.source()),
-                )
+                file_decl
+                    .idents
+                    .iter_mut()
+                    .map(|ident| {
+                        self.arena.define(
+                            self.ctx,
+                            ident,
+                            parent,
+                            AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
+                            span,
+                            Some(self.source()),
+                        )
+                    })
+                    .collect_vec()
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 self.analyze_interface_object_declaration(scope, parent, object_decl, diagnostics)?
@@ -920,7 +926,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     scope.add(ent, diagnostics);
                 }
 
-                typ.into()
+                vec![typ.into()]
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm) => {
                 let (_, ent) = self.subprogram_specification(
@@ -931,7 +937,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Overloaded::InterfaceSubprogram,
                     diagnostics,
                 )?;
-                ent
+                vec![ent]
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region = self.analyze_package_instance_name(
@@ -940,14 +946,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     diagnostics,
                 )?;
 
-                self.arena.define(
+                vec![self.arena.define(
                     self.ctx,
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
                     span,
                     Some(self.source()),
-                )
+                )]
             }
         };
         Ok(ent)
@@ -959,28 +965,34 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: EntRef<'a>,
         object_decl: &mut InterfaceObjectDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<EntRef<'a>> {
+    ) -> EvalResult<Vec<EntRef<'a>>> {
         let span = object_decl.span();
         match &mut object_decl.mode {
             ModeIndication::Simple(mode) => {
                 let (subtype, class) =
                     self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
-                Ok(self.arena.define(
-                    self.ctx,
-                    &mut object_decl.ident,
-                    parent,
-                    AnyEntKind::Object(Object {
-                        class,
-                        iface: Some(ObjectInterface::simple(
-                            object_decl.list_type,
-                            mode.mode.unwrap_or_default(),
-                        )),
-                        subtype,
-                        has_default: mode.expression.is_some(),
-                    }),
-                    span,
-                    Some(self.source()),
-                ))
+                Ok(object_decl
+                    .idents
+                    .iter_mut()
+                    .map(|ident| {
+                        self.arena.define(
+                            self.ctx,
+                            ident,
+                            parent,
+                            AnyEntKind::Object(Object {
+                                class,
+                                iface: Some(ObjectInterface::simple(
+                                    object_decl.list_type,
+                                    mode.mode.unwrap_or_default(),
+                                )),
+                                subtype,
+                                has_default: mode.expression.is_some(),
+                            }),
+                            span,
+                            Some(self.source()),
+                        )
+                    })
+                    .collect_vec())
             }
             ModeIndication::View(view) => {
                 let resolved =
@@ -1000,19 +1012,25 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         );
                     }
                 }
-                Ok(self.arena.define(
-                    self.ctx,
-                    &mut object_decl.ident,
-                    parent,
-                    AnyEntKind::Object(Object {
-                        class: ObjectClass::Signal,
-                        iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
-                        subtype: *view_ent.subtype(),
-                        has_default: false,
-                    }),
-                    span,
-                    Some(self.source()),
-                ))
+                Ok(object_decl
+                    .idents
+                    .iter_mut()
+                    .map(|ident| {
+                        self.arena.define(
+                            self.ctx,
+                            ident,
+                            parent,
+                            AnyEntKind::Object(Object {
+                                class: ObjectClass::Signal,
+                                iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
+                                subtype: *view_ent.subtype(),
+                                has_default: false,
+                            }),
+                            span,
+                            Some(self.source()),
+                        )
+                    })
+                    .collect_vec())
             }
         }
     }
@@ -1053,11 +1071,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let mut params = FormalRegion::new(interface_list.interface_type);
 
         for decl in interface_list.items.iter_mut() {
-            if let Some(ent) =
+            if let Some(ents) =
                 as_fatal(self.analyze_interface_declaration(scope, parent, decl, diagnostics))?
             {
-                scope.add(ent, diagnostics);
-                params.add(ent);
+                for ent in ents {
+                    scope.add(ent, diagnostics);
+                    params.add(ent);
+                }
             }
         }
         Ok(params)

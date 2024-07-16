@@ -4,14 +4,14 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast::ExternalObjectClass;
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Designator,
-    FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ModeViewDeclaration, ObjectClass, PackageInstantiation, SubprogramBody,
-    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
+    FileDeclaration, HasIdent, Ident, InterfacePackageDeclaration, ModeViewDeclaration,
+    ObjectClass, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
+    SubprogramSpecification, TypeDeclaration, WithDecl,
 };
-use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
 mod types;
 use fnv::FnvHashMap;
@@ -673,30 +673,6 @@ impl HasEntityId for AnyDesignUnit {
                 AnySecondaryUnit::PackageBody(bod) => bod.ident.decl.get(),
             },
         }
-    }
-}
-
-impl HasEntityId for InterfaceDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        match self {
-            InterfaceDeclaration::Object(object) => object.ent_id(),
-            InterfaceDeclaration::File(file) => file.ent_id(),
-            InterfaceDeclaration::Type(typ) => typ.decl.get(),
-            InterfaceDeclaration::Subprogram(declaration) => declaration.specification.ent_id(),
-            InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
-        }
-    }
-}
-
-impl HasEntityId for InterfaceObjectDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
-    }
-}
-
-impl HasEntityId for InterfaceFileDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
     }
 }
 
