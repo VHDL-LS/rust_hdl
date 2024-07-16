@@ -128,7 +128,7 @@ fn parse_interface_object_declaration(
     Ok(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
         list_type,
         mode: mode.clone(),
-        idents: idents,
+        idents,
         span: TokenSpan::new(start_token, end_token),
     }))
 }
