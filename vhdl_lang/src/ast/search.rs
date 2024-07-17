@@ -437,7 +437,8 @@ impl Search for GenerateBody {
             alternative_label,
             decl,
             statements,
-            end_label_pos,
+            end_label: end_label_pos,
+            ..
         } = self;
         if let Some(ref label) = alternative_label {
             return_if_found!(searcher
@@ -447,13 +448,15 @@ impl Search for GenerateBody {
                 )
                 .or_not_found());
         }
-        return_if_found!(decl.search(ctx, searcher));
+        if let Some((decl, _)) = decl {
+            return_if_found!(decl.search(ctx, searcher));
+        }
         return_if_found!(statements.search(ctx, searcher));
 
         if let Some(ref label) = alternative_label {
             if let Some(end_label_pos) = end_label_pos {
                 return_if_found!(searcher
-                    .search_pos_with_ref(ctx, end_label_pos, &label.decl)
+                    .search_pos_with_ref(ctx, ctx.get_pos(*end_label_pos), &label.decl)
                     .or_not_found());
             }
         }

@@ -394,11 +394,11 @@ pub fn parse_instantiation_statement(
 
 fn parse_optional_declarative_part(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<WithTokenSpan<Declaration>>>> {
+) -> ParseResult<Option<(Vec<WithTokenSpan<Declaration>>, TokenId)>> {
     if is_declarative_part(ctx)? {
         let decls = parse_declarative_part(ctx)?;
-        ctx.stream.expect_kind(Begin)?;
-        Ok(Some(decls))
+        let begin_token = ctx.stream.expect_kind(Begin)?;
+        Ok(Some((decls, begin_token)))
     } else {
         Ok(None)
     }
@@ -410,30 +410,37 @@ fn parse_generate_body(
 ) -> ParseResult<GenerateBody> {
     let decl = parse_optional_declarative_part(ctx)?;
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    let mut end_label_pos = None;
+    let mut end_label = None;
 
+    let end_token;
     // Potential inner end [ alternative_label ];
     if ctx.stream.next_kinds_are(&[End, SemiColon]) {
+        end_token = Some(ctx.stream.get_current_token_id());
         // Inner end no label
         ctx.stream.skip();
         ctx.stream.skip();
     } else if ctx.stream.next_kinds_are(&[End, Identifier]) {
+        end_token = Some(ctx.stream.get_current_token_id());
         ctx.stream.skip();
         // Inner with identifier
         let end_ident = ctx.stream.expect_ident()?;
-        end_label_pos = check_label_identifier_mismatch(
+        end_label = Some(ctx.stream.get_last_token_id());
+        check_label_identifier_mismatch(
             ctx,
             alternative_label.as_ref().map(|label| &label.tree),
             Some(end_ident),
         );
         expect_semicolon(ctx);
+    } else {
+        end_token = None
     }
 
     let body = GenerateBody {
         alternative_label,
         decl,
         statements,
-        end_label_pos,
+        end_token,
+        end_label,
     };
 
     Ok(body)
@@ -448,9 +455,9 @@ fn parse_for_generate_statement(
     let index_name = WithDecl::new(ctx.stream.expect_ident()?);
     ctx.stream.expect_kind(In)?;
     let discrete_range = parse_discrete_range(ctx)?;
-    ctx.stream.expect_kind(Generate)?;
+    let generate_token = ctx.stream.expect_kind(Generate)?;
     let body = parse_generate_body(ctx, None)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
     let end_tok = expect_semicolon_or_last(ctx);
@@ -458,7 +465,9 @@ fn parse_for_generate_statement(
     Ok(ForGenerateStatement {
         index_name,
         discrete_range,
+        generate_token,
         body,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(start_tok, end_tok),
     })
@@ -1571,12 +1580,15 @@ end generate;",
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
             discrete_range: code.s1("0 to 1").discrete_range(),
+            generate_token: code.s1("generate").token(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
                 statements: vec![],
-                end_label_pos: None,
+                end_token: None,
+                end_label: None,
             },
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("for").token()),
         };
@@ -1602,13 +1614,16 @@ end generate;",
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
             discrete_range: code.s1("0 to 1").discrete_range(),
+            generate_token: code.s1("generate").token(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                end_label_pos: None,
+                end_token: None,
+                end_label: None,
             },
             end_label_pos: None,
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("for").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -1628,12 +1643,15 @@ end generate;",
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
+                generate_token: code.s1("generate").token(),
                 body: GenerateBody {
                     alternative_label: None,
-                    decl,
+                    decl: decl.map(|val| (val, code.s1("begin").token())),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_label_pos: None,
+                    end_token: None,
+                    end_label: None,
                 },
+                end_token: code.s1("end").token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1687,12 +1705,18 @@ end generate;",
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
+                generate_token: code.s1("generate").token(),
                 body: GenerateBody {
                     alternative_label: None,
-                    decl: Some(code.s1("signal foo : natural;").declarative_part()),
+                    decl: Some((
+                        code.s1("signal foo : natural;").declarative_part(),
+                        code.s1("begin").token(),
+                    )),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_label_pos: None,
+                    end_token: None,
+                    end_label: None,
                 },
+                end_token: code.s1("end").token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1742,7 +1766,8 @@ end generate;",
                         alternative_label: None,
                         decl: None,
                         statements: vec![],
-                        end_label_pos: None,
+                        end_label: None,
+                        end_token: None,
                     },
                 }],
                 else_item: None,
@@ -1775,9 +1800,10 @@ end generate;",
                     condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
-                        decl: Some(vec![]),
+                        decl: Some((vec![], code.s1("begin").token())),
                         statements: vec![],
-                        end_label_pos: None,
+                        end_token: None,
+                        end_label: None,
                     },
                 }],
                 else_item: None,
@@ -1814,7 +1840,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
@@ -1823,7 +1850,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
@@ -1832,7 +1860,8 @@ end generate;",
                         alternative_label: None,
                         decl: None,
                         statements: vec![],
-                        end_label_pos: None,
+                        end_token: None,
+                        end_label: None,
                     },
                     code.s1("else").token(),
                 )),
@@ -1875,27 +1904,39 @@ end generate;",
                         condition: code.s1("cond = true").expr(),
                         item: GenerateBody {
                             alternative_label: None,
-                            decl: Some(code.s1("variable v1 : boolean;").declarative_part()),
+                            decl: Some((
+                                code.s1("variable v1 : boolean;").declarative_part(),
+                                code.s1("begin").token(),
+                            )),
                             statements: vec![code.s1("foo1(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
                         condition: code.s1("cond2 = true").expr(),
                         item: GenerateBody {
                             alternative_label: None,
-                            decl: Some(code.s1("variable v2 : boolean;").declarative_part()),
+                            decl: Some((
+                                code.s1("variable v2 : boolean;").declarative_part(),
+                                code.s1("begin").token(),
+                            )),
                             statements: vec![code.s1("foo2(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
                 else_item: Some((
                     GenerateBody {
                         alternative_label: None,
-                        decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
+                        decl: Some((
+                            code.s1("variable v3 : boolean;").declarative_part(),
+                            code.s1("begin").token(),
+                        )),
                         statements: vec![code.s1("foo3(clk);").concurrent_statement()],
-                        end_label_pos: None,
+                        end_token: None,
+                        end_label: None,
                     },
                     code.s1("else").token(),
                 )),
@@ -1934,7 +1975,8 @@ end generate;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
@@ -1943,7 +1985,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
@@ -1952,7 +1995,8 @@ end generate;",
                         alternative_label: Some(code.s1("alt3").decl_ident()),
                         decl: None,
                         statements: vec![],
-                        end_label_pos: None,
+                        end_token: None,
+                        end_label: None,
                     },
                     code.s1("else").token(),
                 )),
@@ -2001,7 +2045,8 @@ end generate;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: Some(code.s("alt1", 2).pos()),
+                            end_token: None,
+                            end_label: Some(code.s("alt1", 2).token()),
                         },
                     },
                     Conditional {
@@ -2010,7 +2055,8 @@ end generate;",
                             alternative_label: Some(code.s1("alt2").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: Some(code.s("alt2", 2).pos()),
+                            end_token: None,
+                            end_label: Some(code.s("alt2", 2).token()),
                         },
                     },
                 ],
@@ -2019,7 +2065,8 @@ end generate;",
                         alternative_label: Some(code.s1("alt3").decl_ident()),
                         decl: None,
                         statements: vec![],
-                        end_label_pos: Some(code.s("alt3", 2).pos()),
+                        end_token: None,
+                        end_label: Some(code.s("alt3", 2).token()),
                     },
                     code.s1("else").token(),
                 )),
@@ -2059,7 +2106,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![code.s1("sig <= value;").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Alternative {
@@ -2068,7 +2116,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![code.s1("foo(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
@@ -2108,7 +2157,8 @@ end generate gen1;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![code.s1("sig <= value;").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Alternative {
@@ -2117,7 +2167,8 @@ end generate gen1;",
                             alternative_label: Some(code.s1("alt2").decl_ident()),
                             decl: None,
                             statements: vec![code.s1("foo(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],

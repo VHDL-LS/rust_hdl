@@ -1,9 +1,10 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     AssignmentRightHand, BlockStatement, CaseGenerateStatement, ConcurrentAssertStatement,
-    ConcurrentSignalAssignment, ConcurrentStatement, ForGenerateStatement, Ident,
-    IfGenerateStatement, InstantiatedUnit, InstantiationStatement, LabeledConcurrentStatement,
-    ProcessStatement, SensitivityList, Target, Waveform, WaveformElement,
+    ConcurrentSignalAssignment, ConcurrentStatement, Conditionals, ForGenerateStatement,
+    GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
+    LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target, Waveform,
+    WaveformElement,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
@@ -275,10 +276,46 @@ impl VHDLFormatter<'_> {
         formatter: impl Fn(&Self, &T, &mut String),
         buffer: &mut String,
     ) {
+        use AssignmentRightHand::*;
         match right_hand {
-            AssignmentRightHand::Simple(simple) => formatter(self, simple, buffer),
-            AssignmentRightHand::Conditional(_) => unimplemented!(),
-            AssignmentRightHand::Selected(_) => unimplemented!(),
+            Simple(simple) => formatter(self, simple, buffer),
+            Conditional(conditionals) => {
+                self.format_assignment_right_hand_conditionals(conditionals, formatter, buffer)
+            }
+            Selected(_) => unimplemented!(),
+        }
+    }
+
+    pub fn format_assignment_right_hand_conditionals<T>(
+        &self,
+        conds: &Conditionals<T>,
+        formatter: impl Fn(&Self, &T, &mut String),
+        buffer: &mut String,
+    ) {
+        for cond in &conds.conditionals {
+            // item
+            formatter(self, &cond.item, buffer);
+            let condition = &cond.condition;
+            buffer.push(' ');
+            // when
+            self.format_token_id(condition.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(&condition.item, condition.span, buffer);
+            // [else]
+            if self
+                .tokens
+                .get_token(cond.condition.span.end_token + 1)
+                .kind
+                == Kind::Else
+            {
+                buffer.push(' ');
+                self.format_token_id(cond.condition.span.end_token + 1, buffer);
+                buffer.push(' ');
+            }
+        }
+        if let Some((statements, _)) = &conds.else_item {
+            // else handled above
+            formatter(self, statements, buffer);
         }
     }
 
@@ -362,7 +399,25 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        // for
+        self.format_token_id(span.start_token, buffer);
+        buffer.push(' ');
+        // index
+        self.format_ident(&statement.index_name, buffer);
+        buffer.push(' ');
+        // in
+        self.format_token_id(statement.index_name.tree.token + 1, buffer);
+        buffer.push(' ');
+        self.format_discrete_range(&statement.discrete_range, buffer);
+        buffer.push(' ');
+        self.format_token_id(statement.generate_token, buffer);
+        self.format_generate_body(&statement.body, buffer);
+        self.newline(buffer);
+        self.format_token_span(
+            TokenSpan::new(statement.end_token, span.end_token - 1),
+            buffer,
+        );
+        self.format_token_id(span.end_token, buffer);
     }
 
     pub fn format_if_generate_statement(
@@ -371,7 +426,64 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        for cond in &statement.conds.conditionals {
+            let condition = &cond.condition;
+            if let Some(label) = &cond.item.alternative_label {
+                // if | elsif
+                self.format_token_id(label.tree.token - 1, buffer);
+                buffer.push(' ');
+                // label
+                self.format_token_id(label.tree.token, buffer);
+                // :
+                self.format_token_id(label.tree.token + 1, buffer);
+                buffer.push(' ');
+            } else {
+                self.format_token_id(condition.span.start_token - 1, buffer);
+                buffer.push(' ');
+            }
+            self.format_expression(&condition.item, condition.span, buffer);
+            buffer.push(' ');
+            // generate
+            self.format_token_id(condition.span.end_token + 1, buffer);
+            self.format_generate_body(&cond.item, buffer);
+            self.newline(buffer);
+        }
+        if let Some((statements, token)) = &statement.conds.else_item {
+            if let Some(label) = &statements.alternative_label {
+                // else
+                self.format_token_id(label.tree.token - 1, buffer);
+                buffer.push(' ');
+                // label
+                self.format_token_id(label.tree.token, buffer);
+                // :
+                self.format_token_id(label.tree.token + 1, buffer);
+                buffer.push(' ');
+                // generate
+                self.format_token_id(label.tree.token + 2, buffer);
+            } else {
+                // else
+                self.format_token_id(*token, buffer);
+                buffer.push(' ');
+                // generate
+                self.format_token_id(*token + 1, buffer);
+            }
+            self.format_generate_body(statements, buffer);
+            self.newline(buffer);
+        }
+        if statement.end_label_pos.is_some() {
+            // end if <label>
+            self.format_token_span(
+                TokenSpan::new(span.end_token - 3, span.end_token - 1),
+                buffer,
+            )
+        } else {
+            // end if
+            self.format_token_span(
+                TokenSpan::new(span.end_token - 2, span.end_token - 1),
+                buffer,
+            )
+        }
+        self.format_token_id(span.end_token, buffer);
     }
 
     pub fn format_case_generate_statement(
@@ -381,6 +493,32 @@ impl VHDLFormatter<'_> {
         buffer: &mut String,
     ) {
         unimplemented!()
+    }
+
+    pub fn format_generate_body(&self, generate_body: &GenerateBody, buffer: &mut String) {
+        self.increase_indentation();
+        if let Some((decl, begin_token)) = &generate_body.decl {
+            self.format_declarations(decl, buffer);
+            self.decrease_indentation();
+            self.newline(buffer);
+            self.format_token_id(*begin_token, buffer);
+            self.increase_indentation();
+        }
+        self.format_concurrent_statements(&generate_body.statements, buffer);
+        self.decrease_indentation();
+        if let Some(end_token) = generate_body.end_token {
+            self.newline(buffer);
+            self.format_token_id(end_token, buffer);
+            if let Some(token) = generate_body.end_label {
+                buffer.push(' ');
+                self.format_token_id(token, buffer);
+                // ;
+                self.format_token_id(token + 1, buffer);
+            } else {
+                // ;
+                self.format_token_id(end_token + 1, buffer);
+            }
+        }
     }
 }
 
@@ -549,5 +687,108 @@ inst: component lib.foo.bar
         clk => clk_foo
     );",
         );
+    }
+
+    #[test]
+    fn format_for_generate_statement() {
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+end generate;",
+        );
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+    foo <= bar;
+end generate;",
+        );
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+begin
+    foo <= bar;
+end generate;",
+        );
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+begin
+    foo <= bar;
+end;
+end generate;",
+        );
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+    signal foo: natural;
+begin
+    foo <= bar;
+end generate;",
+        );
+        check_statement(
+            "\
+gen: for idx in 0 to 1 generate
+    signal foo: natural;
+begin
+    foo <= bar;
+end;
+end generate;",
+        );
+    }
+
+    #[test]
+    fn format_if_generate_statement() {
+        check_statement(
+            "\
+gen: if cond = true generate
+end generate;",
+        );
+        check_statement(
+            "\
+gen: if cond = true generate
+begin
+end generate;",
+        );
+        check_statement(
+            "\
+gen: if cond = true generate
+elsif cond2 = true generate
+else generate
+end generate;",
+        );
+        check_statement(
+            "\
+gen: if cond = true generate
+    variable v1: boolean;
+begin
+    foo1(clk);
+elsif cond2 = true generate
+    variable v2: boolean;
+begin
+    foo2(clk);
+else generate
+    variable v3: boolean;
+begin
+    foo3(clk);
+end generate;",
+        );
+        check_statement(
+            "\
+gen: if alt1: cond = true generate
+end alt1;
+elsif alt2: cond2 = true generate
+end alt2;
+else alt3: generate
+end alt3;
+end generate;",
+        );
+    }
+
+    #[test]
+    fn format_conditional_assignment() {
+        check_statement("foo(0) <= bar(1, 2) when cond = true;");
+        check_statement("foo(0) <= bar(1, 2) when cond = true else expr2 when cond2;");
+        check_statement("foo(0) <= bar(1, 2) when cond = true else expr2;");
+        check_statement("foo(0) <= bar(1, 2) after 2 ns when cond;");
     }
 }

@@ -258,7 +258,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         // Pre-declare labels
         self.define_labels_for_concurrent_part(scope, parent, statements, diagnostics)?;
 
-        if let Some(ref mut decl) = decl {
+        if let Some((ref mut decl, _)) = decl {
             self.analyze_declarative_part(scope, parent, decl, diagnostics)?;
         }
         self.analyze_concurrent_part(scope, inner_parent, statements, diagnostics)?;

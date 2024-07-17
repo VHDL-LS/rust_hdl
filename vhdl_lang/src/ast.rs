@@ -1235,9 +1235,10 @@ impl InstantiationStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct GenerateBody {
     pub alternative_label: Option<WithDecl<Ident>>,
-    pub decl: Option<Vec<WithTokenSpan<Declaration>>>,
+    pub decl: Option<(Vec<WithTokenSpan<Declaration>>, TokenId)>,
     pub statements: Vec<LabeledConcurrentStatement>,
-    pub end_label_pos: Option<SrcPos>,
+    pub end_token: Option<TokenId>,
+    pub end_label: Option<TokenId>,
 }
 
 /// 11.8 Generate statements
@@ -1246,7 +1247,9 @@ pub struct GenerateBody {
 pub struct ForGenerateStatement {
     pub index_name: WithDecl<Ident>,
     pub discrete_range: DiscreteRange,
+    pub generate_token: TokenId,
     pub body: GenerateBody,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
