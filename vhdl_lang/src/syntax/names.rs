@@ -374,12 +374,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
         }
     );
 
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
     Ok(ExternalName {
         class,
         path,
+        colon_token,
         subtype,
     })
 }
@@ -1108,6 +1109,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                 code.s1("dut.foo").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1125,6 +1127,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 1),
                 code.s1("^.dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1142,6 +1145,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 3),
                 code.s1("^.^.^.dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1159,6 +1163,7 @@ mod tests {
                 ExternalPath::Absolute(code.s1("dut.gen(0)").name()),
                 code.s1(".dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1176,6 +1181,7 @@ mod tests {
                 ExternalPath::Package(code.s1("lib.pkg").name()),
                 code.s1("@lib.pkg").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1199,6 +1205,7 @@ mod tests {
                     ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                     code.s1("dut.foo").token_span(),
                 ),
+                colon_token: code.s1(":").token(),
                 subtype: code.s1("std_logic").subtype_indication(),
             };
             assert_eq!(

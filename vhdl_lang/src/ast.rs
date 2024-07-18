@@ -178,6 +178,7 @@ pub enum ExternalPath {
 pub struct ExternalName {
     pub class: ExternalObjectClass,
     pub path: WithTokenSpan<ExternalPath>,
+    pub colon_token: TokenId,
     pub subtype: SubtypeIndication,
 }
 
