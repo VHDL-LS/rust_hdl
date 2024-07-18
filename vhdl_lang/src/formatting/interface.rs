@@ -1,13 +1,14 @@
 use crate::ast::{
     ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
-    InterfaceObjectDeclaration, MapAspect, ModeIndication, ModeViewElement, ModeViewIndicationKind,
-    SimpleModeIndication,
+    InterfaceObjectDeclaration, InterfacePackageDeclaration, InterfaceSubprogramDeclaration,
+    MapAspect, ModeIndication, ModeViewElement, ModeViewIndicationKind, SimpleModeIndication,
+    SubprogramDefault,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::token_range::WithTokenSpan;
-use vhdl_lang::ast::ModeViewIndication;
+use vhdl_lang::ast::{InterfaceFileDeclaration, ModeViewIndication};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
@@ -94,17 +95,61 @@ impl VHDLFormatter<'_> {
         declaration: &InterfaceDeclaration,
         buffer: &mut String,
     ) {
+        use InterfaceDeclaration::*;
         match declaration {
-            InterfaceDeclaration::Object(object) => self.format_interface_object(object, buffer),
-            InterfaceDeclaration::File(_) => unimplemented!(),
-            InterfaceDeclaration::Type(type_decl) => {
+            Object(object) => self.format_interface_object(object, buffer),
+            File(file) => self.format_interface_file_declaration(file, buffer),
+            Type(type_decl) => {
                 self.format_token_id(type_decl.tree.token - 1, buffer);
                 buffer.push(' ');
                 self.format_ident(type_decl, buffer);
             }
-            InterfaceDeclaration::Subprogram(_) => unimplemented!(),
-            InterfaceDeclaration::Package(_) => unimplemented!(),
+            Subprogram(subprogram) => {
+                self.format_interface_subprogram_declaration(subprogram, buffer)
+            }
+            Package(package) => self.format_interface_package_declaration(package, buffer),
         }
+    }
+
+    pub fn format_interface_file_declaration(
+        &self,
+        declaration: &InterfaceFileDeclaration,
+        buffer: &mut String,
+    ) {
+        self.format_token_id(declaration.span.start_token, buffer);
+        buffer.push(' ');
+        self.format_ident_list(&declaration.idents, buffer);
+        self.format_token_id(declaration.colon_token, buffer);
+        buffer.push(' ');
+        self.format_subtype_indication(&declaration.subtype_indication, buffer);
+    }
+
+    pub fn format_interface_subprogram_declaration(
+        &self,
+        subprogram: &InterfaceSubprogramDeclaration,
+        buffer: &mut String,
+    ) {
+        self.format_subprogram_specification(&subprogram.specification, buffer);
+        if let Some(default) = &subprogram.default {
+            buffer.push(' ');
+            // is
+            self.format_token_id(subprogram.specification.span().end_token + 1, buffer);
+            buffer.push(' ');
+            match default {
+                SubprogramDefault::Name(name) => self.format_name(&name.item, name.span, buffer),
+                SubprogramDefault::Box => {
+                    self.format_token_id(subprogram.specification.span().end_token + 2, buffer)
+                }
+            }
+        }
+    }
+
+    pub fn format_interface_package_declaration(
+        &self,
+        subprogram: &InterfacePackageDeclaration,
+        buffer: &mut String,
+    ) {
+        unimplemented!()
     }
 
     pub fn format_interface_object(
@@ -279,5 +324,19 @@ mod tests {
         check_port("signal foo: view (bar)");
         check_port("signal foo: view bar of baz");
         check_port("signal foo: view (bar) of baz");
+    }
+
+    #[test]
+    fn format_interface_file_declaration() {
+        check_port("file valid: text");
+    }
+
+    #[test]
+    fn format_interface_subprogram_declaration() {
+        check_generic("function foo return bar");
+        check_generic("procedure foo");
+        check_generic("impure function foo return bar");
+        check_generic("function foo return bar is lib.name");
+        check_generic("function foo return bar is <>");
     }
 }

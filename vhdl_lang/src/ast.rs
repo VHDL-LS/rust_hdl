@@ -777,6 +777,7 @@ pub struct SubprogramDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype_indication: SubtypeIndication,
 }
 

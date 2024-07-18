@@ -71,7 +71,7 @@ fn parse_interface_file_declaration(
         .into_iter()
         .map(WithDecl::new)
         .collect_vec();
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
     if ctx.stream.next_kind_is(Open) {
@@ -96,6 +96,7 @@ fn parse_interface_file_declaration(
     Ok(InterfaceDeclaration::File(InterfaceFileDeclaration {
         idents,
         subtype_indication: subtype.clone(),
+        colon_token,
         span: TokenSpan::new(start_token, end_token),
     }))
 }
@@ -520,6 +521,7 @@ mod tests {
             code.with_stream(parse_parameter),
             InterfaceDeclaration::File(InterfaceFileDeclaration {
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 span: code.token_span()
             })
@@ -575,6 +577,7 @@ mod tests {
                     items: vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
                         idents: vec![code.s1("valid").decl_ident()],
                         subtype_indication: code.s("text", 2).subtype_indication(),
+                        colon_token: code.s(":", 2).token(),
                         span: code.s1("file valid : text").token_span()
                     })],
                     span: code.token_span()
