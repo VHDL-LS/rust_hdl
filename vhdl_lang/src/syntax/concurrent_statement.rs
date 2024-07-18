@@ -1371,7 +1371,10 @@ with x(0) + 1 select
                 guarded: false,
                 assignment: SignalAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: Some(DelayMechanism::Transport),
+                    delay_mechanism: Some(WithTokenSpan::new(
+                        DelayMechanism::Transport,
+                        code.s1("transport bar(1,2)").token_span()
+                    )),
                     rhs: AssignmentRightHand::Selected(selection)
                 }
             })

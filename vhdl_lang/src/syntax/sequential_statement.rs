@@ -942,7 +942,10 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        delay_mechanism: Some(DelayMechanism::Transport),
+                        delay_mechanism: Some(WithTokenSpan::new(
+                            DelayMechanism::Transport,
+                            code.s1("transport bar(1,2)").token_span()
+                        )),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
                     }),
                     code.token_span()
@@ -1251,7 +1254,10 @@ with x(0) + 1 select
                 WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        delay_mechanism: Some(DelayMechanism::Transport),
+                        delay_mechanism: Some(WithTokenSpan::new(
+                            DelayMechanism::Transport,
+                            code.s1("transport bar(1,2)").token_span()
+                        )),
                         rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()

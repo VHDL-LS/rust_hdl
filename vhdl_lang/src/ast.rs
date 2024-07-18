@@ -974,7 +974,7 @@ pub enum DelayMechanism {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalAssignment {
     pub target: WithTokenSpan<Target>,
-    pub delay_mechanism: Option<DelayMechanism>,
+    pub delay_mechanism: Option<WithTokenSpan<DelayMechanism>>,
     pub rhs: AssignmentRightHand<Waveform>,
 }
 

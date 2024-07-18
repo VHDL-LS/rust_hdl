@@ -259,8 +259,9 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         buffer.push(' ');
-        if let Some(_mechanism) = &assignment_statement.assignment.delay_mechanism {
-            unimplemented!()
+        if let Some(mechanism) = &assignment_statement.assignment.delay_mechanism {
+            self.format_delay_mechanism(mechanism, buffer);
+            buffer.push(' ');
         }
         self.format_assignment_right_hand(
             &assignment_statement.assignment.rhs,

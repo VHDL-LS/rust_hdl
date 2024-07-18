@@ -1,7 +1,7 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    CaseStatement, Choice, IterationScheme, LabeledSequentialStatement, LoopStatement,
-    ReportStatement, SequentialStatement, SignalAssignment, WaitStatement,
+    CaseStatement, Choice, DelayMechanism, IterationScheme, LabeledSequentialStatement,
+    LoopStatement, ReportStatement, SequentialStatement, SignalAssignment, WaitStatement,
 };
 use crate::TokenSpan;
 use vhdl_lang::ast::{
@@ -172,11 +172,34 @@ impl VHDLFormatter<'_> {
         buffer.push(' ');
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
         buffer.push(' ');
-        if let Some(_delay_mechanism) = &assignment.delay_mechanism {
-            unimplemented!()
+        if let Some(delay_mechanism) = &assignment.delay_mechanism {
+            self.format_delay_mechanism(delay_mechanism, buffer);
+            buffer.push(' ');
         }
         self.format_assignment_right_hand(&assignment.rhs, Self::format_waveform, buffer);
         self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_delay_mechanism(
+        &self,
+        delay_mechanism: &WithTokenSpan<DelayMechanism>,
+        buffer: &mut String,
+    ) {
+        match &delay_mechanism.item {
+            DelayMechanism::Transport => {
+                self.format_token_span(delay_mechanism.span, buffer);
+            }
+            DelayMechanism::Inertial { reject } => {
+                if let Some(reject) = reject {
+                    self.format_token_id(delay_mechanism.span.start_token, buffer);
+                    buffer.push(' ');
+                    self.format_expression(&reject.item, reject.span, buffer);
+                    buffer.push(' ');
+                }
+                // inertial
+                self.format_token_id(delay_mechanism.span.end_token, buffer);
+            }
+        }
     }
 
     pub fn format_signal_force_assignment(
@@ -616,6 +639,15 @@ end loop;",
             "exit foo;",
             "exit when condition;",
             "exit foo when condition;",
+        ]);
+    }
+
+    #[test]
+    fn check_delay_mechanisms() {
+        check_statements(&[
+            "foo(0) <= transport bar(1, 2);",
+            "bar <= reject 2 ns inertial bar(1, 2);",
+            "bar <= inertial bar(1, 2);",
         ]);
     }
 }
