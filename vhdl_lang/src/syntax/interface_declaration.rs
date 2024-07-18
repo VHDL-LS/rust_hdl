@@ -135,7 +135,7 @@ fn parse_interface_object_declaration(
 }
 
 fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeViewIndication> {
-    ctx.stream.expect_kind(View)?;
+    let start_token = ctx.stream.expect_kind(View)?;
     let (name, kind) = if ctx.stream.pop_if_kind(LeftPar).is_some() {
         let _name = parse_name(ctx)?;
         ctx.stream.expect_kind(RightPar)?;
@@ -143,15 +143,17 @@ fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeV
     } else {
         (parse_name(ctx)?, ModeViewIndicationKind::Record)
     };
-    let subtype_indication = if ctx.stream.pop_if_kind(Of).is_some() {
-        Some(parse_subtype_indication(ctx)?)
+    let subtype_indication = if let Some(of_token) = ctx.stream.pop_if_kind(Of) {
+        Some((of_token, parse_subtype_indication(ctx)?))
     } else {
         None
     };
+    let end_token = ctx.stream.get_current_token_id();
     Ok(ModeViewIndication {
         subtype_indication,
         name,
         kind,
+        span: TokenSpan::new(start_token, end_token),
     })
 }
 
@@ -1159,7 +1161,8 @@ function foo() return bit;
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
                     subtype_indication: None,
-                    kind: ModeViewIndicationKind::Record
+                    kind: ModeViewIndicationKind::Record,
+                    span: code.s1("view bar").token_span(),
                 }),
                 colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
@@ -1175,7 +1178,8 @@ function foo() return bit;
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
                     subtype_indication: None,
-                    kind: ModeViewIndicationKind::Array
+                    kind: ModeViewIndicationKind::Array,
+                    span: code.s1("view (bar)").token_span(),
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
                 colon_token: code.s1(":").token(),
@@ -1189,8 +1193,12 @@ function foo() return bit;
                 list_type: InterfaceType::Port,
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
-                    subtype_indication: Some(code.s1("baz").subtype_indication()),
-                    kind: ModeViewIndicationKind::Record
+                    subtype_indication: Some((
+                        code.s1("of").token(),
+                        code.s1("baz").subtype_indication()
+                    )),
+                    kind: ModeViewIndicationKind::Record,
+                    span: code.s1("view bar of baz").token_span(),
                 }),
                 colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
@@ -1204,8 +1212,12 @@ function foo() return bit;
                 list_type: InterfaceType::Port,
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
-                    subtype_indication: Some(code.s1("baz").subtype_indication()),
-                    kind: ModeViewIndicationKind::Array
+                    subtype_indication: Some((
+                        code.s1("of").token(),
+                        code.s1("baz").subtype_indication()
+                    )),
+                    kind: ModeViewIndicationKind::Array,
+                    span: code.s1("view (bar) of baz").token_span(),
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
                 colon_token: code.s1(":").token(),

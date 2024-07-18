@@ -1238,7 +1238,9 @@ impl Search for SimpleModeIndication {
 impl Search for ModeViewIndication {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(self.name.search(ctx, searcher));
-        return_if_found!(self.subtype_indication.search(ctx, searcher));
+        if let Some((_, subtype)) = &self.subtype_indication {
+            return_if_found!(subtype.search(ctx, searcher));
+        }
         NotFound
     }
 }

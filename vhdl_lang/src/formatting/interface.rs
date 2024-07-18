@@ -1,11 +1,13 @@
 use crate::ast::{
     ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
-    InterfaceObjectDeclaration, MapAspect, ModeIndication, ModeViewElement, SimpleModeIndication,
+    InterfaceObjectDeclaration, MapAspect, ModeIndication, ModeViewElement, ModeViewIndicationKind,
+    SimpleModeIndication,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::token_range::WithTokenSpan;
+use vhdl_lang::ast::ModeViewIndication;
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
@@ -121,9 +123,32 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_mode(&self, mode: &ModeIndication, buffer: &mut String) {
+        use ModeIndication::*;
         match mode {
-            ModeIndication::Simple(simple) => self.format_simple_mode(simple, buffer),
-            ModeIndication::View(_) => unimplemented!(),
+            Simple(simple) => self.format_simple_mode(simple, buffer),
+            View(mode) => self.format_mode_view_indication(mode, buffer),
+        }
+    }
+
+    pub fn format_mode_view_indication(&self, mode: &ModeViewIndication, buffer: &mut String) {
+        // view
+        self.format_token_id(mode.span.start_token, buffer);
+        buffer.push(' ');
+        match &mode.kind {
+            ModeViewIndicationKind::Array => {
+                self.format_token_id(mode.name.span.start_token - 1, buffer);
+                self.format_name(&mode.name.item, mode.name.span, buffer);
+                self.format_token_id(mode.name.span.end_token + 1, buffer);
+            }
+            ModeViewIndicationKind::Record => {
+                self.format_name(&mode.name.item, mode.name.span, buffer);
+            }
+        }
+        if let Some((token, subtype)) = &mode.subtype_indication {
+            buffer.push(' ');
+            self.format_token_id(*token, buffer);
+            buffer.push(' ');
+            self.format_subtype_indication(subtype, buffer);
         }
     }
 
@@ -234,5 +259,25 @@ mod tests {
         check_element_mode("linkage");
         check_element_mode("view foo");
         check_element_mode("view (foo)");
+    }
+
+    fn check_port(input: &str) {
+        check_formatted_std(
+            input,
+            input,
+            VHDL2019,
+            Code::port,
+            |formatter, interface, buffer| {
+                formatter.format_interface_declaration(interface, buffer)
+            },
+        );
+    }
+
+    #[test]
+    fn format_mode_view_indication() {
+        check_port("signal foo: view bar");
+        check_port("signal foo: view (bar)");
+        check_port("signal foo: view bar of baz");
+        check_port("signal foo: view (bar) of baz");
     }
 }

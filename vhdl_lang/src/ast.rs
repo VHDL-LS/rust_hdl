@@ -811,11 +811,12 @@ pub enum ModeViewIndicationKind {
     Record,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewIndication {
     pub kind: ModeViewIndicationKind,
     pub name: WithTokenSpan<Name>,
-    pub subtype_indication: Option<SubtypeIndication>,
+    pub subtype_indication: Option<(TokenId, SubtypeIndication)>,
 }
 
 /// LRM 6.5.5 Interface package declaration

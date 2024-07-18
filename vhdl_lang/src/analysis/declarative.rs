@@ -970,7 +970,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let resolved =
                     self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
                 let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
-                if let Some(ast_declared_subtype) = &mut view.subtype_indication {
+                if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
                     let declared_subtype =
                         self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
                     if declared_subtype.type_mark() != view_ent.subtype().type_mark() {

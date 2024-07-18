@@ -980,7 +980,7 @@ impl Display for ModeViewIndication {
             ModeViewIndicationKind::Array => write!(f, "({})", self.name)?,
             ModeViewIndicationKind::Record => write!(f, "{}", self.name)?,
         }
-        if let Some(typ) = &self.subtype_indication {
+        if let Some((_, typ)) = &self.subtype_indication {
             write!(f, " of {typ}")?;
         }
         Ok(())
