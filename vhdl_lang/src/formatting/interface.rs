@@ -73,7 +73,7 @@ impl VHDLFormatter<'_> {
 
     pub fn format_association_element(&self, element: &AssociationElement, buffer: &mut String) {
         if let Some(formal) = &element.formal {
-            self.format_name(&formal.item, formal.span, buffer);
+            self.format_name(formal.as_ref(), buffer);
             buffer.push(' ');
             self.format_token_id(formal.span.end_token + 1, buffer);
             buffer.push(' ');
@@ -84,7 +84,7 @@ impl VHDLFormatter<'_> {
     pub fn format_actual_part(&self, actual_part: &WithTokenSpan<ActualPart>, buffer: &mut String) {
         match &actual_part.item {
             ActualPart::Expression(expression) => {
-                self.format_expression(expression, actual_part.span, buffer)
+                self.format_expression(WithTokenSpan::new(expression, actual_part.span), buffer)
             }
             ActualPart::Open => self.format_token_span(actual_part.span, buffer),
         }
@@ -136,7 +136,7 @@ impl VHDLFormatter<'_> {
             self.format_token_id(subprogram.specification.span().end_token + 1, buffer);
             buffer.push(' ');
             match default {
-                SubprogramDefault::Name(name) => self.format_name(&name.item, name.span, buffer),
+                SubprogramDefault::Name(name) => self.format_name(name.as_ref(), buffer),
                 SubprogramDefault::Box => {
                     self.format_token_id(subprogram.specification.span().end_token + 2, buffer)
                 }
@@ -146,10 +146,17 @@ impl VHDLFormatter<'_> {
 
     pub fn format_interface_package_declaration(
         &self,
-        subprogram: &InterfacePackageDeclaration,
+        package: &InterfacePackageDeclaration,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        // package <ident> is new
+        self.format_token_span(
+            TokenSpan::new(package.span.start_token, package.span.start_token + 3),
+            buffer,
+        );
+        buffer.push(' ');
+        self.format_name(package.package_name.as_ref(), buffer);
+        unimplemented!();
     }
 
     pub fn format_interface_object(
@@ -182,11 +189,11 @@ impl VHDLFormatter<'_> {
         match &mode.kind {
             ModeViewIndicationKind::Array => {
                 self.format_token_id(mode.name.span.start_token - 1, buffer);
-                self.format_name(&mode.name.item, mode.name.span, buffer);
+                self.format_name(mode.name.as_ref(), buffer);
                 self.format_token_id(mode.name.span.end_token + 1, buffer);
             }
             ModeViewIndicationKind::Record => {
-                self.format_name(&mode.name.item, mode.name.span, buffer);
+                self.format_name(mode.name.as_ref(), buffer);
             }
         }
         if let Some((token, subtype)) = &mode.subtype_indication {
@@ -204,7 +211,7 @@ impl VHDLFormatter<'_> {
                 // view
                 self.format_token_id(name.get_start_token() - 1, buffer);
                 buffer.push(' ');
-                self.format_name(&name.item, name.span, buffer)
+                self.format_name(name.as_ref(), buffer)
             }
             ElementMode::Array(name) => {
                 //view (
@@ -212,7 +219,7 @@ impl VHDLFormatter<'_> {
                     TokenSpan::new(name.get_start_token() - 2, name.get_start_token() - 1),
                     buffer,
                 );
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
                 // )
                 self.format_token_id(name.get_end_token() + 1, buffer);
             }

@@ -79,7 +79,7 @@ impl VHDLFormatter<'_> {
                 self.format_token_id(span.start_token, buffer);
                 if let Some(expr) = &stmt.expression {
                     buffer.push(' ');
-                    self.format_expression(&expr.item, expr.span, buffer);
+                    self.format_expression(expr.as_ref(), buffer);
                 }
                 self.format_token_id(span.end_token, buffer);
             }
@@ -101,7 +101,7 @@ impl VHDLFormatter<'_> {
             self.format_token_id(span.start_token + 1, buffer);
             buffer.push(' ');
             for (i, item) in name_list.items.iter().enumerate() {
-                self.format_name(&item.item, item.span, buffer);
+                self.format_name(item.as_ref(), buffer);
                 if let Some(token) = name_list.tokens.get(i) {
                     self.format_token_id(*token, buffer);
                     buffer.push(' ');
@@ -112,13 +112,13 @@ impl VHDLFormatter<'_> {
             buffer.push(' ');
             self.format_token_id(condition_clause.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&condition_clause.item, condition_clause.span, buffer);
+            self.format_expression(condition_clause.as_ref(), buffer);
         }
         if let Some(timeout_clause) = &statement.timeout_clause {
             buffer.push(' ');
             self.format_token_id(timeout_clause.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&timeout_clause.item, timeout_clause.span, buffer);
+            self.format_expression(timeout_clause.as_ref(), buffer);
         }
 
         // ;
@@ -134,12 +134,12 @@ impl VHDLFormatter<'_> {
         // report
         self.format_token_id(span.start_token, buffer);
         buffer.push(' ');
-        self.format_expression(&report.report.item, report.report.span, buffer);
+        self.format_expression(report.report.as_ref(), buffer);
         if let Some(severity) = &report.severity {
             buffer.push(' ');
             self.format_token_id(severity.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&severity.item, severity.span, buffer);
+            self.format_expression(severity.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
     }
@@ -156,7 +156,7 @@ impl VHDLFormatter<'_> {
         buffer.push(' ');
         self.format_assignment_right_hand(
             &assignment.rhs,
-            |formatter, expr, buffer| formatter.format_expression(&expr.item, expr.span, buffer),
+            |formatter, expr, buffer| formatter.format_expression(expr.as_ref(), buffer),
             buffer,
         );
         self.format_token_id(span.end_token, buffer);
@@ -193,7 +193,7 @@ impl VHDLFormatter<'_> {
                 if let Some(reject) = reject {
                     self.format_token_id(delay_mechanism.span.start_token, buffer);
                     buffer.push(' ');
-                    self.format_expression(&reject.item, reject.span, buffer);
+                    self.format_expression(reject.as_ref(), buffer);
                     buffer.push(' ');
                 }
                 // inertial
@@ -222,7 +222,7 @@ impl VHDLFormatter<'_> {
         }
         self.format_assignment_right_hand(
             &assignment.rhs,
-            |formatter, expr, buffer| formatter.format_expression(&expr.item, expr.span, buffer),
+            |formatter, expr, buffer| formatter.format_expression(expr.as_ref(), buffer),
             buffer,
         );
         self.format_token_id(span.end_token, buffer);
@@ -259,7 +259,7 @@ impl VHDLFormatter<'_> {
             // if | elsif
             self.format_token_id(condition.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&condition.item, condition.span, buffer);
+            self.format_expression(condition.as_ref(), buffer);
             buffer.push(' ');
             // then
             self.format_token_id(condition.span.end_token + 1, buffer);
@@ -293,7 +293,9 @@ impl VHDLFormatter<'_> {
 
     pub fn format_choice(&self, choice: &WithTokenSpan<Choice>, buffer: &mut String) {
         match &choice.item {
-            Choice::Expression(expr) => self.format_expression(expr, choice.span, buffer),
+            Choice::Expression(expr) => {
+                self.format_expression(WithTokenSpan::new(expr, choice.span), buffer)
+            }
             Choice::DiscreteRange(range) => self.format_discrete_range(range, buffer),
             Choice::Others => self.format_token_span(choice.span, buffer),
         }
@@ -312,11 +314,7 @@ impl VHDLFormatter<'_> {
             self.format_token_id(span.start_token + 1, buffer);
         }
         buffer.push(' ');
-        self.format_expression(
-            &statement.expression.item,
-            statement.expression.span,
-            buffer,
-        );
+        self.format_expression(statement.expression.as_ref(), buffer);
         buffer.push(' ');
         // is
         self.format_token_id(statement.expression.span.end_token + 1, buffer);
@@ -375,7 +373,7 @@ impl VHDLFormatter<'_> {
                     // while
                     self.format_token_id(expression.span.start_token - 1, buffer);
                     buffer.push(' ');
-                    self.format_expression(&expression.item, expression.span, buffer);
+                    self.format_expression(expression.as_ref(), buffer);
                     buffer.push(' ');
                 }
                 IterationScheme::For(ident, range) => {
@@ -419,7 +417,7 @@ impl VHDLFormatter<'_> {
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&condition.item, condition.span, buffer);
+            self.format_expression(condition.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
     }
@@ -441,7 +439,7 @@ impl VHDLFormatter<'_> {
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&condition.item, condition.span, buffer);
+            self.format_expression(condition.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
     }

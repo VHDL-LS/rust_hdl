@@ -83,11 +83,7 @@ impl VHDLFormatter<'_> {
         // return
         self.format_token_id(specification.return_type.span.start_token - 1, buffer);
         buffer.push(' ');
-        self.format_name(
-            &specification.return_type.item,
-            specification.return_type.span,
-            buffer,
-        );
+        self.format_name(specification.return_type.as_ref(), buffer);
     }
 
     pub fn format_subprogram_header(&self, header: &SubprogramHeader, buffer: &mut String) {
@@ -129,7 +125,7 @@ impl VHDLFormatter<'_> {
         match &signature.item {
             Signature::Function(functions, return_type) => {
                 for (i, function) in functions.iter().enumerate() {
-                    self.format_name(&function.item, function.span, buffer);
+                    self.format_name(function.as_ref(), buffer);
                     if i < functions.len() - 1 {
                         // ,
                         self.format_token_id(function.span.end_token + 1, buffer);
@@ -139,11 +135,11 @@ impl VHDLFormatter<'_> {
                 // return
                 self.format_token_id(return_type.span.start_token - 1, buffer);
                 buffer.push(' ');
-                self.format_name(&return_type.item, return_type.span, buffer);
+                self.format_name(return_type.as_ref(), buffer);
             }
             Signature::Procedure(procedures) => {
                 for (i, procedure) in procedures.iter().enumerate() {
-                    self.format_name(&procedure.item, procedure.span, buffer);
+                    self.format_name(procedure.as_ref(), buffer);
                     if i < procedures.len() - 1 {
                         // ,
                         self.format_token_id(procedure.span.end_token + 1, buffer);
@@ -169,11 +165,7 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         buffer.push(' ');
-        self.format_name(
-            &instantiation.subprogram_name.item,
-            instantiation.subprogram_name.span,
-            buffer,
-        );
+        self.format_name(instantiation.subprogram_name.as_ref(), buffer);
         if let Some(signature) = &instantiation.signature {
             self.format_signature(signature, buffer);
         }

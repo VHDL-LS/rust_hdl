@@ -29,19 +29,11 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_range_constraint(&self, constraint: &RangeConstraint, buffer: &mut String) {
-        self.format_expression(
-            &constraint.left_expr.item,
-            constraint.left_expr.span,
-            buffer,
-        );
+        self.format_expression(constraint.left_expr.as_ref().as_ref(), buffer);
         buffer.push(' ');
         self.format_token_id(constraint.direction_token(), buffer);
         buffer.push(' ');
-        self.format_expression(
-            &constraint.right_expr.item,
-            constraint.right_expr.span,
-            buffer,
-        );
+        self.format_expression(constraint.right_expr.as_ref().as_ref(), buffer);
     }
 
     pub fn format_range(&self, range: &Range, buffer: &mut String) {
@@ -54,7 +46,7 @@ impl VHDLFormatter<'_> {
     pub fn format_discrete_range(&self, range: &DiscreteRange, buffer: &mut String) {
         match range {
             DiscreteRange::Discrete(name, range) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
                 buffer.push(' ');
                 if let Some(range) = range {
                     // range

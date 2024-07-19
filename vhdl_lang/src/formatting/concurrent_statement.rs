@@ -106,7 +106,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(span.start_token, buffer);
         if let Some(guard_condition) = &block.guard_condition {
             self.format_token_id(guard_condition.span.start_token - 1, buffer);
-            self.format_expression(&guard_condition.item, guard_condition.span, buffer);
+            self.format_expression(guard_condition.as_ref(), buffer);
             self.format_token_id(guard_condition.span.end_token + 1, buffer);
         }
         if let Some(is_token) = block.is_token {
@@ -171,7 +171,7 @@ impl VHDLFormatter<'_> {
                 SensitivityList::Names(names) => {
                     self.format_token_id(sensitivity_list.span.start_token, buffer);
                     for (i, name) in names.iter().enumerate() {
-                        self.format_name(&name.item, name.span, buffer);
+                        self.format_name(name.as_ref(), buffer);
                         if i < names.len() - 1 {
                             self.format_token_id(name.span.end_token + 1, buffer);
                             buffer.push(' ');
@@ -226,22 +226,18 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_assert_statement(&self, assert_statement: &AssertStatement, bufer: &mut String) {
-        self.format_expression(
-            &assert_statement.condition.item,
-            assert_statement.condition.span,
-            bufer,
-        );
+        self.format_expression(assert_statement.condition.as_ref(), bufer);
         if let Some(report) = &assert_statement.report {
             bufer.push(' ');
             self.format_token_id(report.span.start_token - 1, bufer);
             bufer.push(' ');
-            self.format_expression(&report.item, report.span, bufer);
+            self.format_expression(report.as_ref(), bufer);
         }
         if let Some(severity) = &assert_statement.severity {
             bufer.push(' ');
             self.format_token_id(severity.span.start_token - 1, bufer);
             bufer.push(' ');
-            self.format_expression(&severity.item, severity.span, bufer);
+            self.format_expression(severity.as_ref(), bufer);
         }
     }
 
@@ -301,7 +297,7 @@ impl VHDLFormatter<'_> {
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&condition.item, condition.span, buffer);
+            self.format_expression(condition.as_ref(), buffer);
             // [else]
             if self
                 .tokens
@@ -336,18 +332,18 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_waveform_element(&self, element: &WaveformElement, buffer: &mut String) {
-        self.format_expression(&element.value.item, element.value.span, buffer);
+        self.format_expression(element.value.as_ref(), buffer);
         if let Some(after) = &element.after {
             buffer.push(' ');
             self.format_token_id(after.get_start_token() - 1, buffer);
             buffer.push(' ');
-            self.format_expression(&after.item, after.span, buffer);
+            self.format_expression(after.as_ref(), buffer);
         }
     }
 
     pub fn format_target(&self, target: &WithTokenSpan<Target>, buffer: &mut String) {
         match &target.item {
-            Target::Name(name) => self.format_name(name, target.span, buffer),
+            Target::Name(name) => self.format_name(WithTokenSpan::new(name, target.span), buffer),
             Target::Aggregate(_) => unimplemented!(),
         }
     }
@@ -367,10 +363,10 @@ impl VHDLFormatter<'_> {
         }
         match &statement.unit {
             InstantiatedUnit::Component(name) | InstantiatedUnit::Configuration(name) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
             }
             InstantiatedUnit::Entity(name, architecture) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
                 if let Some(arch) = architecture {
                     self.join_token_span(
                         TokenSpan::new(arch.item.token - 1, arch.item.token + 1),
@@ -442,7 +438,7 @@ impl VHDLFormatter<'_> {
                 self.format_token_id(condition.span.start_token - 1, buffer);
                 buffer.push(' ');
             }
-            self.format_expression(&condition.item, condition.span, buffer);
+            self.format_expression(condition.as_ref(), buffer);
             buffer.push(' ');
             // generate
             self.format_token_id(condition.span.end_token + 1, buffer);

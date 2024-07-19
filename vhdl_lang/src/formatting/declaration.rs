@@ -133,13 +133,13 @@ impl VHDLFormatter<'_> {
             buffer.push(' ');
             self.format_token_id(*token, buffer);
             buffer.push(' ');
-            self.format_expression(&open_information.item, open_information.span, buffer);
+            self.format_expression(open_information.as_ref(), buffer);
         }
         if let Some((token, file_name)) = &file_decl.file_name {
             buffer.push(' ');
             self.format_token_id(*token, buffer);
             buffer.push(' ');
-            self.format_expression(&file_name.item, file_name.span, buffer);
+            self.format_expression(file_name.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
     }
@@ -224,7 +224,7 @@ impl VHDLFormatter<'_> {
                     buffer,
                 );
                 buffer.push(' ');
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
             }
             Protected(protected) => self.format_protected_type_declaration(protected, span, buffer),
             ProtectedBody(protected_body) => {
@@ -286,7 +286,7 @@ impl VHDLFormatter<'_> {
         for (i, index) in indices.iter().enumerate() {
             let end_token = match index {
                 ArrayIndex::IndexSubtypeDefintion(name) => {
-                    self.format_name(&name.item, name.span, buffer);
+                    self.format_name(name.as_ref(), buffer);
                     buffer.push(' ');
                     self.format_token_span(
                         TokenSpan::new(name.span.end_token + 1, name.span.end_token + 2),
@@ -418,7 +418,7 @@ impl VHDLFormatter<'_> {
         // :
         self.format_token_id(attribute.ident.tree.token + 1, buffer);
         buffer.push(' ');
-        self.format_name(&attribute.type_mark.item, attribute.type_mark.span, buffer);
+        self.format_name(attribute.type_mark.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
 
@@ -451,7 +451,7 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         buffer.push(' ');
-        self.format_expression(&attribute.expr.item, attribute.expr.span, buffer);
+        self.format_expression(attribute.expr.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
 
@@ -475,7 +475,7 @@ impl VHDLFormatter<'_> {
         buffer.push(' ');
         self.format_token_id(alias.is_token, buffer);
         buffer.push(' ');
-        self.format_name(&alias.name.item, alias.name.span, buffer);
+        self.format_name(alias.name.as_ref(), buffer);
         if let Some(signature) = &alias.signature {
             self.format_signature(signature, buffer);
         }
@@ -487,7 +487,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(use_clause.get_start_token(), buffer);
         buffer.push(' ');
         for (i, name) in use_clause.name_list.items.iter().enumerate() {
-            self.format_name(&name.item, name.span, buffer);
+            self.format_name(name.as_ref(), buffer);
             if let Some(token) = use_clause.name_list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
                 buffer.push(' ');
@@ -519,7 +519,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(context_reference.get_start_token(), buffer);
         buffer.push(' ');
         for (i, name) in context_reference.name_list.items.iter().enumerate() {
-            self.format_name(&name.item, name.span, buffer);
+            self.format_name(name.as_ref(), buffer);
             if let Some(token) = context_reference.name_list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
                 buffer.push(' ');
@@ -536,11 +536,7 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         buffer.push(' ');
-        self.format_name(
-            &instance.package_name.item,
-            instance.package_name.span,
-            buffer,
-        );
+        self.format_name(instance.package_name.as_ref(), buffer);
         if let Some(generic_map) = &instance.generic_map {
             buffer.push(' ');
             self.format_map_aspect(generic_map, buffer);

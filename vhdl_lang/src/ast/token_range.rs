@@ -111,4 +111,11 @@ impl<T> WithTokenSpan<T> {
             span: self.span.start_with(id),
         }
     }
+
+    pub fn as_ref(&self) -> WithTokenSpan<&T> {
+        WithTokenSpan {
+            item: &self.item,
+            span: self.span,
+        }
+    }
 }

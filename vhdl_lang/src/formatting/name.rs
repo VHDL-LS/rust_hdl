@@ -6,23 +6,24 @@ use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::{AttributeName, Name};
 
 impl VHDLFormatter<'_> {
-    pub fn format_name(&self, name: &Name, span: TokenSpan, buffer: &mut String) {
+    pub fn format_name(&self, name: WithTokenSpan<&Name>, buffer: &mut String) {
         use Name::*;
-        match name {
+        let span = name.span;
+        match &name.item {
             Designator(_) => self.join_token_span(span, buffer),
             Selected(name, designator) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref().as_ref(), buffer);
                 self.join_token_span(
                     TokenSpan::new(designator.token - 1, designator.token),
                     buffer,
                 );
             }
             SelectedAll(name) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref().as_ref(), buffer);
                 self.join_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
             }
             Slice(name, range) => {
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref().as_ref(), buffer);
                 self.format_token_id(name.span.end_token + 1, buffer);
                 self.format_discrete_range(range, buffer);
                 self.format_token_id(span.end_token, buffer);
@@ -43,7 +44,7 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        self.format_name(&call.name.item, call.name.span, buffer);
+        self.format_name(call.name.as_ref(), buffer);
         let open_paren = call.name.span.end_token + 1;
         if self.tokens.get_token(open_paren).kind == Kind::LeftPar {
             self.format_token_id(open_paren, buffer);
@@ -62,7 +63,7 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_attribute_name(&self, name: &AttributeName, buffer: &mut String) {
-        self.format_name(&name.name.item, name.name.span, buffer);
+        self.format_name(name.name.as_ref(), buffer);
         if let Some(signature) = &name.signature {
             self.format_signature(signature, buffer);
         }
@@ -71,7 +72,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(name.attr.token, buffer);
         if let Some(expr) = &name.expr {
             self.format_token_id(expr.span.start_token - 1, buffer);
-            self.format_expression(&expr.item, expr.span, buffer);
+            self.format_expression(expr.as_ref().as_ref(), buffer);
             self.format_token_id(expr.span.end_token + 1, buffer);
         }
     }
@@ -88,12 +89,12 @@ impl VHDLFormatter<'_> {
             ExternalPath::Package(name) => {
                 // @
                 self.format_token_id(name.span.start_token - 1, buffer);
-                self.format_name(&name.item, name.span, buffer)
+                self.format_name(name.as_ref(), buffer)
             }
             ExternalPath::Absolute(name) => {
                 // .
                 self.format_token_id(name.span.start_token - 1, buffer);
-                self.format_name(&name.item, name.span, buffer);
+                self.format_name(name.as_ref(), buffer);
             }
             ExternalPath::Relative(name, up_levels) => {
                 for i in (1..=*up_levels).rev() {
@@ -102,7 +103,7 @@ impl VHDLFormatter<'_> {
                     // .
                     self.format_token_id(name.span.start_token - (2 * i - 1), buffer);
                 }
-                self.format_name(&name.item, name.span, buffer)
+                self.format_name(name.as_ref(), buffer)
             }
         }
         buffer.push(' ');
@@ -122,7 +123,7 @@ pub mod tests {
 
     pub fn check_name(input: &str) {
         check_formatted(input, input, Code::name, |formatter, ast, buffer| {
-            formatter.format_name(&ast.item, ast.span, buffer)
+            formatter.format_name(ast.as_ref(), buffer)
         })
     }
 
