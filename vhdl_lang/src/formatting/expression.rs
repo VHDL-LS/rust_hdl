@@ -1,5 +1,7 @@
 use crate::ast::token_range::WithTokenSpan;
-use crate::ast::{ElementAssociation, Expression, ResolutionIndication, SubtypeIndication};
+use crate::ast::{
+    ElementAssociation, Expression, ResolutionIndication, SubtypeConstraint, SubtypeIndication,
+};
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
@@ -80,6 +82,9 @@ impl VHDLFormatter<'_> {
         }
         self.format_name(indication.type_mark.as_ref(), buffer);
         if let Some(constraint) = &indication.constraint {
+            if matches!(constraint.item, SubtypeConstraint::Range(_)) {
+                buffer.push(' ');
+            }
             self.format_subtype_constraint(constraint, buffer)
         }
     }

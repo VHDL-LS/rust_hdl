@@ -9,7 +9,7 @@ use crate::ast::{
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
-use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall};
+use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall, Selection};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {

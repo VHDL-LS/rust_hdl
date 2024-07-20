@@ -698,7 +698,9 @@ impl Search for WithTokenSpan<SubtypeConstraint> {
         return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
         match self.item {
             SubtypeConstraint::Array(ref dranges, ref constraint) => {
-                return_if_found!(dranges.search(ctx, searcher));
+                for drange in dranges {
+                    return_if_found!(&drange.item.search(ctx, searcher));
+                }
                 if let Some(ref constraint) = constraint {
                     return_if_found!(constraint.search(ctx, searcher));
                 }

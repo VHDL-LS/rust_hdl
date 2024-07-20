@@ -558,11 +558,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 self.drange_with_ttyp(
                                     scope,
                                     (*index_typ).into(),
-                                    drange,
+                                    &mut drange.item,
                                     diagnostics,
                                 )?;
                             } else {
-                                self.drange_unknown_type(scope, drange, diagnostics)?;
+                                self.drange_unknown_type(scope, &mut drange.item, diagnostics)?;
                             }
                         } else {
                             diagnostics.add(

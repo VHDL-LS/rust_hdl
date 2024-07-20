@@ -25,7 +25,7 @@ fn parse_array_constraint(
     ctx: &mut ParsingContext<'_>,
     leftpar: TokenId,
     // Open is None
-    initial: Option<DiscreteRange>,
+    initial: Option<WithTokenSpan<DiscreteRange>>,
 ) -> ParseResult<WithTokenSpan<SubtypeConstraint>> {
     let mut discrete_ranges: Vec<_> = initial.into_iter().collect();
 
@@ -35,8 +35,14 @@ fn parse_array_constraint(
             RightPar => break sep_token_id,
             Comma => {}
         );
+        let start_token = ctx.stream.get_last_token_id();
+        let drange = parse_discrete_range(ctx)?;
+        let end_token = ctx.stream.get_last_token_id();
 
-        discrete_ranges.push(parse_discrete_range(ctx)?);
+        discrete_ranges.push(WithTokenSpan::new(
+            drange,
+            TokenSpan::new(start_token, end_token),
+        ));
     };
 
     // Array element constraint
@@ -68,7 +74,15 @@ fn parse_composite_constraint(
             // Array constraint open
             Ok(None)
         } else {
-            parse_discrete_range(ctx).map(Some)
+            let start_token = ctx.stream.get_current_token_id();
+            let range = parse_discrete_range(ctx);
+            let end_token = ctx.stream.get_last_token_id();
+            range.map(|rng| {
+                Some(WithTokenSpan::new(
+                    rng,
+                    TokenSpan::new(start_token, end_token),
+                ))
+            })
         }
     };
 
@@ -411,7 +425,13 @@ mod tests {
         let code = Code::new("integer_vector(2-1 downto 0)");
 
         let constraint = WithTokenSpan::new(
-            SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
+            SubtypeConstraint::Array(
+                vec![WithTokenSpan::new(
+                    code.s1("2-1 downto 0").discrete_range(),
+                    code.s1("2-1 downto 0").token_span(),
+                )],
+                None,
+            ),
             code.s1("(2-1 downto 0)").token_span(),
         );
 
@@ -430,7 +450,13 @@ mod tests {
         let code = Code::new("integer_vector(lib.foo.bar)");
 
         let constraint = WithTokenSpan::new(
-            SubtypeConstraint::Array(vec![code.s1("lib.foo.bar").discrete_range()], None),
+            SubtypeConstraint::Array(
+                vec![WithTokenSpan::new(
+                    code.s1("lib.foo.bar").discrete_range(),
+                    code.s1("lib.foo.bar").token_span(),
+                )],
+                None,
+            ),
             code.s1("(lib.foo.bar)").token_span(),
         );
 
@@ -449,7 +475,13 @@ mod tests {
         let code = Code::new("integer_vector(lib.pkg.bar'range)");
 
         let constraint = WithTokenSpan::new(
-            SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None),
+            SubtypeConstraint::Array(
+                vec![WithTokenSpan::new(
+                    code.s1("lib.pkg.bar'range").discrete_range(),
+                    code.s1("lib.pkg.bar'range").token_span(),
+                )],
+                None,
+            ),
             code.s1("(lib.pkg.bar'range)").token_span(),
         );
 
@@ -489,8 +521,14 @@ mod tests {
         let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(
                 vec![
-                    code.s1("2-1 downto 0").discrete_range(),
-                    code.s1("11 to 14").discrete_range(),
+                    WithTokenSpan::new(
+                        code.s1("2-1 downto 0").discrete_range(),
+                        code.s1("2-1 downto 0").token_span(),
+                    ),
+                    WithTokenSpan::new(
+                        code.s1("11 to 14").discrete_range(),
+                        code.s1("11 to 14").token_span(),
+                    ),
                 ],
                 None,
             ),
@@ -512,15 +550,27 @@ mod tests {
         let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)(foo to bar)");
 
         let element_constraint = WithTokenSpan::new(
-            SubtypeConstraint::Array(vec![code.s1("foo to bar").discrete_range()], None),
+            SubtypeConstraint::Array(
+                vec![WithTokenSpan::new(
+                    code.s1("foo to bar").discrete_range(),
+                    code.s1("foo to bar").token_span(),
+                )],
+                None,
+            ),
             code.s1("(foo to bar)").token_span(),
         );
 
         let constraint = WithTokenSpan::new(
             SubtypeConstraint::Array(
                 vec![
-                    code.s1("2-1 downto 0").discrete_range(),
-                    code.s1("11 to 14").discrete_range(),
+                    WithTokenSpan::new(
+                        code.s1("2-1 downto 0").discrete_range(),
+                        code.s1("2-1 downto 0").token_span(),
+                    ),
+                    WithTokenSpan::new(
+                        code.s1("11 to 14").discrete_range(),
+                        code.s1("11 to 14").token_span(),
+                    ),
                 ],
                 Some(Box::new(element_constraint)),
             ),
@@ -544,7 +594,13 @@ mod tests {
         let tdata_constraint = ElementConstraint {
             ident: code.s1("tdata").ident(),
             constraint: Box::new(WithTokenSpan::new(
-                SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
+                SubtypeConstraint::Array(
+                    vec![WithTokenSpan::new(
+                        code.s1("2-1 downto 0").discrete_range(),
+                        code.s1("2-1 downto 0").token_span(),
+                    )],
+                    None,
+                ),
                 code.s1("(2-1 downto 0)").token_span(),
             )),
         };
@@ -552,7 +608,13 @@ mod tests {
         let tuser_constraint = ElementConstraint {
             ident: code.s1("tuser").ident(),
             constraint: Box::new(WithTokenSpan::new(
-                SubtypeConstraint::Array(vec![code.s1("3 to 5").discrete_range()], None),
+                SubtypeConstraint::Array(
+                    vec![WithTokenSpan::new(
+                        code.s1("3 to 5").discrete_range(),
+                        code.s1("3 to 5").token_span(),
+                    )],
+                    None,
+                ),
                 code.s1("(3 to 5)").token_span(),
             )),
         };

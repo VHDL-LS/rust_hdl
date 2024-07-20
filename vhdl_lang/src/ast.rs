@@ -353,7 +353,7 @@ pub enum SubtypeConstraint {
     Range(Range),
     /// Empty Vec means Open
     Array(
-        Vec<DiscreteRange>,
+        Vec<WithTokenSpan<DiscreteRange>>,
         Option<Box<WithTokenSpan<SubtypeConstraint>>>,
     ),
     Record(Vec<ElementConstraint>),
