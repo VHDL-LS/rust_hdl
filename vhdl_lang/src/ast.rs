@@ -1434,13 +1434,16 @@ pub struct BindingIndication {
 }
 
 /// LRM 7.3 Configuration specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentSpecification {
     pub instantiation_list: InstantiationList,
+    pub colon_token: TokenId,
     pub component_name: WithTokenSpan<Name>,
 }
 
 /// LRM 7.3.4 Verification unit binding indication
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct VUnitBindingIndication {
     pub vunit_list: Vec<WithTokenSpan<Name>>,
@@ -1456,6 +1459,7 @@ pub struct ConfigurationSpecification {
 }
 
 /// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,

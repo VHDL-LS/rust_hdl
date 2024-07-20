@@ -1,5 +1,10 @@
-use crate::ast::{BlockConfiguration, ConfigurationDeclaration, ConfigurationItem};
-use crate::{TokenSpan, VHDLFormatter};
+use crate::ast::{
+    BindingIndication, BlockConfiguration, ComponentSpecification, ConfigurationDeclaration,
+    ConfigurationItem, ConfigurationSpecification, VUnitBindingIndication,
+};
+use crate::syntax::Kind;
+use crate::{TokenAccess, TokenSpan, VHDLFormatter};
+use vhdl_lang::ast::{ComponentConfiguration, InstantiationList};
 
 impl VHDLFormatter<'_> {
     pub fn format_configuration(
@@ -22,9 +27,7 @@ impl VHDLFormatter<'_> {
         );
         self.increase_indentation();
         self.format_declarations(&configuration.decl, buffer);
-        if !configuration.vunit_bind_inds.is_empty() {
-            unimplemented!()
-        }
+        self.format_v_unit_binding_indications(&configuration.vunit_bind_inds, buffer);
         self.newline(buffer);
         self.format_block_configuration(&configuration.block_config, buffer);
         self.decrease_indentation();
@@ -34,6 +37,17 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         self.format_token_id(configuration.span.end_token, buffer);
+    }
+
+    pub fn format_v_unit_binding_indications(
+        &self,
+        vunits: &[VUnitBindingIndication],
+        buffer: &mut String,
+    ) {
+        for vunit_bind_ind in vunits {
+            self.newline(buffer);
+            self.format_v_unit_indication(vunit_bind_ind, buffer);
+        }
     }
 
     pub fn format_block_configuration(&self, config: &BlockConfiguration, buffer: &mut String) {
@@ -51,7 +65,9 @@ impl VHDLFormatter<'_> {
                 ConfigurationItem::Block(block_configuration) => {
                     self.format_block_configuration(block_configuration, buffer)
                 }
-                ConfigurationItem::Component(_) => unimplemented!(),
+                ConfigurationItem::Component(component_configuration) => {
+                    self.format_component_configuration(component_configuration, buffer)
+                }
             }
         }
         self.decrease_indentation();
@@ -63,6 +79,84 @@ impl VHDLFormatter<'_> {
         self.format_token_id(config.span.end_token - 1, buffer);
         // ;
         self.format_token_id(config.span.end_token, buffer);
+    }
+
+    pub fn format_component_configuration(
+        &self,
+        config: &ComponentConfiguration,
+        buffer: &mut String,
+    ) {
+        self.format_component_specification(&config.spec, buffer);
+        if let Some(binding_indication) = &config.bind_ind {
+            self.format_binding_indication(binding_indication, buffer)
+        }
+        self.format_v_unit_binding_indications(&config.vunit_bind_inds, buffer);
+        if let Some(block_configuration) = &config.block_config {
+            self.increase_indentation();
+            self.newline(buffer);
+            self.format_block_configuration(block_configuration, buffer);
+            self.decrease_indentation();
+        }
+        self.newline(buffer);
+        // end
+        self.format_token_id(config.span.end_token - 2, buffer);
+        buffer.push(' ');
+        // for
+        self.format_token_id(config.span.end_token - 1, buffer);
+        // ;
+        self.format_token_id(config.span.end_token, buffer);
+    }
+
+    pub fn format_binding_indication(&self, indication: &BindingIndication, buffer: &mut String) {
+        unimplemented!()
+    }
+
+    pub fn format_configuration_specification(
+        &self,
+        _configuration: &ConfigurationSpecification,
+        _buffer: &mut String,
+    ) {
+        unimplemented!()
+    }
+
+    pub fn format_component_specification(
+        &self,
+        spec: &ComponentSpecification,
+        buffer: &mut String,
+    ) {
+        // for
+        self.format_token_id(spec.span.start_token, buffer);
+        buffer.push(' ');
+        match &spec.instantiation_list {
+            InstantiationList::Labels(labels) => self.format_ident_list(labels, buffer),
+            InstantiationList::Others => self.format_token_id(spec.span.start_token + 2, buffer),
+            InstantiationList::All => self.format_token_id(spec.span.start_token + 2, buffer),
+        }
+        // :
+        self.format_token_id(spec.colon_token, buffer);
+        buffer.push(' ');
+        self.format_name(spec.component_name.as_ref(), buffer);
+    }
+
+    pub fn format_v_unit_indication(
+        &self,
+        vunit_binding_indication: &VUnitBindingIndication,
+        buffer: &mut String,
+    ) {
+        // use
+        self.format_token_id(vunit_binding_indication.span.start_token, buffer);
+        buffer.push(' ');
+        // vunit
+        self.format_token_id(vunit_binding_indication.span.start_token + 1, buffer);
+        buffer.push(' ');
+        for vunit in &vunit_binding_indication.vunit_list {
+            self.format_name(vunit.as_ref(), buffer);
+            if self.tokens.get_token(vunit.span.end_token + 1).kind == Kind::Comma {
+                self.format_token_id(vunit.span.end_token + 1, buffer);
+                buffer.push(' ');
+            }
+        }
+        self.format_token_id(vunit_binding_indication.span.end_token, buffer);
     }
 }
 
@@ -127,6 +221,39 @@ configuration cfg of entity_name is
             end for;
         end for;
         for other_name
+        end for;
+    end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+    use lib.foo.bar;
+    use vunit baz.foobar;
+    for rtl(0)
+    end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+    for rtl(0)
+        for inst: lib.pkg.comp
+            for arch
+            end for;
+        end for;
+    end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+    for rtl(0)
+        for inst: lib.pkg.comp
+            use entity work.bar;
+            use vunit baz;
+            for arch
+            end for;
         end for;
     end for;
 end configuration cfg;",

@@ -544,14 +544,6 @@ impl VHDLFormatter<'_> {
         self.format_token_id(instance.get_end_token(), buffer);
     }
 
-    pub fn format_configuration_specification(
-        &self,
-        _configuration: &ConfigurationSpecification,
-        _buffer: &mut String,
-    ) {
-        unimplemented!()
-    }
-
     pub fn format_view(&self, view: &ModeViewDeclaration, span: TokenSpan, buffer: &mut String) {
         // view <name> of
         self.format_token_span(

@@ -72,19 +72,20 @@ fn parse_component_configuration_known_spec(
     let (bind_ind, vunit_bind_inds) = peek_token!(
         ctx.stream,
         token,
+        token_id,
         End => (None, Vec::new()),
         For => (None, Vec::new()),
         Use => {
             ctx.stream.skip();
             if ctx.stream.peek_kind() == Some(Vunit) {
-                let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(ctx)?;
+                let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(ctx, token_id)?;
                 (None, vunit_bind_inds)
             } else {
                 let aspect = parse_entity_aspect(ctx)?;
                 let bind_ind = parse_binding_indication_known_entity_aspect(ctx, Some(aspect))?;
 
-                if ctx.stream.skip_if_kind(Use) {
-                    (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(ctx)?)
+                if let Some(start_token) = ctx.stream.pop_if_kind(Use) {
+                    (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(ctx, start_token)?)
                 } else {
                     (Some(bind_ind), Vec::new())
                 }
@@ -105,12 +106,14 @@ fn parse_component_configuration_known_spec(
     );
 
     ctx.stream.expect_kind(For)?;
-    expect_semicolon(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
+    let start_token = spec.span.start_token;
     Ok(ComponentConfiguration {
         spec,
         bind_ind,
         vunit_bind_inds,
         block_config,
+        span: TokenSpan::new(start_token, semicolon_token),
     })
 }
 
@@ -121,26 +124,33 @@ enum ComponentSpecificationOrName {
 
 fn parse_component_specification_or_name(
     ctx: &mut ParsingContext<'_>,
+    start_token: TokenId,
 ) -> ParseResult<ComponentSpecificationOrName> {
     peek_token!(
         ctx.stream, token,
         All => {
             ctx.stream.skip();
-            ctx.stream.expect_kind(Colon)?;
+            let colon_token = ctx.stream.expect_kind(Colon)?;
             let component_name = parse_selected_name(ctx)?;
+            let end_token = component_name.span.end_token;
             Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
                 instantiation_list: InstantiationList::All,
                 component_name,
+                colon_token,
+                span: TokenSpan::new(start_token, end_token),
             }))
 
         },
         Others => {
             ctx.stream.skip();
-            ctx.stream.expect_kind(Colon)?;
+            let colon_token = ctx.stream.expect_kind(Colon)?;
             let component_name = parse_selected_name(ctx)?;
+            let end_token = component_name.span.end_token;
             Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
                 instantiation_list: InstantiationList::Others,
                 component_name,
+                colon_token,
+                span: TokenSpan::new(start_token, end_token),
             }))
         },
         Identifier => {
@@ -148,30 +158,38 @@ fn parse_component_specification_or_name(
             let sep_token = ctx.stream.peek_expect()?;
             match sep_token.kind {
                 Colon => {
+                    let colon_token = ctx.stream.get_current_token_id();
                     ctx.stream.skip();
                     let ident = to_simple_name(ctx.stream, name)?;
                     let component_name = parse_selected_name(ctx)?;
+                    let end_token = component_name.span.end_token;
                     Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
                         instantiation_list: InstantiationList::Labels(vec![ident]),
                         component_name,
+                        colon_token,
+                        span: TokenSpan::new(start_token, end_token),
                     }))
                 }
                 Comma => {
                     ctx.stream.skip();
                     let mut idents = vec![to_simple_name(ctx.stream, name)?];
-                    loop {
+                    let colon_token = loop {
                         idents.push(ctx.stream.expect_ident()?);
                         expect_token!(
                             ctx.stream,
                             next_token,
+                            next_token_id,
                             Comma => {},
-                            Colon => break
+                            Colon => break next_token_id
                         );
-                    }
+                    };
                     let component_name = parse_selected_name(ctx)?;
+                    let end_token = component_name.span.end_token;
                     Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
                         instantiation_list: InstantiationList::Labels(idents),
                         component_name,
+                        colon_token,
+                        span: TokenSpan::new(start_token, end_token),
                     }))
                 }
                 _ => Ok(ComponentSpecificationOrName::Name(name))
@@ -184,7 +202,7 @@ fn parse_configuration_item_known_keyword(
     ctx: &mut ParsingContext<'_>,
     token: TokenId,
 ) -> ParseResult<ConfigurationItem> {
-    match parse_component_specification_or_name(ctx)? {
+    match parse_component_specification_or_name(ctx, token)? {
         ComponentSpecificationOrName::ComponentSpec(component_spec) => {
             Ok(ConfigurationItem::Component(
                 parse_component_configuration_known_spec(ctx, component_spec)?,
@@ -239,6 +257,7 @@ fn parse_block_configuration_known_keyword(
 
 fn parse_vunit_binding_indication_list_known_keyword(
     ctx: &mut ParsingContext<'_>,
+    start_token: TokenId,
 ) -> ParseResult<Vec<VUnitBindingIndication>> {
     let mut indications = Vec::new();
     loop {
@@ -249,13 +268,16 @@ fn parse_vunit_binding_indication_list_known_keyword(
         let vunit_bind_ind = loop {
             vunit_list.push(parse_name(ctx)?);
             peek_token!(
-                ctx.stream, token,
+                ctx.stream, token, token_id,
                 Comma => {
                     ctx.stream.skip();
                 },
                 SemiColon => {
                     ctx.stream.skip();
-                    break VUnitBindingIndication { vunit_list };
+                    break VUnitBindingIndication {
+                        vunit_list,
+                        span: TokenSpan::new(start_token, token_id)
+                    };
                 }
             );
         };
@@ -285,8 +307,9 @@ pub fn parse_configuration_declaration(
         match token.kind {
             Use => {
                 if ctx.stream.nth_kind_is(1, Vunit) {
+                    let start_token = ctx.stream.get_current_token_id();
                     ctx.stream.skip();
-                    break parse_vunit_binding_indication_list_known_keyword(ctx)?;
+                    break parse_vunit_binding_indication_list_known_keyword(ctx, start_token)?;
                 }
 
                 decl.push(parse_use_clause(ctx)?.map_into(Declaration::Use));
@@ -321,11 +344,12 @@ pub fn parse_configuration_specification(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ConfigurationSpecification> {
     let start_token = ctx.stream.expect_kind(For)?;
-    match parse_component_specification_or_name(ctx)? {
+    match parse_component_specification_or_name(ctx, start_token)? {
         ComponentSpecificationOrName::ComponentSpec(spec) => {
             let bind_ind = parse_binding_indication(ctx)?;
-            if ctx.stream.skip_if_kind(Use) {
-                let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(ctx)?;
+            if let Some(use_token) = ctx.stream.pop_if_kind(Use) {
+                let vunit_bind_inds =
+                    parse_vunit_binding_indication_list_known_keyword(ctx, use_token)?;
                 ctx.stream.expect_kind(End)?;
                 ctx.stream.expect_kind(For)?;
                 let end_token = expect_semicolon_or_last(ctx);
@@ -486,7 +510,8 @@ end configuration cfg;
                     .use_clause()
                     .map_into(Declaration::Use)],
                 vunit_bind_inds: vec![VUnitBindingIndication {
-                    vunit_list: vec![code.s1("baz.foobar").name()]
+                    vunit_list: vec![code.s1("baz.foobar").name()],
+                    span: code.s1("use vunit baz.foobar;").token_span()
                 }],
                 block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
@@ -562,16 +587,29 @@ end configuration cfg;
                             block_spec: code.s1("name(0 to 3)").name(),
                             use_clauses: vec![],
                             items: vec![],
-                            span: code.between("for", "end for;").token_span(),
+                            span: code
+                                .s1("for name(0 to 3)
+    end for;")
+                                .token_span(),
                         }),
                         ConfigurationItem::Block(BlockConfiguration {
                             block_spec: code.s1("other_name").name(),
                             use_clauses: vec![],
                             items: vec![],
-                            span: code.between("for", "end for;").token_span(),
+                            span: code
+                                .s1("for other_name
+    end for;")
+                                .token_span(),
                         })
                     ],
-                    span: code.between("for", "end for;").token_span(),
+                    span: code
+                        .s1("for rtl(0)
+    for name(0 to 3)
+    end for;
+    for other_name
+    end for;
+  end for;")
+                        .token_span(),
                 },
                 end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
@@ -610,7 +648,9 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").name()
+                            colon_token: code.s1(":").token(),
+                            component_name: code.s1("lib.pkg.comp").name(),
+                            span: code.s1("for inst : lib.pkg.comp").token_span()
                         },
                         bind_ind: None,
                         vunit_bind_inds: Vec::new(),
@@ -618,12 +658,28 @@ end configuration cfg;
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
                             items: vec![],
-                            span: code.between("for", "end for;").token_span(),
+                            span: code
+                                .s1("for arch
+      end for;")
+                                .token_span(),
                         }),
+                        span: code
+                            .s1("for inst : lib.pkg.comp
+      for arch
+      end for;
+    end for;")
+                            .token_span()
                     })],
-                    span: code.between("for", "end for;").token_span(),
+                    span: code
+                        .s1("for rtl(0)
+    for inst : lib.pkg.comp
+      for arch
+      end for;
+    end for;
+  end for;")
+                        .token_span(),
                 },
-                end_token: code.s("end", 2).token(),
+                end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -662,7 +718,9 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").name()
+                            colon_token: code.s1(":").token(),
+                            component_name: code.s1("lib.pkg.comp").name(),
+                            span: code.s1("for inst : lib.pkg.comp").token_span()
                         },
                         bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
@@ -673,16 +731,37 @@ end configuration cfg;
                             port_map: None
                         }),
                         vunit_bind_inds: vec![VUnitBindingIndication {
-                            vunit_list: vec![code.s1("baz").name()]
-                        },],
+                            vunit_list: vec![code.s1("baz").name()],
+                            span: code.s1("use vunit baz;").token_span()
+                        }],
                         block_config: Some(BlockConfiguration {
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
                             items: vec![],
-                            span: code.between("for", "end for;").token_span(),
+                            span: code
+                                .s1("for arch
+      end for;")
+                                .token_span(),
                         }),
+                        span: code
+                            .s1("for inst : lib.pkg.comp
+      use entity work.bar;
+      use vunit baz;
+      for arch
+      end for;
+    end for;")
+                            .token_span(),
                     })],
-                    span: code.between("for", "end for;").token_span(),
+                    span: code
+                        .s1("for rtl(0)
+    for inst : lib.pkg.comp
+      use entity work.bar;
+      use vunit baz;
+      for arch
+      end for;
+    end for;
+  end for;")
+                        .token_span(),
                 },
                 end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
@@ -720,7 +799,9 @@ end configuration cfg;
                             instantiation_list: InstantiationList::Labels(vec![code
                                 .s1("inst")
                                 .ident()]),
-                            component_name: code.s1("lib.pkg.comp").name()
+                            colon_token: code.s1(":").token(),
+                            component_name: code.s1("lib.pkg.comp").name(),
+                            span: code.s1("for inst : lib.pkg.comp").token_span()
                         },
                         bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
@@ -732,10 +813,21 @@ end configuration cfg;
                         }),
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
+                        span: code
+                            .s1("for inst : lib.pkg.comp
+      use entity lib.use_name;
+    end for;")
+                            .token_span(),
                     })],
-                    span: code.between("for", "end for;").token_span(),
+                    span: code
+                        .s1("for rtl(0)
+    for inst : lib.pkg.comp
+      use entity lib.use_name;
+    end for;
+  end for;")
+                        .token_span(),
                 },
-                end_token: code.s("end", 4).token(),
+                end_token: code.s("end", 3).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -777,11 +869,17 @@ end configuration cfg;
                                 instantiation_list: InstantiationList::Labels(vec![code
                                     .s1("inst")
                                     .ident()]),
-                                component_name: code.s1("lib.pkg.comp").name()
+                                colon_token: code.s(":", 1).token(),
+                                component_name: code.s1("lib.pkg.comp").name(),
+                                span: code.s1("for inst : lib.pkg.comp").token_span()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
                             block_config: None,
+                            span: code
+                                .s1("for inst : lib.pkg.comp
+    end for;")
+                                .token_span()
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
@@ -790,32 +888,63 @@ end configuration cfg;
                                     code.s1("inst2").ident(),
                                     code.s1("inst3").ident()
                                 ]),
-                                component_name: code.s1("lib2.pkg.comp").name()
+                                colon_token: code.s(":", 2).token(),
+                                component_name: code.s1("lib2.pkg.comp").name(),
+                                span: code
+                                    .s1("for inst1, inst2, inst3 : lib2.pkg.comp")
+                                    .token_span()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
                             block_config: None,
+                            span: code
+                                .s1("for inst1, inst2, inst3 : lib2.pkg.comp
+    end for;")
+                                .token_span()
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::All,
-                                component_name: code.s1("lib3.pkg.comp").name()
+                                component_name: code.s1("lib3.pkg.comp").name(),
+                                colon_token: code.s(":", 3).token(),
+                                span: code.s1("for all : lib3.pkg.comp").token_span()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
                             block_config: None,
+                            span: code
+                                .s1("for all : lib3.pkg.comp
+    end for;")
+                                .token_span()
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::Others,
-                                component_name: code.s1("lib4.pkg.comp").name()
+                                component_name: code.s1("lib4.pkg.comp").name(),
+                                colon_token: code.s(":", 4).token(),
+                                span: code.s1("for others : lib4.pkg.comp").token_span()
                             },
                             bind_ind: None,
                             vunit_bind_inds: Vec::new(),
                             block_config: None,
+                            span: code
+                                .s1("for others : lib4.pkg.comp
+    end for;")
+                                .token_span()
                         })
                     ],
-                    span: code.between("for", "end for;").token_span(),
+                    span: code
+                        .s1("for rtl(0)
+    for inst : lib.pkg.comp
+    end for;
+    for inst1, inst2, inst3 : lib2.pkg.comp
+    end for;
+    for all : lib3.pkg.comp
+    end for;
+    for others : lib4.pkg.comp
+    end for;
+  end for;")
+                        .token_span(),
                 },
                 end_token: code.s("end", 6).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
@@ -870,6 +999,8 @@ end configuration cfg;
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").name(),
+                    colon_token: code.s1(":").token(),
+                    span: code.s1("for all : lib.pkg.comp").token_span()
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
@@ -895,6 +1026,8 @@ end configuration cfg;
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").name(),
+                    colon_token: code.s1(":").token(),
+                    span: code.s1("for all : lib.pkg.comp").token_span()
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
@@ -922,6 +1055,8 @@ end configuration cfg;
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").name(),
+                    colon_token: code.s1(":").token(),
+                    span: code.s1("for all : lib.pkg.comp").token_span()
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
@@ -932,7 +1067,8 @@ end configuration cfg;
                     port_map: None
                 },
                 vunit_bind_inds: vec![VUnitBindingIndication {
-                    vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()]
+                    vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()],
+                    span: code.s1("use vunit bar, baz;").token_span()
                 }],
             }
         );
