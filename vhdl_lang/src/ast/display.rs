@@ -452,6 +452,7 @@ impl Display for Expression {
             Expression::Name(ref name) => write!(f, "{name}"),
             Expression::Literal(ref literal) => write!(f, "{literal}"),
             Expression::New(ref alloc) => write!(f, "new {alloc}"),
+            Expression::Parenthesized(expr) => write!(f, "({expr})"),
         }
     }
 }

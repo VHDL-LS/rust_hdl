@@ -938,6 +938,9 @@ fn search_pos_expr(
             }
             _ => NotFound,
         },
+        Expression::Parenthesized(expr) => {
+            search_pos_expr(ctx, &expr.span.pos(ctx), &expr.item, searcher)
+        }
     }
 }
 

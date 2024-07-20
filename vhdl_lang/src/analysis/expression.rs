@@ -487,6 +487,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     .resolve_subtype_indication(scope, subtype, diagnostics)
                     .map(|typ| ExpressionType::Unambiguous(typ.type_mark())),
             },
+            Expression::Parenthesized(expr) => {
+                self.expr_pos_type(scope, expr.span, &mut expr.item, diagnostics)
+            }
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
                     match self.resolve_physical_unit(scope, unit) {
@@ -869,6 +872,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             },
             Expression::New(ref mut alloc) => {
                 self.analyze_allocation(scope, alloc, diagnostics)?;
+            }
+            Expression::Parenthesized(ref mut expr) => {
+                self.expr_pos_with_ttyp(
+                    scope,
+                    target_type,
+                    expr.span,
+                    &mut expr.item,
+                    diagnostics,
+                )?;
             }
         }
 

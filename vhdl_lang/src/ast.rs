@@ -300,6 +300,7 @@ pub enum Expression {
 
     /// LRM 9.3.7 Allocators
     New(Box<WithTokenSpan<Allocator>>),
+    Parenthesized(Box<WithTokenSpan<Expression>>),
 }
 
 /// An identifier together with the lexical source location it occurs in.

@@ -5,23 +5,13 @@ use crate::ast::{
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
-use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::{Allocator, QualifiedExpression};
-use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
     pub fn format_expression(&self, expression: WithTokenSpan<&Expression>, buffer: &mut Buffer) {
         let span = expression.span;
         use Expression::*;
-        let is_parenthesized = self.tokens.get_token(span.start_token).kind == Kind::LeftPar
-            && self.tokens.get_token(span.end_token).kind == Kind::RightPar;
-        let reduced_span: TokenSpan = if is_parenthesized {
-            self.format_token_id(span.start_token, buffer);
-            TokenSpan::new(span.start_token + 1, span.end_token - 1)
-        } else {
-            span
-        };
         match &expression.item {
             Binary(op, lhs, rhs) => {
                 self.format_expression(lhs.as_ref().as_ref(), buffer);
@@ -40,14 +30,20 @@ impl VHDLFormatter<'_> {
                 }
                 self.format_expression(rhs.as_ref().as_ref(), buffer);
             }
-            Aggregate(aggregate) => self.format_element_associations(aggregate, buffer),
+            Aggregate(aggregate) => {
+                self.format_token_id(span.start_token, buffer);
+                self.format_element_associations(aggregate, buffer);
+                self.format_token_id(span.end_token, buffer);
+            }
             Qualified(qualified_expr) => self.format_qualified_expression(qualified_expr, buffer),
-            Name(name) => self.format_name(WithTokenSpan::new(name, reduced_span), buffer),
-            Literal(_) => self.format_token_span(reduced_span, buffer),
+            Name(name) => self.format_name(WithTokenSpan::new(name, span), buffer),
+            Literal(_) => self.format_token_span(span, buffer),
             New(allocator) => self.format_allocator(allocator, buffer),
-        }
-        if is_parenthesized {
-            self.format_token_id(span.end_token, buffer);
+            Parenthesized(expression) => {
+                self.format_token_id(span.start_token, buffer);
+                self.format_expression(expression.as_ref().as_ref(), buffer);
+                self.format_token_id(span.end_token, buffer);
+            }
         }
     }
 
@@ -152,7 +148,11 @@ impl VHDLFormatter<'_> {
         self.format_name(expression.type_mark.as_ref(), buffer);
         // '
         self.format_token_id(expression.type_mark.span.end_token + 1, buffer);
+        // (
+        self.format_token_id(expression.expr.span.start_token, buffer);
         self.format_expression(expression.expr.as_ref(), buffer);
+        // )
+        self.format_token_id(expression.expr.span.end_token, buffer);
     }
 
     pub fn format_allocator(&self, allocator: &WithTokenSpan<Allocator>, buffer: &mut Buffer) {

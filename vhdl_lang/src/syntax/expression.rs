@@ -490,7 +490,22 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
         LeftPar => {
             let start_token = ctx.stream.get_current_token_id();
             ctx.stream.skip();
-            parse_expression_or_aggregate(ctx, start_token).map(|expr| expr.start_with(token_id))
+            let expr_or_aggregate = parse_expression_or_aggregate(ctx, start_token);
+            if let Ok(WithTokenSpan {
+                item: Expression::Aggregate(_),
+                span: _,
+            }) = expr_or_aggregate
+            {
+                expr_or_aggregate.map(|expr| expr.start_with(start_token))
+            } else {
+                let end_token = ctx.stream.get_last_token_id();
+                expr_or_aggregate.map(|expr| {
+                    WithTokenSpan::new(
+                        Expression::Parenthesized(Box::new(expr)),
+                        TokenSpan::new(start_token, end_token),
+                    )
+                })
+            }
         }
 
         kind => {
