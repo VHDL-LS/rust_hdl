@@ -555,7 +555,7 @@ fn parse_case_generate_statement(
     ctx.stream.expect_kind(When)?;
 
     let mut alternatives = Vec::with_capacity(2);
-    loop {
+    let end_token = loop {
         let start_token = ctx.stream.get_current_token_id();
         let alternative_label = {
             if ctx.stream.next_kinds_are(&[Identifier, Colon]) {
@@ -578,11 +578,11 @@ fn parse_case_generate_statement(
         });
 
         expect_token!(
-            ctx.stream, end_token,
-            End => break,
+            ctx.stream, end_token, end_token_id,
+            End => break end_token_id,
             When => continue
         );
-    }
+    };
 
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
@@ -594,6 +594,7 @@ fn parse_case_generate_statement(
             alternatives,
         },
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
+        end_token,
         span: TokenSpan::new(start_tok, end_tok),
     })
 }
@@ -2151,6 +2152,7 @@ end generate;",
                 ],
             },
             end_label_pos: None,
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -2204,6 +2206,7 @@ end generate gen1;",
                 ],
             },
             end_label_pos: Some(code.s("gen1", 2).pos()),
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);

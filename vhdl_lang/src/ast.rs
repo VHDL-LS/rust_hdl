@@ -1269,6 +1269,7 @@ pub struct IfGenerateStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseGenerateStatement {
     pub sels: Selection<GenerateBody>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 

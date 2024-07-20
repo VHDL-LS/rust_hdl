@@ -547,7 +547,54 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
-        unimplemented!()
+        // case
+        self.format_token_id(span.start_token, buffer);
+        buffer.push(' ');
+        self.format_expression(statement.sels.expression.as_ref(), buffer);
+        buffer.push(' ');
+        // generate
+        self.format_token_id(statement.sels.expression.span.end_token + 1, buffer);
+        self.increase_indentation();
+        for alternative in &statement.sels.alternatives {
+            self.newline(buffer);
+            for (i, choice) in alternative.choices.iter().enumerate() {
+                if i == 0 {
+                    if let Some(label) = &alternative.item.alternative_label {
+                        // when
+                        self.format_token_id(label.tree.token - 1, buffer);
+                        buffer.push(' ');
+                        // <ident>
+                        self.format_token_id(label.tree.token, buffer);
+                        // :
+                        self.format_token_id(label.tree.token + 1, buffer);
+                    } else {
+                        // when
+                        self.format_token_id(choice.span.start_token - 1, buffer);
+                    }
+                    buffer.push(' ');
+                }
+                self.format_choice(choice, buffer);
+                if i < alternative.choices.len() - 1 {
+                    buffer.push(' ');
+                    // |
+                    self.format_token_id(choice.span.end_token + 1, buffer);
+                    buffer.push(' ');
+                }
+                if i == alternative.choices.len() - 1 {
+                    buffer.push(' ');
+                    // =>
+                    self.format_token_id(choice.span.end_token + 1, buffer);
+                }
+            }
+            self.format_generate_body(&alternative.item, buffer);
+        }
+        self.decrease_indentation();
+        self.newline(buffer);
+        self.format_token_span(
+            TokenSpan::new(statement.end_token, span.end_token - 1),
+            buffer,
+        );
+        self.format_token_id(span.end_token, buffer);
     }
 
     pub fn format_generate_body(&self, generate_body: &GenerateBody, buffer: &mut String) {
@@ -861,6 +908,28 @@ with x(0) + 1 select foo(0) <= bar(1, 2) when 0 | 1, def when others;",
         check_statement(
             "\
 with x(0) + 1 select foo(0) <= transport bar(1, 2) after 2 ns when 0 | 1, def when others;",
+        );
+    }
+
+    #[test]
+    fn format_case_generate_statements() {
+        check_statement(
+            "\
+gen: case expr(0) + 2 generate
+    when 1 | 2 =>
+        sig <= value;
+    when others =>
+        foo(clk);
+end generate;",
+        );
+        check_statement(
+            "\
+gen1: case expr(0) + 2 generate
+    when alt1: 1 | 2 =>
+        sig <= value;
+    when alt2: others =>
+        foo(clk);
+end generate gen1;",
         );
     }
 }
