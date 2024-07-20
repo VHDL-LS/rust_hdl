@@ -1,224 +1,31 @@
 use crate::ast::WithDecl;
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
-use crate::syntax::{Comment, Value};
-use crate::{kind_str, Token, TokenAccess, TokenId};
+use crate::{TokenAccess, TokenId};
 use vhdl_lang::ast::Ident;
 use vhdl_lang::TokenSpan;
 
-fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
-    if !comment.multi_line {
-        return false;
-    }
-    if comment.range.start.line != comment.range.end.line {
-        return false;
-    }
-    token.pos.start().line == comment.range.start.line
-}
-
 impl VHDLFormatter<'_> {
-    fn format_comment(&self, comment: &Comment, buffer: &mut String) {
-        if !comment.multi_line {
-            buffer.push_str("--");
-            buffer.push_str(comment.value.trim_end())
-        } else {
-            buffer.push_str("/*");
-            buffer.push_str(&comment.value);
-            buffer.push_str("*/");
-        }
+    pub(crate) fn format_token_id(&self, id: TokenId, buffer: &mut Buffer) {
+        buffer.push_token(self.tokens.get_token(id));
     }
 
-    fn format_leading_comments(&self, comments: &[Comment], buffer: &mut String) {
-        for comment in comments {
-            self.format_comment(comment, buffer);
-            self.newline(buffer);
-        }
-    }
-
-    pub(crate) fn format_token_id(&self, id: TokenId, buffer: &mut String) {
-        self.format_token(self.tokens.get_token(id), buffer);
-    }
-
-    pub(crate) fn format_token_span(&self, span: TokenSpan, buffer: &mut String) {
+    pub(crate) fn format_token_span(&self, span: TokenSpan, buffer: &mut Buffer) {
         for (index, id) in span.iter().enumerate() {
             self.format_token_id(id, buffer);
             if index < span.len() - 1 {
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
     }
 
-    pub(crate) fn join_token_span(&self, span: TokenSpan, buffer: &mut String) {
+    pub(crate) fn join_token_span(&self, span: TokenSpan, buffer: &mut Buffer) {
         for id in span.iter() {
             self.format_token_id(id, buffer);
         }
     }
 
-    pub(crate) fn format_token(&self, token: &Token, buffer: &mut String) {
-        if let Some(comments) = &token.comments {
-            // This is for example the case for situations like
-            // some_token /* comment in between */ some_other token
-            if comments.leading.len() == 1
-                && leading_comment_is_on_token_line(&comments.leading[0], token)
-            {
-                self.format_comment(&comments.leading[0], buffer);
-                buffer.push(' ');
-            } else {
-                self.format_leading_comments(comments.leading.as_slice(), buffer);
-            }
-        }
-        match &token.value {
-            Value::Identifier(ident) => buffer.push_str(&ident.to_string()),
-            Value::String(string) => {
-                buffer.push('"');
-                buffer.push_str(&string.to_string());
-                buffer.push('"');
-            }
-            Value::BitString(value, _) => buffer.push_str(&value.to_string()),
-            Value::AbstractLiteral(value, _) => buffer.push_str(&value.to_string()),
-            Value::Character(char) => {
-                buffer.push('\'');
-                buffer.push((*char) as char);
-                buffer.push('\'');
-            }
-            Value::Text(text) => buffer.push_str(&text.to_string()),
-            Value::None => buffer.push_str(kind_str(token.kind)),
-        }
-        if let Some(comments) = &token.comments {
-            if let Some(trailing_comment) = &comments.trailing {
-                buffer.push(' ');
-                self.format_comment(trailing_comment, buffer);
-            }
-        }
-    }
-
-    pub(crate) fn format_ident(&self, ident: &WithDecl<Ident>, buffer: &mut String) {
+    pub(crate) fn format_ident(&self, ident: &WithDecl<Ident>, buffer: &mut Buffer) {
         self.format_token_id(ident.tree.token, buffer)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::analysis::tests::Code;
-    use crate::formatting::VHDLFormatter;
-
-    fn check_token_formatted(input: &str, expected: &[&str]) {
-        let code = Code::new(input);
-        let tokens = code.tokenize();
-        let formatter = VHDLFormatter::new(&tokens);
-        for (i, str) in expected.iter().enumerate() {
-            let mut buffer = String::new();
-            formatter.format_token(&tokens[i], &mut buffer);
-            assert_eq!(&buffer, str);
-        }
-    }
-
-    #[test]
-    fn format_simple_token() {
-        check_token_formatted("entity", &["entity"]);
-        check_token_formatted("foobar", &["foobar"]);
-        check_token_formatted("1 23 4E5 4e5", &["1", "23", "4E5", "4e5"]);
-    }
-
-    #[test]
-    fn preserves_identifier_casing() {
-        check_token_formatted("FooBar foobar", &["FooBar", "foobar"]);
-    }
-
-    #[test]
-    fn character_formatting() {
-        check_token_formatted("'a' 'Z'", &["'a'", "'Z'"]);
-    }
-
-    #[test]
-    fn string_formatting() {
-        check_token_formatted(r#""ABC" "" "DEF""#, &["\"ABC\"", "\"\"", "\"DEF\""]);
-    }
-
-    #[test]
-    fn bit_string_formatting() {
-        check_token_formatted(r#"B"10" 20B"8" X"2F""#, &["B\"10\"", "20B\"8\"", "X\"2F\""]);
-    }
-
-    #[test]
-    fn leading_comment() {
-        check_token_formatted(
-            "\
--- I am a comment
-foobar
-        ",
-            &["\
--- I am a comment
-foobar"],
-        );
-    }
-
-    #[test]
-    fn multiple_leading_comments() {
-        check_token_formatted(
-            "\
--- I am a comment
--- So am I
-foobar
-        ",
-            &["\
--- I am a comment
--- So am I
-foobar"],
-        );
-    }
-
-    #[test]
-    fn trailing_comments() {
-        check_token_formatted(
-            "\
-foobar --After foobar comes foobaz
-        ",
-            &["foobar --After foobar comes foobaz"],
-        );
-    }
-
-    #[test]
-    fn single_multiline_comment() {
-        check_token_formatted(
-            "\
-/** Some documentation.
-  * This is a token named 'entity'
-  */
-entity
-        ",
-            &["\
-/** Some documentation.
-  * This is a token named 'entity'
-  */
-entity"],
-        );
-    }
-
-    #[test]
-    fn multiline_comment_and_simple_comment() {
-        check_token_formatted(
-            "\
-/* I am a multiline comment */
--- And I am a single line comment
-entity
-        ",
-            &["\
-/* I am a multiline comment */
--- And I am a single line comment
-entity"],
-        );
-    }
-
-    #[test]
-    fn leading_comment_and_trailing_comment() {
-        check_token_formatted(
-            "\
--- Leading comment
-entity -- Trailing comment
-        ",
-            &["\
--- Leading comment
-entity -- Trailing comment"],
-        );
     }
 }

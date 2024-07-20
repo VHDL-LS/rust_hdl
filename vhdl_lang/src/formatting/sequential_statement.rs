@@ -4,6 +4,7 @@ use crate::ast::{
     LabeledSequentialStatement, LoopStatement, ReportStatement, SequentialStatement,
     SignalAssignment, WaitStatement,
 };
+use crate::formatting::buffer::Buffer;
 use crate::TokenSpan;
 use vhdl_lang::ast::{
     ExitStatement, IfStatement, NextStatement, SignalForceAssignment, SignalReleaseAssignment,
@@ -15,7 +16,7 @@ impl VHDLFormatter<'_> {
     pub fn format_sequential_statements(
         &self,
         statements: &[LabeledSequentialStatement],
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.join_on_newline(
             statements,
@@ -26,7 +27,7 @@ impl VHDLFormatter<'_> {
     pub fn format_labeled_sequential_statement(
         &self,
         statement: &LabeledSequentialStatement,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_optional_label(statement.label.tree.as_ref(), buffer);
         self.format_sequential_statement(&statement.statement, buffer);
@@ -35,7 +36,7 @@ impl VHDLFormatter<'_> {
     pub fn format_sequential_statement(
         &self,
         statement: &WithTokenSpan<SequentialStatement>,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         use SequentialStatement::*;
         let span = statement.span;
@@ -43,7 +44,7 @@ impl VHDLFormatter<'_> {
             Wait(wait_statement) => self.format_wait_statement(wait_statement, span, buffer),
             Assert(assert) => {
                 self.format_token_id(span.start_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_assert_statement(assert, buffer);
                 self.format_token_id(span.end_token, buffer);
             }
@@ -79,7 +80,7 @@ impl VHDLFormatter<'_> {
             Return(stmt) => {
                 self.format_token_id(span.start_token, buffer);
                 if let Some(expr) = &stmt.expression {
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_expression(expr.as_ref(), buffer);
                 }
                 self.format_token_id(span.end_token, buffer);
@@ -92,33 +93,33 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &WaitStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // wait
         self.format_token_id(span.start_token, buffer);
         if let Some(name_list) = &statement.sensitivity_clause {
-            buffer.push(' ');
+            buffer.push_whitespace();
             // on
             self.format_token_id(span.start_token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             for (i, item) in name_list.items.iter().enumerate() {
                 self.format_name(item.as_ref(), buffer);
                 if let Some(token) = name_list.tokens.get(i) {
                     self.format_token_id(*token, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
             }
         }
         if let Some(condition_clause) = &statement.condition_clause {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(condition_clause.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(condition_clause.as_ref(), buffer);
         }
         if let Some(timeout_clause) = &statement.timeout_clause {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(timeout_clause.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(timeout_clause.as_ref(), buffer);
         }
 
@@ -130,16 +131,16 @@ impl VHDLFormatter<'_> {
         &self,
         report: &ReportStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // report
         self.format_token_id(span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_expression(report.report.as_ref(), buffer);
         if let Some(severity) = &report.severity {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(severity.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(severity.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -149,22 +150,22 @@ impl VHDLFormatter<'_> {
         &self,
         assignment: &VariableAssignment,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         if let AssignmentRightHand::Selected(selected) = &assignment.rhs {
             // with
             self.format_token_id(selected.expression.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(selected.expression.as_ref(), buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             // select
             self.format_token_id(selected.expression.span.end_token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_target(&assignment.target, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_assignment_right_hand(
             &assignment.rhs,
             |formatter, expr, buffer| formatter.format_expression(expr.as_ref(), buffer),
@@ -177,15 +178,15 @@ impl VHDLFormatter<'_> {
         &self,
         assignment: &SignalAssignment,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_target(&assignment.target, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         if let Some(delay_mechanism) = &assignment.delay_mechanism {
             self.format_delay_mechanism(delay_mechanism, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_assignment_right_hand(&assignment.rhs, Self::format_waveform, buffer);
         self.format_token_id(span.end_token, buffer);
@@ -194,7 +195,7 @@ impl VHDLFormatter<'_> {
     pub fn format_delay_mechanism(
         &self,
         delay_mechanism: &WithTokenSpan<DelayMechanism>,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         match &delay_mechanism.item {
             DelayMechanism::Transport => {
@@ -203,9 +204,9 @@ impl VHDLFormatter<'_> {
             DelayMechanism::Inertial { reject } => {
                 if let Some(reject) = reject {
                     self.format_token_id(delay_mechanism.span.start_token, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_expression(reject.as_ref(), buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
                 // inertial
                 self.format_token_id(delay_mechanism.span.end_token, buffer);
@@ -217,19 +218,19 @@ impl VHDLFormatter<'_> {
         &self,
         assignment: &SignalForceAssignment,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_target(&assignment.target, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // <=
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // force
         self.format_token_id(assignment.target.span.end_token + 2, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         if assignment.force_mode.is_some() {
             self.format_token_id(assignment.target.span.end_token + 3, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_assignment_right_hand(
             &assignment.rhs,
@@ -243,17 +244,17 @@ impl VHDLFormatter<'_> {
         &self,
         assignment: &SignalReleaseAssignment,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_target(&assignment.target, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // <=
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // release
         self.format_token_id(assignment.target.span.end_token + 2, buffer);
         if assignment.force_mode.is_some() {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(assignment.target.span.end_token + 3, buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -263,28 +264,28 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &IfStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         for cond in &statement.conds.conditionals {
             let condition = &cond.condition;
             // if | elsif
             self.format_token_id(condition.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(condition.as_ref(), buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             // then
             self.format_token_id(condition.span.end_token + 1, buffer);
-            self.increase_indentation();
+            buffer.increase_indent();
             self.format_sequential_statements(&cond.item, buffer);
-            self.decrease_indentation();
-            self.newline(buffer);
+            buffer.decrease_indent();
+            buffer.line_break();
         }
         if let Some((statements, token)) = &statement.conds.else_item {
             self.format_token_id(*token, buffer);
-            self.increase_indentation();
+            buffer.increase_indent();
             self.format_sequential_statements(statements, buffer);
-            self.decrease_indentation();
-            self.newline(buffer);
+            buffer.decrease_indent();
+            buffer.line_break();
         }
         if statement.end_label_pos.is_some() {
             // end if <label>
@@ -302,7 +303,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(span.end_token, buffer);
     }
 
-    pub fn format_choice(&self, choice: &WithTokenSpan<Choice>, buffer: &mut String) {
+    pub fn format_choice(&self, choice: &WithTokenSpan<Choice>, buffer: &mut Buffer) {
         match &choice.item {
             Choice::Expression(expr) => {
                 self.format_expression(WithTokenSpan::new(expr, choice.span), buffer)
@@ -316,7 +317,7 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &CaseStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // case
         self.format_token_id(span.start_token, buffer);
@@ -324,39 +325,39 @@ impl VHDLFormatter<'_> {
             // ?
             self.format_token_id(span.start_token + 1, buffer);
         }
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_expression(statement.expression.as_ref(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // is
         self.format_token_id(statement.expression.span.end_token + 1, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         for alternative in &statement.alternatives {
-            self.newline(buffer);
+            buffer.line_break();
             for (i, choice) in alternative.choices.iter().enumerate() {
                 if i == 0 {
                     // when
                     self.format_token_id(choice.span.start_token - 1, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
                 self.format_choice(choice, buffer);
                 if i < alternative.choices.len() - 1 {
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     // |
                     self.format_token_id(choice.span.end_token + 1, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
                 if i == alternative.choices.len() - 1 {
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     // =>
                     self.format_token_id(choice.span.end_token + 1, buffer);
                 }
             }
-            self.increase_indentation();
+            buffer.increase_indent();
             self.format_sequential_statements(&alternative.item, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         if statement.is_matching {
             self.format_token_span(
                 TokenSpan::new(statement.end_token, span.end_token - 2),
@@ -376,16 +377,16 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &LoopStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         if let Some(scheme) = &statement.iteration_scheme {
             match scheme {
                 IterationScheme::While(expression) => {
                     // while
                     self.format_token_id(expression.span.start_token - 1, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_expression(expression.as_ref(), buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
                 IterationScheme::For(ident, range) => {
                     // for <ident> in
@@ -393,17 +394,17 @@ impl VHDLFormatter<'_> {
                         TokenSpan::new(ident.tree.token - 1, ident.tree.token + 1),
                         buffer,
                     );
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_discrete_range(range, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
             }
         }
         self.format_token_id(statement.loop_token, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_sequential_statements(&statement.statements, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(statement.end_token, span.end_token - 1),
             buffer,
@@ -415,19 +416,19 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &NextStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // next
         self.format_token_id(span.start_token, buffer);
         if let Some(label) = &statement.loop_label {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(label.item.token, buffer);
         }
         if let Some(condition) = &statement.condition {
-            buffer.push(' ');
+            buffer.push_whitespace();
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(condition.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -437,19 +438,19 @@ impl VHDLFormatter<'_> {
         &self,
         statement: &ExitStatement,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // next
         self.format_token_id(span.start_token, buffer);
         if let Some(label) = &statement.loop_label {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(label.item.token, buffer);
         }
         if let Some(condition) = &statement.condition {
-            buffer.push(' ');
+            buffer.push_whitespace();
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(condition.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);

@@ -2,6 +2,7 @@ use crate::ast::{
     BindingIndication, BlockConfiguration, ComponentSpecification, ConfigurationDeclaration,
     ConfigurationItem, ConfigurationSpecification, EntityAspect, VUnitBindingIndication,
 };
+use crate::formatting::buffer::Buffer;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan, VHDLFormatter};
 use vhdl_lang::ast::{ComponentConfiguration, InstantiationList};
@@ -10,12 +11,11 @@ impl VHDLFormatter<'_> {
     pub fn format_configuration(
         &self,
         configuration: &ConfigurationDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_context_clause(&configuration.context_clause, buffer);
         if !configuration.context_clause.is_empty() {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_breaks(2);
         }
         // configuration cfg of entity_name is
         self.format_token_span(
@@ -25,13 +25,13 @@ impl VHDLFormatter<'_> {
             ),
             buffer,
         );
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_declarations(&configuration.decl, buffer);
         self.format_v_unit_binding_indications(&configuration.vunit_bind_inds, buffer);
-        self.newline(buffer);
+        buffer.line_break();
         self.format_block_configuration(&configuration.block_config, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(configuration.end_token, configuration.span.end_token - 1),
             buffer,
@@ -42,25 +42,25 @@ impl VHDLFormatter<'_> {
     pub fn format_v_unit_binding_indications(
         &self,
         vunits: &[VUnitBindingIndication],
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         for vunit_bind_ind in vunits {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_v_unit_indication(vunit_bind_ind, buffer);
         }
     }
 
-    pub fn format_block_configuration(&self, config: &BlockConfiguration, buffer: &mut String) {
+    pub fn format_block_configuration(&self, config: &BlockConfiguration, buffer: &mut Buffer) {
         if !config.use_clauses.is_empty() {
             unreachable!("Not implemented on AST side")
         }
         // for
         self.format_token_id(config.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(config.block_spec.as_ref(), buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         for item in &config.items {
-            self.newline(buffer);
+            buffer.line_break();
             match item {
                 ConfigurationItem::Block(block_configuration) => {
                     self.format_block_configuration(block_configuration, buffer)
@@ -70,11 +70,11 @@ impl VHDLFormatter<'_> {
                 }
             }
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end
         self.format_token_id(config.span.end_token - 2, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // for
         self.format_token_id(config.span.end_token - 1, buffer);
         // ;
@@ -84,37 +84,37 @@ impl VHDLFormatter<'_> {
     pub fn format_component_configuration(
         &self,
         config: &ComponentConfiguration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_component_specification(&config.spec, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         if let Some(binding_indication) = &config.bind_ind {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_binding_indication(binding_indication, buffer)
         }
         self.format_v_unit_binding_indications(&config.vunit_bind_inds, buffer);
         if let Some(block_configuration) = &config.block_config {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_block_configuration(block_configuration, buffer);
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end
         self.format_token_id(config.span.end_token - 2, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // for
         self.format_token_id(config.span.end_token - 1, buffer);
         // ;
         self.format_token_id(config.span.end_token, buffer);
     }
 
-    pub fn format_binding_indication(&self, indication: &BindingIndication, buffer: &mut String) {
+    pub fn format_binding_indication(&self, indication: &BindingIndication, buffer: &mut Buffer) {
         // use
         self.format_token_id(indication.span.start_token, buffer);
         if let Some(aspect) = &indication.entity_aspect {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(indication.span.start_token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             match aspect {
                 EntityAspect::Entity(entity, architecture) => {
                     self.format_name(entity.as_ref(), buffer);
@@ -131,16 +131,16 @@ impl VHDLFormatter<'_> {
             }
         }
         if let Some(map_aspect) = &indication.generic_map {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_map_aspect(map_aspect, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
         if let Some(map_aspect) = &indication.port_map {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_map_aspect(map_aspect, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
         self.format_token_id(indication.span.end_token, buffer);
     }
@@ -148,19 +148,19 @@ impl VHDLFormatter<'_> {
     pub fn format_configuration_specification(
         &self,
         configuration: &ConfigurationSpecification,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_component_specification(&configuration.spec, buffer);
-        self.increase_indentation();
-        self.newline(buffer);
+        buffer.increase_indent();
+        buffer.line_break();
         self.format_binding_indication(&configuration.bind_ind, buffer);
         self.format_v_unit_binding_indications(&configuration.vunit_bind_inds, buffer);
-        self.decrease_indentation();
+        buffer.decrease_indent();
 
         if let Some(end_token) = configuration.end_token {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_token_id(end_token, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(end_token + 1, buffer);
             self.format_token_id(configuration.span.end_token, buffer);
         }
@@ -169,11 +169,11 @@ impl VHDLFormatter<'_> {
     pub fn format_component_specification(
         &self,
         spec: &ComponentSpecification,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // for
         self.format_token_id(spec.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         match &spec.instantiation_list {
             InstantiationList::Labels(labels) => self.format_ident_list(labels, buffer),
             InstantiationList::Others => self.format_token_id(spec.span.start_token + 1, buffer),
@@ -181,26 +181,26 @@ impl VHDLFormatter<'_> {
         }
         // :
         self.format_token_id(spec.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(spec.component_name.as_ref(), buffer);
     }
 
     pub fn format_v_unit_indication(
         &self,
         vunit_binding_indication: &VUnitBindingIndication,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // use
         self.format_token_id(vunit_binding_indication.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // vunit
         self.format_token_id(vunit_binding_indication.span.start_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         for vunit in &vunit_binding_indication.vunit_list {
             self.format_name(vunit.as_ref(), buffer);
             if self.tokens.get_token(vunit.span.end_token + 1).kind == Kind::Comma {
                 self.format_token_id(vunit.span.end_token + 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         self.format_token_id(vunit_binding_indication.span.end_token, buffer);

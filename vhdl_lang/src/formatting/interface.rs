@@ -4,6 +4,7 @@ use crate::ast::{
     InterfaceSubprogramDeclaration, MapAspect, ModeIndication, ModeViewElement,
     ModeViewIndicationKind, SeparatedList, SimpleModeIndication, SubprogramDefault,
 };
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
@@ -12,7 +13,7 @@ use vhdl_lang::ast::{InterfaceFileDeclaration, ModeViewIndication};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
-    pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut String) {
+    pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut Buffer) {
         let span = clause.span;
         let end_token = if self.tokens.get_token(span.start_token).kind == Kind::LeftPar {
             // We start with a `(` immediately
@@ -27,17 +28,17 @@ impl VHDLFormatter<'_> {
         // parameter (
         // (
         self.format_token_span(TokenSpan::new(span.start_token, end_token), buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         for (i, item) in clause.items.iter().enumerate() {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_interface_declaration(item, buffer);
             if i < clause.items.len() - 1 {
                 self.format_token_id(item.get_end_token() + 1, buffer);
             }
         }
-        self.decrease_indentation();
+        buffer.decrease_indent();
         if !clause.items.is_empty() {
-            self.newline(buffer);
+            buffer.line_break();
         }
         if self.tokens.get_token(span.end_token).kind == Kind::SemiColon {
             // );
@@ -52,7 +53,7 @@ impl VHDLFormatter<'_> {
         &self,
         list: &SeparatedList<AssociationElement>,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // port map (
         // generic map (
@@ -60,37 +61,37 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(span.start_token, span.start_token + 2),
             buffer,
         );
-        self.increase_indentation();
+        buffer.increase_indent();
         for (i, item) in list.items.iter().enumerate() {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_association_element(item, buffer);
             if let Some(token) = list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
             }
         }
-        self.decrease_indentation();
+        buffer.decrease_indent();
         if !list.items.is_empty() {
-            self.newline(buffer);
+            buffer.line_break();
         }
         // )
         self.format_token_id(span.end_token, buffer);
     }
 
-    pub fn format_map_aspect(&self, aspect: &MapAspect, buffer: &mut String) {
+    pub fn format_map_aspect(&self, aspect: &MapAspect, buffer: &mut Buffer) {
         self.format_map_aspect_span(&aspect.list, aspect.span, buffer);
     }
 
-    pub fn format_association_element(&self, element: &AssociationElement, buffer: &mut String) {
+    pub fn format_association_element(&self, element: &AssociationElement, buffer: &mut Buffer) {
         if let Some(formal) = &element.formal {
             self.format_name(formal.as_ref(), buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(formal.span.end_token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_actual_part(&element.actual, buffer)
     }
 
-    pub fn format_actual_part(&self, actual_part: &WithTokenSpan<ActualPart>, buffer: &mut String) {
+    pub fn format_actual_part(&self, actual_part: &WithTokenSpan<ActualPart>, buffer: &mut Buffer) {
         match &actual_part.item {
             ActualPart::Expression(expression) => {
                 self.format_expression(WithTokenSpan::new(expression, actual_part.span), buffer)
@@ -102,7 +103,7 @@ impl VHDLFormatter<'_> {
     pub fn format_interface_declaration(
         &self,
         declaration: &InterfaceDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         use InterfaceDeclaration::*;
         match declaration {
@@ -110,7 +111,7 @@ impl VHDLFormatter<'_> {
             File(file) => self.format_interface_file_declaration(file, buffer),
             Type(type_decl) => {
                 self.format_token_id(type_decl.tree.token - 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_ident(type_decl, buffer);
             }
             Subprogram(subprogram) => {
@@ -123,27 +124,27 @@ impl VHDLFormatter<'_> {
     pub fn format_interface_file_declaration(
         &self,
         declaration: &InterfaceFileDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_id(declaration.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_ident_list(&declaration.idents, buffer);
         self.format_token_id(declaration.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&declaration.subtype_indication, buffer);
     }
 
     pub fn format_interface_subprogram_declaration(
         &self,
         subprogram: &InterfaceSubprogramDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_subprogram_specification(&subprogram.specification, buffer);
         if let Some(default) = &subprogram.default {
-            buffer.push(' ');
+            buffer.push_whitespace();
             // is
             self.format_token_id(subprogram.specification.span().end_token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             match default {
                 SubprogramDefault::Name(name) => self.format_name(name.as_ref(), buffer),
                 SubprogramDefault::Box => {
@@ -156,16 +157,16 @@ impl VHDLFormatter<'_> {
     pub fn format_interface_package_declaration(
         &self,
         package: &InterfacePackageDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // package <ident> is new
         self.format_token_span(
             TokenSpan::new(package.span.start_token, package.span.start_token + 3),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(package.package_name.as_ref(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         let span = package.generic_map.span();
         match &package.generic_map.item {
             InterfacePackageGenericMapAspect::Map(map) => {
@@ -174,10 +175,10 @@ impl VHDLFormatter<'_> {
             InterfacePackageGenericMapAspect::Box | InterfacePackageGenericMapAspect::Default => {
                 // generic
                 self.format_token_id(span.start_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 // map
                 self.format_token_id(span.start_token + 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 //(
                 self.format_token_id(span.start_token + 2, buffer);
                 // <> | default
@@ -191,7 +192,7 @@ impl VHDLFormatter<'_> {
     pub fn format_interface_object(
         &self,
         object: &InterfaceObjectDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // [signal] my_signal :
         self.format_token_span(
@@ -199,11 +200,11 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         self.format_token_id(object.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_mode(&object.mode, buffer);
     }
 
-    pub fn format_mode(&self, mode: &ModeIndication, buffer: &mut String) {
+    pub fn format_mode(&self, mode: &ModeIndication, buffer: &mut Buffer) {
         use ModeIndication::*;
         match mode {
             Simple(simple) => self.format_simple_mode(simple, buffer),
@@ -211,10 +212,10 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_mode_view_indication(&self, mode: &ModeViewIndication, buffer: &mut String) {
+    pub fn format_mode_view_indication(&self, mode: &ModeViewIndication, buffer: &mut Buffer) {
         // view
         self.format_token_id(mode.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         match &mode.kind {
             ModeViewIndicationKind::Array => {
                 self.format_token_id(mode.name.span.start_token - 1, buffer);
@@ -226,20 +227,20 @@ impl VHDLFormatter<'_> {
             }
         }
         if let Some((token, subtype)) = &mode.subtype_indication {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(*token, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_subtype_indication(subtype, buffer);
         }
     }
 
-    pub fn format_element_mode(&self, mode: &ElementMode, buffer: &mut String) {
+    pub fn format_element_mode(&self, mode: &ElementMode, buffer: &mut Buffer) {
         match mode {
             ElementMode::Simple(simple) => self.format_token_id(simple.token, buffer),
             ElementMode::Record(name) => {
                 // view
                 self.format_token_id(name.get_start_token() - 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_name(name.as_ref(), buffer)
             }
             ElementMode::Array(name) => {
@@ -255,7 +256,7 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_ident_separated_list(&self, ident_list: &IdentList, buffer: &mut String) {
+    pub fn format_ident_separated_list(&self, ident_list: &IdentList, buffer: &mut Buffer) {
         for (i, item) in ident_list.items.iter().enumerate() {
             self.format_token_id(item.item.token, buffer);
             if let Some(token) = ident_list.tokens.get(i) {
@@ -264,19 +265,19 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_mode_view_element(&self, mode: &ModeViewElement, buffer: &mut String) {
+    pub fn format_mode_view_element(&self, mode: &ModeViewElement, buffer: &mut Buffer) {
         self.format_ident_list(&mode.names, buffer);
         self.format_token_id(mode.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_element_mode(&mode.mode, buffer);
         // ;
         self.format_token_id(mode.span.end_token, buffer);
     }
 
-    pub fn format_simple_mode(&self, mode: &SimpleModeIndication, buffer: &mut String) {
+    pub fn format_simple_mode(&self, mode: &SimpleModeIndication, buffer: &mut Buffer) {
         if let Some(mode) = &mode.mode {
             self.format_token_id(mode.token, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_subtype_indication(&mode.subtype_indication, buffer);
         self.format_default_expression(mode.expression.as_ref(), buffer);

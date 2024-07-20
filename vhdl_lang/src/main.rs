@@ -6,9 +6,10 @@
 
 use clap::Parser;
 use itertools::Itertools;
+use std::iter::zip;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    format_design_file, Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap,
+    format_design_file, Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap, Source,
     VHDLParser, VHDLStandard,
 };
 
@@ -84,7 +85,27 @@ fn main() {
                     std::process::exit(1);
                 }
                 let result = format_design_file(&design_file);
+                let new_file =
+                    parser.parse_design_source(&Source::inline(&path, &result), &mut diagnostics);
+                if !diagnostics.is_empty() {
+                    println!("Formatting failed! File was OK before, but is not after.");
+                    show_diagnostics(&diagnostics, &SeverityMap::default());
+                    std::process::exit(1);
+                }
                 println!("{result}");
+                if new_file != design_file {
+                    println!(
+                        "Here. A: {}, B: {}",
+                        new_file.design_units.len(),
+                        design_file.design_units.len()
+                    );
+                    for (a, b) in zip(new_file.design_units, design_file.design_units) {
+                        println!("A");
+                        if a != b {
+                            println!("Mismatch")
+                        }
+                    }
+                }
                 std::process::exit(0);
             }
             Err(err) => {

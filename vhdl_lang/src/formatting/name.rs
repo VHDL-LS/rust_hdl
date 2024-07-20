@@ -1,12 +1,13 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{CallOrIndexed, ExternalName, ExternalPath};
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan};
 use vhdl_lang::ast::{AttributeName, Name};
 
 impl VHDLFormatter<'_> {
-    pub fn format_name(&self, name: WithTokenSpan<&Name>, buffer: &mut String) {
+    pub fn format_name(&self, name: WithTokenSpan<&Name>, buffer: &mut Buffer) {
         use Name::*;
         let span = name.span;
         match &name.item {
@@ -42,7 +43,7 @@ impl VHDLFormatter<'_> {
         &self,
         call: &CallOrIndexed,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_name(call.name.as_ref(), buffer);
         let open_paren = call.name.span.end_token + 1;
@@ -53,7 +54,7 @@ impl VHDLFormatter<'_> {
             self.format_association_element(parameter, buffer);
             if let Some(token) = call.parameters.tokens.get(i) {
                 self.format_token_id(*token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         let close_paren = span.end_token;
@@ -62,7 +63,7 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_attribute_name(&self, name: &AttributeName, buffer: &mut String) {
+    pub fn format_attribute_name(&self, name: &AttributeName, buffer: &mut Buffer) {
         self.format_name(name.name.as_ref(), buffer);
         if let Some(signature) = &name.signature {
             self.format_signature(signature, buffer);
@@ -77,13 +78,13 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_external_name(&self, name: WithTokenSpan<&ExternalName>, buffer: &mut String) {
+    pub fn format_external_name(&self, name: WithTokenSpan<&ExternalName>, buffer: &mut Buffer) {
         // <<
         self.format_token_id(name.span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // entity class
         self.format_token_id(name.span.start_token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         let path = &name.item.path;
         match &path.item {
             ExternalPath::Package(name) => {
@@ -106,11 +107,11 @@ impl VHDLFormatter<'_> {
                 self.format_name(name.as_ref(), buffer)
             }
         }
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(name.item.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&name.item.subtype, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // >>
         self.format_token_id(name.span.end_token, buffer);
     }

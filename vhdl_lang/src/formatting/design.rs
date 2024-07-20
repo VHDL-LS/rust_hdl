@@ -1,22 +1,22 @@
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, PackageBody};
+use crate::formatting::buffer::Buffer;
 use vhdl_lang::ast::PackageDeclaration;
 use vhdl_lang::formatting::VHDLFormatter;
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
-    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut String, is_last: bool) {
+    pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut Buffer, is_last: bool) {
         use AnyDesignUnit::*;
         match unit {
             Primary(primary) => self.format_any_primary_unit(primary, buffer),
             Secondary(secondary) => self.format_any_secondary_unit(secondary, buffer),
         }
         if !is_last {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_breaks(2);
         }
     }
 
-    pub fn format_any_primary_unit(&self, unit: &AnyPrimaryUnit, buffer: &mut String) {
+    pub fn format_any_primary_unit(&self, unit: &AnyPrimaryUnit, buffer: &mut Buffer) {
         use AnyPrimaryUnit::*;
         match unit {
             Entity(entity) => self.format_entity(entity, buffer),
@@ -29,7 +29,7 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_any_secondary_unit(&self, unit: &AnySecondaryUnit, buffer: &mut String) {
+    pub fn format_any_secondary_unit(&self, unit: &AnySecondaryUnit, buffer: &mut Buffer) {
         use AnySecondaryUnit::*;
         match unit {
             Architecture(architecture) => self.format_architecture(architecture, buffer),
@@ -37,25 +37,24 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut String) {
+    pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut Buffer) {
         self.format_context_clause(&package.context_clause, buffer);
         if !package.context_clause.is_empty() {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_breaks(2);
         }
         // package <ident> is
         self.format_token_span(
             TokenSpan::new(package.span.start_token, package.span.start_token + 2),
             buffer,
         );
-        self.increase_indentation();
+        buffer.increase_indent();
         if let Some(generic_clause) = &package.generic_clause {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_interface_list(generic_clause, buffer);
         }
         self.format_declarations(&package.decl, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(package.end_token, package.span.end_token - 1),
             buffer,
@@ -63,21 +62,20 @@ impl VHDLFormatter<'_> {
         self.format_token_id(package.span.end_token, buffer);
     }
 
-    pub fn format_package_body(&self, body: &PackageBody, buffer: &mut String) {
+    pub fn format_package_body(&self, body: &PackageBody, buffer: &mut Buffer) {
         self.format_context_clause(&body.context_clause, buffer);
         if !body.context_clause.is_empty() {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_breaks(2);
         }
         // package body <ident> is
         self.format_token_span(
             TokenSpan::new(body.span.start_token, body.span.start_token + 3),
             buffer,
         );
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_declarations(&body.decl, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(body.end_token, body.span.end_token - 1),
             buffer,

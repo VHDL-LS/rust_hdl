@@ -3,6 +3,7 @@ use crate::ast::{
     Signature, SubprogramDeclaration, SubprogramHeader, SubprogramInstantiation,
     SubprogramSpecification,
 };
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 use vhdl_lang::ast::{FunctionSpecification, ProcedureSpecification, SubprogramBody};
@@ -11,7 +12,7 @@ impl VHDLFormatter<'_> {
     pub fn format_subprogram_declaration(
         &self,
         declaration: &SubprogramDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_subprogram_specification(&declaration.specification, buffer);
         // ;
@@ -21,7 +22,7 @@ impl VHDLFormatter<'_> {
     pub fn format_subprogram_specification(
         &self,
         specification: &SubprogramSpecification,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         use SubprogramSpecification::*;
         match specification {
@@ -35,7 +36,7 @@ impl VHDLFormatter<'_> {
     pub fn format_procedure_specification(
         &self,
         specification: &ProcedureSpecification,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // procedure <name>
         self.format_token_span(
@@ -50,12 +51,12 @@ impl VHDLFormatter<'_> {
         }
         if let Some(parameter) = &specification.parameter_list {
             if specification.header.is_some() {
-                self.increase_indentation();
-                self.newline(buffer);
+                buffer.increase_indent();
+                buffer.line_break();
             }
             self.format_interface_list(parameter, buffer);
             if specification.header.is_some() {
-                self.decrease_indentation();
+                buffer.decrease_indent();
             }
         }
     }
@@ -63,7 +64,7 @@ impl VHDLFormatter<'_> {
     pub fn format_function_specification(
         &self,
         specification: &FunctionSpecification,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // function <name>
         self.format_token_span(
@@ -79,38 +80,38 @@ impl VHDLFormatter<'_> {
         if let Some(parameter) = &specification.parameter_list {
             self.format_interface_list(parameter, buffer);
         }
-        buffer.push(' ');
+        buffer.push_whitespace();
         // return
         self.format_token_id(specification.return_type.span.start_token - 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(specification.return_type.as_ref(), buffer);
     }
 
-    pub fn format_subprogram_header(&self, header: &SubprogramHeader, buffer: &mut String) {
-        self.increase_indentation();
-        self.newline(buffer);
+    pub fn format_subprogram_header(&self, header: &SubprogramHeader, buffer: &mut Buffer) {
+        buffer.increase_indent();
+        buffer.line_break();
         self.format_interface_list(&header.generic_list, buffer);
-        self.decrease_indentation();
+        buffer.decrease_indent();
         if let Some(map_aspect) = &header.map_aspect {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_map_aspect(map_aspect, buffer);
         }
     }
 
-    pub fn format_subprogram_body(&self, body: &SubprogramBody, buffer: &mut String) {
+    pub fn format_subprogram_body(&self, body: &SubprogramBody, buffer: &mut Buffer) {
         self.format_subprogram_specification(&body.specification, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // is
         self.format_token_id(body.specification.span().end_token + 1, buffer);
-        self.newline(buffer);
-        self.increase_indentation();
+        buffer.line_break();
+        buffer.increase_indent();
         self.format_declarations(&body.declarations, buffer);
-        self.decrease_indentation();
+        buffer.decrease_indent();
         self.format_token_id(body.begin_token, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_sequential_statements(&body.statements, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end
         self.format_token_span(
             TokenSpan::new(body.end_token, body.span.end_token - 1),
@@ -120,7 +121,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(body.span.end_token, buffer);
     }
 
-    pub fn format_signature(&self, signature: &WithTokenSpan<Signature>, buffer: &mut String) {
+    pub fn format_signature(&self, signature: &WithTokenSpan<Signature>, buffer: &mut Buffer) {
         self.format_token_id(signature.span.start_token, buffer);
         match &signature.item {
             Signature::Function(functions, return_type) => {
@@ -130,11 +131,11 @@ impl VHDLFormatter<'_> {
                         // ,
                         self.format_token_id(function.span.end_token + 1, buffer);
                     }
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                 }
                 // return
                 self.format_token_id(return_type.span.start_token - 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_name(return_type.as_ref(), buffer);
             }
             Signature::Procedure(procedures) => {
@@ -143,7 +144,7 @@ impl VHDLFormatter<'_> {
                     if i < procedures.len() - 1 {
                         // ,
                         self.format_token_id(procedure.span.end_token + 1, buffer);
-                        buffer.push(' ');
+                        buffer.push_whitespace();
                     }
                 }
             }
@@ -154,7 +155,7 @@ impl VHDLFormatter<'_> {
     pub fn format_subprogram_instantiation(
         &self,
         instantiation: &SubprogramInstantiation,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // function <name> is new
         self.format_token_span(
@@ -164,13 +165,13 @@ impl VHDLFormatter<'_> {
             ),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(instantiation.subprogram_name.as_ref(), buffer);
         if let Some(signature) = &instantiation.signature {
             self.format_signature(signature, buffer);
         }
         if let Some(generic_map) = &instantiation.generic_map {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_map_aspect(generic_map, buffer);
         }
         self.format_token_id(instantiation.span.end_token, buffer);

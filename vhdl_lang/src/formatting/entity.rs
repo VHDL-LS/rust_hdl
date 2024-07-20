@@ -1,41 +1,41 @@
 use crate::ast::EntityDeclaration;
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 
 impl VHDLFormatter<'_> {
-    pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut String) {
+    pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut Buffer) {
         self.format_context_clause(&entity.context_clause, buffer);
         if !entity.context_clause.is_empty() {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_breaks(2);
         }
         let span = entity.span();
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
         if let Some(generic_clause) = &entity.generic_clause {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_interface_list(generic_clause, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
         if let Some(port_clause) = &entity.port_clause {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_interface_list(port_clause, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
 
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_declarations(&entity.decl, buffer);
-        self.decrease_indentation();
+        buffer.decrease_indent();
         if let Some(token) = entity.begin_token {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_token_id(token, buffer);
         }
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_concurrent_statements(&entity.statements, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end [entity] [name];
         self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);

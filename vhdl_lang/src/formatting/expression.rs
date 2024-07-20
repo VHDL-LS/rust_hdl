@@ -2,6 +2,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     ElementAssociation, Expression, ResolutionIndication, SubtypeConstraint, SubtypeIndication,
 };
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
@@ -9,7 +10,7 @@ use vhdl_lang::ast::{Allocator, QualifiedExpression};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
-    pub fn format_expression(&self, expression: WithTokenSpan<&Expression>, buffer: &mut String) {
+    pub fn format_expression(&self, expression: WithTokenSpan<&Expression>, buffer: &mut Buffer) {
         let span = expression.span;
         use Expression::*;
         let is_parenthesized = self.tokens.get_token(span.start_token).kind == Kind::LeftPar
@@ -23,9 +24,9 @@ impl VHDLFormatter<'_> {
         match &expression.item {
             Binary(op, lhs, rhs) => {
                 self.format_expression(lhs.as_ref().as_ref(), buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_token_id(op.token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_expression(rhs.as_ref().as_ref(), buffer);
             }
             Unary(op, rhs) => {
@@ -46,7 +47,7 @@ impl VHDLFormatter<'_> {
     pub fn format_element_associations(
         &self,
         associations: &[WithTokenSpan<ElementAssociation>],
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         for (i, association) in associations.iter().enumerate() {
             match &association.item {
@@ -57,33 +58,33 @@ impl VHDLFormatter<'_> {
                     for (j, choice) in choices.iter().enumerate() {
                         self.format_choice(choice, buffer);
                         if j < choices.len() - 1 {
-                            buffer.push(' ');
+                            buffer.push_whitespace();
                             self.format_token_id(choice.span.end_token + 1, buffer);
-                            buffer.push(' ');
+                            buffer.push_whitespace();
                         }
                     }
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_token_id(expression.span.start_token - 1, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_expression(expression.as_ref(), buffer);
                 }
             }
             if i < associations.len() - 1 {
                 self.format_token_id(association.span.end_token + 1, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
     }
 
-    pub fn format_subtype_indication(&self, indication: &SubtypeIndication, buffer: &mut String) {
+    pub fn format_subtype_indication(&self, indication: &SubtypeIndication, buffer: &mut Buffer) {
         if let Some(resolution) = &indication.resolution {
             self.format_resolution_indication(resolution, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
         }
         self.format_name(indication.type_mark.as_ref(), buffer);
         if let Some(constraint) = &indication.constraint {
             if matches!(constraint.item, SubtypeConstraint::Range(_)) {
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
             self.format_subtype_constraint(constraint, buffer)
         }
@@ -92,7 +93,7 @@ impl VHDLFormatter<'_> {
     pub fn format_resolution_indication(
         &self,
         indication: &ResolutionIndication,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         match &indication {
             ResolutionIndication::FunctionName(name) => self.format_name(name.as_ref(), buffer),
@@ -106,7 +107,7 @@ impl VHDLFormatter<'_> {
                 self.format_token_id(span.start_token, buffer);
                 for (i, element_resolution) in record.item.iter().enumerate() {
                     self.format_token_id(element_resolution.ident.token, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_resolution_indication(&element_resolution.resolution, buffer);
                     if i < record.item.len() - 1 {
                         // ,
@@ -114,7 +115,7 @@ impl VHDLFormatter<'_> {
                             element_resolution.resolution.get_end_token() + 1,
                             buffer,
                         );
-                        buffer.push(' ');
+                        buffer.push_whitespace();
                     }
                 }
                 self.format_token_id(span.end_token, buffer);
@@ -126,12 +127,12 @@ impl VHDLFormatter<'_> {
     pub(crate) fn format_default_expression(
         &self,
         expression: Option<&WithTokenSpan<Expression>>,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         if let Some(expr) = expression {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(expr.span.start_token - 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(expr.as_ref(), buffer);
         }
     }
@@ -139,7 +140,7 @@ impl VHDLFormatter<'_> {
     pub fn format_qualified_expression(
         &self,
         expression: &QualifiedExpression,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_name(expression.type_mark.as_ref(), buffer);
         // '
@@ -147,10 +148,10 @@ impl VHDLFormatter<'_> {
         self.format_expression(expression.expr.as_ref(), buffer);
     }
 
-    pub fn format_allocator(&self, allocator: &WithTokenSpan<Allocator>, buffer: &mut String) {
+    pub fn format_allocator(&self, allocator: &WithTokenSpan<Allocator>, buffer: &mut Buffer) {
         // new
         self.format_token_id(allocator.span.start_token - 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         match &allocator.item {
             Allocator::Qualified(expr) => self.format_qualified_expression(expr, buffer),
             Allocator::Subtype(subtype) => self.format_subtype_indication(subtype, buffer),
@@ -163,6 +164,7 @@ mod test {
     use crate::analysis::tests::Code;
     use crate::ast::token_range::WithTokenSpan;
     use crate::formatting::VHDLFormatter;
+    use vhdl_lang::formatting::buffer::Buffer;
     use vhdl_lang::formatting::test_utils::check_formatted;
 
     fn check_expression(input: &str) {
@@ -170,12 +172,12 @@ mod test {
         let expression = code.expr();
         let tokens = code.tokenize();
         let formatter = VHDLFormatter::new(&tokens);
-        let mut buffer = String::new();
+        let mut buffer = Buffer::new();
         formatter.format_expression(
             WithTokenSpan::new(&expression.item, code.token_span()),
             &mut buffer,
         );
-        assert_eq!(&buffer, input);
+        assert_eq!(buffer.as_str(), input);
     }
 
     #[test]
@@ -257,5 +259,16 @@ mod test {
         check_subtype_indication(
             "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
         );
+    }
+
+    #[test]
+    fn expression_with_comments() {
+        check_expression(
+            "\
+-- Some comment
+A & -- And
+B & -- as well as
+C",
+        )
     }
 }

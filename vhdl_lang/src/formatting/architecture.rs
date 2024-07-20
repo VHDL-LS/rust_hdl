@@ -1,26 +1,27 @@
 use crate::ast::ArchitectureBody;
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 
 impl VHDLFormatter<'_> {
-    pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut String) {
+    pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut Buffer) {
         self.format_context_clause(&arch.context_clause, buffer);
         if !arch.context_clause.is_empty() {
-            self.newline(buffer);
-            self.newline(buffer);
+            buffer.line_break();
+            buffer.line_break();
         }
         let span = arch.span();
         // architecture <ident> of <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, arch.is_token()), buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_declarations(&arch.decl, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_id(arch.begin_token, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_concurrent_statements(&arch.statements, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end [architecture] [name];
         self.format_token_span(TokenSpan::new(arch.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);

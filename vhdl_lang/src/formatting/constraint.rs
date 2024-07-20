@@ -1,5 +1,6 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{DiscreteRange, SubtypeConstraint};
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::TokenAccess;
@@ -9,12 +10,12 @@ impl VHDLFormatter<'_> {
     pub fn format_subtype_constraint(
         &self,
         constraint: &WithTokenSpan<SubtypeConstraint>,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         match &constraint.item {
             SubtypeConstraint::Range(range) => {
                 self.format_token_id(constraint.span.start_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_range(range, buffer)
             }
             SubtypeConstraint::Array(ranges, opt_constraint) => {
@@ -27,7 +28,7 @@ impl VHDLFormatter<'_> {
                     self.format_discrete_range(&range.item, buffer);
                     if self.tokens.get_token(range.span.end_token + 1).kind == Kind::Comma {
                         self.format_token_id(range.span.end_token + 1, buffer);
-                        buffer.push(' ');
+                        buffer.push_whitespace();
                     }
                 }
                 if let Some(constraint) = opt_constraint {
@@ -48,7 +49,7 @@ impl VHDLFormatter<'_> {
                         == Kind::Comma
                     {
                         self.format_token_id(record.constraint.span.end_token + 1, buffer);
-                        buffer.push(' ');
+                        buffer.push_whitespace();
                     }
                 }
                 self.format_token_id(constraint.span.end_token, buffer);
@@ -56,35 +57,35 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_element_constraint(&self, constraint: &ElementConstraint, buffer: &mut String) {
+    pub fn format_element_constraint(&self, constraint: &ElementConstraint, buffer: &mut Buffer) {
         self.format_token_id(constraint.ident.token, buffer);
         self.format_subtype_constraint(&constraint.constraint, buffer);
     }
 
-    pub fn format_range_constraint(&self, constraint: &RangeConstraint, buffer: &mut String) {
+    pub fn format_range_constraint(&self, constraint: &RangeConstraint, buffer: &mut Buffer) {
         self.format_expression(constraint.left_expr.as_ref().as_ref(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(constraint.direction_token(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_expression(constraint.right_expr.as_ref().as_ref(), buffer);
     }
 
-    pub fn format_range(&self, range: &Range, buffer: &mut String) {
+    pub fn format_range(&self, range: &Range, buffer: &mut Buffer) {
         match range {
             Range::Range(constraint) => self.format_range_constraint(constraint, buffer),
             Range::Attribute(attribute) => self.format_attribute_name(attribute, buffer),
         }
     }
 
-    pub fn format_discrete_range(&self, range: &DiscreteRange, buffer: &mut String) {
+    pub fn format_discrete_range(&self, range: &DiscreteRange, buffer: &mut Buffer) {
         match range {
             DiscreteRange::Discrete(name, range) => {
                 self.format_name(name.as_ref(), buffer);
                 if let Some(range) = range {
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     // range
                     self.format_token_id(name.span.end_token + 1, buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_range(range, buffer);
                 }
             }
@@ -95,6 +96,7 @@ impl VHDLFormatter<'_> {
 
 #[cfg(test)]
 mod test {
+    use crate::formatting::buffer::Buffer;
     use crate::formatting::test_utils::check_formatted;
     use crate::formatting::VHDLFormatter;
     use crate::syntax::test::Code;
@@ -104,9 +106,9 @@ mod test {
         let range = code.range();
         let tokens = code.tokenize();
         let formatter = VHDLFormatter::new(&tokens);
-        let mut buffer = String::new();
+        let mut buffer = Buffer::new();
         formatter.format_range(&range, &mut buffer);
-        assert_eq!(&buffer, input);
+        assert_eq!(buffer.as_str(), input);
     }
 
     #[test]

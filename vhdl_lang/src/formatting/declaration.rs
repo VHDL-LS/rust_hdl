@@ -3,6 +3,7 @@ use crate::ast::{
     FileDeclaration, ModeViewDeclaration, ObjectDeclaration, PackageInstantiation,
     ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
 };
+use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
@@ -17,15 +18,15 @@ impl VHDLFormatter<'_> {
     pub(crate) fn format_declarations(
         &self,
         declarations: &[WithTokenSpan<Declaration>],
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         if !declarations.is_empty() {
-            self.newline(buffer);
+            buffer.line_break();
         }
         for (i, decl) in declarations.iter().enumerate() {
             self.format_declaration(decl, buffer);
             if i < declarations.len() - 1 {
-                self.newline(buffer);
+                buffer.line_break();
             }
         }
     }
@@ -33,7 +34,7 @@ impl VHDLFormatter<'_> {
     pub fn format_declaration(
         &self,
         declaration: &WithTokenSpan<Declaration>,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         use Declaration::*;
         match &declaration.item {
@@ -66,7 +67,7 @@ impl VHDLFormatter<'_> {
     pub fn format_component_declaration(
         &self,
         component: &ComponentDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_span(
             TokenSpan::new(
@@ -76,18 +77,18 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         if let Some(generic_clause) = &component.generic_list {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_interface_list(generic_clause, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
         if let Some(port_clause) = &component.port_list {
-            self.increase_indentation();
-            self.newline(buffer);
+            buffer.increase_indent();
+            buffer.line_break();
             self.format_interface_list(port_clause, buffer);
-            self.decrease_indentation();
+            buffer.decrease_indent();
         }
-        self.newline(buffer);
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(component.end_token, component.span.end_token - 1),
             buffer,
@@ -99,17 +100,17 @@ impl VHDLFormatter<'_> {
         &self,
         object_decl: &ObjectDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_id(span.start_token, buffer);
         if object_decl.class == ObjectClass::SharedVariable {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(span.start_token + 1, buffer);
         }
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_ident_list(&object_decl.idents, buffer);
         self.format_token_id(object_decl.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&object_decl.subtype_indication, buffer);
         self.format_default_expression(object_decl.expression.as_ref(), buffer);
 
@@ -120,24 +121,24 @@ impl VHDLFormatter<'_> {
         &self,
         file_decl: &FileDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_id(span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_ident(&file_decl.ident, buffer);
         self.format_token_id(file_decl.colon_token(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&file_decl.subtype_indication, buffer);
         if let Some((token, open_information)) = &file_decl.open_info {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(*token, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(open_information.as_ref(), buffer);
         }
         if let Some((token, file_name)) = &file_decl.file_name {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(*token, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_expression(file_name.as_ref(), buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -147,18 +148,18 @@ impl VHDLFormatter<'_> {
         &self,
         type_decl: &TypeDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_span(
             TokenSpan::new(span.start_token, type_decl.ident.tree.token),
             buffer,
         );
         if let Some(is_token) = type_decl.is_token() {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(is_token, buffer);
         }
         if let Some(is_token) = type_decl.is_token() {
-            buffer.push(' ');
+            buffer.push_whitespace();
 
             self.format_type_definition(
                 &type_decl.def,
@@ -170,7 +171,7 @@ impl VHDLFormatter<'_> {
             );
         }
         if let Some(end_ident) = type_decl.end_ident_pos {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_id(end_ident, buffer);
         }
         self.format_token_id(span.end_token, buffer);
@@ -180,7 +181,7 @@ impl VHDLFormatter<'_> {
         &self,
         definition: &TypeDefinition,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         use TypeDefinition::*;
         match definition {
@@ -190,14 +191,14 @@ impl VHDLFormatter<'_> {
                     self.format_token_id(literal.tree.token, buffer);
                     if self.tokens.get_token(literal.tree.token + 1).kind == Kind::Comma {
                         self.format_token_id(literal.tree.token + 1, buffer);
-                        buffer.push(' ');
+                        buffer.push_whitespace();
                     }
                 }
                 self.format_token_id(span.end_token, buffer);
             }
             Numeric(range) => {
                 self.format_token_id(span.start_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_range(range, buffer)
             }
             Physical(physical_type) => {
@@ -210,7 +211,7 @@ impl VHDLFormatter<'_> {
             Access(subtype_indication) => {
                 // access
                 self.format_token_id(span.start_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_subtype_indication(subtype_indication, buffer);
             }
             Incomplete(_) => {
@@ -222,7 +223,7 @@ impl VHDLFormatter<'_> {
                     TokenSpan::new(span.start_token, span.start_token + 1),
                     buffer,
                 );
-                buffer.push(' ');
+                buffer.push_whitespace();
                 self.format_name(name.as_ref(), buffer);
             }
             Protected(protected) => self.format_protected_type_declaration(protected, span, buffer),
@@ -237,36 +238,36 @@ impl VHDLFormatter<'_> {
         &self,
         declaration: &PhysicalTypeDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // range
         self.format_token_id(span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_range(&declaration.range, buffer);
-        self.increase_indentation();
-        self.newline(buffer);
+        buffer.increase_indent();
+        buffer.line_break();
         self.format_token_id(declaration.units_token, buffer);
-        self.increase_indentation();
-        self.newline(buffer);
+        buffer.increase_indent();
+        buffer.line_break();
         // primary_unit;
         self.format_ident(&declaration.primary_unit, buffer);
         self.format_token_id(declaration.primary_unit.tree.token + 1, buffer);
         for (ident, literal) in &declaration.secondary_units {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_ident(ident, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             // =
             self.format_token_id(ident.tree.token + 1, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_token_span(literal.span, buffer);
             // ;
             self.format_token_id(literal.span.end_token + 1, buffer);
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end units
         self.format_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
-        self.decrease_indentation();
+        buffer.decrease_indent();
     }
 
     pub fn format_array_type_declaration(
@@ -275,18 +276,18 @@ impl VHDLFormatter<'_> {
         of_token: TokenId,
         subtype: &SubtypeIndication,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // array
         self.format_token_id(span.start_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // (
         self.format_token_id(span.start_token + 1, buffer);
         for (i, index) in indices.iter().enumerate() {
             let end_token = match index {
                 ArrayIndex::IndexSubtypeDefintion(name) => {
                     self.format_name(name.as_ref(), buffer);
-                    buffer.push(' ');
+                    buffer.push_whitespace();
                     self.format_token_span(
                         TokenSpan::new(name.span.end_token + 1, name.span.end_token + 2),
                         buffer,
@@ -300,15 +301,15 @@ impl VHDLFormatter<'_> {
             };
             if i < indices.len() - 1 {
                 self.format_token_id(end_token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         // )
         self.format_token_id(of_token - 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         // of
         self.format_token_id(of_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(subtype, buffer);
     }
 
@@ -316,19 +317,19 @@ impl VHDLFormatter<'_> {
         &self,
         elements: &[ElementDeclaration],
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // record
         self.format_token_id(span.start_token, buffer);
         let mut last_token = span.start_token;
-        self.increase_indentation();
+        buffer.increase_indent();
         for element in elements {
-            self.newline(buffer);
+            buffer.line_break();
             self.format_element_declaration(element, buffer);
             last_token = element.span.end_token;
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end record
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
     }
@@ -336,12 +337,12 @@ impl VHDLFormatter<'_> {
     pub fn format_element_declaration(
         &self,
         declaration: &ElementDeclaration,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_ident_list(&declaration.idents, buffer);
         // :
         self.format_token_id(declaration.colon_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&declaration.subtype, buffer);
         // ;
         self.format_token_id(declaration.span.end_token, buffer);
@@ -351,14 +352,14 @@ impl VHDLFormatter<'_> {
         &self,
         declaration: &ProtectedTypeDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // protected
         self.format_token_id(span.start_token, buffer);
         let mut last_token = span.start_token;
-        self.increase_indentation();
+        buffer.increase_indent();
         for element in &declaration.items {
-            self.newline(buffer);
+            buffer.line_break();
             match element {
                 ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
                     self.format_subprogram_declaration(subprogram, buffer);
@@ -366,8 +367,8 @@ impl VHDLFormatter<'_> {
                 }
             }
         }
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         // end protected
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
     }
@@ -376,17 +377,17 @@ impl VHDLFormatter<'_> {
         &self,
         declaration: &ProtectedTypeBody,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // protected body
         self.format_token_span(
             TokenSpan::new(span.start_token, span.start_token + 1),
             buffer,
         );
-        self.increase_indentation();
+        buffer.increase_indent();
         self.format_declarations(&declaration.decl, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         let last_token = declaration
             .decl
             .last()
@@ -396,7 +397,7 @@ impl VHDLFormatter<'_> {
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
     }
 
-    pub fn format_attribute(&self, attribute: &Attribute, span: TokenSpan, buffer: &mut String) {
+    pub fn format_attribute(&self, attribute: &Attribute, span: TokenSpan, buffer: &mut Buffer) {
         use Attribute::*;
         match attribute {
             Specification(spec) => self.format_attribute_specification(spec, span, buffer),
@@ -408,7 +409,7 @@ impl VHDLFormatter<'_> {
         &self,
         attribute: &AttributeDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         self.format_token_span(
             TokenSpan::new(span.start_token, attribute.ident.tree.token),
@@ -416,7 +417,7 @@ impl VHDLFormatter<'_> {
         );
         // :
         self.format_token_id(attribute.ident.tree.token + 1, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(attribute.type_mark.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
@@ -425,14 +426,14 @@ impl VHDLFormatter<'_> {
         &self,
         attribute: &AttributeSpecification,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // attribute <name> of
         self.format_token_span(
             TokenSpan::new(span.start_token, attribute.ident.item.token + 1),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         match &attribute.entity_name {
             EntityName::Name(name) => {
                 self.format_token_id(name.designator.token, buffer);
@@ -449,7 +450,7 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(attribute.colon_token, attribute.colon_token + 2),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_expression(attribute.expr.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
@@ -458,7 +459,7 @@ impl VHDLFormatter<'_> {
         &self,
         alias: &AliasDeclaration,
         span: TokenSpan,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // alias <name>
         self.format_token_span(
@@ -468,12 +469,12 @@ impl VHDLFormatter<'_> {
         if let Some(subtype) = &alias.subtype_indication {
             // :
             self.format_token_id(span.start_token + 2, buffer);
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_subtype_indication(subtype, buffer);
         }
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(alias.is_token, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(alias.name.as_ref(), buffer);
         if let Some(signature) = &alias.signature {
             self.format_signature(signature, buffer);
@@ -481,29 +482,29 @@ impl VHDLFormatter<'_> {
         self.format_token_id(span.end_token, buffer);
     }
 
-    pub fn format_use_clause(&self, use_clause: &UseClause, buffer: &mut String) {
+    pub fn format_use_clause(&self, use_clause: &UseClause, buffer: &mut Buffer) {
         // use
         self.format_token_id(use_clause.get_start_token(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         for (i, name) in use_clause.name_list.items.iter().enumerate() {
             self.format_name(name.as_ref(), buffer);
             if let Some(token) = use_clause.name_list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         self.format_token_id(use_clause.get_end_token(), buffer);
     }
 
-    pub fn format_library_clause(&self, library_clause: &LibraryClause, buffer: &mut String) {
+    pub fn format_library_clause(&self, library_clause: &LibraryClause, buffer: &mut Buffer) {
         // use
         self.format_token_id(library_clause.get_start_token(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         for (i, name) in library_clause.name_list.items.iter().enumerate() {
             self.format_token_id(name.item.token, buffer);
             if let Some(token) = library_clause.name_list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         self.format_token_id(library_clause.get_end_token(), buffer);
@@ -512,51 +513,51 @@ impl VHDLFormatter<'_> {
     pub fn format_context_reference(
         &self,
         context_reference: &ContextReference,
-        buffer: &mut String,
+        buffer: &mut Buffer,
     ) {
         // use
         self.format_token_id(context_reference.get_start_token(), buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         for (i, name) in context_reference.name_list.items.iter().enumerate() {
             self.format_name(name.as_ref(), buffer);
             if let Some(token) = context_reference.name_list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
-                buffer.push(' ');
+                buffer.push_whitespace();
             }
         }
         self.format_token_id(context_reference.get_end_token(), buffer);
     }
 
-    pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut String) {
+    pub fn format_package_instance(&self, instance: &PackageInstantiation, buffer: &mut Buffer) {
         self.format_context_clause(&instance.context_clause, buffer);
         // package <name> is new
         self.format_token_span(
             TokenSpan::new(instance.get_start_token(), instance.get_start_token() + 3),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_name(instance.package_name.as_ref(), buffer);
         if let Some(generic_map) = &instance.generic_map {
-            buffer.push(' ');
+            buffer.push_whitespace();
             self.format_map_aspect(generic_map, buffer);
         }
         self.format_token_id(instance.get_end_token(), buffer);
     }
 
-    pub fn format_view(&self, view: &ModeViewDeclaration, span: TokenSpan, buffer: &mut String) {
+    pub fn format_view(&self, view: &ModeViewDeclaration, span: TokenSpan, buffer: &mut Buffer) {
         // view <name> of
         self.format_token_span(
             TokenSpan::new(span.start_token, span.start_token + 2),
             buffer,
         );
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_subtype_indication(&view.typ, buffer);
-        buffer.push(' ');
+        buffer.push_whitespace();
         self.format_token_id(view.is_token, buffer);
-        self.increase_indentation();
+        buffer.increase_indent();
         self.join_on_newline(&view.elements, Self::format_mode_view_element, buffer);
-        self.decrease_indentation();
-        self.newline(buffer);
+        buffer.decrease_indent();
+        buffer.line_break();
         self.format_token_span(TokenSpan::new(view.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);
     }
