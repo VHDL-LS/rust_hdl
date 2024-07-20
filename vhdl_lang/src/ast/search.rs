@@ -191,7 +191,11 @@ fn search_alternatives<T: Search>(
     ctx: &dyn TokenAccess,
 ) -> SearchResult {
     for alternative in alternatives.iter() {
-        let Alternative { choices, item } = alternative;
+        let Alternative {
+            choices,
+            item,
+            span: _,
+        } = &alternative;
         if item_before_choice {
             return_if_found!(item.search(ctx, searcher));
             return_if_found!(choices.search(ctx, searcher));
@@ -220,6 +224,7 @@ fn search_selection<T: Search>(
         searcher,
         ctx,
     ));
+
     NotFound
 }
 

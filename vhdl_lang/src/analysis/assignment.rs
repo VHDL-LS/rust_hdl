@@ -48,7 +48,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
-                for Alternative { choices, item } in alternatives.iter_mut() {
+                for Alternative {
+                    choices,
+                    item,
+                    span: _,
+                } in alternatives.iter_mut()
+                {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
@@ -93,7 +98,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
-                for Alternative { choices, item } in alternatives.iter_mut() {
+                for Alternative {
+                    choices,
+                    item,
+                    span: _,
+                } in alternatives.iter_mut()
+                {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }

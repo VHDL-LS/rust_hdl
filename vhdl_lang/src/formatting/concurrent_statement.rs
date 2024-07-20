@@ -9,7 +9,7 @@ use crate::ast::{
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
-use vhdl_lang::ast::{AssertStatement, ConcurrentProcedureCall, Selection};
+use vhdl_lang::ast::{Alternative, AssertStatement, ConcurrentProcedureCall};
 use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
@@ -247,6 +247,16 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
+        if let AssignmentRightHand::Selected(selected) = &assignment_statement.assignment.rhs {
+            // with
+            self.format_token_id(selected.expression.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(selected.expression.as_ref(), buffer);
+            buffer.push(' ');
+            // select
+            self.format_token_id(selected.expression.span.end_token + 1, buffer);
+            buffer.push(' ');
+        }
         self.format_target(&assignment_statement.assignment.target, buffer);
         buffer.push(' ');
         // <=
@@ -279,7 +289,40 @@ impl VHDLFormatter<'_> {
             Conditional(conditionals) => {
                 self.format_assignment_right_hand_conditionals(conditionals, formatter, buffer)
             }
-            Selected(_) => unimplemented!(),
+            // special case: we handle the expression elsewhere
+            Selected(selection) => {
+                for alternative in &selection.alternatives {
+                    self.format_alternative(alternative, &formatter, buffer);
+                    if self.tokens.get_token(alternative.span.end_token + 1).kind == Kind::Comma {
+                        self.format_token_id(alternative.span.end_token + 1, buffer);
+                        buffer.push(' ');
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn format_alternative<T>(
+        &self,
+        alternative: &Alternative<T>,
+        formatter: &impl Fn(&Self, &T, &mut String),
+        buffer: &mut String,
+    ) {
+        formatter(self, &alternative.item, buffer);
+        buffer.push(' ');
+        for (i, choice) in alternative.choices.iter().enumerate() {
+            if i == 0 {
+                // when
+                self.format_token_id(choice.span.start_token - 1, buffer);
+                buffer.push(' ');
+            }
+            self.format_choice(choice, buffer);
+            if i < alternative.choices.len() - 1 {
+                buffer.push(' ');
+                // |
+                self.format_token_id(choice.span.end_token + 1, buffer);
+                buffer.push(' ');
+            }
         }
     }
 
@@ -807,5 +850,17 @@ end generate;",
     #[test]
     fn format_aggregate_assignments() {
         check_statement("(foo, 1 => bar) <= integer_vector'(1, 2);");
+    }
+
+    #[test]
+    fn format_selected_assignments() {
+        check_statement(
+            "\
+with x(0) + 1 select foo(0) <= bar(1, 2) when 0 | 1, def when others;",
+        );
+        check_statement(
+            "\
+with x(0) + 1 select foo(0) <= transport bar(1, 2) after 2 ns when 0 | 1, def when others;",
+        );
     }
 }

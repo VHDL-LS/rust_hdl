@@ -556,6 +556,7 @@ fn parse_case_generate_statement(
 
     let mut alternatives = Vec::with_capacity(2);
     loop {
+        let start_token = ctx.stream.get_current_token_id();
         let alternative_label = {
             if ctx.stream.next_kinds_are(&[Identifier, Colon]) {
                 let ident = ctx.stream.expect_ident()?;
@@ -568,10 +569,12 @@ fn parse_case_generate_statement(
         let choices = parse_choices(ctx)?;
         ctx.stream.expect_kind(RightArrow)?;
         let body = parse_generate_body(ctx, alternative_label)?;
+        let end_token = ctx.stream.get_last_token_id();
 
         alternatives.push(Alternative {
             choices,
             item: body,
+            span: TokenSpan::new(start_token, end_token),
         });
 
         expect_token!(
@@ -1359,6 +1362,7 @@ with x(0) + 1 select
             alternatives: vec![Alternative {
                 choices: code.s1("0|1").choices(),
                 item: code.s1("bar(1,2) after 2 ns").waveform(),
+                span: code.s1("bar(1,2) after 2 ns when 0|1").token_span(),
             }],
         };
 
@@ -2131,6 +2135,7 @@ end generate;",
                             end_token: None,
                             end_label: None,
                         },
+                        span: code.between("1", "value").token_span(),
                     },
                     Alternative {
                         choices: code.s1("others").choices(),
@@ -2141,6 +2146,7 @@ end generate;",
                             end_token: None,
                             end_label: None,
                         },
+                        span: code.between("others", ")").token_span(),
                     },
                 ],
             },
@@ -2182,6 +2188,7 @@ end generate gen1;",
                             end_token: None,
                             end_label: None,
                         },
+                        span: code.between("alt1", ";").token_span(),
                     },
                     Alternative {
                         choices: code.s1("others").choices(),
@@ -2192,6 +2199,7 @@ end generate gen1;",
                             end_token: None,
                             end_label: None,
                         },
+                        span: code.between("alt2", ";").token_span(),
                     },
                 ],
             },

@@ -247,7 +247,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } = case_stmt;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for alternative in alternatives.iter_mut() {
-                    let Alternative { choices, item } = alternative;
+                    let Alternative {
+                        choices,
+                        item,
+                        span: _,
+                    } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }

@@ -186,6 +186,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let Alternative {
                         ref mut choices,
                         ref mut item,
+                        span: _,
                     } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     let nested = scope.nested();

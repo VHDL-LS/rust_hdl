@@ -1035,6 +1035,7 @@ pub struct IfStatement {
     pub end_label_pos: Option<SrcPos>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct Alternative<T> {
     pub choices: Vec<WithTokenSpan<Choice>>,

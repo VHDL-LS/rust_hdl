@@ -165,12 +165,15 @@ fn parse_case_statement(
     let mut alternatives = Vec::new();
 
     loop {
+        let start_token = ctx.stream.get_current_token_id();
         let choices = parse_choices(ctx)?;
         ctx.stream.expect_kind(RightArrow)?;
         let statements = parse_labeled_sequential_statements(ctx)?;
+        let end_token = ctx.stream.get_last_token_id();
         let alternative = Alternative {
             choices,
             item: statements,
+            span: TokenSpan::new(start_token, end_token),
         };
 
         expect_token!(
@@ -182,6 +185,7 @@ fn parse_case_statement(
                 continue;
             },
             End => {
+                let end_token = ctx.stream.get_last_token_id();
                 ctx.stream.expect_kind(Case)?;
                 if is_matching {
                     ctx.stream.expect_kind(Que)?;
@@ -398,10 +402,16 @@ where
     let mut alternatives = Vec::with_capacity(2);
 
     loop {
+        let start_token = ctx.stream.get_current_token_id();
         let item = parse_item(ctx)?;
         ctx.stream.expect_kind(When)?;
         let choices = parse_choices(ctx)?;
-        alternatives.push(Alternative { choices, item });
+        let end_token = ctx.stream.get_last_token_id();
+        alternatives.push(Alternative {
+            choices,
+            item,
+            span: TokenSpan::new(start_token, end_token),
+        });
 
         expect_token!(
             ctx.stream,
@@ -1092,10 +1102,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2)").expr(),
+                    span: code.s1("bar(1,2) when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").expr(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1239,10 +1251,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2) after 2 ns").waveform(),
+                    span: code.s1("bar(1,2) after 2 ns when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").waveform(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1281,10 +1295,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2)").expr(),
+                    span: code.s1("bar(1,2) when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").expr(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1578,14 +1594,24 @@ end case;",
                                 item: vec![
                                     code.s1("stmt1;").sequential_statement(),
                                     code.s1("stmt2;").sequential_statement()
-                                ]
+                                ],
+                                span: code
+                                    .s1("1 | 2 =>
+    stmt1;
+    stmt2;")
+                                    .token_span()
                             },
                             Alternative {
                                 choices: code.s1("others").choices(),
                                 item: vec![
                                     code.s1("stmt3;").sequential_statement(),
                                     code.s1("stmt4;").sequential_statement(),
-                                ]
+                                ],
+                                span: code
+                                    .s1("others =>
+    stmt3;
+    stmt4;")
+                                    .token_span()
                             }
                         ],
                         end_token: code.s1("end").token(),
@@ -1615,7 +1641,8 @@ end case?;",
                         expression: code.s1("foo(1)").expr(),
                         alternatives: vec![Alternative {
                             choices: code.s1("others").choices(),
-                            item: vec![code.s1("null;").sequential_statement(),]
+                            item: vec![code.s1("null;").sequential_statement()],
+                            span: code.s1("others => null").token_span()
                         }],
                         end_token: code.s1("end").token(),
                         end_label_pos: None,
