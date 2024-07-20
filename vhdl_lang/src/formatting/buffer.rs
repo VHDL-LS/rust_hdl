@@ -4,7 +4,9 @@ use std::iter;
 
 pub struct Buffer {
     inner: String,
-    trailing_comment: bool,
+    // insert an extra newline before pushing a token.
+    // This is relevant when there is a trailing comment
+    insert_extra_newline: bool,
     indentation: usize,
     indent_char: char,
     indent_width: usize,
@@ -14,16 +16,12 @@ impl Buffer {
     pub fn new() -> Buffer {
         Buffer {
             inner: String::new(),
-            trailing_comment: false,
+            insert_extra_newline: false,
             indentation: 0,
             indent_char: ' ',
             indent_width: 4,
         }
     }
-}
-
-fn ends_with_newline(buffer: &str) -> bool {
-    buffer.chars().last().is_some_and(|ch| ch == '\n')
 }
 
 fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
@@ -46,7 +44,9 @@ impl Buffer {
     }
 
     pub fn push_whitespace(&mut self) {
-        self.push_ch(' ');
+        if !self.insert_extra_newline {
+            self.push_ch(' ');
+        }
     }
 
     fn format_comment(&mut self, comment: &Comment) {
@@ -73,6 +73,10 @@ impl Buffer {
     }
 
     pub fn push_token(&mut self, token: &Token) {
+        if self.insert_extra_newline {
+            self.line_break();
+        }
+        self.insert_extra_newline = false;
         if let Some(comments) = &token.comments {
             // This is for example the case for situations like
             // some_token /* comment in between */ some_other token
@@ -109,7 +113,7 @@ impl Buffer {
             if let Some(trailing_comment) = &comments.trailing {
                 self.push_ch(' ');
                 self.format_comment(trailing_comment);
-                self.trailing_comment = true
+                self.insert_extra_newline = true
             }
         }
     }
@@ -131,11 +135,13 @@ impl Buffer {
     }
 
     pub fn line_break(&mut self) {
+        self.insert_extra_newline = false;
         self.push_ch('\n');
         self.indent();
     }
 
     pub fn line_breaks(&mut self, count: usize) {
+        self.insert_extra_newline = false;
         for _ in 0..count {
             self.push_ch('\n');
         }
