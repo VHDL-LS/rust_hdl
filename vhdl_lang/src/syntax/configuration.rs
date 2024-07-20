@@ -18,7 +18,7 @@ use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenId;
 
 /// LRM 7.3.2.2
-fn parse_entity_aspect(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityAspect> {
+pub(crate) fn parse_entity_aspect(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityAspect> {
     let entity_aspect = expect_token!(
         ctx.stream,
         token,
@@ -44,25 +44,27 @@ fn parse_entity_aspect(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityAspect
 fn parse_binding_indication_known_entity_aspect(
     ctx: &mut ParsingContext<'_>,
     entity_aspect: Option<EntityAspect>,
+    start_token: TokenId,
 ) -> ParseResult<BindingIndication> {
     let (generic_map, port_map) = parse_generic_and_port_map(ctx)?;
 
-    expect_semicolon(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
     Ok(BindingIndication {
         entity_aspect,
         generic_map,
         port_map,
+        span: TokenSpan::new(start_token, semicolon_token),
     })
 }
 
 /// LRM 7.3.2
 fn parse_binding_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<BindingIndication> {
-    let entity_aspect = if ctx.stream.skip_if_kind(Use) {
-        Some(parse_entity_aspect(ctx)?)
+    let (entity_aspect, token) = if let Some(use_token) = ctx.stream.pop_if_kind(Use) {
+        (Some(parse_entity_aspect(ctx)?), use_token)
     } else {
-        None
+        (None, ctx.stream.get_current_token_id())
     };
-    parse_binding_indication_known_entity_aspect(ctx, entity_aspect)
+    parse_binding_indication_known_entity_aspect(ctx, entity_aspect, token)
 }
 
 fn parse_component_configuration_known_spec(
@@ -82,7 +84,7 @@ fn parse_component_configuration_known_spec(
                 (None, vunit_bind_inds)
             } else {
                 let aspect = parse_entity_aspect(ctx)?;
-                let bind_ind = parse_binding_indication_known_entity_aspect(ctx, Some(aspect))?;
+                let bind_ind = parse_binding_indication_known_entity_aspect(ctx, Some(aspect), token_id)?;
 
                 if let Some(start_token) = ctx.stream.pop_if_kind(Use) {
                     (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(ctx, start_token)?)
@@ -728,7 +730,8 @@ end configuration cfg;
                                 None
                             )),
                             generic_map: None,
-                            port_map: None
+                            port_map: None,
+                            span: code.s1("use entity work.bar;").token_span()
                         }),
                         vunit_bind_inds: vec![VUnitBindingIndication {
                             vunit_list: vec![code.s1("baz").name()],
@@ -810,6 +813,7 @@ end configuration cfg;
                             )),
                             generic_map: None,
                             port_map: None,
+                            span: code.s1("use entity lib.use_name;").token_span()
                         }),
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
@@ -1008,7 +1012,8 @@ end configuration cfg;
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
-                    port_map: None
+                    port_map: None,
+                    span: code.s1("use entity work.foo(rtl);").token_span()
                 },
                 vunit_bind_inds: Vec::new()
             }
@@ -1035,7 +1040,8 @@ end configuration cfg;
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
-                    port_map: None
+                    port_map: None,
+                    span: code.s1("use entity work.foo(rtl);").token_span()
                 },
                 vunit_bind_inds: Vec::new()
             }
@@ -1064,7 +1070,8 @@ end configuration cfg;
                         Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
-                    port_map: None
+                    port_map: None,
+                    span: code.s1("use entity work.foo(rtl);").token_span()
                 },
                 vunit_bind_inds: vec![VUnitBindingIndication {
                     vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()],

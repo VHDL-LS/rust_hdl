@@ -36,6 +36,7 @@ use crate::data::Range;
 use crate::data::*;
 use crate::standard::VHDLStandard;
 use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::configuration::parse_entity_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::parser::ParsingContext;
@@ -786,6 +787,10 @@ impl Code {
 
     pub fn association_element(&self) -> AssociationElement {
         self.parse_ok_no_diagnostics(parse_association_element)
+    }
+
+    pub fn entity_aspect(&self) -> EntityAspect {
+        self.parse_ok_no_diagnostics(parse_entity_aspect)
     }
 }
 

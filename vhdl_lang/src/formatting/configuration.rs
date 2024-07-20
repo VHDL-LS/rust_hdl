@@ -1,6 +1,6 @@
 use crate::ast::{
     BindingIndication, BlockConfiguration, ComponentSpecification, ConfigurationDeclaration,
-    ConfigurationItem, ConfigurationSpecification, VUnitBindingIndication,
+    ConfigurationItem, ConfigurationSpecification, EntityAspect, VUnitBindingIndication,
 };
 use crate::syntax::Kind;
 use crate::{TokenAccess, TokenSpan, VHDLFormatter};
@@ -87,16 +87,17 @@ impl VHDLFormatter<'_> {
         buffer: &mut String,
     ) {
         self.format_component_specification(&config.spec, buffer);
+        self.increase_indentation();
         if let Some(binding_indication) = &config.bind_ind {
+            self.newline(buffer);
             self.format_binding_indication(binding_indication, buffer)
         }
         self.format_v_unit_binding_indications(&config.vunit_bind_inds, buffer);
         if let Some(block_configuration) = &config.block_config {
-            self.increase_indentation();
             self.newline(buffer);
             self.format_block_configuration(block_configuration, buffer);
-            self.decrease_indentation();
         }
+        self.decrease_indentation();
         self.newline(buffer);
         // end
         self.format_token_id(config.span.end_token - 2, buffer);
@@ -108,8 +109,43 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_binding_indication(&self, indication: &BindingIndication, buffer: &mut String) {
-        unimplemented!()
+        // use
+        self.format_token_id(indication.span.start_token, buffer);
+        if let Some(aspect) = &indication.entity_aspect {
+            buffer.push(' ');
+            self.format_token_id(indication.span.start_token + 1, buffer);
+            buffer.push(' ');
+            match aspect {
+                EntityAspect::Entity(entity, architecture) => {
+                    self.format_name(entity.as_ref(), buffer);
+                    if let Some(arch) = architecture {
+                        self.format_token_id(arch.token - 1, buffer);
+                        self.format_token_id(arch.token, buffer);
+                        self.format_token_id(arch.token + 1, buffer);
+                    }
+                }
+                EntityAspect::Configuration(config) => {
+                    self.format_name(config.as_ref(), buffer);
+                }
+                EntityAspect::Open => {}
+            }
+        }
+        if let Some(map_aspect) = &indication.generic_map {
+            self.increase_indentation();
+            self.newline(buffer);
+            self.format_map_aspect(map_aspect, buffer);
+            self.decrease_indentation();
+        }
+        if let Some(map_aspect) = &indication.port_map {
+            self.increase_indentation();
+            self.newline(buffer);
+            self.format_map_aspect(map_aspect, buffer);
+            self.decrease_indentation();
+        }
+        self.format_token_id(indication.span.end_token, buffer);
     }
+
+    pub fn format_entity_aspect(&self, aspect: &EntityAspect, buffer: &mut String) {}
 
     pub fn format_configuration_specification(
         &self,
@@ -129,8 +165,8 @@ impl VHDLFormatter<'_> {
         buffer.push(' ');
         match &spec.instantiation_list {
             InstantiationList::Labels(labels) => self.format_ident_list(labels, buffer),
-            InstantiationList::Others => self.format_token_id(spec.span.start_token + 2, buffer),
-            InstantiationList::All => self.format_token_id(spec.span.start_token + 2, buffer),
+            InstantiationList::Others => self.format_token_id(spec.span.start_token + 1, buffer),
+            InstantiationList::All => self.format_token_id(spec.span.start_token + 1, buffer),
         }
         // :
         self.format_token_id(spec.colon_token, buffer);
@@ -256,6 +292,59 @@ configuration cfg of entity_name is
             end for;
         end for;
     end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+    for rtl(0)
+        for inst: lib.pkg.comp
+            use entity lib.use_name;
+        end for;
+    end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+    for rtl(0)
+        for inst: lib.pkg.comp
+        end for;
+        for inst1, inst2, inst3: lib2.pkg.comp
+        end for;
+        for all: lib3.pkg.comp
+        end for;
+        for others: lib4.pkg.comp
+        end for;
+    end for;
+end configuration cfg;",
+        );
+    }
+
+    #[test]
+    fn check_entity_aspect() {
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+  for foo
+      use entity lib.use_name;
+  end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+  for foo
+      use entity lib.foo.name(arch);
+  end for;
+end configuration cfg;",
+        );
+        check_design_unit_formatted(
+            "\
+configuration cfg of entity_name is
+  for foo
+      use configuration lib.foo.name;
+  end for;
 end configuration cfg;",
         );
     }

@@ -1426,6 +1426,7 @@ pub enum EntityAspect {
 }
 
 /// LRM 7.3.2 Binding indication
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BindingIndication {
     pub entity_aspect: Option<EntityAspect>,
