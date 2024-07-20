@@ -1,11 +1,12 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    ElementAssociation, Expression, ResolutionIndication, SubtypeConstraint, SubtypeIndication,
+    ElementAssociation, Expression, Operator, ResolutionIndication, SubtypeConstraint,
+    SubtypeIndication,
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
-use crate::{HasTokenSpan, TokenAccess};
+use crate::{HasTokenSpan, Token, TokenAccess};
 use vhdl_lang::ast::{Allocator, QualifiedExpression};
 use vhdl_lang::TokenSpan;
 
@@ -31,6 +32,12 @@ impl VHDLFormatter<'_> {
             }
             Unary(op, rhs) => {
                 self.format_token_id(op.token, buffer);
+                match op.item.item {
+                    Operator::Minus | Operator::Plus | Operator::QueQue => {
+                        // Leave as unary operator without whitespace
+                    }
+                    _ => buffer.push_whitespace(),
+                }
                 self.format_expression(rhs.as_ref().as_ref(), buffer);
             }
             Aggregate(aggregate) => self.format_element_associations(aggregate, buffer),
@@ -206,6 +213,7 @@ mod test {
     fn unary_expressions() {
         check_expression("+B");
         check_expression("-2");
+        check_expression("not A")
     }
 
     #[test]
