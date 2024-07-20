@@ -7,6 +7,7 @@ use vhdl_lang::ast::HasIdent;
 
 mod architecture;
 mod concurrent_statement;
+mod configuration;
 mod constraint;
 mod context;
 mod declaration;

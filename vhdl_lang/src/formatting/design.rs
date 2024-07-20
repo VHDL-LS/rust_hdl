@@ -39,14 +39,6 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_configuration(
-        &self,
-        _configuration: &ConfigurationDeclaration,
-        _buffer: &mut String,
-    ) {
-        unimplemented!()
-    }
-
     pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut String) {
         self.format_context_clause(&package.context_clause, buffer);
         if !package.context_clause.is_empty() {

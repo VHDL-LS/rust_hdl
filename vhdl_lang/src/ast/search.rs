@@ -1308,7 +1308,7 @@ impl Search for InterfaceDeclaration {
                     )
                     .or_not_found());
                 return_if_found!(package_instance.package_name.search(ctx, searcher));
-                match package_instance.generic_map {
+                match package_instance.generic_map.item {
                     InterfacePackageGenericMapAspect::Map(ref generic_map) => {
                         return_if_found!(generic_map.search(ctx, searcher));
                     }

@@ -834,7 +834,7 @@ pub enum InterfacePackageGenericMapAspect {
 pub struct InterfacePackageDeclaration {
     pub ident: WithDecl<Ident>,
     pub package_name: WithTokenSpan<Name>,
-    pub generic_map: InterfacePackageGenericMapAspect,
+    pub generic_map: WithTokenSpan<InterfacePackageGenericMapAspect>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -1457,14 +1457,6 @@ pub struct ConfigurationSpecification {
 
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
-pub enum ConfigurationDeclarativeItem {
-    Use(UseClause),
-    // @TODO attribute
-    // @TODO group
-}
-
-/// LRM 3.4 Configuration declarations
-#[derive(PartialEq, Debug, Clone)]
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,
     pub bind_ind: Option<BindingIndication>,
@@ -1480,6 +1472,7 @@ pub enum ConfigurationItem {
 }
 
 /// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockConfiguration {
     pub block_spec: WithTokenSpan<Name>,
@@ -1494,9 +1487,10 @@ pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub entity_name: WithTokenSpan<Name>,
-    pub decl: Vec<ConfigurationDeclarativeItem>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 

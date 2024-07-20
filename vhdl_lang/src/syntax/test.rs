@@ -726,8 +726,8 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_choices)
     }
 
-    pub fn use_clause(&self) -> UseClause {
-        self.parse_ok_no_diagnostics(parse_use_clause).item
+    pub fn use_clause(&self) -> WithTokenSpan<UseClause> {
+        self.parse_ok_no_diagnostics(parse_use_clause)
     }
 
     pub fn library_clause(&self) -> LibraryClause {

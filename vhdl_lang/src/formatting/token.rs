@@ -80,7 +80,7 @@ impl VHDLFormatter<'_> {
                 buffer.push((*char) as char);
                 buffer.push('\'');
             }
-            Value::Text(_) => unimplemented!(),
+            Value::Text(text) => buffer.push_str(&text.to_string()),
             Value::None => buffer.push_str(kind_str(token.kind)),
         }
         if let Some(comments) = &token.comments {

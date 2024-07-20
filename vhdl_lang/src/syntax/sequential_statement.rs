@@ -1642,7 +1642,7 @@ end case?;",
                         alternatives: vec![Alternative {
                             choices: code.s1("others").choices(),
                             item: vec![code.s1("null;").sequential_statement()],
-                            span: code.s1("others => null").token_span()
+                            span: code.s1("others => null;").token_span()
                         }],
                         end_token: code.s1("end").token(),
                         end_label_pos: None,

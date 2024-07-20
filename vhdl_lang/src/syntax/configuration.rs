@@ -15,6 +15,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::TokenId;
 
 /// LRM 7.3.2.2
 fn parse_entity_aspect(ctx: &mut ParsingContext<'_>) -> ParseResult<EntityAspect> {
@@ -94,9 +95,10 @@ fn parse_component_configuration_known_spec(
     let block_config = expect_token!(
         ctx.stream,
         token,
+        token_id,
         End => None,
         For => {
-            let block_config = parse_block_configuration_known_keyword(ctx)?;
+            let block_config = parse_block_configuration_known_keyword(ctx, token_id)?;
             ctx.stream.expect_kind(End)?;
             Some(block_config)
         }
@@ -180,6 +182,7 @@ fn parse_component_specification_or_name(
 
 fn parse_configuration_item_known_keyword(
     ctx: &mut ParsingContext<'_>,
+    token: TokenId,
 ) -> ParseResult<ConfigurationItem> {
     match parse_component_specification_or_name(ctx)? {
         ComponentSpecificationOrName::ComponentSpec(component_spec) => {
@@ -188,7 +191,7 @@ fn parse_configuration_item_known_keyword(
             ))
         }
         ComponentSpecificationOrName::Name(name) => Ok(ConfigurationItem::Block(
-            parse_block_configuration_known_name(ctx, name)?,
+            parse_block_configuration_known_name(ctx, name, token)?,
         )),
     }
 }
@@ -196,6 +199,7 @@ fn parse_configuration_item_known_keyword(
 fn parse_block_configuration_known_name(
     ctx: &mut ParsingContext<'_>,
     name: WithTokenSpan<Name>,
+    start_token: TokenId,
 ) -> ParseResult<BlockConfiguration> {
     let block_spec = name;
     // @TODO use clauses
@@ -206,28 +210,31 @@ fn parse_block_configuration_known_name(
         expect_token!(
             ctx.stream,
             token,
+            token_id,
             End => {
                 break;
             },
             For => {
-                items.push(parse_configuration_item_known_keyword(ctx)?);
+                items.push(parse_configuration_item_known_keyword(ctx, token_id)?);
             }
         );
     }
     ctx.stream.expect_kind(For)?;
-    expect_semicolon(ctx);
+    let semicolon = expect_semicolon_or_last(ctx);
     Ok(BlockConfiguration {
         block_spec,
         use_clauses,
         items,
+        span: TokenSpan::new(start_token, semicolon),
     })
 }
 
 fn parse_block_configuration_known_keyword(
     ctx: &mut ParsingContext<'_>,
+    token: TokenId,
 ) -> ParseResult<BlockConfiguration> {
     let name = parse_name(ctx)?;
-    parse_block_configuration_known_name(ctx, name)
+    parse_block_configuration_known_name(ctx, name, token)
 }
 
 fn parse_vunit_binding_indication_list_known_keyword(
@@ -282,24 +289,22 @@ pub fn parse_configuration_declaration(
                     break parse_vunit_binding_indication_list_known_keyword(ctx)?;
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(
-                    parse_use_clause(ctx)?.item,
-                ));
+                decl.push(parse_use_clause(ctx)?.map_into(Declaration::Use));
             }
             _ => break Vec::new(),
         }
     };
 
-    ctx.stream.expect_kind(For)?;
-    let block_config = parse_block_configuration_known_keyword(ctx)?;
+    let for_token = ctx.stream.expect_kind(For)?;
+    let block_config = parse_block_configuration_known_keyword(ctx, for_token)?;
 
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Configuration);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let last_token = expect_semicolon_or_last(ctx);
 
     Ok(ConfigurationDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, last_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
@@ -307,6 +312,7 @@ pub fn parse_configuration_declaration(
         decl,
         vunit_bind_inds,
         block_config,
+        end_token,
     })
 }
 
@@ -378,7 +384,9 @@ end;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: None,
             }
         );
@@ -407,7 +415,9 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -432,15 +442,21 @@ end configuration cfg;
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").name(),
                 decl: vec![
-                    ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
-                    ConfigurationDeclarativeItem::Use(code.s1("use lib2.foo.bar;").use_clause())
+                    code.s1("use lib.foo.bar;")
+                        .use_clause()
+                        .map_into(Declaration::Use),
+                    code.s1("use lib2.foo.bar;")
+                        .use_clause()
+                        .map_into(Declaration::Use)
                 ],
                 vunit_bind_inds: Vec::new(),
                 block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -465,9 +481,10 @@ end configuration cfg;
                 context_clause: ContextClause::default(),
                 ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").name(),
-                decl: vec![ConfigurationDeclarativeItem::Use(
-                    code.s1("use lib.foo.bar;").use_clause()
-                ),],
+                decl: vec![code
+                    .s1("use lib.foo.bar;")
+                    .use_clause()
+                    .map_into(Declaration::Use)],
                 vunit_bind_inds: vec![VUnitBindingIndication {
                     vunit_list: vec![code.s1("baz.foobar").name()]
                 }],
@@ -475,7 +492,9 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -504,7 +523,9 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -541,14 +562,18 @@ end configuration cfg;
                             block_spec: code.s1("name(0 to 3)").name(),
                             use_clauses: vec![],
                             items: vec![],
+                            span: code.between("for", "end for;").token_span(),
                         }),
                         ConfigurationItem::Block(BlockConfiguration {
                             block_spec: code.s1("other_name").name(),
                             use_clauses: vec![],
                             items: vec![],
+                            span: code.between("for", "end for;").token_span(),
                         })
                     ],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -593,9 +618,12 @@ end configuration cfg;
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
                             items: vec![],
+                            span: code.between("for", "end for;").token_span(),
                         }),
-                    }),],
+                    })],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 2).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -651,9 +679,12 @@ end configuration cfg;
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
                             items: vec![],
+                            span: code.between("for", "end for;").token_span(),
                         }),
-                    }),],
+                    })],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -701,8 +732,10 @@ end configuration cfg;
                         }),
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
-                    }),],
+                    })],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 4).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );
@@ -782,7 +815,9 @@ end configuration cfg;
                             block_config: None,
                         })
                     ],
+                    span: code.between("for", "end for;").token_span(),
                 },
+                end_token: code.s("end", 6).token(),
                 end_ident_pos: Some(code.s("cfg", 2).token())
             }
         );

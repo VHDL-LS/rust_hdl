@@ -841,7 +841,7 @@ end entity;
                         span: code.s1_to_end("entity").token_span(),
                         context_clause: vec![
                             ContextItem::Library(code.s1("library lib;").library_clause()),
-                            ContextItem::Use(code.s1("use lib.foo;").use_clause()),
+                            ContextItem::Use(code.s1("use lib.foo;").use_clause().item),
                         ],
                         ident: code.s1("myent").decl_ident(),
                         generic_clause: None,

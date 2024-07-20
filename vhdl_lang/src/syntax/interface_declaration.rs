@@ -12,7 +12,7 @@ use super::object_declaration::parse_optional_assignment;
 use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
-use crate::ast::token_range::WithToken;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
@@ -250,7 +250,7 @@ fn parse_interface_package(
     ctx.stream.expect_kind(Is)?;
     ctx.stream.expect_kind(New)?;
     let package_name = parse_selected_name(ctx)?;
-    ctx.stream.expect_kind(Generic)?;
+    let generic_token = ctx.stream.expect_kind(Generic)?;
     ctx.stream.expect_kind(Map)?;
 
     let generic_map = {
@@ -278,7 +278,7 @@ fn parse_interface_package(
     Ok(InterfacePackageDeclaration {
         ident: ident.into(),
         package_name,
-        generic_map,
+        generic_map: WithTokenSpan::new(generic_map, TokenSpan::new(generic_token, last_token)),
         span: TokenSpan::new(start_token, last_token),
     })
 }
@@ -1050,8 +1050,11 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Map(
-                    code.s1("(foo => bar)").association_list()
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Map(
+                        code.s1("(foo => bar)").association_list()
+                    ),
+                    code.between("generic", ")").token_span()
                 ),
                 span: code.token_span()
             })
@@ -1070,7 +1073,10 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Box,
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Box,
+                    code.between("generic", ")").token_span()
+                ),
                 span: code.token_span()
             })
         );
@@ -1088,7 +1094,10 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Default,
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Default,
+                    code.between("generic", ")").token_span()
+                ),
                 span: code.token_span()
             })
         );

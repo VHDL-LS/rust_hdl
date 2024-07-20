@@ -1044,7 +1044,7 @@ impl Display for InterfacePackageDeclaration {
             "package {} is new {}\n  generic map (",
             self.ident, self.package_name
         )?;
-        match &self.generic_map {
+        match &self.generic_map.item {
             InterfacePackageGenericMapAspect::Map(assoc_list) => {
                 let mut first = true;
                 for assoc in &assoc_list.items {

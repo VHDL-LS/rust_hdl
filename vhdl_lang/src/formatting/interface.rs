@@ -1,8 +1,8 @@
 use crate::ast::{
     ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
-    InterfaceObjectDeclaration, InterfacePackageDeclaration, InterfaceSubprogramDeclaration,
-    MapAspect, ModeIndication, ModeViewElement, ModeViewIndicationKind, SimpleModeIndication,
-    SubprogramDefault,
+    InterfaceObjectDeclaration, InterfacePackageDeclaration, InterfacePackageGenericMapAspect,
+    InterfaceSubprogramDeclaration, MapAspect, ModeIndication, ModeViewElement,
+    ModeViewIndicationKind, SeparatedList, SimpleModeIndication, SubprogramDefault,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
@@ -48,27 +48,36 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_map_aspect(&self, aspect: &MapAspect, buffer: &mut String) {
+    pub fn format_map_aspect_span(
+        &self,
+        list: &SeparatedList<AssociationElement>,
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
         // port map (
         // generic map (
         self.format_token_span(
-            TokenSpan::new(aspect.span.start_token, aspect.span.start_token + 2),
+            TokenSpan::new(span.start_token, span.start_token + 2),
             buffer,
         );
         self.increase_indentation();
-        for (i, item) in aspect.list.items.iter().enumerate() {
+        for (i, item) in list.items.iter().enumerate() {
             self.newline(buffer);
             self.format_association_element(item, buffer);
-            if let Some(token) = aspect.list.tokens.get(i) {
+            if let Some(token) = list.tokens.get(i) {
                 self.format_token_id(*token, buffer);
             }
         }
         self.decrease_indentation();
-        if !aspect.list.items.is_empty() {
+        if !list.items.is_empty() {
             self.newline(buffer);
         }
         // )
-        self.format_token_id(aspect.span.end_token, buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    pub fn format_map_aspect(&self, aspect: &MapAspect, buffer: &mut String) {
+        self.format_map_aspect_span(&aspect.list, aspect.span, buffer);
     }
 
     pub fn format_association_element(&self, element: &AssociationElement, buffer: &mut String) {
@@ -156,7 +165,27 @@ impl VHDLFormatter<'_> {
         );
         buffer.push(' ');
         self.format_name(package.package_name.as_ref(), buffer);
-        unimplemented!();
+        buffer.push(' ');
+        let span = package.generic_map.span();
+        match &package.generic_map.item {
+            InterfacePackageGenericMapAspect::Map(map) => {
+                self.format_map_aspect_span(map, span, buffer)
+            }
+            InterfacePackageGenericMapAspect::Box | InterfacePackageGenericMapAspect::Default => {
+                // generic
+                self.format_token_id(span.start_token, buffer);
+                buffer.push(' ');
+                // map
+                self.format_token_id(span.start_token + 1, buffer);
+                buffer.push(' ');
+                //(
+                self.format_token_id(span.start_token + 2, buffer);
+                // <> | default
+                self.format_token_id(span.start_token + 3, buffer);
+                // )
+                self.format_token_id(span.start_token + 4, buffer);
+            }
+        }
     }
 
     pub fn format_interface_object(
@@ -345,5 +374,17 @@ mod tests {
         check_generic("impure function foo return bar");
         check_generic("function foo return bar is lib.name");
         check_generic("function foo return bar is <>");
+    }
+
+    #[test]
+    fn format_interface_package_declaration() {
+        check_generic(
+            "\
+package foo is new lib.pkg generic map (
+    foo => bar
+)",
+        );
+        check_generic("package foo is new lib.pkg generic map (<>)");
+        check_generic("package foo is new lib.pkg generic map (default)");
     }
 }
