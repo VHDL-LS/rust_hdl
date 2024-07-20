@@ -6,7 +6,7 @@ use crate::ast::{
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
-use crate::{HasTokenSpan, Token, TokenAccess};
+use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::{Allocator, QualifiedExpression};
 use vhdl_lang::TokenSpan;
 
@@ -194,7 +194,8 @@ mod test {
 
     #[test]
     fn test_parenthesized_expression() {
-        check_expression("(name)")
+        check_expression("(name)");
+        check_expression("(A) or (B)");
     }
 
     #[test]

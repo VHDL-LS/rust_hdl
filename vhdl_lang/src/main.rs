@@ -93,16 +93,22 @@ fn main() {
                     std::process::exit(1);
                 }
                 println!("{result}");
-                if new_file != design_file {
-                    println!(
-                        "Here. A: {}, B: {}",
-                        new_file.design_units.len(),
-                        design_file.design_units.len()
-                    );
-                    for (a, b) in zip(new_file.design_units, design_file.design_units) {
-                        println!("A");
-                        if a != b {
-                            println!("Mismatch")
+                for ((tokens_a, _), (tokens_b, _)) in
+                    zip(new_file.design_units, design_file.design_units)
+                {
+                    for (a, b) in zip(tokens_a, tokens_b) {
+                        if a.kind != b.kind {
+                            println!("Mismatch");
+                            println!("New Token={a:#?}");
+                            let contents = a.pos.source.contents();
+                            let a_line =
+                                contents.get_line(a.pos.range.start.line as usize).unwrap();
+                            println!("    {a_line}");
+                            println!("Old Token={b:#?}");
+                            let b_line =
+                                result.lines().nth(b.pos.range.start.line as usize).unwrap();
+                            println!("    {b_line}");
+                            break;
                         }
                     }
                 }
