@@ -73,7 +73,7 @@ impl VHDLFormatter<'_> {
                 buffer.push_str(&string.to_string());
                 buffer.push('"');
             }
-            Value::BitString(..) => unimplemented!(),
+            Value::BitString(value, _) => buffer.push_str(&value.to_string()),
             Value::AbstractLiteral(value, _) => buffer.push_str(&value.to_string()),
             Value::Character(char) => {
                 buffer.push('\'');
@@ -132,6 +132,11 @@ mod tests {
     #[test]
     fn string_formatting() {
         check_token_formatted(r#""ABC" "" "DEF""#, &["\"ABC\"", "\"\"", "\"DEF\""]);
+    }
+
+    #[test]
+    fn bit_string_formatting() {
+        check_token_formatted(r#"B"10" 20B"8" X"2F""#, &["B\"10\"", "20B\"8\"", "X\"2F\""]);
     }
 
     #[test]

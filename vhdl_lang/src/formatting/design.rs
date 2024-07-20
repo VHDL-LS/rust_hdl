@@ -1,6 +1,4 @@
-use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ConfigurationDeclaration, PackageBody,
-};
+use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, PackageBody};
 use vhdl_lang::ast::PackageDeclaration;
 use vhdl_lang::formatting::VHDLFormatter;
 use vhdl_lang::TokenSpan;

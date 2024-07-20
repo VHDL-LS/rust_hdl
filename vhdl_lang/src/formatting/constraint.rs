@@ -115,17 +115,6 @@ mod test {
         check_range("0 downto 5 - C_OFFSET");
     }
 
-    fn check_subtype_indication(input: &str) {
-        check_formatted(
-            input,
-            input,
-            Code::subtype_indication,
-            |formatter, subtype_indication, buffer| {
-                formatter.format_subtype_indication(subtype_indication, buffer)
-            },
-        )
-    }
-
     fn check_subtype_indications(inputs: &[&str]) {
         for input in inputs {
             check_formatted(

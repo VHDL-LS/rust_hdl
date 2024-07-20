@@ -36,7 +36,6 @@ use crate::data::Range;
 use crate::data::*;
 use crate::standard::VHDLStandard;
 use crate::syntax::concurrent_statement::parse_map_aspect;
-use crate::syntax::configuration::parse_entity_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::parser::ParsingContext;
@@ -788,10 +787,6 @@ impl Code {
     pub fn association_element(&self) -> AssociationElement {
         self.parse_ok_no_diagnostics(parse_association_element)
     }
-
-    pub fn entity_aspect(&self) -> EntityAspect {
-        self.parse_ok_no_diagnostics(parse_entity_aspect)
-    }
 }
 
 fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -> Range {
@@ -951,13 +946,10 @@ fn value_to_string(value: &Value) -> String {
     match value {
         Value::Identifier(ident) => ident.name_utf8(),
         Value::String(s) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
-        Value::BitString(_) => {
-            panic!("value_to_string is currently not supported for BitString literals!")
+        Value::BitString(s, ..) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
+        Value::AbstractLiteral(s, _) => {
+            String::from_utf8(s.chars().copied().collect_vec()).unwrap()
         }
-        Value::AbstractLiteral(_, lit) => match lit {
-            AbstractLiteral::Integer(i) => i.to_string(),
-            AbstractLiteral::Real(f) => f.to_string(),
-        },
         Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
         Value::Text(text) => String::from_utf8(text.chars().copied().collect_vec()).unwrap(),
         Value::None => "".into(),

@@ -350,6 +350,14 @@ impl<'a> ContentReader<'a> {
     pub fn peek_char(&self) -> Option<char> {
         self.get_char()
     }
+
+    pub fn value_at(&self, line: usize, start: usize, stop: usize) -> Option<Latin1String> {
+        let line = self.contents.get_line(line)?;
+        if stop > line.len() {
+            return None;
+        }
+        Latin1String::from_utf8(&line[start..stop]).ok()
+    }
 }
 
 #[cfg(test)]

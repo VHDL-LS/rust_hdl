@@ -412,7 +412,7 @@ pub fn kinds_str(kinds: &[Kind]) -> String {
 pub enum Value {
     Identifier(Symbol),
     String(Latin1String),
-    BitString(ast::BitString),
+    BitString(Latin1String, ast::BitString),
     AbstractLiteral(Latin1String, ast::AbstractLiteral),
     Character(u8),
     // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
@@ -803,7 +803,7 @@ impl Token {
     pub fn to_bit_string(&self, id: TokenId) -> DiagnosticResult<WithToken<ast::BitString>> {
         if let Token {
             kind: BitString,
-            value: Value::BitString(value),
+            value: Value::BitString(_, value),
             ..
         } = self
         {
@@ -1329,7 +1329,13 @@ fn parse_abstract_literal(
 
             if let Some(base_spec) = parse_base_specifier(reader)? {
                 // @TODO check overflow
-                parse_bit_string(buffer, reader, base_spec, Some(integer as u32))
+                parse_bit_string(
+                    buffer,
+                    reader,
+                    base_spec,
+                    Some(integer as u32),
+                    state.pos().character as usize,
+                )
             } else {
                 Err(TokenError::range(
                     state.pos(),
@@ -1396,6 +1402,7 @@ fn parse_bit_string(
     reader: &mut ContentReader,
     base_specifier: BaseSpecifier,
     bit_string_length: Option<u32>,
+    start: usize,
 ) -> Result<(Kind, Value), TokenError> {
     let value = match parse_string(buffer, reader) {
         Ok(value) => value,
@@ -1405,13 +1412,21 @@ fn parse_bit_string(
         }
     };
 
+    let end_pos = reader.state().pos();
+    let actual_value = reader
+        .value_at(end_pos.line as usize, start, end_pos.character as usize)
+        .unwrap();
+
     Ok((
         BitString,
-        Value::BitString(ast::BitString {
-            length: bit_string_length,
-            base: base_specifier,
-            value,
-        }),
+        Value::BitString(
+            actual_value,
+            ast::BitString {
+                length: bit_string_length,
+                base: base_specifier,
+                value,
+            },
+        ),
     ))
 }
 
@@ -1671,8 +1686,15 @@ impl<'a> Tokenizer<'a> {
 
         let (kind, value) = match byte {
             b'a'..=b'z' | b'A'..=b'Z' => {
+                let state = self.reader.state();
                 if let Some(base_spec) = maybe_base_specifier(&mut self.reader)? {
-                    parse_bit_string(&mut self.buffer, &mut self.reader, base_spec, None)?
+                    parse_bit_string(
+                        &mut self.buffer,
+                        &mut self.reader,
+                        base_spec,
+                        None,
+                        state.pos().character as usize,
+                    )?
                 } else {
                     parse_basic_identifier_or_keyword(
                         &mut self.buffer,
@@ -2410,13 +2432,11 @@ my_other_ident",
                         ("".to_owned(), None)
                     };
 
-                    let code = format!("{length_str}{base_spec}\"{value}\"");
+                    let mut code = format!("{length_str}{base_spec}\"{value}\"");
 
-                    let code = if upper_case {
-                        code.to_ascii_uppercase()
-                    } else {
-                        code
-                    };
+                    if upper_case {
+                        code.make_ascii_uppercase()
+                    }
 
                     let value = if upper_case {
                         value.to_ascii_uppercase()
@@ -2424,17 +2444,22 @@ my_other_ident",
                         value.to_owned()
                     };
 
+                    let original_code = code.clone();
+
                     let code = Code::new(code.as_str());
                     let tokens = code.tokenize();
                     assert_eq!(
                         tokens,
                         vec![Token {
                             kind: BitString,
-                            value: Value::BitString(ast::BitString {
-                                length: length_opt,
-                                base,
-                                value: Latin1String::from_utf8_unchecked(value.as_str()),
-                            }),
+                            value: Value::BitString(
+                                Latin1String::from_utf8_unchecked(original_code.as_str()),
+                                ast::BitString {
+                                    length: length_opt,
+                                    base,
+                                    value: Latin1String::from_utf8_unchecked(value.as_str()),
+                                }
+                            ),
                             pos: code.pos(),
                             comments: None,
                         },]

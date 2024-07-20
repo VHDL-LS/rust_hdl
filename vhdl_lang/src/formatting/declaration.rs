@@ -1,8 +1,7 @@
 use crate::ast::{
-    ArrayIndex, ComponentDeclaration, ConfigurationSpecification, ContextReference,
-    ElementDeclaration, EntityName, FileDeclaration, ModeViewDeclaration, ObjectDeclaration,
-    PackageInstantiation, ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration,
-    TypeDefinition,
+    ArrayIndex, ComponentDeclaration, ContextReference, ElementDeclaration, EntityName,
+    FileDeclaration, ModeViewDeclaration, ObjectDeclaration, PackageInstantiation,
+    ProtectedTypeDeclarativeItem, SubtypeIndication, TypeDeclaration, TypeDefinition,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;

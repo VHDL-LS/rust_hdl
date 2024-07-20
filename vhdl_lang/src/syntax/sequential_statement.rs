@@ -185,7 +185,6 @@ fn parse_case_statement(
                 continue;
             },
             End => {
-                let end_token = ctx.stream.get_last_token_id();
                 ctx.stream.expect_kind(Case)?;
                 if is_matching {
                     ctx.stream.expect_kind(Que)?;
