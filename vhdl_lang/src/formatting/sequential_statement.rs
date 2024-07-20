@@ -1,7 +1,8 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    CaseStatement, Choice, DelayMechanism, IterationScheme, LabeledSequentialStatement,
-    LoopStatement, ReportStatement, SequentialStatement, SignalAssignment, WaitStatement,
+    AssignmentRightHand, CaseStatement, Choice, DelayMechanism, IterationScheme,
+    LabeledSequentialStatement, LoopStatement, ReportStatement, SequentialStatement,
+    SignalAssignment, WaitStatement,
 };
 use crate::TokenSpan;
 use vhdl_lang::ast::{
@@ -150,6 +151,16 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut String,
     ) {
+        if let AssignmentRightHand::Selected(selected) = &assignment.rhs {
+            // with
+            self.format_token_id(selected.expression.span.start_token - 1, buffer);
+            buffer.push(' ');
+            self.format_expression(selected.expression.as_ref(), buffer);
+            buffer.push(' ');
+            // select
+            self.format_token_id(selected.expression.span.end_token + 1, buffer);
+            buffer.push(' ');
+        }
         self.format_target(&assignment.target, buffer);
         buffer.push(' ');
         self.format_token_id(assignment.target.span.end_token + 1, buffer);
@@ -647,5 +658,13 @@ end loop;",
             "bar <= reject 2 ns inertial bar(1, 2);",
             "bar <= inertial bar(1, 2);",
         ]);
+    }
+
+    #[test]
+    fn format_selected_assignments() {
+        check_statement(
+            "\
+with x(0) + 1 select foo(0) := bar(1, 2) when 0 | 1, def when others;",
+        );
     }
 }
