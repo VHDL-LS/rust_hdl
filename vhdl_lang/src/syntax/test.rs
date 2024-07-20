@@ -859,8 +859,8 @@ fn diagnostics_to_map(diagnostics: Vec<Diagnostic>) -> HashMap<Diagnostic, usize
     map
 }
 
-// Drop releated info when we do not want to test for it
-pub fn without_releated(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+// Drop related info when we do not want to test for it
+pub fn without_related(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
     let mut diagnostics = diagnostics.to_vec();
     for diagnostic in diagnostics.iter_mut() {
         diagnostic.related.clear();

@@ -35,7 +35,7 @@ fn parse_array_constraint(
             RightPar => break sep_token_id,
             Comma => {}
         );
-        let start_token = ctx.stream.get_last_token_id();
+        let start_token = ctx.stream.get_current_token_id();
         let drange = parse_discrete_range(ctx)?;
         let end_token = ctx.stream.get_last_token_id();
 

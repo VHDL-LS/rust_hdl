@@ -1280,7 +1280,7 @@ mod test {
     use crate::analysis::tests::TestSetup;
     use crate::data::DiagnosticHandler;
     use crate::syntax::test::check_diagnostics;
-    use crate::syntax::test::without_releated;
+    use crate::syntax::test::without_related;
     use crate::syntax::test::Code;
 
     impl<'a> TestSetup<'a> {
@@ -1438,7 +1438,7 @@ mod test {
         assert_eq!(test.expr_type(&code, &mut diagnostics), None);
 
         check_diagnostics(
-            without_releated(&diagnostics),
+            without_related(&diagnostics),
             vec![Diagnostic::new(
                 code.s1("and"),
                 "Found no match for operator \"and\"",
@@ -1476,7 +1476,7 @@ mod test {
         assert_eq!(test.expr_type(&code, &mut diagnostics), None);
 
         check_diagnostics(
-            without_releated(&diagnostics),
+            without_related(&diagnostics),
             vec![Diagnostic::new(
                 code.s1("missing"),
                 "No declaration of 'missing'",

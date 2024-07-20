@@ -1373,7 +1373,7 @@ with x(0) + 1 select
                     target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: Some(WithTokenSpan::new(
                         DelayMechanism::Transport,
-                        code.s1("transport bar(1,2)").token_span()
+                        code.s1("transport").token_span()
                     )),
                     rhs: AssignmentRightHand::Selected(selection)
                 }
@@ -1642,7 +1642,12 @@ end generate;",
 
     #[test]
     fn test_for_generate_empty_declarations() {
-        fn test(decl: Option<Vec<WithTokenSpan<Declaration>>>, code: Code) {
+        fn test(
+            decl: Option<Vec<WithTokenSpan<Declaration>>>,
+            code: Code,
+            body_end_token: Option<usize>,
+            end_token: usize,
+        ) {
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
@@ -1651,10 +1656,10 @@ end generate;",
                     alternative_label: None,
                     decl: decl.map(|val| (val, code.s1("begin").token())),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_token: None,
+                    end_token: body_end_token.map(|occ| code.s("end", occ).token()),
                     end_label: None,
                 },
-                end_token: code.s1("end").token(),
+                end_token: code.s("end", end_token).token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1677,6 +1682,8 @@ begin
   foo <= bar;
 end generate;",
             ),
+            None,
+            1,
         );
 
         test(
@@ -1687,6 +1694,8 @@ gen: for idx in 0 to 1 generate
   foo <= bar;
 end generate;",
             ),
+            None,
+            1,
         );
 
         test(
@@ -1699,12 +1708,14 @@ begin
 end;
 end generate;",
             ),
+            Some(1),
+            2,
         );
     }
 
     #[test]
     fn test_for_generate_declarations() {
-        fn test(code: Code) {
+        fn test(code: Code, end_occurrence: usize, body_end_token: Option<usize>) {
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
@@ -1716,10 +1727,10 @@ end generate;",
                         code.s1("begin").token(),
                     )),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_token: None,
+                    end_token: body_end_token.map(|val| code.s("end", val).token()),
                     end_label: None,
                 },
-                end_token: code.s1("end").token(),
+                end_token: code.s("end", end_occurrence).token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1734,24 +1745,32 @@ end generate;",
             );
         }
 
-        test(Code::new(
-            "\
+        test(
+            Code::new(
+                "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
 end generate;",
-        ));
+            ),
+            1,
+            None,
+        );
 
-        test(Code::new(
-            "\
+        test(
+            Code::new(
+                "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
 end;
 end generate;",
-        ));
+            ),
+            2,
+            Some(1),
+        );
     }
 
     #[test]
@@ -1909,7 +1928,7 @@ end generate;",
                             alternative_label: None,
                             decl: Some((
                                 code.s1("variable v1 : boolean;").declarative_part(),
-                                code.s1("begin").token(),
+                                code.s("begin", 1).token(),
                             )),
                             statements: vec![code.s1("foo1(clk);").concurrent_statement()],
                             end_token: None,
@@ -1922,7 +1941,7 @@ end generate;",
                             alternative_label: None,
                             decl: Some((
                                 code.s1("variable v2 : boolean;").declarative_part(),
-                                code.s1("begin").token(),
+                                code.s("begin", 2).token(),
                             )),
                             statements: vec![code.s1("foo2(clk);").concurrent_statement()],
                             end_token: None,
@@ -1935,7 +1954,7 @@ end generate;",
                         alternative_label: None,
                         decl: Some((
                             code.s1("variable v3 : boolean;").declarative_part(),
-                            code.s1("begin").token(),
+                            code.s("begin", 3).token(),
                         )),
                         statements: vec![code.s1("foo3(clk);").concurrent_statement()],
                         end_token: None,
@@ -1988,8 +2007,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_token: None,
-                            end_label: None,
+                            end_token: Some(code.s("end", 1).token()),
+                            end_label: Some(code.s1("alt2").token()),
                         },
                     },
                 ],
@@ -1998,8 +2017,8 @@ end generate;",
                         alternative_label: Some(code.s1("alt3").decl_ident()),
                         decl: None,
                         statements: vec![],
-                        end_token: None,
-                        end_label: None,
+                        end_token: Some(code.s("end", 2).token()),
+                        end_label: Some(code.s1("alt4").token()),
                     },
                     code.s1("else").token(),
                 )),
@@ -2048,7 +2067,7 @@ end generate;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_token: None,
+                            end_token: Some(code.s("end", 1).token()),
                             end_label: Some(code.s("alt1", 2).token()),
                         },
                     },
@@ -2058,7 +2077,7 @@ end generate;",
                             alternative_label: Some(code.s1("alt2").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_token: None,
+                            end_token: Some(code.s("end", 2).token()),
                             end_label: Some(code.s("alt2", 2).token()),
                         },
                     },
@@ -2068,7 +2087,7 @@ end generate;",
                         alternative_label: Some(code.s1("alt3").decl_ident()),
                         decl: None,
                         statements: vec![],
-                        end_token: None,
+                        end_token: Some(code.s("end", 3).token()),
                         end_label: Some(code.s("alt3", 2).token()),
                     },
                     code.s1("else").token(),

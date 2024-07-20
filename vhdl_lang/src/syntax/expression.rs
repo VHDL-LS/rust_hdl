@@ -12,7 +12,7 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
 use crate::data::Diagnostic;
 use crate::syntax::TokenAccess;
-use crate::{ast, HasTokenSpan, TokenSpan};
+use crate::{ast, HasTokenSpan, TokenId, TokenSpan};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 impl WithTokenSpan<Name> {
@@ -145,6 +145,7 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 
 pub fn parse_aggregate_initial_choices(
     ctx: &mut ParsingContext<'_>,
+    start_token: TokenId,
     choices: Vec<WithTokenSpan<Choice>>,
 ) -> ParseResult<WithTokenSpan<Vec<WithTokenSpan<ElementAssociation>>>> {
     let mut choices = choices;
@@ -163,7 +164,7 @@ pub fn parse_aggregate_initial_choices(
                                 span,
                             )
                         );
-                        return Ok(WithTokenSpan::from(result, token_id))
+                        return Ok(WithTokenSpan::new(result, TokenSpan::new(start_token, token_id)))
                     }
                 }
 
@@ -200,7 +201,7 @@ pub fn parse_aggregate_initial_choices(
                     token,
                     token_id,
                     RightPar => {
-                        return Ok(WithTokenSpan::from(result, token_id))
+                        return Ok(WithTokenSpan::new(result, TokenSpan::new(start_token, token_id)))
                     },
                     Comma => {
                         choices = parse_choices(ctx)?;
@@ -222,7 +223,7 @@ pub fn parse_aggregate(
         ));
     };
     let choices = parse_choices(ctx)?;
-    parse_aggregate_initial_choices(ctx, choices)
+    parse_aggregate_initial_choices(ctx, start_tok, choices)
 }
 
 fn parse_half_range(
@@ -347,6 +348,7 @@ fn name_to_selected_name(name: Name) -> Option<Name> {
 
 fn parse_expression_or_aggregate(
     ctx: &mut ParsingContext<'_>,
+    start_token: TokenId,
 ) -> ParseResult<WithTokenSpan<Expression>> {
     let mut choices = parse_choices(ctx)?;
 
@@ -374,6 +376,7 @@ fn parse_expression_or_aggregate(
             Comma | RightArrow => {
                 Ok(parse_aggregate_initial_choices(
                     ctx,
+                    start_token,
                     vec![WithTokenSpan::new(Choice::Expression(expr), span)],
                 )?.map_into(Expression::Aggregate))
             },
@@ -391,7 +394,8 @@ fn parse_expression_or_aggregate(
         )
     } else {
         // Must be aggregate
-        Ok(parse_aggregate_initial_choices(ctx, choices)?.map_into(Expression::Aggregate))
+        Ok(parse_aggregate_initial_choices(ctx, start_token, choices)?
+            .map_into(Expression::Aggregate))
     }
 }
 
@@ -407,7 +411,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
             let name = parse_name(ctx)?;
             if ctx.stream.skip_if_kind(Tick) {
                 let lpar = ctx.stream.expect_kind(LeftPar)?;
-                let expr = parse_expression_or_aggregate(ctx)?.start_with(lpar);
+                let expr = parse_expression_or_aggregate(ctx, lpar)?.start_with(lpar);
                 let span = name.span.combine(expr.span);
                 Ok(WithTokenSpan::new(
                     Expression::Qualified(Box::new(QualifiedExpression {
@@ -484,8 +488,9 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
         }
 
         LeftPar => {
+            let start_token = ctx.stream.get_current_token_id();
             ctx.stream.skip();
-            parse_expression_or_aggregate(ctx).map(|expr| expr.start_with(token_id))
+            parse_expression_or_aggregate(ctx, start_token).map(|expr| expr.start_with(token_id))
         }
 
         kind => {

@@ -149,7 +149,7 @@ fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeV
     } else {
         None
     };
-    let end_token = ctx.stream.get_current_token_id();
+    let end_token = ctx.stream.get_last_token_id();
     Ok(ModeViewIndication {
         subtype_indication,
         name,

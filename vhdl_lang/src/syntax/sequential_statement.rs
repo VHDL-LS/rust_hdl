@@ -944,7 +944,7 @@ mod tests {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(WithTokenSpan::new(
                             DelayMechanism::Transport,
-                            code.s1("transport bar(1,2)").token_span()
+                            code.s1("transport").token_span()
                         )),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
                     }),
@@ -1256,7 +1256,7 @@ with x(0) + 1 select
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         delay_mechanism: Some(WithTokenSpan::new(
                             DelayMechanism::Transport,
-                            code.s1("transport bar(1,2)").token_span()
+                            code.s1("transport").token_span()
                         )),
                         rhs: AssignmentRightHand::Selected(selection),
                     }),

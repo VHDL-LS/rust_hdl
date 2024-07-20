@@ -1,10 +1,10 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     AssignmentRightHand, BlockStatement, CaseGenerateStatement, ConcurrentAssertStatement,
-    ConcurrentSignalAssignment, ConcurrentStatement, Conditionals, ForGenerateStatement,
-    GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target, Waveform,
-    WaveformElement,
+    ConcurrentSignalAssignment, ConcurrentStatement, Conditionals, ElementAssociation,
+    ForGenerateStatement, GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit,
+    InstantiationStatement, LabeledConcurrentStatement, ProcessStatement, SensitivityList, Target,
+    Waveform, WaveformElement,
 };
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
@@ -344,8 +344,23 @@ impl VHDLFormatter<'_> {
     pub fn format_target(&self, target: &WithTokenSpan<Target>, buffer: &mut String) {
         match &target.item {
             Target::Name(name) => self.format_name(WithTokenSpan::new(name, target.span), buffer),
-            Target::Aggregate(_) => unimplemented!(),
+            Target::Aggregate(associations) => {
+                self.format_target_aggregate(associations, target.span, buffer)
+            }
         }
+    }
+
+    pub fn format_target_aggregate(
+        &self,
+        associations: &[WithTokenSpan<ElementAssociation>],
+        span: TokenSpan,
+        buffer: &mut String,
+    ) {
+        // (
+        self.format_token_id(span.start_token, buffer);
+        self.format_element_associations(associations, buffer);
+        // )
+        self.format_token_id(span.end_token, buffer);
     }
 
     pub fn format_instantiation_statement(
@@ -787,5 +802,10 @@ end generate;",
         check_statement("foo(0) <= bar(1, 2) when cond = true else expr2 when cond2;");
         check_statement("foo(0) <= bar(1, 2) when cond = true else expr2;");
         check_statement("foo(0) <= bar(1, 2) after 2 ns when cond;");
+    }
+
+    #[test]
+    fn format_aggregate_assignments() {
+        check_statement("(foo, 1 => bar) <= integer_vector'(1, 2);");
     }
 }
