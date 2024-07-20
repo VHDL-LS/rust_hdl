@@ -669,16 +669,11 @@ pub struct ObjectDeclaration {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype_indication: SubtypeIndication,
     pub open_info: Option<(TokenId, WithTokenSpan<Expression>)>,
     pub file_name: Option<(TokenId, WithTokenSpan<Expression>)>,
-}
-
-impl FileDeclaration {
-    pub fn colon_token(&self) -> TokenId {
-        self.ident.tree.token + 1
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]

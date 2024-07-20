@@ -777,7 +777,15 @@ impl Display for ObjectDeclaration {
 
 impl Display for FileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "file {} : {}", self.ident, self.subtype_indication)?;
+        write!(
+            f,
+            "file {} : {}",
+            self.idents
+                .iter()
+                .map(|ident| format!("{ident}"))
+                .join(", "),
+            self.subtype_indication
+        )?;
         if let Some(ref expr) = self.open_info {
             write!(f, " open {}", expr.1)?;
         }

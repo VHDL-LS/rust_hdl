@@ -120,12 +120,8 @@ pub fn parse_declarative_part(
 
             File | Shared | Constant | Signal | Variable | Attribute => {
                 let decls: ParseResult<Vec<WithTokenSpan<Declaration>>> = match token.kind {
-                    File => parse_file_declaration(ctx).map(|decls| {
-                        decls
-                            .into_iter()
-                            .map(|decl| decl.map_into(Declaration::File))
-                            .collect()
-                    }),
+                    File => parse_file_declaration(ctx)
+                        .map(|decl| vec![decl.map_into(Declaration::File)]),
                     Shared | Constant | Signal | Variable => parse_object_declaration(ctx)
                         .map(|decl| vec![decl.map_into(Declaration::Object)]),
                     Attribute => parse_attribute(ctx).map(|decls| {

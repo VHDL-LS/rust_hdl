@@ -125,8 +125,8 @@ impl VHDLFormatter<'_> {
     ) {
         self.format_token_id(span.start_token, buffer);
         buffer.push_whitespace();
-        self.format_ident(&file_decl.ident, buffer);
-        self.format_token_id(file_decl.colon_token(), buffer);
+        self.format_ident_list(&file_decl.idents, buffer);
+        self.format_token_id(file_decl.colon_token, buffer);
         buffer.push_whitespace();
         self.format_subtype_indication(&file_decl.subtype_indication, buffer);
         if let Some((token, open_information)) = &file_decl.open_info {
@@ -603,6 +603,7 @@ mod tests {
         check_declaration("file my_file: text;");
         check_declaration("file my_file: text is \"my_file.txt\";");
         check_declaration("file my_file: text open mode is \"my_file.txt\";");
+        check_declaration("file FileID1, FileID2: text;");
     }
 
     #[test]

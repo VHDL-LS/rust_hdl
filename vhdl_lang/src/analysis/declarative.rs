@@ -448,7 +448,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             Declaration::File(ref mut file) => {
                 let FileDeclaration {
-                    ident,
+                    idents,
+                    colon_token: _,
                     subtype_indication,
                     open_info,
                     file_name,
@@ -468,10 +469,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
 
                 if let Some(subtype) = subtype {
-                    scope.add(
-                        self.define(ident, parent, AnyEntKind::File(subtype), src_span),
-                        diagnostics,
-                    );
+                    for ident in idents {
+                        scope.add(
+                            self.define(ident, parent, AnyEntKind::File(subtype.clone()), src_span),
+                            diagnostics,
+                        );
+                    }
                 }
             }
             Declaration::Component(ref mut component) => {

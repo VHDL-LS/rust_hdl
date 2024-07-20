@@ -1170,14 +1170,17 @@ impl Search for Declaration {
             }
 
             Declaration::File(file) => {
-                return_if_found!(searcher
-                    .search_decl(
-                        ctx,
-                        FoundDeclaration::new(&file.ident.decl, DeclarationItem::File(file))
-                    )
-                    .or_not_found());
+                for ident in &file.idents {
+                    return_if_found!(searcher
+                        .search_decl(
+                            ctx,
+                            FoundDeclaration::new(&ident.decl, DeclarationItem::File(file))
+                        )
+                        .or_not_found());
+                }
                 let FileDeclaration {
-                    ident: _,
+                    idents: _,
+                    colon_token: _,
                     subtype_indication,
                     open_info,
                     file_name,

@@ -617,9 +617,7 @@ impl Code {
     }
 
     pub fn file_decl(&self) -> FileDeclaration {
-        self.parse_ok_no_diagnostics(parse_file_declaration)
-            .remove(0)
-            .item
+        self.parse_ok_no_diagnostics(parse_file_declaration).item
     }
 
     pub fn alias_decl(&self) -> AliasDeclaration {
