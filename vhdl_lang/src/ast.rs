@@ -1457,6 +1457,7 @@ pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
     pub bind_ind: BindingIndication,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
+    pub end_token: Option<TokenId>,
 }
 
 /// LRM 3.4 Configuration declarations

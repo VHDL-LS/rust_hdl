@@ -145,14 +145,25 @@ impl VHDLFormatter<'_> {
         self.format_token_id(indication.span.end_token, buffer);
     }
 
-    pub fn format_entity_aspect(&self, aspect: &EntityAspect, buffer: &mut String) {}
-
     pub fn format_configuration_specification(
         &self,
-        _configuration: &ConfigurationSpecification,
-        _buffer: &mut String,
+        configuration: &ConfigurationSpecification,
+        buffer: &mut String,
     ) {
-        unimplemented!()
+        self.format_component_specification(&configuration.spec, buffer);
+        self.increase_indentation();
+        self.newline(buffer);
+        self.format_binding_indication(&configuration.bind_ind, buffer);
+        self.format_v_unit_binding_indications(&configuration.vunit_bind_inds, buffer);
+        self.decrease_indentation();
+
+        if let Some(end_token) = configuration.end_token {
+            self.newline(buffer);
+            self.format_token_id(end_token, buffer);
+            buffer.push(' ');
+            self.format_token_id(end_token + 1, buffer);
+            self.format_token_id(configuration.span.end_token, buffer);
+        }
     }
 
     pub fn format_component_specification(
@@ -326,25 +337,31 @@ end configuration cfg;",
         check_design_unit_formatted(
             "\
 configuration cfg of entity_name is
-  for foo
-      use entity lib.use_name;
-  end for;
+    for foo
+        for inst: lib.pkg.comp
+            use entity lib.use_name;
+        end for;
+    end for;
 end configuration cfg;",
         );
         check_design_unit_formatted(
             "\
 configuration cfg of entity_name is
-  for foo
-      use entity lib.foo.name(arch);
-  end for;
+    for foo
+        for inst: lib.pkg.comp
+            use entity lib.foo.name(arch);
+        end for;
+    end for;
 end configuration cfg;",
         );
         check_design_unit_formatted(
             "\
 configuration cfg of entity_name is
-  for foo
-      use configuration lib.foo.name;
-  end for;
+    for foo
+        for inst: lib.pkg.comp
+            use configuration lib.foo.name;
+        end for;
+    end for;
 end configuration cfg;",
         );
     }

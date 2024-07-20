@@ -352,25 +352,30 @@ pub fn parse_configuration_specification(
             if let Some(use_token) = ctx.stream.pop_if_kind(Use) {
                 let vunit_bind_inds =
                     parse_vunit_binding_indication_list_known_keyword(ctx, use_token)?;
-                ctx.stream.expect_kind(End)?;
+                let end_token = ctx.stream.expect_kind(End)?;
                 ctx.stream.expect_kind(For)?;
-                let end_token = expect_semicolon_or_last(ctx);
+                let final_token = expect_semicolon_or_last(ctx);
                 Ok(ConfigurationSpecification {
-                    span: TokenSpan::new(start_token, end_token),
+                    span: TokenSpan::new(start_token, final_token),
                     spec,
                     bind_ind,
                     vunit_bind_inds,
+                    end_token: Some(end_token),
                 })
             } else {
-                if ctx.stream.skip_if_kind(End) {
+                let end_token = if let Some(token) = ctx.stream.pop_if_kind(End) {
                     ctx.stream.expect_kind(For)?;
                     expect_semicolon(ctx);
-                }
-                let end_token = ctx.stream.get_last_token_id();
+                    Some(token)
+                } else {
+                    None
+                };
+                let final_token = ctx.stream.get_last_token_id();
                 Ok(ConfigurationSpecification {
-                    span: TokenSpan::new(start_token, end_token),
+                    span: TokenSpan::new(start_token, final_token),
                     spec,
                     bind_ind,
+                    end_token,
                     vunit_bind_inds: Vec::new(),
                 })
             }
@@ -1015,7 +1020,8 @@ end configuration cfg;
                     port_map: None,
                     span: code.s1("use entity work.foo(rtl);").token_span()
                 },
-                vunit_bind_inds: Vec::new()
+                vunit_bind_inds: Vec::new(),
+                end_token: None,
             }
         );
     }
@@ -1043,7 +1049,8 @@ end configuration cfg;
                     port_map: None,
                     span: code.s1("use entity work.foo(rtl);").token_span()
                 },
-                vunit_bind_inds: Vec::new()
+                vunit_bind_inds: Vec::new(),
+                end_token: Some(code.s1("end").token())
             }
         );
     }
@@ -1077,6 +1084,7 @@ end configuration cfg;
                     vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()],
                     span: code.s1("use vunit bar, baz;").token_span()
                 }],
+                end_token: Some(code.s1("end").token()),
             }
         );
     }

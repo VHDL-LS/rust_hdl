@@ -845,4 +845,26 @@ end view;",
             VHDL2019,
         );
     }
+
+    #[test]
+    fn format_configuration_specification() {
+        check_declaration(
+            "\
+for all: lib.pkg.comp
+    use entity work.foo(rtl);",
+        );
+        check_declaration(
+            "\
+for all: lib.pkg.comp
+    use entity work.foo(rtl);
+end for;",
+        );
+        check_declaration(
+            "\
+for all: lib.pkg.comp
+    use entity work.foo(rtl);
+    use vunit bar, baz;
+end for;",
+        );
+    }
 }
