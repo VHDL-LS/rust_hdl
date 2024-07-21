@@ -120,13 +120,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         };
 
-        self.arena.define(
-            self.ctx,
+        self.define(
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Configuration),
             src_span,
-            Some(self.source()),
         );
 
         Ok(())
@@ -224,13 +222,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let src_span = unit.span();
         self.analyze_context_clause(&scope, &mut unit.items, diagnostics)?;
 
-        self.arena.define(
-            self.ctx,
+        self.define(
             &mut unit.ident,
             self.work_library(),
             AnyEntKind::Design(Design::Context(scope.into_region())),
             src_span,
-            Some(self.source()),
         );
 
         Ok(())
@@ -271,8 +267,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let root_scope = Scope::new(Region::with_visibility(visibility.clone()));
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        let arch = self.arena.define(
-            self.ctx,
+        let arch = self.define(
             &mut unit.ident,
             primary.into(),
             AnyEntKind::Design(Design::Architecture(
@@ -281,7 +276,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 primary,
             )),
             src_span,
-            Some(self.source()),
         );
 
         root_scope.add(arch, diagnostics);

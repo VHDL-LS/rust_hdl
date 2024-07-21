@@ -249,16 +249,16 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let subtype =
                         self.resolve_subtype_indication(scope, &mut elem_decl.subtype, diagnostics);
                     if let Some(subtype) = as_fatal(subtype)? {
-                        let elem = self.arena.define(
-                            self.ctx,
-                            &mut elem_decl.ident,
-                            type_ent.into(),
-                            AnyEntKind::ElementDeclaration(subtype),
-                            elem_decl.span,
-                            Some(self.source()),
-                        );
-                        region.add(elem, diagnostics);
-                        elems.add(elem);
+                        for ident in &mut elem_decl.idents {
+                            let elem = self.define(
+                                ident,
+                                type_ent.into(),
+                                AnyEntKind::ElementDeclaration(subtype),
+                                elem_decl.span,
+                            );
+                            region.add(elem, diagnostics);
+                            elems.add(elem);
+                        }
                     }
                 }
                 region.close(diagnostics);
@@ -386,13 +386,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 );
                 scope.add(phys_type.into(), diagnostics);
 
-                let primary = self.arena.define(
-                    self.ctx,
+                let primary = self.define(
                     &mut physical.primary_unit,
                     parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
                     src_span,
-                    Some(self.source()),
                 );
 
                 unsafe {
@@ -418,13 +416,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         Err(err) => diagnostics.push(err),
                     }
 
-                    let secondary_unit = self.arena.define(
-                        self.ctx,
+                    let secondary_unit = self.define(
                         secondary_unit_name,
                         parent,
                         AnyEntKind::PhysicalLiteral(phys_type),
                         src_span,
-                        Some(self.source()),
                     );
                     unsafe {
                         self.arena.add_implicit(phys_type.id(), secondary_unit);

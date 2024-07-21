@@ -7,6 +7,7 @@
 //! Implementation of Display
 
 use super::*;
+use itertools::Itertools;
 use std::fmt::{Display, Formatter, Result};
 
 impl<T: Display> Display for WithTokenSpan<T> {
@@ -613,7 +614,12 @@ impl Display for ArrayIndex {
 
 impl Display for ElementDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{} : {}", self.ident, self.subtype)
+        write!(
+            f,
+            "{} : {}",
+            self.idents.iter().map(|item| format!("{item}")).join(", "),
+            self.subtype
+        )
     }
 }
 
@@ -757,7 +763,12 @@ impl Display for ObjectDeclaration {
         write!(
             f,
             "{} {} : {}",
-            self.class, self.ident, self.subtype_indication,
+            self.class,
+            self.idents
+                .iter()
+                .map(|ident| format!("{}", ident))
+                .join(", "),
+            self.subtype_indication,
         )?;
         match self.expression {
             Some(ref expr) => write!(f, " := {expr};"),
@@ -927,7 +938,15 @@ fn write_separated_list<T: Display>(
 
 impl Display for InterfaceFileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "file {} : {}", self.ident, self.subtype_indication)
+        write!(
+            f,
+            "file {} : {}",
+            self.idents
+                .iter()
+                .map(|ident| format!("{ident}"))
+                .join(", "),
+            self.subtype_indication
+        )
     }
 }
 
@@ -974,16 +993,37 @@ impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
             InterfaceType::Port => {
-                write!(f, "{} : {}", self.ident, self.mode)
+                write!(
+                    f,
+                    "{} : {}",
+                    self.idents.iter().map(|el| format!("{el}")).join(", "),
+                    self.mode
+                )
             }
             InterfaceType::Generic => {
-                write!(f, "{} : {}", self.ident, self.mode)
+                write!(
+                    f,
+                    "{} : {}",
+                    self.idents.iter().map(|el| format!("{el}")).join(", "),
+                    self.mode
+                )
             }
             InterfaceType::Parameter => {
                 if let ModeIndication::Simple(mode) = &self.mode {
-                    write!(f, "{} {} : {}", mode.class, self.ident, self.mode)
+                    write!(
+                        f,
+                        "{} {} : {}",
+                        mode.class,
+                        self.idents.iter().map(|el| format!("{el}")).join(", "),
+                        self.mode
+                    )
                 } else {
-                    write!(f, "{} : {}", self.ident, self.mode)
+                    write!(
+                        f,
+                        "{} : {}",
+                        self.idents.iter().map(|el| format!("{el}")).join(", "),
+                        self.mode
+                    )
                 }
             }
         }

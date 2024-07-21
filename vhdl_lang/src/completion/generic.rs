@@ -3,12 +3,14 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2024, Olof Kraigher olof.kraigher@gmail.com
-use crate::ast::search::{Finished, Found, FoundDeclaration, NotFinished, SearchState, Searcher};
+use crate::ast::search::{
+    DeclarationItem, Finished, Found, FoundDeclaration, NotFinished, SearchState, Searcher,
+};
 use crate::ast::ArchitectureBody;
 use crate::completion::entity_instantiation::get_visible_entities_from_architecture;
 use crate::completion::region::completion_items_from_region;
 use crate::named_entity::{DesignEnt, Visibility};
-use crate::{CompletionItem, Design, HasEntityId, HasTokenSpan, Position, Source, TokenAccess};
+use crate::{CompletionItem, Design, HasTokenSpan, Position, Source, TokenAccess};
 use itertools::{chain, Itertools};
 use vhdl_lang::analysis::DesignRoot;
 
@@ -72,33 +74,33 @@ impl<'a> CompletionSearcher<'a> {
 
 impl<'a> Searcher for CompletionSearcher<'a> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        let ent_id = match decl {
-            FoundDeclaration::Entity(ent_decl) => {
+        let ent_id = match &decl.ast {
+            DeclarationItem::Entity(ent_decl) => {
                 if !ent_decl.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
                 ent_decl.ident.decl.get()
             }
-            FoundDeclaration::Architecture(body) => {
+            DeclarationItem::Architecture(body) => {
                 if !body.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
                 self.add_entity_instantiations(ctx, body);
                 body.ident.decl.get()
             }
-            FoundDeclaration::Package(package) => {
+            DeclarationItem::Package(package) => {
                 if !package.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
                 package.ident.decl.get()
             }
-            FoundDeclaration::PackageBody(package) => {
+            DeclarationItem::PackageBody(package) => {
                 if !package.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
                 package.ident.decl.get()
             }
-            FoundDeclaration::Subprogram(subprogram) => {
+            DeclarationItem::Subprogram(subprogram) => {
                 if !subprogram.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
@@ -106,7 +108,7 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                     subprogram
                         .declarations
                         .iter()
-                        .flat_map(|decl| decl.item.ent_id())
+                        .flat_map(|decl| decl.item.declarations())
                         .map(|id| CompletionItem::Simple(self.root.get_ent(id))),
                 );
                 return NotFinished;

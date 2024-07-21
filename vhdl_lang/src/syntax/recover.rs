@@ -75,7 +75,7 @@ signal y: bit;
                 WithTokenSpan::new(
                     Declaration::Object(ObjectDeclaration {
                         class: ObjectClass::Signal,
-                        ident: code.s1("x").decl_ident(),
+                        idents: vec![code.s1("x").decl_ident()],
                         subtype_indication: code.s1("std_logic").subtype_indication(),
                         expression: Some(code.s1("a.").s1("a").expr())
                     }),
@@ -84,7 +84,7 @@ signal y: bit;
                 WithTokenSpan::new(
                     Declaration::Object(ObjectDeclaration {
                         class: ObjectClass::Signal,
-                        ident: code.s1("y").decl_ident(),
+                        idents: vec![code.s1("y").decl_ident()],
                         subtype_indication: code.s1("bit").subtype_indication(),
                         expression: None
                     }),

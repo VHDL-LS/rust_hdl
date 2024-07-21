@@ -126,14 +126,8 @@ pub fn parse_declarative_part(
                             .map(|decl| decl.map_into(Declaration::File))
                             .collect()
                     }),
-                    Shared | Constant | Signal | Variable => {
-                        parse_object_declaration(ctx).map(|decls| {
-                            decls
-                                .into_iter()
-                                .map(|decl| decl.map_into(Declaration::Object))
-                                .collect()
-                        })
-                    }
+                    Shared | Constant | Signal | Variable => parse_object_declaration(ctx)
+                        .map(|decl| vec![decl.map_into(Declaration::Object)]),
                     Attribute => parse_attribute(ctx).map(|decls| {
                         decls
                             .into_iter()
@@ -268,7 +262,7 @@ constant x: natural := 5;
             Ok(vec![WithTokenSpan::new(
                 Declaration::Object(ObjectDeclaration {
                     class: ObjectClass::Constant,
-                    ident: code.s1("x").decl_ident(),
+                    idents: vec![code.s1("x").decl_ident()],
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("5").expr())
                 }),

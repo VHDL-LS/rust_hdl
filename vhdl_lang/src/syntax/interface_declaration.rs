@@ -16,6 +16,7 @@ use crate::ast::token_range::WithToken;
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
+use itertools::Itertools;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::VHDLStandard::VHDL2019;
 
@@ -64,9 +65,12 @@ fn parse_optional_object_class(
 
 fn parse_interface_file_declaration(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+) -> ParseResult<InterfaceDeclaration> {
     let start_token = ctx.stream.expect_kind(File)?;
-    let idents = parse_identifier_list(ctx)?;
+    let idents = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithDecl::new)
+        .collect_vec();
     ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
@@ -89,26 +93,24 @@ fn parse_interface_file_declaration(
 
     let end_token = ctx.stream.get_last_token_id();
 
-    Ok(idents
-        .into_iter()
-        .map(|ident| {
-            InterfaceDeclaration::File(InterfaceFileDeclaration {
-                ident: ident.into(),
-                subtype_indication: subtype.clone(),
-                span: TokenSpan::new(start_token, end_token),
-            })
-        })
-        .collect())
+    Ok(InterfaceDeclaration::File(InterfaceFileDeclaration {
+        idents,
+        subtype_indication: subtype.clone(),
+        span: TokenSpan::new(start_token, end_token),
+    }))
 }
 
 fn parse_interface_object_declaration(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+) -> ParseResult<InterfaceDeclaration> {
     let start_token = ctx.stream.get_current_token_id();
     let explicit_object_class = parse_optional_object_class(ctx, list_type)?;
 
-    let idents = parse_identifier_list(ctx)?;
+    let idents = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithDecl::new)
+        .collect_vec();
 
     ctx.stream.expect_kind(Colon)?;
     let mode = if ctx.stream.next_kind_is(View) {
@@ -123,17 +125,12 @@ fn parse_interface_object_declaration(
     };
 
     let end_token = ctx.stream.get_last_token_id();
-    Ok(idents
-        .into_iter()
-        .map(|ident| {
-            InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                list_type,
-                mode: mode.clone(),
-                ident: ident.into(),
-                span: TokenSpan::new(start_token, end_token),
-            })
-        })
-        .collect())
+    Ok(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+        list_type,
+        mode: mode.clone(),
+        idents,
+        span: TokenSpan::new(start_token, end_token),
+    }))
 }
 
 fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeViewIndication> {
@@ -161,7 +158,7 @@ fn parse_simple_mode_indication(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
     explicit_object_class: Option<&WithToken<ObjectClass>>,
-    idents: &[Ident],
+    idents: &[WithDecl<Ident>],
 ) -> ParseResult<SimpleModeIndication> {
     let object_class_tok = explicit_object_class.map(|class| class.token);
     let mode_with_pos = parse_optional_mode(ctx)?;
@@ -187,7 +184,7 @@ fn parse_simple_mode_indication(
     // @TODO maybe move this to a semantic check?
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode.unwrap_or_default() != Mode::In {
-            let token_id = mode_tok.unwrap_or(ident.token);
+            let token_id = mode_tok.unwrap_or(ident.tree.token);
             return Err(Diagnostic::syntax_error(
                 ctx.get_pos(token_id),
                 "Interface constant declaration may only have mode=in",
@@ -195,7 +192,7 @@ fn parse_simple_mode_indication(
         };
 
         if list_type == InterfaceType::Port && object_class != ObjectClass::Signal {
-            let tok = object_class_tok.unwrap_or(ident.token);
+            let tok = object_class_tok.unwrap_or(ident.tree.token);
             return Err(Diagnostic::syntax_error(
                 ctx.get_pos(tok),
                 "Port list only allows signal object class",
@@ -203,7 +200,7 @@ fn parse_simple_mode_indication(
         };
 
         if list_type == InterfaceType::Generic && object_class != ObjectClass::Constant {
-            let tok = object_class_tok.unwrap_or(ident.token);
+            let tok = object_class_tok.unwrap_or(ident.tree.token);
             return Err(Diagnostic::syntax_error(
                 ctx.get_pos(tok),
                 "Generic list only allows constant object class",
@@ -285,7 +282,7 @@ fn parse_interface_package(
 fn parse_interface_declaration(
     ctx: &mut ParsingContext,
     list_type: InterfaceType,
-) -> ParseResult<Vec<InterfaceDeclaration>> {
+) -> ParseResult<InterfaceDeclaration> {
     peek_token!(
         ctx.stream, token, start_token,
         Signal | Constant | Variable | Identifier => {
@@ -295,7 +292,7 @@ fn parse_interface_declaration(
         Type => {
             ctx.stream.skip();
             let ident = ctx.stream.expect_ident()?;
-            Ok(vec![InterfaceDeclaration::Type(WithDecl::new(ident))])
+            Ok(InterfaceDeclaration::Type(WithDecl::new(ident)))
         },
         Function | Procedure | Impure | Pure => {
             let spec = parse_subprogram_specification(ctx)?;
@@ -303,10 +300,10 @@ fn parse_interface_declaration(
 
             let end_token = ctx.stream.get_last_token_id();
 
-            Ok(vec![InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration { specification: spec, default, span: TokenSpan::new(start_token, end_token)})])
+            Ok(InterfaceDeclaration::Subprogram(InterfaceSubprogramDeclaration { specification: spec, default, span: TokenSpan::new(start_token, end_token)}))
         },
         Package => {
-            Ok(vec![InterfaceDeclaration::Package (parse_interface_package(ctx)?)])
+            Ok(InterfaceDeclaration::Package (parse_interface_package(ctx)?))
         }
     )
 }
@@ -368,8 +365,8 @@ fn parse_interface_list(
                 let state = ctx.stream.state();
 
                 match parse_interface_declaration(ctx, list_type) {
-                    Ok(ref mut decl_list) => {
-                        interface_list.append(decl_list);
+                    Ok(decl_list) => {
+                        interface_list.push(decl_list);
                     }
                     Err(err) => {
                         ctx.diagnostics.push(err);
@@ -436,10 +433,7 @@ fn parse_one_interface_declaration(
     ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<InterfaceDeclaration> {
-    parse_interface_declaration(ctx, list_type).map(|decls| {
-        assert_eq!(decls.len(), 1);
-        decls[0].clone()
-    })
+    parse_interface_declaration(ctx, list_type)
 }
 
 #[cfg(test)]
@@ -475,34 +469,19 @@ mod tests {
             code.with_stream_no_diagnostics(parse_generic_interface_list),
             InterfaceList {
                 interface_type: InterfaceType::Generic,
-                items: vec![
-                    InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                        list_type: InterfaceType::Generic,
-                        mode: ModeIndication::Simple(SimpleModeIndication {
-                            bus: false,
-                            mode: None,
-                            class: ObjectClass::Constant,
+                items: vec![InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                    list_type: InterfaceType::Generic,
+                    mode: ModeIndication::Simple(SimpleModeIndication {
+                        bus: false,
+                        mode: None,
+                        class: ObjectClass::Constant,
 
-                            subtype_indication: code.s1("natural").subtype_indication(),
-                            expression: None
-                        }),
-                        ident: code.s1("foo").decl_ident(),
-                        span: code.between("constant", "natural").token_span()
+                        subtype_indication: code.s1("natural").subtype_indication(),
+                        expression: None
                     }),
-                    InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                        list_type: InterfaceType::Generic,
-                        mode: ModeIndication::Simple(SimpleModeIndication {
-                            bus: false,
-                            mode: None,
-                            class: ObjectClass::Constant,
-
-                            subtype_indication: code.s1("natural").subtype_indication(),
-                            expression: None
-                        }),
-                        ident: code.s1("bar").decl_ident(),
-                        span: code.between("constant", "natural").token_span()
-                    })
-                ],
+                    idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
+                    span: code.between("constant", "natural").token_span()
+                })],
                 span: code.token_span(),
             }
         );
@@ -523,7 +502,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -535,7 +514,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_parameter),
             InterfaceDeclaration::File(InterfaceFileDeclaration {
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 subtype_indication: code.s1("text").subtype_indication(),
                 span: code.token_span()
             })
@@ -589,7 +568,7 @@ mod tests {
                 InterfaceList {
                     interface_type: InterfaceType::Parameter,
                     items: vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
-                        ident: code.s1("valid").decl_ident(),
+                        idents: vec![code.s1("valid").decl_ident()],
                         subtype_indication: code.s("text", 2).subtype_indication(),
                         span: code.s1("file valid : text").token_span()
                     })],
@@ -624,7 +603,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -732,7 +711,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -752,7 +731,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -1151,7 +1130,7 @@ function foo() return bit;
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -1169,7 +1148,7 @@ function foo() return bit;
                     subtype_indication: None,
                     kind: ModeViewIndicationKind::Record
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -1184,7 +1163,7 @@ function foo() return bit;
                     subtype_indication: None,
                     kind: ModeViewIndicationKind::Array
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -1198,7 +1177,7 @@ function foo() return bit;
                     subtype_indication: Some(code.s1("baz").subtype_indication()),
                     kind: ModeViewIndicationKind::Record
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
@@ -1212,7 +1191,7 @@ function foo() return bit;
                     subtype_indication: Some(code.s1("baz").subtype_indication()),
                     kind: ModeViewIndicationKind::Array
                 }),
-                ident: code.s1("foo").decl_ident(),
+                idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
         );
