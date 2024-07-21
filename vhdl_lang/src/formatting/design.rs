@@ -1,5 +1,6 @@
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, PackageBody};
 use crate::formatting::buffer::Buffer;
+use crate::HasTokenSpan;
 use vhdl_lang::ast::PackageDeclaration;
 use vhdl_lang::formatting::VHDLFormatter;
 use vhdl_lang::TokenSpan;
@@ -39,8 +40,8 @@ impl VHDLFormatter<'_> {
 
     pub fn format_package(&self, package: &PackageDeclaration, buffer: &mut Buffer) {
         self.format_context_clause(&package.context_clause, buffer);
-        if !package.context_clause.is_empty() {
-            buffer.line_breaks(2);
+        if let Some(item) = package.context_clause.last() {
+            self.line_break_preserve_whitespace(item.span().end_token, buffer);
         }
         // package <ident> is
         self.format_token_span(
@@ -64,8 +65,8 @@ impl VHDLFormatter<'_> {
 
     pub fn format_package_body(&self, body: &PackageBody, buffer: &mut Buffer) {
         self.format_context_clause(&body.context_clause, buffer);
-        if !body.context_clause.is_empty() {
-            buffer.line_breaks(2);
+        if let Some(item) = body.context_clause.last() {
+            self.line_break_preserve_whitespace(item.span().end_token, buffer);
         }
         // package body <ident> is
         self.format_token_span(
@@ -206,25 +207,57 @@ end context;",
     }
 
     #[test]
-    fn design_unit_with_context_clause() {
+    fn design_unit_context_clause_preserve_whitespaces() {
         check_design_unit_formatted(
             "\
 library lib;
 use lib.foo.all;
 
 package pkg_name is
-    generic (
-        type foo;
-        type bar
-    );
 end package;",
-        )
+        );
+        check_design_unit_formatted(
+            "\
+library lib;
+use lib.foo.all;
+package pkg_name is
+end package;",
+        );
+        check_design_unit_formatted(
+            "\
+library lib;
+use lib.foo.all;
+
+
+
+package pkg_name is
+end package;",
+        );
     }
 
     #[test]
     fn check_package_body() {
         check_design_unit_formatted(
             "\
+package body foo is
+end package body;",
+        )
+    }
+
+    #[test]
+    fn check_whitespace_preservation_context() {
+        check_design_unit_formatted(
+            "\
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.std_logic_arith.all;
+
+library third_party;
+use third_party.baz;
+
+use work.foo.bar;
+
 package body foo is
 end package body;",
         )

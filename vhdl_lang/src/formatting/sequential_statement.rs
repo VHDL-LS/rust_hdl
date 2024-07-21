@@ -5,7 +5,7 @@ use crate::ast::{
     SignalAssignment, WaitStatement,
 };
 use crate::formatting::buffer::Buffer;
-use crate::TokenSpan;
+use crate::{HasTokenSpan, TokenSpan};
 use vhdl_lang::ast::{
     ExitStatement, IfStatement, NextStatement, SignalForceAssignment, SignalReleaseAssignment,
     VariableAssignment,
@@ -18,11 +18,18 @@ impl VHDLFormatter<'_> {
         statements: &[LabeledSequentialStatement],
         buffer: &mut Buffer,
     ) {
-        self.join_on_newline(
-            statements,
-            Self::format_labeled_sequential_statement,
-            buffer,
-        );
+        if statements.is_empty() {
+            return;
+        }
+        buffer.increase_indent();
+        buffer.line_break();
+        for (i, item) in statements.iter().enumerate() {
+            self.format_labeled_sequential_statement(item, buffer);
+            if i < statements.len() - 1 {
+                self.line_break_preserve_whitespace(item.statement.get_end_token(), buffer);
+            }
+        }
+        buffer.decrease_indent();
     }
     pub fn format_labeled_sequential_statement(
         &self,
@@ -275,16 +282,12 @@ impl VHDLFormatter<'_> {
             buffer.push_whitespace();
             // then
             self.format_token_id(condition.span.end_token + 1, buffer);
-            buffer.increase_indent();
             self.format_sequential_statements(&cond.item, buffer);
-            buffer.decrease_indent();
             buffer.line_break();
         }
         if let Some((statements, token)) = &statement.conds.else_item {
             self.format_token_id(*token, buffer);
-            buffer.increase_indent();
             self.format_sequential_statements(statements, buffer);
-            buffer.decrease_indent();
             buffer.line_break();
         }
         if statement.end_label_pos.is_some() {
@@ -352,9 +355,7 @@ impl VHDLFormatter<'_> {
                     self.format_token_id(choice.span.end_token + 1, buffer);
                 }
             }
-            buffer.increase_indent();
             self.format_sequential_statements(&alternative.item, buffer);
-            buffer.decrease_indent();
         }
         buffer.decrease_indent();
         buffer.line_break();
@@ -401,9 +402,7 @@ impl VHDLFormatter<'_> {
             }
         }
         self.format_token_id(statement.loop_token, buffer);
-        buffer.increase_indent();
         self.format_sequential_statements(&statement.statements, buffer);
-        buffer.decrease_indent();
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(statement.end_token, span.end_token - 1),

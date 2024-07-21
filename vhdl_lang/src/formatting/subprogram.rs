@@ -108,9 +108,7 @@ impl VHDLFormatter<'_> {
         self.format_declarations(&body.declarations, buffer);
         buffer.decrease_indent();
         self.format_token_id(body.begin_token, buffer);
-        buffer.increase_indent();
         self.format_sequential_statements(&body.statements, buffer);
-        buffer.decrease_indent();
         buffer.line_break();
         // end
         self.format_token_span(

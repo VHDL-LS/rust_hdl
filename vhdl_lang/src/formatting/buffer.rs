@@ -144,7 +144,7 @@ impl Buffer {
         self.indent();
     }
 
-    pub fn line_breaks(&mut self, count: usize) {
+    pub fn line_breaks(&mut self, count: u32) {
         self.insert_extra_newline = false;
         for _ in 0..count {
             self.push_ch('\n');

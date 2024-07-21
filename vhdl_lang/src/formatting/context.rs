@@ -1,7 +1,7 @@
 use crate::ast::{ContextClause, ContextDeclaration, ContextItem};
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
-use crate::TokenSpan;
+use crate::{HasTokenSpan, TokenSpan};
 
 impl VHDLFormatter<'_> {
     pub fn format_context(&self, context: &ContextDeclaration, buffer: &mut Buffer) {
@@ -36,7 +36,7 @@ impl VHDLFormatter<'_> {
                 }
             }
             if i < clause.len() - 1 {
-                buffer.line_break();
+                self.line_break_preserve_whitespace(item.span().end_token, buffer);
             }
         }
     }

@@ -59,14 +59,6 @@ impl<'b> VHDLFormatter<'b> {
 }
 
 impl VHDLFormatter<'_> {
-    pub fn increase_indentation(&self) {
-        self.indentation.replace(self.indentation.get() + 1);
-    }
-
-    pub fn decrease_indentation(&self) {
-        self.indentation.replace(self.indentation.get() - 1);
-    }
-
     pub fn format_ident_list<T: HasIdent>(&self, idents: &[T], buffer: &mut Buffer) {
         for ident in idents {
             let token = ident.ident().token;

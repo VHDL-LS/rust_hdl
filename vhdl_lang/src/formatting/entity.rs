@@ -6,8 +6,8 @@ use crate::{HasTokenSpan, TokenSpan};
 impl VHDLFormatter<'_> {
     pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut Buffer) {
         self.format_context_clause(&entity.context_clause, buffer);
-        if !entity.context_clause.is_empty() {
-            buffer.line_breaks(2);
+        if let Some(item) = entity.context_clause.last() {
+            self.line_break_preserve_whitespace(item.span().end_token, buffer);
         }
         let span = entity.span();
         // entity <ident> is
@@ -32,9 +32,7 @@ impl VHDLFormatter<'_> {
             buffer.line_break();
             self.format_token_id(token, buffer);
         }
-        buffer.increase_indent();
         self.format_concurrent_statements(&entity.statements, buffer);
-        buffer.decrease_indent();
         buffer.line_break();
         // end [entity] [name];
         self.format_token_span(TokenSpan::new(entity.end_token, span.end_token - 1), buffer);

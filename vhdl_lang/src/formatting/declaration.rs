@@ -20,13 +20,14 @@ impl VHDLFormatter<'_> {
         declarations: &[WithTokenSpan<Declaration>],
         buffer: &mut Buffer,
     ) {
-        if !declarations.is_empty() {
-            buffer.line_break();
+        if declarations.is_empty() {
+            return;
         }
-        for (i, decl) in declarations.iter().enumerate() {
-            self.format_declaration(decl, buffer);
+        buffer.line_break();
+        for (i, item) in declarations.iter().enumerate() {
+            self.format_declaration(item, buffer);
             if i < declarations.len() - 1 {
-                buffer.line_break();
+                self.line_break_preserve_whitespace(item.get_end_token(), buffer);
             }
         }
     }

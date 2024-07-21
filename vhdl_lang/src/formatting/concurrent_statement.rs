@@ -31,11 +31,16 @@ impl VHDLFormatter<'_> {
         statements: &[LabeledConcurrentStatement],
         buffer: &mut Buffer,
     ) {
-        self.join_on_newline(
-            statements,
-            Self::format_labeled_concurrent_statement,
-            buffer,
-        );
+        if statements.is_empty() {
+            return;
+        }
+        buffer.line_break();
+        for (i, item) in statements.iter().enumerate() {
+            self.format_labeled_concurrent_statement(item, buffer);
+            if i < statements.len() - 1 {
+                self.line_break_preserve_whitespace(item.statement.get_end_token(), buffer);
+            }
+        }
     }
 
     pub fn format_optional_label(&self, label: Option<&Ident>, buffer: &mut Buffer) {
@@ -192,9 +197,7 @@ impl VHDLFormatter<'_> {
         buffer.decrease_indent();
         buffer.line_break();
         self.format_token_id(process.begin_token, buffer);
-        buffer.increase_indent();
         self.format_sequential_statements(&process.statements, buffer);
-        buffer.decrease_indent();
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(process.end_token, process.span.end_token - 1),
@@ -599,14 +602,14 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_generate_body(&self, generate_body: &GenerateBody, buffer: &mut Buffer) {
-        buffer.increase_indent();
         if let Some((decl, begin_token)) = &generate_body.decl {
+            buffer.increase_indent();
             self.format_declarations(decl, buffer);
             buffer.decrease_indent();
             buffer.line_break();
             self.format_token_id(*begin_token, buffer);
-            buffer.increase_indent();
         }
+        buffer.increase_indent();
         self.format_concurrent_statements(&generate_body.statements, buffer);
         buffer.decrease_indent();
         if let Some(end_token) = generate_body.end_token {

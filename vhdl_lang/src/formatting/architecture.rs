@@ -6,9 +6,8 @@ use crate::{HasTokenSpan, TokenSpan};
 impl VHDLFormatter<'_> {
     pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut Buffer) {
         self.format_context_clause(&arch.context_clause, buffer);
-        if !arch.context_clause.is_empty() {
-            buffer.line_break();
-            buffer.line_break();
+        if let Some(item) = arch.context_clause.last() {
+            self.line_break_preserve_whitespace(item.span().end_token, buffer);
         }
         let span = arch.span();
         // architecture <ident> of <ident> is
@@ -106,6 +105,23 @@ begin
         end if;
     end process bar;
     y <= x; -- An assignment
+end foo;",
+        );
+    }
+
+    #[test]
+    fn format_architecture_preserve_whitespace() {
+        check_architecture_formatted(
+            "\
+architecture foo of bar is
+    constant x: foo := bar;
+    constant baz: char := '1';
+
+    signal y: bar := foobar;
+    signal foobar: std_logic := 'Z';
+
+    shared variable sv: natural;
+begin
 end foo;",
         );
     }
