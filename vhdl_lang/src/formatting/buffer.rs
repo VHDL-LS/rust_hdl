@@ -1,5 +1,6 @@
 use crate::syntax::{Comment, Value};
 use crate::{kind_str, Token};
+use std::cmp::max;
 use std::iter;
 
 pub struct Buffer {
@@ -61,9 +62,15 @@ impl Buffer {
     }
 
     fn format_leading_comments(&mut self, comments: &[Comment]) {
-        for comment in comments {
+        for (i, comment) in comments.iter().enumerate() {
             self.format_comment(comment);
-            self.line_break();
+            if let Some(next_comment) = comments.get(i + 1) {
+                let number_of_line_breaks =
+                    max(next_comment.range.start.line - comment.range.end.line, 1);
+                self.line_breaks(number_of_line_breaks);
+            } else {
+                self.line_break();
+            }
         }
     }
 

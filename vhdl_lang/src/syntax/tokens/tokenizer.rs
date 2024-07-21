@@ -853,6 +853,21 @@ impl Token {
             ))
         }
     }
+
+    /// Returns the full range of this token, respecting any potential comments.
+    /// Note that [Token::pos] only returns the position of the token itself.
+    pub fn full_range(&self) -> crate::data::Range {
+        let mut range = self.pos.range();
+        if let Some(comments) = &self.comments {
+            if let Some(comment) = comments.leading.first() {
+                range.start = comment.range.start
+            }
+            if let Some(trailing) = &comments.trailing {
+                range.end = trailing.range.end
+            }
+        }
+        range
+    }
 }
 
 impl Operator {

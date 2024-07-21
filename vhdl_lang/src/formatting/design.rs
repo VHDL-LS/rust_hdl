@@ -262,4 +262,38 @@ package body foo is
 end package body;",
         )
     }
+
+    #[test]
+    fn check_whitespace_preservation_tokens_with_comments() {
+        check_design_unit_formatted(
+            "\
+library ieee;
+
+-- This is a comment
+-- This is another comment
+-- Third comment
+library third_party;
+use third_party.baz;
+
+package body foo is
+end package body;",
+        )
+    }
+
+    #[test]
+    fn check_whitespace_preservation_within_comments() {
+        check_design_unit_formatted(
+            "\
+-- This is a comment
+
+
+-- This ine appears later
+-- Third comment
+library third_party;
+use third_party.baz;
+
+package body foo is
+end package body;",
+        )
+    }
 }

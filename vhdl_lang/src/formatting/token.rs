@@ -33,7 +33,7 @@ impl VHDLFormatter<'_> {
     pub(crate) fn line_break_preserve_whitespace(&self, token_id: TokenId, buffer: &mut Buffer) {
         let current_line = self.tokens.get_pos(token_id).end().line;
         // TODO: token_id + 1 might panic
-        let next_line = self.tokens.get_pos(token_id + 1).start().line;
+        let next_line = self.tokens.get_token(token_id + 1).full_range().start.line;
         let numbers_of_whitespaces = max(next_line - current_line, 1);
         buffer.line_breaks(numbers_of_whitespaces)
     }
