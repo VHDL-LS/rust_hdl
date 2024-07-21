@@ -2,7 +2,6 @@ use crate::ast::DesignFile;
 use crate::formatting::buffer::Buffer;
 use crate::syntax::Kind;
 use crate::{Token, TokenAccess};
-use std::cell::Cell;
 use vhdl_lang::ast::HasIdent;
 
 mod architecture;
@@ -21,15 +20,8 @@ mod sequential_statement;
 mod subprogram;
 mod token;
 
-struct FormatterConfig {
-    indent_char: char,
-    indent_size: usize,
-}
-
 pub struct VHDLFormatter<'b> {
     tokens: &'b Vec<Token>,
-    indentation: Cell<usize>,
-    config: FormatterConfig,
 }
 
 pub fn format_design_file(file: &DesignFile) -> String {
@@ -47,14 +39,7 @@ pub fn format_design_file(file: &DesignFile) -> String {
 
 impl<'b> VHDLFormatter<'b> {
     pub fn new(tokens: &'b Vec<Token>) -> VHDLFormatter<'b> {
-        VHDLFormatter {
-            tokens,
-            indentation: Cell::new(0),
-            config: FormatterConfig {
-                indent_char: ' ',
-                indent_size: 4,
-            },
-        }
+        VHDLFormatter { tokens }
     }
 }
 
