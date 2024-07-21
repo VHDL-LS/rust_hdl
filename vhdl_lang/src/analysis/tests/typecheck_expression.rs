@@ -694,7 +694,7 @@ signal bad2 : natural := string'(\"hello\");
         diagnostics,
         vec![
             Diagnostic::new(
-                code.s1("(\"hello\")"),
+                code.s1("\"hello\""),
                 "string literal does not match integer type 'INTEGER'",
                 ErrorCode::TypeMismatch,
             ),

@@ -5,7 +5,7 @@ use crate::ast::{
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
-use crate::{HasTokenSpan, TokenAccess};
+use crate::HasTokenSpan;
 use vhdl_lang::ast::{Allocator, QualifiedExpression};
 
 impl VHDLFormatter<'_> {
@@ -148,11 +148,7 @@ impl VHDLFormatter<'_> {
         self.format_name(expression.type_mark.as_ref(), buffer);
         // '
         self.format_token_id(expression.type_mark.span.end_token + 1, buffer);
-        // (
-        self.format_token_id(expression.expr.span.start_token, buffer);
         self.format_expression(expression.expr.as_ref(), buffer);
-        // )
-        self.format_token_id(expression.expr.span.end_token, buffer);
     }
 
     pub fn format_allocator(&self, allocator: &WithTokenSpan<Allocator>, buffer: &mut Buffer) {

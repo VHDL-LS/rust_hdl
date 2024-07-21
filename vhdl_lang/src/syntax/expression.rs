@@ -384,11 +384,7 @@ fn parse_expression_or_aggregate(
             // Was expression with parenthesis
             RightPar => {
                 ctx.stream.skip();
-                // Lexical position between parenthesis
-                let expr = WithTokenSpan::from(
-                    expr,
-                    token_id
-                );
+                let expr = WithTokenSpan::new(Expression::Parenthesized(Box::new(WithTokenSpan::new(expr, span))), TokenSpan::new(start_token, token_id));
                 Ok(expr)
             }
         )
@@ -411,7 +407,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
             let name = parse_name(ctx)?;
             if ctx.stream.skip_if_kind(Tick) {
                 let lpar = ctx.stream.expect_kind(LeftPar)?;
-                let expr = parse_expression_or_aggregate(ctx, lpar)?.start_with(lpar);
+                let expr = parse_expression_or_aggregate(ctx, lpar)?;
                 let span = name.span.combine(expr.span);
                 Ok(WithTokenSpan::new(
                     Expression::Qualified(Box::new(QualifiedExpression {
@@ -490,22 +486,7 @@ fn parse_primary(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expr
         LeftPar => {
             let start_token = ctx.stream.get_current_token_id();
             ctx.stream.skip();
-            let expr_or_aggregate = parse_expression_or_aggregate(ctx, start_token);
-            if let Ok(WithTokenSpan {
-                item: Expression::Aggregate(_),
-                span: _,
-            }) = expr_or_aggregate
-            {
-                expr_or_aggregate.map(|expr| expr.start_with(start_token))
-            } else {
-                let end_token = ctx.stream.get_last_token_id();
-                expr_or_aggregate.map(|expr| {
-                    WithTokenSpan::new(
-                        Expression::Parenthesized(Box::new(expr)),
-                        TokenSpan::new(start_token, end_token),
-                    )
-                })
-            }
+            parse_expression_or_aggregate(ctx, start_token)
         }
 
         kind => {
@@ -1266,14 +1247,19 @@ mod tests {
                 Box::new(two),
                 Box::new(three),
             ),
-            span: code.s1("(2 + 3)").token_span(),
+            span: code.s1("2 + 3").token_span(),
         };
+
+        let expr_add0_paren = WithTokenSpan::new(
+            Expression::Parenthesized(Box::new(expr_add0)),
+            code.s1("(2 + 3)").token_span(),
+        );
 
         let expr_add1 = WithTokenSpan {
             item: Expression::Binary(
                 WithToken::new(WithRef::new(Operator::Plus), code.s("+", 1).token()),
                 Box::new(one),
-                Box::new(expr_add0),
+                Box::new(expr_add0_paren),
             ),
             span: code.token_span(),
         };
@@ -1306,13 +1292,18 @@ mod tests {
                 Box::new(one),
                 Box::new(two),
             ),
-            span: code.s1("(1 + 2)").token_span(),
+            span: code.s1("1 + 2").token_span(),
         };
+
+        let expr_add0_paren = WithTokenSpan::new(
+            Expression::Parenthesized(Box::new(expr_add0)),
+            code.s1("(1 + 2)").token_span(),
+        );
 
         let expr_add1 = WithTokenSpan {
             item: Expression::Binary(
                 WithToken::new(WithRef::new(Operator::Plus), code.s("+", 2).token()),
-                Box::new(expr_add0),
+                Box::new(expr_add0_paren),
                 Box::new(three),
             ),
             span: code.token_span(),
@@ -1350,6 +1341,9 @@ mod tests {
                     panic!("Cannot format {lit:?}");
                 }
             },
+            Expression::Parenthesized(ref expr) => {
+                format!("({})", fmt(ctx, expr))
+            }
             _ => {
                 println!("{}", expr.pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
@@ -1407,7 +1401,11 @@ mod tests {
 
         assert_expression_is("1+2*3", "(Integer(1) Plus (Integer(2) Times Integer(3)))");
 
-        assert_expression_is("(1+2)*3", "((Integer(1) Plus Integer(2)) Times Integer(3))");
+        // The extra parenthesis signify the user-supplied parenthesis
+        assert_expression_is(
+            "(1+2)*3",
+            "(((Integer(1) Plus Integer(2))) Times Integer(3))",
+        );
 
         // Multiplication has precedence over negation.
         assert_expression_is("-1 * 2", "(Minus (Integer(1) Times Integer(2)))");

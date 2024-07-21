@@ -365,7 +365,7 @@ impl Display for QualifiedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.expr.item {
             Expression::Aggregate(..) => write!(f, "{}'{}", self.type_mark, self.expr),
-            _ => write!(f, "{}'({})", self.type_mark, self.expr),
+            _ => write!(f, "{}'{}", self.type_mark, self.expr),
         }
     }
 }
