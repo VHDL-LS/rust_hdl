@@ -471,7 +471,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some(subtype) = subtype {
                     for ident in idents {
                         scope.add(
-                            self.define(ident, parent, AnyEntKind::File(subtype.clone()), src_span),
+                            self.define(ident, parent, AnyEntKind::File(subtype), src_span),
                             diagnostics,
                         );
                     }

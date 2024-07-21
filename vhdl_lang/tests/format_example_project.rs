@@ -11,7 +11,7 @@ fn format_file(path: &Path) -> Result<(), Box<dyn Error>> {
     let severity_map = SeverityMap::default();
     let parser = VHDLParser::new(VHDLStandard::default());
     let mut diagnostics = Vec::new();
-    let (_, design_file) = parser.parse_design_file(&path, &mut diagnostics)?;
+    let (_, design_file) = parser.parse_design_file(path, &mut diagnostics)?;
     if !diagnostics.is_empty() {
         for diagnostic in diagnostics {
             println!("{}", diagnostic.show(&severity_map).unwrap())
@@ -20,7 +20,7 @@ fn format_file(path: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     let result = format_design_file(&design_file);
-    let new_file = parser.parse_design_source(&Source::inline(&path, &result), &mut diagnostics);
+    let new_file = parser.parse_design_source(&Source::inline(path, &result), &mut diagnostics);
     if !diagnostics.is_empty() {
         for diagnostic in diagnostics {
             println!("{}", diagnostic.show(&severity_map).unwrap())

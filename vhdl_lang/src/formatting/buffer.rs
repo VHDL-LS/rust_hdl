@@ -25,6 +25,12 @@ impl Buffer {
     }
 }
 
+impl Default for Buffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     if !comment.multi_line {
         return false;
