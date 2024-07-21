@@ -93,7 +93,14 @@ impl Buffer {
             Value::Identifier(ident) => self.push_str(&ident.to_string()),
             Value::String(string) => {
                 self.push_ch('"');
-                self.push_str(&string.to_string());
+                for byte in &string.bytes {
+                    if *byte == b'"' {
+                        self.push_ch('"');
+                        self.push_ch('"');
+                    } else {
+                        self.push_ch(*byte as char);
+                    }
+                }
                 self.push_ch('"');
             }
             Value::BitString(value, _) => self.push_str(&value.to_string()),
@@ -184,7 +191,10 @@ mod tests {
 
     #[test]
     fn string_formatting() {
-        check_token_formatted(r#""ABC" "" "DEF""#, &["\"ABC\"", "\"\"", "\"DEF\""]);
+        check_token_formatted(
+            r#""ABC" "" "DEF" """"  "Hello "" ""#,
+            &["\"ABC\"", "\"\"", "\"DEF\"", "\"\"\"\"", "\"Hello \"\" \""],
+        );
     }
 
     #[test]
