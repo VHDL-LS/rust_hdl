@@ -107,10 +107,7 @@ impl Buffer {
             Value::AbstractLiteral(value, _) => self.push_str(&value.to_string()),
             Value::Character(char) => {
                 self.push_ch('\'');
-                self.push_ch((*char) as char);
-                if *char == b'\'' {
-                    self.push_ch('\'');
-                }
+                self.push_ch(*char as char);
                 self.push_ch('\'');
             }
             Value::Text(text) => self.push_str(&text.to_string()),
@@ -186,7 +183,7 @@ mod tests {
 
     #[test]
     fn character_formatting() {
-        check_token_formatted("'a' 'Z'", &["'a'", "'Z'"]);
+        check_token_formatted("'a' 'Z' '''", &["'a'", "'Z'", "'''"]);
     }
 
     #[test]
