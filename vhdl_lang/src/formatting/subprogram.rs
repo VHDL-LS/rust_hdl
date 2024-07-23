@@ -138,14 +138,7 @@ impl VHDLFormatter<'_> {
                 self.format_name(return_type.as_ref(), buffer);
             }
             Signature::Procedure(procedures) => {
-                for (i, procedure) in procedures.iter().enumerate() {
-                    self.format_name(procedure.as_ref(), buffer);
-                    if i < procedures.len() - 1 {
-                        // ,
-                        self.format_token_id(procedure.span.end_token + 1, buffer);
-                        buffer.push_whitespace();
-                    }
-                }
+                self.format_name_list(buffer, procedures);
             }
         }
         self.format_token_id(signature.span.end_token, buffer);

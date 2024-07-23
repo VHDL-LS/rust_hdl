@@ -162,27 +162,12 @@ impl VHDLFormatter<'_> {
         span: TokenSpan,
         buffer: &mut Buffer,
     ) {
-        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
-            // postponed process
-            self.format_token_span(
-                TokenSpan::new(span.start_token, span.start_token + 1),
-                buffer,
-            );
-        } else {
-            // process
-            self.format_token_id(span.start_token, buffer);
-        }
+        self.token_with_opt_postponed(span, buffer);
         if let Some(sensitivity_list) = &process.sensitivity_list {
             match &sensitivity_list.item {
                 SensitivityList::Names(names) => {
                     self.format_token_id(sensitivity_list.span.start_token, buffer);
-                    for (i, name) in names.iter().enumerate() {
-                        self.format_name(name.as_ref(), buffer);
-                        if i < names.len() - 1 {
-                            self.format_token_id(name.span.end_token + 1, buffer);
-                            buffer.push_whitespace();
-                        }
-                    }
+                    self.format_name_list(buffer, names);
                     self.format_token_id(sensitivity_list.span.end_token, buffer);
                 }
                 SensitivityList::All => self.join_token_span(sensitivity_list.span, buffer),
@@ -205,22 +190,26 @@ impl VHDLFormatter<'_> {
         self.format_token_id(process.span.end_token, buffer);
     }
 
+    fn token_with_opt_postponed(&self, span: TokenSpan, buffer: &mut Buffer) {
+        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
+            // postponed <x>
+            self.format_token_span(
+                TokenSpan::new(span.start_token, span.start_token + 1),
+                buffer,
+            );
+        } else {
+            // <x>
+            self.format_token_id(span.start_token, buffer);
+        }
+    }
+
     pub fn format_concurrent_assert_statement(
         &self,
         statement: &ConcurrentAssertStatement,
         span: TokenSpan,
         buffer: &mut Buffer,
     ) {
-        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
-            // postponed assert
-            self.format_token_span(
-                TokenSpan::new(span.start_token, span.start_token + 1),
-                buffer,
-            );
-        } else {
-            // assert
-            self.format_token_id(span.start_token, buffer);
-        }
+        self.token_with_opt_postponed(span, buffer);
         buffer.push_whitespace();
         self.format_assert_statement(&statement.statement, buffer);
         // ;
@@ -235,12 +224,7 @@ impl VHDLFormatter<'_> {
             buffer.push_whitespace();
             self.format_expression(report.as_ref(), buffer);
         }
-        if let Some(severity) = &assert_statement.severity {
-            buffer.push_whitespace();
-            self.format_token_id(severity.span.start_token - 1, buffer);
-            buffer.push_whitespace();
-            self.format_expression(severity.as_ref(), buffer);
-        }
+        self.format_opt_severity(assert_statement.severity.as_ref(), buffer);
     }
 
     pub fn format_assignment_statement(

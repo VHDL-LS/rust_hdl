@@ -17,6 +17,7 @@ mod expression;
 mod interface;
 mod name;
 mod sequential_statement;
+mod statement;
 mod subprogram;
 mod token;
 

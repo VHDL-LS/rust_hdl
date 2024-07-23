@@ -1,8 +1,8 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    AssignmentRightHand, CaseStatement, Choice, DelayMechanism, IterationScheme,
+    AssignmentRightHand, CaseStatement, Choice, DelayMechanism, Expression, Ident, IterationScheme,
     LabeledSequentialStatement, LoopStatement, ReportStatement, SequentialStatement,
-    SignalAssignment, WaitStatement,
+    SignalAssignment, WaitStatement, WithRef,
 };
 use crate::formatting::buffer::Buffer;
 use crate::{HasTokenSpan, TokenSpan};
@@ -146,12 +146,7 @@ impl VHDLFormatter<'_> {
         self.format_token_id(span.start_token, buffer);
         buffer.push_whitespace();
         self.format_expression(report.report.as_ref(), buffer);
-        if let Some(severity) = &report.severity {
-            buffer.push_whitespace();
-            self.format_token_id(severity.span.start_token - 1, buffer);
-            buffer.push_whitespace();
-            self.format_expression(severity.as_ref(), buffer);
-        }
+        self.format_opt_severity(report.severity.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
 
@@ -421,17 +416,8 @@ impl VHDLFormatter<'_> {
     ) {
         // next
         self.format_token_id(span.start_token, buffer);
-        if let Some(label) = &statement.loop_label {
-            buffer.push_whitespace();
-            self.format_token_id(label.item.token, buffer);
-        }
-        if let Some(condition) = &statement.condition {
-            buffer.push_whitespace();
-            // when
-            self.format_token_id(condition.span.start_token - 1, buffer);
-            buffer.push_whitespace();
-            self.format_expression(condition.as_ref(), buffer);
-        }
+        self.format_opt_loop_label(statement.loop_label.as_ref(), buffer);
+        self.format_opt_condition(statement.condition.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
 
@@ -443,18 +429,30 @@ impl VHDLFormatter<'_> {
     ) {
         // next
         self.format_token_id(span.start_token, buffer);
-        if let Some(label) = &statement.loop_label {
+        self.format_opt_loop_label(statement.loop_label.as_ref(), buffer);
+        self.format_opt_condition(statement.condition.as_ref(), buffer);
+        self.format_token_id(span.end_token, buffer);
+    }
+
+    fn format_opt_loop_label(&self, loop_label: Option<&WithRef<Ident>>, buffer: &mut Buffer) {
+        if let Some(label) = loop_label {
             buffer.push_whitespace();
             self.format_token_id(label.item.token, buffer);
         }
-        if let Some(condition) = &statement.condition {
+    }
+
+    fn format_opt_condition(
+        &self,
+        condition: Option<&WithTokenSpan<Expression>>,
+        buffer: &mut Buffer,
+    ) {
+        if let Some(condition) = &condition {
             buffer.push_whitespace();
             // when
             self.format_token_id(condition.span.start_token - 1, buffer);
             buffer.push_whitespace();
             self.format_expression(condition.as_ref(), buffer);
         }
-        self.format_token_id(span.end_token, buffer);
     }
 }
 

@@ -41,12 +41,12 @@ impl VHDLFormatter<'_> {
 
     pub fn format_v_unit_binding_indications(
         &self,
-        vunits: &[VUnitBindingIndication],
+        v_units: &[VUnitBindingIndication],
         buffer: &mut Buffer,
     ) {
-        for vunit_bind_ind in vunits {
+        for v_unit_bind_ind in v_units {
             buffer.line_break();
-            self.format_v_unit_indication(vunit_bind_ind, buffer);
+            self.format_v_unit_indication(v_unit_bind_ind, buffer);
         }
     }
 
@@ -186,23 +186,23 @@ impl VHDLFormatter<'_> {
 
     pub fn format_v_unit_indication(
         &self,
-        vunit_binding_indication: &VUnitBindingIndication,
+        v_unit_binding_indication: &VUnitBindingIndication,
         buffer: &mut Buffer,
     ) {
         // use
-        self.format_token_id(vunit_binding_indication.span.start_token, buffer);
+        self.format_token_id(v_unit_binding_indication.span.start_token, buffer);
         buffer.push_whitespace();
-        // vunit
-        self.format_token_id(vunit_binding_indication.span.start_token + 1, buffer);
+        // v_unit
+        self.format_token_id(v_unit_binding_indication.span.start_token + 1, buffer);
         buffer.push_whitespace();
-        for vunit in &vunit_binding_indication.vunit_list {
-            self.format_name(vunit.as_ref(), buffer);
-            if self.tokens.get_token(vunit.span.end_token + 1).kind == Kind::Comma {
-                self.format_token_id(vunit.span.end_token + 1, buffer);
+        for v_unit in &v_unit_binding_indication.vunit_list {
+            self.format_name(v_unit.as_ref(), buffer);
+            if self.tokens.get_token(v_unit.span.end_token + 1).kind == Kind::Comma {
+                self.format_token_id(v_unit.span.end_token + 1, buffer);
                 buffer.push_whitespace();
             }
         }
-        self.format_token_id(vunit_binding_indication.span.end_token, buffer);
+        self.format_token_id(v_unit_binding_indication.span.end_token, buffer);
     }
 }
 

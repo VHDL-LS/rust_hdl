@@ -115,6 +115,16 @@ impl VHDLFormatter<'_> {
         // >>
         self.format_token_id(name.span.end_token, buffer);
     }
+
+    pub fn format_name_list(&self, buffer: &mut Buffer, names: &[WithTokenSpan<Name>]) {
+        for name in names {
+            self.format_name(name.as_ref(), buffer);
+            if self.tokens.get_token(name.span.end_token + 1).kind == Kind::Comma {
+                self.format_token_id(name.span.end_token + 1, buffer);
+                buffer.push_whitespace();
+            }
+        }
+    }
 }
 
 #[cfg(test)]
