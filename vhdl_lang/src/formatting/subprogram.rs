@@ -7,6 +7,7 @@ use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
 use vhdl_lang::ast::{FunctionSpecification, ProcedureSpecification, SubprogramBody};
+use vhdl_lang::indented;
 
 impl VHDLFormatter<'_> {
     pub fn format_subprogram_declaration(
@@ -88,10 +89,10 @@ impl VHDLFormatter<'_> {
     }
 
     pub fn format_subprogram_header(&self, header: &SubprogramHeader, buffer: &mut Buffer) {
-        buffer.increase_indent();
-        buffer.line_break();
-        self.format_interface_list(&header.generic_list, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            buffer.line_break();
+            self.format_interface_list(&header.generic_list, buffer);
+        });
         if let Some(map_aspect) = &header.map_aspect {
             buffer.push_whitespace();
             self.format_map_aspect(map_aspect, buffer);
@@ -104,9 +105,9 @@ impl VHDLFormatter<'_> {
         // is
         self.format_token_id(body.specification.span().end_token + 1, buffer);
         buffer.line_break();
-        buffer.increase_indent();
-        self.format_declarations(&body.declarations, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.format_declarations(&body.declarations, buffer);
+        });
         self.format_token_id(body.begin_token, buffer);
         self.format_sequential_statements(&body.statements, buffer);
         buffer.line_break();

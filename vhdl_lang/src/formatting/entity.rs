@@ -2,6 +2,7 @@ use crate::ast::EntityDeclaration;
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
+use vhdl_lang::indented;
 
 impl VHDLFormatter<'_> {
     pub fn format_entity(&self, entity: &EntityDeclaration, buffer: &mut Buffer) {
@@ -13,21 +14,19 @@ impl VHDLFormatter<'_> {
         // entity <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, entity.is_token()), buffer);
         if let Some(generic_clause) = &entity.generic_clause {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_interface_list(generic_clause, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_interface_list(generic_clause, buffer);
+            });
         }
         if let Some(port_clause) = &entity.port_clause {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_interface_list(port_clause, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_interface_list(port_clause, buffer);
+            });
         }
 
-        buffer.increase_indent();
-        self.format_declarations(&entity.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, { self.format_declarations(&entity.decl, buffer) });
         if let Some(token) = entity.begin_token {
             buffer.line_break();
             self.format_token_id(token, buffer);

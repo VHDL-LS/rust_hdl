@@ -7,7 +7,7 @@ use crate::ast::{
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
-use crate::{HasTokenSpan, TokenAccess};
+use crate::{indented, HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{InterfaceFileDeclaration, ModeViewIndication};
 use vhdl_lang::TokenSpan;
@@ -28,15 +28,15 @@ impl VHDLFormatter<'_> {
         // parameter (
         // (
         self.format_token_span(TokenSpan::new(span.start_token, end_token), buffer);
-        buffer.increase_indent();
-        for (i, item) in clause.items.iter().enumerate() {
-            buffer.line_break();
-            self.format_interface_declaration(item, buffer);
-            if i < clause.items.len() - 1 {
-                self.format_token_id(item.get_end_token() + 1, buffer);
+        indented!(buffer, {
+            for (i, item) in clause.items.iter().enumerate() {
+                buffer.line_break();
+                self.format_interface_declaration(item, buffer);
+                if i < clause.items.len() - 1 {
+                    self.format_token_id(item.get_end_token() + 1, buffer);
+                }
             }
-        }
-        buffer.decrease_indent();
+        });
         if !clause.items.is_empty() {
             buffer.line_break();
         }
@@ -61,15 +61,15 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(span.start_token, span.start_token + 2),
             buffer,
         );
-        buffer.increase_indent();
-        for (i, item) in list.items.iter().enumerate() {
-            buffer.line_break();
-            self.format_association_element(item, buffer);
-            if let Some(token) = list.tokens.get(i) {
-                self.format_token_id(*token, buffer);
+        indented!(buffer, {
+            for (i, item) in list.items.iter().enumerate() {
+                buffer.line_break();
+                self.format_association_element(item, buffer);
+                if let Some(token) = list.tokens.get(i) {
+                    self.format_token_id(*token, buffer);
+                }
             }
-        }
-        buffer.decrease_indent();
+        });
         if !list.items.is_empty() {
             buffer.line_break();
         }

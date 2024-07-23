@@ -1,7 +1,7 @@
 use crate::ast::ArchitectureBody;
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
-use crate::{HasTokenSpan, TokenSpan};
+use crate::{indented, HasTokenSpan, TokenSpan};
 
 impl VHDLFormatter<'_> {
     pub fn format_architecture(&self, arch: &ArchitectureBody, buffer: &mut Buffer) {
@@ -12,14 +12,12 @@ impl VHDLFormatter<'_> {
         let span = arch.span();
         // architecture <ident> of <ident> is
         self.format_token_span(TokenSpan::new(span.start_token, arch.is_token()), buffer);
-        buffer.increase_indent();
-        self.format_declarations(&arch.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, { self.format_declarations(&arch.decl, buffer) });
         buffer.line_break();
         self.format_token_id(arch.begin_token, buffer);
-        buffer.increase_indent();
-        self.format_concurrent_statements(&arch.statements, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.format_concurrent_statements(&arch.statements, buffer);
+        });
         buffer.line_break();
         // end [architecture] [name];
         self.format_token_span(TokenSpan::new(arch.end_token, span.end_token - 1), buffer);

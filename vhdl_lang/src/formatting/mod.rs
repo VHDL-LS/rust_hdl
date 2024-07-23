@@ -56,6 +56,16 @@ impl VHDLFormatter<'_> {
     }
 }
 
+/// indents the provided block and de-indents at the end.
+#[macro_export]
+macro_rules! indented {
+    ($buffer:ident, $block:block) => {
+        $buffer.increase_indent();
+        $block
+        $buffer.decrease_indent();
+    };
+}
+
 #[cfg(test)]
 pub mod test_utils {
     use crate::formatting::buffer::Buffer;

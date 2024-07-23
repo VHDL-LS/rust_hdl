@@ -11,6 +11,7 @@ use vhdl_lang::ast::{
     VariableAssignment,
 };
 use vhdl_lang::formatting::VHDLFormatter;
+use vhdl_lang::indented;
 
 impl VHDLFormatter<'_> {
     pub fn format_sequential_statements(
@@ -21,16 +22,17 @@ impl VHDLFormatter<'_> {
         if statements.is_empty() {
             return;
         }
-        buffer.increase_indent();
-        buffer.line_break();
-        for (i, item) in statements.iter().enumerate() {
-            self.format_labeled_sequential_statement(item, buffer);
-            if i < statements.len() - 1 {
-                self.line_break_preserve_whitespace(item.statement.get_end_token(), buffer);
+        indented!(buffer, {
+            buffer.line_break();
+            for (i, item) in statements.iter().enumerate() {
+                self.format_labeled_sequential_statement(item, buffer);
+                if i < statements.len() - 1 {
+                    self.line_break_preserve_whitespace(item.statement.get_end_token(), buffer);
+                }
             }
-        }
-        buffer.decrease_indent();
+        });
     }
+
     pub fn format_labeled_sequential_statement(
         &self,
         statement: &LabeledSequentialStatement,
@@ -333,31 +335,31 @@ impl VHDLFormatter<'_> {
         buffer.push_whitespace();
         // is
         self.format_token_id(statement.expression.span.end_token + 1, buffer);
-        buffer.increase_indent();
-        for alternative in &statement.alternatives {
-            buffer.line_break();
-            for (i, choice) in alternative.choices.iter().enumerate() {
-                if i == 0 {
-                    // when
-                    self.format_token_id(choice.span.start_token - 1, buffer);
-                    buffer.push_whitespace();
+        indented!(buffer, {
+            for alternative in &statement.alternatives {
+                buffer.line_break();
+                for (i, choice) in alternative.choices.iter().enumerate() {
+                    if i == 0 {
+                        // when
+                        self.format_token_id(choice.span.start_token - 1, buffer);
+                        buffer.push_whitespace();
+                    }
+                    self.format_choice(choice, buffer);
+                    if i < alternative.choices.len() - 1 {
+                        buffer.push_whitespace();
+                        // |
+                        self.format_token_id(choice.span.end_token + 1, buffer);
+                        buffer.push_whitespace();
+                    }
+                    if i == alternative.choices.len() - 1 {
+                        buffer.push_whitespace();
+                        // =>
+                        self.format_token_id(choice.span.end_token + 1, buffer);
+                    }
                 }
-                self.format_choice(choice, buffer);
-                if i < alternative.choices.len() - 1 {
-                    buffer.push_whitespace();
-                    // |
-                    self.format_token_id(choice.span.end_token + 1, buffer);
-                    buffer.push_whitespace();
-                }
-                if i == alternative.choices.len() - 1 {
-                    buffer.push_whitespace();
-                    // =>
-                    self.format_token_id(choice.span.end_token + 1, buffer);
-                }
+                self.format_sequential_statements(&alternative.item, buffer);
             }
-            self.format_sequential_statements(&alternative.item, buffer);
-        }
-        buffer.decrease_indent();
+        });
         buffer.line_break();
         if statement.is_matching {
             self.format_token_span(

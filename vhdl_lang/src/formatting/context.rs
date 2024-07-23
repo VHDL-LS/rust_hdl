@@ -2,6 +2,7 @@ use crate::ast::{ContextClause, ContextDeclaration, ContextItem};
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::{HasTokenSpan, TokenSpan};
+use vhdl_lang::indented;
 
 impl VHDLFormatter<'_> {
     pub fn format_context(&self, context: &ContextDeclaration, buffer: &mut Buffer) {
@@ -10,12 +11,12 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(context.span.start_token, context.span.start_token + 2),
             buffer,
         );
-        buffer.increase_indent();
-        if !context.items.is_empty() {
-            buffer.line_break();
-        }
-        self.format_context_clause(&context.items, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            if !context.items.is_empty() {
+                buffer.line_break();
+            }
+            self.format_context_clause(&context.items, buffer);
+        });
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(context.end_token, context.span.end_token - 1),

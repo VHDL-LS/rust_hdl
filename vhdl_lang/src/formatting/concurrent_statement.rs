@@ -11,7 +11,7 @@ use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
 use crate::{HasTokenSpan, TokenAccess};
 use vhdl_lang::ast::{Alternative, AssertStatement, ConcurrentProcedureCall};
-use vhdl_lang::TokenSpan;
+use vhdl_lang::{indented, TokenSpan};
 
 impl VHDLFormatter<'_> {
     pub fn join_on_newline<T>(
@@ -119,35 +119,35 @@ impl VHDLFormatter<'_> {
             buffer.push_whitespace();
             self.format_token_id(is_token, buffer);
         }
-        buffer.increase_indent();
-        if let Some(generic_clause) = &block.header.generic_clause {
-            buffer.line_break();
-            self.format_interface_list(generic_clause, buffer);
-        }
-        if let Some(generic_map) = &block.header.generic_map {
-            buffer.line_break();
-            self.format_map_aspect(generic_map, buffer);
-            // ;
-            self.format_token_id(generic_map.span.end_token + 1, buffer);
-        }
-        if let Some(port_clause) = &block.header.port_clause {
-            buffer.line_break();
-            self.format_interface_list(port_clause, buffer);
-        }
-        if let Some(port_map) = &block.header.port_map {
-            buffer.line_break();
-            self.format_map_aspect(port_map, buffer);
-            // ;
-            self.format_token_id(port_map.span.end_token + 1, buffer);
-        }
-        self.format_declarations(&block.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            if let Some(generic_clause) = &block.header.generic_clause {
+                buffer.line_break();
+                self.format_interface_list(generic_clause, buffer);
+            }
+            if let Some(generic_map) = &block.header.generic_map {
+                buffer.line_break();
+                self.format_map_aspect(generic_map, buffer);
+                // ;
+                self.format_token_id(generic_map.span.end_token + 1, buffer);
+            }
+            if let Some(port_clause) = &block.header.port_clause {
+                buffer.line_break();
+                self.format_interface_list(port_clause, buffer);
+            }
+            if let Some(port_map) = &block.header.port_map {
+                buffer.line_break();
+                self.format_map_aspect(port_map, buffer);
+                // ;
+                self.format_token_id(port_map.span.end_token + 1, buffer);
+            }
+            self.format_declarations(&block.decl, buffer);
+        });
         buffer.line_break();
         self.format_token_id(block.begin_token, buffer);
         buffer.line_break();
-        buffer.increase_indent();
-        self.format_concurrent_statements(&block.statements, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.format_concurrent_statements(&block.statements, buffer)
+        });
         self.format_token_span(
             TokenSpan::new(block.end_token, block.span.end_token - 1),
             buffer,
@@ -192,9 +192,7 @@ impl VHDLFormatter<'_> {
             buffer.push_whitespace();
             self.format_token_id(is_token, buffer);
         }
-        buffer.increase_indent();
-        self.format_declarations(&process.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, { self.format_declarations(&process.decl, buffer) });
         buffer.line_break();
         self.format_token_id(process.begin_token, buffer);
         self.format_sequential_statements(&process.statements, buffer);
@@ -438,16 +436,16 @@ impl VHDLFormatter<'_> {
             }
         }
         if let Some(generic_map) = &statement.generic_map {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_map_aspect(generic_map, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_map_aspect(generic_map, buffer);
+            });
         }
         if let Some(port_map) = &statement.port_map {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_map_aspect(port_map, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_map_aspect(port_map, buffer);
+            });
         }
         self.format_token_id(span.end_token, buffer);
     }
@@ -558,41 +556,41 @@ impl VHDLFormatter<'_> {
         buffer.push_whitespace();
         // generate
         self.format_token_id(statement.sels.expression.span.end_token + 1, buffer);
-        buffer.increase_indent();
-        for alternative in &statement.sels.alternatives {
-            buffer.line_break();
-            for (i, choice) in alternative.choices.iter().enumerate() {
-                if i == 0 {
-                    if let Some(label) = &alternative.item.alternative_label {
-                        // when
-                        self.format_token_id(label.tree.token - 1, buffer);
+        indented!(buffer, {
+            for alternative in &statement.sels.alternatives {
+                buffer.line_break();
+                for (i, choice) in alternative.choices.iter().enumerate() {
+                    if i == 0 {
+                        if let Some(label) = &alternative.item.alternative_label {
+                            // when
+                            self.format_token_id(label.tree.token - 1, buffer);
+                            buffer.push_whitespace();
+                            // <ident>
+                            self.format_token_id(label.tree.token, buffer);
+                            // :
+                            self.format_token_id(label.tree.token + 1, buffer);
+                        } else {
+                            // when
+                            self.format_token_id(choice.span.start_token - 1, buffer);
+                        }
                         buffer.push_whitespace();
-                        // <ident>
-                        self.format_token_id(label.tree.token, buffer);
-                        // :
-                        self.format_token_id(label.tree.token + 1, buffer);
-                    } else {
-                        // when
-                        self.format_token_id(choice.span.start_token - 1, buffer);
                     }
-                    buffer.push_whitespace();
+                    self.format_choice(choice, buffer);
+                    if i < alternative.choices.len() - 1 {
+                        buffer.push_whitespace();
+                        // |
+                        self.format_token_id(choice.span.end_token + 1, buffer);
+                        buffer.push_whitespace();
+                    }
+                    if i == alternative.choices.len() - 1 {
+                        buffer.push_whitespace();
+                        // =>
+                        self.format_token_id(choice.span.end_token + 1, buffer);
+                    }
                 }
-                self.format_choice(choice, buffer);
-                if i < alternative.choices.len() - 1 {
-                    buffer.push_whitespace();
-                    // |
-                    self.format_token_id(choice.span.end_token + 1, buffer);
-                    buffer.push_whitespace();
-                }
-                if i == alternative.choices.len() - 1 {
-                    buffer.push_whitespace();
-                    // =>
-                    self.format_token_id(choice.span.end_token + 1, buffer);
-                }
+                self.format_generate_body(&alternative.item, buffer);
             }
-            self.format_generate_body(&alternative.item, buffer);
-        }
-        buffer.decrease_indent();
+        });
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(statement.end_token, span.end_token - 1),
@@ -603,15 +601,13 @@ impl VHDLFormatter<'_> {
 
     pub fn format_generate_body(&self, generate_body: &GenerateBody, buffer: &mut Buffer) {
         if let Some((decl, begin_token)) = &generate_body.decl {
-            buffer.increase_indent();
-            self.format_declarations(decl, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, { self.format_declarations(decl, buffer) });
             buffer.line_break();
             self.format_token_id(*begin_token, buffer);
         }
-        buffer.increase_indent();
-        self.format_concurrent_statements(&generate_body.statements, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.format_concurrent_statements(&generate_body.statements, buffer)
+        });
         if let Some(end_token) = generate_body.end_token {
             buffer.line_break();
             self.format_token_id(end_token, buffer);

@@ -151,6 +151,15 @@ impl Buffer {
         self.indentation -= 1;
     }
 
+    pub fn indented<F>(&mut self, action: F)
+    where
+        F: FnOnce(),
+    {
+        self.increase_indent();
+        action();
+        self.decrease_indent();
+    }
+
     pub fn line_break(&mut self) {
         self.insert_extra_newline = false;
         self.push_ch('\n');

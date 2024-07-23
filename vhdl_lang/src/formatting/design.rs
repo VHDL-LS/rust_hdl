@@ -3,7 +3,7 @@ use crate::formatting::buffer::Buffer;
 use crate::HasTokenSpan;
 use vhdl_lang::ast::PackageDeclaration;
 use vhdl_lang::formatting::VHDLFormatter;
-use vhdl_lang::TokenSpan;
+use vhdl_lang::{indented, TokenSpan};
 
 impl VHDLFormatter<'_> {
     pub fn format_any_design_unit(&self, unit: &AnyDesignUnit, buffer: &mut Buffer, is_last: bool) {
@@ -48,13 +48,13 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(package.span.start_token, package.span.start_token + 2),
             buffer,
         );
-        buffer.increase_indent();
-        if let Some(generic_clause) = &package.generic_clause {
-            buffer.line_break();
-            self.format_interface_list(generic_clause, buffer);
-        }
-        self.format_declarations(&package.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            if let Some(generic_clause) = &package.generic_clause {
+                buffer.line_break();
+                self.format_interface_list(generic_clause, buffer);
+            }
+            self.format_declarations(&package.decl, buffer);
+        });
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(package.end_token, package.span.end_token - 1),
@@ -73,9 +73,7 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(body.span.start_token, body.span.start_token + 3),
             buffer,
         );
-        buffer.increase_indent();
-        self.format_declarations(&body.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, { self.format_declarations(&body.decl, buffer) });
         buffer.line_break();
         self.format_token_span(
             TokenSpan::new(body.end_token, body.span.end_token - 1),

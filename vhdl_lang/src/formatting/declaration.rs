@@ -6,7 +6,7 @@ use crate::ast::{
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
 use crate::syntax::Kind;
-use crate::{HasTokenSpan, TokenAccess, TokenId, TokenSpan};
+use crate::{indented, HasTokenSpan, TokenAccess, TokenId, TokenSpan};
 use vhdl_lang::ast::token_range::WithTokenSpan;
 use vhdl_lang::ast::{
     AliasDeclaration, Attribute, AttributeDeclaration, AttributeSpecification, Declaration,
@@ -78,16 +78,16 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         if let Some(generic_clause) = &component.generic_list {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_interface_list(generic_clause, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_interface_list(generic_clause, buffer);
+            });
         }
         if let Some(port_clause) = &component.port_list {
-            buffer.increase_indent();
-            buffer.line_break();
-            self.format_interface_list(port_clause, buffer);
-            buffer.decrease_indent();
+            indented!(buffer, {
+                buffer.line_break();
+                self.format_interface_list(port_clause, buffer);
+            });
         }
         buffer.line_break();
         self.format_token_span(
@@ -245,30 +245,30 @@ impl VHDLFormatter<'_> {
         self.format_token_id(span.start_token, buffer);
         buffer.push_whitespace();
         self.format_range(&declaration.range, buffer);
-        buffer.increase_indent();
-        buffer.line_break();
-        self.format_token_id(declaration.units_token, buffer);
-        buffer.increase_indent();
-        buffer.line_break();
-        // primary_unit;
-        self.format_ident(&declaration.primary_unit, buffer);
-        self.format_token_id(declaration.primary_unit.tree.token + 1, buffer);
-        for (ident, literal) in &declaration.secondary_units {
+        indented!(buffer, {
             buffer.line_break();
-            self.format_ident(ident, buffer);
-            buffer.push_whitespace();
-            // =
-            self.format_token_id(ident.tree.token + 1, buffer);
-            buffer.push_whitespace();
-            self.format_token_span(literal.span, buffer);
-            // ;
-            self.format_token_id(literal.span.end_token + 1, buffer);
-        }
-        buffer.decrease_indent();
-        buffer.line_break();
-        // end units
-        self.format_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
-        buffer.decrease_indent();
+            self.format_token_id(declaration.units_token, buffer);
+            indented!(buffer, {
+                buffer.line_break();
+                // primary_unit;
+                self.format_ident(&declaration.primary_unit, buffer);
+                self.format_token_id(declaration.primary_unit.tree.token + 1, buffer);
+                for (ident, literal) in &declaration.secondary_units {
+                    buffer.line_break();
+                    self.format_ident(ident, buffer);
+                    buffer.push_whitespace();
+                    // =
+                    self.format_token_id(ident.tree.token + 1, buffer);
+                    buffer.push_whitespace();
+                    self.format_token_span(literal.span, buffer);
+                    // ;
+                    self.format_token_id(literal.span.end_token + 1, buffer);
+                }
+            });
+            buffer.line_break();
+            // end units
+            self.format_token_span(TokenSpan::new(span.end_token - 1, span.end_token), buffer);
+        });
     }
 
     pub fn format_array_type_declaration(
@@ -323,13 +323,13 @@ impl VHDLFormatter<'_> {
         // record
         self.format_token_id(span.start_token, buffer);
         let mut last_token = span.start_token;
-        buffer.increase_indent();
-        for element in elements {
-            buffer.line_break();
-            self.format_element_declaration(element, buffer);
-            last_token = element.span.end_token;
-        }
-        buffer.decrease_indent();
+        indented!(buffer, {
+            for element in elements {
+                buffer.line_break();
+                self.format_element_declaration(element, buffer);
+                last_token = element.span.end_token;
+            }
+        });
         buffer.line_break();
         // end record
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
@@ -358,17 +358,17 @@ impl VHDLFormatter<'_> {
         // protected
         self.format_token_id(span.start_token, buffer);
         let mut last_token = span.start_token;
-        buffer.increase_indent();
-        for element in &declaration.items {
-            buffer.line_break();
-            match element {
-                ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
-                    self.format_subprogram_declaration(subprogram, buffer);
-                    last_token = subprogram.span.end_token;
+        indented!(buffer, {
+            for element in &declaration.items {
+                buffer.line_break();
+                match element {
+                    ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
+                        self.format_subprogram_declaration(subprogram, buffer);
+                        last_token = subprogram.span.end_token;
+                    }
                 }
             }
-        }
-        buffer.decrease_indent();
+        });
         buffer.line_break();
         // end protected
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
@@ -385,9 +385,9 @@ impl VHDLFormatter<'_> {
             TokenSpan::new(span.start_token, span.start_token + 1),
             buffer,
         );
-        buffer.increase_indent();
-        self.format_declarations(&declaration.decl, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.format_declarations(&declaration.decl, buffer)
+        });
         buffer.line_break();
         let last_token = declaration
             .decl
@@ -555,9 +555,9 @@ impl VHDLFormatter<'_> {
         self.format_subtype_indication(&view.typ, buffer);
         buffer.push_whitespace();
         self.format_token_id(view.is_token, buffer);
-        buffer.increase_indent();
-        self.join_on_newline(&view.elements, Self::format_mode_view_element, buffer);
-        buffer.decrease_indent();
+        indented!(buffer, {
+            self.join_on_newline(&view.elements, Self::format_mode_view_element, buffer);
+        });
         buffer.line_break();
         self.format_token_span(TokenSpan::new(view.end_token, span.end_token - 1), buffer);
         self.format_token_id(span.end_token, buffer);
