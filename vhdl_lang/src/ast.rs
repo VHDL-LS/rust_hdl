@@ -1320,7 +1320,7 @@ pub struct LabeledConcurrentStatement {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub name_list: IdentList,
+    pub name_list: Vec<WithRef<Ident>>,
 }
 
 /// Represents a token-separated list of some generic type `T`
@@ -1361,7 +1361,6 @@ impl<T> SeparatedList<T> {
     }
 }
 
-pub type IdentList = SeparatedList<WithRef<Ident>>;
 pub type NameList = SeparatedList<WithTokenSpan<Name>>;
 
 /// LRM 12.4. Use clauses

@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{IdentList, NameList, SeparatedList, WithRef};
+use crate::ast::{NameList, SeparatedList};
 use crate::data::DiagnosticResult;
 use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
@@ -85,19 +85,11 @@ pub fn parse_name_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<NameLis
     parse_list_with_separator(ctx, Comma, parse_name)
 }
 
-pub fn parse_ident_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<IdentList> {
-    parse_list_with_separator(ctx, Comma, |ctx| {
-        ctx.stream.expect_ident().map(WithRef::new)
-    })
-}
-
 #[cfg(test)]
 mod test {
-    use crate::ast::{IdentList, NameList, SeparatedList};
+    use crate::ast::{NameList, SeparatedList};
     use crate::syntax::names::parse_association_element;
-    use crate::syntax::separated_list::{
-        parse_ident_list, parse_list_with_separator_or_recover, parse_name_list,
-    };
+    use crate::syntax::separated_list::{parse_list_with_separator_or_recover, parse_name_list};
     use crate::syntax::test::Code;
     use crate::syntax::Kind;
     use crate::syntax::Kind::RightPar;
@@ -106,7 +98,7 @@ mod test {
     #[test]
     pub fn test_error_on_empty_list() {
         let code = Code::new("");
-        let (res, diagnostics) = code.with_partial_stream_diagnostics(parse_ident_list);
+        let (res, diagnostics) = code.with_partial_stream_diagnostics(parse_name_list);
         assert_eq!(
             res,
             Err(Diagnostic::syntax_error(code.eof_pos(), "Unexpected EOF"))
@@ -118,24 +110,8 @@ mod test {
     pub fn parse_single_element_list() {
         let code = Code::new("abc");
         assert_eq!(
-            code.parse_ok_no_diagnostics(parse_ident_list),
-            IdentList::single(code.s1("abc").ident().into_ref())
-        )
-    }
-
-    #[test]
-    pub fn parse_list_with_multiple_elements() {
-        let code = Code::new("abc, def, ghi");
-        assert_eq!(
-            code.parse_ok_no_diagnostics(parse_ident_list),
-            IdentList {
-                items: vec![
-                    code.s1("abc").ident().into_ref(),
-                    code.s1("def").ident().into_ref(),
-                    code.s1("ghi").ident().into_ref()
-                ],
-                tokens: vec![code.s(",", 1).token(), code.s(",", 2).token()]
-            }
+            code.parse_ok_no_diagnostics(parse_name_list),
+            NameList::single(code.s1("abc").name())
         )
     }
 
@@ -154,14 +130,14 @@ mod test {
     #[test]
     fn parse_extraneous_single_separators() {
         let code = Code::new("a,,b,c");
-        let (res, diag) = code.with_stream_diagnostics(parse_ident_list);
+        let (res, diag) = code.with_stream_diagnostics(parse_name_list);
         assert_eq!(
             res,
-            IdentList {
+            NameList {
                 items: vec![
-                    code.s1("a").ident().into_ref(),
-                    code.s1("b").ident().into_ref(),
-                    code.s1("c").ident().into_ref()
+                    code.s1("a").name(),
+                    code.s1("b").name(),
+                    code.s1("c").name()
                 ],
                 tokens: vec![code.s(",", 1).token(), code.s(",", 3).token()]
             }
@@ -178,14 +154,14 @@ mod test {
     #[test]
     fn parse_extraneous_multiple_separators() {
         let code = Code::new("a,,,,b,c");
-        let (res, diag) = code.with_stream_diagnostics(parse_ident_list);
+        let (res, diag) = code.with_stream_diagnostics(parse_name_list);
         assert_eq!(
             res,
-            IdentList {
+            NameList {
                 items: vec![
-                    code.s1("a").ident().into_ref(),
-                    code.s1("b").ident().into_ref(),
-                    code.s1("c").ident().into_ref()
+                    code.s1("a").name(),
+                    code.s1("b").name(),
+                    code.s1("c").name()
                 ],
                 tokens: vec![code.s(",", 1).token(), code.s(",", 5).token()]
             }
@@ -235,12 +211,15 @@ mod test {
     fn parse_list_with_erroneous_elements() {
         let code = Code::new("1,c,d");
         let diag = code
-            .parse(parse_ident_list)
+            .parse(parse_name_list)
             .0
             .expect_err("Should not parse OK");
         assert_eq!(
             diag,
-            Diagnostic::syntax_error(code.s1("1"), "Expected '{identifier}'")
+            Diagnostic::syntax_error(
+                code.s1("1"),
+                "Expected '{identifier}', '{character}', '{string}' or 'all'"
+            )
         );
     }
 }

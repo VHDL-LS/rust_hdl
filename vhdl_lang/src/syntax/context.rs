@@ -6,14 +6,15 @@
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
-use super::names::parse_name;
+use super::names::{parse_identifier_list, parse_name};
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::recover;
 use crate::syntax::recover::expect_semicolon;
-use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
+use crate::syntax::separated_list::parse_name_list;
+use itertools::Itertools;
 #[derive(PartialEq, Debug)]
 pub enum DeclarationOrReference {
     Declaration(ContextDeclaration),
@@ -23,7 +24,10 @@ pub enum DeclarationOrReference {
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<LibraryClause> {
     let library_token = ctx.stream.expect_kind(Library)?;
-    let name_list = parse_ident_list(ctx)?;
+    let name_list = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithRef::new)
+        .collect_vec();
     let semi_token = recover::expect_semicolon_or_last(ctx);
     Ok(LibraryClause {
         span: TokenSpan::new(library_token, semi_token),
@@ -125,7 +129,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 span: code.token_span(),
-                name_list: code.s1("foo").ident_list(),
+                name_list: vec![code.s1("foo").ident().into_ref()],
             }
         )
     }
@@ -137,7 +141,10 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 span: code.token_span(),
-                name_list: code.s1("foo, bar").ident_list(),
+                name_list: vec![
+                    code.s1("foo").ident().into_ref(),
+                    code.s1("bar").ident().into_ref()
+                ],
             },
         )
     }
@@ -271,7 +278,7 @@ end context;
                 items: vec![
                     ContextItem::Library(LibraryClause {
                         span: TokenSpan::new(code.s("library", 1).token(), code.s(";", 1).token()),
-                        name_list: code.s1("foo").ident_list(),
+                        name_list: vec![code.s1("foo").ident().into_ref()],
                     }),
                     ContextItem::Use(UseClause {
                         span: code.s1("use foo.bar;").token_span(),

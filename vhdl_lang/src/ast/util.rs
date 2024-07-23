@@ -84,6 +84,12 @@ impl<T: HasDesignator> HasDesignator for WithRef<T> {
     }
 }
 
+impl HasIdent for WithRef<Ident> {
+    fn ident(&self) -> &Ident {
+        &self.item
+    }
+}
+
 impl Designator {
     pub fn into_ref(self) -> WithRef<Designator> {
         WithRef::new(self)

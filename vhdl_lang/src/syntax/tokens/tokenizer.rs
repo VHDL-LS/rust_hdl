@@ -510,7 +510,7 @@ impl Add<usize> for TokenId {
 /// #[with_token_span]
 /// #[derive(PartialEq, Debug, Clone)]
 /// pub struct LibraryClause {
-///     pub name_list: ::vhdl_lang::ast::IdentList,
+///     pub name_list: Vec<::vhdl_lang::ast::WithRef<::vhdl_lang::ast::Ident>>,
 /// }
 ///
 /// // Enums can use the `TokenSpan` derive macro directly

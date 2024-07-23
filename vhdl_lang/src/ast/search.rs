@@ -1385,7 +1385,7 @@ impl Search for SubprogramHeader {
 
 impl Search for LibraryClause {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        for name in self.name_list.items.iter() {
+        for name in self.name_list.iter() {
             return_if_found!(searcher
                 .search_pos_with_ref(ctx, name.item.pos(ctx), &name.reference)
                 .or_not_found());

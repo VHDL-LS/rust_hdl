@@ -548,7 +548,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ContextItem::Library(LibraryClause {
                     ref mut name_list, ..
                 }) => {
-                    for library_name in name_list.items.iter_mut() {
+                    for library_name in name_list.iter_mut() {
                         if self.work_sym == library_name.item.item {
                             library_name.set_unique_reference(self.work_library());
                             diagnostics.add(

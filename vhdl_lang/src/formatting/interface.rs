@@ -1,5 +1,5 @@
 use crate::ast::{
-    ActualPart, AssociationElement, ElementMode, IdentList, InterfaceDeclaration, InterfaceList,
+    ActualPart, AssociationElement, ElementMode, InterfaceDeclaration, InterfaceList,
     InterfaceObjectDeclaration, InterfacePackageDeclaration, InterfacePackageGenericMapAspect,
     InterfaceSubprogramDeclaration, MapAspect, ModeIndication, ModeViewElement,
     ModeViewIndicationKind, SeparatedList, SimpleModeIndication, SubprogramDefault,
@@ -252,15 +252,6 @@ impl VHDLFormatter<'_> {
                 self.format_name(name.as_ref(), buffer);
                 // )
                 self.format_token_id(name.get_end_token() + 1, buffer);
-            }
-        }
-    }
-
-    pub fn format_ident_separated_list(&self, ident_list: &IdentList, buffer: &mut Buffer) {
-        for (i, item) in ident_list.items.iter().enumerate() {
-            self.format_token_id(item.item.token, buffer);
-            if let Some(token) = ident_list.tokens.get(i) {
-                self.format_token_id(*token, buffer);
             }
         }
     }
