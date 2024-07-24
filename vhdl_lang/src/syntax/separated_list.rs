@@ -4,7 +4,8 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{NameList, SeparatedList};
+use crate::ast::token_range::WithTokenSpan;
+use crate::ast::{Name, SeparatedList};
 use crate::data::DiagnosticResult;
 use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
@@ -81,13 +82,13 @@ where
     Ok(SeparatedList { items, tokens })
 }
 
-pub fn parse_name_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<NameList> {
-    parse_list_with_separator(ctx, Comma, parse_name)
+pub fn parse_name_list(ctx: &mut ParsingContext<'_>) -> DiagnosticResult<Vec<WithTokenSpan<Name>>> {
+    Ok(parse_list_with_separator(ctx, Comma, parse_name)?.items)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ast::{NameList, SeparatedList};
+    use crate::ast::SeparatedList;
     use crate::syntax::names::parse_association_element;
     use crate::syntax::separated_list::{parse_list_with_separator_or_recover, parse_name_list};
     use crate::syntax::test::Code;
@@ -111,7 +112,7 @@ mod test {
         let code = Code::new("abc");
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_name_list),
-            NameList::single(code.s1("abc").name())
+            vec![code.s1("abc").name()]
         )
     }
 
@@ -120,10 +121,7 @@ mod test {
         let code = Code::new("work.foo, lib.bar.all");
         assert_eq!(
             code.parse_ok_no_diagnostics(parse_name_list),
-            NameList {
-                items: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()],
-                tokens: vec![code.s1(",").token()],
-            }
+            vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()]
         )
     }
 
@@ -133,14 +131,11 @@ mod test {
         let (res, diag) = code.with_stream_diagnostics(parse_name_list);
         assert_eq!(
             res,
-            NameList {
-                items: vec![
-                    code.s1("a").name(),
-                    code.s1("b").name(),
-                    code.s1("c").name()
-                ],
-                tokens: vec![code.s(",", 1).token(), code.s(",", 3).token()]
-            }
+            vec![
+                code.s1("a").name(),
+                code.s1("b").name(),
+                code.s1("c").name()
+            ]
         );
         assert_eq!(
             diag,
@@ -157,14 +152,11 @@ mod test {
         let (res, diag) = code.with_stream_diagnostics(parse_name_list);
         assert_eq!(
             res,
-            NameList {
-                items: vec![
-                    code.s1("a").name(),
-                    code.s1("b").name(),
-                    code.s1("c").name()
-                ],
-                tokens: vec![code.s(",", 1).token(), code.s(",", 5).token()]
-            }
+            vec![
+                code.s1("a").name(),
+                code.s1("b").name(),
+                code.s1("c").name()
+            ]
         );
         assert_eq!(
             diag,

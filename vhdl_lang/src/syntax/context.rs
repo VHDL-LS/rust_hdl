@@ -99,16 +99,13 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
     } else {
         // Context reference
         let mut items = vec![name];
-        let mut tokens = Vec::new();
-        while let Some(comma) = ctx.stream.pop_if_kind(Comma) {
+        while ctx.stream.pop_if_kind(Comma).is_some() {
             items.push(parse_name(ctx)?);
-            tokens.push(comma);
         }
-        let name_list = SeparatedList { items, tokens };
         let semi_token = recover::expect_semicolon_or_last(ctx);
         Ok(DeclarationOrReference::Reference(ContextReference {
             span: TokenSpan::new(context_token, semi_token),
-            name_list,
+            name_list: items,
         }))
     }
 }
@@ -157,7 +154,7 @@ mod tests {
             WithTokenSpan::new(
                 UseClause {
                     span: code.token_span(),
-                    name_list: code.s1("lib.foo").name_list(),
+                    name_list: vec![code.s1("lib.foo").name()],
                 },
                 code.token_span()
             ),
@@ -172,7 +169,7 @@ mod tests {
             WithTokenSpan::new(
                 UseClause {
                     span: code.token_span(),
-                    name_list: code.s1("foo.'a', lib.bar.all").name_list(),
+                    name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()],
                 },
                 code.token_span()
             ),
@@ -186,8 +183,8 @@ mod tests {
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
                 span: code.token_span(),
-                name_list: code.s1("lib.foo").name_list(),
-            },)
+                name_list: vec![code.s1("lib.foo").name()],
+            })
         )
     }
 
@@ -282,11 +279,11 @@ end context;
                     }),
                     ContextItem::Use(UseClause {
                         span: code.s1("use foo.bar;").token_span(),
-                        name_list: code.s1("foo.bar").name_list(),
+                        name_list: vec![code.s1("foo.bar").name()],
                     }),
                     ContextItem::Context(ContextReference {
                         span: TokenSpan::new(code.s("context", 2).token(), code.s(";", 3).token()),
-                        name_list: code.s1("foo.ctx").name_list(),
+                        name_list: vec![code.s1("foo.ctx").name()],
                     }),
                 ],
                 end_token: code.s1("end").token(),

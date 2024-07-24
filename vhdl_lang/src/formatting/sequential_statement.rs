@@ -118,13 +118,7 @@ impl VHDLFormatter<'_> {
             // on
             self.format_token_id(span.start_token + 1, buffer);
             buffer.push_whitespace();
-            for (i, item) in name_list.items.iter().enumerate() {
-                self.format_name(item.as_ref(), buffer);
-                if let Some(token) = name_list.tokens.get(i) {
-                    self.format_token_id(*token, buffer);
-                    buffer.push_whitespace();
-                }
-            }
+            self.format_name_list(buffer, name_list);
         }
         if let Some(condition_clause) = &statement.condition_clause {
             buffer.push_whitespace();

@@ -494,7 +494,7 @@ impl VHDLFormatter<'_> {
         // use
         self.format_token_id(use_clause.get_start_token(), buffer);
         buffer.push_whitespace();
-        self.format_name_list(buffer, &use_clause.name_list.items);
+        self.format_name_list(buffer, &use_clause.name_list);
         self.format_token_id(use_clause.get_end_token(), buffer);
     }
 
@@ -514,13 +514,7 @@ impl VHDLFormatter<'_> {
         // use
         self.format_token_id(context_reference.get_start_token(), buffer);
         buffer.push_whitespace();
-        for (i, name) in context_reference.name_list.items.iter().enumerate() {
-            self.format_name(name.as_ref(), buffer);
-            if let Some(token) = context_reference.name_list.tokens.get(i) {
-                self.format_token_id(*token, buffer);
-                buffer.push_whitespace();
-            }
-        }
+        self.format_name_list(buffer, &context_reference.name_list);
         self.format_token_id(context_reference.get_end_token(), buffer);
     }
 

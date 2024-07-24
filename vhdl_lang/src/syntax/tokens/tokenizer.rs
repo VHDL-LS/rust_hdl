@@ -491,6 +491,8 @@ impl Add<usize> for TokenId {
 ///
 /// Example:
 /// ```rust
+/// use vhdl_lang::ast::Name;
+/// use vhdl_lang::ast::token_range::WithTokenSpan;
 /// use vhdl_lang_macros::{with_token_span, TokenSpan};
 ///
 /// // With `with_token_span` a field `info` of type `(TokenId, TokenId)` is inserted.
@@ -498,13 +500,13 @@ impl Add<usize> for TokenId {
 /// #[with_token_span]
 /// #[derive(PartialEq, Debug, Clone)]
 /// pub struct UseClause {
-///     pub name_list: ::vhdl_lang::ast::NameList,
+///     pub name_list: Vec<WithTokenSpan<Name>>,
 /// }
 ///
 /// #[with_token_span]
 /// #[derive(PartialEq, Debug, Clone)]
 /// pub struct ContextReference {
-///     pub name_list: ::vhdl_lang::ast::NameList,
+///     pub name_list: Vec<WithTokenSpan<Name>>,
 /// }
 ///
 /// #[with_token_span]

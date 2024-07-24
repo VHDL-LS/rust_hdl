@@ -905,7 +905,7 @@ impl Declaration {
 /// LRM 10.2 Wait statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
-    pub sensitivity_clause: Option<NameList>,
+    pub sensitivity_clause: Option<Vec<WithTokenSpan<Name>>>,
     pub condition_clause: Option<WithTokenSpan<Expression>>,
     pub timeout_clause: Option<WithTokenSpan<Expression>>,
 }
@@ -1361,20 +1361,20 @@ impl<T> SeparatedList<T> {
     }
 }
 
-pub type NameList = SeparatedList<WithTokenSpan<Name>>;
+// pub type NameList = SeparatedList<WithTokenSpan<Name>>;
 
 /// LRM 12.4. Use clauses
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub name_list: NameList,
+    pub name_list: Vec<WithTokenSpan<Name>>,
 }
 
 /// LRM 13.4 Context clauses
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub name_list: NameList,
+    pub name_list: Vec<WithTokenSpan<Name>>,
 }
 
 /// LRM 13.4 Context clauses

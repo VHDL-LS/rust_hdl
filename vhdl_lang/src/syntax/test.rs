@@ -20,7 +20,6 @@ use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use super::names::{parse_association_list, parse_designator, parse_name, parse_type_mark};
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
-use super::separated_list::parse_name_list;
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{
     parse_signature, parse_subprogram_declaration, parse_subprogram_specification,
@@ -585,10 +584,6 @@ impl Code {
 
     pub fn name(&self) -> WithTokenSpan<Name> {
         self.parse_ok_no_diagnostics(parse_name)
-    }
-
-    pub fn name_list(&self) -> SeparatedList<WithTokenSpan<Name>> {
-        self.parse_ok_no_diagnostics(parse_name_list)
     }
 
     pub fn type_mark(&self) -> WithTokenSpan<Name> {

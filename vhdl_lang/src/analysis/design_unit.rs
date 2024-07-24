@@ -577,7 +577,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ContextItem::Context(ContextReference {
                     ref mut name_list, ..
                 }) => {
-                    for name in name_list.items.iter_mut() {
+                    for name in name_list.iter_mut() {
                         match name.item {
                             Name::Selected(..) => {}
                             _ => {
@@ -639,7 +639,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         use_clause: &mut UseClause,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        for name in use_clause.name_list.items.iter_mut() {
+        for name in use_clause.name_list.iter_mut() {
             match name.item {
                 Name::Selected(..) => {}
                 Name::SelectedAll(..) => {}

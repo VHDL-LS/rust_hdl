@@ -153,7 +153,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     timeout_clause,
                 } = wait_stmt;
                 if let Some(list) = sensitivity_clause {
-                    self.sensitivity_list_check(scope, &mut list.items, diagnostics)?;
+                    self.sensitivity_list_check(scope, list, diagnostics)?;
                 }
                 if let Some(expr) = condition_clause {
                     self.boolean_expr(scope, expr, diagnostics)?;

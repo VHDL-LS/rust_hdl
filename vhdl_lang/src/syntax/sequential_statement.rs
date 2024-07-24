@@ -695,10 +695,10 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: Some(NameList {
-                            items: vec![code.s1("foo").name(), code.s1("bar").name()],
-                            tokens: vec![code.s1(",").token()]
-                        }),
+                        sensitivity_clause: Some(vec![
+                            code.s1("foo").name(),
+                            code.s1("bar").name()
+                        ]),
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -755,7 +755,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: Some(NameList::single(code.s1("foo").name())),
+                        sensitivity_clause: Some(vec![code.s1("foo").name()]),
                         condition_clause: Some(code.s1("bar").expr()),
                         timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
