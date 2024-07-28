@@ -33,7 +33,11 @@ impl VHDLFormatter<'_> {
                 }
                 for range in ranges {
                     self.format_discrete_range(&range.item, buffer);
-                    if self.tokens.get_token(range.span.end_token + 1).kind == Kind::Comma {
+                    if self
+                        .tokens
+                        .get_token(range.span.end_token + 1)
+                        .is_some_and(|token| token.kind == Kind::Comma)
+                    {
                         self.format_token_id(range.span.end_token + 1, buffer);
                         buffer.push_whitespace();
                     }
@@ -52,8 +56,7 @@ impl VHDLFormatter<'_> {
                     if self
                         .tokens
                         .get_token(record.constraint.span.end_token + 1)
-                        .kind
-                        == Kind::Comma
+                        .is_some_and(|token| token.kind == Kind::Comma)
                     {
                         self.format_token_id(record.constraint.span.end_token + 1, buffer);
                         buffer.push_whitespace();

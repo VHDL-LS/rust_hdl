@@ -236,7 +236,7 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|id| self.get_token(id).to_identifier_value(id).unwrap())
+            .map(|id| self.index(id).to_identifier_value(id).unwrap())
     }
 
     pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
@@ -290,8 +290,12 @@ impl<'a> TokenStream<'a> {
 }
 
 impl<'a> TokenAccess for TokenStream<'a> {
-    fn get_token(&self, id: TokenId) -> &Token {
+    fn get_token(&self, id: TokenId) -> Option<&Token> {
         self.tokens[self.token_offset.get()..].get_token(id)
+    }
+
+    fn index(&self, id: TokenId) -> &Token {
+        self.tokens[self.token_offset.get()..].index(id)
     }
 
     fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
@@ -558,12 +562,12 @@ end arch;
         let tokens = code.tokenize();
         assert_eq!(
             tokens[0],
-            stream.get_token(stream.get_current_token_id()).clone()
+            stream.index(stream.get_current_token_id()).clone()
         );
         stream.skip();
         assert_eq!(
             tokens[1],
-            stream.get_token(stream.get_current_token_id()).clone()
+            stream.index(stream.get_current_token_id()).clone()
         );
         stream
             .skip_until(|kind| kind == SemiColon)
@@ -571,12 +575,12 @@ end arch;
         stream.slice_tokens();
         assert_eq!(
             tokens[3],
-            stream.get_token(stream.get_current_token_id()).clone()
+            stream.index(stream.get_current_token_id()).clone()
         );
         stream.skip();
         assert_eq!(
             tokens[4],
-            stream.get_token(stream.get_current_token_id()).clone()
+            stream.index(stream.get_current_token_id()).clone()
         );
     }
 }

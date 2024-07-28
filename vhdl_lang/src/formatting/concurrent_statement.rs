@@ -198,7 +198,7 @@ impl VHDLFormatter<'_> {
     }
 
     fn token_with_opt_postponed(&self, span: TokenSpan, buffer: &mut Buffer) {
-        if self.tokens.get_token(span.start_token).kind == Kind::Postponed {
+        if self.tokens.index(span.start_token).kind == Kind::Postponed {
             // postponed <x>
             self.format_token_span(
                 TokenSpan::new(span.start_token, span.start_token + 1),
@@ -285,7 +285,11 @@ impl VHDLFormatter<'_> {
             Selected(selection) => {
                 for alternative in &selection.alternatives {
                     self.format_alternative(alternative, &formatter, buffer);
-                    if self.tokens.get_token(alternative.span.end_token + 1).kind == Kind::Comma {
+                    if self
+                        .tokens
+                        .get_token(alternative.span.end_token + 1)
+                        .is_some_and(|token| token.kind == Kind::Comma)
+                    {
                         self.format_token_id(alternative.span.end_token + 1, buffer);
                         buffer.push_whitespace();
                     }
@@ -337,8 +341,7 @@ impl VHDLFormatter<'_> {
             if self
                 .tokens
                 .get_token(cond.condition.span.end_token + 1)
-                .kind
-                == Kind::Else
+                .is_some_and(|token| token.kind == Kind::Else)
             {
                 buffer.push_whitespace();
                 self.format_token_id(cond.condition.span.end_token + 1, buffer);
@@ -405,7 +408,7 @@ impl VHDLFormatter<'_> {
         buffer: &mut Buffer,
     ) {
         if matches!(
-            self.tokens.get_token(span.start_token).kind,
+            self.tokens.index(span.start_token).kind,
             Kind::Component | Kind::Entity | Kind::Configuration
         ) {
             self.format_token_id(span.start_token, buffer);

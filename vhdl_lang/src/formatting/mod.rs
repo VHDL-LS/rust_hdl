@@ -66,7 +66,11 @@ impl VHDLFormatter<'_> {
         for ident in idents {
             let token = ident.ident().token;
             self.format_token_id(token, buffer);
-            if self.tokens.get_token(token + 1).kind == Kind::Comma {
+            if self
+                .tokens
+                .get_token(token + 1)
+                .is_some_and(|token| token.kind == Kind::Comma)
+            {
                 self.format_token_id(token + 1, buffer);
                 buffer.push_whitespace();
             }

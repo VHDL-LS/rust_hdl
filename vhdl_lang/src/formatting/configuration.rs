@@ -204,7 +204,11 @@ impl VHDLFormatter<'_> {
         buffer.push_whitespace();
         for v_unit in &v_unit_binding_indication.vunit_list {
             self.format_name(v_unit.as_ref(), buffer);
-            if self.tokens.get_token(v_unit.span.end_token + 1).kind == Kind::Comma {
+            if self
+                .tokens
+                .get_token(v_unit.span.end_token + 1)
+                .is_some_and(|token| token.kind == Kind::Comma)
+            {
                 self.format_token_id(v_unit.span.end_token + 1, buffer);
                 buffer.push_whitespace();
             }

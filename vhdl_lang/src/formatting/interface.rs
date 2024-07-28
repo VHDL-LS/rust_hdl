@@ -22,7 +22,7 @@ use vhdl_lang::TokenSpan;
 impl VHDLFormatter<'_> {
     pub(crate) fn format_interface_list(&self, clause: &InterfaceList, buffer: &mut Buffer) {
         let span = clause.span;
-        let end_token = if self.tokens.get_token(span.start_token).kind == Kind::LeftPar {
+        let end_token = if self.tokens.index(span.start_token).kind == Kind::LeftPar {
             // We start with a `(` immediately
             // applicable for parameters (though VHDL 2008 allows an optional `parameter` keyword)
             span.start_token
@@ -47,7 +47,7 @@ impl VHDLFormatter<'_> {
         if !clause.items.is_empty() {
             buffer.line_break();
         }
-        if self.tokens.get_token(span.end_token).kind == Kind::SemiColon {
+        if self.tokens.index(span.end_token).kind == Kind::SemiColon {
             // );
             self.format_token_id(span.end_token - 1, buffer);
             self.format_token_id(span.end_token, buffer);

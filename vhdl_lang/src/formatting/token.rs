@@ -15,7 +15,7 @@ use vhdl_lang::TokenSpan;
 
 impl VHDLFormatter<'_> {
     pub(crate) fn format_token_id(&self, id: TokenId, buffer: &mut Buffer) {
-        buffer.push_token(self.tokens.get_token(id));
+        buffer.push_token(self.tokens.index(id));
     }
 
     pub(crate) fn format_token_span(&self, span: TokenSpan, buffer: &mut Buffer) {
@@ -39,9 +39,12 @@ impl VHDLFormatter<'_> {
 
     pub(crate) fn line_break_preserve_whitespace(&self, token_id: TokenId, buffer: &mut Buffer) {
         let current_line = self.tokens.get_pos(token_id).end().line;
-        // TODO: token_id + 1 might panic
-        let next_line = self.tokens.get_token(token_id + 1).full_range().start.line;
-        let numbers_of_whitespaces = max(next_line - current_line, 1);
-        buffer.line_breaks(numbers_of_whitespaces)
+        if let Some(token) = self.tokens.get_token(token_id + 1) {
+            let next_line = token.full_range().start.line;
+            let numbers_of_whitespaces = max(next_line - current_line, 1);
+            buffer.line_breaks(numbers_of_whitespaces)
+        } else {
+            buffer.line_break();
+        }
     }
 }

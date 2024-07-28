@@ -265,13 +265,10 @@ end procedure;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
-    if false {
-        // @TODO uncomment when analyzing for loop type
-        assert_eq!(
-            root.search_reference_pos(code.source(), code.s1("theproc(i)").start()),
-            Some(code.s1("theproc").pos())
-        );
-    }
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("theproc(i)").start()),
+        Some(code.s1("theproc").pos())
+    );
 }
 
 #[test]

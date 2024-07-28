@@ -22,6 +22,9 @@ use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
 pub(crate) use any_design_unit::*;
+use itertools::Itertools;
+use std::process::id;
+use vhdl_lang::ast::Declaration::SubprogramBody;
 use vhdl_lang::HasTokenSpan;
 
 /// LRM 15.8 Bit string literals
@@ -898,7 +901,30 @@ pub enum Declaration {
 
 impl Declaration {
     pub fn declarations(&self) -> Vec<EntityId> {
-        todo!()
+        match self {
+            Declaration::Object(ObjectDeclaration { idents, .. })
+            | Declaration::File(FileDeclaration { idents, .. }) => {
+                idents.iter().flat_map(|ident| ident.decl.get()).collect()
+            }
+            Declaration::Type(TypeDeclaration { ident, .. })
+            | Declaration::Component(ComponentDeclaration { ident, .. })
+            | Declaration::View(ModeViewDeclaration { ident, .. })
+            | Declaration::Package(PackageInstantiation { ident, .. })
+            | Declaration::SubprogramInstantiation(SubprogramInstantiation { ident, .. })
+            | Declaration::Attribute(Attribute::Declaration(AttributeDeclaration {
+                ident, ..
+            })) => ident.decl.get().into_iter().collect(),
+            Declaration::Alias(alias) => alias.designator.decl.get().into_iter().collect(),
+            Declaration::SubprogramDeclaration(SubprogramDeclaration { specification, .. })
+            | Declaration::SubprogramBody(SubprogramBody { specification, .. }) => {
+                let designator = match specification {
+                    SubprogramSpecification::Procedure(procedure) => &procedure.designator,
+                    SubprogramSpecification::Function(function) => &function.designator,
+                };
+                designator.decl.get().into_iter().collect()
+            }
+            _ => vec![],
+        }
     }
 }
 

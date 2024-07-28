@@ -83,17 +83,17 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                 if let Some(map_token) = ctx.stream.pop_if_kind(Map) {
                     if port_clause.is_some() || port_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Generic map must come before port clause and port map",
                         ));
                     } else if generic_clause.is_none() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Generic map declared without preceding generic clause",
                         ));
                     } else if generic_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Duplicate generic map",
                         ));
                     }
@@ -129,12 +129,12 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                 if let Some(map_token) = ctx.stream.pop_if_kind(Map) {
                     if port_clause.is_none() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Port map declared without preceeding port clause",
                         ));
                     } else if port_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Duplicate port map",
                         ));
                     }
@@ -231,7 +231,7 @@ pub fn parse_process_statement(
     if let Some(token) = ctx.stream.pop_if_kind(Postponed) {
         if postponed.is_none() {
             ctx.diagnostics.push(Diagnostic::syntax_error(
-                ctx.stream.get_token(token),
+                ctx.stream.index(token),
                 "'postponed' at the end of non-postponed process.",
             ));
         }

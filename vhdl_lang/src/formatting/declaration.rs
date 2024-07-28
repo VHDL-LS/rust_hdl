@@ -197,7 +197,11 @@ impl VHDLFormatter<'_> {
                 self.format_token_id(span.start_token, buffer);
                 for literal in literals {
                     self.format_token_id(literal.tree.token, buffer);
-                    if self.tokens.get_token(literal.tree.token + 1).kind == Kind::Comma {
+                    if self
+                        .tokens
+                        .get_token(literal.tree.token + 1)
+                        .is_some_and(|token| token.kind == Kind::Comma)
+                    {
                         self.format_token_id(literal.tree.token + 1, buffer);
                         buffer.push_whitespace();
                     }

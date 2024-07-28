@@ -79,7 +79,11 @@ impl MockTokenAccess {
 }
 
 impl TokenAccess for MockTokenAccess {
-    fn get_token(&self, _id: TokenId) -> &Token {
+    fn get_token(&self, _id: TokenId) -> Option<&Token> {
+        Some(&self.token)
+    }
+
+    fn index(&self, _id: TokenId) -> &Token {
         &self.token
     }
 

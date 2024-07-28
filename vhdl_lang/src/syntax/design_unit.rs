@@ -968,14 +968,14 @@ end entity y;
         let (tokens, unit) = &file.design_units[0];
         let ent = unit.expect_entity();
         let lib = ent.context_clause[0].expect_library_clause();
-        let tok = tokens.get_token(lib.get_start_token());
+        let tok = tokens.index(lib.get_start_token());
         assert_eq!(tok.kind, Library);
         assert_eq!(tok.pos, code.s1("library").pos());
 
         let (tokens, unit) = &file.design_units[2];
         let ent = unit.expect_entity();
         let ctx_ref = ent.context_clause[0].expect_context_reference();
-        let tok = tokens.get_token(ctx_ref.get_start_token());
+        let tok = tokens.index(ctx_ref.get_start_token());
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
     }

@@ -54,7 +54,7 @@ impl VHDLFormatter<'_> {
     ) {
         self.format_name(call.name.as_ref(), buffer);
         let open_paren = call.name.span.end_token + 1;
-        if self.tokens.get_token(open_paren).kind == Kind::LeftPar {
+        if self.tokens.index(open_paren).kind == Kind::LeftPar {
             self.format_token_id(open_paren, buffer);
         }
         for (i, parameter) in call.parameters.items.iter().enumerate() {
@@ -65,7 +65,7 @@ impl VHDLFormatter<'_> {
             }
         }
         let close_paren = span.end_token;
-        if self.tokens.get_token(close_paren).kind == Kind::RightPar {
+        if self.tokens.index(close_paren).kind == Kind::RightPar {
             self.format_token_id(close_paren, buffer);
         }
     }
@@ -126,7 +126,11 @@ impl VHDLFormatter<'_> {
     pub fn format_name_list(&self, buffer: &mut Buffer, names: &[WithTokenSpan<Name>]) {
         for name in names {
             self.format_name(name.as_ref(), buffer);
-            if self.tokens.get_token(name.span.end_token + 1).kind == Kind::Comma {
+            if self
+                .tokens
+                .get_token(name.span.end_token + 1)
+                .is_some_and(|token| token.kind == Kind::Comma)
+            {
                 self.format_token_id(name.span.end_token + 1, buffer);
                 buffer.push_whitespace();
             }

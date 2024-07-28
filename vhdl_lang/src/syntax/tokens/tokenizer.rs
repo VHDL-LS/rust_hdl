@@ -696,14 +696,16 @@ impl TokenSpan {
 /// Types such as `Vec` and `array` implement `TokenAccess`
 pub trait TokenAccess {
     /// Get a token by its ID
-    fn get_token(&self, id: TokenId) -> &Token;
+    fn get_token(&self, id: TokenId) -> Option<&Token>;
+
+    fn index(&self, id: TokenId) -> &Token;
 
     /// Get a slice of tokens by using a start ID and an end ID
     fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token];
 
     /// Get a token's position by its ID
     fn get_pos(&self, id: TokenId) -> &SrcPos {
-        &self.get_token(id).pos
+        &self.index(id).pos
     }
 
     /// Get a span where the beginning of that span is the beginning of the token indexed by
@@ -714,7 +716,11 @@ pub trait TokenAccess {
 }
 
 impl TokenAccess for Vec<Token> {
-    fn get_token(&self, id: TokenId) -> &Token {
+    fn get_token(&self, id: TokenId) -> Option<&Token> {
+        self.get(id.0)
+    }
+
+    fn index(&self, id: TokenId) -> &Token {
         &self[id.0]
     }
 
@@ -724,7 +730,11 @@ impl TokenAccess for Vec<Token> {
 }
 
 impl TokenAccess for [Token] {
-    fn get_token(&self, id: TokenId) -> &Token {
+    fn get_token(&self, id: TokenId) -> Option<&Token> {
+        self.get(id.0)
+    }
+
+    fn index(&self, id: TokenId) -> &Token {
         &self[id.0]
     }
 
@@ -1352,7 +1362,6 @@ fn parse_abstract_literal(
             let (integer, _) = initial?;
 
             if let Some(base_spec) = parse_base_specifier(reader)? {
-                // @TODO check overflow
                 parse_bit_string(
                     buffer,
                     reader,

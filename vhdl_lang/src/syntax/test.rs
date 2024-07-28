@@ -572,7 +572,7 @@ impl Code {
     pub fn character(&self) -> WithToken<u8> {
         self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
             let id = ctx.stream.expect_kind(Kind::Character)?;
-            ctx.stream.get_token(id).to_character_value(id)
+            ctx.stream.index(id).to_character_value(id)
         })
     }
 
