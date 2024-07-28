@@ -870,6 +870,13 @@ impl Token {
         }
         range
     }
+
+    /// return `true` when `self` is equal to `other` while ignoring all
+    /// changes that are attributed to their position in the source file
+    /// and all changes that only affect comments.
+    pub fn equal_format(&self, other: &Token) -> bool {
+        self.kind == other.kind && self.value == other.value
+    }
 }
 
 impl Operator {

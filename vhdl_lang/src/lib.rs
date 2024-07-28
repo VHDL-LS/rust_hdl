@@ -30,7 +30,7 @@ pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
     NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source, SrcPos,
 };
-pub use formatting::{format_design_file, VHDLFormatter};
+pub use formatting::VHDLFormatter;
 
 pub use crate::analysis::EntHierarchy;
 pub use crate::named_entity::{

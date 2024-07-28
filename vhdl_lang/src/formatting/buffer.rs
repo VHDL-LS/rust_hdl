@@ -10,13 +10,19 @@ use crate::{kind_str, Token};
 use std::cmp::max;
 use std::iter;
 
+/// The Buffer is the (mostly) mutable object used to write tokens to a string.
+/// It operates mostly on tokens and is capable of indenting,
+/// de-indenting and keeping the indentation level.
 pub struct Buffer {
     inner: String,
-    // insert an extra newline before pushing a token.
-    // This is relevant when there is a trailing comment
+    /// insert an extra newline before pushing a token.
+    /// This is relevant when there is a trailing comment
     insert_extra_newline: bool,
+    /// The current indentation level
     indentation: usize,
+    /// The char used for indentation
     indent_char: char,
+    /// The width used at each indentation level
     indent_width: usize,
 }
 
@@ -38,6 +44,11 @@ impl Default for Buffer {
     }
 }
 
+/// Returns whether a leading comment is on the same line as the token, i.e.,
+/// check the case
+/// ```vhdl
+/// /* some comment */ token
+/// ```
 fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     if !comment.multi_line {
         return false;
@@ -48,15 +59,18 @@ fn leading_comment_is_on_token_line(comment: &Comment, token: &Token) -> bool {
     token.pos.start().line == comment.range.start.line
 }
 
+impl From<Buffer> for String {
+    fn from(value: Buffer) -> Self {
+        value.inner
+    }
+}
+
 impl Buffer {
     pub fn as_str(&self) -> &str {
         self.inner.as_str()
     }
 
-    pub fn into_string(self) -> String {
-        self.inner
-    }
-
+    /// pushes a whitespace character to the buffer
     pub fn push_whitespace(&mut self) {
         if !self.insert_extra_newline {
             self.push_ch(' ');
@@ -92,6 +106,8 @@ impl Buffer {
             .extend(iter::repeat(self.indent_char).take(self.indent_width * self.indentation));
     }
 
+    /// Push a token to this buffer.
+    /// This takes care of all the leading and trailing comments attached to that token.
     pub fn push_token(&mut self, token: &Token) {
         if self.insert_extra_newline {
             self.line_break();
@@ -150,6 +166,12 @@ impl Buffer {
         self.inner.push(char);
     }
 
+    /// Increase the indentation level.
+    /// After this call, all new-line pushes will be preceded by an indentation,
+    /// specified via the `indent_char` and `indent_width` properties.
+    ///
+    /// This call should always be matched with a `decrease_indent` call.
+    /// There is also the `indented` macro that combines the two calls.
     pub fn increase_indent(&mut self) {
         self.indentation += 1;
     }
@@ -158,21 +180,16 @@ impl Buffer {
         self.indentation -= 1;
     }
 
-    pub fn indented<F>(&mut self, action: F)
-    where
-        F: FnOnce(),
-    {
-        self.increase_indent();
-        action();
-        self.decrease_indent();
-    }
-
+    /// Inserts a line break (i.e., newline) at the current position
     pub fn line_break(&mut self) {
         self.insert_extra_newline = false;
         self.push_ch('\n');
         self.indent();
     }
 
+    /// Inserts multiple line breaks.
+    /// Note that this method must always be used (i.e., is different from
+    /// multiple `line_break` calls) as this method only indents the last line break
     pub fn line_breaks(&mut self, count: u32) {
         self.insert_extra_newline = false;
         for _ in 0..count {

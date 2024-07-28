@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::iter::zip;
 use std::path::{Path, PathBuf};
-use vhdl_lang::{format_design_file, SeverityMap, Source, VHDLParser, VHDLStandard};
+use vhdl_lang::{Diagnostic, SeverityMap, Source, VHDLFormatter, VHDLParser, VHDLStandard};
 
 // excluded file contains PSL statements
 const EXCLUDED_FILES: [&str; 1] = ["vunit/examples/vhdl/array_axis_vcs/src/fifo.vhd"];
@@ -19,7 +19,8 @@ fn format_file(path: &Path) -> Result<(), Box<dyn Error>> {
         panic!("Found diagnostics with severity error in the example project");
     }
 
-    let result = format_design_file(&design_file);
+    let result = VHDLFormatter::format_design_file(&design_file);
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
     let new_file = parser.parse_design_source(&Source::inline(path, &result), &mut diagnostics);
     if !diagnostics.is_empty() {
         for diagnostic in diagnostics {
@@ -29,7 +30,8 @@ fn format_file(path: &Path) -> Result<(), Box<dyn Error>> {
     }
     for ((tokens_a, _), (tokens_b, _)) in zip(new_file.design_units, design_file.design_units) {
         for (a, b) in zip(tokens_a, tokens_b) {
-            if a.kind != b.kind || a.value != b.value {
+            if !a.equal_format(&b) {
+                println!("Token mismatch");
                 println!("New Token={a:#?}");
                 let contents = a.pos.source.contents();
                 let a_line = contents.get_line(a.pos.range.start.line as usize).unwrap();
@@ -41,6 +43,7 @@ fn format_file(path: &Path) -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
     Ok(())
 }
 

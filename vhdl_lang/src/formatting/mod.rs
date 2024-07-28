@@ -28,26 +28,36 @@ mod statement;
 mod subprogram;
 mod token;
 
+/// The formatter is the main entry point used for formatting a single
+/// Design Unit from AST representation to string representation. In that sense,
+/// the Formatter is the inverse to the Parser.
+///
+/// Most methods herein are called `format_<node>` where `node` is the AST node to format.
+/// Rather than returning a string, the methods accept a mutable [Buffer] object that they
+/// use to format.
+///
+/// The formatter is capable of retaining comment information as well as preserving newlines.
 pub struct VHDLFormatter<'b> {
     tokens: &'b Vec<Token>,
-}
-
-pub fn format_design_file(file: &DesignFile) -> String {
-    let mut result = Buffer::new();
-    for (i, (tokens, design_unit)) in file.design_units.iter().enumerate() {
-        let formatter = VHDLFormatter::new(tokens);
-        formatter.format_any_design_unit(
-            design_unit,
-            &mut result,
-            i == file.design_units.len() - 1,
-        );
-    }
-    result.into_string()
 }
 
 impl<'b> VHDLFormatter<'b> {
     pub fn new(tokens: &'b Vec<Token>) -> VHDLFormatter<'b> {
         VHDLFormatter { tokens }
+    }
+
+    /// Format a whole design file.
+    pub fn format_design_file(file: &DesignFile) -> String {
+        let mut result = Buffer::new();
+        for (i, (tokens, design_unit)) in file.design_units.iter().enumerate() {
+            let formatter = VHDLFormatter::new(tokens);
+            formatter.format_any_design_unit(
+                design_unit,
+                &mut result,
+                i == file.design_units.len() - 1,
+            );
+        }
+        result.into()
     }
 }
 

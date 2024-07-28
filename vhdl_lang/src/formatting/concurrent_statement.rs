@@ -282,7 +282,6 @@ impl VHDLFormatter<'_> {
             Conditional(conditionals) => {
                 self.format_assignment_right_hand_conditionals(conditionals, formatter, buffer)
             }
-            // special case: we handle the expression elsewhere
             Selected(selection) => {
                 for alternative in &selection.alternatives {
                     self.format_alternative(alternative, &formatter, buffer);
@@ -321,11 +320,11 @@ impl VHDLFormatter<'_> {
 
     pub fn format_assignment_right_hand_conditionals<T>(
         &self,
-        conds: &Conditionals<T>,
+        conditionals: &Conditionals<T>,
         formatter: impl Fn(&Self, &T, &mut Buffer),
         buffer: &mut Buffer,
     ) {
-        for cond in &conds.conditionals {
+        for cond in &conditionals.conditionals {
             // item
             formatter(self, &cond.item, buffer);
             let condition = &cond.condition;
@@ -346,7 +345,7 @@ impl VHDLFormatter<'_> {
                 buffer.push_whitespace();
             }
         }
-        if let Some((statements, _)) = &conds.else_item {
+        if let Some((statements, _)) = &conditionals.else_item {
             // else handled above
             formatter(self, statements, buffer);
         }
