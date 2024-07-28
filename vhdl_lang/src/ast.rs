@@ -22,9 +22,6 @@ use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
 pub(crate) use any_design_unit::*;
-use itertools::Itertools;
-use std::process::id;
-use vhdl_lang::ast::Declaration::SubprogramBody;
 use vhdl_lang::HasTokenSpan;
 
 /// LRM 15.8 Bit string literals
