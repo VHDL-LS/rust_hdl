@@ -7,7 +7,6 @@
 
 #[macro_use]
 extern crate vhdl_lang_macros;
-extern crate core;
 extern crate self as vhdl_lang;
 
 #[macro_use]

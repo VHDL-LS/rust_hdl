@@ -1384,8 +1384,6 @@ impl<T> SeparatedList<T> {
     }
 }
 
-// pub type NameList = SeparatedList<WithTokenSpan<Name>>;
-
 /// LRM 12.4. Use clauses
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]

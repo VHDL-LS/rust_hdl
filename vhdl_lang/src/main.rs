@@ -56,7 +56,7 @@ fn main() {
 
 fn format_file(format: String) {
     let path = PathBuf::from(format);
-    let parser = VHDLParser::new(VHDLStandard::VHDL2008);
+    let parser = VHDLParser::new(VHDLStandard::default());
     let mut diagnostics = Vec::new();
     let result = parser.parse_design_file(&path, &mut diagnostics);
     match result {
