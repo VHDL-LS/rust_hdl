@@ -156,7 +156,7 @@ fn extract_objects_with_class(region: &Region, object_class: ObjectClass) -> Vec
 /// # Arguments
 ///
 /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
-/// while `ObjectClass::Constant` extracts constants.
+///   while `ObjectClass::Constant` extracts constants.
 fn extract_port_or_generic_names(
     root: &DesignRoot,
     id: EntityId,

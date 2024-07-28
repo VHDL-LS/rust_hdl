@@ -681,7 +681,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             std::cmp::Ordering::Greater => {
                                 let mut diag = Diagnostic::new(
-                                    &expr.pos(self.ctx),
+                                    expr.pos(self.ctx),
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
@@ -961,7 +961,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else {
                                     is_ok_so_far = false;
                                     diagnostics.add(
-                                        &choice.pos(self.ctx),
+                                        choice.pos(self.ctx),
                                         "Record aggregate choice must be a simple name",
                                         ErrorCode::MismatchedKinds,
                                     );
@@ -971,7 +971,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             Choice::DiscreteRange(_) => {
                                 is_ok_so_far = false;
                                 diagnostics.add(
-                                    &choice.pos(self.ctx),
+                                    choice.pos(self.ctx),
                                     "Record aggregate choice must be a simple name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -991,7 +991,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     .collect();
 
                                 if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::new(&choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
+                                    let mut diag = Diagnostic::new(choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
                                         if !associated.is_associated(&elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
@@ -1010,7 +1010,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 } else if remaining_types.is_empty() {
                                     diagnostics.push(
                                         Diagnostic::new(
-                                            &choice.pos(self.ctx),
+                                            choice.pos(self.ctx),
                                             format!(
                                             "All elements of record '{}' are already associated",
                                             record_type.designator()
@@ -1208,7 +1208,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             } else {
                 diagnostics.add(
-                    &expr.pos(self.ctx),
+                    expr.pos(self.ctx),
                     format!(
                         "Expected sub-aggregate for target {}",
                         array_type.describe()

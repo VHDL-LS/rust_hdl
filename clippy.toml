@@ -1,0 +1,1 @@
+ignore-interior-mutability = ["vhdl_lang::data::source::UniqueSource"]

@@ -51,7 +51,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
                     diagnostics.add(
-                        &expr.pos(self.ctx),
+                        expr.pos(self.ctx),
                         format!("Non-scalar {} cannot be used in a range", typ.describe()),
                         ErrorCode::NonScalarInRange,
                     );
@@ -63,7 +63,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
                 diagnostics.add(
-                    &expr.pos(self.ctx),
+                    expr.pos(self.ctx),
                     "Non-scalar expression cannot be used in a range",
                     ErrorCode::NonScalarInRange,
                 );
@@ -94,7 +94,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         ent.return_type().unwrap()
                     } else {
                         diagnostics.add(
-                            &attr.name.pos(self.ctx),
+                            attr.name.pos(self.ctx),
                             format!(
                             "{} cannot be prefix of range attribute, array type or object is required",
                             resolved.describe()
@@ -113,7 +113,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
                 diagnostics.add(
-                    &attr.name.pos(self.ctx),
+                    attr.name.pos(self.ctx),
                     format!(
                         "{} cannot be prefix of range attribute, array type or object is required",
                         resolved.describe()
@@ -144,7 +144,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         } else {
             diagnostics.add(
-                &attr.name.pos(self.ctx),
+                attr.name.pos(self.ctx),
                 format!(
                     "{} cannot be prefix of range attribute, array type or object is required",
                     resolved.describe()
@@ -270,7 +270,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Ok(typ)
         } else {
             diagnostics.add(
-                &drange.span().pos(self.ctx),
+                drange.span().pos(self.ctx),
                 format!(
                     "Non-discrete {} cannot be used in discrete range",
                     typ.describe()
@@ -327,7 +327,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 if let Some(ref mut signature) = signature {
                     diagnostics.add(
-                        &signature.pos(self.ctx),
+                        signature.pos(self.ctx),
                         format!("Did not expect signature for '{attr} attribute"),
                         ErrorCode::UnexpectedSignature,
                     );

@@ -250,7 +250,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.pos(self.ctx),
+                                        fcall.name.pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -372,7 +372,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 result.push((actual.span, Some(formal)));
             } else {
                 diagnostics.add(
-                    &actual.pos(self.ctx),
+                    actual.pos(self.ctx),
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
                 );

@@ -457,7 +457,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!(
                             "{} is not a signal and cannot be in a sensitivity list",
                             object_name.base.describe_class()
@@ -468,7 +468,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     && !object_name.base.is_port()
                 {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!(
                             "{} cannot be in a sensitivity list",
                             object_name.base.describe_class()

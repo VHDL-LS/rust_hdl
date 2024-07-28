@@ -360,7 +360,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         resolved_ent
                     } else {
                         diagnostics.add(
-                            &instantiation.subprogram_name.pos(self.ctx),
+                            instantiation.subprogram_name.pos(self.ctx),
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
                                 key.describe()
@@ -373,7 +373,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     // There are multiple candidates
                     // and there is no signature to resolve
                     let mut err = Diagnostic::new(
-                        &instantiation.subprogram_name.pos(self.ctx),
+                        instantiation.subprogram_name.pos(self.ctx),
                         format!("Ambiguous instantiation of '{}'", overloaded.designator()),
                         ErrorCode::AmbiguousInstantiation,
                     );
@@ -388,7 +388,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             _ => {
                 diagnostics.add(
-                    &instantiation.subprogram_name.pos(self.ctx),
+                    instantiation.subprogram_name.pos(self.ctx),
                     format!(
                         "{} does not denote an uninstantiated subprogram",
                         name.describe()
@@ -402,7 +402,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Ok(overloaded_ent)
         } else {
             diagnostics.add(
-                &instantiation.subprogram_name.pos(self.ctx),
+                instantiation.subprogram_name.pos(self.ctx),
                 format!("{} cannot be instantiated", overloaded_ent.describe()),
                 ErrorCode::MismatchedKinds,
             );

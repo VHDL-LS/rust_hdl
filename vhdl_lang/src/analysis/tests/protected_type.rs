@@ -33,12 +33,12 @@ end package body;
         diagnostics,
         vec![
             Diagnostic::new(
-                &code.s1("a1"),
+                code.s1("a1"),
                 "Missing body for protected type 'a1'",
                 ErrorCode::MissingProtectedBodyType,
             ),
             Diagnostic::new(
-                &code.s1("b1"),
+                code.s1("b1"),
                 "Missing body for protected type 'b1'",
                 ErrorCode::MissingProtectedBodyType,
             ),
@@ -75,17 +75,17 @@ end package body;
         diagnostics,
         vec![
             Diagnostic::new(
-                &code.s1("a1"),
+                code.s1("a1"),
                 "No declaration of protected type 'a1'",
                 ErrorCode::Unresolved,
             ),
             Diagnostic::new(
-                &code.s1("b1"),
+                code.s1("b1"),
                 "No declaration of protected type 'b1'",
                 ErrorCode::Unresolved,
             ),
             Diagnostic::new(
-                &code.s("b1", 2),
+                code.s("b1", 2),
                 "Missing body for protected type 'b1'",
                 ErrorCode::MissingProtectedBodyType,
             ),
@@ -224,7 +224,7 @@ end package body;
     let expected = vec![
         duplicate(&code, "a1", 1, 2),
         Diagnostic::new(
-            &code.s("b1", 2),
+            code.s("b1", 2),
             "'b1' is not a protected type",
             ErrorCode::TypeMismatch,
         ),

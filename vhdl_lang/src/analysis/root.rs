@@ -1291,16 +1291,15 @@ impl<'a> EntHierarchy<'a> {
 
 fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
     match ent.kind() {
-        AnyEntKind::Design(d) => match d {
+        AnyEntKind::Design(
             Design::Entity(_, region)
             | Design::Package(_, region)
-            | Design::UninstPackage(_, region) => Box::new(
-                region
-                    .immediates()
-                    .flat_map(|ent| std::iter::once(ent).chain(public_symbols(ent))),
-            ),
-            _ => Box::new(std::iter::empty()),
-        },
+            | Design::UninstPackage(_, region),
+        ) => Box::new(
+            region
+                .immediates()
+                .flat_map(|ent| std::iter::once(ent).chain(public_symbols(ent))),
+        ),
         AnyEntKind::Type(t) => match t {
             Type::Protected(region, is_body) if !is_body => Box::new(region.immediates()),
             _ => Box::new(std::iter::empty()),

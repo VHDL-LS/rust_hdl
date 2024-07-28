@@ -420,7 +420,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ResolvedName::Library(ref library_name) => {
                         if library_name != self.work_library_name() {
                             diagnostics.add(
-                                &prefix.pos(self.ctx),
+                                prefix.pos(self.ctx),
                                 format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()), ErrorCode::ConfigNotInSameLibrary);
                             Err(EvalError::Unknown)
                         } else {
@@ -451,14 +451,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         }
                     }
                     other => {
-                        diagnostics.push(other.kind_error(&prefix.pos(self.ctx), "library"));
+                        diagnostics.push(other.kind_error(prefix.pos(self.ctx), "library"));
                         Err(EvalError::Unknown)
                     }
                 }
             }
             _ => {
                 diagnostics.add(
-                    &ent_name.pos(self.ctx),
+                    ent_name.pos(self.ctx),
                     "Expected selected name",
                     ErrorCode::MismatchedKinds,
                 );
@@ -480,7 +480,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     bail!(
                         diagnostics,
                         Diagnostic::mismatched_kinds(
-                            &prefix.pos(self.ctx),
+                            prefix.pos(self.ctx),
                             "Invalid prefix of a selected name",
                         )
                     );
@@ -490,7 +490,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 bail!(
                     diagnostics,
                     Diagnostic::mismatched_kinds(
-                        &prefix.pos(self.ctx),
+                        prefix.pos(self.ctx),
                         "'.all' may not be the prefix of a selected name",
                     )
                 );
@@ -531,7 +531,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | Name::External(..) => {
                 bail!(
                     diagnostics,
-                    Diagnostic::mismatched_kinds(&name.pos(self.ctx), "Invalid selected name",)
+                    Diagnostic::mismatched_kinds(name.pos(self.ctx), "Invalid selected name",)
                 );
             }
         }
@@ -582,7 +582,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             Name::Selected(..) => {}
                             _ => {
                                 diagnostics.add(
-                                    &name.pos(self.ctx),
+                                    name.pos(self.ctx),
                                     "Context reference must be a selected name",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -645,7 +645,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Name::SelectedAll(..) => {}
                 _ => {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         "Use clause must be a selected name",
                         ErrorCode::MismatchedKinds,
                     );
@@ -729,7 +729,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
         }
         diagnostics.add(
-            &package_name.pos(self.ctx),
+            package_name.pos(self.ctx),
             format!("'{package_name}' is not an uninstantiated generic package"),
             ErrorCode::MismatchedKinds,
         );

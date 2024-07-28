@@ -1971,7 +1971,7 @@ impl<'a> Tokenizer<'a> {
             Err(err) => {
                 self.state.start = self.reader.state();
                 Err(Diagnostic::syntax_error(
-                    &self.source.pos(err.range.start, err.range.end),
+                    self.source.pos(err.range.start, err.range.end),
                     err.message,
                 ))
             }
@@ -1988,7 +1988,7 @@ impl<'a> Tokenizer<'a> {
         if let Err(err) = read_until_newline(&mut self.buffer, &mut self.reader) {
             self.state.start = self.reader.state();
             return Err(Diagnostic::syntax_error(
-                &self.source.pos(err.range.start, err.range.end),
+                self.source.pos(err.range.start, err.range.end),
                 err.message,
             ));
         }
@@ -2228,11 +2228,11 @@ my_other_ident",
             tokens,
             vec![
                 Err(Diagnostic::syntax_error(
-                    &code.s1("€"),
+                    code.s1("€"),
                     "Found invalid latin-1 character '€'",
                 )),
                 Err(Diagnostic::syntax_error(
-                    &code.s1("\u{1F4A3}"),
+                    code.s1("\u{1F4A3}"),
                     "Found invalid latin-1 character '\u{1F4A3}'",
                 )),
             ]
@@ -2247,7 +2247,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Integer literals may not have negative exponent",
             ))]
         );
@@ -2416,7 +2416,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Multi line string"
             ))]
         );
@@ -2430,7 +2430,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Reached EOF before end quote",
             ))]
         );
@@ -2509,7 +2509,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Invalid bit string literal",
             ))]
         );
@@ -2519,7 +2519,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Invalid bit string literal",
             ))]
         );
@@ -2567,7 +2567,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1("k"),
+                code.s1("k"),
                 "Invalid integer character 'k'",
             ))]
         );
@@ -2582,7 +2582,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s("3", 2),
+                code.s("3", 2),
                 "Illegal digit '3' for base 3",
             ))]
         );
@@ -2592,7 +2592,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1("1"),
+                code.s1("1"),
                 "Base must be at least 2 and at most 16, got 1",
             ))]
         );
@@ -2601,7 +2601,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1("17"),
+                code.s1("17"),
                 "Base must be at least 2 and at most 16, got 17",
             ))]
         );
@@ -2610,7 +2610,7 @@ my_other_ident",
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1("f"),
+                code.s1("f"),
                 "Illegal digit 'f' for base 15",
             ))]
         );
@@ -2789,7 +2789,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Integer too large for 64-bit unsigned",
             ))]
         );
@@ -2800,7 +2800,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Integer too large for 64-bit unsigned",
             ))]
         );
@@ -2812,7 +2812,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1(&exponent_str),
+                code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed",
             ))]
         );
@@ -2824,7 +2824,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1(&exponent_str),
+                code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed",
             ))]
         );
@@ -2835,7 +2835,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.pos(),
+                code.pos(),
                 "Integer too large for 64-bit unsigned",
             ))]
         );
@@ -2870,7 +2870,7 @@ comment
                     pos: code.s1("begin").pos(),
                     comments: None,
                 }),
-                Err(Diagnostic::syntax_error(&code.s1("!"), "Illegal token")),
+                Err(Diagnostic::syntax_error(code.s1("!"), "Illegal token")),
                 Ok(Token {
                     kind: End,
                     value: Value::None,
@@ -2903,7 +2903,7 @@ comment
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
-                &code.s1("/* final"),
+                code.s1("/* final"),
                 "Incomplete multi-line comment",
             ))]
         );

@@ -1363,7 +1363,7 @@ mod tests {
         assert_eq!(
             code.with_partial_stream(parse_expression),
             Err(Diagnostic::syntax_error(
-                &code.s1(",").pos(),
+                code.s1(",").pos(),
                 "Expected {expression}"
             ))
         );
@@ -1372,7 +1372,7 @@ mod tests {
         assert_eq!(
             code.with_partial_stream(parse_expression),
             Err(Diagnostic::syntax_error(
-                &code.s1(")").pos(),
+                code.s1(")").pos(),
                 "Expected {expression}"
             ))
         );
@@ -1380,7 +1380,7 @@ mod tests {
         assert_eq!(
             code.with_partial_stream(parse_expression),
             Err(Diagnostic::syntax_error(
-                &code.s(",", 2).pos(),
+                code.s(",", 2).pos(),
                 "Expected {expression}"
             ))
         );

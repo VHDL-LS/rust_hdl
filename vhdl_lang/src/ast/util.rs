@@ -36,7 +36,7 @@ pub fn to_simple_name(ctx: &dyn TokenAccess, name: WithTokenSpan<Name>) -> Diagn
             token: name.span.start_token,
         }),
         _ => Err(Diagnostic::new(
-            &name.span.pos(ctx),
+            name.span.pos(ctx),
             "Expected simple name",
             ErrorCode::SyntaxError,
         )),

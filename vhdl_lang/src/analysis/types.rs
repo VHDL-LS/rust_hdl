@@ -451,7 +451,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         UniversalType::Real
                     } else {
                         diagnostics.add(
-                            &range.span().pos(self.ctx),
+                            range.span().pos(self.ctx),
                             "Expected real or integer range",
                             ErrorCode::TypeMismatch,
                         );

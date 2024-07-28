@@ -263,7 +263,7 @@ end
         assert_eq!(
             diagnostics,
             vec![Diagnostic::syntax_error(
-                &code.s("generic", 2).pos(),
+                code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
         );

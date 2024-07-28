@@ -99,7 +99,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         if !ent.is_procedure() {
                             let mut diagnostic = Diagnostic::new(
-                                &name.pos(self.ctx),
+                                name.pos(self.ctx),
                                 "Invalid procedure call",
                                 ErrorCode::InvalidCall,
                             );
@@ -114,7 +114,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             diagnostics.push(diagnostic);
                         } else if ent.is_uninst_subprogram_body() {
                             diagnostics.add(
-                                &name.pos(self.ctx),
+                                name.pos(self.ctx),
                                 format!("uninstantiated {} cannot be called", ent.describe()),
                                 ErrorCode::InvalidCall,
                             )
@@ -143,7 +143,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     )?;
                 } else {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!("{} is not a procedure", resolved.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -152,7 +152,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             resolved => {
                 diagnostics.add(
-                    &name.pos(self.ctx),
+                    name.pos(self.ctx),
                     format!("{} is not a procedure", resolved.describe_type()),
                     ErrorCode::MismatchedKinds,
                 );

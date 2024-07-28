@@ -760,7 +760,7 @@ mod tests {
         assert_eq!(
             code.with_partial_stream(parse_generic),
             Err(Diagnostic::syntax_error(
-                &code.s1("out").pos(),
+                code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
         );
