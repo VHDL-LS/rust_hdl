@@ -47,26 +47,13 @@ impl<'a> CompletionSearcher<'a> {
 
 impl<'a> CompletionSearcher<'a> {
     /// Add entity instantiation completions that are visible from within an architecture body
-    fn add_entity_instantiations(&mut self, ctx: &dyn TokenAccess, body: &ArchitectureBody) {
+    fn add_entity_instantiations(&mut self, body: &ArchitectureBody) {
         let Some(ent_id) = body.ident.decl.get() else {
             return;
         };
         let Some(ent) = DesignEnt::from_any(self.root.get_ent(ent_id)) else {
             return;
         };
-        // Early-exit for when we are inside a statement.
-        for statement in &body.statements {
-            let pos = &statement.statement.pos(ctx);
-
-            // Early exit. The cursor is below the current statement.
-            if pos.start() > self.cursor {
-                break;
-            }
-
-            if pos.contains(self.cursor) {
-                return;
-            }
-        }
         self.completions
             .extend(get_visible_entities_from_architecture(self.root, &ent));
     }
@@ -85,7 +72,9 @@ impl<'a> Searcher for CompletionSearcher<'a> {
                 if !body.get_pos(ctx).contains(self.cursor) {
                     return NotFinished;
                 }
-                self.add_entity_instantiations(ctx, body);
+                if body.statement_span().get_pos(ctx).contains(self.cursor) {
+                    self.add_entity_instantiations(body);
+                }
                 body.ident.decl.get()
             }
             DeclarationItem::Package(package) => {

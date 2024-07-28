@@ -21,6 +21,7 @@ use crate::ast::token_range::*;
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
+use crate::TokenSpan;
 pub(crate) use any_design_unit::*;
 use vhdl_lang::HasTokenSpan;
 
@@ -1559,6 +1560,19 @@ impl ArchitectureBody {
     /// `architecture arch of ent is`
     pub fn is_token(&self) -> TokenId {
         self.span.start_token + 4
+    }
+
+    /// Returns the span that encompasses the statements of this architecture, i.e.
+    /// ```vhdl
+    /// architecture arch of ent is
+    /// begin /* start */
+    ///     foo <= bar;
+    /// /* end*/ end arch;
+    /// ```
+    /// Note that the `begin` and `end` tokens are **included** in the span
+    /// to avoid the ambiguity of an empty statement part.
+    pub fn statement_span(&self) -> TokenSpan {
+        TokenSpan::new(self.begin_token, self.end_token)
     }
 }
 
