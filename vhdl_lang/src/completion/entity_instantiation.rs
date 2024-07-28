@@ -288,4 +288,44 @@ end arch1;
             assert!(options.contains(&CompletionItem::Instantiation(entity, vec![])))
         }
     }
+
+    #[test]
+    fn complete_entities_in_block() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "\
+entity my_ent is
+end my_ent;
+
+entity my_other_ent is
+end my_other_ent;
+
+entity my_third_ent is
+end my_third_ent;
+
+architecture arch of my_third_ent is
+begin
+    foo: block is
+    begin
+    end block foo;
+end arch;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s("begin", 2).end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let my_ent = root
+            .search_reference(code.source(), code.s1("my_ent").start())
+            .unwrap();
+
+        let my_other_ent = root
+            .search_reference(code.source(), code.s1("my_other_ent").start())
+            .unwrap();
+
+        assert!(options.contains(&CompletionItem::Instantiation(my_ent, vec![])));
+        assert!(options.contains(&CompletionItem::Instantiation(my_other_ent, vec![])));
+    }
 }
