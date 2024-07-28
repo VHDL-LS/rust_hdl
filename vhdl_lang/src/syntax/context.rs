@@ -6,14 +6,15 @@
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
-use super::names::parse_name;
+use super::names::{parse_identifier_list, parse_name};
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::recover;
 use crate::syntax::recover::expect_semicolon;
-use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
+use crate::syntax::separated_list::parse_name_list;
+use itertools::Itertools;
 #[derive(PartialEq, Debug)]
 pub enum DeclarationOrReference {
     Declaration(ContextDeclaration),
@@ -23,7 +24,10 @@ pub enum DeclarationOrReference {
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<LibraryClause> {
     let library_token = ctx.stream.expect_kind(Library)?;
-    let name_list = parse_ident_list(ctx)?;
+    let name_list = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithRef::new)
+        .collect_vec();
     let semi_token = recover::expect_semicolon_or_last(ctx);
     Ok(LibraryClause {
         span: TokenSpan::new(library_token, semi_token),
@@ -64,6 +68,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
     if ctx.stream.skip_if_kind(Is) {
         let mut items = Vec::with_capacity(16);
         let end_ident;
+        let end_token;
         loop {
             let token = ctx.stream.peek_expect()?;
             try_init_token_kind!(
@@ -72,6 +77,7 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
                 Use => items.push(ContextItem::Use(parse_use_clause(ctx)?.item)),
                 Context => items.push(ContextItem::Context(parse_context_reference(ctx)?)),
                 End => {
+                    end_token = ctx.stream.get_current_token_id();
                     ctx.stream.skip();
                     ctx.stream.pop_if_kind(Context);
                     end_ident = ctx.stream.pop_optional_ident();
@@ -82,26 +88,24 @@ pub fn parse_context(ctx: &mut ParsingContext<'_>) -> ParseResult<DeclarationOrR
         }
 
         let ident = WithDecl::new(to_simple_name(ctx, name)?);
-        let end_token = ctx.stream.get_last_token_id();
+        let semicolon = ctx.stream.get_last_token_id();
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
-            span: TokenSpan::new(context_token, end_token),
+            span: TokenSpan::new(context_token, semicolon),
             end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
             ident,
+            end_token,
             items,
         }))
     } else {
         // Context reference
         let mut items = vec![name];
-        let mut tokens = Vec::new();
-        while let Some(comma) = ctx.stream.pop_if_kind(Comma) {
+        while ctx.stream.pop_if_kind(Comma).is_some() {
             items.push(parse_name(ctx)?);
-            tokens.push(comma);
         }
-        let name_list = SeparatedList { items, tokens };
         let semi_token = recover::expect_semicolon_or_last(ctx);
         Ok(DeclarationOrReference::Reference(ContextReference {
             span: TokenSpan::new(context_token, semi_token),
-            name_list,
+            name_list: items,
         }))
     }
 }
@@ -122,7 +126,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 span: code.token_span(),
-                name_list: code.s1("foo").ident_list(),
+                name_list: vec![code.s1("foo").ident().into_ref()],
             }
         )
     }
@@ -134,7 +138,10 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 span: code.token_span(),
-                name_list: code.s1("foo, bar").ident_list(),
+                name_list: vec![
+                    code.s1("foo").ident().into_ref(),
+                    code.s1("bar").ident().into_ref()
+                ],
             },
         )
     }
@@ -147,7 +154,7 @@ mod tests {
             WithTokenSpan::new(
                 UseClause {
                     span: code.token_span(),
-                    name_list: code.s1("lib.foo").name_list(),
+                    name_list: vec![code.s1("lib.foo").name()],
                 },
                 code.token_span()
             ),
@@ -162,7 +169,7 @@ mod tests {
             WithTokenSpan::new(
                 UseClause {
                     span: code.token_span(),
-                    name_list: code.s1("foo.'a', lib.bar.all").name_list(),
+                    name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()],
                 },
                 code.token_span()
             ),
@@ -176,8 +183,8 @@ mod tests {
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
                 span: code.token_span(),
-                name_list: code.s1("lib.foo").name_list(),
-            },)
+                name_list: vec![code.s1("lib.foo").name()],
+            })
         )
     }
 
@@ -210,6 +217,7 @@ end context ident;
                     span: code.token_span(),
                     ident: code.s1("ident").decl_ident(),
                     items: vec![],
+                    end_token: code.s1("end").token(),
                     end_ident_pos: if has_end_ident {
                         Some(code.s("ident", 2).token())
                     } else {
@@ -242,6 +250,7 @@ end context ident2;
                 span: code.token_span(),
                 ident: code.s1("ident").decl_ident(),
                 items: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             })
         );
@@ -266,17 +275,18 @@ end context;
                 items: vec![
                     ContextItem::Library(LibraryClause {
                         span: TokenSpan::new(code.s("library", 1).token(), code.s(";", 1).token()),
-                        name_list: code.s1("foo").ident_list(),
+                        name_list: vec![code.s1("foo").ident().into_ref()],
                     }),
                     ContextItem::Use(UseClause {
                         span: code.s1("use foo.bar;").token_span(),
-                        name_list: code.s1("foo.bar").name_list(),
+                        name_list: vec![code.s1("foo.bar").name()],
                     }),
                     ContextItem::Context(ContextReference {
                         span: TokenSpan::new(code.s("context", 2).token(), code.s(";", 3).token()),
-                        name_list: code.s1("foo.ctx").name_list(),
+                        name_list: vec![code.s1("foo.ctx").name()],
                     }),
                 ],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             })
         )

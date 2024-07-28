@@ -52,7 +52,7 @@ fn parse_object_declaration_kind(
         .into_iter()
         .map(WithDecl::new)
         .collect_vec();
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
     let opt_expression = parse_optional_assignment(ctx)?;
     let end_token = expect_semicolon_or_last(ctx);
@@ -60,6 +60,7 @@ fn parse_object_declaration_kind(
         ObjectDeclaration {
             class,
             idents,
+            colon_token,
             subtype_indication: subtype.clone(),
             expression: opt_expression.clone(),
         },
@@ -85,23 +86,26 @@ pub fn parse_object_declaration(
 
 pub fn parse_file_declaration(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Vec<WithTokenSpan<FileDeclaration>>> {
+) -> ParseResult<WithTokenSpan<FileDeclaration>> {
     let start_token = ctx.stream.expect_kind(File)?;
-    let idents = parse_identifier_list(ctx)?;
-    ctx.stream.expect_kind(Colon)?;
+    let idents = parse_identifier_list(ctx)?
+        .into_iter()
+        .map(WithDecl::new)
+        .collect_vec();
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
     let open_info = {
-        if ctx.stream.skip_if_kind(Open) {
-            Some(parse_expression(ctx)?)
+        if let Some(token) = ctx.stream.pop_if_kind(Open) {
+            Some((token, parse_expression(ctx)?))
         } else {
             None
         }
     };
 
     let file_name = {
-        if ctx.stream.skip_if_kind(Is) {
-            Some(parse_expression(ctx)?)
+        if let Some(token) = ctx.stream.pop_if_kind(Is) {
+            Some((token, parse_expression(ctx)?))
         } else {
             None
         }
@@ -113,26 +117,22 @@ pub fn parse_file_declaration(
     if open_info.is_some() && file_name.is_none() {
         if let Some(ident) = idents.first() {
             return Err(Diagnostic::syntax_error(
-                ident.pos(ctx),
+                ident.tree.pos(ctx),
                 "file_declaration must have a file name specified if the file open expression is specified as well",
             ));
         }
     }
 
-    Ok(idents
-        .into_iter()
-        .map(|ident| {
-            WithTokenSpan::new(
-                FileDeclaration {
-                    ident: ident.into(),
-                    subtype_indication: subtype.clone(),
-                    open_info: open_info.clone(),
-                    file_name: file_name.clone(),
-                },
-                TokenSpan::new(start_token, end_token),
-            )
-        })
-        .collect())
+    Ok(WithTokenSpan::new(
+        FileDeclaration {
+            idents,
+            colon_token,
+            subtype_indication: subtype.clone(),
+            open_info: open_info.clone(),
+            file_name: file_name.clone(),
+        },
+        TokenSpan::new(start_token, end_token),
+    ))
 }
 
 #[cfg(test)]
@@ -152,6 +152,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -169,6 +170,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Signal,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -186,6 +188,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Variable,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -203,6 +206,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::SharedVariable,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 },
@@ -216,15 +220,16 @@ mod tests {
         let code = Code::new("file foo : text;");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 FileDeclaration {
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("text").subtype_indication(),
                     open_info: None,
                     file_name: None
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -233,15 +238,16 @@ mod tests {
         let code = Code::new("file foo : text is \"file_name\";");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 FileDeclaration {
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("text").subtype_indication(),
                     open_info: None,
-                    file_name: Some(code.s1("\"file_name\"").expr())
+                    file_name: Some((code.s1("is").token(), code.s1("\"file_name\"").expr()))
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -250,15 +256,16 @@ mod tests {
         let code = Code::new("file foo : text open write_mode is \"file_name\";");
         assert_eq!(
             code.with_stream(parse_file_declaration),
-            vec![WithTokenSpan::new(
+            WithTokenSpan::new(
                 FileDeclaration {
-                    ident: code.s1("foo").decl_ident(),
+                    idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("text").subtype_indication(),
-                    open_info: Some(code.s1("write_mode").expr()),
-                    file_name: Some(code.s1("\"file_name\"").expr())
+                    open_info: Some((code.s1("open").token(), code.s1("write_mode").expr())),
+                    file_name: Some((code.s1("is").token(), code.s1("\"file_name\"").expr()))
                 },
                 code.token_span()
-            )]
+            )
         );
     }
 
@@ -283,6 +290,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr())
                 },
@@ -301,6 +309,7 @@ mod tests {
                 ObjectDeclaration {
                     class: ObjectClass::Constant,
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
+                    colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(code.s1("0").expr()),
                 },

@@ -10,8 +10,8 @@ use crate::ast::search::{
 use crate::ast::{ConcurrentStatement, MapAspect, ObjectClass};
 use crate::named_entity::{AsUnique, Region};
 use crate::{
-    named_entity, AnyEntKind, CompletionItem, Design, EntityId, Overloaded, Position, Source,
-    TokenAccess,
+    named_entity, AnyEntKind, CompletionItem, Design, EntityId, HasTokenSpan, Overloaded, Position,
+    Source, TokenAccess,
 };
 use std::collections::HashSet;
 
@@ -55,7 +55,7 @@ impl<'a> MapAspectSearcher<'a> {
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
     ) -> bool {
-        if !map.span(ctx).contains(self.cursor) {
+        if !map.get_span(ctx).contains(self.cursor) {
             return false;
         }
         let formals_in_map: HashSet<EntityId> = HashSet::from_iter(map.formals().flatten());
@@ -156,7 +156,7 @@ fn extract_objects_with_class(region: &Region, object_class: ObjectClass) -> Vec
 /// # Arguments
 ///
 /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
-/// while `ObjectClass::Constant` extracts constants.
+///   while `ObjectClass::Constant` extracts constants.
 fn extract_port_or_generic_names(
     root: &DesignRoot,
     id: EntityId,

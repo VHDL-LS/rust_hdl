@@ -243,7 +243,7 @@ impl Display for CallOrIndexed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
         let mut first = true;
-        for param in &self.parameters {
+        for param in &self.parameters.items {
             if first {
                 write!(f, "({param}")?;
             } else {
@@ -365,7 +365,7 @@ impl Display for QualifiedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.expr.item {
             Expression::Aggregate(..) => write!(f, "{}'{}", self.type_mark, self.expr),
-            _ => write!(f, "{}'({})", self.type_mark, self.expr),
+            _ => write!(f, "{}'{}", self.type_mark, self.expr),
         }
     }
 }
@@ -452,6 +452,7 @@ impl Display for Expression {
             Expression::Name(ref name) => write!(f, "{name}"),
             Expression::Literal(ref literal) => write!(f, "{literal}"),
             Expression::New(ref alloc) => write!(f, "new {alloc}"),
+            Expression::Parenthesized(expr) => write!(f, "({expr})"),
         }
     }
 }
@@ -566,7 +567,7 @@ impl Display for ResolutionIndication {
             }
             ResolutionIndication::Record(elem_resolutions) => {
                 let mut first = true;
-                for elem_resolution in elem_resolutions {
+                for elem_resolution in &elem_resolutions.item {
                     if first {
                         write!(f, "({elem_resolution}")?;
                     } else {
@@ -580,16 +581,14 @@ impl Display for ResolutionIndication {
                     Ok(())
                 }
             }
-            ResolutionIndication::Unresolved => Ok(()),
         }
     }
 }
 
 impl Display for SubtypeIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.resolution {
-            ResolutionIndication::Unresolved => (),
-            _ => write!(f, "{} ", self.resolution)?,
+        if let Some(resolution) = &self.resolution {
+            write!(f, "{resolution} ")?;
         }
         write!(f, "{}", self.type_mark)?;
         match self.constraint {
@@ -693,7 +692,7 @@ impl Display for TypeDefinition {
                 }
                 write!(f, "end units;")
             }
-            TypeDefinition::Array(ref indexes, ref subtype_indication) => {
+            TypeDefinition::Array(ref indexes, _, ref subtype_indication) => {
                 write!(f, " is array (")?;
                 let mut first = true;
                 for index in indexes {
@@ -739,7 +738,7 @@ impl Display for TypeDefinition {
 
 impl Display for TypeDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.def {
+        match &self.def {
             TypeDefinition::Subtype(..) => write!(f, "subtype")?,
             _ => write!(f, "type")?,
         }
@@ -779,12 +778,20 @@ impl Display for ObjectDeclaration {
 
 impl Display for FileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "file {} : {}", self.ident, self.subtype_indication)?;
+        write!(
+            f,
+            "file {} : {}",
+            self.idents
+                .iter()
+                .map(|ident| format!("{ident}"))
+                .join(", "),
+            self.subtype_indication
+        )?;
         if let Some(ref expr) = self.open_info {
-            write!(f, " open {expr}")?;
+            write!(f, " open {}", expr.1)?;
         }
         match self.file_name {
-            Some(ref expr) => write!(f, " is {expr};"),
+            Some(ref expr) => write!(f, " is {};", expr.1),
             None => write!(f, ";"),
         }
     }
@@ -961,7 +968,7 @@ impl Display for ModeIndication {
 
 impl Display for SimpleModeIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        if let Some(mode) = self.mode {
+        if let Some(mode) = &self.mode {
             write!(f, "{mode} ")?;
         }
         write!(f, "{}", self.subtype_indication)?;
@@ -982,7 +989,7 @@ impl Display for ModeViewIndication {
             ModeViewIndicationKind::Array => write!(f, "({})", self.name)?,
             ModeViewIndicationKind::Record => write!(f, "{}", self.name)?,
         }
-        if let Some(typ) = &self.subtype_indication {
+        if let Some((_, typ)) = &self.subtype_indication {
             write!(f, " of {typ}")?;
         }
         Ok(())
@@ -1046,7 +1053,7 @@ impl Display for InterfacePackageDeclaration {
             "package {} is new {}\n  generic map (",
             self.ident, self.package_name
         )?;
-        match &self.generic_map {
+        match &self.generic_map.item {
             InterfacePackageGenericMapAspect::Map(assoc_list) => {
                 let mut first = true;
                 for assoc in &assoc_list.items {

@@ -38,7 +38,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.boolean_expr(scope, condition, diagnostics)?;
                 }
-                if let Some(expr) = else_item {
+                if let Some((expr, _)) = else_item {
                     self.analyze_expression_for_target(scope, ttyp, expr, diagnostics)?;
                 }
             }
@@ -48,7 +48,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
-                for Alternative { choices, item } in alternatives.iter_mut() {
+                for Alternative {
+                    choices,
+                    item,
+                    span: _,
+                } in alternatives.iter_mut()
+                {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
@@ -83,7 +88,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.boolean_expr(scope, condition, diagnostics)?;
                 }
-                if let Some(wavf) = else_item {
+                if let Some((wavf, _)) = else_item {
                     self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
                 }
             }
@@ -93,7 +98,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
-                for Alternative { choices, item } in alternatives.iter_mut() {
+                for Alternative {
+                    choices,
+                    item,
+                    span: _,
+                } in alternatives.iter_mut()
+                {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
@@ -119,7 +129,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 }
             }
-            Waveform::Unaffected => {}
+            Waveform::Unaffected(_) => {}
         }
         Ok(())
     }

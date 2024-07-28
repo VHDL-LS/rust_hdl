@@ -249,23 +249,25 @@ fn parse_function_call(
     ctx: &mut ParsingContext<'_>,
     prefix: WithTokenSpan<Name>,
     first: AssociationElement,
+    first_token: TokenId,
 ) -> ParseResult<WithTokenSpan<Name>> {
-    let mut association_elements = Vec::new();
-    association_elements.push(first);
+    let mut list = SeparatedList::default();
+    list.items.push(first);
+    list.tokens.push(first_token);
 
     loop {
-        association_elements.push(parse_association_element(ctx)?);
+        list.items.push(parse_association_element(ctx)?);
         expect_token!(
             ctx.stream,
             token,
             token_id,
-            Comma => {},
+            Comma => list.tokens.push(token_id),
             RightPar => {
                 let span = TokenSpan::new(prefix.span.start_token, token_id);
                 return Ok(WithTokenSpan {
                     item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                         name: prefix,
-                        parameters: association_elements})),
+                        parameters: list})),
                     span,
                 });
             }
@@ -372,12 +374,13 @@ fn parse_inner_external_name(ctx: &mut ParsingContext<'_>) -> ParseResult<Extern
         }
     );
 
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
     Ok(ExternalName {
         class,
         path,
+        colon_token,
         subtype,
     })
 }
@@ -471,7 +474,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                     sep_token,
                     sep_token_id,
                     Comma => {
-                        name = parse_function_call(ctx, name, assoc)?;
+                        name = parse_function_call(ctx, name, assoc, sep_token_id)?;
                     },
                     To | Downto => {
                         let right_expr = parse_expression(ctx)?;
@@ -502,7 +505,7 @@ fn _parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>>
                             Ok(range) => Name::Slice(Box::new(name), Box::new(DiscreteRange::Range(range))),
                             Err(assoc) => Name::CallOrIndexed(Box::new(CallOrIndexed {
                                 name,
-                                parameters: vec![assoc],
+                                parameters: SeparatedList::single(assoc),
                             })),
                         };
 
@@ -980,10 +983,10 @@ mod tests {
         let foo_0 = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
-                parameters: vec![AssociationElement {
+                parameters: SeparatedList::single(AssociationElement {
                     formal: None,
                     actual: code.s1("0").expr().map_into(ActualPart::Expression),
-                }],
+                }),
             })),
             span: code.s1("foo(0)").token_span(),
         };
@@ -1003,16 +1006,19 @@ mod tests {
         let prefix_index = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix,
-                parameters: vec![
-                    AssociationElement {
-                        formal: None,
-                        actual: code.s1("0").expr().map_into(ActualPart::Expression),
-                    },
-                    AssociationElement {
-                        formal: None,
-                        actual: code.s1("1").expr().map_into(ActualPart::Expression),
-                    },
-                ],
+                parameters: SeparatedList {
+                    items: vec![
+                        AssociationElement {
+                            formal: None,
+                            actual: code.s1("0").expr().map_into(ActualPart::Expression),
+                        },
+                        AssociationElement {
+                            formal: None,
+                            actual: code.s1("1").expr().map_into(ActualPart::Expression),
+                        },
+                    ],
+                    tokens: vec![code.s1(",").token()],
+                },
             })),
             span: code.s1("prefix(0, 1)").token_span(),
         };
@@ -1020,10 +1026,10 @@ mod tests {
         let prefix_index_3 = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix_index,
-                parameters: vec![AssociationElement {
+                parameters: SeparatedList::single(AssociationElement {
                     formal: None,
                     actual: code.s1("3").expr().map_into(ActualPart::Expression),
-                }],
+                }),
             })),
             span: code.s1("prefix(0, 1)(3)").token_span(),
         };
@@ -1063,7 +1069,7 @@ mod tests {
         let foo_call = WithTokenSpan {
             item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
-                parameters: vec![assoc_elem],
+                parameters: SeparatedList::single(assoc_elem),
             })),
             span: code.s1("foo(arg => 0)").token_span(),
         };
@@ -1103,6 +1109,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                 code.s1("dut.foo").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1120,6 +1127,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 1),
                 code.s1("^.dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1137,6 +1145,7 @@ mod tests {
                 ExternalPath::Relative(code.s1("dut.gen(0)").name(), 3),
                 code.s1("^.^.^.dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1154,6 +1163,7 @@ mod tests {
                 ExternalPath::Absolute(code.s1("dut.gen(0)").name()),
                 code.s1(".dut.gen(0)").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1171,6 +1181,7 @@ mod tests {
                 ExternalPath::Package(code.s1("lib.pkg").name()),
                 code.s1("@lib.pkg").token_span(),
             ),
+            colon_token: code.s1(":").token(),
             subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
@@ -1194,6 +1205,7 @@ mod tests {
                     ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                     code.s1("dut.foo").token_span(),
                 ),
+                colon_token: code.s1(":").token(),
                 subtype: code.s1("std_logic").subtype_indication(),
             };
             assert_eq!(

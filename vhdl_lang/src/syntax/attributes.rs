@@ -96,7 +96,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
         },
         Of => {
             let entity_names = parse_entity_name_list(ctx)?;
-            ctx.stream.expect_kind(Colon)?;
+            let colon_token = ctx.stream.expect_kind(Colon)?;
             let entity_class = parse_entity_class(ctx)?;
             ctx.stream.expect_kind(Is)?;
             let expr = parse_expression(ctx)?;
@@ -111,6 +111,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
                             entity_name,
                             entity_class,
                             expr: expr.clone(),
+                            colon_token
                         }),
                     TokenSpan::new(start_token, end_token)
                     )
@@ -152,6 +153,7 @@ mod tests {
                         designator: code.s1("foo").ref_designator(),
                         signature: None
                     }),
+                    colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
                     expr: code.s1("0+1").expr()
                 }),
@@ -172,6 +174,7 @@ mod tests {
                         designator: code.s1("\"**\"").ref_designator(),
                         signature: None
                     }),
+                    colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
                     expr: code.s1("0+1").expr()
                 }),
@@ -193,6 +196,7 @@ mod tests {
                             designator: code.s1("foo").ref_designator(),
                             signature: None
                         }),
+                        colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
                         expr: code.s1("0+1").expr()
                     }),
@@ -205,6 +209,7 @@ mod tests {
                             designator: code.s1("bar").ref_designator(),
                             signature: None
                         }),
+                        colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
                         expr: code.s1("0+1").expr()
                     }),
@@ -223,6 +228,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::All,
+                    colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
                     expr: code.s1("0+1").expr()
                 }),
@@ -240,6 +246,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Others,
+                    colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
                     expr: code.s1("0+1").expr()
                 }),
@@ -260,6 +267,7 @@ mod tests {
                         designator: code.s1("foo").ref_designator(),
                         signature: Some(code.s1("[return natural]").signature())
                     }),
+                    colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
                     expr: code.s1("0+1").expr()
                 }),

@@ -98,7 +98,10 @@ pub fn parse_discrete_range(ctx: &mut ParsingContext<'_>) -> ParseResult<Discret
 
 pub fn parse_array_index_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult<ArrayIndex> {
     match parse_name_or_range(ctx) {
-        Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
+        Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(WithTokenSpan::new(
+            DiscreteRange::Range(range.item),
+            range.span,
+        ))),
         Ok(NameOrRange::Name(name)) => {
             let type_mark = name_to_type_mark(ctx, name)?;
 
@@ -106,14 +109,18 @@ pub fn parse_array_index_constraint(ctx: &mut ParsingContext<'_>) -> ParseResult
                 if ctx.stream.skip_if_kind(BOX) {
                     Ok(ArrayIndex::IndexSubtypeDefintion(type_mark))
                 } else {
-                    Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
-                        type_mark,
-                        Some(parse_range(ctx)?.item),
+                    let range = parse_range(ctx)?;
+                    let span = type_mark.span.combine(range.span);
+                    Ok(ArrayIndex::Discrete(WithTokenSpan::new(
+                        DiscreteRange::Discrete(type_mark, Some(range.item)),
+                        span,
                     )))
                 }
             } else {
-                Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    type_mark, None,
+                let type_mark_span = type_mark.span;
+                Ok(ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Discrete(type_mark, None),
+                    type_mark_span,
                 )))
             }
         }
@@ -241,7 +248,10 @@ mod tests {
         let code = Code::new("0 to 1");
         assert_eq!(
             code.with_stream(parse_array_index_constraint),
-            ArrayIndex::Discrete(code.s1("0 to 1").discrete_range())
+            ArrayIndex::Discrete(WithTokenSpan::new(
+                code.s1("0 to 1").discrete_range(),
+                code.token_span()
+            ))
         );
     }
 
@@ -250,7 +260,10 @@ mod tests {
         let code = Code::new("foo.bar range 0 to 1");
         assert_eq!(
             code.with_stream(parse_array_index_constraint),
-            ArrayIndex::Discrete(code.s1("foo.bar range 0 to 1").discrete_range())
+            ArrayIndex::Discrete(WithTokenSpan::new(
+                code.s1("foo.bar range 0 to 1").discrete_range(),
+                code.token_span()
+            ))
         );
     }
 
@@ -259,7 +272,10 @@ mod tests {
         let code = Code::new("foo.bar");
         assert_eq!(
             code.with_stream(parse_array_index_constraint),
-            ArrayIndex::Discrete(code.s1("foo.bar").discrete_range())
+            ArrayIndex::Discrete(WithTokenSpan::new(
+                code.s1("foo.bar").discrete_range(),
+                code.token_span()
+            ))
         );
     }
 }

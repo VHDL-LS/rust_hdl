@@ -12,6 +12,7 @@ use super::range::{parse_array_index_constraint, parse_range};
 use super::subprogram::parse_subprogram_declaration;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::named_entity::Reference;
@@ -19,6 +20,7 @@ use crate::syntax::names::parse_type_mark;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
 use itertools::Itertools;
 use vhdl_lang::syntax::parser::ParsingContext;
+use vhdl_lang::TokenId;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
@@ -64,9 +66,13 @@ fn parse_array_index_constraints(ctx: &mut ParsingContext<'_>) -> ParseResult<Ve
 /// LRM 5.3.2 Array types
 fn parse_array_type_definition(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeDefinition> {
     let index_constraints = parse_array_index_constraints(ctx)?;
-    ctx.stream.expect_kind(Of)?;
+    let of_token = ctx.stream.expect_kind(Of)?;
     let element_subtype = parse_subtype_indication(ctx)?;
-    Ok(TypeDefinition::Array(index_constraints, element_subtype))
+    Ok(TypeDefinition::Array(
+        index_constraints,
+        of_token,
+        element_subtype,
+    ))
 }
 
 /// LRM 5.3.3 Record types
@@ -88,12 +94,13 @@ fn parse_record_type_definition(
             .into_iter()
             .map(WithDecl::new)
             .collect_vec();
-        ctx.stream.expect_kind(Colon)?;
+        let colon_token = ctx.stream.expect_kind(Colon)?;
         let subtype = parse_subtype_indication(ctx)?;
         let end_token = expect_semicolon_or_last(ctx);
         elem_decls.push(ElementDeclaration {
             idents,
             subtype: subtype.clone(),
+            colon_token,
             span: TokenSpan::new(start_token, end_token),
         });
     }
@@ -142,6 +149,7 @@ pub fn parse_protected_type_declaration(
 fn parse_physical_type_definition(
     ctx: &mut ParsingContext<'_>,
     range: Range,
+    units_token: TokenId,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let primary_unit = WithDecl::new(ctx.stream.expect_ident()?);
     expect_semicolon(ctx);
@@ -164,12 +172,13 @@ fn parse_physical_type_definition(
                         value_token_id,
                         AbstractLiteral => {
                             let value = value_token.to_abstract_literal(value_token_id)?.item;
+                            let unit_token = ctx.stream.get_current_token_id();
                             let unit = ctx.stream.expect_ident()?;
-                            PhysicalLiteral {value, unit: unit.into_ref()}
+                            WithTokenSpan::new(PhysicalLiteral {value, unit: unit.into_ref()}, TokenSpan::new(value_token_id, unit_token))
                         },
                         Identifier => {
                             let unit = value_token.to_identifier_value(value_token_id)?;
-                            PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
+                            WithTokenSpan::new(PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}, TokenSpan::new(value_token_id, value_token_id))
                         }
                     )
                 };
@@ -187,6 +196,7 @@ fn parse_physical_type_definition(
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
             range,
+            units_token,
             primary_unit,
             secondary_units,
         }),
@@ -229,13 +239,13 @@ pub fn parse_type_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<TypeD
         Range => {
             let constraint = parse_range(ctx)?.item;
             expect_token!(
-                ctx.stream, token,
+                ctx.stream, token, token_id,
                 SemiColon => {
                     ctx.stream.back(); // The ';' is consumed at the end of the function
                     TypeDefinition::Numeric(constraint)
                 },
                 Units => {
-                    let (def, end_ident) = parse_physical_type_definition(ctx, constraint)?;
+                    let (def, end_ident) = parse_physical_type_definition(ctx, constraint, token_id)?;
                     end_ident_pos = check_end_identifier_mismatch(ctx, &ident.tree, end_ident);
                     def
                 }
@@ -400,6 +410,7 @@ mod tests {
                 vec![ArrayIndex::IndexSubtypeDefintion(
                     code.s1("natural").type_mark(),
                 )],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -419,10 +430,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("natural").type_mark(),
-                    None,
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Discrete(code.s1("natural").type_mark(), None),
+                    code.s1("natural").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -442,10 +454,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("lib.pkg.foo").type_mark(),
-                    None,
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Discrete(code.s1("lib.pkg.foo").type_mark(), None),
+                    code.s1("lib.pkg.foo").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -465,9 +478,11 @@ mod tests {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
-                vec![ArrayIndex::Discrete(DiscreteRange::Range(
-                    code.s1("arr_t'range").range(),
+                vec![ArrayIndex::Discrete(WithTokenSpan::new(
+                    DiscreteRange::Range(code.s1("arr_t'range").range()),
+                    code.s1("arr_t'range").token_span(),
                 ))],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -483,12 +498,19 @@ mod tests {
     fn parse_array_type_definition_with_constraint() {
         let code = Code::new("type foo is array (2-1 downto 0) of boolean;");
 
-        let index = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
+        let index = ArrayIndex::Discrete(WithTokenSpan::new(
+            DiscreteRange::Range(code.s1("2-1 downto 0").range()),
+            code.s1("2-1 downto 0").token_span(),
+        ));
 
         let type_decl = TypeDeclaration {
             span: code.token_span(),
             ident: code.s1("foo").decl_ident(),
-            def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
+            def: TypeDefinition::Array(
+                vec![index],
+                code.s1("of").token(),
+                code.s1("boolean").subtype_indication(),
+            ),
             end_ident_pos: None,
         };
 
@@ -502,7 +524,10 @@ mod tests {
     fn parse_array_type_definition_mixed() {
         let code = Code::new("type foo is array (2-1 downto 0, integer range <>) of boolean;");
 
-        let index0 = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
+        let index0 = ArrayIndex::Discrete(WithTokenSpan::new(
+            DiscreteRange::Range(code.s1("2-1 downto 0").range()),
+            code.s1("2-1 downto 0").token_span(),
+        ));
 
         let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").type_mark());
 
@@ -511,6 +536,7 @@ mod tests {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![index0, index1],
+                code.s1("of").token(),
                 code.s1("boolean").subtype_indication(),
             ),
             end_ident_pos: None,
@@ -534,6 +560,7 @@ end record;",
         let elem_decl = ElementDeclaration {
             idents: vec![code.s1("element").decl_ident()],
             subtype: code.s1("boolean").subtype_indication(),
+            colon_token: code.s1(":").token(),
             span: code.s1("element : boolean;").token_span(),
         };
 
@@ -565,12 +592,14 @@ end foo;",
                 code.s1("element").decl_ident(),
                 code.s1("field").decl_ident(),
             ],
+            colon_token: code.s1(":").token(),
             subtype: code.s1("boolean").subtype_indication(),
             span: code.s1("element, field : boolean;").token_span(),
         };
 
         let elem_decl1 = ElementDeclaration {
             idents: vec![code.s1("other_element").decl_ident()],
+            colon_token: code.s(":", 2).token(),
             subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
             span: code
                 .s1("other_element : std_logic_vector(0 to 1);")
@@ -774,6 +803,7 @@ end units phys;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![]
                 }),
@@ -800,13 +830,17 @@ end units;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        PhysicalLiteral {
-                            value: AbstractLiteral::Integer(5),
-                            unit: code.s("primary_unit", 2).ident().into_ref()
-                        }
+                        WithTokenSpan::new(
+                            PhysicalLiteral {
+                                value: AbstractLiteral::Integer(5),
+                                unit: code.s("primary_unit", 2).ident().into_ref()
+                            },
+                            code.s1("5 primary_unit").token_span()
+                        )
                     ),]
                 }),
                 end_ident_pos: None,
@@ -832,13 +866,17 @@ end units;
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
+                    units_token: code.s1("units").token(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        PhysicalLiteral {
-                            value: AbstractLiteral::Integer(1),
-                            unit: code.s("primary_unit", 2).ident().into_ref()
-                        }
+                        WithTokenSpan::new(
+                            PhysicalLiteral {
+                                value: AbstractLiteral::Integer(1),
+                                unit: code.s("primary_unit", 2).ident().into_ref()
+                            },
+                            code.s("primary_unit", 2).token_span()
+                        )
                     ),]
                 }),
                 end_ident_pos: None,

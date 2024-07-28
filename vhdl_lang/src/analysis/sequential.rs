@@ -67,7 +67,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             diagnostics,
                         )?;
                     }
-                    if let Some(else_item) = else_item {
+                    if let Some((else_item, _)) = else_item {
                         self.define_labels_for_sequential_part(
                             scope,
                             parent,
@@ -122,7 +122,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
                             diagnostics.add(
-                                &statement.statement.pos(self.ctx),
+                                statement.statement.pos(self.ctx),
                                 "Functions cannot return without a value",
                                 ErrorCode::VoidReturn,
                             );
@@ -131,7 +131,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
                             diagnostics.add(
-                                &statement.statement.pos(self.ctx),
+                                statement.statement.pos(self.ctx),
                                 "Procedures cannot return a value",
                                 ErrorCode::NonVoidReturn,
                             );
@@ -139,7 +139,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.add(
-                            &statement.statement.pos(self.ctx),
+                            statement.statement.pos(self.ctx),
                             "Cannot return from a process",
                             ErrorCode::IllegalReturn,
                         );
@@ -152,7 +152,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     condition_clause,
                     timeout_clause,
                 } = wait_stmt;
-                self.sensitivity_list_check(scope, sensitivity_clause, diagnostics)?;
+                if let Some(list) = sensitivity_clause {
+                    self.sensitivity_list_check(scope, list, diagnostics)?;
+                }
                 if let Some(expr) = condition_clause {
                     self.boolean_expr(scope, expr, diagnostics)?;
                 }
@@ -191,7 +193,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement_span.pos(self.ctx),
+                        statement_span.pos(self.ctx),
                         "Exit can only be used inside a loop",
                         ErrorCode::ExitOutsideLoop,
                     )
@@ -211,7 +213,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
                     diagnostics.add(
-                        &statement_span.pos(self.ctx),
+                        statement_span.pos(self.ctx),
                         "Next can only be used inside a loop",
                         ErrorCode::NextOutsideLoop,
                     )
@@ -233,20 +235,23 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     self.boolean_expr(scope, condition, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }
-                if let Some(else_item) = else_item {
+                if let Some((else_item, _)) = else_item {
                     self.analyze_sequential_part(scope, parent, else_item, diagnostics)?;
                 }
             }
             SequentialStatement::Case(ref mut case_stmt) => {
                 let CaseStatement {
-                    is_matching: _,
                     expression,
                     alternatives,
-                    end_label_pos: _,
+                    ..
                 } = case_stmt;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for alternative in alternatives.iter_mut() {
-                    let Alternative { choices, item } = alternative;
+                    let Alternative {
+                        choices,
+                        item,
+                        span: _,
+                    } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }
@@ -255,7 +260,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
-                    end_label_pos: _,
+                    ..
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {

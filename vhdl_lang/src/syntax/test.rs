@@ -20,7 +20,6 @@ use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use super::names::{parse_association_list, parse_designator, parse_name, parse_type_mark};
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
-use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{
     parse_signature, parse_subprogram_declaration, parse_subprogram_specification,
@@ -123,15 +122,6 @@ impl CodeBuilder {
 
     pub fn symbol(&self, name: &str) -> Symbol {
         self.symbols.symtab().insert_utf8(name)
-    }
-}
-
-impl<T> SeparatedList<T> {
-    pub fn single(item: T) -> SeparatedList<T> {
-        SeparatedList {
-            items: vec![item],
-            tokens: vec![],
-        }
     }
 }
 
@@ -582,7 +572,7 @@ impl Code {
     pub fn character(&self) -> WithToken<u8> {
         self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
             let id = ctx.stream.expect_kind(Kind::Character)?;
-            ctx.stream.get_token(id).to_character_value(id)
+            ctx.stream.index(id).to_character_value(id)
         })
     }
 
@@ -594,14 +584,6 @@ impl Code {
 
     pub fn name(&self) -> WithTokenSpan<Name> {
         self.parse_ok_no_diagnostics(parse_name)
-    }
-
-    pub fn name_list(&self) -> SeparatedList<WithTokenSpan<Name>> {
-        self.parse_ok_no_diagnostics(parse_name_list)
-    }
-
-    pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
-        self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
     pub fn type_mark(&self) -> WithTokenSpan<Name> {
@@ -626,9 +608,7 @@ impl Code {
     }
 
     pub fn file_decl(&self) -> FileDeclaration {
-        self.parse_ok_no_diagnostics(parse_file_declaration)
-            .remove(0)
-            .item
+        self.parse_ok_no_diagnostics(parse_file_declaration).item
     }
 
     pub fn alias_decl(&self) -> AliasDeclaration {
@@ -676,7 +656,7 @@ impl Code {
                 WithTokenSpan::from(
                     CallOrIndexed {
                         name,
-                        parameters: vec![],
+                        parameters: SeparatedList::default(),
                     },
                     span,
                 )
@@ -719,7 +699,7 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_waveform)
     }
 
-    pub fn aggregate(&self) -> WithTokenSpan<Vec<ElementAssociation>> {
+    pub fn aggregate(&self) -> WithTokenSpan<Vec<WithTokenSpan<ElementAssociation>>> {
         self.parse_ok_no_diagnostics(parse_aggregate)
     }
 
@@ -735,8 +715,8 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_choices)
     }
 
-    pub fn use_clause(&self) -> UseClause {
-        self.parse_ok_no_diagnostics(parse_use_clause).item
+    pub fn use_clause(&self) -> WithTokenSpan<UseClause> {
+        self.parse_ok_no_diagnostics(parse_use_clause)
     }
 
     pub fn library_clause(&self) -> LibraryClause {
@@ -868,8 +848,8 @@ fn diagnostics_to_map(diagnostics: Vec<Diagnostic>) -> HashMap<Diagnostic, usize
     map
 }
 
-// Drop releated info when we do not want to test for it
-pub fn without_releated(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+// Drop related info when we do not want to test for it
+pub fn without_related(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
     let mut diagnostics = diagnostics.to_vec();
     for diagnostic in diagnostics.iter_mut() {
         diagnostic.related.clear();
@@ -955,13 +935,10 @@ fn value_to_string(value: &Value) -> String {
     match value {
         Value::Identifier(ident) => ident.name_utf8(),
         Value::String(s) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
-        Value::BitString(_) => {
-            panic!("value_to_string is currently not supported for BitString literals!")
+        Value::BitString(s, ..) => String::from_utf8(s.chars().copied().collect_vec()).unwrap(),
+        Value::AbstractLiteral(s, _) => {
+            String::from_utf8(s.chars().copied().collect_vec()).unwrap()
         }
-        Value::AbstractLiteral(lit) => match lit {
-            AbstractLiteral::Integer(i) => i.to_string(),
-            AbstractLiteral::Real(f) => f.to_string(),
-        },
         Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
         Value::Text(text) => String::from_utf8(text.chars().copied().collect_vec()).unwrap(),
         Value::None => "".into(),

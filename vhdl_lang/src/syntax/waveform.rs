@@ -4,30 +4,44 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{DelayMechanism, Waveform, WaveformElement};
 use crate::syntax::parser::ParsingContext;
+use vhdl_lang::TokenSpan;
 
 use super::common::{parse_optional, ParseResult};
 use super::expression::parse_expression;
 use super::tokens::Kind::*;
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_delay_mechanism(ctx: &mut ParsingContext<'_>) -> ParseResult<Option<DelayMechanism>> {
+pub fn parse_delay_mechanism(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<Option<WithTokenSpan<DelayMechanism>>> {
     let token = ctx.stream.peek_expect()?;
+    let start_token = ctx.stream.get_current_token_id();
     match token.kind {
         Transport => {
             ctx.stream.skip();
-            Ok(Some(DelayMechanism::Transport))
+            let span = TokenSpan::new(start_token, start_token);
+            Ok(Some(WithTokenSpan::new(DelayMechanism::Transport, span)))
         }
         Inertial => {
             ctx.stream.skip();
-            Ok(Some(DelayMechanism::Inertial { reject: None }))
+            let span = TokenSpan::new(start_token, start_token);
+            Ok(Some(WithTokenSpan::new(
+                DelayMechanism::Inertial { reject: None },
+                span,
+            )))
         }
         Reject => {
             ctx.stream.skip();
             let reject = Some(parse_expression(ctx)?);
-            ctx.stream.expect_kind(Inertial)?;
-            Ok(Some(DelayMechanism::Inertial { reject }))
+            let end_token = ctx.stream.expect_kind(Inertial)?;
+            let span = TokenSpan::new(start_token, end_token);
+            Ok(Some(WithTokenSpan::new(
+                DelayMechanism::Inertial { reject },
+                span,
+            )))
         }
         _ => Ok(None),
     }
@@ -35,8 +49,8 @@ pub fn parse_delay_mechanism(ctx: &mut ParsingContext<'_>) -> ParseResult<Option
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_waveform(ctx: &mut ParsingContext<'_>) -> ParseResult<Waveform> {
-    if ctx.stream.skip_if_kind(Unaffected) {
-        return Ok(Waveform::Unaffected);
+    if let Some(token) = ctx.stream.pop_if_kind(Unaffected) {
+        return Ok(Waveform::Unaffected(token));
     }
 
     let mut elems = Vec::new();
@@ -64,7 +78,10 @@ mod tests {
         let code = Code::new("transport");
         assert_eq!(
             code.with_stream(parse_delay_mechanism),
-            Some(DelayMechanism::Transport)
+            Some(WithTokenSpan::new(
+                DelayMechanism::Transport,
+                code.token_span()
+            ))
         );
     }
 
@@ -73,7 +90,10 @@ mod tests {
         let code = Code::new("inertial");
         assert_eq!(
             code.with_stream(parse_delay_mechanism),
-            Some(DelayMechanism::Inertial { reject: None })
+            Some(WithTokenSpan::new(
+                DelayMechanism::Inertial { reject: None },
+                code.token_span()
+            ))
         );
     }
 
@@ -82,9 +102,12 @@ mod tests {
         let code = Code::new("reject 2 ns inertial");
         assert_eq!(
             code.with_stream(parse_delay_mechanism),
-            Some(DelayMechanism::Inertial {
-                reject: Some(code.s1("2 ns").expr())
-            })
+            Some(WithTokenSpan::new(
+                DelayMechanism::Inertial {
+                    reject: Some(code.s1("2 ns").expr())
+                },
+                code.token_span()
+            ))
         );
     }
 
@@ -133,6 +156,9 @@ mod tests {
     #[test]
     fn test_unaffected_waveform() {
         let code = Code::new("unaffected");
-        assert_eq!(code.with_stream(parse_waveform), Waveform::Unaffected);
+        assert_eq!(
+            code.with_stream(parse_waveform),
+            Waveform::Unaffected(code.token())
+        );
     }
 }

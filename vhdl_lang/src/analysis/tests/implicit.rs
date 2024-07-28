@@ -77,7 +77,7 @@ end package;
 
     let diagnostics = builder.analyze();
     check_diagnostics(
-        without_releated(&diagnostics),
+        without_related(&diagnostics),
         vec![Diagnostic::new(
             code.sa("bad_to_string is ", "to_string"),
             "Could not find declaration of 'to_string' with given signature",

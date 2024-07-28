@@ -312,7 +312,7 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
     check_diagnostics(got_diagnostics.clone(), expected_diagnostics);
 
     // Check that all references are equal, ensures the incremental
-    // analysis has cleared refereces
+    // analysis has cleared references
     let mut got_searcher = FindAnyReferences::default();
     let _ = got.search(&mut got_searcher);
 

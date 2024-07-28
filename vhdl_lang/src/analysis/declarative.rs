@@ -234,6 +234,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             name,
             subtype_indication,
             signature,
+            is_token: _,
         } = alias;
 
         let resolved_name = self.name_resolve(scope, name.span, &mut name.item, diagnostics);
@@ -283,7 +284,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         ));
                     }
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!("{} cannot be aliased", resolved_name.describe_type()),
                         ErrorCode::MismatchedKinds,
                     );
@@ -447,7 +448,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             Declaration::File(ref mut file) => {
                 let FileDeclaration {
-                    ident,
+                    idents,
+                    colon_token: _,
                     subtype_indication,
                     open_info,
                     file_name,
@@ -459,18 +461,20 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     diagnostics,
                 ))?;
 
-                if let Some(ref mut expr) = open_info {
+                if let Some((_, ref mut expr)) = open_info {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
-                if let Some(ref mut expr) = file_name {
+                if let Some((_, ref mut expr)) = file_name {
                     self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
 
                 if let Some(subtype) = subtype {
-                    scope.add(
-                        self.define(ident, parent, AnyEntKind::File(subtype), src_span),
-                        diagnostics,
-                    );
+                    for ident in idents {
+                        scope.add(
+                            self.define(ident, parent, AnyEntKind::File(subtype), src_span),
+                            diagnostics,
+                        );
+                    }
                 }
             }
             Declaration::Component(ref mut component) => {
@@ -625,7 +629,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             Type::Record(region) => region,
             _ => {
                 let diag = Diagnostic::new(
-                    &view.typ.type_mark.pos(self.ctx),
+                    view.typ.type_mark.pos(self.ctx),
                     format!(
                         "The type of a view must be a record type, not {}",
                         typ.type_mark().describe()
@@ -641,17 +645,17 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         };
         let mut unassociated: HashSet<_> = record_region.elems.iter().collect();
         for element in view.elements.iter_mut() {
-            for name in element.names.items.iter_mut() {
-                let desi = Designator::Identifier(name.item.item.clone());
+            for name in element.names.iter_mut() {
+                let desi = Designator::Identifier(name.tree.item.clone());
                 let Some(record_element) = record_region.lookup(&desi) else {
                     diagnostics.push(Diagnostic::new(
-                        name.item.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!("Not a part of {}", typ.type_mark().describe()),
                         ErrorCode::Unresolved,
                     ));
                     continue;
                 };
-                name.set_unique_reference(&record_element);
+                name.decl.set_unique_reference(&record_element);
                 unassociated.remove(&record_element);
             }
         }
@@ -690,6 +694,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             entity_name,
             entity_class,
             expr,
+            colon_token: _,
         } = attr_spec;
 
         let attr_ent = match scope.lookup(
@@ -744,7 +749,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     if let Some(signature) = signature {
                         diagnostics.push(Diagnostic::should_not_have_signature(
                             "Attribute specification",
-                            &signature.pos(self.ctx),
+                            signature.pos(self.ctx),
                         ));
                     }
                     ent
@@ -954,7 +959,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 class,
                                 iface: Some(ObjectInterface::simple(
                                     object_decl.list_type,
-                                    mode.mode.unwrap_or_default(),
+                                    mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
                                 )),
                                 subtype,
                                 has_default: mode.expression.is_some(),
@@ -968,14 +973,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let resolved =
                     self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
                 let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
-                if let Some(ast_declared_subtype) = &mut view.subtype_indication {
+                if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
                     let declared_subtype =
                         self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
                     if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
                         bail!(
                             diagnostics,
                             Diagnostic::new(
-                                &ast_declared_subtype.type_mark.pos(self.ctx),
+                                ast_declared_subtype.type_mark.pos(self.ctx),
                                 "Specified subtype must match the subtype declared for the view",
                                 ErrorCode::TypeMismatch
                             )
@@ -1061,7 +1066,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => self
                 .type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)
                 .map(|typ| typ.base()),
-            ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
+            ArrayIndex::Discrete(ref mut drange) => {
+                self.drange_type(scope, &mut drange.item, diagnostics)
+            }
         }
     }
 }

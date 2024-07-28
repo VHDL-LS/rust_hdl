@@ -7,10 +7,9 @@
 use crate::ast::ExternalObjectClass;
 use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
-    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Designator,
-    FileDeclaration, HasIdent, Ident, InterfacePackageDeclaration, ModeViewDeclaration,
-    ObjectClass, PackageInstantiation, SubprogramBody, SubprogramInstantiation,
-    SubprogramSpecification, TypeDeclaration, WithDecl,
+    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Designator, HasIdent,
+    Ident, InterfacePackageDeclaration, ModeViewDeclaration, ObjectClass, PackageInstantiation,
+    SubprogramBody, SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::data::*;
 mod types;
@@ -712,12 +711,6 @@ impl HasEntityId for SubprogramBody {
 impl HasEntityId for AliasDeclaration {
     fn ent_id(&self) -> Option<EntityId> {
         self.designator.decl.get()
-    }
-}
-
-impl HasEntityId for FileDeclaration {
-    fn ent_id(&self) -> Option<EntityId> {
-        self.ident.decl.get()
     }
 }
 

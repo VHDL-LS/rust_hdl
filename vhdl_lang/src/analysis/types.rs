@@ -303,7 +303,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                 }
             }
-            TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
+            TypeDefinition::Array(ref mut array_indexes, _, ref mut subtype_indication) => {
                 let mut indexes: Vec<Option<BaseType>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
                     indexes.push(as_fatal(self.analyze_array_index(
@@ -399,11 +399,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 scope.add(primary, diagnostics);
 
                 for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
-                    match self.resolve_physical_unit(scope, &mut value.unit) {
+                    match self.resolve_physical_unit(scope, &mut value.item.unit) {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != phys_type {
                                 diagnostics.add(
-                                    value.unit.item.pos(self.ctx),
+                                    value.item.unit.item.pos(self.ctx),
                                     format!(
                                         "Physical unit of type '{}' does not match {}",
                                         secondary_unit_type.designator(),
@@ -451,7 +451,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         UniversalType::Real
                     } else {
                         diagnostics.add(
-                            &range.span().pos(self.ctx),
+                            range.span().pos(self.ctx),
                             "Expected real or integer range",
                             ErrorCode::TypeMismatch,
                         );
@@ -558,11 +558,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 self.drange_with_ttyp(
                                     scope,
                                     (*index_typ).into(),
-                                    drange,
+                                    &mut drange.item,
                                     diagnostics,
                                 )?;
                             } else {
-                                self.drange_unknown_type(scope, drange, diagnostics)?;
+                                self.drange_unknown_type(scope, &mut drange.item, diagnostics)?;
                             }
                         } else {
                             diagnostics.add(

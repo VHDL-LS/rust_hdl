@@ -34,23 +34,26 @@ pub fn parse_entity_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Ent
 
     let decl = parse_declarative_part(ctx)?;
 
-    let statements = if ctx.stream.skip_if_kind(Begin) {
+    let begin_token = ctx.stream.pop_if_kind(Begin);
+    let statements = if begin_token.is_some() {
         parse_labeled_concurrent_statements(ctx)?
     } else {
         Vec::new()
     };
-    ctx.stream.pop_if_kind(End);
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Entity);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
     Ok(EntityDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_clause,
         port_clause,
+        begin_token,
         decl,
+        end_token,
         statements,
     })
 }
@@ -67,20 +70,21 @@ pub fn parse_architecture_body(ctx: &mut ParsingContext<'_>) -> ParseResult<Arch
     let begin_token = ctx.stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Architecture);
 
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(ArchitectureBody {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         begin_token,
         ident,
         entity_name: entity_name.into_ref(),
         decl,
+        end_token,
         statements,
     })
 }
@@ -93,15 +97,16 @@ pub fn parse_package_declaration(ctx: &mut ParsingContext<'_>) -> ParseResult<Pa
     ctx.stream.expect_kind(Is)?;
     let generic_clause = parse_optional_generic_list(ctx)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.pop_if_kind(Package);
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon = expect_semicolon_or_last(ctx);
     Ok(PackageDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon),
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
+        end_token,
         generic_clause,
         decl,
     })
@@ -115,18 +120,19 @@ pub fn parse_package_body(ctx: &mut ParsingContext<'_>) -> ParseResult<PackageBo
 
     ctx.stream.expect_kind(Is)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     if ctx.stream.skip_if_kind(Package) {
         ctx.stream.expect_kind(Body)?;
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(PackageBody {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
         context_clause: ContextClause::default(),
         decl,
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident, end_ident),
+        end_token,
         ident: ident.into(),
     })
 }
@@ -301,6 +307,7 @@ mod tests {
         ident: Ident,
         span: TokenSpan,
         end_ident_pos: Option<TokenId>,
+        end_token: TokenId,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             span,
@@ -310,6 +317,8 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            begin_token: None,
+            end_token,
             end_ident_pos,
         }))
     }
@@ -326,7 +335,12 @@ end entity;
             design_file.design_units,
             [(
                 code.tokenize(),
-                simple_entity(code.s1("myent").ident(), code.token_span(), None)
+                simple_entity(
+                    code.s1("myent").ident(),
+                    code.token_span(),
+                    None,
+                    code.s1("end").token()
+                )
             )]
         );
 
@@ -344,6 +358,7 @@ end entity myent;
                     code.s1("myent").ident(),
                     code.token_span(),
                     Some(code.s("myent", 2).token()),
+                    code.s1("end").token()
                 )
             )]
         );
@@ -380,6 +395,8 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -410,6 +427,8 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -445,6 +464,8 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -469,6 +490,8 @@ end entity;
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: Some(code.s1("begin").token()),
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -493,6 +516,8 @@ end entity;
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
                 end_ident_pos: None,
+                begin_token: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -515,9 +540,11 @@ end entity;
                 ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: None,
+                begin_token: Some(code.s1("begin").token()),
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
                 end_ident_pos: None,
+                end_token: code.s1("end").token()
             }
         );
     }
@@ -573,6 +600,7 @@ end;
                     code_myent.s1("myent").ident(),
                     code_myent.token_span(),
                     None,
+                    code_myent.s1("end").token()
                 )
             )
         );
@@ -584,6 +612,7 @@ end;
                     code_myent2.s1("myent2").ident(),
                     code_myent2.token_span(),
                     Some(code_myent2.s("myent2", 2).token()),
+                    code_myent2.s1("end").token()
                 )
             )
         );
@@ -595,6 +624,7 @@ end;
                     code_myent3.s1("myent3").ident(),
                     code_myent3.token_span(),
                     Some(code_myent3.s("myent3", 2).token()),
+                    code_myent3.s1("end").token()
                 )
             ),
         );
@@ -605,7 +635,8 @@ end;
                 simple_entity(
                     code_myent4.s1("myent4").ident(),
                     code_myent4.token_span(),
-                    None
+                    None,
+                    code_myent4.s1("end").token()
                 )
             )
         );
@@ -619,6 +650,7 @@ end;
         span: TokenSpan,
         begin_token: TokenId,
         end_ident_pos: Option<TokenId>,
+        end_token: TokenId,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             span,
@@ -628,6 +660,7 @@ end;
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
+            end_token,
             end_ident_pos,
         }))
     }
@@ -651,6 +684,7 @@ end architecture;
                     code.token_span(),
                     code.s1("begin").token(),
                     None,
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -675,6 +709,7 @@ end architecture arch_name;
                     code.token_span(),
                     code.s1("begin").token(),
                     Some(code.s("arch_name", 2).token()),
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -699,6 +734,7 @@ end;
                     code.token_span(),
                     code.s1("begin").token(),
                     None,
+                    code.s1("end").token(),
                 )
             )]
         );
@@ -720,6 +756,7 @@ end package;
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );
@@ -748,6 +785,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );
@@ -777,6 +815,7 @@ end package;
                     span: code.between("generic (", ");").token_span()
                 }),
                 decl: vec![],
+                end_token: code.s1("end").token(),
                 end_ident_pos: None,
             }
         );
@@ -802,14 +841,16 @@ end entity;
                         span: code.s1_to_end("entity").token_span(),
                         context_clause: vec![
                             ContextItem::Library(code.s1("library lib;").library_clause()),
-                            ContextItem::Use(code.s1("use lib.foo;").use_clause()),
+                            ContextItem::Use(code.s1("use lib.foo;").use_clause().item),
                         ],
                         ident: code.s1("myent").decl_ident(),
                         generic_clause: None,
                         port_clause: None,
                         decl: vec![],
+                        begin_token: None,
                         statements: vec![],
                         end_ident_pos: None,
+                        end_token: code.s1("end").token()
                     }))
                 )]
             }
@@ -927,14 +968,14 @@ end entity y;
         let (tokens, unit) = &file.design_units[0];
         let ent = unit.expect_entity();
         let lib = ent.context_clause[0].expect_library_clause();
-        let tok = tokens.get_token(lib.get_start_token());
+        let tok = tokens.index(lib.get_start_token());
         assert_eq!(tok.kind, Library);
         assert_eq!(tok.pos, code.s1("library").pos());
 
         let (tokens, unit) = &file.design_units[2];
         let ent = unit.expect_entity();
         let ctx_ref = ent.context_clause[0].expect_context_reference();
-        let tok = tokens.get_token(ctx_ref.get_start_token());
+        let tok = tokens.index(ctx_ref.get_start_token());
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
     }

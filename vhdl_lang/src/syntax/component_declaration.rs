@@ -89,31 +89,34 @@ pub fn parse_component_declaration(
 ) -> ParseResult<ComponentDeclaration> {
     let start_token = ctx.stream.expect_kind(Component)?;
     let ident = WithDecl::new(ctx.stream.expect_ident()?);
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
 
     let generic_list = parse_optional_generic_list(ctx)?;
     let port_list = parse_optional_port_list(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     if ctx.standard < VHDL2019 {
         ctx.stream.expect_kind(Component)?;
     } else {
         ctx.stream.pop_if_kind(Component);
     }
     let end_ident = ctx.stream.pop_optional_ident();
-    let end_token = expect_semicolon_or_last(ctx);
+    let semicolon_token = expect_semicolon_or_last(ctx);
 
     Ok(ComponentDeclaration {
-        span: TokenSpan::new(start_token, end_token),
+        span: TokenSpan::new(start_token, semicolon_token),
+        is_token,
         end_ident_pos: check_end_identifier_mismatch(ctx, &ident.tree, end_ident),
         ident,
         generic_list,
         port_list,
+        end_token,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::syntax::test::Code;
     use crate::VHDLStandard::VHDL2019;
     use pretty_assertions::assert_eq;
@@ -131,10 +134,12 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
+                is_token: None,
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: None,
                 end_ident_pos: None,
+                end_token: code.s1("end").token(),
             }
         );
 
@@ -149,10 +154,12 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: None,
                 end_ident_pos: None,
+                end_token: code.s1("end").token(),
             }
         );
 
@@ -167,10 +174,12 @@ end component foo;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: None,
-                end_ident_pos: Some(code.s("foo", 2).token())
+                end_ident_pos: Some(code.s("foo", 2).token()),
+                end_token: code.s1("end").token(),
             }
         );
     }
@@ -191,6 +200,7 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: Some(InterfaceList {
                     interface_type: InterfaceType::Generic,
@@ -198,7 +208,8 @@ end component;
                     span: code.between("generic", ");").token_span()
                 }),
                 port_list: None,
-                end_ident_pos: None
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
             }
         );
     }
@@ -219,6 +230,7 @@ end component;
             component,
             ComponentDeclaration {
                 span: code.token_span(),
+                is_token: Some(code.s1("is").token()),
                 ident: code.s1("foo").decl_ident(),
                 generic_list: None,
                 port_list: Some(InterfaceList {
@@ -226,7 +238,8 @@ end component;
                     items: vec![code.s1("foo : natural").port()],
                     span: code.between("port", ");").token_span()
                 }),
-                end_ident_pos: None
+                end_ident_pos: None,
+                end_token: code.s1("end").token(),
             }
         );
     }
@@ -250,7 +263,7 @@ end
         assert_eq!(
             diagnostics,
             vec![Diagnostic::syntax_error(
-                &code.s("generic", 2).pos(),
+                code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
         );

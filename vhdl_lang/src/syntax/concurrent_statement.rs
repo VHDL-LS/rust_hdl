@@ -46,20 +46,23 @@ pub fn parse_block_statement(
             _ => None,
         }
     };
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
     let header = parse_block_header(ctx)?;
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Block)?;
     let end_ident = ctx.stream.pop_optional_ident();
     let end_tok = expect_semicolon_or_last(ctx);
     Ok(BlockStatement {
         guard_condition,
+        is_token,
         header,
         decl,
+        begin_token,
         statements,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(start_tok, end_tok),
     })
@@ -80,17 +83,17 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                 if let Some(map_token) = ctx.stream.pop_if_kind(Map) {
                     if port_clause.is_some() || port_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Generic map must come before port clause and port map",
                         ));
                     } else if generic_clause.is_none() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Generic map declared without preceding generic clause",
                         ));
                     } else if generic_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Duplicate generic map",
                         ));
                     }
@@ -98,9 +101,8 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                     expect_semicolon(ctx);
                     if generic_map.is_none() {
                         generic_map = Some(MapAspect {
-                            start: token_id,
                             list,
-                            closing_paren,
+                            span: TokenSpan::new(token_id, closing_paren),
                         });
                     }
                 } else {
@@ -127,12 +129,12 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                 if let Some(map_token) = ctx.stream.pop_if_kind(Map) {
                     if port_clause.is_none() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Port map declared without preceeding port clause",
                         ));
                     } else if port_map.is_some() {
                         ctx.diagnostics.push(Diagnostic::syntax_error(
-                            ctx.stream.get_token(map_token),
+                            ctx.stream.index(map_token),
                             "Duplicate port map",
                         ));
                     }
@@ -140,9 +142,8 @@ fn parse_block_header(ctx: &mut ParsingContext<'_>) -> ParseResult<BlockHeader> 
                     expect_semicolon(ctx);
                     if port_map.is_none() {
                         port_map = Some(MapAspect {
-                            start: token_id,
+                            span: TokenSpan::new(token_id, closing_paren),
                             list,
-                            closing_paren,
                         });
                     }
                 } else {
@@ -183,19 +184,20 @@ pub fn parse_process_statement(
     postponed: Option<TokenId>,
 ) -> ParseResult<ProcessStatement> {
     let process_token = ctx.stream.expect_kind(Process)?;
-    let sensitivity_list = if ctx.stream.skip_if_kind(LeftPar) {
+    let sensitivity_list = if let Some(left_par) = ctx.stream.pop_if_kind(LeftPar) {
         peek_token!(ctx.stream, token,
         All => {
             ctx.stream.skip();
-            ctx.stream.expect_kind(RightPar)?;
-            Some(SensitivityList::All)
+            let right_par = ctx.stream.expect_kind(RightPar)?;
+            Some(WithTokenSpan::new(SensitivityList::All, TokenSpan::new(left_par, right_par)))
         },
         RightPar => {
+            let right_par = ctx.stream.get_current_token_id();
             ctx.stream.skip();
             ctx.diagnostics.push(
                 Diagnostic::syntax_error(token, "Processes with sensitivity lists must contain at least one element.")
             );
-            Some(SensitivityList::Names(Vec::new()))
+            Some(WithTokenSpan::new(SensitivityList::Names(Vec::new()), TokenSpan::new(left_par, right_par)))
         },
         Identifier => {
             let mut names = Vec::with_capacity(1);
@@ -203,8 +205,9 @@ pub fn parse_process_statement(
                 names.push(parse_name(ctx)?);
                 peek_token!(ctx.stream, token,
                     RightPar => {
+                        let right_par = ctx.stream.get_current_token_id();
                         ctx.stream.skip();
-                        break Some(SensitivityList::Names(names));
+                        break Some(WithTokenSpan::new(SensitivityList::Names(names), TokenSpan::new(left_par, right_par)));
                     },
                     Comma => {
                         ctx.stream.skip();
@@ -219,16 +222,16 @@ pub fn parse_process_statement(
         None
     };
 
-    ctx.stream.pop_if_kind(Is);
+    let is_token = ctx.stream.pop_if_kind(Is);
     let decl = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
     let statements = parse_labeled_sequential_statements(ctx)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
 
     if let Some(token) = ctx.stream.pop_if_kind(Postponed) {
         if postponed.is_none() {
             ctx.diagnostics.push(Diagnostic::syntax_error(
-                ctx.stream.get_token(token),
+                ctx.stream.index(token),
                 "'postponed' at the end of non-postponed process.",
             ));
         }
@@ -239,8 +242,11 @@ pub fn parse_process_statement(
     Ok(ProcessStatement {
         postponed: postponed.is_some(),
         sensitivity_list,
+        is_token,
         decl,
+        begin_token,
         statements,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(postponed.unwrap_or(process_token), end_tok),
     })
@@ -261,7 +267,7 @@ fn to_procedure_call(
             call: WithTokenSpan::new(
                 CallOrIndexed {
                     name: WithTokenSpan::new(name, target.span),
-                    parameters: vec![],
+                    parameters: SeparatedList::default(),
                 },
                 target.span,
             ),
@@ -352,9 +358,8 @@ pub fn parse_map_aspect(
         ctx.stream.expect_kind(Map)?;
         let (list, closing_paren) = parse_association_list(ctx)?;
         Ok(Some(MapAspect {
-            start: aspect,
+            span: TokenSpan::new(aspect, closing_paren),
             list,
-            closing_paren,
         }))
     } else {
         Ok(None)
@@ -389,11 +394,11 @@ pub fn parse_instantiation_statement(
 
 fn parse_optional_declarative_part(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<Vec<WithTokenSpan<Declaration>>>> {
+) -> ParseResult<Option<(Vec<WithTokenSpan<Declaration>>, TokenId)>> {
     if is_declarative_part(ctx)? {
         let decls = parse_declarative_part(ctx)?;
-        ctx.stream.expect_kind(Begin)?;
-        Ok(Some(decls))
+        let begin_token = ctx.stream.expect_kind(Begin)?;
+        Ok(Some((decls, begin_token)))
     } else {
         Ok(None)
     }
@@ -405,30 +410,37 @@ fn parse_generate_body(
 ) -> ParseResult<GenerateBody> {
     let decl = parse_optional_declarative_part(ctx)?;
     let statements = parse_labeled_concurrent_statements(ctx)?;
-    let mut end_label_pos = None;
+    let mut end_label = None;
 
+    let end_token;
     // Potential inner end [ alternative_label ];
     if ctx.stream.next_kinds_are(&[End, SemiColon]) {
+        end_token = Some(ctx.stream.get_current_token_id());
         // Inner end no label
         ctx.stream.skip();
         ctx.stream.skip();
     } else if ctx.stream.next_kinds_are(&[End, Identifier]) {
+        end_token = Some(ctx.stream.get_current_token_id());
         ctx.stream.skip();
         // Inner with identifier
         let end_ident = ctx.stream.expect_ident()?;
-        end_label_pos = check_label_identifier_mismatch(
+        end_label = Some(ctx.stream.get_last_token_id());
+        check_label_identifier_mismatch(
             ctx,
             alternative_label.as_ref().map(|label| &label.tree),
             Some(end_ident),
         );
         expect_semicolon(ctx);
+    } else {
+        end_token = None
     }
 
     let body = GenerateBody {
         alternative_label,
         decl,
         statements,
-        end_label_pos,
+        end_token,
+        end_label,
     };
 
     Ok(body)
@@ -443,9 +455,9 @@ fn parse_for_generate_statement(
     let index_name = WithDecl::new(ctx.stream.expect_ident()?);
     ctx.stream.expect_kind(In)?;
     let discrete_range = parse_discrete_range(ctx)?;
-    ctx.stream.expect_kind(Generate)?;
+    let generate_token = ctx.stream.expect_kind(Generate)?;
     let body = parse_generate_body(ctx, None)?;
-    ctx.stream.expect_kind(End)?;
+    let end_token = ctx.stream.expect_kind(End)?;
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
     let end_tok = expect_semicolon_or_last(ctx);
@@ -453,7 +465,9 @@ fn parse_for_generate_statement(
     Ok(ForGenerateStatement {
         index_name,
         discrete_range,
+        generate_token,
         body,
+        end_token,
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
         span: TokenSpan::new(start_tok, end_tok),
     })
@@ -486,7 +500,7 @@ fn parse_if_generate_statement(
         conditionals.push(conditional);
 
         expect_token!(
-            ctx.stream, end_token,
+            ctx.stream, end_token, token_id,
             End => {
                 else_branch = None;
                 break;
@@ -510,7 +524,7 @@ fn parse_if_generate_statement(
                 );
                 let body = parse_generate_body(ctx, alternative_label)?;
                 ctx.stream.expect_kind(End)?;
-                else_branch = Some(body);
+                else_branch = Some((body, token_id));
                 break;
             }
         );
@@ -541,7 +555,8 @@ fn parse_case_generate_statement(
     ctx.stream.expect_kind(When)?;
 
     let mut alternatives = Vec::with_capacity(2);
-    loop {
+    let end_token = loop {
+        let start_token = ctx.stream.get_current_token_id();
         let alternative_label = {
             if ctx.stream.next_kinds_are(&[Identifier, Colon]) {
                 let ident = ctx.stream.expect_ident()?;
@@ -554,18 +569,20 @@ fn parse_case_generate_statement(
         let choices = parse_choices(ctx)?;
         ctx.stream.expect_kind(RightArrow)?;
         let body = parse_generate_body(ctx, alternative_label)?;
+        let end_token = ctx.stream.get_last_token_id();
 
         alternatives.push(Alternative {
             choices,
             item: body,
+            span: TokenSpan::new(start_token, end_token),
         });
 
         expect_token!(
-            ctx.stream, end_token,
-            End => break,
+            ctx.stream, end_token, end_token_id,
+            End => break end_token_id,
             When => continue
         );
-    }
+    };
 
     ctx.stream.expect_kind(Generate)?;
     let end_ident = ctx.stream.pop_optional_ident();
@@ -577,6 +594,7 @@ fn parse_case_generate_statement(
             alternatives,
         },
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
+        end_token,
         span: TokenSpan::new(start_tok, end_tok),
     })
 }
@@ -822,6 +840,7 @@ end block;",
 
         let block = BlockStatement {
             guard_condition: None,
+            is_token: None,
             header: BlockHeader {
                 generic_clause: None,
                 generic_map: None,
@@ -829,6 +848,7 @@ end block;",
                 port_map: None,
             },
             decl: code.s1("constant const : natural := 0;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![LabeledConcurrentStatement {
                 label: Some(code.s1("name2").ident()).into(),
                 statement: WithTokenSpan::new(
@@ -836,6 +856,7 @@ end block;",
                     code.s1("foo(clk);").token_span(),
                 ),
             }],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -860,6 +881,7 @@ end block name;",
         );
         let block = BlockStatement {
             guard_condition: None,
+            is_token: Some(code.s1("is").token()),
             header: BlockHeader {
                 generic_clause: None,
                 generic_map: None,
@@ -867,7 +889,9 @@ end block name;",
                 port_map: None,
             },
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: Some(code.s("name", 2).pos()),
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -898,8 +922,11 @@ end block;",
                 port_clause: None,
                 port_map: None,
             },
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -930,8 +957,11 @@ end block;",
                 port_clause: None,
                 port_map: None,
             },
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -974,8 +1004,11 @@ end block;",
                 }),
                 port_map: Some(code.s1("port map(prt => 2)").port_map_aspect()),
             },
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("block").token()),
         };
@@ -1001,8 +1034,11 @@ end process;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1025,8 +1061,11 @@ end process name;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: Some(code.s("name", 2).pos()),
             span: code.token_span().skip_to(code.s1("process").token()),
         };
@@ -1052,8 +1091,11 @@ end process;",
         let process = ProcessStatement {
             postponed: true,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1076,8 +1118,11 @@ end postponed process;",
         let process = ProcessStatement {
             postponed: true,
             sensitivity_list: None,
+            is_token: None,
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1101,8 +1146,11 @@ end postponed process;",
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: None,
+            is_token: Some(code.s1("is").token()),
             decl: Vec::new(),
+            begin_token: code.s1("begin").token(),
             statements: Vec::new(),
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1129,12 +1177,15 @@ end process;",
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::Names(vec![
-                code.s1("clk").name(),
-                code.s1("vec(1)").name(),
-            ])),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::Names(vec![code.s1("clk").name(), code.s1("vec(1)").name()]),
+                code.between("(", "))").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1157,9 +1208,15 @@ end process;",
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::Names(Vec::new())),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::Names(Vec::new()),
+                code.s1("()").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: Vec::new(),
+            begin_token: code.s1("begin").token(),
             statements: Vec::new(),
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1189,12 +1246,18 @@ end process;",
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: Some(SensitivityList::All),
+            sensitivity_list: Some(WithTokenSpan::new(
+                SensitivityList::All,
+                code.s1("(all)").token_span(),
+            )),
+            is_token: Some(code.s1("is").token()),
             decl: code.s1("variable foo : boolean;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![
                 code.s1("foo <= true;").sequential_statement(),
                 code.s1("wait;").sequential_statement(),
             ],
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span(),
         };
@@ -1300,6 +1363,7 @@ with x(0) + 1 select
             alternatives: vec![Alternative {
                 choices: code.s1("0|1").choices(),
                 item: code.s1("bar(1,2) after 2 ns").waveform(),
+                span: code.s1("bar(1,2) after 2 ns when 0|1").token_span(),
             }],
         };
 
@@ -1312,7 +1376,10 @@ with x(0) + 1 select
                 guarded: false,
                 assignment: SignalAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: Some(DelayMechanism::Transport),
+                    delay_mechanism: Some(WithTokenSpan::new(
+                        DelayMechanism::Transport,
+                        code.s1("transport").token_span()
+                    )),
                     rhs: AssignmentRightHand::Selected(selection)
                 }
             })
@@ -1521,12 +1588,15 @@ end generate;",
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
             discrete_range: code.s1("0 to 1").discrete_range(),
+            generate_token: code.s1("generate").token(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
                 statements: vec![],
-                end_label_pos: None,
+                end_token: None,
+                end_label: None,
             },
+            end_token: code.s1("end").token(),
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("for").token()),
         };
@@ -1552,13 +1622,16 @@ end generate;",
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
             discrete_range: code.s1("0 to 1").discrete_range(),
+            generate_token: code.s1("generate").token(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                end_label_pos: None,
+                end_token: None,
+                end_label: None,
             },
             end_label_pos: None,
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("for").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -1574,16 +1647,24 @@ end generate;",
 
     #[test]
     fn test_for_generate_empty_declarations() {
-        fn test(decl: Option<Vec<WithTokenSpan<Declaration>>>, code: Code) {
+        fn test(
+            decl: Option<Vec<WithTokenSpan<Declaration>>>,
+            code: Code,
+            body_end_token: Option<usize>,
+            end_token: usize,
+        ) {
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
+                generate_token: code.s1("generate").token(),
                 body: GenerateBody {
                     alternative_label: None,
-                    decl,
+                    decl: decl.map(|val| (val, code.s1("begin").token())),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_label_pos: None,
+                    end_token: body_end_token.map(|occ| code.s("end", occ).token()),
+                    end_label: None,
                 },
+                end_token: code.s("end", end_token).token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1606,6 +1687,8 @@ begin
   foo <= bar;
 end generate;",
             ),
+            None,
+            1,
         );
 
         test(
@@ -1616,6 +1699,8 @@ gen: for idx in 0 to 1 generate
   foo <= bar;
 end generate;",
             ),
+            None,
+            1,
         );
 
         test(
@@ -1628,21 +1713,29 @@ begin
 end;
 end generate;",
             ),
+            Some(1),
+            2,
         );
     }
 
     #[test]
     fn test_for_generate_declarations() {
-        fn test(code: Code) {
+        fn test(code: Code, end_occurrence: usize, body_end_token: Option<usize>) {
             let gen = ForGenerateStatement {
                 index_name: code.s1("idx").decl_ident(),
                 discrete_range: code.s1("0 to 1").discrete_range(),
+                generate_token: code.s1("generate").token(),
                 body: GenerateBody {
                     alternative_label: None,
-                    decl: Some(code.s1("signal foo : natural;").declarative_part()),
+                    decl: Some((
+                        code.s1("signal foo : natural;").declarative_part(),
+                        code.s1("begin").token(),
+                    )),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-                    end_label_pos: None,
+                    end_token: body_end_token.map(|val| code.s("end", val).token()),
+                    end_label: None,
                 },
+                end_token: code.s("end", end_occurrence).token(),
                 end_label_pos: None,
                 span: code.token_span().skip_to(code.s1("for").token()),
             };
@@ -1657,24 +1750,32 @@ end generate;",
             );
         }
 
-        test(Code::new(
-            "\
+        test(
+            Code::new(
+                "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
 end generate;",
-        ));
+            ),
+            1,
+            None,
+        );
 
-        test(Code::new(
-            "\
+        test(
+            Code::new(
+                "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
 end;
 end generate;",
-        ));
+            ),
+            2,
+            Some(1),
+        );
     }
 
     #[test]
@@ -1692,7 +1793,8 @@ end generate;",
                         alternative_label: None,
                         decl: None,
                         statements: vec![],
-                        end_label_pos: None,
+                        end_label: None,
+                        end_token: None,
                     },
                 }],
                 else_item: None,
@@ -1725,9 +1827,10 @@ end generate;",
                     condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
-                        decl: Some(vec![]),
+                        decl: Some((vec![], code.s1("begin").token())),
                         statements: vec![],
-                        end_label_pos: None,
+                        end_token: None,
+                        end_label: None,
                     },
                 }],
                 else_item: None,
@@ -1764,7 +1867,8 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
@@ -1773,16 +1877,21 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: None,
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: None,
+                        decl: None,
+                        statements: vec![],
+                        end_token: None,
+                        end_label: None,
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1822,27 +1931,42 @@ end generate;",
                         condition: code.s1("cond = true").expr(),
                         item: GenerateBody {
                             alternative_label: None,
-                            decl: Some(code.s1("variable v1 : boolean;").declarative_part()),
+                            decl: Some((
+                                code.s1("variable v1 : boolean;").declarative_part(),
+                                code.s("begin", 1).token(),
+                            )),
                             statements: vec![code.s1("foo1(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
                         condition: code.s1("cond2 = true").expr(),
                         item: GenerateBody {
                             alternative_label: None,
-                            decl: Some(code.s1("variable v2 : boolean;").declarative_part()),
+                            decl: Some((
+                                code.s1("variable v2 : boolean;").declarative_part(),
+                                code.s("begin", 2).token(),
+                            )),
                             statements: vec![code.s1("foo2(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: None,
-                    decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
-                    statements: vec![code.s1("foo3(clk);").concurrent_statement()],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: None,
+                        decl: Some((
+                            code.s1("variable v3 : boolean;").declarative_part(),
+                            code.s("begin", 3).token(),
+                        )),
+                        statements: vec![code.s1("foo3(clk);").concurrent_statement()],
+                        end_token: None,
+                        end_label: None,
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1878,7 +2002,8 @@ end generate;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
                     },
                     Conditional {
@@ -1887,16 +2012,21 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![],
-                            end_label_pos: None,
+                            end_token: Some(code.s("end", 1).token()),
+                            end_label: Some(code.s1("alt2").token()),
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: Some(code.s1("alt3").decl_ident()),
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: None,
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: Some(code.s1("alt3").decl_ident()),
+                        decl: None,
+                        statements: vec![],
+                        end_token: Some(code.s("end", 2).token()),
+                        end_label: Some(code.s1("alt4").token()),
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1942,7 +2072,8 @@ end generate;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: Some(code.s("alt1", 2).pos()),
+                            end_token: Some(code.s("end", 1).token()),
+                            end_label: Some(code.s("alt1", 2).token()),
                         },
                     },
                     Conditional {
@@ -1951,16 +2082,21 @@ end generate;",
                             alternative_label: Some(code.s1("alt2").decl_ident()),
                             decl: None,
                             statements: vec![],
-                            end_label_pos: Some(code.s("alt2", 2).pos()),
+                            end_token: Some(code.s("end", 2).token()),
+                            end_label: Some(code.s("alt2", 2).token()),
                         },
                     },
                 ],
-                else_item: Some(GenerateBody {
-                    alternative_label: Some(code.s1("alt3").decl_ident()),
-                    decl: None,
-                    statements: vec![],
-                    end_label_pos: Some(code.s("alt3", 2).pos()),
-                }),
+                else_item: Some((
+                    GenerateBody {
+                        alternative_label: Some(code.s1("alt3").decl_ident()),
+                        decl: None,
+                        statements: vec![],
+                        end_token: Some(code.s("end", 3).token()),
+                        end_label: Some(code.s("alt3", 2).token()),
+                    },
+                    code.s1("else").token(),
+                )),
             },
             end_label_pos: None,
             span: code.token_span().skip_to(code.s1("if").token()),
@@ -1997,8 +2133,10 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![code.s1("sig <= value;").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
+                        span: code.between("1 | 2", "value;").token_span(),
                     },
                     Alternative {
                         choices: code.s1("others").choices(),
@@ -2006,12 +2144,15 @@ end generate;",
                             alternative_label: None,
                             decl: None,
                             statements: vec![code.s1("foo(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
+                        span: code.between("others", "foo(clk);").token_span(),
                     },
                 ],
             },
             end_label_pos: None,
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -2046,8 +2187,10 @@ end generate gen1;",
                             alternative_label: Some(code.s1("alt1").decl_ident()),
                             decl: None,
                             statements: vec![code.s1("sig <= value;").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
+                        span: code.between("alt1", ";").token_span(),
                     },
                     Alternative {
                         choices: code.s1("others").choices(),
@@ -2055,12 +2198,15 @@ end generate gen1;",
                             alternative_label: Some(code.s1("alt2").decl_ident()),
                             decl: None,
                             statements: vec![code.s1("foo(clk);").concurrent_statement()],
-                            end_label_pos: None,
+                            end_token: None,
+                            end_label: None,
                         },
+                        span: code.between("alt2", ";").token_span(),
                     },
                 ],
             },
             end_label_pos: Some(code.s("gen1", 2).pos()),
+            end_token: code.s1("end").token(),
             span: code.token_span().skip_to(code.s1("case").token()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);

@@ -184,7 +184,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     // it must be a type conversion or a single parameter function call
 
                     let (pos, resolved_formal) = if let Some((inner_pos, inner_name)) =
-                        to_formal_conversion_argument(&mut fcall.parameters)
+                        to_formal_conversion_argument(&mut fcall.parameters.items)
                     {
                         (
                             inner_pos,
@@ -250,7 +250,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 bail!(
                                     diagnostics,
                                     Diagnostic::new(
-                                        &fcall.name.pos(self.ctx),
+                                        fcall.name.pos(self.ctx),
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
@@ -372,7 +372,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 result.push((actual.span, Some(formal)));
             } else {
                 diagnostics.add(
-                    &actual.pos(self.ctx),
+                    actual.pos(self.ctx),
                     "Unexpected extra argument",
                     ErrorCode::TooManyArguments,
                 );

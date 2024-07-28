@@ -21,6 +21,7 @@ mod project;
 mod syntax;
 
 mod completion;
+mod formatting;
 mod standard;
 
 pub use crate::config::Config;
@@ -28,6 +29,7 @@ pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
     NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source, SrcPos,
 };
+pub use formatting::VHDLFormatter;
 
 pub use crate::analysis::EntHierarchy;
 pub use crate::named_entity::{

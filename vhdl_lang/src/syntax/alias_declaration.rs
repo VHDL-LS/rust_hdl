@@ -27,7 +27,7 @@ pub fn parse_alias_declaration(
         }
     };
 
-    ctx.stream.expect_kind(Is)?;
+    let is_token = ctx.stream.expect_kind(Is)?;
     let name = parse_name(ctx)?;
 
     let signature = {
@@ -44,6 +44,7 @@ pub fn parse_alias_declaration(
         AliasDeclaration {
             designator,
             subtype_indication,
+            is_token,
             name,
             signature,
         },
@@ -65,6 +66,7 @@ mod tests {
                 AliasDeclaration {
                     designator: code.s1("foo").decl_designator(),
                     subtype_indication: None,
+                    is_token: code.s1("is").token(),
                     name: code.s1("name").name(),
                     signature: None
                 },
@@ -82,6 +84,7 @@ mod tests {
                 AliasDeclaration {
                     designator: code.s1("foo").decl_designator(),
                     subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
+                    is_token: code.s1("is").token(),
                     name: code.s1("name").name(),
                     signature: None
                 },
@@ -99,6 +102,7 @@ mod tests {
                 AliasDeclaration {
                     designator: code.s1("foo").decl_designator(),
                     subtype_indication: None,
+                    is_token: code.s1("is").token(),
                     name: code.s1("name").name(),
                     signature: Some(code.s1("[return natural]").signature())
                 },
@@ -119,6 +123,7 @@ mod tests {
                 AliasDeclaration {
                     designator,
                     subtype_indication: None,
+                    is_token: code.s1("is").token(),
                     name: code.s1("name").name(),
                     signature: None
                 },
@@ -139,6 +144,7 @@ mod tests {
                 AliasDeclaration {
                     designator,
                     subtype_indication: None,
+                    is_token: code.s1("is").token(),
                     name: code.s1("'b'").name(),
                     signature: None
                 },

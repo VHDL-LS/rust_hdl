@@ -64,7 +64,7 @@ end package body;
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::new(
-            &code.s1("a1"),
+            code.s1("a1"),
             "Deferred constants are only allowed in package declarations (not body)",
             ErrorCode::IllegalDeferredConstant,
         )],
@@ -88,11 +88,11 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::new(
-            &code.s("a1", 1),
+            code.s("a1", 1),
             "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
             ErrorCode::MissingDeferredDeclaration
         ),Diagnostic::new(
-            &code.s("a1", 2),
+            code.s("a1", 2),
             "Full declaration of deferred constant is only allowed in a package body",
             ErrorCode::IllegalDeferredConstant
         )],
@@ -123,12 +123,12 @@ end package body;
         diagnostics,
         vec![
             Diagnostic::new(
-                &code.s1("a1"),
+                code.s1("a1"),
                 "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
                 ErrorCode::MissingDeferredDeclaration
             ),
             Diagnostic::new(
-                &code.s1("b1"),
+                code.s1("b1"),
                 "Deferred constant 'b1' lacks corresponding full constant declaration in package body",
                 ErrorCode::MissingDeferredDeclaration
             ),

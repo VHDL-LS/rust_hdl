@@ -12,7 +12,7 @@ use super::object_declaration::parse_optional_assignment;
 use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
-use crate::ast::token_range::WithToken;
+use crate::ast::token_range::{WithToken, WithTokenSpan};
 /// LRM 6.5 Interface declarations
 use crate::ast::*;
 use crate::data::*;
@@ -71,7 +71,7 @@ fn parse_interface_file_declaration(
         .into_iter()
         .map(WithDecl::new)
         .collect_vec();
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(ctx)?;
 
     if ctx.stream.next_kind_is(Open) {
@@ -96,6 +96,7 @@ fn parse_interface_file_declaration(
     Ok(InterfaceDeclaration::File(InterfaceFileDeclaration {
         idents,
         subtype_indication: subtype.clone(),
+        colon_token,
         span: TokenSpan::new(start_token, end_token),
     }))
 }
@@ -112,7 +113,7 @@ fn parse_interface_object_declaration(
         .map(WithDecl::new)
         .collect_vec();
 
-    ctx.stream.expect_kind(Colon)?;
+    let colon_token = ctx.stream.expect_kind(Colon)?;
     let mode = if ctx.stream.next_kind_is(View) {
         ModeIndication::View(parse_view_mode_indication(ctx)?)
     } else {
@@ -129,12 +130,13 @@ fn parse_interface_object_declaration(
         list_type,
         mode: mode.clone(),
         idents,
+        colon_token,
         span: TokenSpan::new(start_token, end_token),
     }))
 }
 
 fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeViewIndication> {
-    ctx.stream.expect_kind(View)?;
+    let start_token = ctx.stream.expect_kind(View)?;
     let (name, kind) = if ctx.stream.pop_if_kind(LeftPar).is_some() {
         let _name = parse_name(ctx)?;
         ctx.stream.expect_kind(RightPar)?;
@@ -142,15 +144,17 @@ fn parse_view_mode_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<ModeV
     } else {
         (parse_name(ctx)?, ModeViewIndicationKind::Record)
     };
-    let subtype_indication = if ctx.stream.pop_if_kind(Of).is_some() {
-        Some(parse_subtype_indication(ctx)?)
+    let subtype_indication = if let Some(of_token) = ctx.stream.pop_if_kind(Of) {
+        Some((of_token, parse_subtype_indication(ctx)?))
     } else {
         None
     };
+    let end_token = ctx.stream.get_last_token_id();
     Ok(ModeViewIndication {
         subtype_indication,
         name,
         kind,
+        span: TokenSpan::new(start_token, end_token),
     })
 }
 
@@ -163,7 +167,7 @@ fn parse_simple_mode_indication(
     let object_class_tok = explicit_object_class.map(|class| class.token);
     let mode_with_pos = parse_optional_mode(ctx)?;
     let mode = mode_with_pos.as_ref().map(|mode| mode.item);
-    let mode_tok = mode_with_pos.map(|mode| mode.token);
+    let mode_tok = mode_with_pos.as_ref().map(|mode| mode.token);
 
     let object_class = match (
         list_type,
@@ -209,7 +213,7 @@ fn parse_simple_mode_indication(
     }
 
     Ok(SimpleModeIndication {
-        mode,
+        mode: mode_with_pos,
         class: object_class,
         subtype_indication: subtype,
         expression: expr,
@@ -246,7 +250,7 @@ fn parse_interface_package(
     ctx.stream.expect_kind(Is)?;
     ctx.stream.expect_kind(New)?;
     let package_name = parse_selected_name(ctx)?;
-    ctx.stream.expect_kind(Generic)?;
+    let generic_token = ctx.stream.expect_kind(Generic)?;
     ctx.stream.expect_kind(Map)?;
 
     let generic_map = {
@@ -274,7 +278,7 @@ fn parse_interface_package(
     Ok(InterfacePackageDeclaration {
         ident: ident.into(),
         package_name,
-        generic_map,
+        generic_map: WithTokenSpan::new(generic_map, TokenSpan::new(generic_token, last_token)),
         span: TokenSpan::new(start_token, last_token),
     })
 }
@@ -479,6 +483,7 @@ mod tests {
                         subtype_indication: code.s1("natural").subtype_indication(),
                         expression: None
                     }),
+                    colon_token: code.s1(":").token(),
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     span: code.between("constant", "natural").token_span()
                 })],
@@ -502,6 +507,7 @@ mod tests {
                     subtype_indication: code.s1("std_logic").subtype_indication(),
                     expression: None
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -515,6 +521,7 @@ mod tests {
             code.with_stream(parse_parameter),
             InterfaceDeclaration::File(InterfaceFileDeclaration {
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 span: code.token_span()
             })
@@ -570,6 +577,7 @@ mod tests {
                     items: vec![InterfaceDeclaration::File(InterfaceFileDeclaration {
                         idents: vec![code.s1("valid").decl_ident()],
                         subtype_indication: code.s("text", 2).subtype_indication(),
+                        colon_token: code.s(":", 2).token(),
                         span: code.s1("file valid : text").token_span()
                     })],
                     span: code.token_span()
@@ -604,6 +612,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -668,7 +677,7 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::In),
+                mode: Some(WithToken { item: Mode::In, .. }),
                 class: ObjectClass::Constant,
                 ..
             })
@@ -679,7 +688,10 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::Out),
+                mode: Some(WithToken {
+                    item: Mode::Out,
+                    ..
+                }),
                 class: ObjectClass::Variable,
                 ..
             })
@@ -690,7 +702,10 @@ mod tests {
         assert_matches!(
             result.mode,
             ModeIndication::Simple(SimpleModeIndication {
-                mode: Some(Mode::InOut),
+                mode: Some(WithToken {
+                    item: Mode::InOut,
+                    ..
+                }),
                 class: ObjectClass::Variable,
                 ..
             })
@@ -712,6 +727,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -732,6 +748,7 @@ mod tests {
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -743,7 +760,7 @@ mod tests {
         assert_eq!(
             code.with_partial_stream(parse_generic),
             Err(Diagnostic::syntax_error(
-                &code.s1("out").pos(),
+                code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
         );
@@ -1033,8 +1050,11 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Map(
-                    code.s1("(foo => bar)").association_list()
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Map(
+                        code.s1("(foo => bar)").association_list()
+                    ),
+                    code.between("generic", ")").token_span()
                 ),
                 span: code.token_span()
             })
@@ -1053,7 +1073,10 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Box,
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Box,
+                    code.between("generic", ")").token_span()
+                ),
                 span: code.token_span()
             })
         );
@@ -1071,7 +1094,10 @@ package foo is new lib.pkg
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
                 ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").name(),
-                generic_map: InterfacePackageGenericMapAspect::Default,
+                generic_map: WithTokenSpan::new(
+                    InterfacePackageGenericMapAspect::Default,
+                    code.between("generic", ")").token_span()
+                ),
                 span: code.token_span()
             })
         );
@@ -1131,6 +1157,7 @@ function foo() return bit;
                     expression: None
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -1146,8 +1173,10 @@ function foo() return bit;
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
                     subtype_indication: None,
-                    kind: ModeViewIndicationKind::Record
+                    kind: ModeViewIndicationKind::Record,
+                    span: code.s1("view bar").token_span(),
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -1161,9 +1190,11 @@ function foo() return bit;
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
                     subtype_indication: None,
-                    kind: ModeViewIndicationKind::Array
+                    kind: ModeViewIndicationKind::Array,
+                    span: code.s1("view (bar)").token_span(),
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );
@@ -1174,9 +1205,14 @@ function foo() return bit;
                 list_type: InterfaceType::Port,
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
-                    subtype_indication: Some(code.s1("baz").subtype_indication()),
-                    kind: ModeViewIndicationKind::Record
+                    subtype_indication: Some((
+                        code.s1("of").token(),
+                        code.s1("baz").subtype_indication()
+                    )),
+                    kind: ModeViewIndicationKind::Record,
+                    span: code.s1("view bar of baz").token_span(),
                 }),
+                colon_token: code.s1(":").token(),
                 idents: vec![code.s1("foo").decl_ident()],
                 span: code.token_span()
             })
@@ -1188,10 +1224,15 @@ function foo() return bit;
                 list_type: InterfaceType::Port,
                 mode: ModeIndication::View(ModeViewIndication {
                     name: code.s1("bar").name(),
-                    subtype_indication: Some(code.s1("baz").subtype_indication()),
-                    kind: ModeViewIndicationKind::Array
+                    subtype_indication: Some((
+                        code.s1("of").token(),
+                        code.s1("baz").subtype_indication()
+                    )),
+                    kind: ModeViewIndicationKind::Array,
+                    span: code.s1("view (bar) of baz").token_span(),
                 }),
                 idents: vec![code.s1("foo").decl_ident()],
+                colon_token: code.s1(":").token(),
                 span: code.token_span()
             })
         );

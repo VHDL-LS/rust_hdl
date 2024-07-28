@@ -26,8 +26,12 @@ pub(crate) struct ParsingContext<'a> {
 }
 
 impl TokenAccess for ParsingContext<'_> {
-    fn get_token(&self, id: TokenId) -> &Token {
+    fn get_token(&self, id: TokenId) -> Option<&Token> {
         self.stream.get_token(id)
+    }
+
+    fn index(&self, id: TokenId) -> &Token {
+        self.stream.index(id)
     }
 
     fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {

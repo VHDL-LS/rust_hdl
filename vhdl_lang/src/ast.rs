@@ -18,11 +18,11 @@ pub mod token_range;
 
 pub(crate) use self::util::*;
 use crate::ast::token_range::*;
-pub(crate) use any_design_unit::*;
-
 use crate::data::*;
 use crate::named_entity::{EntityId, Reference};
 use crate::syntax::{Token, TokenAccess, TokenId};
+pub(crate) use any_design_unit::*;
+use vhdl_lang::HasTokenSpan;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -178,6 +178,7 @@ pub enum ExternalPath {
 pub struct ExternalName {
     pub class: ExternalObjectClass,
     pub path: WithTokenSpan<ExternalPath>,
+    pub colon_token: TokenId,
     pub subtype: SubtypeIndication,
 }
 
@@ -197,7 +198,7 @@ pub enum Name {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CallOrIndexed {
     pub name: WithTokenSpan<Name>,
-    pub parameters: Vec<AssociationElement>,
+    pub parameters: SeparatedList<AssociationElement>,
 }
 
 /// LRM 9.3.3 Aggregates
@@ -286,7 +287,7 @@ pub enum Expression {
     Unary(WithToken<WithRef<Operator>>, Box<WithTokenSpan<Expression>>),
 
     /// LRM 9.3.3 Aggregates
-    Aggregate(Vec<ElementAssociation>),
+    Aggregate(Vec<WithTokenSpan<ElementAssociation>>),
 
     /// LRM 9.3.5 Qualified expressions
     Qualified(Box<QualifiedExpression>),
@@ -299,6 +300,7 @@ pub enum Expression {
 
     /// LRM 9.3.7 Allocators
     New(Box<WithTokenSpan<Allocator>>),
+    Parenthesized(Box<WithTokenSpan<Expression>>),
 }
 
 /// An identifier together with the lexical source location it occurs in.
@@ -328,6 +330,12 @@ pub struct RangeConstraint {
     pub right_expr: Box<WithTokenSpan<Expression>>,
 }
 
+impl RangeConstraint {
+    pub fn direction_token(&self) -> TokenId {
+        self.left_expr.span.end_token + 1
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Range {
     Range(RangeConstraint),
@@ -346,7 +354,7 @@ pub enum SubtypeConstraint {
     Range(Range),
     /// Empty Vec means Open
     Array(
-        Vec<DiscreteRange>,
+        Vec<WithTokenSpan<DiscreteRange>>,
         Option<Box<WithTokenSpan<SubtypeConstraint>>>,
     ),
     Record(Vec<ElementConstraint>),
@@ -364,27 +372,44 @@ pub struct RecordElementResolution {
 pub enum ResolutionIndication {
     FunctionName(WithTokenSpan<Name>),
     ArrayElement(WithTokenSpan<Name>),
-    Record(Vec<RecordElementResolution>),
-    Unresolved,
+    Record(WithTokenSpan<Vec<RecordElementResolution>>),
+}
+
+impl HasTokenSpan for ResolutionIndication {
+    fn get_start_token(&self) -> TokenId {
+        match self {
+            ResolutionIndication::FunctionName(name) => name.get_start_token(),
+            ResolutionIndication::ArrayElement(name) => name.get_start_token() - 1,
+            ResolutionIndication::Record(record) => record.get_start_token(),
+        }
+    }
+
+    fn get_end_token(&self) -> TokenId {
+        match self {
+            ResolutionIndication::FunctionName(name) => name.get_end_token(),
+            ResolutionIndication::ArrayElement(name) => name.get_end_token() + 1,
+            ResolutionIndication::Record(record) => record.get_end_token(),
+        }
+    }
 }
 
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubtypeIndication {
-    pub resolution: ResolutionIndication,
+    pub resolution: Option<ResolutionIndication>,
     pub type_mark: WithTokenSpan<Name>,
     pub constraint: Option<WithTokenSpan<SubtypeConstraint>>,
 }
 
 /// LRM 5.3 Array Types
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum ArrayIndex {
     /// Unbounded
     /// {identifier} range <>
     IndexSubtypeDefintion(WithTokenSpan<Name>),
 
     /// Constraint
-    Discrete(DiscreteRange),
+    Discrete(WithTokenSpan<DiscreteRange>),
 }
 
 /// LRM 5.3.3 Record types
@@ -392,6 +417,7 @@ pub enum ArrayIndex {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
     pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype: SubtypeIndication,
 }
 
@@ -470,6 +496,7 @@ impl HasDesignator for WithToken<WithRef<Designator>> {
 pub struct AliasDeclaration {
     pub designator: WithDecl<WithToken<Designator>>,
     pub subtype_indication: Option<SubtypeIndication>,
+    pub is_token: TokenId,
     pub name: WithTokenSpan<Name>,
     pub signature: Option<WithTokenSpan<Signature>>,
 }
@@ -526,6 +553,7 @@ pub enum EntityClass {
 pub struct AttributeSpecification {
     pub ident: WithRef<Ident>,
     pub entity_name: EntityName,
+    pub colon_token: TokenId,
     pub entity_class: EntityClass,
     pub expr: WithTokenSpan<Expression>,
 }
@@ -553,8 +581,9 @@ pub struct ProtectedTypeBody {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PhysicalTypeDeclaration {
     pub range: Range,
+    pub units_token: TokenId,
     pub primary_unit: WithDecl<Ident>,
-    pub secondary_units: Vec<(WithDecl<Ident>, PhysicalLiteral)>,
+    pub secondary_units: Vec<(WithDecl<Ident>, WithTokenSpan<PhysicalLiteral>)>,
 }
 
 /// LRM 5.2.2 Enumeration types
@@ -578,7 +607,7 @@ pub enum TypeDefinition {
     // @TODO floating
     /// LRM 5.3 Composite Types
     /// LRM 5.3.2 Array types
-    Array(Vec<ArrayIndex>, SubtypeIndication),
+    Array(Vec<ArrayIndex>, TokenId, SubtypeIndication),
     /// LRM 5.3.3 Record types
     Record(Vec<ElementDeclaration>),
     /// LRM 5.4 Access types
@@ -603,6 +632,17 @@ pub struct TypeDeclaration {
     pub end_ident_pos: Option<TokenId>,
 }
 
+impl TypeDeclaration {
+    pub fn is_token(&self) -> Option<TokenId> {
+        if matches!(self.def, TypeDefinition::Incomplete(_)) {
+            // incomplete types have no `is` token
+            None
+        } else {
+            Some(self.ident.tree.token + 1)
+        }
+    }
+}
+
 /// LRM 6.4.2 Object Declarations
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ObjectClass {
@@ -622,6 +662,7 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
+    pub colon_token: TokenId,
     pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithTokenSpan<Expression>>,
@@ -629,10 +670,11 @@ pub struct ObjectDeclaration {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
-    pub ident: WithDecl<Ident>,
+    pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype_indication: SubtypeIndication,
-    pub open_info: Option<WithTokenSpan<Expression>>,
-    pub file_name: Option<WithTokenSpan<Expression>>,
+    pub open_info: Option<(TokenId, WithTokenSpan<Expression>)>,
+    pub file_name: Option<(TokenId, WithTokenSpan<Expression>)>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -674,7 +716,9 @@ pub struct FunctionSpecification {
 pub struct SubprogramBody {
     pub specification: SubprogramSpecification,
     pub declarations: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -729,6 +773,7 @@ pub struct SubprogramDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub idents: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub subtype_indication: SubtypeIndication,
 }
 
@@ -737,6 +782,7 @@ pub struct InterfaceFileDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceType,
+    pub colon_token: TokenId,
     pub idents: Vec<WithDecl<Ident>>,
     pub mode: ModeIndication,
 }
@@ -749,7 +795,7 @@ pub enum ModeIndication {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SimpleModeIndication {
-    pub mode: Option<Mode>,
+    pub mode: Option<WithToken<Mode>>,
     pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
     pub bus: bool,
@@ -762,11 +808,12 @@ pub enum ModeViewIndicationKind {
     Record,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewIndication {
     pub kind: ModeViewIndicationKind,
     pub name: WithTokenSpan<Name>,
-    pub subtype_indication: Option<SubtypeIndication>,
+    pub subtype_indication: Option<(TokenId, SubtypeIndication)>,
 }
 
 /// LRM 6.5.5 Interface package declaration
@@ -783,7 +830,7 @@ pub enum InterfacePackageGenericMapAspect {
 pub struct InterfacePackageDeclaration {
     pub ident: WithDecl<Ident>,
     pub package_name: WithTokenSpan<Name>,
-    pub generic_map: InterfacePackageGenericMapAspect,
+    pub generic_map: WithTokenSpan<InterfacePackageGenericMapAspect>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -825,8 +872,10 @@ pub enum Mode {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
+    pub is_token: Option<TokenId>,
     pub generic_list: Option<InterfaceList>,
     pub port_list: Option<InterfaceList>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -849,14 +898,37 @@ pub enum Declaration {
 
 impl Declaration {
     pub fn declarations(&self) -> Vec<EntityId> {
-        todo!()
+        match self {
+            Declaration::Object(ObjectDeclaration { idents, .. })
+            | Declaration::File(FileDeclaration { idents, .. }) => {
+                idents.iter().flat_map(|ident| ident.decl.get()).collect()
+            }
+            Declaration::Type(TypeDeclaration { ident, .. })
+            | Declaration::Component(ComponentDeclaration { ident, .. })
+            | Declaration::View(ModeViewDeclaration { ident, .. })
+            | Declaration::Package(PackageInstantiation { ident, .. })
+            | Declaration::SubprogramInstantiation(SubprogramInstantiation { ident, .. })
+            | Declaration::Attribute(Attribute::Declaration(AttributeDeclaration {
+                ident, ..
+            })) => ident.decl.get().into_iter().collect(),
+            Declaration::Alias(alias) => alias.designator.decl.get().into_iter().collect(),
+            Declaration::SubprogramDeclaration(SubprogramDeclaration { specification, .. })
+            | Declaration::SubprogramBody(SubprogramBody { specification, .. }) => {
+                let designator = match specification {
+                    SubprogramSpecification::Procedure(procedure) => &procedure.designator,
+                    SubprogramSpecification::Function(function) => &function.designator,
+                };
+                designator.decl.get().into_iter().collect()
+            }
+            _ => vec![],
+        }
     }
 }
 
 /// LRM 10.2 Wait statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {
-    pub sensitivity_clause: Vec<WithTokenSpan<Name>>,
+    pub sensitivity_clause: Option<Vec<WithTokenSpan<Name>>>,
     pub condition_clause: Option<WithTokenSpan<Expression>>,
     pub timeout_clause: Option<WithTokenSpan<Expression>>,
 }
@@ -880,7 +952,7 @@ pub struct ReportStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Target {
     Name(Name),
-    Aggregate(Vec<ElementAssociation>),
+    Aggregate(Vec<WithTokenSpan<ElementAssociation>>),
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -890,11 +962,24 @@ pub struct WaveformElement {
     pub after: Option<WithTokenSpan<Expression>>,
 }
 
+impl HasTokenSpan for WaveformElement {
+    fn get_start_token(&self) -> TokenId {
+        self.value.get_start_token()
+    }
+
+    fn get_end_token(&self) -> TokenId {
+        self.after
+            .as_ref()
+            .map(|expr| expr.get_end_token())
+            .unwrap_or(self.value.get_end_token())
+    }
+}
+
 /// LRM 10.5 Signal assignment statement
 #[derive(PartialEq, Debug, Clone)]
 pub enum Waveform {
     Elements(Vec<WaveformElement>),
-    Unaffected,
+    Unaffected(TokenId),
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -910,7 +995,7 @@ pub enum DelayMechanism {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SignalAssignment {
     pub target: WithTokenSpan<Target>,
-    pub delay_mechanism: Option<DelayMechanism>,
+    pub delay_mechanism: Option<WithTokenSpan<DelayMechanism>>,
     pub rhs: AssignmentRightHand<Waveform>,
 }
 
@@ -959,7 +1044,7 @@ pub struct Conditional<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Conditionals<T> {
     pub conditionals: Vec<Conditional<T>>,
-    pub else_item: Option<T>,
+    pub else_item: Option<(T, TokenId)>,
 }
 
 /// LRM 10.8 If statement
@@ -969,6 +1054,7 @@ pub struct IfStatement {
     pub end_label_pos: Option<SrcPos>,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct Alternative<T> {
     pub choices: Vec<WithTokenSpan<Choice>>,
@@ -987,6 +1073,7 @@ pub struct CaseStatement {
     pub is_matching: bool,
     pub expression: WithTokenSpan<Expression>,
     pub alternatives: Vec<Alternative<Vec<LabeledSequentialStatement>>>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1001,7 +1088,9 @@ pub enum IterationScheme {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LoopStatement {
     pub iteration_scheme: Option<IterationScheme>,
+    pub loop_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1058,8 +1147,11 @@ pub struct LabeledSequentialStatement {
 pub struct BlockStatement {
     pub guard_condition: Option<WithTokenSpan<Expression>>,
     pub header: BlockHeader,
+    pub is_token: Option<TokenId>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1083,9 +1175,12 @@ pub enum SensitivityList {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcessStatement {
     pub postponed: bool,
-    pub sensitivity_list: Option<SensitivityList>,
+    pub sensitivity_list: Option<WithTokenSpan<SensitivityList>>,
+    pub is_token: Option<TokenId>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: TokenId,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1130,23 +1225,16 @@ impl InstantiatedUnit {
     }
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct MapAspect {
-    // `generic` or `map`
-    pub start: TokenId,
     pub list: SeparatedList<AssociationElement>,
-    pub closing_paren: TokenId,
 }
 
 impl MapAspect {
     /// Returns an iterator over the formal elements of this map
     pub fn formals(&self) -> impl Iterator<Item = Option<EntityId>> + '_ {
         self.list.formals()
-    }
-
-    /// Returns the span that this aspect encompasses
-    pub fn span(&self, ctx: &dyn TokenAccess) -> SrcPos {
-        ctx.get_span(self.start, self.closing_paren)
     }
 }
 
@@ -1170,9 +1258,10 @@ impl InstantiationStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct GenerateBody {
     pub alternative_label: Option<WithDecl<Ident>>,
-    pub decl: Option<Vec<WithTokenSpan<Declaration>>>,
+    pub decl: Option<(Vec<WithTokenSpan<Declaration>>, TokenId)>,
     pub statements: Vec<LabeledConcurrentStatement>,
-    pub end_label_pos: Option<SrcPos>,
+    pub end_token: Option<TokenId>,
+    pub end_label: Option<TokenId>,
 }
 
 /// 11.8 Generate statements
@@ -1181,7 +1270,9 @@ pub struct GenerateBody {
 pub struct ForGenerateStatement {
     pub index_name: WithDecl<Ident>,
     pub discrete_range: DiscreteRange,
+    pub generate_token: TokenId,
     pub body: GenerateBody,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1197,6 +1288,7 @@ pub struct IfGenerateStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CaseGenerateStatement {
     pub sels: Selection<GenerateBody>,
+    pub end_token: TokenId,
     pub end_label_pos: Option<SrcPos>,
 }
 
@@ -1205,14 +1297,17 @@ pub struct CaseGenerateStatement {
 pub struct ModeViewDeclaration {
     pub ident: WithDecl<Ident>,
     pub typ: SubtypeIndication,
+    pub is_token: TokenId,
     pub elements: Vec<ModeViewElement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ModeViewElement {
-    pub names: IdentList,
+    pub names: Vec<WithDecl<Ident>>,
+    pub colon_token: TokenId,
     pub mode: ElementMode,
 }
 
@@ -1248,7 +1343,7 @@ pub struct LabeledConcurrentStatement {
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub name_list: IdentList,
+    pub name_list: Vec<WithRef<Ident>>,
 }
 
 /// Represents a token-separated list of some generic type `T`
@@ -1280,21 +1375,27 @@ impl SeparatedList<AssociationElement> {
     }
 }
 
-pub type IdentList = SeparatedList<WithRef<Ident>>;
-pub type NameList = SeparatedList<WithTokenSpan<Name>>;
+impl<T> SeparatedList<T> {
+    pub fn single(item: T) -> SeparatedList<T> {
+        SeparatedList {
+            items: vec![item],
+            tokens: vec![],
+        }
+    }
+}
 
 /// LRM 12.4. Use clauses
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub name_list: NameList,
+    pub name_list: Vec<WithTokenSpan<Name>>,
 }
 
 /// LRM 13.4 Context clauses
 #[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub name_list: NameList,
+    pub name_list: Vec<WithTokenSpan<Name>>,
 }
 
 /// LRM 13.4 Context clauses
@@ -1311,6 +1412,7 @@ pub enum ContextItem {
 pub struct ContextDeclaration {
     pub ident: WithDecl<Ident>,
     pub items: ContextClause,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1341,6 +1443,7 @@ pub enum EntityAspect {
 }
 
 /// LRM 7.3.2 Binding indication
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BindingIndication {
     pub entity_aspect: Option<EntityAspect>,
@@ -1349,13 +1452,16 @@ pub struct BindingIndication {
 }
 
 /// LRM 7.3 Configuration specification
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentSpecification {
     pub instantiation_list: InstantiationList,
+    pub colon_token: TokenId,
     pub component_name: WithTokenSpan<Name>,
 }
 
 /// LRM 7.3.4 Verification unit binding indication
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct VUnitBindingIndication {
     pub vunit_list: Vec<WithTokenSpan<Name>>,
@@ -1368,17 +1474,11 @@ pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
     pub bind_ind: BindingIndication,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
+    pub end_token: Option<TokenId>,
 }
 
 /// LRM 3.4 Configuration declarations
-#[derive(PartialEq, Debug, Clone)]
-pub enum ConfigurationDeclarativeItem {
-    Use(UseClause),
-    // @TODO attribute
-    // @TODO group
-}
-
-/// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,
@@ -1395,6 +1495,7 @@ pub enum ConfigurationItem {
 }
 
 /// LRM 3.4 Configuration declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockConfiguration {
     pub block_spec: WithTokenSpan<Name>,
@@ -1409,9 +1510,10 @@ pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub entity_name: WithTokenSpan<Name>,
-    pub decl: Vec<ConfigurationDeclarativeItem>,
+    pub decl: Vec<WithTokenSpan<Declaration>>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1424,8 +1526,18 @@ pub struct EntityDeclaration {
     pub generic_clause: Option<InterfaceList>,
     pub port_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub begin_token: Option<TokenId>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    /// The `end` token from the declaration `*end* entity foo;`
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
+}
+
+impl EntityDeclaration {
+    /// The `is` token from the declaration `entity foo *is*`
+    pub fn is_token(&self) -> TokenId {
+        self.span.start_token + 2
+    }
 }
 
 /// LRM 3.3 Architecture bodies
@@ -1438,7 +1550,16 @@ pub struct ArchitectureBody {
     pub begin_token: TokenId,
     pub decl: Vec<WithTokenSpan<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
+}
+
+impl ArchitectureBody {
+    /// Location of the `is` token from
+    /// `architecture arch of ent is`
+    pub fn is_token(&self) -> TokenId {
+        self.span.start_token + 4
+    }
 }
 
 /// LRM 4.7 Package declarations
@@ -1449,6 +1570,7 @@ pub struct PackageDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<InterfaceList>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 
@@ -1459,6 +1581,7 @@ pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub decl: Vec<WithTokenSpan<Declaration>>,
+    pub end_token: TokenId,
     pub end_ident_pos: Option<TokenId>,
 }
 

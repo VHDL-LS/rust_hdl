@@ -6,8 +6,27 @@
 
 use clap::Parser;
 use itertools::Itertools;
-use std::path::Path;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap};
+use std::iter::zip;
+use std::path::{Path, PathBuf};
+use vhdl_lang::ast::DesignFile;
+use vhdl_lang::{
+    Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap, Source, VHDLFormatter,
+    VHDLParser, VHDLStandard,
+};
+
+#[derive(Debug, clap::Args)]
+#[group(required = true, multiple = false)]
+pub struct Group {
+    /// Config file in TOML format containing libraries and settings
+    #[arg(short, long)]
+    config: Option<String>,
+
+    /// Format the passed file and write the contents to stdout.
+    ///
+    /// This is experimental and the formatting behavior will change in the future.
+    #[arg(short, long)]
+    format: Option<String>,
+}
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
@@ -22,23 +41,82 @@ struct Args {
     #[arg(short = 'l', long)]
     libraries: Option<String>,
 
-    /// Config file in TOML format containing libraries and settings
-    #[arg(short, long)]
-    config: String,
+    #[clap(flatten)]
+    group: Group,
 }
 
 fn main() {
     let args = Args::parse();
+    if let Some(config_path) = args.group.config {
+        parse_and_analyze_project(config_path, args.num_threads, args.libraries);
+    } else if let Some(format) = args.group.format {
+        format_file(format);
+    }
+}
+
+fn format_file(format: String) {
+    let path = PathBuf::from(format);
+    let parser = VHDLParser::new(VHDLStandard::default());
+    let mut diagnostics = Vec::new();
+    let result = parser.parse_design_file(&path, &mut diagnostics);
+    match result {
+        Ok((_, design_file)) => {
+            if !diagnostics.is_empty() {
+                show_diagnostics(&diagnostics, &SeverityMap::default());
+                std::process::exit(1);
+            }
+            let result = VHDLFormatter::format_design_file(&design_file);
+            println!("{result}");
+            check_formatted_file(&path, parser, design_file, &result);
+            std::process::exit(0);
+        }
+        Err(err) => {
+            println!("{err}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn check_formatted_file(path: &Path, parser: VHDLParser, design_file: DesignFile, result: &str) {
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
+    let new_file = parser.parse_design_source(&Source::inline(path, result), &mut diagnostics);
+    if !diagnostics.is_empty() {
+        println!("Formatting failed as it resulted in a syntactically incorrect file.");
+        show_diagnostics(&diagnostics, &SeverityMap::default());
+        std::process::exit(1);
+    }
+    for ((tokens_a, _), (tokens_b, _)) in zip(new_file.design_units, design_file.design_units) {
+        for (a, b) in zip(tokens_a, tokens_b) {
+            if !a.equal_format(&b) {
+                println!("Token mismatch");
+                println!("New Token={a:#?}");
+                let contents = a.pos.source.contents();
+                let a_line = contents.get_line(a.pos.range.start.line as usize).unwrap();
+                println!("    {a_line}");
+                println!("Old Token={b:#?}");
+                let b_line = result.lines().nth(b.pos.range.start.line as usize).unwrap();
+                println!("    {b_line}");
+                break;
+            }
+        }
+    }
+}
+
+fn parse_and_analyze_project(
+    config_path: String,
+    num_threads: Option<usize>,
+    libraries: Option<String>,
+) {
     rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_threads.unwrap_or(0))
+        .num_threads(num_threads.unwrap_or(0))
         .build_global()
         .unwrap();
 
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer, args.libraries.clone());
+    config.load_external_config(&mut msg_printer, libraries.clone());
     config.append(
-        &Config::read_file_path(Path::new(&args.config)).expect("Failed to read config file"),
+        &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
         &mut msg_printer,
     );
 

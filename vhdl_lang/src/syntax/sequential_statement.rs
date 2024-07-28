@@ -18,6 +18,7 @@ use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
 use crate::syntax::kinds_error;
 use crate::syntax::recover::{expect_semicolon, expect_semicolon_or_last};
+use crate::syntax::separated_list::parse_name_list;
 use crate::HasTokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
 use vhdl_lang::TokenSpan;
@@ -25,15 +26,11 @@ use vhdl_lang::TokenSpan;
 /// LRM 10.2 Wait statement
 fn parse_wait_statement(ctx: &mut ParsingContext<'_>) -> ParseResult<WaitStatement> {
     ctx.stream.expect_kind(Wait)?;
-    let mut sensitivity_clause = vec![];
-    if ctx.stream.skip_if_kind(On) {
-        loop {
-            sensitivity_clause.push(parse_name(ctx)?);
-            if !ctx.stream.skip_if_kind(Comma) {
-                break;
-            }
-        }
-    }
+    let sensitivity_clause = if ctx.stream.skip_if_kind(On) {
+        Some(parse_name_list(ctx)?)
+    } else {
+        None
+    };
 
     let condition_clause = parse_optional(ctx, Until, parse_expression)?;
     let timeout_clause = parse_optional(ctx, For, parse_expression)?;
@@ -115,6 +112,7 @@ fn parse_if_statement(
         expect_token!(
             ctx.stream,
             end_token,
+            token_id,
             Elsif => {
                 conditionals.push(conditional);
                 continue;
@@ -129,7 +127,7 @@ fn parse_if_statement(
                     end_token,
                     End => {
                         ctx.stream.expect_kind(If)?;
-                        else_branch = Some(statements);
+                        else_branch = Some((statements, token_id));
                         break;
                     }
                 );
@@ -167,17 +165,21 @@ fn parse_case_statement(
     let mut alternatives = Vec::new();
 
     loop {
+        let start_token = ctx.stream.get_current_token_id();
         let choices = parse_choices(ctx)?;
         ctx.stream.expect_kind(RightArrow)?;
         let statements = parse_labeled_sequential_statements(ctx)?;
+        let end_token = ctx.stream.get_last_token_id();
         let alternative = Alternative {
             choices,
             item: statements,
+            span: TokenSpan::new(start_token, end_token),
         };
 
         expect_token!(
             ctx.stream,
             end_token,
+            end_token_id,
             When => {
                 alternatives.push(alternative);
                 continue;
@@ -194,6 +196,7 @@ fn parse_case_statement(
                     is_matching,
                     expression,
                     alternatives,
+                    end_token: end_token_id,
                     end_label_pos,
                 });
             }
@@ -206,21 +209,21 @@ fn parse_loop_statement(
     ctx: &mut ParsingContext<'_>,
     label: Option<&Ident>,
 ) -> ParseResult<LoopStatement> {
-    let iteration_scheme = {
+    let (iteration_scheme, loop_token) = {
         expect_token!(
-            ctx.stream, token,
-            Loop => None,
+            ctx.stream, token, token_id,
+            Loop => (None, token_id),
             While => {
                 let expression = parse_expression(ctx)?;
-                ctx.stream.expect_kind(Loop)?;
-                Some(IterationScheme::While(expression))
+                let loop_token = ctx.stream.expect_kind(Loop)?;
+                (Some(IterationScheme::While(expression)), loop_token)
             },
             For => {
                 let ident = ctx.stream.expect_ident()?;
                 ctx.stream.expect_kind(In)?;
                 let discrete_range = parse_discrete_range(ctx)?;
-                ctx.stream.expect_kind(Loop)?;
-                Some(IterationScheme::For(ident.into(), discrete_range))
+                let loop_token = ctx.stream.expect_kind(Loop)?;
+                (Some(IterationScheme::For(ident.into(), discrete_range)), loop_token)
             }
         )
     };
@@ -230,13 +233,16 @@ fn parse_loop_statement(
     expect_token!(
         ctx.stream,
         end_token,
+        end_token_id,
         End => {
             ctx.stream.expect_kind(Loop)?;
             let end_label_pos = check_label_identifier_mismatch(ctx, label, ctx.stream.pop_optional_ident());
             expect_semicolon(ctx);
             Ok(LoopStatement {
                 iteration_scheme,
+                loop_token,
                 statements,
+                end_token: end_token_id,
                 end_label_pos,
             })
         }
@@ -352,6 +358,7 @@ where
         expect_token!(
             ctx.stream,
             token,
+            token_id,
             SemiColon => {
                 break;
             },
@@ -361,7 +368,7 @@ where
                     ctx.stream,
                     token,
                     SemiColon =>  {
-                        else_item = Some(item);
+                        else_item = Some((item, token_id));
                         break;
                     },
                     When => {
@@ -394,10 +401,16 @@ where
     let mut alternatives = Vec::with_capacity(2);
 
     loop {
+        let start_token = ctx.stream.get_current_token_id();
         let item = parse_item(ctx)?;
         ctx.stream.expect_kind(When)?;
         let choices = parse_choices(ctx)?;
-        alternatives.push(Alternative { choices, item });
+        let end_token = ctx.stream.get_last_token_id();
+        alternatives.push(Alternative {
+            choices,
+            item,
+            span: TokenSpan::new(start_token, end_token),
+        });
 
         expect_token!(
             ctx.stream,
@@ -485,7 +498,7 @@ fn parse_assignment_or_procedure_call(
                     SequentialStatement::ProcedureCall(
                         WithTokenSpan::from(CallOrIndexed {
                             name: WithTokenSpan::from(name, target.span),
-                            parameters: vec![]
+                            parameters: SeparatedList::default(),
                         }, target.span))
                 }
                 Target::Aggregate(..) => {
@@ -644,7 +657,7 @@ mod tests {
                 None,
                 WithTokenSpan::from(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -663,7 +676,7 @@ mod tests {
                 Some(code.s1("foo").ident()),
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -682,7 +695,10 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
+                        sensitivity_clause: Some(vec![
+                            code.s1("foo").name(),
+                            code.s1("bar").name()
+                        ]),
                         condition_clause: None,
                         timeout_clause: None,
                     }),
@@ -701,7 +717,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: Some(code.s1("a = b").expr()),
                         timeout_clause: None,
                     }),
@@ -720,7 +736,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![],
+                        sensitivity_clause: None,
                         condition_clause: None,
                         timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
@@ -739,7 +755,7 @@ mod tests {
                 None,
                 WithTokenSpan::new(
                     SequentialStatement::Wait(WaitStatement {
-                        sensitivity_clause: vec![code.s1("foo").name()],
+                        sensitivity_clause: Some(vec![code.s1("foo").name()]),
                         condition_clause: Some(code.s1("bar").expr()),
                         timeout_clause: Some(code.s1("2 ns").expr()),
                     }),
@@ -935,7 +951,10 @@ mod tests {
                 WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        delay_mechanism: Some(DelayMechanism::Transport),
+                        delay_mechanism: Some(WithTokenSpan::new(
+                            DelayMechanism::Transport,
+                            code.s1("transport").token_span()
+                        )),
                         rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform()),
                     }),
                     code.token_span()
@@ -1082,10 +1101,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2)").expr(),
+                    span: code.s1("bar(1,2) when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").expr(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1149,7 +1170,7 @@ with x(0) + 1 select
                                 condition: code.s1("cond = true").expr(),
                                 item: code.s1("bar(1,2)").expr()
                             }],
-                            else_item: Some(code.s1("expr2").expr())
+                            else_item: Some((code.s1("expr2").expr(), code.s1("else").token()))
                         }),
                     }),
                     code.token_span()
@@ -1229,10 +1250,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2) after 2 ns").waveform(),
+                    span: code.s1("bar(1,2) after 2 ns when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").waveform(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1244,7 +1267,10 @@ with x(0) + 1 select
                 WithTokenSpan::new(
                     SequentialStatement::SignalAssignment(SignalAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
-                        delay_mechanism: Some(DelayMechanism::Transport),
+                        delay_mechanism: Some(WithTokenSpan::new(
+                            DelayMechanism::Transport,
+                            code.s1("transport").token_span()
+                        )),
                         rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()
@@ -1268,10 +1294,12 @@ with x(0) + 1 select
                 Alternative {
                     choices: code.s1("0|1").choices(),
                     item: code.s1("bar(1,2)").expr(),
+                    span: code.s1("bar(1,2) when 0|1").token_span(),
                 },
                 Alternative {
                     choices: code.s1("others").choices(),
                     item: code.s1("def").expr(),
+                    span: code.s1("def when others").token_span(),
                 },
             ],
         };
@@ -1410,7 +1438,10 @@ end if;",
                                 condition: code.s1("cond = true").expr(),
                                 item: vec![code.s1("foo(1,2);").sequential_statement()]
                             }],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: None,
                     }),
@@ -1441,7 +1472,10 @@ end if mylabel;",
                                 condition: code.s1("cond = true").expr(),
                                 item: vec![code.s1("foo(1,2);").sequential_statement()]
                             }],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
@@ -1479,7 +1513,10 @@ end if;",
                                     item: vec![code.s1("y := 2;").sequential_statement()]
                                 }
                             ],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: None,
                     }),
@@ -1517,7 +1554,10 @@ end if mylabel;",
                                     item: vec![code.s1("y := 2;").sequential_statement()]
                                 }
                             ],
-                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                            else_item: Some((
+                                vec![code.s1("x := 1;").sequential_statement()],
+                                code.s1("else").token()
+                            ))
                         },
                         end_label_pos: Some(code.s("mylabel", 2).pos()),
                     }),
@@ -1553,16 +1593,27 @@ end case;",
                                 item: vec![
                                     code.s1("stmt1;").sequential_statement(),
                                     code.s1("stmt2;").sequential_statement()
-                                ]
+                                ],
+                                span: code
+                                    .s1("1 | 2 =>
+    stmt1;
+    stmt2;")
+                                    .token_span()
                             },
                             Alternative {
                                 choices: code.s1("others").choices(),
                                 item: vec![
                                     code.s1("stmt3;").sequential_statement(),
                                     code.s1("stmt4;").sequential_statement(),
-                                ]
+                                ],
+                                span: code
+                                    .s1("others =>
+    stmt3;
+    stmt4;")
+                                    .token_span()
                             }
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()
@@ -1589,8 +1640,10 @@ end case?;",
                         expression: code.s1("foo(1)").expr(),
                         alternatives: vec![Alternative {
                             choices: code.s1("others").choices(),
-                            item: vec![code.s1("null;").sequential_statement(),]
+                            item: vec![code.s1("null;").sequential_statement()],
+                            span: code.s1("others => null;").token_span()
                         }],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()
@@ -1615,10 +1668,12 @@ end loop lbl;",
                 WithTokenSpan::new(
                     SequentialStatement::Loop(LoopStatement {
                         iteration_scheme: None,
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: Some(code.s("lbl", 2).pos()),
                     }),
                     code.pos_after("lbl: ").token_span()
@@ -1645,10 +1700,12 @@ end loop;",
                         iteration_scheme: Some(IterationScheme::While(
                             code.s1("foo = true").expr()
                         )),
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()
@@ -1675,10 +1732,12 @@ end loop;",
                             code.s1("idx").decl_ident(),
                             code.s1("0 to 3").discrete_range()
                         )),
+                        loop_token: code.s1("loop").token(),
                         statements: vec![
                             code.s1("stmt1;").sequential_statement(),
                             code.s1("stmt2;").sequential_statement()
                         ],
+                        end_token: code.s1("end").token(),
                         end_label_pos: None,
                     }),
                     code.token_span()

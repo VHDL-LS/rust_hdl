@@ -459,7 +459,7 @@ impl<'a> SplitName<'a> {
             ),
             Name::CallOrIndexed(ref mut fcall) => SplitName::Suffix(
                 &mut fcall.name,
-                Suffix::CallOrIndexed(&mut fcall.parameters),
+                Suffix::CallOrIndexed(&mut fcall.parameters.items),
             ),
         }
     }
@@ -789,7 +789,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 idx as usize
             } else {
                 diagnostics.add(
-                    &expr.span.pos(self.ctx),
+                    expr.span.pos(self.ctx),
                     "Expected an integer literal",
                     ErrorCode::MismatchedKinds,
                 );
@@ -810,7 +810,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             if let Some(expr) = expr {
                 let ndims = indexes.len();
                 let dimensions = plural("dimension", "dimensions", ndims);
-                diagnostics.add(&expr.pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
+                diagnostics.add(expr.pos(self.ctx), format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"), ErrorCode::DimensionMismatch);
             }
             Err(EvalError::Unknown)
         }
@@ -1278,7 +1278,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos(self.ctx),
+                                    prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1293,7 +1293,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Unambiguous(typ));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos(self.ctx),
+                                    prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1356,7 +1356,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos(self.ctx),
+                                    prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1371,7 +1371,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 );
                             } else {
                                 diagnostics.add(
-                                    &prefix.pos(self.ctx),
+                                    prefix.pos(self.ctx),
                                     "Procedure calls are not valid in names and expressions",
                                     ErrorCode::MismatchedKinds,
                                 );
@@ -1959,7 +1959,7 @@ fn check_no_attr_argument(
 ) {
     if let Some(ref expr) = suffix.expr {
         diagnostics.add(
-            &expr.pos(ctx),
+            expr.pos(ctx),
             format!("'{} attribute does not take an argument", suffix.attr),
             ErrorCode::TooManyArguments,
         )
@@ -2259,7 +2259,7 @@ variable c0 : integer_vector(0 to 1);
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::new(
-                &code.s1("c0"),
+                code.s1("c0"),
                 "variable 'c0' cannot be called as a function",
                 ErrorCode::InvalidCall,
             )],

@@ -428,7 +428,6 @@ mod test_mod {
                 "XXXX01LH",
             ),
             (BitString::new(None, BaseSpecifier::UO, "27"), "010111"),
-            // (BitString::new(None, BaseSpecifier::UO, "2C"), "011CCC"), // TODO: is this an error in the spec?
             (BitString::new(None, BaseSpecifier::SX, "3W"), "0011WWWW"),
             (BitString::new(None, BaseSpecifier::D, "35"), "100011"),
             (

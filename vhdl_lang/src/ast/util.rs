@@ -36,7 +36,7 @@ pub fn to_simple_name(ctx: &dyn TokenAccess, name: WithTokenSpan<Name>) -> Diagn
             token: name.span.start_token,
         }),
         _ => Err(Diagnostic::new(
-            &name.span.pos(ctx),
+            name.span.pos(ctx),
             "Expected simple name",
             ErrorCode::SyntaxError,
         )),
@@ -81,6 +81,12 @@ impl HasDesignator for Designator {
 impl<T: HasDesignator> HasDesignator for WithRef<T> {
     fn designator(&self) -> &Designator {
         self.item.designator()
+    }
+}
+
+impl HasIdent for WithRef<Ident> {
+    fn ident(&self) -> &Ident {
+        &self.item
     }
 }
 
@@ -369,9 +375,9 @@ impl CallOrIndexed {
             ref mut parameters,
         } = self;
 
-        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.len());
+        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.items.len());
 
-        for elem in parameters.iter_mut() {
+        for elem in parameters.items.iter_mut() {
             if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {
                 indexes.push(Index {
                     pos: elem.actual.span,
@@ -385,6 +391,7 @@ impl CallOrIndexed {
 
     pub fn could_be_indexed_name(&self) -> bool {
         self.parameters
+            .items
             .iter()
             .all(|assoc| assoc.formal.is_none() && !matches!(assoc.actual.item, ActualPart::Open))
     }

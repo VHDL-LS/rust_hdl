@@ -169,6 +169,18 @@ impl Latin1String {
         }
         Ok(Latin1String::from_vec(latin1_bytes))
     }
+
+    pub fn push(&mut self, byte: u8) {
+        self.bytes.push(byte)
+    }
+
+    pub fn clear(&mut self) {
+        self.bytes.clear()
+    }
+
+    pub fn append(&mut self, other: &mut Latin1String) {
+        self.bytes.append(&mut other.bytes);
+    }
 }
 
 impl Default for Latin1String {

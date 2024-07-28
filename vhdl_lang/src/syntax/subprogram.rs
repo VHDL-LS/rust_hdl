@@ -227,12 +227,13 @@ pub fn parse_subprogram_body(
         }
     };
     let declarations = parse_declarative_part(ctx)?;
-    ctx.stream.expect_kind(Begin)?;
+    let begin_token = ctx.stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_sequential_statements(ctx)?;
     expect_token!(
         ctx.stream,
         end_token,
+        end_token_id,
         End => {
             ctx.stream.pop_if_kind(end_kind);
 
@@ -241,14 +242,16 @@ pub fn parse_subprogram_body(
             } else {
                 None
             };
-            let end_token = expect_semicolon_or_last(ctx);
+            let semicolon = expect_semicolon_or_last(ctx);
 
             Ok(SubprogramBody {
-                span: TokenSpan::new(specification_start_token, end_token),
+                span: TokenSpan::new(specification_start_token, semicolon),
                 end_ident_pos: check_end_identifier_mismatch(ctx, specification.subpgm_designator(), end_ident),
+                begin_token,
                 specification,
                 declarations,
                 statements,
+                end_token: end_token_id
             })
         }
     )
@@ -663,8 +666,10 @@ end function;
         let body = SubprogramBody {
             span: code.token_span(),
             specification,
+            begin_token: code.s1("begin").token(),
             declarations,
             statements,
+            end_token: code.s1("end").token(),
             end_ident_pos: None,
         };
         assert_eq!(
@@ -705,7 +710,9 @@ end function foo;
             span: code.token_span(),
             specification,
             declarations: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_ident_pos: Some(code.s("foo", 2).token()),
         };
         assert_eq!(
@@ -730,7 +737,9 @@ end function \"+\";
             span: code.token_span(),
             specification,
             declarations: vec![],
+            begin_token: code.s1("begin").token(),
             statements: vec![],
+            end_token: code.s1("end").token(),
             end_ident_pos: Some(code.s("\"+\"", 2).token()),
         };
         assert_eq!(
@@ -771,7 +780,7 @@ end function \"+\";
             header,
             SubprogramHeader {
                 map_aspect: Some(MapAspect {
-                    start: code.s("generic", 2).token(),
+                    span: code.s1("generic map (x => 2, y => 0.4)").token_span(),
                     list: SeparatedList {
                         items: vec![
                             code.s1("x => 2").association_element(),
@@ -779,7 +788,6 @@ end function \"+\";
                         ],
                         tokens: vec![code.s1(",").token()]
                     },
-                    closing_paren: code.s(")", 2).token()
                 }),
                 generic_list: InterfaceList {
                     interface_type: InterfaceType::Generic,
@@ -872,8 +880,10 @@ end function;
         let body = SubprogramBody {
             span: code.token_span(),
             specification,
+            begin_token: code.s1("begin").token(),
             declarations,
             statements,
+            end_token: code.s1("end").token(),
             end_ident_pos: None,
         };
         assert_eq!(
@@ -905,11 +915,13 @@ end procedure swap;
             span: code.token_span(),
             specification,
             declarations: code.s1("variable temp : T;").declarative_part(),
+            begin_token: code.s1("begin").token(),
             statements: vec![
                 code.s1("temp := a;").sequential_statement(),
                 code.s1("a := b;").sequential_statement(),
                 code.s1(" b := temp;").sequential_statement(),
             ],
+            end_token: code.s1("end").token(),
             end_ident_pos: Some(code.s("swap", 2).token()),
         };
         assert_eq!(

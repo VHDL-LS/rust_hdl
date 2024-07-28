@@ -119,7 +119,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ..
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
-                    match sensitivity_list {
+                    match &mut sensitivity_list.item {
                         SensitivityList::Names(names) => {
                             self.sensitivity_list_check(scope, names, diagnostics)?;
                         }
@@ -165,7 +165,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, parent, item, src_span, diagnostics)?;
                 }
-                if let Some(ref mut else_item) = else_item {
+                if let Some((ref mut else_item, _)) = else_item {
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, parent, else_item, src_span, diagnostics)?;
                 }
@@ -186,6 +186,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     let Alternative {
                         ref mut choices,
                         ref mut item,
+                        span: _,
                     } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     let nested = scope.nested();
@@ -258,7 +259,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         // Pre-declare labels
         self.define_labels_for_concurrent_part(scope, parent, statements, diagnostics)?;
 
-        if let Some(ref mut decl) = decl {
+        if let Some((ref mut decl, _)) = decl {
             self.analyze_declarative_part(scope, parent, decl, diagnostics)?;
         }
         self.analyze_concurrent_part(scope, inner_parent, statements, diagnostics)?;
@@ -456,7 +457,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ))? {
                 if object_name.base.class() != ObjectClass::Signal {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!(
                             "{} is not a signal and cannot be in a sensitivity list",
                             object_name.base.describe_class()
@@ -467,7 +468,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     && !object_name.base.is_port()
                 {
                     diagnostics.add(
-                        &name.pos(self.ctx),
+                        name.pos(self.ctx),
                         format!(
                             "{} cannot be in a sensitivity list",
                             object_name.base.describe_class()
