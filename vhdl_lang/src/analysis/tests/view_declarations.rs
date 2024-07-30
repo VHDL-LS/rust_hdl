@@ -468,3 +468,34 @@ end arch;
         )],
     );
 }
+
+#[test]
+fn arrays_of_views() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package test_pkg is
+    type test_t is record
+        a : bit;
+    end record;
+
+    view vone of test_t is
+        a : in;
+    end view;
+
+    type test_array is array (natural range <>) of test_t;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_if : view vone;
+        my_array_if: view (vone) of test_array(0 to 1)
+    );
+end entity;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
