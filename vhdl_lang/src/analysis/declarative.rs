@@ -959,23 +959,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             }
             ModeIndication::View(view) => {
-                let resolved =
-                    self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
-                let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
-                if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
-                    let declared_subtype =
-                        self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
-                    if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
-                        bail!(
-                            diagnostics,
-                            Diagnostic::new(
-                                ast_declared_subtype.type_mark.pos(self.ctx),
-                                "Specified subtype must match the subtype declared for the view",
-                                ErrorCode::TypeMismatch
-                            )
-                        );
-                    }
-                }
+                let view_ent = self.analyze_mode_indication(scope, view, diagnostics)?;
                 Object {
                     class: ObjectClass::Signal,
                     iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
@@ -990,6 +974,32 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             .iter_mut()
             .map(|ident| self.define(ident, parent, AnyEntKind::Object(object.clone()), span))
             .collect_vec())
+    }
+
+    fn analyze_mode_indication(
+        &self,
+        scope: &Scope<'a>,
+        view: &mut ModeViewIndication,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<ViewEnt<'a>> {
+        let resolved =
+            self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
+        let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
+        if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
+            let declared_subtype =
+                self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
+            if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
+                bail!(
+                    diagnostics,
+                    Diagnostic::new(
+                        ast_declared_subtype.type_mark.pos(self.ctx),
+                        "Specified subtype must match the subtype declared for the view",
+                        ErrorCode::TypeMismatch
+                    )
+                );
+            }
+        }
+        Ok(view_ent)
     }
 
     pub fn analyze_simple_mode_indication(
