@@ -383,7 +383,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ));
                 }
             },
-            AnyEntKind::View(typ) => AnyEntKind::View(self.map_subtype(mapping, *typ)),
+            // TODO: the typ must not be mapped. Instead, it must be taken from context.
+            // TODO: The same is true for aliases
+            AnyEntKind::View(typ) => AnyEntKind::View(*typ),
         })
     }
 

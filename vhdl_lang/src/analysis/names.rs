@@ -251,7 +251,7 @@ impl<'a> ResolvedName<'a> {
             }
             AnyEntKind::Overloaded(_) => {
                 return Err((
-                    "Internal error. Unreachable as overloded is handled outside this function"
+                    "Internal error. Unreachable as overloaded is handled outside this function"
                         .to_string(),
                     ErrorCode::Internal,
                 ));
