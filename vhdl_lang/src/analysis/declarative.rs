@@ -944,30 +944,19 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<EntRef<'a>>> {
         let span = object_decl.span();
-        match &mut object_decl.mode {
+        let object = match &mut object_decl.mode {
             ModeIndication::Simple(mode) => {
                 let (subtype, class) =
                     self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
-                Ok(object_decl
-                    .idents
-                    .iter_mut()
-                    .map(|ident| {
-                        self.define(
-                            ident,
-                            parent,
-                            AnyEntKind::Object(Object {
-                                class,
-                                iface: Some(ObjectInterface::simple(
-                                    object_decl.list_type,
-                                    mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
-                                )),
-                                subtype,
-                                has_default: mode.expression.is_some(),
-                            }),
-                            span,
-                        )
-                    })
-                    .collect_vec())
+                Object {
+                    class,
+                    iface: Some(ObjectInterface::simple(
+                        object_decl.list_type,
+                        mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
+                    )),
+                    subtype,
+                    has_default: mode.expression.is_some(),
+                }
             }
             ModeIndication::View(view) => {
                 let resolved =
@@ -987,25 +976,20 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         );
                     }
                 }
-                Ok(object_decl
-                    .idents
-                    .iter_mut()
-                    .map(|ident| {
-                        self.define(
-                            ident,
-                            parent,
-                            AnyEntKind::Object(Object {
-                                class: ObjectClass::Signal,
-                                iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
-                                subtype: *view_ent.subtype(),
-                                has_default: false,
-                            }),
-                            span,
-                        )
-                    })
-                    .collect_vec())
+                Object {
+                    class: ObjectClass::Signal,
+                    iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
+                    subtype: *view_ent.subtype(),
+                    has_default: false,
+                }
             }
-        }
+        };
+
+        Ok(object_decl
+            .idents
+            .iter_mut()
+            .map(|ident| self.define(ident, parent, AnyEntKind::Object(object.clone()), span))
+            .collect_vec())
     }
 
     pub fn analyze_simple_mode_indication(
