@@ -22,14 +22,13 @@ procedure proc is new foo;
     ",
     );
 
-    let diagnostics = builder.analyze();
-    assert_eq!(
-        diagnostics,
+    check_diagnostics(
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("foo").pos(),
             "No declaration of 'foo'",
-            ErrorCode::Unresolved
-        )]
+            ErrorCode::Unresolved,
+        )],
     );
 }
 
@@ -44,14 +43,13 @@ function proc is new x;
     ",
     );
 
-    let diagnostics = builder.analyze();
-    assert_eq!(
-        diagnostics,
+    check_diagnostics(
+        builder.analyze(),
         vec![Diagnostic::mismatched_kinds(
             code.s1("new x").s1("x"),
             "signal 'x' does not denote an uninstantiated subprogram",
-        )]
-    )
+        )],
+    );
 }
 
 #[test]
@@ -75,9 +73,8 @@ procedure proc is new foo;
     ",
     );
 
-    let diagnostics = builder.analyze();
     check_diagnostics(
-        diagnostics,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("new foo").s1("foo"),
             "Ambiguous instantiation of 'foo'",
@@ -110,8 +107,7 @@ procedure proc2 is new foo [bit, bit] generic map (a => 5);
     ",
     );
 
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
+    check_no_diagnostics(&builder.analyze());
 }
 
 #[test]
@@ -129,9 +125,8 @@ procedure proc is new foo [bit, bit];
     ",
     );
 
-    let diagnostics = builder.analyze();
     check_diagnostics(
-        diagnostics,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("[bit, bit]").pos(),
             "Signature does not match the the signature of procedure foo[BIT]",
@@ -154,8 +149,7 @@ procedure proc is new proc;
     ",
     );
 
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
+    check_no_diagnostics(&builder.analyze());
 }
 
 #[test]

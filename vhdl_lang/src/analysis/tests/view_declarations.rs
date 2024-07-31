@@ -13,9 +13,8 @@ view my_view of undeclared is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
-        diag,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("undeclared"),
             "No declaration of 'undeclared'",
@@ -35,9 +34,8 @@ view my_view of foo is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
-        diag,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s("foo", 2),
             "The type of a view must be a record type, not type 'foo'",
@@ -58,8 +56,7 @@ view my_view of foo is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
-    check_no_diagnostics(&diag);
+    check_no_diagnostics(&builder.analyze());
 }
 
 #[test]

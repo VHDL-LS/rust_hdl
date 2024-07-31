@@ -991,6 +991,30 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(objects)
     }
 
+    /// Analyzes a mode view indication.
+    /// ## Example
+    /// ```vhdl
+    /// foo : view s_axis of axi_stream
+    /// ```
+    /// The opposite of t mode view indication is a simple mode view indication:
+    /// ```vhdl
+    /// foo : in std_logic
+    /// ```
+    ///
+    /// This function analyzes the view indication, resolves all used types and verifies them.
+    /// If the provided view describes an array but no actual array type is given, i.e.:
+    /// ```vhdl
+    /// multiple_foos : view (s_axis)
+    /// ```
+    /// This function will declare an anonymous array indication with a single index and the
+    /// view's subtype as element, similar as if the view was declared like so:
+    /// ```vhdl
+    /// -- pseudo code
+    /// type anonymous is array (integer range <>) of axi_stream;
+    /// multiple_foos : view (s_axis) of anonymous
+    /// ```
+    /// The anonymous array type will be marked as being linked to the interface declaration
+    /// (in the example above: the `anonymous` type is implicitly declared by `multiple_foos`)
     fn analyze_mode_indication(
         &self,
         scope: &Scope<'a>,
