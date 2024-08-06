@@ -20,6 +20,27 @@ use std::collections::HashSet;
 use vhdl_lang::TokenSpan;
 
 impl Declaration {
+    /// Returns whether the declaration denoted by `self` is allowed in the given context.
+    /// For example, within an architecture, only constants, signals and shared variables are allowed,
+    /// variables are not.
+    ///
+    /// ### Conforming example:
+    /// ```vhdl
+    /// architecture arch of ent is
+    ///     signal foo : bit;
+    /// begin
+    /// end arch;
+    /// ```
+    ///
+    /// ### Non-Conforming example:
+    /// ```vhdl
+    /// architecture arch of ent is
+    ///     variable foo : bit;
+    /// begin
+    /// end arch;
+    /// ```
+    ///
+    /// The context is given by the parent element of the declaration.
     pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
         use Declaration::*;
         use ObjectClass::*;
@@ -124,8 +145,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
 
         for i in 0..declarations.len() {
-            // Handle incomplete types
-
             let (WithTokenSpan { item: decl, span }, remaining) =
                 declarations[i..].split_first_mut().unwrap();
 
@@ -137,6 +156,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )
             }
 
+            // Handle incomplete types
             match decl {
                 Declaration::Type(type_decl) => match type_decl.def {
                     TypeDefinition::Incomplete(ref mut reference) => {
@@ -991,22 +1011,17 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(objects)
     }
 
-    /// Analyzes a mode view indication.
-    /// ## Example
+    /// Analyzes a mode view indication of the form
     /// ```vhdl
     /// foo : view s_axis of axi_stream
     /// ```
-    /// The opposite of t mode view indication is a simple mode view indication:
-    /// ```vhdl
-    /// foo : in std_logic
-    /// ```
     ///
-    /// This function analyzes the view indication, resolves all used types and verifies them.
+    /// This function resolves all used types and verifies them.
     /// If the provided view describes an array but no actual array type is given, i.e.:
     /// ```vhdl
     /// multiple_foos : view (s_axis)
     /// ```
-    /// This function will declare an anonymous array indication with a single index and the
+    /// this function will declare an anonymous array indication with a single index and the
     /// view's subtype as element, similar as if the view was declared like so:
     /// ```vhdl
     /// -- pseudo code
