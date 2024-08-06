@@ -143,10 +143,12 @@ impl<'a> TokenStream<'a> {
     /// A position that aligns with the previous token
     ///
     /// Example:
+    /// ```vhdl
     ///  signal sig : natural
     ///                      ~ <- want semi colon error here
     ///  signal
     ///  ~~~~~~ <- not here
+    /// ```
     pub fn pos_before(&self, token: &Token) -> SrcPos {
         if let Some(prev_token) = self.token_before(token) {
             let prev_pos = prev_token.pos.end();
