@@ -357,12 +357,14 @@ macro_rules! expect_token {
 /// Unlike the try_token_kind this macro gives errors always on the next token
 /// Example:
 ///
+/// ```vhdl
 /// entity ent is
 /// end entity;
 ///            ~ <- error should not be here
 ///
 /// foo
 /// ~~~ <- error should be here
+/// ```
 #[macro_export]
 macro_rules! try_init_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {

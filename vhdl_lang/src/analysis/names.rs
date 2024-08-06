@@ -1506,8 +1506,25 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     return Err(EvalError::Unknown);
                 }
             }
-            ResolvedName::Type(typ) => {
-                if let Suffix::CallOrIndexed(ref mut assocs) = suffix {
+            ResolvedName::Type(typ) => match suffix {
+                Suffix::Selected(selected) => {
+                    let typed_selection = match typ.selected(self.ctx, prefix.span, selected) {
+                        Ok(typed_selection) => typed_selection,
+                        Err(diagnostic) => {
+                            bail!(diagnostics, diagnostic);
+                        }
+                    };
+                    return Ok(match typed_selection {
+                        TypedSelection::RecordElement(element) => {
+                            ResolvedName::Type(element.type_mark())
+                        }
+                        TypedSelection::ProtectedMethod(method) => ResolvedName::Overloaded(
+                            selected.clone().map_into(|desi| desi.item),
+                            method,
+                        ),
+                    });
+                }
+                Suffix::CallOrIndexed(ref mut assocs) => {
                     if let Some((expr_pos, expr)) = as_type_conversion(assocs) {
                         self.check_type_conversion(scope, typ, expr_pos, expr, diagnostics)?;
                         return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
@@ -1515,14 +1532,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         )));
                     }
                 }
-
-                diagnostics.push(Diagnostic::cannot_be_prefix(
-                    &span.pos(self.ctx),
-                    resolved,
-                    suffix,
-                ));
-                return Err(EvalError::Unknown);
-            }
+                _ => {
+                    bail!(
+                        diagnostics,
+                        Diagnostic::cannot_be_prefix(&span.pos(self.ctx), resolved, suffix)
+                    );
+                }
+            },
             ResolvedName::Final(_) => {
                 diagnostics.push(Diagnostic::cannot_be_prefix(
                     &span.pos(self.ctx),
@@ -1535,6 +1551,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
         Ok(resolved)
     }
+
     // Helper function:
     // Resolve a name that must be some kind of object selection, index or slice
     // Such names occur as assignment targets and aliases

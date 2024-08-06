@@ -2163,3 +2163,25 @@ end package;",
     let (_root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+pub fn resolve_selected_names_of_types() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "\
+package foo is
+    type test_t is record
+        asdf: bit_vector(10 downto 0);
+    end record;
+
+    signal a: integer := test_t.asdf'high;
+    signal b: bit_vector(test_t.asdf'high downto test_t.asdf'low);
+    signal c: bit_vector(test_t.asdf'range);
+    signal d: integer := test_t.asdf'high;
+    signal e: bit_vector(test_t.asdf'range);
+end package;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze())
+}
