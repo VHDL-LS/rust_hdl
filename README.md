@@ -207,3 +207,19 @@ well as ensuring the users are not running and outdated version.
 - Comments will be part of the AST to support document generation.
 - Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
 
+## Building the project locally
+
+1) Make sure that you have the [Rust toolchain](https://www.rust-lang.org/tools/install) installed.
+   This repository always follows the latest toolchain in the `stable` channel.
+2) Run `cargo install --path vhdl_lang` to install the language frontend. Run instead `cargo install --path vhdl_ls`
+   to install the language server.
+3) Make sure that the default libraries are available at a visible path. Search paths are, for example,
+   `/usr/lib/rust_hdl/vhdl_libraries` or `/usr/local/lib/rust_hdl/vhdl_libraries`.
+4) Run the command `vhdl_lang` or `vhdl_ls` to run the language front-end binary or the language server
+
+**Testing the Language Server**
+
+For checking the language server, [rust_hdl_vscode](https://github.com/VHDL-LS/rust_hdl_vscode) is recommended.
+To instruct the extension to use the new binary, instead of a downloaded one, go to the extension settings and set
+the Language server location to `systemPath`. To specify the exact path, set it to `user` and set Language Server User
+Path to the path that points to the `vhdl_ls` binary.
