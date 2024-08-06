@@ -346,6 +346,10 @@ impl<'a> Scope<'a> {
         inner.anon_idx += 1;
         idx
     }
+
+    pub fn anonymous_designator(&self) -> Designator {
+        Designator::Anonymous(self.next_anonymous())
+    }
 }
 
 impl<'a> NamedEntities<'a> {

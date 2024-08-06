@@ -38,7 +38,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             } else if statement.statement.item.can_have_label() {
                 // Generate an anonymous label if it is not explicitly defined
                 let ent = self.arena.alloc(
-                    Designator::Anonymous(scope.next_anonymous()),
+                    scope.anonymous_designator(),
                     Some(parent),
                     Related::None,
                     AnyEntKind::Sequential(statement.statement.item.label_typ()),

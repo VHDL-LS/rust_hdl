@@ -286,18 +286,15 @@ impl Arena {
         of_ent: EntRef<'a>,
         designator: impl Into<Designator>,
         kind: AnyEntKind<'a>,
-        decl_pos: Option<&SrcPos>,
-        src_span: TokenSpan,
-        source: Option<Source>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
             of_ent.parent,
             Related::ImplicitOf(of_ent),
             kind,
-            decl_pos.cloned(),
-            src_span,
-            source,
+            of_ent.decl_pos().cloned(),
+            of_ent.src_span,
+            of_ent.source.clone(),
         )
     }
 

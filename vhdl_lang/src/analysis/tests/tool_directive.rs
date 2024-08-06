@@ -9,9 +9,7 @@ use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder};
 fn simple_tool_directive() {
     let mut builder = LibraryBuilder::new();
     builder.code("libname", "`protect begin");
-    let (_, diagnostics) = builder.get_analyzed_root();
-
-    check_no_diagnostics(&diagnostics);
+    check_no_diagnostics(&builder.analyze());
 }
 
 #[test]
@@ -31,7 +29,5 @@ end my_ent;
 `protect encoding = (enctype = \"BASE64\", line_length = 76, bytes = 64)
         ",
     );
-    let (_, diagnostics) = builder.get_analyzed_root();
-
-    check_no_diagnostics(&diagnostics);
+    check_no_diagnostics(&builder.analyze());
 }

@@ -20,6 +20,27 @@ use std::collections::HashSet;
 use vhdl_lang::TokenSpan;
 
 impl Declaration {
+    /// Returns whether the declaration denoted by `self` is allowed in the given context.
+    /// For example, within an architecture, only constants, signals and shared variables are allowed,
+    /// variables are not.
+    ///
+    /// ### Conforming example:
+    /// ```vhdl
+    /// architecture arch of ent is
+    ///     signal foo : bit;
+    /// begin
+    /// end arch;
+    /// ```
+    ///
+    /// ### Non-Conforming example:
+    /// ```vhdl
+    /// architecture arch of ent is
+    ///     variable foo : bit;
+    /// begin
+    /// end arch;
+    /// ```
+    ///
+    /// The context is given by the parent element of the declaration.
     pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
         use Declaration::*;
         use ObjectClass::*;
@@ -124,8 +145,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
 
         for i in 0..declarations.len() {
-            // Handle incomplete types
-
             let (WithTokenSpan { item: decl, span }, remaining) =
                 declarations[i..].split_first_mut().unwrap();
 
@@ -137,6 +156,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 )
             }
 
+            // Handle incomplete types
             match decl {
                 Declaration::Type(type_decl) => match type_decl.def {
                     TypeDefinition::Incomplete(ref mut reference) => {
@@ -369,9 +389,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ent,
                                     implicit.designator().clone(),
                                     AnyEntKind::Overloaded(Overloaded::Alias(implicit)),
-                                    ent.decl_pos(),
-                                    ent.src_span,
-                                    Some(self.source()),
                                 );
                                 scope.add(impicit_alias, diagnostics);
                             }
@@ -943,39 +960,121 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         object_decl: &mut InterfaceObjectDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<EntRef<'a>>> {
-        let span = object_decl.span();
-        match &mut object_decl.mode {
-            ModeIndication::Simple(mode) => {
-                let (subtype, class) =
-                    self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
-                Ok(object_decl
-                    .idents
-                    .iter_mut()
-                    .map(|ident| {
-                        self.define(
-                            ident,
-                            parent,
-                            AnyEntKind::Object(Object {
-                                class,
-                                iface: Some(ObjectInterface::simple(
-                                    object_decl.list_type,
-                                    mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
-                                )),
-                                subtype,
-                                has_default: mode.expression.is_some(),
-                            }),
-                            span,
-                        )
-                    })
-                    .collect_vec())
+        let objects = object_decl
+            .idents
+            .iter_mut()
+            .map(|ident| {
+                self.define(
+                    ident,
+                    parent,
+                    AnyEntKind::Object(Object {
+                        class: ObjectClass::Signal,
+                        iface: None,
+                        subtype: Subtype::new(self.universal_integer().into()),
+                        has_default: false,
+                    }),
+                    object_decl.span,
+                )
+            })
+            .collect_vec();
+        for object in &objects {
+            let actual_object = match &mut object_decl.mode {
+                ModeIndication::Simple(mode) => {
+                    let (subtype, class) =
+                        self.analyze_simple_mode_indication(scope, mode, diagnostics)?;
+                    Object {
+                        class,
+                        iface: Some(ObjectInterface::simple(
+                            object_decl.list_type,
+                            mode.mode.as_ref().map(|mode| mode.item).unwrap_or_default(),
+                        )),
+                        subtype,
+                        has_default: mode.expression.is_some(),
+                    }
+                }
+                ModeIndication::View(view) => {
+                    let (view_ent, subtype) =
+                        self.analyze_mode_indication(scope, object, view, diagnostics)?;
+                    Object {
+                        class: ObjectClass::Signal,
+                        iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
+                        subtype,
+                        has_default: false,
+                    }
+                }
+            };
+            unsafe {
+                object.set_kind(AnyEntKind::Object(actual_object));
             }
-            ModeIndication::View(view) => {
-                let resolved =
-                    self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
-                let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
-                if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
-                    let declared_subtype =
-                        self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
+        }
+
+        Ok(objects)
+    }
+
+    /// Analyzes a mode view indication of the form
+    /// ```vhdl
+    /// foo : view s_axis of axi_stream
+    /// ```
+    ///
+    /// This function resolves all used types and verifies them.
+    /// If the provided view describes an array but no actual array type is given, i.e.:
+    /// ```vhdl
+    /// multiple_foos : view (s_axis)
+    /// ```
+    /// this function will declare an anonymous array indication with a single index and the
+    /// view's subtype as element, similar as if the view was declared like so:
+    /// ```vhdl
+    /// -- pseudo code
+    /// type anonymous is array (integer range <>) of axi_stream;
+    /// multiple_foos : view (s_axis) of anonymous
+    /// ```
+    /// The anonymous array type will be marked as being linked to the interface declaration
+    /// (in the example above: the `anonymous` type is implicitly declared by `multiple_foos`)
+    fn analyze_mode_indication(
+        &self,
+        scope: &Scope<'a>,
+        object_ent: EntRef<'a>,
+        view: &mut ModeViewIndication,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<(ViewEnt<'a>, Subtype<'a>)> {
+        let resolved =
+            self.name_resolve(scope, view.name.span, &mut view.name.item, diagnostics)?;
+        let view_ent = self.resolve_view_ent(&resolved, diagnostics, view.name.span)?;
+        let subtype = if let Some((_, ast_declared_subtype)) = &mut view.subtype_indication {
+            let declared_subtype =
+                self.resolve_subtype_indication(scope, ast_declared_subtype, diagnostics)?;
+            match view.kind {
+                ModeViewIndicationKind::Array => {
+                    let Type::Array {
+                        indexes: _,
+                        elem_type,
+                    } = declared_subtype.type_mark().kind()
+                    else {
+                        bail!(
+                            diagnostics,
+                            Diagnostic::new(
+                                ast_declared_subtype.type_mark.pos(self.ctx),
+                                "Subtype must be an array",
+                                ErrorCode::TypeMismatch
+                            )
+                        );
+                    };
+                    if *elem_type != view_ent.subtype().type_mark() {
+                        bail!(
+                            diagnostics,
+                            Diagnostic::new(
+                                ast_declared_subtype.type_mark.pos(self.ctx),
+                                format!(
+                                    "Array element {} must match {} declared for the view",
+                                    elem_type.describe(),
+                                    view_ent.subtype().type_mark().describe()
+                                ),
+                                ErrorCode::TypeMismatch
+                            )
+                        );
+                    }
+                }
+                ModeViewIndicationKind::Record => {
                     if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
                         bail!(
                             diagnostics,
@@ -987,25 +1086,26 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         );
                     }
                 }
-                Ok(object_decl
-                    .idents
-                    .iter_mut()
-                    .map(|ident| {
-                        self.define(
-                            ident,
-                            parent,
-                            AnyEntKind::Object(Object {
-                                class: ObjectClass::Signal,
-                                iface: Some(ObjectInterface::Port(InterfaceMode::View(view_ent))),
-                                subtype: *view_ent.subtype(),
-                                has_default: false,
-                            }),
-                            span,
-                        )
-                    })
-                    .collect_vec())
             }
-        }
+            declared_subtype
+        } else {
+            match view.kind {
+                ModeViewIndicationKind::Array => {
+                    let typ = Type::Array {
+                        indexes: vec![Some(self.universal_integer())],
+                        elem_type: view_ent.subtype().type_mark(),
+                    };
+                    let typ = self.arena.implicit(
+                        object_ent,
+                        scope.anonymous_designator(),
+                        AnyEntKind::Type(typ),
+                    );
+                    Subtype::new(TypeEnt::from_any(typ).unwrap())
+                }
+                ModeViewIndicationKind::Record => *view_ent.subtype(),
+            }
+        };
+        Ok((view_ent, subtype))
     }
 
     pub fn analyze_simple_mode_indication(
