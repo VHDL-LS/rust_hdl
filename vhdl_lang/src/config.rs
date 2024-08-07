@@ -13,6 +13,7 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use subst::VariableMap;
 use toml::{Table, Value};
 
@@ -50,7 +51,7 @@ impl LibraryConfig {
             };
 
             if is_literal(stripped_pattern) {
-                let file_path = Path::new(pattern).to_owned();
+                let file_path = PathBuf::from(pattern);
 
                 if file_path.exists() {
                     result.push(file_path);
@@ -86,20 +87,8 @@ impl LibraryConfig {
                 }
             }
         }
-        Self::remove_duplicates(result)
-    }
-
-    /// Remove duplicate file names from the result
-    fn remove_duplicates(file_names: Vec<PathBuf>) -> Vec<PathBuf> {
-        let mut result = Vec::with_capacity(file_names.len());
-        let mut fileset = std::collections::HashSet::new();
-
-        for file_name in file_names.into_iter() {
-            if fileset.insert(file_name.clone()) {
-                result.push(file_name);
-            }
-        }
-        result
+        // Remove duplicate file names from the result
+        result.into_iter().unique().collect()
     }
 
     /// Returns the name of the library
@@ -412,15 +401,7 @@ where
 
 /// Returns true if the pattern is a plain file name and not a glob pattern
 fn is_literal(pattern: &str) -> bool {
-    for chr in pattern.chars() {
-        match chr {
-            '?' | '*' | '[' => {
-                return false;
-            }
-            _ => {}
-        }
-    }
-    true
+    !pattern.chars().any(|chr| matches!(&chr, '?' | '*' | '['))
 }
 
 #[cfg(test)]
