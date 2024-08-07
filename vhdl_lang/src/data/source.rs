@@ -86,7 +86,7 @@ impl UniqueSource {
         }
     }
 
-    fn contents(&self) -> RwLockReadGuard<Contents> {
+    fn contents(&self) -> RwLockReadGuard<'_, Contents> {
         self.contents.read()
     }
 
@@ -156,7 +156,7 @@ impl Source {
         }
     }
 
-    pub fn contents(&self) -> RwLockReadGuard<Contents> {
+    pub fn contents(&self) -> RwLockReadGuard<'_, Contents> {
         self.source.contents()
     }
 

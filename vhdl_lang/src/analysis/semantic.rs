@@ -210,7 +210,11 @@ impl<'a> ResolvedName<'a> {
 }
 
 impl Diagnostic {
-    pub(crate) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
+    pub(crate) fn type_mismatch(
+        pos: &SrcPos,
+        desc: &str,
+        expected_type: TypeEnt<'_>,
+    ) -> Diagnostic {
         Diagnostic::new(
             pos,
             format!("{} does not match {}", desc, expected_type.describe(),),
@@ -219,7 +223,7 @@ impl Diagnostic {
     }
 
     pub(crate) fn invalid_selected_name_prefix(
-        named_entity: &AnyEnt,
+        named_entity: EntRef<'_>,
         prefix: &SrcPos,
     ) -> Diagnostic {
         Diagnostic::mismatched_kinds(
@@ -232,7 +236,7 @@ impl Diagnostic {
     }
 
     pub(crate) fn no_declaration_within(
-        named_entity: &AnyEnt,
+        named_entity: EntRef<'_>,
         pos: &SrcPos,
         suffix: &Designator,
     ) -> Diagnostic {

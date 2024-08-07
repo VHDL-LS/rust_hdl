@@ -15,7 +15,7 @@ use crate::ast::*;
 use crate::data::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
-pub fn parse_direction(ctx: &mut ParsingContext) -> ParseResult<Direction> {
+pub fn parse_direction(ctx: &mut ParsingContext<'_>) -> ParseResult<Direction> {
     Ok(expect_token!(
         ctx.stream, token,
         To => Direction::Ascending,

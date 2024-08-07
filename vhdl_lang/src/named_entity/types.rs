@@ -150,7 +150,7 @@ impl<'a> TypeEnt<'a> {
         TypeEnt(ent)
     }
 
-    pub fn from_any(ent: &'a AnyEnt) -> Option<TypeEnt<'a>> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<TypeEnt<'a>> {
         if matches!(ent.kind(), AnyEntKind::Type(..)) {
             Some(TypeEnt(ent))
         } else {

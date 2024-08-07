@@ -13,9 +13,8 @@ view my_view of undeclared is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
-        diag,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("undeclared"),
             "No declaration of 'undeclared'",
@@ -35,9 +34,8 @@ view my_view of foo is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
     check_diagnostics(
-        diag,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s("foo", 2),
             "The type of a view must be a record type, not type 'foo'",
@@ -58,8 +56,7 @@ view my_view of foo is
 end view;
     ",
     );
-    let (_, diag) = builder.get_analyzed_root();
-    check_no_diagnostics(&diag);
+    check_no_diagnostics(&builder.analyze());
 }
 
 #[test]
@@ -514,4 +511,109 @@ end architecture;
     ",
     );
     check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn arrays_of_views_with_matching_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package test_pkg is
+    type test_t is record
+        a : bit;
+    end record;
+
+    view vone of test_t is
+        a : in;
+    end view;
+
+    type test_array is array (natural range <>) of test_t;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_if : view vone;
+        my_array_if: view (vone) of test_array(0 to 1)
+    );
+end entity;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn arrays_of_views_with_non_matching_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package test_pkg is
+    type test_t is record
+        a : bit;
+    end record;
+
+    view vone of test_t is
+        a : in;
+    end view;
+
+    type test_array is array (natural range <>) of bit;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_if : view vone;
+        my_array_if: view (vone) of test_array(0 to 1)
+    );
+end entity;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("test_array(0 to 1)").s1("test_array"),
+            "Array element type 'BIT' must match record type 'test_t' declared for the view",
+            ErrorCode::TypeMismatch,
+        )],
+    )
+}
+
+#[test]
+fn arrays_of_views_that_are_not_arrays() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package test_pkg is
+    type test_t is record
+        a : bit;
+    end record;
+
+    view vone of test_t is
+        a : in;
+    end view;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_if : view vone;
+        my_array_if: view (vone) of test_t
+    );
+end entity;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("view (vone) of test_t").s1("test_t"),
+            "Subtype must be an array",
+            ErrorCode::TypeMismatch,
+        )],
+    )
 }

@@ -357,12 +357,14 @@ macro_rules! expect_token {
 /// Unlike the try_token_kind this macro gives errors always on the next token
 /// Example:
 ///
+/// ```vhdl
 /// entity ent is
 /// end entity;
 ///            ~ <- error should not be here
 ///
 /// foo
 /// ~~~ <- error should be here
+/// ```
 #[macro_export]
 macro_rules! try_init_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
@@ -975,7 +977,7 @@ fn can_be_char(last_token_kind: Option<Kind>) -> bool {
 }
 
 fn parse_integer(
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
     base: u64,
     stop_on_suffix: bool,
 ) -> Result<(u64, Latin1String), TokenError> {
@@ -1053,7 +1055,7 @@ fn parse_integer(
     }
 }
 
-fn parse_exponent(reader: &mut ContentReader) -> Result<(i32, Latin1String), TokenError> {
+fn parse_exponent(reader: &mut ContentReader<'_>) -> Result<(i32, Latin1String), TokenError> {
     let start = reader.pos();
     let mut buffer = Latin1String::empty();
     let negative = {
@@ -1104,7 +1106,7 @@ impl TokenState {
 // Assumes first quote is already consumed
 fn parse_quoted(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
     quote: u8,
     include_quote: bool,
 ) -> Result<Latin1String, TokenError> {
@@ -1155,13 +1157,13 @@ fn parse_quoted(
 // Assumes first quote is already consumed
 fn parse_string(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
 ) -> Result<Latin1String, TokenError> {
     parse_quoted(buffer, reader, b'"', false)
 }
 
 /// Assume -- has already been consumed
-fn parse_comment(reader: &mut ContentReader) -> Comment {
+fn parse_comment(reader: &mut ContentReader<'_>) -> Comment {
     let start_pos = reader.pos().prev_char().prev_char();
     let mut value = String::new();
     while let Some(chr) = reader.peek_char() {
@@ -1181,7 +1183,7 @@ fn parse_comment(reader: &mut ContentReader) -> Comment {
 }
 
 /// Assume /* has been consumed
-fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, TokenError> {
+fn parse_multi_line_comment(reader: &mut ContentReader<'_>) -> Result<Comment, TokenError> {
     let start_pos = reader.pos().prev_char().prev_char();
     let mut value = String::new();
     while let Some(chr) = reader.pop_char() {
@@ -1213,7 +1215,7 @@ fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, Token
 
 fn parse_real_literal(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
 ) -> Result<(f64, Latin1String), TokenError> {
     buffer.clear();
     let mut text = Latin1String::empty();
@@ -1259,7 +1261,7 @@ fn exponentiate(value: u64, exp: u32) -> Option<u64> {
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
 ) -> Result<(Kind, Value), TokenError> {
     let state = reader.state();
     let initial = parse_integer(reader, 10, true);
@@ -1390,8 +1392,10 @@ fn parse_abstract_literal(
 
 /// LRM 15.8 Bit string literals
 /// Parse the base specifier such as ub, sx, b etc
-/// Also requires and consumes the trailing quoute "
-fn parse_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
+/// Also requires and consumes the trailing quote "
+fn parse_base_specifier(
+    reader: &mut ContentReader<'_>,
+) -> Result<Option<BaseSpecifier>, TokenError> {
     let base_specifier = match reader.pop_lowercase()? {
         Some(b'u') => match reader.pop_lowercase()? {
             Some(b'b') => BaseSpecifier::UB,
@@ -1420,7 +1424,9 @@ fn parse_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifi
 }
 
 // Only consume reader if it is a base specifier
-fn maybe_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
+fn maybe_base_specifier(
+    reader: &mut ContentReader<'_>,
+) -> Result<Option<BaseSpecifier>, TokenError> {
     let mut lookahead = reader.clone();
     if let Some(value) = parse_base_specifier(&mut lookahead)? {
         reader.set_to(&lookahead);
@@ -1432,7 +1438,7 @@ fn maybe_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifi
 
 fn parse_bit_string(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
     base_specifier: BaseSpecifier,
     bit_string_length: Option<u32>,
     start: usize,
@@ -1466,7 +1472,7 @@ fn parse_bit_string(
 /// LRM 15.4 Identifiers
 fn parse_basic_identifier_or_keyword(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
     symbols: &Symbols,
 ) -> Result<(Kind, Value), TokenError> {
     buffer.bytes.clear();
@@ -1488,7 +1494,7 @@ fn parse_basic_identifier_or_keyword(
 /// Assumes leading ' has already been consumed
 /// Only consumes from reader if Some is returned
 fn parse_character_literal(
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
 ) -> Result<Option<(Kind, Value)>, TokenError> {
     let mut lookahead = reader.clone();
 
@@ -1510,7 +1516,7 @@ fn parse_character_literal(
 /// Clears the buffer prior to reading
 fn read_until_newline(
     buffer: &mut Latin1String,
-    reader: &mut ContentReader,
+    reader: &mut ContentReader<'_>,
 ) -> Result<(), TokenError> {
     buffer.bytes.clear();
     while let Some(b) = reader.peek()? {
@@ -1523,7 +1529,7 @@ fn read_until_newline(
     Ok(())
 }
 
-fn get_leading_comments(reader: &mut ContentReader) -> Result<Vec<Comment>, TokenError> {
+fn get_leading_comments(reader: &mut ContentReader<'_>) -> Result<Vec<Comment>, TokenError> {
     let mut comments: Vec<Comment> = Vec::new();
 
     loop {
@@ -1564,7 +1570,7 @@ fn get_leading_comments(reader: &mut ContentReader) -> Result<Vec<Comment>, Toke
 }
 
 /// Skip whitespace but not newline
-fn skip_whitespace_in_line(reader: &mut ContentReader) {
+fn skip_whitespace_in_line(reader: &mut ContentReader<'_>) {
     while let Ok(Some(byte)) = reader.peek() {
         match byte {
             b' ' | b'\t' => {
@@ -1578,7 +1584,7 @@ fn skip_whitespace_in_line(reader: &mut ContentReader) {
 }
 
 /// Skip all whitespace
-fn skip_whitespace(reader: &mut ContentReader) {
+fn skip_whitespace(reader: &mut ContentReader<'_>) {
     while let Ok(Some(byte)) = reader.peek() {
         match byte {
             b' ' | b'\t' | b'\n' => {
@@ -1591,7 +1597,7 @@ fn skip_whitespace(reader: &mut ContentReader) {
     }
 }
 
-fn get_trailing_comment(reader: &mut ContentReader) -> Result<Option<Comment>, TokenError> {
+fn get_trailing_comment(reader: &mut ContentReader<'_>) -> Result<Option<Comment>, TokenError> {
     skip_whitespace_in_line(reader);
     let state = reader.state();
 

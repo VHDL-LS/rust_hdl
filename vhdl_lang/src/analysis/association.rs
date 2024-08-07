@@ -392,7 +392,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let mut is_error = false;
         let mut result = Vec::default();
 
-        let mut associated: FnvHashMap<usize, (TokenSpan, ResolvedFormal)> = Default::default();
+        let mut associated: FnvHashMap<usize, (TokenSpan, ResolvedFormal<'_>)> = Default::default();
         for (actual_pos, resolved_formal) in resolved_pairs.iter() {
             match resolved_formal {
                 Some(resolved_formal) => {
@@ -606,7 +606,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<ResolvedName> {
+    ) -> EvalResult<ResolvedName<'_>> {
         match expr {
             Expression::Name(name) => {
                 let resolved = self.name_resolve(scope, span, name, diagnostics)?;
@@ -649,8 +649,8 @@ impl Diagnostic {
 
     pub fn invalid_type_conversion(
         pos: impl AsRef<SrcPos>,
-        from: BaseType,
-        to: TypeEnt,
+        from: BaseType<'_>,
+        to: TypeEnt<'_>,
     ) -> Diagnostic {
         Diagnostic::new(
             pos,

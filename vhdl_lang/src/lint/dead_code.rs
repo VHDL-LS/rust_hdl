@@ -63,7 +63,7 @@ impl<'a> Searcher for DeadCodeSearcher<'a> {
     fn search_decl(
         &mut self,
         _ctx: &dyn TokenAccess,
-        decl: crate::ast::search::FoundDeclaration,
+        decl: crate::ast::search::FoundDeclaration<'_>,
     ) -> SearchState {
         if let Some(id) = decl.ent_id() {
             self.declarations.insert(self.root.get_ent(id));
@@ -76,14 +76,14 @@ fn search_unit(unit: &LockedUnit, searcher: &mut impl Searcher) {
     let _ = unit.unit.write().search(&unit.tokens, searcher);
 }
 
-fn is_package_header(ent: EntRef) -> bool {
+fn is_package_header(ent: EntRef<'_>) -> bool {
     matches!(
         ent.kind(),
         AnyEntKind::Design(Design::Package(..)) | AnyEntKind::Design(Design::UninstPackage(..))
     )
 }
 
-fn is_interface(ent: EntRef) -> bool {
+fn is_interface(ent: EntRef<'_>) -> bool {
     matches!(
         ent.kind(),
         AnyEntKind::Object(o) if o.iface.is_some())
@@ -93,7 +93,7 @@ fn is_interface(ent: EntRef) -> bool {
         )
 }
 
-fn can_be_locally_unused(ent: EntRef) -> bool {
+fn can_be_locally_unused(ent: EntRef<'_>) -> bool {
     if let Related::DeclaredBy(related) = ent.related {
         if !can_be_locally_unused(related) {
             return false;
@@ -262,12 +262,12 @@ mod tests {
     use crate::syntax::test::check_no_diagnostics;
     use crate::syntax::test::Code;
 
-    fn get_ent(root: &DesignRoot, code: Code) -> EntRef {
+    fn get_ent(root: &DesignRoot, code: Code) -> EntRef<'_> {
         root.search_reference(code.source(), code.start()).unwrap()
     }
 
-    fn check_unused(got: FnvHashSet<EntRef>, expected: FnvHashSet<EntRef>) {
-        fn fmt_ent(ent: EntRef) -> String {
+    fn check_unused(got: FnvHashSet<EntRef<'_>>, expected: FnvHashSet<EntRef<'_>>) {
+        fn fmt_ent(ent: EntRef<'_>) -> String {
             format!(
                 "{}, line {}",
                 ent.describe(),

@@ -99,7 +99,7 @@ pub mod test_utils {
         input: &str,
         expected: &str,
         to_ast: impl FnOnce(&Code) -> T,
-        format: impl FnOnce(&VHDLFormatter, &T, &mut Buffer),
+        format: impl FnOnce(&VHDLFormatter<'_>, &T, &mut Buffer),
     ) {
         check_formatted_std(input, expected, VHDLStandard::default(), to_ast, format)
     }
@@ -109,7 +109,7 @@ pub mod test_utils {
         expected: &str,
         std: VHDLStandard,
         to_ast: impl FnOnce(&Code) -> T,
-        format: impl FnOnce(&VHDLFormatter, &T, &mut Buffer),
+        format: impl FnOnce(&VHDLFormatter<'_>, &T, &mut Buffer),
     ) {
         let code = Code::with_standard(input, std);
         let ast_element = to_ast(&code);

@@ -96,7 +96,7 @@ impl<'a> Visibility<'a> {
         &mut self,
         visible_pos: Option<&SrcPos>,
         designator: Designator,
-        ent: &'a AnyEnt,
+        ent: EntRef<'a>,
     ) {
         // Add implicit declarations when using declaration
         // For example all enum literals are made implicitly visible when using an enum type
@@ -214,7 +214,7 @@ impl<'a> Visible<'a> {
                 ErrorCode::ConflictingUseClause,
             );
 
-            fn last_visible_pos(visible_entity: &VisibleEntity) -> u32 {
+            fn last_visible_pos(visible_entity: &VisibleEntity<'_>) -> u32 {
                 if let Some(pos) = visible_entity.visible_pos.iter().rev().flatten().next() {
                     return pos.range().start.line;
                 }

@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 #![allow(clippy::upper_case_acronyms)]
+#![warn(rust_2018_idioms, future_incompatible)]
 
 #[macro_use]
 extern crate vhdl_lang_macros;

@@ -316,7 +316,7 @@ impl<'a> ContentReader<'a> {
         self.state = state;
     }
 
-    pub fn set_to(&mut self, reader: &ContentReader) {
+    pub fn set_to(&mut self, reader: &ContentReader<'_>) {
         self.state = reader.state;
     }
 
@@ -368,7 +368,7 @@ mod tests {
         Contents::from_str(code)
     }
 
-    fn reader(contents: &Contents) -> ContentReader {
+    fn reader(contents: &Contents) -> ContentReader<'_> {
         ContentReader::new(contents)
     }
 

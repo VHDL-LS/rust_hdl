@@ -5,6 +5,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 use super::*;
+use crate::VHDLStandard::VHDL2019;
 use pretty_assertions::assert_eq;
 use vhdl_lang::data::error_codes::ErrorCode;
 
@@ -377,9 +378,8 @@ end architecture;
         ",
     );
 
-    let diagnostics = builder.analyze();
     check_diagnostics(
-        diagnostics,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("fun1(theport, 2)"),
             "Invalid formal conversion",
@@ -422,9 +422,8 @@ end architecture;
         ",
     );
 
-    let diagnostics = builder.analyze();
     check_diagnostics(
-        diagnostics,
+        builder.analyze(),
         vec![Diagnostic::new(
             code.s1("fun1(arg => theport)"),
             "Invalid formal conversion",
@@ -585,5 +584,163 @@ end architecture;
         root.search_reference_pos(code.source(), code.s1("prt1 => ").s1("prt1").pos().start())
             .unwrap(),
         code.s1("prt1").pos()
+    );
+}
+
+#[test]
+fn view_array_with_explicit_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "
+package test_pkg is
+    type test_t is record
+        foo : bit;
+    end record;
+    
+    view vone of test_t is
+        foo : in;
+    end view;
+
+    type test_array is array (natural range <>) of test_t;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_array_if: view (vone) of test_array(1 downto 0)
+    );
+end entity;
+
+architecture arch of test_sub_entity is
+begin
+    my_array_if(0).foo <= '1';
+end architecture;
+        ",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("test_array(1 downto 0)").start())
+            .unwrap(),
+        code.s1("test_array").pos()
+    );
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("my_array_if(0).foo").end())
+            .unwrap(),
+        code.s1("foo").pos()
+    );
+}
+
+#[test]
+fn view_array_without_explicit_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "
+package test_pkg is
+    type test_t is record
+        foo : bit;
+    end record;
+    
+    view vone of test_t is
+        foo : in;
+    end view;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_array_if: view (vone)
+    );
+end entity;
+
+architecture arch of test_sub_entity is
+begin
+    my_array_if(0).foo <= '1';
+end architecture;
+        ",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("my_array_if(0).foo").end())
+            .unwrap(),
+        code.s1("foo").pos()
+    );
+}
+
+#[test]
+fn view_array_with_non_array_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "
+package test_pkg is
+    type test_t is record
+        foo : natural;
+    end record;
+    
+    view vone of test_t is
+        foo : in;
+    end view;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_array_if: view (vone) of bit
+    );
+end entity;
+        ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("bit"),
+            "Subtype must be an array",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn view_array_with_mismatched_element_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "
+package test_pkg is
+    type test_t is record
+        foo : natural;
+    end record;
+
+    view vone of test_t is
+        foo : in;
+    end view;
+end package;
+
+use work.test_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_array_if: view (vone) of bit_vector
+    );
+end entity;
+        ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("bit_vector"),
+            "Array element type 'BIT' must match record type 'test_t' declared for the view",
+            ErrorCode::TypeMismatch,
+        )],
     );
 }

@@ -316,9 +316,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 FormalRegion::new_params(),
                 return_type,
             ))),
-            implicit_of.decl_pos(),
-            implicit_of.src_span,
-            Some(self.source()),
         );
 
         for (name, kind) in formals.into_iter() {

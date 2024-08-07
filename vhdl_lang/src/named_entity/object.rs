@@ -19,7 +19,7 @@ pub struct ObjectEnt<'a> {
 }
 
 impl<'a> ObjectEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         if matches!(ent.actual_kind(), AnyEntKind::Object(..)) {
             Some(Self { ent })
         } else {
@@ -110,7 +110,7 @@ impl ObjectInterface<'_> {
         }
     }
 
-    pub fn mode(&self) -> &InterfaceMode {
+    pub fn mode(&self) -> &InterfaceMode<'_> {
         match self {
             ObjectInterface::Generic => &InterfaceMode::Simple(Mode::In),
             ObjectInterface::Parameter(m) | ObjectInterface::Port(m) => m,
@@ -164,7 +164,7 @@ impl<'a> Object<'a> {
         matches!(self.iface, Some(ObjectInterface::Parameter(_)))
     }
 
-    pub fn mode(&self) -> Option<&InterfaceMode> {
+    pub fn mode(&self) -> Option<&InterfaceMode<'_>> {
         self.iface.as_ref().map(|i| i.mode())
     }
 }
@@ -195,7 +195,7 @@ pub struct ViewEnt<'a> {
 }
 
 impl<'a> ViewEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         if matches!(ent.actual_kind(), AnyEntKind::View(..)) {
             Some(Self { ent })
         } else {

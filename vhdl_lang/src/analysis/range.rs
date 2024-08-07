@@ -173,8 +173,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                 let types = match (left_types, right_types) {
                     (DisambiguatedType::Unambiguous(l), DisambiguatedType::Unambiguous(r)) => {
-                        if let Some(typ) = self.common_type(l.base(), r.base()) {
-                            return Ok(typ);
+                        return if let Some(typ) = self.common_type(l.base(), r.base()) {
+                            Ok(typ)
                         } else {
                             diagnostics.add(
                                 constraint.span().pos(self.ctx),
@@ -185,7 +185,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 ),
                                 ErrorCode::TypeMismatch,
                             );
-                            return Err(EvalError::Unknown);
+                            Err(EvalError::Unknown)
                         }
                     }
                     (DisambiguatedType::Unambiguous(l), DisambiguatedType::Ambiguous(r)) => {

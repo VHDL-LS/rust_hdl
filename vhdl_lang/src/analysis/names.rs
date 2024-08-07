@@ -163,7 +163,7 @@ pub enum ResolvedName<'a> {
 
 impl<'a> ResolvedName<'a> {
     /// The name was selected out of a design unit
-    fn from_design_not_overloaded(ent: &'a AnyEnt) -> Result<Self, (String, ErrorCode)> {
+    fn from_design_not_overloaded(ent: &'a AnyEnt<'_>) -> Result<Self, (String, ErrorCode)> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
                 base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
@@ -221,7 +221,7 @@ impl<'a> ResolvedName<'a> {
     }
 
     /// The name was looked up from the current scope
-    fn from_scope_not_overloaded(ent: &'a AnyEnt) -> Result<Self, (String, ErrorCode)> {
+    fn from_scope_not_overloaded(ent: &'a AnyEnt<'_>) -> Result<Self, (String, ErrorCode)> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
                 base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
@@ -342,7 +342,7 @@ impl<'a> ResolvedName<'a> {
         &self,
         ctx: &dyn TokenAccess,
         prefix_pos: TokenSpan,
-        attr: &AttributeSuffix,
+        attr: &AttributeSuffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         if let Some(typ) = self.type_mark() {
@@ -361,7 +361,7 @@ impl<'a> ResolvedName<'a> {
         &self,
         ctx: &dyn TokenAccess,
         prefix_pos: TokenSpan,
-        attr: &AttributeSuffix,
+        attr: &AttributeSuffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         if let ResolvedName::ObjectName(oname) = self {
@@ -667,7 +667,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         prefix_pos: TokenSpan,
         name_pos: TokenSpan,
         prefix_typ: TypeEnt<'a>,
-        suffix: &mut Suffix,
+        suffix: &mut Suffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Option<TypeOrMethod<'a>>> {
         match suffix {
@@ -856,7 +856,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         prefix_pos: TokenSpan,
         scope: &Scope<'a>,
         prefix: &ResolvedName<'a>,
-        attr: &mut AttributeSuffix,
+        attr: &mut AttributeSuffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<AttrResolveResult<'a>> {
         match attr.attr.item {
@@ -1506,8 +1506,25 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     return Err(EvalError::Unknown);
                 }
             }
-            ResolvedName::Type(typ) => {
-                if let Suffix::CallOrIndexed(ref mut assocs) = suffix {
+            ResolvedName::Type(typ) => match suffix {
+                Suffix::Selected(selected) => {
+                    let typed_selection = match typ.selected(self.ctx, prefix.span, selected) {
+                        Ok(typed_selection) => typed_selection,
+                        Err(diagnostic) => {
+                            bail!(diagnostics, diagnostic);
+                        }
+                    };
+                    return Ok(match typed_selection {
+                        TypedSelection::RecordElement(element) => {
+                            ResolvedName::Type(element.type_mark())
+                        }
+                        TypedSelection::ProtectedMethod(method) => ResolvedName::Overloaded(
+                            selected.clone().map_into(|desi| desi.item),
+                            method,
+                        ),
+                    });
+                }
+                Suffix::CallOrIndexed(ref mut assocs) => {
                     if let Some((expr_pos, expr)) = as_type_conversion(assocs) {
                         self.check_type_conversion(scope, typ, expr_pos, expr, diagnostics)?;
                         return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
@@ -1515,14 +1532,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         )));
                     }
                 }
-
-                diagnostics.push(Diagnostic::cannot_be_prefix(
-                    &span.pos(self.ctx),
-                    resolved,
-                    suffix,
-                ));
-                return Err(EvalError::Unknown);
-            }
+                _ => {
+                    bail!(
+                        diagnostics,
+                        Diagnostic::cannot_be_prefix(&span.pos(self.ctx), resolved, suffix)
+                    );
+                }
+            },
             ResolvedName::Final(_) => {
                 diagnostics.push(Diagnostic::cannot_be_prefix(
                     &span.pos(self.ctx),
@@ -1535,6 +1551,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
         Ok(resolved)
     }
+
     // Helper function:
     // Resolve a name that must be some kind of object selection, index or slice
     // Such names occur as assignment targets and aliases
@@ -1700,7 +1717,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         name_pos: TokenSpan,
         suffix_pos: TokenSpan,
         type_mark: TypeEnt<'a>,
-        indexes: &mut [Index],
+        indexes: &mut [Index<'_>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<TypeEnt<'a>> {
         let base_type = type_mark.base_type();
@@ -1853,7 +1870,11 @@ impl Declaration {
 }
 
 impl Diagnostic {
-    fn cannot_be_prefix(prefix_pos: &SrcPos, resolved: ResolvedName, suffix: Suffix) -> Diagnostic {
+    fn cannot_be_prefix(
+        prefix_pos: &SrcPos,
+        resolved: ResolvedName<'_>,
+        suffix: Suffix<'_>,
+    ) -> Diagnostic {
         let suffix_desc = match suffix {
             Suffix::Selected(_) => "selected",
             Suffix::All => "accessed with .all",
@@ -1885,8 +1906,8 @@ impl Diagnostic {
 
     fn cannot_be_prefix_of_attribute(
         prefix_pos: &SrcPos,
-        resolved: &ResolvedName,
-        attr: &AttributeSuffix,
+        resolved: &ResolvedName<'_>,
+        attr: &AttributeSuffix<'_>,
     ) -> Diagnostic {
         Diagnostic::new(
             prefix_pos,
@@ -1901,7 +1922,7 @@ impl Diagnostic {
 
     fn dimension_mismatch(
         pos: &SrcPos,
-        base_type: TypeEnt,
+        base_type: TypeEnt<'_>,
         got: usize,
         expected: usize,
     ) -> Diagnostic {
@@ -1954,7 +1975,7 @@ impl Diagnostic {
 
 fn check_no_attr_argument(
     ctx: &dyn TokenAccess,
-    suffix: &AttributeSuffix,
+    suffix: &AttributeSuffix<'_>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) {
     if let Some(ref expr) = suffix.expr {
@@ -1984,7 +2005,7 @@ fn check_no_sattr_argument(
 fn check_single_argument<'a>(
     ctx: &dyn TokenAccess,
     pos: TokenSpan,
-    suffix: &'a mut AttributeSuffix,
+    suffix: &'a mut AttributeSuffix<'_>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> Option<&'a mut WithTokenSpan<Expression>> {
     if let Some(ref mut expr) = suffix.expr {

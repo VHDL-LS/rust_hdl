@@ -10,7 +10,7 @@ use crate::{named_entity, AnyEntKind, CompletionItem, EntRef, Object};
 /// `foo'`
 /// The provided ent is the entity directly before the tick, i.e.,
 /// `foo` in the example above.
-pub(crate) fn completions_for_attribute_name(ent: EntRef) -> Vec<CompletionItem> {
+pub(crate) fn completions_for_attribute_name(ent: EntRef<'_>) -> Vec<CompletionItem<'_>> {
     let mut attributes: Vec<AttributeDesignator> = Vec::new();
     attributes.extend([
         AttributeDesignator::SimpleName,
@@ -37,7 +37,10 @@ pub(crate) fn completions_for_attribute_name(ent: EntRef) -> Vec<CompletionItem>
 }
 
 /// Extends applicable attributes when the attribute name is a type.
-fn extend_attributes_of_type(typ: &named_entity::Type, attributes: &mut Vec<AttributeDesignator>) {
+fn extend_attributes_of_type(
+    typ: &named_entity::Type<'_>,
+    attributes: &mut Vec<AttributeDesignator>,
+) {
     use AttributeDesignator::*;
     if typ.is_scalar() {
         attributes.extend([Left, Right, Low, High, Ascending, Image, Value]);
@@ -59,7 +62,7 @@ fn extend_attributes_of_type(typ: &named_entity::Type, attributes: &mut Vec<Attr
 }
 
 /// Extends applicable attributes when the attribute name is an object.
-fn extend_attributes_of_objects(obj: &Object, attributes: &mut Vec<AttributeDesignator>) {
+fn extend_attributes_of_objects(obj: &Object<'_>, attributes: &mut Vec<AttributeDesignator>) {
     extend_attributes_of_type(obj.subtype.type_mark().kind(), attributes);
     attributes.push(AttributeDesignator::Type(TypeAttribute::Subtype));
     if obj.class == ObjectClass::Signal {

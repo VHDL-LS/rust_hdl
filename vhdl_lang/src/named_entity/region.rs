@@ -227,7 +227,7 @@ pub struct OverloadedName<'a> {
 }
 
 impl<'a> OverloadedName<'a> {
-    pub fn new(entities: Vec<OverloadedEnt>) -> OverloadedName {
+    pub fn new(entities: Vec<OverloadedEnt<'_>>) -> OverloadedName<'_> {
         debug_assert!(!entities.is_empty());
         let mut map = FnvHashMap::default();
         for ent in entities.into_iter() {
@@ -236,7 +236,7 @@ impl<'a> OverloadedName<'a> {
         OverloadedName { entities: map }
     }
 
-    pub fn single(ent: OverloadedEnt) -> OverloadedName {
+    pub fn single(ent: OverloadedEnt<'_>) -> OverloadedName<'_> {
         let mut map = FnvHashMap::default();
         map.insert(ent.subprogram_key(), ent);
         OverloadedName { entities: map }
@@ -269,7 +269,7 @@ impl<'a> OverloadedName<'a> {
         self.entities().map(|ent| ent.signature())
     }
 
-    pub fn get(&self, key: &SubprogramKey) -> Option<OverloadedEnt<'a>> {
+    pub fn get(&self, key: &SubprogramKey<'_>) -> Option<OverloadedEnt<'a>> {
         self.entities.get(key).cloned()
     }
 
@@ -403,7 +403,7 @@ impl<'a> AsUnique<'a> for NamedEntities<'a> {
 }
 
 pub trait SetReference {
-    fn set_unique_reference(&mut self, ent: &AnyEnt);
+    fn set_unique_reference(&mut self, ent: EntRef<'_>);
 
     fn set_reference<'a>(&mut self, value: &'a impl AsUnique<'a>) {
         if let Some(ent) = value.as_unique() {
@@ -413,31 +413,31 @@ pub trait SetReference {
 }
 
 impl<T> SetReference for WithRef<T> {
-    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+    fn set_unique_reference(&mut self, ent: EntRef<'_>) {
         self.reference.set_unique_reference(ent);
     }
 }
 
 impl<T: SetReference> SetReference for WithTokenSpan<T> {
-    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+    fn set_unique_reference(&mut self, ent: EntRef<'_>) {
         self.item.set_unique_reference(ent);
     }
 }
 
 impl<T: SetReference> SetReference for WithToken<T> {
-    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+    fn set_unique_reference(&mut self, ent: EntRef<'_>) {
         self.item.set_unique_reference(ent);
     }
 }
 
 impl SetReference for Reference {
-    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+    fn set_unique_reference(&mut self, ent: EntRef<'_>) {
         self.set(ent.id());
     }
 }
 
 impl SetReference for Name {
-    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+    fn set_unique_reference(&mut self, ent: EntRef<'_>) {
         if let Some(r) = self.suffix_reference_mut() {
             r.set_unique_reference(ent);
         }

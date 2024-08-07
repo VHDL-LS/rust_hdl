@@ -119,7 +119,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                             ))
                                         }
                                     } else {
-                                        let ptype_body: &'a AnyEnt = TypeEnt::define_with_opt_id(
+                                        let ptype_body: EntRef<'_> = TypeEnt::define_with_opt_id(
                                             self.ctx,
                                             self.arena,
                                             overwrite_id,
@@ -176,7 +176,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             TypeDefinition::Protected(ref mut prot_decl) => {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
-                let ptype: &'a AnyEnt = TypeEnt::define_with_opt_id(
+                let ptype: EntRef<'_> = TypeEnt::define_with_opt_id(
                     self.ctx,
                     self.arena,
                     overwrite_id,
@@ -223,9 +223,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                     #[allow(invalid_reference_casting)]
                     let region_ptr = unsafe {
-                        let region_ptr = region_ptr as *const Region;
-                        let region_ptr = region_ptr as *mut Region;
-                        &mut *region_ptr as &mut Region
+                        let region_ptr = region_ptr as *const Region<'_>;
+                        let region_ptr = region_ptr as *mut Region<'_>;
+                        &mut *region_ptr as &mut Region<'_>
                     };
                     *region_ptr = region.into_region();
                 }
@@ -304,7 +304,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
             }
             TypeDefinition::Array(ref mut array_indexes, _, ref mut subtype_indication) => {
-                let mut indexes: Vec<Option<BaseType>> = Vec::with_capacity(array_indexes.len());
+                let mut indexes: Vec<Option<BaseType<'_>>> =
+                    Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
                     indexes.push(as_fatal(self.analyze_array_index(
                         scope,
