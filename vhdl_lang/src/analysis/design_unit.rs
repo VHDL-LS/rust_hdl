@@ -368,7 +368,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
     fn check_secondary_before_primary(
         &self,
-        primary: &DesignEnt,
+        primary: &DesignEnt<'_>,
         secondary_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -394,7 +394,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         config: &mut ConfigurationDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<DesignEnt> {
+    ) -> EvalResult<DesignEnt<'_>> {
         let ent_name = &mut config.entity_name;
         let ent_name_span = ent_name.span;
 

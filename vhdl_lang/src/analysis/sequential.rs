@@ -400,7 +400,7 @@ enum SequentialRoot<'a> {
     Function(TypeEnt<'a>),
 }
 
-fn find_outer_loop(ent: EntRef, label: Option<&Symbol>) -> bool {
+fn find_outer_loop(ent: EntRef<'_>, label: Option<&Symbol>) -> bool {
     match ent.kind() {
         AnyEntKind::Sequential(Some(Sequential::Loop)) => {
             if let Some(label) = label {

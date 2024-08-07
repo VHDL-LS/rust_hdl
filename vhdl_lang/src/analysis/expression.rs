@@ -676,7 +676,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         match implicit_bool_types.len().cmp(&1) {
                             std::cmp::Ordering::Equal => {
-                                let typ: TypeEnt = types.into_iter().next().unwrap().into();
+                                let typ: TypeEnt<'_> = types.into_iter().next().unwrap().into();
                                 self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                             }
                             std::cmp::Ordering::Greater => {
@@ -979,7 +979,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                             Choice::Others => {
                                 // @TODO empty others
-                                let remaining_types: FnvHashSet<BaseType> = elems
+                                let remaining_types: FnvHashSet<BaseType<'_>> = elems
                                     .iter()
                                     .filter_map(|elem| {
                                         if !associated.is_associated(&elem) {
@@ -1262,7 +1262,7 @@ impl RecordAssociations {
     fn associate(
         &mut self,
         ctx: &dyn TokenAccess,
-        elem: &RecordElement,
+        elem: &RecordElement<'_>,
         pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -1281,7 +1281,7 @@ impl RecordAssociations {
         }
     }
 
-    fn is_associated(&self, elem: &RecordElement) -> bool {
+    fn is_associated(&self, elem: &RecordElement<'_>) -> bool {
         self.0.contains_key(&elem.id())
     }
 }

@@ -60,7 +60,7 @@ impl<'a> CompletionSearcher<'a> {
 }
 
 impl<'a> Searcher for CompletionSearcher<'a> {
-    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         let ent_id = match &decl.ast {
             DeclarationItem::Entity(ent_decl) => {
                 if !ent_decl.get_pos(ctx).contains(self.cursor) {

@@ -32,7 +32,7 @@ impl<'a> TokenStream<'a> {
     /// This needs special handling as the text that follows the identifier is arbitrary.
     fn handle_tool_directive(
         grave_accent: Token,
-        tokenizer: &mut Tokenizer,
+        tokenizer: &mut Tokenizer<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         let start_pos = grave_accent.pos.clone();

@@ -6,7 +6,6 @@
 
 use crate::ast::Designator;
 use crate::data::Symbol;
-use crate::AnyEnt;
 use crate::AnyEntKind;
 use crate::EntRef;
 
@@ -18,7 +17,7 @@ pub struct AttributeEnt<'a> {
 }
 
 impl<'a> AttributeEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         if let AnyEntKind::Attribute(..) = ent.actual_kind() {
             Some(AttributeEnt { ent })
         } else {

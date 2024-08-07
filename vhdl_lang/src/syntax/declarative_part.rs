@@ -42,7 +42,7 @@ pub fn parse_package_instantiation(
     })
 }
 
-pub fn is_declarative_part(ctx: &mut ParsingContext) -> ParseResult<bool> {
+pub fn is_declarative_part(ctx: &mut ParsingContext<'_>) -> ParseResult<bool> {
     Ok(matches!(
         ctx.stream.peek_expect()?.kind,
         Use | Type

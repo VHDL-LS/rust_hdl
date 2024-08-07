@@ -284,7 +284,7 @@ fn parse_interface_package(
 }
 
 fn parse_interface_declaration(
-    ctx: &mut ParsingContext,
+    ctx: &mut ParsingContext<'_>,
     list_type: InterfaceType,
 ) -> ParseResult<InterfaceDeclaration> {
     peek_token!(
@@ -441,17 +441,17 @@ fn parse_one_interface_declaration(
 }
 
 #[cfg(test)]
-pub fn parse_parameter(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_parameter(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(ctx, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
-pub fn parse_port(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_port(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(ctx, InterfaceType::Port)
 }
 
 #[cfg(test)]
-pub fn parse_generic(ctx: &mut ParsingContext) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_generic(ctx: &mut ParsingContext<'_>) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(ctx, InterfaceType::Generic)
 }
 

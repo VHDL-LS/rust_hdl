@@ -190,7 +190,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         signature: &mut WithTokenSpan<ast::Signature>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<SignatureKey> {
+    ) -> EvalResult<SignatureKey<'_>> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
@@ -247,7 +247,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         uninst_name: &ResolvedName<'a>,
         instance: &mut SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Signature> {
+    ) -> EvalResult<Signature<'_>> {
         let uninstantiated_subprogram =
             self.resolve_uninstantiated_subprogram(scope, uninst_name, instance, diagnostics)?;
         self.check_instantiated_subprogram_kind_matches_declared(
@@ -424,7 +424,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     /// This function will push an appropriate diagnostic.
     fn check_instantiated_subprogram_kind_matches_declared(
         &self,
-        ent: &OverloadedEnt,
+        ent: &OverloadedEnt<'_>,
         instance: &SubprogramInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -452,7 +452,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         scope: &Scope<'a>,
         decl: &SubprogramSpecification,
-        signature: &Signature,
+        signature: &Signature<'_>,
     ) -> Option<OverloadedEnt<'a>> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 
@@ -470,7 +470,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         scope: &Scope<'a>,
         decl: &SubprogramSpecification,
-        signature: &Signature,
+        signature: &Signature<'_>,
     ) -> Option<OverloadedEnt<'a>> {
         let des = decl.subpgm_designator().item.clone().into_designator();
 

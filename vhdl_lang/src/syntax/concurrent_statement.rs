@@ -475,7 +475,7 @@ fn parse_for_generate_statement(
 
 /// 11.8 Generate statements
 fn parse_if_generate_statement(
-    ctx: &mut ParsingContext,
+    ctx: &mut ParsingContext<'_>,
     label: Option<&Ident>,
 ) -> ParseResult<IfGenerateStatement> {
     let mut conditionals = Vec::new();

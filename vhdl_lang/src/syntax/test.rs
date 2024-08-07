@@ -508,7 +508,7 @@ impl Code {
         R: Debug,
         F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
     {
-        let parse_fun_eof = |ctx: &mut ParsingContext| {
+        let parse_fun_eof = |ctx: &mut ParsingContext<'_>| {
             let result = parse_fun(ctx);
             match result {
                 Err(err) => {
@@ -570,7 +570,7 @@ impl Code {
     }
 
     pub fn character(&self) -> WithToken<u8> {
-        self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext| {
+        self.parse_ok_no_diagnostics(|ctx: &mut ParsingContext<'_>| {
             let id = ctx.stream.expect_kind(Kind::Character)?;
             ctx.stream.index(id).to_character_value(id)
         })
@@ -806,7 +806,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
 }
 
 /// Fast forward tokenstream until position
-fn forward(stream: &TokenStream, start: Position) {
+fn forward(stream: &TokenStream<'_>, start: Position) {
     // short-circuit when start is zero.
     // Also prevents the case where the token stream is empty
     if start.line == 0 && start.character == 0 {

@@ -34,7 +34,7 @@ impl<T, R> AnalysisLock<T, R> {
     }
 
     /// Returns an immutable reference to the data and result if it has already been analyzed.
-    pub fn get(&self) -> Option<ReadGuard<T, R>> {
+    pub fn get(&self) -> Option<ReadGuard<'_, T, R>> {
         let guard = self.state.read();
         if guard.result.is_some() {
             Some(ReadGuard { guard })
@@ -62,7 +62,7 @@ impl<T, R> AnalysisLock<T, R> {
     /// Returns an immmutable reference to the data and result.
     ///
     /// Panics if the analysis result is not available.
-    pub fn expect_analyzed(&self) -> ReadGuard<T, R> {
+    pub fn expect_analyzed(&self) -> ReadGuard<'_, T, R> {
         let guard = self.state.read();
 
         if guard.result.is_none() {
@@ -77,7 +77,7 @@ impl<T, R> AnalysisLock<T, R> {
     /// This view provides:
     /// - a mutable reference to the data if not analyzed
     /// - an immmutable reference to the data if already analyzed
-    pub fn entry(&self) -> AnalysisEntry<T, R> {
+    pub fn entry(&self) -> AnalysisEntry<'_, T, R> {
         if let Some(guard) = self.get() {
             AnalysisEntry::Occupied(guard)
         } else {

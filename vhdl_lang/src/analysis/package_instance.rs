@@ -240,7 +240,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         uninst_region: &Region<'a>,
         generic_map: &mut Option<MapAspect>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<(Region<'a>, FnvHashMap<EntityId, TypeEnt>)> {
+    ) -> EvalResult<(Region<'a>, FnvHashMap<EntityId, TypeEnt<'_>>)> {
         let nested = scope.nested().in_package_declaration();
         let (generics, other) = uninst_region.to_package_generic();
 

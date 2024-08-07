@@ -262,7 +262,7 @@ impl<'a> Scope<'a> {
         self.0.as_ref().borrow_mut().add(ent, diagnostics);
     }
 
-    pub fn make_potentially_visible(&self, visible_pos: Option<&SrcPos>, ent: &'a AnyEnt) {
+    pub fn make_potentially_visible(&self, visible_pos: Option<&SrcPos>, ent: EntRef<'a>) {
         self.0.as_ref().borrow_mut().make_potentially_visible(
             visible_pos,
             ent.designator().clone(),

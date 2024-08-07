@@ -41,7 +41,7 @@ impl Declaration {
     /// ```
     ///
     /// The context is given by the parent element of the declaration.
-    pub fn is_allowed_in_context(&self, parent: &AnyEntKind) -> bool {
+    pub fn is_allowed_in_context(&self, parent: &AnyEntKind<'_>) -> bool {
         use Declaration::*;
         use ObjectClass::*;
         match parent {
@@ -758,54 +758,55 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             signature,
         }) = entity_name
         {
-            let ent: EntRef = match scope.lookup(self.ctx, designator.token, &designator.item.item)
-            {
-                Ok(NamedEntities::Single(ent)) => {
-                    designator.set_unique_reference(ent);
+            let ent: EntRef<'_> =
+                match scope.lookup(self.ctx, designator.token, &designator.item.item) {
+                    Ok(NamedEntities::Single(ent)) => {
+                        designator.set_unique_reference(ent);
 
-                    if let Some(signature) = signature {
-                        diagnostics.push(Diagnostic::should_not_have_signature(
-                            "Attribute specification",
-                            signature.pos(self.ctx),
-                        ));
+                        if let Some(signature) = signature {
+                            diagnostics.push(Diagnostic::should_not_have_signature(
+                                "Attribute specification",
+                                signature.pos(self.ctx),
+                            ));
+                        }
+                        ent
                     }
-                    ent
-                }
-                Ok(NamedEntities::Overloaded(overloaded)) => {
-                    if let Some(signature) = signature {
-                        match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
-                            Some(signature_key) => {
-                                if let Some(ent) =
-                                    overloaded.get(&SubprogramKey::Normal(signature_key))
-                                {
-                                    designator.set_unique_reference(&ent);
-                                    ent.into()
-                                } else {
-                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                        designator.pos(self.ctx),
-                                        &designator.item.item,
-                                        &overloaded,
-                                    ));
+                    Ok(NamedEntities::Overloaded(overloaded)) => {
+                        if let Some(signature) = signature {
+                            match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
+                                Some(signature_key) => {
+                                    if let Some(ent) =
+                                        overloaded.get(&SubprogramKey::Normal(signature_key))
+                                    {
+                                        designator.set_unique_reference(&ent);
+                                        ent.into()
+                                    } else {
+                                        diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                            designator.pos(self.ctx),
+                                            &designator.item.item,
+                                            &overloaded,
+                                        ));
+                                        return Ok(());
+                                    }
+                                }
+                                None => {
                                     return Ok(());
                                 }
                             }
-                            None => {
-                                return Ok(());
-                            }
+                        } else if let Some(ent) = overloaded.as_unique() {
+                            designator.set_unique_reference(ent);
+                            ent
+                        } else {
+                            diagnostics
+                                .push(Diagnostic::signature_required(designator.pos(self.ctx)));
+                            return Ok(());
                         }
-                    } else if let Some(ent) = overloaded.as_unique() {
-                        designator.set_unique_reference(ent);
-                        ent
-                    } else {
-                        diagnostics.push(Diagnostic::signature_required(designator.pos(self.ctx)));
+                    }
+                    Err(err) => {
+                        diagnostics.push(err);
                         return Ok(());
                     }
-                }
-                Err(err) => {
-                    diagnostics.push(err);
-                    return Ok(());
-                }
-            };
+                };
 
             // Attributes affect the underlying entity and cannot be set directly on aliases
             let ent = ent.as_actual();
@@ -1177,7 +1178,7 @@ impl Diagnostic {
     fn no_overloaded_with_signature(
         pos: &SrcPos,
         des: &Designator,
-        overloaded: &OverloadedName,
+        overloaded: &OverloadedName<'_>,
     ) -> Diagnostic {
         let mut diagnostic = Diagnostic::new(
             pos,
@@ -1208,7 +1209,7 @@ impl Diagnostic {
     }
 }
 
-fn get_entity_class(ent: EntRef) -> Option<EntityClass> {
+fn get_entity_class(ent: EntRef<'_>) -> Option<EntityClass> {
     match ent.actual_kind() {
         // Alias is never the direct target of attribute
         AnyEntKind::ExternalAlias { .. } => None,
@@ -1296,7 +1297,7 @@ const UNASSOCIATED_DISPLAY_THRESHOLD: usize = 3;
 ///     "Missing association of element the_element1, the_element2 and the_element3"
 /// * If there are more elements than [UNASSOCIATED_DISPLAY_THRESHOLD], the message will be truncated
 ///     to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
-fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement>) -> String {
+fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement<'_>>) -> String {
     assert!(
         !unassociated.is_empty(),
         "Should never be called with an empty set"

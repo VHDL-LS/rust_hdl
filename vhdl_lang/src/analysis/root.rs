@@ -416,7 +416,11 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn item_at_cursor(&self, source: &Source, cursor: Position) -> Option<(SrcPos, EntRef)> {
+    pub fn item_at_cursor(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Option<(SrcPos, EntRef<'_>)> {
         let mut searcher = ItemAtCursor::new(self, cursor);
 
         for unit in self.units_by_source(source) {
@@ -433,7 +437,7 @@ impl DesignRoot {
         None
     }
 
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<EntRef> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<EntRef<'_>> {
         let (_, ent) = self.item_at_cursor(source, cursor)?;
         Some(ent)
     }
@@ -497,7 +501,7 @@ impl DesignRoot {
             .and_then(|ent| ent.decl_pos().cloned())
     }
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, ent: &AnyEnt) -> Option<String> {
+    pub fn format_declaration(&self, ent: EntRef<'_>) -> Option<String> {
         if let AnyEntKind::Library = ent.kind() {
             Some(format!("library {};", ent.designator()))
         } else {
@@ -514,13 +518,13 @@ impl DesignRoot {
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, ent: EntRef) -> Vec<SrcPos> {
+    pub fn find_all_references(&self, ent: EntRef<'_>) -> Vec<SrcPos> {
         let mut searcher = FindAllReferences::new(self, ent);
         let _ = self.search(&mut searcher);
         searcher.references
     }
 
-    pub fn find_all_references_in_source(&self, source: &Source, ent: EntRef) -> Vec<SrcPos> {
+    pub fn find_all_references_in_source(&self, source: &Source, ent: EntRef<'_>) -> Vec<SrcPos> {
         let mut searcher = FindAllReferences::new(self, ent);
         let _ = self.search_source(source, &mut searcher);
         searcher.references
@@ -616,7 +620,7 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    fn find_std_package(&self, symbol: &str) -> &AnyEnt {
+    fn find_std_package(&self, symbol: &str) -> EntRef<'_> {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
             .get_unit(&UnitKey::Primary(self.symbol_utf8(symbol)))
@@ -629,37 +633,37 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    pub fn find_standard_pkg(&self) -> &AnyEnt {
+    pub fn find_standard_pkg(&self) -> EntRef<'_> {
         self.find_std_package("standard")
     }
 
     #[cfg(test)]
-    pub fn find_textio_pkg(&self) -> &AnyEnt {
+    pub fn find_textio_pkg(&self) -> EntRef<'_> {
         self.find_std_package("textio")
     }
 
     #[cfg(test)]
-    pub fn find_env_pkg(&self) -> &AnyEnt {
+    pub fn find_env_pkg(&self) -> EntRef<'_> {
         self.find_std_package("env")
     }
 
     #[cfg(test)]
-    pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
+    pub fn find_standard_symbol(&self, name: &str) -> EntRef<'_> {
         self.find_std_symbol("standard", name)
     }
 
     #[cfg(test)]
-    pub fn find_env_symbol(&self, name: &str) -> &AnyEnt {
+    pub fn find_env_symbol(&self, name: &str) -> EntRef<'_> {
         self.find_std_symbol("env", name)
     }
 
     #[cfg(test)]
-    pub fn find_overloaded_env_symbols(&self, name: &str) -> &NamedEntities {
+    pub fn find_overloaded_env_symbols(&self, name: &str) -> &NamedEntities<'_> {
         self.find_std_symbols("env", name)
     }
 
     #[cfg(test)]
-    fn find_std_symbol(&self, package: &str, name: &str) -> &AnyEnt {
+    fn find_std_symbol(&self, package: &str, name: &str) -> EntRef<'_> {
         if let AnyEntKind::Design(Design::Package(_, region)) =
             self.find_std_package(package).kind()
         {
@@ -671,7 +675,7 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    fn find_std_symbols(&self, package: &str, name: &str) -> &NamedEntities {
+    fn find_std_symbols(&self, package: &str, name: &str) -> &NamedEntities<'_> {
         if let AnyEntKind::Design(Design::Package(_, region)) =
             self.find_std_package(package).kind()
         {
@@ -740,7 +744,7 @@ impl DesignRoot {
         arena_id: ArenaId,
         unit_id: &UnitId,
         source: Source,
-        unit: &mut UnitWriteGuard,
+        unit: &mut UnitWriteGuard<'_>,
         ctx: &dyn TokenAccess,
     ) {
         // All units reference the standard arena
@@ -1195,7 +1199,7 @@ impl DesignRoot {
     }
 
     /// Get the named entity
-    pub fn get_ent(&self, id: EntityId) -> &AnyEnt {
+    pub fn get_ent(&self, id: EntityId) -> EntRef<'_> {
         self.arenas.get(id)
     }
 
@@ -1248,7 +1252,7 @@ pub struct EntHierarchy<'a> {
 
 impl<'a> EntHierarchy<'a> {
     fn from_parent(parent: EntRef<'a>, mut symbols: Vec<EntRef<'a>>) -> EntHierarchy<'a> {
-        let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
+        let mut by_parent: FnvHashMap<EntityId, Vec<EntRef<'_>>> = Default::default();
 
         symbols.retain(|ent| {
             if let Some(parent) = ent.parent_in_same_source() {

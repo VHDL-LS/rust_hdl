@@ -263,7 +263,7 @@ impl<'a> RecordRegion<'a> {
         self.elems.iter().cloned()
     }
 
-    pub fn add(&mut self, ent: &'a AnyEnt) {
+    pub fn add(&mut self, ent: EntRef<'a>) {
         if let Some(elem) = RecordElement::from_any(ent) {
             self.elems.push(elem);
         } else {

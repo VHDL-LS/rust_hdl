@@ -365,7 +365,7 @@ impl Name {
 impl CallOrIndexed {
     // During parsing function calls and indexed names are ambiguous
     // Thus we convert function calls to indexed names during the analysis stage
-    pub fn as_indexed(&mut self) -> Option<IndexedName> {
+    pub fn as_indexed(&mut self) -> Option<IndexedName<'_>> {
         if !self.could_be_indexed_name() {
             return None;
         }
@@ -375,7 +375,7 @@ impl CallOrIndexed {
             ref mut parameters,
         } = self;
 
-        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.items.len());
+        let mut indexes: Vec<Index<'_>> = Vec::with_capacity(parameters.items.len());
 
         for elem in parameters.items.iter_mut() {
             if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {

@@ -20,8 +20,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         span: TokenSpan,
         string_lit: Latin1String,
-        target_base: TypeEnt,
-        target_type: TypeEnt,
+        target_base: TypeEnt<'_>,
+        target_type: TypeEnt<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
@@ -214,7 +214,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 }
 
 /// Must be an array type with a single index of enum type
-fn as_single_index_enum_array(typ: TypeEnt) -> Option<(TypeEnt, &FnvHashSet<Designator>)> {
+fn as_single_index_enum_array(typ: TypeEnt<'_>) -> Option<(TypeEnt<'_>, &FnvHashSet<Designator>)> {
     if let Type::Array {
         indexes, elem_type, ..
     } = typ.kind()

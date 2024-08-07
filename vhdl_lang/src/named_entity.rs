@@ -412,7 +412,7 @@ impl<'a> AnyEnt<'a> {
         )
     }
 
-    pub fn is_declared_by(&self, other: EntRef) -> bool {
+    pub fn is_declared_by(&self, other: EntRef<'_>) -> bool {
         if let Related::DeclaredBy(ent) = self.related {
             if ent.id() == other.id() {
                 return true;
@@ -431,7 +431,7 @@ impl<'a> AnyEnt<'a> {
         }
     }
 
-    pub fn is_instance_of(&self, other: EntRef) -> bool {
+    pub fn is_instance_of(&self, other: EntRef<'_>) -> bool {
         if let Related::InstanceOf(ent) = &self.related {
             ent.id() == other.id()
         } else {
@@ -491,7 +491,7 @@ impl<'a> AnyEnt<'a> {
         }
     }
 
-    pub fn kind(&self) -> &AnyEntKind {
+    pub fn kind(&self) -> &AnyEntKind<'_> {
         &self.kind
     }
 
@@ -510,14 +510,14 @@ impl<'a> AnyEnt<'a> {
         self.signature().is_some()
     }
 
-    pub fn signature(&self) -> Option<&Signature> {
+    pub fn signature(&self) -> Option<&Signature<'_>> {
         match self.actual_kind() {
             AnyEntKind::Overloaded(ref overloaded) => Some(overloaded.signature()),
             _ => None,
         }
     }
 
-    pub fn as_actual(&self) -> &AnyEnt {
+    pub fn as_actual(&self) -> EntRef<'_> {
         match self.kind() {
             AnyEntKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
             AnyEntKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
@@ -562,12 +562,12 @@ impl<'a> AnyEnt<'a> {
     }
 
     /// Strip aliases and return reference to actual entity kind
-    pub fn actual_kind(&self) -> &AnyEntKind {
+    pub fn actual_kind(&self) -> &AnyEntKind<'_> {
         self.as_actual().kind()
     }
 
     /// Returns true if self is alias of other
-    pub fn is_alias_of(&self, other: &AnyEnt) -> bool {
+    pub fn is_alias_of(&self, other: EntRef<'_>) -> bool {
         match self.kind() {
             AnyEntKind::Type(Type::Alias(ref ent)) => {
                 if ent.id() == other.id() {
@@ -609,14 +609,16 @@ impl<'a> AnyEnt<'a> {
     #[allow(clippy::mut_from_ref)]
     #[allow(invalid_reference_casting)]
     unsafe fn unsafe_ref_mut(&self) -> &mut Self {
-        // NOTE: Use read_volatile to prevent compiler to optimization away assignment to the returned reference
-        let const_ptr = std::ptr::read_volatile(&self) as *const Self;
-        let mut_ptr = const_ptr as *mut Self;
-        &mut *mut_ptr
+        unsafe {
+            // NOTE: Use read_volatile to prevent compiler to optimization away assignment to the returned reference
+            let const_ptr = std::ptr::read_volatile(&self) as *const Self;
+            let mut_ptr = const_ptr as *mut Self;
+            &mut *mut_ptr
+        }
     }
 
     // Used to update the kind of pre-declared symbols that are visible before they have been fully analyzed
-    pub(crate) unsafe fn set_kind(&self, kind: AnyEntKind) {
+    pub(crate) unsafe fn set_kind(&self, kind: AnyEntKind<'_>) {
         unsafe {
             self.unsafe_ref_mut().kind = kind;
         }

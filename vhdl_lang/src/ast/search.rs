@@ -107,7 +107,7 @@ pub trait Searcher {
     }
 
     /// Search a declaration of a named entity
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, _decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, _ctx: &dyn TokenAccess, _decl: FoundDeclaration<'_>) -> SearchState {
         NotFinished
     }
 
@@ -1614,7 +1614,7 @@ impl<'a> Searcher for ItemAtCursor<'a> {
         }
     }
 
-    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let ent = self.root.get_ent(id);
 
@@ -1668,7 +1668,7 @@ impl<'a, T: Fn(EntRef<'a>) -> bool> FindEnt<'a, T> {
 }
 
 impl<'a, T: Fn(EntRef<'a>) -> bool> Searcher for FindEnt<'a, T> {
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let ent = self.root.get_ent(id);
             if (self.cond)(ent) {
@@ -1698,7 +1698,7 @@ impl<'a, T: FnMut(EntRef<'a>) -> bool> FindAllEnt<'a, T> {
 }
 
 impl<'a, T: FnMut(EntRef<'a>) -> bool> Searcher for FindAllEnt<'a, T> {
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let ent = self.root.get_ent(id);
             if (self.cond)(ent) {
@@ -1723,7 +1723,7 @@ impl<'a> FormatDeclaration<'a> {
 }
 
 impl<'a> Searcher for FormatDeclaration<'a> {
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         let id = if let Some(id) = decl.ent_id() {
             id
         } else {
@@ -1754,7 +1754,7 @@ pub struct FindAllReferences<'a> {
     pub references: Vec<SrcPos>,
 }
 
-pub fn is_reference(ent: EntRef, other: EntRef) -> bool {
+pub fn is_reference(ent: EntRef<'_>, other: EntRef<'_>) -> bool {
     if ent.id() == other.id() {
         return true;
     }
@@ -1781,7 +1781,7 @@ impl<'a> FindAllReferences<'a> {
 }
 
 impl<'a> Searcher for FindAllReferences<'a> {
-    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let other = self.root.get_ent(id);
 
@@ -2011,7 +2011,11 @@ pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
             NotFinished
         }
 
-        fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+        fn search_decl(
+            &mut self,
+            _ctx: &dyn TokenAccess,
+            decl: FoundDeclaration<'_>,
+        ) -> SearchState {
             let reference = decl.ent_id_ref();
             reference.clear();
             NotFinished

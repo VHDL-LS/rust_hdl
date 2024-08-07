@@ -8,7 +8,7 @@ use crate::CompletionItem;
 use std::iter::once;
 
 /// Produces all available libraries.
-pub(crate) fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem> {
+pub(crate) fn list_all_libraries(root: &DesignRoot) -> Vec<CompletionItem<'_>> {
     root.libraries()
         .map(|lib| CompletionItem::Simple(root.get_ent(lib.id())))
         .chain(once(CompletionItem::Work))

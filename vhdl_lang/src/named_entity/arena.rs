@@ -56,7 +56,7 @@ impl LocalArena {
         }
     }
 
-    unsafe fn alloc(&mut self, mut ent: AnyEnt) -> *const AnyEnt<'static> {
+    unsafe fn alloc(&mut self, mut ent: AnyEnt<'_>) -> *const AnyEnt<'static> {
         let idx = self.items.len();
 
         if idx > u32::MAX as usize {
@@ -65,22 +65,24 @@ impl LocalArena {
 
         let ent_id = EntityId::new_arena(self.id, LocalId(idx as u32));
         ent.id = ent_id;
-        self.items
-            .push(std::mem::transmute::<AnyEnt<'_>, AnyEnt<'_>>(ent));
-        self.get(ent_id.local_id())
+        unsafe {
+            self.items
+                .push(std::mem::transmute::<AnyEnt<'_>, AnyEnt<'_>>(ent));
+            self.get(ent_id.local_id())
+        }
     }
 
     unsafe fn get(&self, id: LocalId) -> *const AnyEnt<'static> {
         self.panic_on_missing(id);
 
         let item = self.items.get(id.0 as usize).unwrap();
-        std::pin::Pin::into_inner(item) as *const AnyEnt
+        std::pin::Pin::into_inner(item) as *const AnyEnt<'_>
     }
 
-    unsafe fn get_mut(&mut self, id: LocalId) -> *mut AnyEnt {
+    unsafe fn get_mut(&mut self, id: LocalId) -> *mut AnyEnt<'_> {
         self.panic_on_missing(id);
         let item = self.items.get_mut(id.0 as usize).unwrap();
-        std::mem::transmute(std::pin::Pin::into_inner(item) as *mut AnyEnt)
+        unsafe { std::mem::transmute(std::pin::Pin::into_inner(item) as *mut AnyEnt<'_>) }
     }
 
     pub fn contains(&self, id: LocalId) -> bool {
@@ -116,7 +118,7 @@ impl<'a> FinalArena {
     pub fn get(&'a self, id: EntityId) -> EntRef<'a> {
         unsafe {
             let ent = self.refs[&id.arena_id().0].get(id.local_id());
-            &*ent as &'a AnyEnt
+            &*ent as &'a AnyEnt<'_>
         }
     }
 
@@ -230,9 +232,9 @@ impl Arena {
     pub(crate) unsafe fn add_implicit<'a>(&'a self, id: EntityId, ent: EntRef<'a>) {
         let mut local = self.local.borrow_mut();
         assert_eq!(id.arena_id(), local.id);
-        let eref = local.get_mut(id.local_id());
+        let eref = unsafe { local.get_mut(id.local_id()) };
         unsafe {
-            let eref: &mut AnyEnt = &mut *eref as &mut AnyEnt;
+            let eref: &mut AnyEnt<'_> = &mut *eref as &mut AnyEnt<'_>;
             eref.add_implicit(ent);
         }
     }
@@ -245,9 +247,9 @@ impl Arena {
     ) -> Result<(), Diagnostic> {
         let mut local = self.local.borrow_mut();
         assert_eq!(id.arena_id(), local.id);
-        let eref = local.get_mut(id.local_id());
         unsafe {
-            let eref: &mut AnyEnt = &mut *eref as &mut AnyEnt;
+            let eref = local.get_mut(id.local_id());
+            let eref: &mut AnyEnt<'_> = &mut *eref as &mut AnyEnt<'_>;
             eref.add_attribute(ent, pos)
         }
     }
@@ -263,7 +265,7 @@ impl Arena {
             if p.id == id.arena_id() {
                 // Try local first
                 let ent = p.get(id.local_id());
-                return &*ent as &'a AnyEnt;
+                return &*ent as EntRef<'a>;
             }
         }
 
@@ -274,11 +276,11 @@ impl Arena {
         unsafe {
             let p = &*self.refs.as_ptr() as &FinalArena;
             let ent = p.get(id);
-            ent as &'a AnyEnt
+            ent as EntRef<'a>
         }
     }
 
-    pub fn get_type(&self, id: EntityId) -> TypeEnt {
+    pub fn get_type(&self, id: EntityId) -> TypeEnt<'_> {
         TypeEnt::from_any(self.get(id)).unwrap()
     }
 

@@ -18,7 +18,7 @@ pub fn parse_optional<F, R>(
     parse_fun: F,
 ) -> ParseResult<Option<R>>
 where
-    F: FnOnce(&mut ParsingContext) -> ParseResult<R>,
+    F: FnOnce(&mut ParsingContext<'_>) -> ParseResult<R>,
 {
     let optional = {
         if ctx.stream.skip_if_kind(keyword) {
@@ -32,7 +32,7 @@ where
 }
 
 pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>(
-    ctx: &mut ParsingContext,
+    ctx: &mut ParsingContext<'_>,
     ident: &WithToken<T>,
     end_ident: Option<WithToken<T>>,
 ) -> Option<TokenId> {
@@ -50,7 +50,7 @@ pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>
 }
 
 pub fn check_label_identifier_mismatch(
-    ctx: &mut ParsingContext,
+    ctx: &mut ParsingContext<'_>,
     label: Option<&Ident>,
     end_ident: Option<Ident>,
 ) -> Option<SrcPos> {

@@ -76,7 +76,7 @@ impl<'a> MapAspectSearcher<'a> {
 
 impl<'a> Searcher for MapAspectSearcher<'a> {
     /// Visit an instantiation statement extracting completions for ports or generics.
-    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+    fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         match &decl.ast {
             DeclarationItem::ConcurrentStatement(stmt) => {
                 if let ConcurrentStatement::Instance(inst) = &stmt.statement.item {
@@ -128,7 +128,7 @@ enum MapAspectKind {
 
 /// From this region, extracts those `AnyEntKind::Object`s where the class of the
 /// object matches the specified class.
-fn extract_objects_with_class(region: &Region, object_class: ObjectClass) -> Vec<EntityId> {
+fn extract_objects_with_class(region: &Region<'_>, object_class: ObjectClass) -> Vec<EntityId> {
     region
         .entities
         .values()

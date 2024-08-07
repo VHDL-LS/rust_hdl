@@ -10,7 +10,7 @@ use crate::ast::DesignFile;
 use crate::completion::{list_completion_options, CompletionItem};
 use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
-use crate::named_entity::{AnyEnt, EntRef};
+use crate::named_entity::EntRef;
 use crate::standard::VHDLStandard;
 use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
@@ -252,17 +252,21 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn find_definition(&self, source: &Source, cursor: Position) -> Option<EntRef> {
+    pub fn find_definition(&self, source: &Source, cursor: Position) -> Option<EntRef<'_>> {
         let ent = self.root.search_reference(source, cursor)?;
         self.root.find_definition_of(ent)
     }
 
-    pub fn find_declaration(&self, source: &Source, cursor: Position) -> Option<EntRef> {
+    pub fn find_declaration(&self, source: &Source, cursor: Position) -> Option<EntRef<'_>> {
         let ent = self.root.search_reference(source, cursor)?;
         Some(ent.declaration())
     }
 
-    pub fn item_at_cursor(&self, source: &Source, cursor: Position) -> Option<(SrcPos, EntRef)> {
+    pub fn item_at_cursor(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Option<(SrcPos, EntRef<'_>)> {
         self.root.item_at_cursor(source, cursor)
     }
 
@@ -284,7 +288,7 @@ impl Project {
         self.root.document_symbols(library_name, source)
     }
 
-    pub fn find_implementation(&self, source: &Source, cursor: Position) -> Vec<EntRef> {
+    pub fn find_implementation(&self, source: &Source, cursor: Position) -> Vec<EntRef<'_>> {
         if let Some(ent) = self.find_declaration(source, cursor) {
             self.root.find_implementation(ent)
         } else {
@@ -293,7 +297,7 @@ impl Project {
     }
 
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, ent: &AnyEnt) -> Option<String> {
+    pub fn format_declaration(&self, ent: EntRef<'_>) -> Option<String> {
         self.root.format_declaration(ent)
     }
 
@@ -303,11 +307,11 @@ impl Project {
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, ent: &AnyEnt) -> Vec<SrcPos> {
+    pub fn find_all_references(&self, ent: EntRef<'_>) -> Vec<SrcPos> {
         self.root.find_all_references(ent)
     }
 
-    pub fn find_all_references_in_source(&self, source: &Source, ent: &AnyEnt) -> Vec<SrcPos> {
+    pub fn find_all_references_in_source(&self, source: &Source, ent: EntRef<'_>) -> Vec<SrcPos> {
         self.root.find_all_references_in_source(source, ent)
     }
 
@@ -325,7 +329,7 @@ impl Project {
         &self,
         source: &Source,
         cursor: Position,
-    ) -> Vec<CompletionItem> {
+    ) -> Vec<CompletionItem<'_>> {
         list_completion_options(&self.root, source, cursor)
     }
 
