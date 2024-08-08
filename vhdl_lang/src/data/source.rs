@@ -16,6 +16,7 @@ use std::io;
 pub use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[derive(Debug)]
 struct FileId {
     name: FilePath,
     /// Hash value of `self.name`.
@@ -24,11 +25,9 @@ struct FileId {
 
 impl FileId {
     fn new(name: &Path) -> FileId {
-        let hash = hash(name);
-        Self {
-            name: FilePath::new(name),
-            hash,
-        }
+        let name = FilePath::new(name);
+        let hash = hash(&name);
+        Self { name, hash }
     }
 }
 
@@ -58,7 +57,10 @@ struct UniqueSource {
 impl fmt::Debug for UniqueSource {
     /// Custom implementation to avoid large contents strings.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Source {{file_name: {:?}}}", self.file_name())
+        f.debug_struct(stringify!(UniqueSource))
+            .field(stringify!(file_id), &self.file_id)
+            .field(stringify!(contents), &"...")
+            .finish()
     }
 }
 
@@ -102,13 +104,11 @@ impl UniqueSource {
 /// A thread-safe reference to a source file.
 /// Multiple objects of this type can refer to the same source.
 #[derive(Debug, Clone)]
-pub struct Source {
-    source: Arc<UniqueSource>,
-}
+pub struct Source(Arc<UniqueSource>);
 
 impl PartialEq for Source {
     fn eq(&self, other: &Self) -> bool {
-        self.source.file_id == other.source.file_id
+        self.0.file_id == other.0.file_id
     }
 }
 
@@ -120,7 +120,7 @@ impl PartialOrd for Source {
 
 impl Ord for Source {
     fn cmp(&self, other: &Source) -> std::cmp::Ordering {
-        self.source.file_name().cmp(other.file_name())
+        self.file_name().cmp(other.file_name())
     }
 }
 
@@ -128,7 +128,7 @@ impl Eq for Source {}
 
 impl Hash for Source {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        hasher.write_u64(self.source.file_id.hash)
+        hasher.write_u64(self.0.file_id.hash)
     }
 }
 
@@ -138,34 +138,28 @@ impl Source {
     /// Note: For differing values of `contents`, the value of `file_name`
     /// *must* differ as well.
     pub fn inline(file_name: &Path, contents: &str) -> Source {
-        Source {
-            source: Arc::new(UniqueSource::inline(file_name, contents)),
-        }
+        Source(Arc::new(UniqueSource::inline(file_name, contents)))
     }
 
     pub fn from_latin1_file(file_name: &Path) -> io::Result<Source> {
-        Ok(Source {
-            source: Arc::new(UniqueSource::from_latin1_file(file_name)?),
-        })
+        Ok(Source(Arc::new(UniqueSource::from_latin1_file(file_name)?)))
     }
 
     #[cfg(test)]
     pub fn from_contents(file_name: &Path, contents: Contents) -> Source {
-        Source {
-            source: Arc::new(UniqueSource::from_contents(file_name, contents)),
-        }
+        Source(Arc::new(UniqueSource::from_contents(file_name, contents)))
     }
 
     pub fn contents(&self) -> RwLockReadGuard<'_, Contents> {
-        self.source.contents()
+        self.0.contents()
     }
 
     pub fn file_name(&self) -> &Path {
-        self.source.file_name()
+        self.0.file_name()
     }
 
     pub(crate) fn file_path(&self) -> &FilePath {
-        self.source.file_path()
+        self.0.file_path()
     }
 
     pub fn pos(&self, start: Position, end: Position) -> SrcPos {
@@ -176,7 +170,7 @@ impl Source {
     }
 
     pub fn change(&self, range: Option<&Range>, content: &str) {
-        let mut contents = self.source.contents.write();
+        let mut contents = self.0.contents.write();
         if let Some(range) = range {
             contents.change(range, content);
         } else {
@@ -430,7 +424,7 @@ impl SrcPos {
             file_name.to_string_lossy(),
             lineno + 1
         )
-        .unwrap();
+            .unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
@@ -528,36 +522,38 @@ impl<T: HasSrcPos> HasSource for T {
     }
 }
 
-/// A wrapper arround a PathBuf that ensures the path is canoninicalized
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub(crate) struct FilePath {
-    path: PathBuf,
-}
+/// A wrapper around a PathBuf that ensures the path is absolute and simplified.
+///
+/// Related GitHub issues: #115, #327
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub(crate) struct FilePath(PathBuf);
 
 impl std::ops::Deref for FilePath {
     type Target = Path;
     fn deref(&self) -> &Self::Target {
-        &self.path
+        &self.0
     }
 }
 
 impl FilePath {
     pub fn new(path: &Path) -> Self {
-        let path = match dunce::canonicalize(path) {
-            Ok(path) => path,
+        if cfg!(test) && !path.exists() {
+            return Self(path.to_owned());
+        }
+        // Note: dunce::canonicalize instead of path::absolute together with
+        // dunce::simplified causes issues in #327
+        let path = match std::path::absolute(path) {
+            Ok(path) => dunce::simplified(&path).to_owned(),
             Err(err) => {
-                if !cfg!(test) {
-                    eprintln!(
-                        "Could not create absolute path {}: {:?}",
-                        path.to_string_lossy(),
-                        err
-                    );
-                }
+                eprintln!(
+                    "Could not create absolute path {}: {:?}",
+                    path.to_string_lossy(),
+                    err
+                );
                 path.to_owned()
             }
         };
-
-        Self { path }
+        Self(path)
     }
 }
 
