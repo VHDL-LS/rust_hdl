@@ -424,7 +424,7 @@ impl SrcPos {
             file_name.to_string_lossy(),
             lineno + 1
         )
-            .unwrap();
+        .unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
@@ -524,7 +524,7 @@ impl<T: HasSrcPos> HasSource for T {
 
 /// A wrapper around a PathBuf that ensures the path is absolute and simplified.
 ///
-/// Related GitHub issues: #115, #327
+/// This struct can be used similar to a [PathBuf], i.e., dereferencing it will return a [Path]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub(crate) struct FilePath(PathBuf);
 
@@ -537,12 +537,18 @@ impl std::ops::Deref for FilePath {
 
 impl FilePath {
     pub fn new(path: &Path) -> Self {
+        // In tests, when using inline files, paths are used that do not point to an existing file.
+        // In this case, we simply want to preserve the name without changing it.
         if cfg!(test) && !path.exists() {
             return Self(path.to_owned());
         }
-        // Note: dunce::canonicalize instead of path::absolute together with
-        // dunce::simplified causes issues in #327
+        // It would also be possible to use dunce::canonicalize here instead of path::absolute
+        // and dunce::simplify, but dunce::canonicalize resolves symlinks
+        // which we don't want (see issue #327)
         let path = match std::path::absolute(path) {
+            // dunce::simplified converts UNC paths to regular paths.
+            // UNC paths have caused issues when a file was mounted on a network drive.
+            // Related issue: #115
             Ok(path) => dunce::simplified(&path).to_owned(),
             Err(err) => {
                 eprintln!(
