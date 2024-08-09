@@ -4,9 +4,6 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use fnv::FnvHashMap;
-use vhdl_lang::SrcPos;
-
 use super::analyze::*;
 use super::names::ResolvedName;
 use super::scope::*;
@@ -22,6 +19,181 @@ use crate::data::DiagnosticHandler;
 use crate::named_entity::*;
 use crate::Diagnostic;
 use crate::NullDiagnostics;
+use fnv::FnvHashMap;
+use std::collections::HashMap;
+use vhdl_lang::SrcPos;
+
+pub trait Mapper<'a> {
+    fn map_type_ent(&self, type_ent: &TypeEnt<'a>) -> TypeEnt<'a>;
+
+    fn map_object(&self, obj: &Object<'a>) -> Object<'a>;
+
+    fn map_subtype(&self, subtype: &Subtype<'a>) -> Subtype<'a>;
+
+    fn map_region(&self, region: &Region<'a>) -> Region<'a>;
+
+    fn map_record_region(&self, region: &RecordRegion<'a>) -> RecordRegion<'a>;
+
+    fn map_overloaded(&self, overloaded: &Overloaded<'a>) -> Overloaded<'a>;
+
+    fn map_overloaded_ent(&self, overloaded_ent: &OverloadedEnt<'a>) -> OverloadedEnt<'a>;
+
+    fn map_type(&self, typ: &Type<'a>) -> Type<'a>;
+
+    fn map_obj_ent(&self, obj: &ObjectEnt<'a>) -> ObjectEnt<'a>;
+
+    fn map_base_type(&self, typ: &BaseType<'a>) -> BaseType<'a>;
+
+    fn map_design(&self, design: &Design<'a>) -> Design<'a>;
+
+    fn map_signature(&self, signature: &Signature<'a>) -> Signature<'a>;
+}
+
+struct TypeMapper<'a> {
+    mapping: &'a HashMap<EntityId, TypeEnt<'a>>,
+}
+
+impl<'a> Mapper<'a> for TypeMapper<'a> {
+    fn map_type_ent(&self, type_ent: &TypeEnt<'a>) -> TypeEnt<'a> {
+        self.mapping
+            .get(&type_ent.id())
+            .cloned()
+            .unwrap_or(*type_ent)
+    }
+
+    fn map_object(&self, obj: &Object<'a>) -> Object<'a> {
+        let Object {
+            class,
+            iface,
+            subtype,
+            has_default,
+        } = obj;
+
+        Object {
+            class: *class,
+            iface: iface.clone(),
+            subtype: self.map_subtype(subtype),
+            has_default: *has_default,
+        }
+    }
+
+    fn map_subtype(&self, subtype: &Subtype<'a>) -> Subtype<'a> {
+        let Subtype { type_mark } = subtype;
+
+        Subtype {
+            type_mark: self.map_type_ent(type_mark),
+        }
+    }
+
+    fn map_region(&self, region: &Region<'a>) -> Region<'a> {
+        todo!()
+    }
+
+    fn map_overloaded(&self, overloaded: &Overloaded<'a>) -> Overloaded<'a> {
+        use Overloaded::*;
+        match overloaded {
+            SubprogramDecl(signature) => SubprogramDecl(self.map_signature(signature)),
+            Subprogram(signature) => Subprogram(self.map_signature(signature)),
+            UninstSubprogramDecl(signature, generic_map) => {
+                UninstSubprogramDecl(self.map_signature(signature), generic_map.clone())
+            }
+            UninstSubprogram(signature, generic_map) => {
+                UninstSubprogram(self.map_signature(signature), self.map_region(generic_map))
+            }
+            InterfaceSubprogram(signature) => InterfaceSubprogram(self.map_signature(signature)),
+            EnumLiteral(signature) => EnumLiteral(self.map_signature(signature)),
+            Alias(alias) => Alias(self.map_overloaded_ent(alias)),
+        }
+    }
+
+    fn map_type(&self, typ: &Type<'a>) -> Type<'a> {
+        use Type::*;
+        match typ {
+            Array { indexes, elem_type } => {
+                let mut mapped_indexes = Vec::with_capacity(indexes.len());
+                for index_typ in indexes.iter() {
+                    mapped_indexes.push(
+                        index_typ
+                            .as_ref()
+                            .map(|index_typ| self.map_base_type(index_typ)),
+                    )
+                }
+
+                Array {
+                    indexes: mapped_indexes,
+                    elem_type: self.map_type_ent(elem_type),
+                }
+            }
+            Enum(symbols) => Enum(symbols.clone()),
+            Integer => Integer,
+            Real => Real,
+            Physical => Physical,
+            Access(subtype) => Access(self.map_subtype(subtype)),
+            Record(region) => Record(self.map_record_region(region)),
+            Subtype(subtype) => Subtype(self.map_subtype(subtype)),
+            Protected(region, is_body) => Protected(self.map_region(region), *is_body),
+            File => File,
+            Alias(typ) => Alias(self.map_type_ent(typ)),
+            Universal(utyp) => Universal(*utyp),
+            Incomplete => Incomplete,
+            Interface => Interface,
+        }
+    }
+
+    fn map_obj_ent(&self, obj: &ObjectEnt<'a>) -> ObjectEnt<'a> {
+        if let Some(obj) = ObjectEnt::from_any(self.instantiate(None, obj)) {
+            obj
+        } else {
+            return Err((
+                "Internal error, expected instantiated object to be object".to_owned(),
+                ErrorCode::Internal,
+            ));
+        }
+    }
+
+    fn map_base_type(&self, typ: &BaseType<'a>) -> BaseType<'a> {
+        todo!()
+    }
+
+    fn map_design(&self, design: &Design<'a>) -> Design<'a> {
+        todo!()
+    }
+
+    fn map_signature(&self, signature: &Signature<'a>) -> Signature<'a> {
+        todo!()
+    }
+}
+
+impl<'a> TypeMapper<'a> {
+    fn instantiate(&self, parent: Option<EntRef<'a>>, uninst: EntRef<'a>) -> EntRef<'a> {
+        let designator = uninst.designator().clone();
+
+        let decl_pos = uninst.decl_pos().cloned();
+
+        let inst = self.arena.alloc(
+            designator,
+            parent.or(uninst.parent),
+            Related::InstanceOf(uninst),
+            AnyEntKind::Library, // Will be immediately overwritten below
+            decl_pos,
+            uninst.src_span,
+            Some(self.source()),
+        );
+        let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
+        unsafe {
+            inst.set_kind(kind);
+        }
+
+        for implicit_uninst in uninst.implicits.iter() {
+            unsafe {
+                self.arena
+                    .add_implicit(inst.id(), self.instantiate(Some(inst), implicit_uninst)?);
+            }
+        }
+
+        Ok(inst)
+    }
+}
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn generic_package_instance(
@@ -596,6 +768,41 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
         Subtype {
             type_mark: self.map_type_ent(mapping, type_mark),
+        }
+    }
+
+    pub fn map2(&self, kind: &AnyEntKind<'a>, mapper: impl Mapper<'a>) -> AnyEntKind<'a> {
+        use AnyEntKind::*;
+        match kind {
+            ExternalAlias { class, type_mark } => ExternalAlias {
+                class: *class,
+                type_mark: mapper.map_type_ent(type_mark),
+            },
+            ObjectAlias {
+                base_object,
+                type_mark,
+            } => ObjectAlias {
+                base_object: mapper.map_obj_ent(base_object),
+                type_mark: mapper.map_type_ent(type_mark),
+            },
+            File(subtype) => File(mapper.map_subtype(subtype)),
+            InterfaceFile(typ) => InterfaceFile(mapper.map_type_ent(typ)),
+            Component(region) => Component(mapper.map_region(region)),
+            Attribute(attribute) => Attribute(mapper.map_type_ent(attribute)),
+            Overloaded(overloaded) => Overloaded(mapper.map_overloaded(overloaded)),
+            Type(typ) => Type(mapper.map_type(typ)),
+            ElementDeclaration(subtype) => ElementDeclaration(mapper.map_subtype(subtype)),
+            Concurrent(concurrent) => Concurrent(concurrent.clone()),
+            Sequential(sequential) => Sequential(sequential.clone()),
+            Object(obj) => Object(mapper.map_object(obj)),
+            LoopParameter(param) => {
+                LoopParameter(param.as_ref().map(|typ| mapper.map_base_type(typ)))
+            }
+            PhysicalLiteral(typ) => PhysicalLiteral(mapper.map_type_ent(typ)),
+            DeferredConstant(subtype) => DeferredConstant(mapper.map_subtype(subtype)),
+            Library => Library,
+            Design(design) => Design(mapper.map_design(design)),
+            View(subtype) => View(mapper.map_subtype(subtype)),
         }
     }
 }
