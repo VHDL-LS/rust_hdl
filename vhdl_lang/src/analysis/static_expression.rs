@@ -13,7 +13,7 @@ fn byte_is_odd_decimal(byte: u8) -> bool {
 
 /// Converts a decimal string (i.e. "123") to a binary string (i.e. "1111011").
 ///
-/// When there are illegal characters in the string (i.e. non decimal characters),
+/// When there are illegal characters in the string (i.e. non-decimal characters),
 /// returns an `Err` with the position of the first character.
 ///
 /// # Special cases
@@ -22,7 +22,7 @@ fn byte_is_odd_decimal(byte: u8) -> bool {
 /// - For a string that is padded with zeros, return a string without the padding. If the
 ///   String without the padding is empty, rule 1 applies.
 pub(crate) fn decimal_str_to_binary_str(
-    value: &Latin1String,
+    value: &[u8],
 ) -> Result<Latin1String, BitStringConversionError> {
     /// Divides `value` by two where `value` is a vector of u8's representing decimals.
     /// Returns an empty string when `value` is zero
@@ -44,16 +44,11 @@ pub(crate) fn decimal_str_to_binary_str(
         new_s
     }
 
-    if let Some(idx) = value.bytes.iter().position(|b| *b < b'0' || *b > b'9') {
+    if let Some(idx) = value.iter().position(|b| *b < b'0' || *b > b'9') {
         return Err(BitStringConversionError::IllegalDecimalCharacter(idx));
     }
 
-    let mut num: Vec<u8> = value
-        .bytes
-        .clone()
-        .into_iter()
-        .skip_while(|el| *el == b'0')
-        .collect();
+    let mut num: Vec<u8> = value.iter().copied().skip_while(|el| *el == b'0').collect();
 
     if num.is_empty() {
         return Ok(Latin1String::new(b"0"));
@@ -91,7 +86,7 @@ fn test_decimal_to_binary() {
 
     for (dec, bin) in test_cases {
         assert_eq!(
-            decimal_str_to_binary_str(&Latin1String::from_utf8_unchecked(dec)),
+            decimal_str_to_binary_str(dec.as_bytes()),
             Ok(Latin1String::from_utf8_unchecked(bin))
         );
     }
@@ -234,7 +229,7 @@ pub(crate) fn bit_string_to_string(
     let mut extended_value = Vec::new();
 
     if bit_string.base == BaseSpecifier::D {
-        match decimal_str_to_binary_str(&bit_string.value) {
+        match decimal_str_to_binary_str(&simplified_value) {
             Err(e) => return Err(e),
             Ok(binary_string) => extended_value = binary_string.bytes,
         }
@@ -247,8 +242,8 @@ pub(crate) fn bit_string_to_string(
     // append, truncate or leave the bit-string dependent on the user-specified length
     match bit_string.length {
         None => Ok(Latin1String::from_vec(extended_value)),
-        Some(_length) => {
-            let length = _length as usize;
+        Some(length) => {
+            let length = length as usize;
             match length.cmp(&extended_value.len()) {
                 Ordering::Equal => Ok(Latin1String::from_vec(extended_value)),
                 Ordering::Less => {
@@ -473,5 +468,14 @@ mod test_mod {
                 Latin1String::from_utf8_unchecked(result_string)
             )
         }
+    }
+
+    // Issue 332
+    #[test]
+    fn underscore_in_decimal_bit_string() {
+        assert!(
+            bit_string_to_string(&BitString::new(Some(32), BaseSpecifier::D, "1_000_000_000"))
+                .is_ok()
+        );
     }
 }
