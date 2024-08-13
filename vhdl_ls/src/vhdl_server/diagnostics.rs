@@ -26,7 +26,7 @@ impl VHDLServer {
 
         let mut by_uri = diagnostics_by_uri(diagnostics);
         for (file_uri, cached_diagnostics) in self.diagnostic_cache.iter_mut() {
-            let Some(new_diagnostics) = by_uri.remove(file_uri) else {
+            let Some(mut new_diagnostics) = by_uri.remove(file_uri) else {
                 // Diagnostics are in the cache, but not in the newly created diagnostics.
                 // This means that there are no longer any diagnostics in the given file.
                 // As a consequence, the client needs to be updated
@@ -54,6 +54,8 @@ impl VHDLServer {
                 };
                 self.rpc
                     .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                cached_diagnostics.clear();
+                cached_diagnostics.append(&mut new_diagnostics);
             }
             // else: diagnostics are the same in the cache and the new analysis state.
             // No need to update.
