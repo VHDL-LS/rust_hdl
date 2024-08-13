@@ -240,6 +240,7 @@ pub fn parse_association_list_no_leftpar(
         Comma,
         parse_association_element,
         Some(RightPar),
+        Some(Identifier),
     )?;
     let right_par = ctx.stream.expect_kind(RightPar)?;
     Ok((list, right_par))
