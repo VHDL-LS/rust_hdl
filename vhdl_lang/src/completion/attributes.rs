@@ -54,6 +54,7 @@ fn extend_attributes_of_type(
             Range(RangeAttribute::ReverseRange),
             Length,
             Ascending,
+            Type(TypeAttribute::Element),
         ]);
     }
     if typ.is_discrete() {
@@ -63,7 +64,7 @@ fn extend_attributes_of_type(
 
 /// Extends applicable attributes when the attribute name is an object.
 fn extend_attributes_of_objects(obj: &Object<'_>, attributes: &mut Vec<AttributeDesignator>) {
-    extend_attributes_of_type(obj.subtype.type_mark().kind(), attributes);
+    extend_attributes_of_type(obj.subtype.type_mark().base_type().kind(), attributes);
     attributes.push(AttributeDesignator::Type(TypeAttribute::Subtype));
     if obj.class == ObjectClass::Signal {
         use crate::ast::SignalAttribute::*;
@@ -83,9 +84,6 @@ fn extend_attributes_of_objects(obj: &Object<'_>, attributes: &mut Vec<Attribute
             ]
             .map(AttributeDesignator::Signal),
         );
-    }
-    if obj.subtype.type_mark().kind().is_array() {
-        attributes.push(AttributeDesignator::Type(TypeAttribute::Element));
     }
 }
 

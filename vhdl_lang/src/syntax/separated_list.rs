@@ -253,9 +253,6 @@ mod test {
         c_pos.range.start.character += 1;
         c_pos.range.end.character += 2;
 
-        assert_eq!(
-            diag,
-            vec![Diagnostic::syntax_error(c_pos, "Expected ','")]
-        );
+        assert_eq!(diag, vec![Diagnostic::syntax_error(c_pos, "Expected ','")]);
     }
 }
