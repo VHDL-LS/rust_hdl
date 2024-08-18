@@ -654,3 +654,34 @@ end package;
     let diag = builder.analyze();
     check_no_diagnostics(&diag);
 }
+
+#[test]
+pub fn aliases_in_generic_packages() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package test_pkg is
+    generic (N : integer);
+    type my_type is array (N - 1 downto 0) of bit;
+    alias also_my_type is my_type;
+end package;
+
+package pkg_inst is new work.test_pkg generic map (N => 8);
+use work.pkg_inst.all;
+
+entity test_top_entity is
+end entity;
+
+architecture rtl of test_top_entity is
+    signal my_sig : my_type;
+    signal my_sig2: also_my_type;
+begin
+    my_sig <= my_sig2;
+end architecture;
+  ",
+    );
+
+    let diag = builder.analyze();
+    check_no_diagnostics(&diag);
+}

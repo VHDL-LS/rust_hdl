@@ -76,10 +76,6 @@ impl<'a> ObjectEnt<'a> {
             unreachable!("Must be object");
         }
     }
-
-    pub fn map(&self, mapping: &FnvHashMap<EntityId, TypeEnt<'a>>) -> ObjectEnt<'a> {
-        todo!()
-    }
 }
 
 #[derive(Clone, Eq, PartialEq)]

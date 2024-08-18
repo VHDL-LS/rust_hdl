@@ -453,10 +453,8 @@ mod tests {
                 panic!("Expected designator")
             };
 
-            let overloaded = if let NamedEntities::Overloaded(overloaded) = self
-                .scope
-                .lookup(&self.tokens, fcall.span, &des.item)
-                .unwrap()
+            let overloaded = if let NamedEntities::Overloaded(overloaded) =
+                self.scope.lookup(&des.item).unwrap()
             {
                 overloaded
             } else {

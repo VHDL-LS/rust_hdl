@@ -218,10 +218,6 @@ impl<'a> Region<'a> {
             })
             .filter(|ent| ent.is_explicit())
     }
-
-    pub fn map(&self, mapping: &FnvHashMap<EntityId, TypeEnt<'a>>) -> Region {
-        todo!()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

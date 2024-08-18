@@ -16,6 +16,54 @@ struct VisibleEntity<'a> {
     entity: EntRef<'a>,
 }
 
+#[derive(Debug)]
+pub enum ConflictingName {
+    MadeVisible,
+    Declared,
+}
+
+#[derive(Debug)]
+pub struct IntoUnambiguousError {
+    designator: Designator,
+    conflicting_names: Vec<(SrcPos, ConflictingName)>,
+}
+
+impl IntoUnambiguousError {
+    pub fn new(designator: Designator) -> IntoUnambiguousError {
+        IntoUnambiguousError {
+            designator,
+            conflicting_names: Vec::new(),
+        }
+    }
+
+    pub fn add_conflicting(&mut self, pos: SrcPos, name: ConflictingName) {
+        self.conflicting_names.push((pos, name))
+    }
+
+    pub fn into_diagnostic(self, ctx: &dyn TokenAccess, span: TokenSpan) -> Diagnostic {
+        let mut error = Diagnostic::new(
+            span.pos(ctx),
+            format!(
+                "Name '{}' is hidden by conflicting use clause",
+                self.designator
+            ),
+            ErrorCode::ConflictingUseClause,
+        );
+        for (pos, name) in self.conflicting_names {
+            let msg = match name {
+                ConflictingName::MadeVisible => {
+                    format!("Conflicting name '{}' made visible here", self.designator)
+                }
+                ConflictingName::Declared => {
+                    format!("Conflicting name '{}' declared here", self.designator)
+                }
+            };
+            error.add_related(pos, msg)
+        }
+        error
+    }
+}
+
 impl<'a> VisibleEntity<'a> {
     fn clone_with_more_visiblity(&self, visible_pos: Option<&SrcPos>) -> VisibleEntity<'a> {
         let mut more = self.clone();
@@ -185,10 +233,8 @@ impl<'a> Visible<'a> {
 
     pub fn into_unambiguous(
         self,
-        ctx: &dyn TokenAccess,
-        span: TokenSpan,
         designator: &Designator,
-    ) -> Result<Option<NamedEntities<'a>>, Diagnostic> {
+    ) -> Result<Option<NamedEntities<'a>>, IntoUnambiguousError> {
         let mut named_entities: Vec<_> = self
             .visible_entities
             .values()
@@ -207,12 +253,8 @@ impl<'a> Visible<'a> {
         } else if named_entities.len() == 1 {
             Ok(Some(NamedEntities::new(named_entities.pop().unwrap())))
         } else {
+            let mut error = IntoUnambiguousError::new(designator.clone());
             // Duplicate visible items hide each other
-            let mut error = Diagnostic::new(
-                span.pos(ctx),
-                format!("Name '{designator}' is hidden by conflicting use clause"),
-                ErrorCode::ConflictingUseClause,
-            );
 
             fn last_visible_pos(visible_entity: &VisibleEntity<'_>) -> u32 {
                 if let Some(pos) = visible_entity.visible_pos.iter().rev().flatten().next() {
@@ -227,16 +269,10 @@ impl<'a> Visible<'a> {
 
             for visible_entity in visible_entities {
                 for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {
-                    error.add_related(
-                        visible_pos,
-                        format!("Conflicting name '{designator}' made visible here"),
-                    );
+                    error.add_conflicting(visible_pos.clone(), ConflictingName::MadeVisible);
                 }
                 if let Some(pos) = visible_entity.entity.decl_pos() {
-                    error.add_related(
-                        pos,
-                        format!("Conflicting name '{designator}' declared here"),
-                    );
+                    error.add_conflicting(pos.clone(), ConflictingName::Declared);
                 }
             }
 

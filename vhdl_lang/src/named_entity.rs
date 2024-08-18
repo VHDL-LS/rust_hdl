@@ -26,6 +26,7 @@ pub use attribute::AttributeEnt;
 mod arena;
 pub use arena::{Arena, ArenaId, EntityId, FinalArena, Reference};
 mod visibility;
+pub(crate) use visibility::IntoUnambiguousError;
 pub use visibility::{Visibility, Visible};
 mod region;
 pub(crate) use region::RegionKind;

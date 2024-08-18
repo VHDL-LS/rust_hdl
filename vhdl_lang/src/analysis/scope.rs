@@ -9,11 +9,12 @@ use crate::data::*;
 use crate::named_entity::*;
 
 use crate::data::error_codes::ErrorCode;
-use crate::{TokenAccess, TokenSpan};
+use crate::TokenSpan;
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
+use vhdl_lang::TokenAccess;
 
 #[derive(Default, Clone)]
 pub(crate) struct Scope<'a>(Rc<RefCell<ScopeInner<'a>>>);
@@ -24,6 +25,46 @@ struct ScopeInner<'a> {
     region: Region<'a>,
     cache: FnvHashMap<Designator, NamedEntities<'a>>,
     anon_idx: usize,
+}
+
+#[derive(Debug)]
+pub(crate) enum UndeclaredKind {
+    Identifier(Symbol),
+    Operator(Operator),
+    Character(u8),
+    Anonymous,
+}
+
+#[derive(Debug)]
+pub(crate) enum LookupError {
+    IntoUnambiguousError(IntoUnambiguousError),
+    Undeclared(UndeclaredKind),
+}
+
+impl From<IntoUnambiguousError> for LookupError {
+    fn from(value: IntoUnambiguousError) -> Self {
+        Self::IntoUnambiguousError(value)
+    }
+}
+
+impl LookupError {
+    pub fn into_diagnostic(self, ctx: &dyn TokenAccess, span: impl Into<TokenSpan>) -> Diagnostic {
+        let span = span.into();
+        match self {
+            LookupError::IntoUnambiguousError(err) => err.into_diagnostic(ctx, span),
+            LookupError::Undeclared(kind) => {
+                let msg = match kind {
+                    UndeclaredKind::Identifier(ident) => format!("No declaration of '{ident}'"),
+                    UndeclaredKind::Operator(operator) => {
+                        format!("No declaration of operator '{operator}'")
+                    }
+                    UndeclaredKind::Character(chr) => format!("No declaration of '{chr}'"),
+                    UndeclaredKind::Anonymous => "No declaration of <anonymous>".to_owned(),
+                };
+                Diagnostic::new(span.pos(ctx), msg, ErrorCode::Unresolved)
+            }
+        }
+    }
 }
 
 impl<'a> ScopeInner<'a> {
@@ -122,23 +163,18 @@ impl<'a> ScopeInner<'a> {
     /// Lookup a named entity that was made potentially visible via a use clause
     fn lookup_visible(
         &self,
-        ctx: &dyn TokenAccess,
-        span: TokenSpan,
         designator: &Designator,
-    ) -> Result<Option<NamedEntities<'a>>, Diagnostic> {
+    ) -> Result<Option<NamedEntities<'a>>, LookupError> {
         let mut visible = Visible::default();
         self.lookup_visiblity_into(designator, &mut visible);
-        visible.into_unambiguous(ctx, span, designator)
+        visible
+            .into_unambiguous(designator)
+            .map_err(|err| err.into())
     }
 
     /// Lookup a designator from within the region itself
     /// Thus all parent regions and visibility is relevant
-    fn lookup_uncached(
-        &self,
-        ctx: &dyn TokenAccess,
-        span: TokenSpan,
-        designator: &Designator,
-    ) -> Result<NamedEntities<'a>, Diagnostic> {
+    fn lookup_uncached(&self, designator: &Designator) -> Result<NamedEntities<'a>, LookupError> {
         let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
             match enclosing {
                 // non overloaded in enclosing region ignores any visible overloaded names
@@ -146,7 +182,7 @@ impl<'a> ScopeInner<'a> {
                 // In case of overloaded local, non-conflicting visible names are still relevant
                 NamedEntities::Overloaded(enclosing_overloaded) => {
                     if let Ok(Some(NamedEntities::Overloaded(overloaded))) =
-                        self.lookup_visible(ctx, span, designator)
+                        self.lookup_visible(designator)
                     {
                         Some(NamedEntities::Overloaded(
                             enclosing_overloaded.with_visible(overloaded),
@@ -157,41 +193,26 @@ impl<'a> ScopeInner<'a> {
                 }
             }
         } else {
-            self.lookup_visible(ctx, span, designator)?
+            self.lookup_visible(designator)?
         };
 
         match result {
             Some(visible) => Ok(visible),
-            None => Err(Diagnostic::new(
-                span.pos(ctx),
-                match designator {
-                    Designator::Identifier(ident) => {
-                        format!("No declaration of '{ident}'")
-                    }
-                    Designator::OperatorSymbol(operator) => {
-                        format!("No declaration of operator '{operator}'")
-                    }
-                    Designator::Character(chr) => {
-                        format!("No declaration of '{chr}'")
-                    }
-                    Designator::Anonymous(_) => "No declaration of <anonymous>".to_owned(),
-                },
-                ErrorCode::Unresolved,
-            )),
+            None => Err(LookupError::Undeclared(match designator {
+                Designator::Identifier(ident) => UndeclaredKind::Identifier(ident.clone()),
+                Designator::OperatorSymbol(operator) => UndeclaredKind::Operator(*operator),
+                Designator::Character(chr) => UndeclaredKind::Character(*chr),
+                Designator::Anonymous(_) => UndeclaredKind::Anonymous,
+            })),
         }
     }
 
-    fn lookup(
-        &mut self,
-        ctx: &dyn TokenAccess,
-        span: TokenSpan,
-        designator: &Designator,
-    ) -> Result<NamedEntities<'a>, Diagnostic> {
+    fn lookup(&mut self, designator: &Designator) -> Result<NamedEntities<'a>, LookupError> {
         if let Some(res) = self.cache.get(designator) {
             return Ok(res.clone());
         }
 
-        let ents = self.lookup_uncached(ctx, span, designator)?;
+        let ents = self.lookup_uncached(designator)?;
         if let Entry::Vacant(vacant) = self.cache.entry(designator.clone()) {
             Ok(vacant.insert(ents).clone())
         } else {
@@ -320,16 +341,8 @@ impl<'a> Scope<'a> {
         Some(names.clone())
     }
 
-    pub fn lookup(
-        &self,
-        ctx: &dyn TokenAccess,
-        span: impl Into<TokenSpan>,
-        designator: &Designator,
-    ) -> Result<NamedEntities<'a>, Diagnostic> {
-        self.0
-            .as_ref()
-            .borrow_mut()
-            .lookup(ctx, span.into(), designator)
+    pub fn lookup(&self, designator: &Designator) -> Result<NamedEntities<'a>, LookupError> {
+        self.0.as_ref().borrow_mut().lookup(designator)
     }
 
     /// Used when using context clauses

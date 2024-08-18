@@ -287,10 +287,6 @@ impl<'a> TypeEnt<'a> {
             format!("{} '{}'", self.kind().describe(), self.designator())
         }
     }
-
-    pub fn map(&self, mapping: &FnvHashMap<EntityId, TypeEnt<'a>>) -> TypeEnt<'a> {
-        todo!()
-    }
 }
 
 impl<'a> From<TypeEnt<'a>> for EntRef<'a> {
@@ -492,10 +488,6 @@ impl<'a> Subtype<'a> {
 
     pub fn base(&self) -> BaseType<'a> {
         self.type_mark.base()
-    }
-
-    pub fn map(&self, mapping: &FnvHashMap<EntityId, TypeEnt<'a>>) -> Subtype<'a> {
-        todo!()
     }
 }
 

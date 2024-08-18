@@ -238,7 +238,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     expr.pos(self.ctx),
                     "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
                     ErrorCode::AmbiguousExpression,
-            );
+                );
                 Err(EvalError::Unknown)
             }
         }
@@ -254,7 +254,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> EvalResult<Vec<OverloadedEnt<'a>>> {
         let designator = Designator::OperatorSymbol(op);
         match scope
-            .lookup(self.ctx, op_pos, &designator)
+            .lookup(&designator)
+            .map_err(|err| err.into_diagnostic(self.ctx, op_pos))
             .into_eval_result(diagnostics)?
         {
             NamedEntities::Single(ent) => {
@@ -503,7 +504,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 Literal::String(_) => Ok(ExpressionType::String),
                 Literal::BitString(_) => Ok(ExpressionType::String),
                 Literal::Character(chr) => {
-                    match scope.lookup(self.ctx, span, &Designator::Character(*chr)) {
+                    match scope.lookup(&Designator::Character(*chr)) {
                         Ok(NamedEntities::Single(ent)) => {
                             // Should never happen but better know if it does
                             diagnostics.add(
@@ -543,7 +544,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             }
                         }
                         Err(e) => {
-                            diagnostics.push(e);
+                            diagnostics.push(e.into_diagnostic(self.ctx, span));
                             Err(EvalError::Unknown)
                         }
                     }
@@ -624,12 +625,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         self.expr_pos_with_ttyp(scope, target_type, expr.span, &mut expr.item, diagnostics)
     }
 
-    fn implicit_bool_types(&self, scope: &Scope<'a>, span: TokenSpan) -> FnvHashSet<BaseType<'a>> {
-        if let Ok(NamedEntities::Overloaded(overloaded)) = scope.lookup(
-            self.ctx,
-            span,
-            &Designator::OperatorSymbol(Operator::QueQue),
-        ) {
+    fn implicit_bool_types(&self, scope: &Scope<'a>) -> FnvHashSet<BaseType<'a>> {
+        if let Ok(NamedEntities::Overloaded(overloaded)) =
+            scope.lookup(&Designator::OperatorSymbol(Operator::QueQue))
+        {
             overloaded
                 .entities()
                 .filter_map(|ent| ent.formals().nth(0).map(|typ| typ.type_mark().base()))
@@ -650,7 +649,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             match types {
                 ExpressionType::Unambiguous(typ) => {
                     if typ.base() != self.boolean().base() {
-                        let implicit_bools = self.implicit_bool_types(scope, expr.span);
+                        let implicit_bools = self.implicit_bool_types(scope);
                         if !implicit_bools.contains(&typ.base()) {
                             diagnostics.add(
                                 expr.pos(self.ctx),
@@ -659,7 +658,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     typ.describe(),
                                     self.boolean().describe()
                                 ),
-                                ErrorCode::NoImplicitConversion
+                                ErrorCode::NoImplicitConversion,
                             );
                         }
                     }
@@ -669,7 +668,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         self.expr_with_ttyp(scope, self.boolean(), expr, diagnostics)?;
                     } else {
                         let implicit_bool_types: FnvHashSet<_> = self
-                            .implicit_bool_types(scope, expr.span)
+                            .implicit_bool_types(scope)
                             .intersection(&types)
                             .cloned()
                             .collect();
@@ -1012,18 +1011,18 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                         Diagnostic::new(
                                             choice.pos(self.ctx),
                                             format!(
-                                            "All elements of record '{}' are already associated",
-                                            record_type.designator()
-                                        ),
-                                            ErrorCode::AlreadyAssociated,
-                                        )
-                                        .opt_related(
-                                            record_type.decl_pos(),
-                                            format!(
-                                                "Record '{}' defined here",
+                                                "All elements of record '{}' are already associated",
                                                 record_type.designator()
                                             ),
-                                        ),
+                                            ErrorCode::AlreadyAssociated,
+                                        )
+                                            .opt_related(
+                                                record_type.decl_pos(),
+                                                format!(
+                                                    "Record '{}' defined here",
+                                                    record_type.designator()
+                                                ),
+                                            ),
                                     )
                                 }
 
