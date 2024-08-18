@@ -265,6 +265,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             _ => unreachable!(),
         };
 
+        let nested = scope.nested();
+
         match as_fatal(self.generic_instance(
             inst_subprogram_ent,
             scope,
@@ -279,6 +281,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Some(inst_subprogram_ent),
                     &mapping,
                     uninstantiated_subprogram.signature(),
+                    &nested,
                 ) {
                     Ok(signature) => Ok(signature),
                     Err((err, code)) => {

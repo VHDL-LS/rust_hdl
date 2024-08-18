@@ -251,7 +251,7 @@ impl<'a> ResolvedName<'a> {
             }
             AnyEntKind::Overloaded(_) => {
                 return Err((
-                    "Internal error. Unreachable as overloded is handled outside this function"
+                    "Internal error. Unreachable as overloaded is handled outside this function"
                         .to_string(),
                     ErrorCode::Internal,
                 ));
@@ -1213,7 +1213,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let mut resolved = match SplitName::from_name(name) {
             SplitName::Designator(designator) => {
                 let name = scope
-                    .lookup(self.ctx, span, designator.designator())
+                    .lookup(designator.designator())
+                    .map_err(|err| err.into_diagnostic(self.ctx, span))
                     .into_eval_result(diagnostics)?;
                 return Ok(match name {
                     NamedEntities::Single(ent) => {

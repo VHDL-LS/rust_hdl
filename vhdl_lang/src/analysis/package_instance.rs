@@ -152,7 +152,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     }
                     GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
                         scope,
-                        self.map_type_ent(&mapping, obj.type_mark()),
+                        self.map_type_ent(&mapping, obj.type_mark(), scope),
                         assoc.actual.span,
                         expr,
                         diagnostics,
@@ -240,7 +240,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         uninst_region: &Region<'a>,
         generic_map: &mut Option<MapAspect>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<(Region<'a>, FnvHashMap<EntityId, TypeEnt<'_>>)> {
+    ) -> EvalResult<(Region<'a>, FnvHashMap<EntityId, TypeEnt<'a>>)> {
         let nested = scope.nested().in_package_declaration();
         let (generics, other) = uninst_region.to_package_generic();
 
@@ -256,7 +256,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         };
 
         for uninst in other {
-            match self.instantiate(Some(ent), &mapping, uninst) {
+            match self.instantiate(Some(ent), &mapping, uninst, &nested) {
                 Ok(inst) => {
                     // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
                     // They can collide if there are more than one interface type that map to the same actual type
@@ -280,6 +280,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         uninst: EntRef<'a>,
+        scope: &Scope<'a>,
     ) -> Result<EntRef<'a>, (String, ErrorCode)> {
         let designator = uninst.designator().clone();
 
@@ -294,7 +295,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             uninst.src_span,
             Some(self.source()),
         );
-        let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
+        let kind = self.map_kind(Some(inst), mapping, uninst.kind(), scope)?;
         unsafe {
             inst.set_kind(kind);
         }
@@ -303,7 +304,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             unsafe {
                 self.arena.add_implicit(
                     inst.id(),
-                    self.instantiate(Some(inst), mapping, implicit_uninst)?,
+                    self.instantiate(Some(inst), mapping, implicit_uninst, scope)?,
                 );
             }
         }
@@ -316,18 +317,19 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         kind: &'a AnyEntKind<'a>,
+        scope: &Scope<'a>,
     ) -> Result<AnyEntKind<'a>, (String, ErrorCode)> {
         Ok(match kind {
             AnyEntKind::ExternalAlias { class, type_mark } => AnyEntKind::ExternalAlias {
                 class: *class,
-                type_mark: self.map_type_ent(mapping, *type_mark),
+                type_mark: self.map_type_ent(mapping, *type_mark, scope),
             },
             AnyEntKind::ObjectAlias {
                 base_object,
                 type_mark,
             } => AnyEntKind::ObjectAlias {
                 base_object: if let Some(obj) =
-                    ObjectEnt::from_any(self.instantiate(None, mapping, base_object)?)
+                    ObjectEnt::from_any(self.instantiate(None, mapping, base_object, scope)?)
                 {
                     obj
                 } else {
@@ -336,43 +338,49 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         ErrorCode::Internal,
                     ));
                 },
-                type_mark: self.map_type_ent(mapping, *type_mark),
+                type_mark: self.map_type_ent(mapping, *type_mark, scope),
             },
-            AnyEntKind::File(subtype) => AnyEntKind::File(self.map_subtype(mapping, *subtype)),
+            AnyEntKind::File(subtype) => {
+                AnyEntKind::File(self.map_subtype(mapping, *subtype, scope))
+            }
             AnyEntKind::InterfaceFile(typ) => {
-                AnyEntKind::InterfaceFile(self.map_type_ent(mapping, *typ))
+                AnyEntKind::InterfaceFile(self.map_type_ent(mapping, *typ, scope))
             }
             AnyEntKind::Component(region) => {
-                AnyEntKind::Component(self.map_region(parent, mapping, region)?)
+                AnyEntKind::Component(self.map_region(parent, mapping, region, scope)?)
             }
-            AnyEntKind::Attribute(typ) => AnyEntKind::Attribute(self.map_type_ent(mapping, *typ)),
+            AnyEntKind::Attribute(typ) => {
+                AnyEntKind::Attribute(self.map_type_ent(mapping, *typ, scope))
+            }
             AnyEntKind::Overloaded(overloaded) => {
-                AnyEntKind::Overloaded(self.map_overloaded(parent, mapping, overloaded)?)
+                AnyEntKind::Overloaded(self.map_overloaded(parent, mapping, overloaded, scope)?)
             }
-            AnyEntKind::Type(typ) => AnyEntKind::Type(self.map_type(parent, mapping, typ)?),
+            AnyEntKind::Type(typ) => AnyEntKind::Type(self.map_type(parent, mapping, typ, scope)?),
             AnyEntKind::ElementDeclaration(subtype) => {
-                AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype))
+                AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype, scope))
             }
             AnyEntKind::Sequential(s) => AnyEntKind::Sequential(*s),
             AnyEntKind::Concurrent(c) => AnyEntKind::Concurrent(*c),
-            AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)),
+            AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj, scope)),
             AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(
-                typ.map(|typ| self.map_type_ent(mapping, typ.into()).base()),
+                typ.map(|typ| self.map_type_ent(mapping, typ.into(), scope).base()),
             ),
             AnyEntKind::PhysicalLiteral(typ) => {
-                AnyEntKind::PhysicalLiteral(self.map_type_ent(mapping, *typ))
+                AnyEntKind::PhysicalLiteral(self.map_type_ent(mapping, *typ, scope))
             }
             AnyEntKind::DeferredConstant(subtype) => {
-                AnyEntKind::DeferredConstant(self.map_subtype(mapping, *subtype))
+                AnyEntKind::DeferredConstant(self.map_subtype(mapping, *subtype, scope))
             }
             AnyEntKind::Library => AnyEntKind::Library,
             AnyEntKind::Design(design) => match design {
                 Design::PackageInstance(region) => AnyEntKind::Design(Design::PackageInstance(
-                    self.map_region(parent, mapping, region)?,
+                    self.map_region(parent, mapping, region, scope)?,
                 )),
-                Design::InterfacePackageInstance(region) => AnyEntKind::Design(
-                    Design::InterfacePackageInstance(self.map_region(parent, mapping, region)?),
-                ),
+                Design::InterfacePackageInstance(region) => {
+                    AnyEntKind::Design(Design::InterfacePackageInstance(
+                        self.map_region(parent, mapping, region, scope)?,
+                    ))
+                }
                 _ => {
                     return Err((
                         format!(
@@ -383,7 +391,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     ));
                 }
             },
-            AnyEntKind::View(typ) => AnyEntKind::View(self.map_subtype(mapping, *typ)),
+            AnyEntKind::View(typ) => AnyEntKind::View(self.map_subtype(mapping, *typ, scope)),
         })
     }
 
@@ -392,32 +400,33 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         overloaded: &'a Overloaded<'a>,
+        scope: &Scope<'a>,
     ) -> Result<Overloaded<'a>, (String, ErrorCode)> {
         Ok(match overloaded {
             Overloaded::SubprogramDecl(signature) => {
-                Overloaded::SubprogramDecl(self.map_signature(parent, mapping, signature)?)
+                Overloaded::SubprogramDecl(self.map_signature(parent, mapping, signature, scope)?)
             }
             Overloaded::Subprogram(signature) => {
-                Overloaded::Subprogram(self.map_signature(parent, mapping, signature)?)
+                Overloaded::Subprogram(self.map_signature(parent, mapping, signature, scope)?)
             }
             Overloaded::UninstSubprogramDecl(signature, generic_map) => {
                 Overloaded::UninstSubprogramDecl(
-                    self.map_signature(parent, mapping, signature)?,
+                    self.map_signature(parent, mapping, signature, scope)?,
                     generic_map.clone(),
                 )
             }
             Overloaded::UninstSubprogram(signature, generic_map) => Overloaded::UninstSubprogram(
-                self.map_signature(parent, mapping, signature)?,
+                self.map_signature(parent, mapping, signature, scope)?,
                 generic_map.clone(),
             ),
-            Overloaded::InterfaceSubprogram(signature) => {
-                Overloaded::InterfaceSubprogram(self.map_signature(parent, mapping, signature)?)
-            }
+            Overloaded::InterfaceSubprogram(signature) => Overloaded::InterfaceSubprogram(
+                self.map_signature(parent, mapping, signature, scope)?,
+            ),
             Overloaded::EnumLiteral(signature) => {
-                Overloaded::EnumLiteral(self.map_signature(parent, mapping, signature)?)
+                Overloaded::EnumLiteral(self.map_signature(parent, mapping, signature, scope)?)
             }
             Overloaded::Alias(alias) => {
-                let alias_inst = self.instantiate(parent, mapping, alias)?;
+                let alias_inst = self.instantiate(parent, mapping, alias, scope)?;
 
                 if let Some(overloaded) = OverloadedEnt::from_any(alias_inst) {
                     Overloaded::Alias(overloaded)
@@ -437,6 +446,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         signature: &'a Signature<'a>,
+        scope: &Scope<'a>,
     ) -> Result<Signature<'a>, (String, ErrorCode)> {
         let Signature {
             formals,
@@ -450,7 +460,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
         let mut inst_entities = Vec::with_capacity(uninst_entities.len());
         for uninst in uninst_entities {
-            let inst = self.instantiate(parent, mapping, uninst)?;
+            let inst = self.instantiate(parent, mapping, uninst, scope)?;
 
             if let Some(inst) = InterfaceEnt::from_any(inst) {
                 inst_entities.push(inst);
@@ -467,7 +477,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 typ: *typ,
                 entities: inst_entities,
             },
-            return_type: return_type.map(|typ| self.map_type_ent(mapping, typ)),
+            return_type: return_type.map(|typ| self.map_type_ent(mapping, typ, scope)),
         })
     }
 
@@ -476,6 +486,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         region: &'a Region<'a>,
+        scope: &Scope<'a>,
     ) -> Result<Region<'a>, (String, ErrorCode)> {
         let Region {
             entities: uninst_entities,
@@ -488,15 +499,15 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             ..Region::default()
         };
 
-        for (_, uninst) in uninst_entities.iter() {
+        for uninst in uninst_entities.values() {
             match uninst {
                 NamedEntities::Single(uninst) => {
-                    let inst = self.instantiate(parent, mapping, uninst)?;
+                    let inst = self.instantiate(parent, mapping, uninst, scope)?;
                     inst_region.add(inst, &mut NullDiagnostics);
                 }
                 NamedEntities::Overloaded(overloaded) => {
                     for uninst in overloaded.entities() {
-                        let inst = self.instantiate(parent, mapping, uninst.into())?;
+                        let inst = self.instantiate(parent, mapping, uninst.into(), scope)?;
                         inst_region.add(inst, &mut NullDiagnostics);
                     }
                 }
@@ -511,31 +522,31 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         typ: &'a Type<'a>,
+        scope: &Scope<'a>,
     ) -> Result<Type<'a>, (String, ErrorCode)> {
         Ok(match typ {
             Type::Array { indexes, elem_type } => {
                 let mut mapped_indexes = Vec::with_capacity(indexes.len());
                 for index_typ in indexes.iter() {
-                    mapped_indexes.push(
-                        index_typ
-                            .map(|index_typ| self.map_type_ent(mapping, index_typ.into()).base()),
-                    )
+                    mapped_indexes.push(index_typ.map(|index_typ| {
+                        self.map_type_ent(mapping, index_typ.into(), scope).base()
+                    }))
                 }
 
                 Type::Array {
                     indexes: mapped_indexes,
-                    elem_type: self.map_type_ent(mapping, *elem_type),
+                    elem_type: self.map_type_ent(mapping, *elem_type, scope),
                 }
             }
             Type::Enum(symbols) => Type::Enum(symbols.clone()),
             Type::Integer => Type::Integer,
             Type::Real => Type::Real,
             Type::Physical => Type::Physical,
-            Type::Access(subtype) => Type::Access(self.map_subtype(mapping, *subtype)),
-            Type::Record(region) => {
-                let mut elems = Vec::with_capacity(region.elems.len());
-                for uninst in region.elems.iter() {
-                    let inst = self.instantiate(parent, mapping, uninst)?;
+            Type::Access(subtype) => Type::Access(self.map_subtype(mapping, *subtype, scope)),
+            Type::Record(record_region) => {
+                let mut elems = Vec::with_capacity(record_region.elems.len());
+                for uninst in record_region.elems.iter() {
+                    let inst = self.instantiate(parent, mapping, uninst, scope)?;
 
                     if let Some(inst) = RecordElement::from_any(inst) {
                         elems.push(inst);
@@ -545,12 +556,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
                 Type::Record(RecordRegion { elems })
             }
-            Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype)),
+            Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype, scope)),
             Type::Protected(region, is_body) => {
-                Type::Protected(self.map_region(parent, mapping, region)?, *is_body)
+                Type::Protected(self.map_region(parent, mapping, region, scope)?, *is_body)
             }
             Type::File => Type::File,
-            Type::Alias(typ) => Type::Alias(self.map_type_ent(mapping, *typ)),
+            Type::Alias(typ) => Type::Alias(self.map_type_ent(mapping, *typ, scope)),
             Type::Universal(utyp) => Type::Universal(*utyp),
             Type::Incomplete => Type::Incomplete,
             Type::Interface => Type::Interface,
@@ -561,6 +572,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         obj: &Object<'a>,
+        scope: &Scope<'a>,
     ) -> Object<'a> {
         let Object {
             class,
@@ -572,7 +584,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Object {
             class: *class,
             iface: iface.clone(),
-            subtype: self.map_subtype(mapping, *subtype),
+            subtype: self.map_subtype(mapping, *subtype, scope),
             has_default: *has_default,
         }
     }
@@ -581,19 +593,35 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         typ: TypeEnt<'a>,
+        scope: &Scope<'a>,
     ) -> TypeEnt<'a> {
-        mapping.get(&typ.id()).cloned().unwrap_or(typ)
+        match mapping.get(&typ.id()) {
+            None => {
+                if let Some(entity) = scope
+                    .lookup(&typ.designator)
+                    .ok()
+                    .and_then(|result| result.into_non_overloaded().ok())
+                    .and_then(TypeEnt::from_any)
+                {
+                    entity
+                } else {
+                    typ
+                }
+            }
+            Some(typ) => *typ,
+        }
     }
 
     fn map_subtype(
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         subtype: Subtype<'a>,
+        scope: &Scope<'a>,
     ) -> Subtype<'a> {
         let Subtype { type_mark } = subtype;
 
         Subtype {
-            type_mark: self.map_type_ent(mapping, type_mark),
+            type_mark: self.map_type_ent(mapping, type_mark, scope),
         }
     }
 }

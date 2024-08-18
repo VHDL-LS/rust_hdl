@@ -336,11 +336,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         label: &mut WithRef<Ident>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        match scope.lookup(
-            self.ctx,
-            label.item.token,
-            &Designator::Identifier(label.item.item.clone()),
-        ) {
+        match scope.lookup(&Designator::Identifier(label.item.item.clone())) {
             Ok(NamedEntities::Single(ent)) => {
                 label.set_unique_reference(ent);
                 if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
@@ -368,7 +364,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ErrorCode::MismatchedKinds,
             ),
             Err(diag) => {
-                diagnostics.push(diag);
+                diagnostics.push(diag.into_diagnostic(self.ctx, label.item.token));
             }
         }
     }

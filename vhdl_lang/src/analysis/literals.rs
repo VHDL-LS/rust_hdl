@@ -188,11 +188,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         scope: &Scope<'a>,
         unit: &mut WithRef<Ident>,
     ) -> Result<TypeEnt<'a>, Diagnostic> {
-        match scope.lookup(
-            self.ctx,
-            unit.item.token,
-            &Designator::Identifier(unit.item.item.clone()),
-        )? {
+        match scope
+            .lookup(&Designator::Identifier(unit.item.item.clone()))
+            .map_err(|err| err.into_diagnostic(self.ctx, unit.item.token))?
+        {
             NamedEntities::Single(unit_ent) => {
                 unit.set_unique_reference(unit_ent);
                 if let AnyEntKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {

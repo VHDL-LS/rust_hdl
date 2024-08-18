@@ -714,11 +714,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             colon_token: _,
         } = attr_spec;
 
-        let attr_ent = match scope.lookup(
-            self.ctx,
-            ident.item.token,
-            &Designator::Identifier(ident.item.name().clone()),
-        ) {
+        let attr_ent = match scope.lookup(&Designator::Identifier(ident.item.name().clone())) {
             Ok(NamedEntities::Single(ent)) => {
                 ident.set_unique_reference(ent);
                 if let Some(attr_ent) = AttributeEnt::from_any(ent) {
@@ -748,7 +744,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 return Ok(());
             }
             Err(err) => {
-                diagnostics.push(err);
+                diagnostics.push(err.into_diagnostic(self.ctx, ident.item.token));
                 return Ok(());
             }
         };
@@ -758,55 +754,53 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             signature,
         }) = entity_name
         {
-            let ent: EntRef<'_> =
-                match scope.lookup(self.ctx, designator.token, &designator.item.item) {
-                    Ok(NamedEntities::Single(ent)) => {
-                        designator.set_unique_reference(ent);
+            let ent: EntRef<'_> = match scope.lookup(&designator.item.item) {
+                Ok(NamedEntities::Single(ent)) => {
+                    designator.set_unique_reference(ent);
 
-                        if let Some(signature) = signature {
-                            diagnostics.push(Diagnostic::should_not_have_signature(
-                                "Attribute specification",
-                                signature.pos(self.ctx),
-                            ));
-                        }
-                        ent
+                    if let Some(signature) = signature {
+                        diagnostics.push(Diagnostic::should_not_have_signature(
+                            "Attribute specification",
+                            signature.pos(self.ctx),
+                        ));
                     }
-                    Ok(NamedEntities::Overloaded(overloaded)) => {
-                        if let Some(signature) = signature {
-                            match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
-                                Some(signature_key) => {
-                                    if let Some(ent) =
-                                        overloaded.get(&SubprogramKey::Normal(signature_key))
-                                    {
-                                        designator.set_unique_reference(&ent);
-                                        ent.into()
-                                    } else {
-                                        diagnostics.push(Diagnostic::no_overloaded_with_signature(
-                                            designator.pos(self.ctx),
-                                            &designator.item.item,
-                                            &overloaded,
-                                        ));
-                                        return Ok(());
-                                    }
-                                }
-                                None => {
+                    ent
+                }
+                Ok(NamedEntities::Overloaded(overloaded)) => {
+                    if let Some(signature) = signature {
+                        match as_fatal(self.resolve_signature(scope, signature, diagnostics))? {
+                            Some(signature_key) => {
+                                if let Some(ent) =
+                                    overloaded.get(&SubprogramKey::Normal(signature_key))
+                                {
+                                    designator.set_unique_reference(&ent);
+                                    ent.into()
+                                } else {
+                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                        designator.pos(self.ctx),
+                                        &designator.item.item,
+                                        &overloaded,
+                                    ));
                                     return Ok(());
                                 }
                             }
-                        } else if let Some(ent) = overloaded.as_unique() {
-                            designator.set_unique_reference(ent);
-                            ent
-                        } else {
-                            diagnostics
-                                .push(Diagnostic::signature_required(designator.pos(self.ctx)));
-                            return Ok(());
+                            None => {
+                                return Ok(());
+                            }
                         }
-                    }
-                    Err(err) => {
-                        diagnostics.push(err);
+                    } else if let Some(ent) = overloaded.as_unique() {
+                        designator.set_unique_reference(ent);
+                        ent
+                    } else {
+                        diagnostics.push(Diagnostic::signature_required(designator.pos(self.ctx)));
                         return Ok(());
                     }
-                };
+                }
+                Err(err) => {
+                    diagnostics.push(err.into_diagnostic(self.ctx, designator.token));
+                    return Ok(());
+                }
+            };
 
             // Attributes affect the underlying entity and cannot be set directly on aliases
             let ent = ent.as_actual();

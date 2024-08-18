@@ -162,7 +162,7 @@ impl<'a> Region<'a> {
                                 ent.error(
                                     diagnostics,
                                     "Full declaration of deferred constant is only allowed in a package body",
-                                    ErrorCode::IllegalDeferredConstant
+                                    ErrorCode::IllegalDeferredConstant,
                                 );
                             } else {
                                 *prev_ent = ent;

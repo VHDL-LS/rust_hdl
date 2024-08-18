@@ -466,6 +466,53 @@ end arch;
     );
 }
 
+// GitHub issue #324
+#[test]
+fn view_in_generic_package() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package test_pkg is
+    generic ( width : integer );
+    type test_t is record
+        a : bit;
+    end record;
+
+    view vone of test_t is
+        a : in;
+    end view;
+    alias vtwo is vone'converse;
+end package;
+
+package w8_pkg is new work.test_pkg generic map (width => 8);
+
+use work.w8_pkg.all;
+
+entity test_sub_entity is
+    port (
+        my_if : view vone
+    );
+end entity;
+
+use work.w8_pkg.all;
+
+entity test_top_entity is
+end entity;
+
+architecture rtl of test_top_entity is
+    signal my_sig : test_t;
+begin
+    my_if : entity work.test_sub_entity
+        port map (
+            my_if => my_sig
+        );
+end architecture;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
+
 #[test]
 fn arrays_of_views_with_matching_type() {
     let mut builder = LibraryBuilder::with_standard(VHDL2019);
