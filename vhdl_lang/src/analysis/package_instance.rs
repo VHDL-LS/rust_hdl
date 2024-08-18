@@ -488,7 +488,6 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         region: &'a Region<'a>,
         scope: &Scope<'a>,
     ) -> Result<Region<'a>, (String, ErrorCode)> {
-        eprintln!("mapping region");
         let Region {
             entities: uninst_entities,
             kind,
