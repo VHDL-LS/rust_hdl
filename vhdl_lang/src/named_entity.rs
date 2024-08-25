@@ -553,7 +553,7 @@ impl<'a> AnyEnt<'a> {
                     ),
                     ErrorCode::Duplicate,
                 )
-                    .related(last_pos, "Previously specified here"))
+                .related(last_pos, "Previously specified here"))
             }
             Entry::Vacant(entry) => {
                 entry.insert((pos.clone(), ent));
