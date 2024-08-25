@@ -62,19 +62,19 @@ architecture a of ent is
 begin
   main : process
   begin
-    foo'stable := 1;
+    foo'stable := true;
   end process;
 end architecture;
 ",
     );
 
-    let expected = vec![Diagnostic::mismatched_kinds(
-        code.s("foo'stable", 1),
-        "Expression may not be the target of an assignment",
-    )];
-
-    let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, expected);
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::mismatched_kinds(
+            code.s("foo'stable", 1),
+            "signal 'stable' may not be the target of a variable assignment",
+        )],
+    );
 }
 
 #[test]

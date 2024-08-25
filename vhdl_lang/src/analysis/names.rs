@@ -30,11 +30,10 @@ pub enum ObjectBase<'a> {
 
 impl<'a> ObjectBase<'a> {
     pub fn mode(&self) -> Option<&InterfaceMode<'a>> {
+        use ObjectBase::*;
         match self {
-            ObjectBase::Object(object) => object.mode(),
-            ObjectBase::ObjectAlias(object, _) => object.mode(),
-            ObjectBase::DeferredConstant(..) => None,
-            ObjectBase::ExternalName(_) => None,
+            Object(object) | ObjectAlias(object, _) => object.mode(),
+            DeferredConstant(..) | ExternalName(_) => None,
         }
     }
 
@@ -101,11 +100,10 @@ impl<'a> ObjectBase<'a> {
     }
 
     pub fn is_port(&self) -> bool {
+        use ObjectBase::*;
         match self {
-            ObjectBase::Object(obj) => obj.kind().is_port(),
-            ObjectBase::ObjectAlias(obj, _) => obj.kind().is_port(),
-            ObjectBase::DeferredConstant(_) => false,
-            ObjectBase::ExternalName(_) => false,
+            Object(obj) | ObjectAlias(obj, _) => obj.kind().is_port(),
+            DeferredConstant(_) | ExternalName(_) => false,
         }
     }
 }
@@ -363,10 +361,10 @@ impl<'a> ResolvedName<'a> {
         prefix_pos: TokenSpan,
         attr: &AttributeSuffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<TypeEnt<'a>> {
+    ) -> EvalResult<ObjectName<'a>> {
         if let ResolvedName::ObjectName(oname) = self {
             if matches!(oname.base.class(), ObjectClass::Signal) {
-                return Ok(oname.type_mark());
+                return Ok(*oname);
             }
         }
 
@@ -399,22 +397,6 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Final(_) => None,
         }
     }
-}
-
-/// Represents the result when resolving an attribute.
-/// This can either be a value or a type.
-///
-/// in the future, the value case might also hold the value
-/// of the static expression of the attribute.
-///
-/// Values are returned for attributes such as `'low`, `'high`, `'val(..)`, e.t.c.
-/// Types are returned for attributes such as `'base`, `'subtype`, `'element`
-pub enum AttrResolveResult<'a> {
-    /// The result type is a type. E.g. `a'base`, `a'subtype`, `a'element`
-    Type(BaseType<'a>),
-    /// The result type is a value with type, e.g. `a'low`, `b'high`, `c'image(x)`
-    Value(BaseType<'a>),
-    View(ViewEnt<'a>),
 }
 
 #[derive(Debug)]
@@ -858,7 +840,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         prefix: &ResolvedName<'a>,
         attr: &mut AttributeSuffix<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<AttrResolveResult<'a>> {
+    ) -> EvalResult<ResolvedName<'a>> {
         match attr.attr.item {
             AttributeDesignator::Left
             | AttributeDesignator::Right
@@ -872,10 +854,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         attr.expr.as_mut().map(|expr| expr.as_mut()),
                         diagnostics,
                     )
-                    .map(AttrResolveResult::Value)
+                    .map(|typ| ResolvedName::Expression(DisambiguatedType::Unambiguous(typ.into())))
                 } else if typ.is_scalar() {
                     check_no_attr_argument(self.ctx, attr, diagnostics);
-                    Ok(AttrResolveResult::Value(typ.into()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        typ,
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -889,10 +873,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
-                    Ok(AttrResolveResult::Value(self.boolean().base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        self.boolean(),
+                    )))
                 } else if typ.is_scalar() {
                     check_no_attr_argument(self.ctx, attr, diagnostics);
-                    Ok(AttrResolveResult::Value(self.boolean().base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        self.boolean(),
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -912,7 +900,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
 
                 if typ.is_scalar() {
-                    Ok(AttrResolveResult::Value(self.string().base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        self.string(),
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -932,7 +922,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 }
 
                 if typ.is_scalar() {
-                    Ok(AttrResolveResult::Value(typ.base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        typ,
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -951,7 +943,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(AttrResolveResult::Value(self.universal_integer()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        self.universal_integer().into(),
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -975,7 +969,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             diagnostics,
                         )?;
                     }
-                    Ok(AttrResolveResult::Value(typ.base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        typ,
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -997,7 +993,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(AttrResolveResult::Value(typ.base()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        typ,
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -1011,7 +1009,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
-                    Ok(AttrResolveResult::Value(self.universal_integer()))
+                    Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        self.universal_integer().into(),
+                    )))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         &name_pos.pos(self.ctx),
@@ -1025,70 +1025,28 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | AttributeDesignator::InstanceName
             | AttributeDesignator::PathName => {
                 check_no_attr_argument(self.ctx, attr, diagnostics);
-                Ok(AttrResolveResult::Value(self.string().base()))
+                Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                    self.string(),
+                )))
             }
 
-            AttributeDesignator::Signal(sattr) => {
-                let typ = prefix.as_type_of_signal_attr_prefix(
-                    self.ctx,
-                    prefix_pos,
-                    attr,
-                    diagnostics,
-                )?;
-                let expr = attr.expr.as_mut().map(|expr| expr.as_mut());
-                match sattr {
-                    SignalAttribute::Delayed => {
-                        if let Some(expr) = attr.expr {
-                            self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
-                        }
-                        Ok(AttrResolveResult::Value(typ.base()))
-                    }
-                    SignalAttribute::Stable | SignalAttribute::Quiet => {
-                        if let Some(expr) = expr {
-                            self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
-                        }
-                        Ok(AttrResolveResult::Value(self.boolean().base()))
-                    }
-                    SignalAttribute::Transaction => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.bit().base()))
-                    }
-                    SignalAttribute::Event => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.boolean().base()))
-                    }
-                    SignalAttribute::Active => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.boolean().base()))
-                    }
-                    SignalAttribute::LastEvent => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.time().base()))
-                    }
-                    SignalAttribute::LastActive => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.time().base()))
-                    }
-                    SignalAttribute::LastValue => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(typ.base()))
-                    }
-                    SignalAttribute::Driving => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(self.boolean().base()))
-                    }
-                    SignalAttribute::DrivingValue => {
-                        check_no_sattr_argument(self.ctx, sattr, expr, diagnostics);
-                        Ok(AttrResolveResult::Value(typ.base()))
-                    }
-                }
-            }
+            AttributeDesignator::Signal(sattr) => self.signal_attribute_suffix(
+                scope,
+                prefix,
+                name_pos,
+                prefix_pos,
+                sattr,
+                attr,
+                diagnostics,
+            ),
 
             AttributeDesignator::Ident(ref mut sym) => {
                 if let Some(actual) = prefix.as_actual_entity() {
                     if let Some(attr) = actual.get_attribute(&sym.item) {
                         sym.set_unique_reference(attr.into());
-                        Ok(AttrResolveResult::Value(attr.typ().base()))
+                        Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                            attr.typ(),
+                        )))
                     } else {
                         diagnostics.add(
                             attr.attr.pos(self.ctx),
@@ -1119,15 +1077,88 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             }
             AttributeDesignator::Type(attr) => self
                 .resolve_type_attribute_suffix(prefix, prefix_pos, &attr, name_pos, diagnostics)
-                .map(|typ| AttrResolveResult::Type(typ.base())),
+                .map(|typ| ResolvedName::Type(typ.base().into())),
             AttributeDesignator::Converse => {
                 let view = self.resolve_view_ent(prefix, diagnostics, prefix_pos)?;
                 // Since we do not check the actual mode of the view,
                 // this does not actually converse anything at the moment.
                 // We only check that the selected name is a view and return that view.
-                Ok(AttrResolveResult::View(view))
+                Ok(ResolvedName::Final(view.ent))
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn signal_attribute_suffix(
+        &self,
+        scope: &Scope<'a>,
+        prefix: &ResolvedName<'a>,
+        name_pos: TokenSpan,
+        prefix_pos: TokenSpan,
+        attr: SignalAttribute,
+        suffix: &mut AttributeSuffix<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<ResolvedName<'a>> {
+        use SignalAttribute::*;
+        let object_name =
+            prefix.as_type_of_signal_attr_prefix(self.ctx, prefix_pos, suffix, diagnostics)?;
+        let object_ent = match object_name.base {
+            ObjectBase::Object(obj_ent) | ObjectBase::ObjectAlias(obj_ent, _) => obj_ent,
+            // - DeferredConstant: cannot happen here
+            // - ExternalName: No analysis performed currently. Simply ignore.
+            ObjectBase::DeferredConstant(_) | ObjectBase::ExternalName(_) => {
+                return Err(EvalError::Unknown)
+            }
+        };
+        let expr = suffix.expr.as_mut().map(|expr| expr.as_mut());
+        let typ = match attr {
+            Delayed => {
+                if let Some(expr) = expr {
+                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                }
+                object_name.type_mark()
+            }
+            Stable | Quiet => {
+                if let Some(expr) = expr {
+                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                }
+                self.boolean()
+            }
+            Event | Active | Driving => {
+                check_no_sattr_argument(self.ctx, attr, expr, diagnostics);
+                self.boolean()
+            }
+            Transaction => {
+                check_no_sattr_argument(self.ctx, attr, expr, diagnostics);
+                self.bit()
+            }
+            LastEvent | LastActive => {
+                check_no_sattr_argument(self.ctx, attr, expr, diagnostics);
+                self.time()
+            }
+            LastValue | DrivingValue => {
+                check_no_sattr_argument(self.ctx, attr, expr, diagnostics);
+                object_name.type_mark()
+            }
+        };
+        let obj = self.arena.alloc(
+            Designator::Identifier(self.root.symbol_utf8(&suffix.attr.item.to_string())),
+            object_ent.parent,
+            Related::DerivedFrom(object_ent.ent),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Signal,
+                iface: None,
+                subtype: Subtype::new(typ),
+                has_default: false,
+            }),
+            None,
+            name_pos,
+            Some(self.source()),
+        );
+        Ok(ResolvedName::ObjectName(ObjectName {
+            base: ObjectBase::Object(ObjectEnt::from_any(obj).unwrap()),
+            type_mark: Some(typ),
+        }))
     }
 
     /// Resolves any type attribute suffixes
@@ -1307,15 +1338,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         }
 
         if let Suffix::Attribute(ref mut attr) = suffix {
-            let typ =
-                self.attribute_suffix(span, prefix.span, scope, &resolved, attr, diagnostics)?;
-            return match typ {
-                AttrResolveResult::Type(base) => Ok(ResolvedName::Type(base.into())),
-                AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
-                    DisambiguatedType::Unambiguous(base.into()),
-                )),
-                AttrResolveResult::View(view) => Ok(ResolvedName::Final(view.ent)),
-            };
+            return self.attribute_suffix(span, prefix.span, scope, &resolved, attr, diagnostics);
         }
 
         match resolved {
@@ -2042,7 +2065,7 @@ mod test {
     use super::*;
     use assert_matches::assert_matches;
 
-    use crate::analysis::tests::TestSetup;
+    use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder, TestSetup};
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;
 
@@ -2920,99 +2943,115 @@ signal thesig : integer;
         );
 
         let code = test.snippet("thesig'delayed(0 ns)");
-        assert_eq!(
+        let integer = test.ctx(&code.tokenize()).integer();
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).integer()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(integer)
         );
 
         let code = test.snippet("thesig'delayed");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).integer()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(integer)
         );
 
         let code = test.snippet("thesig'stable(0 ns)");
-        assert_eq!(
+        let boolean = test.ctx(&code.tokenize()).boolean();
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).boolean()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(boolean)
         );
 
         let code = test.snippet("thesig'quiet(0 ns)");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).boolean()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(boolean)
         );
 
         let code = test.snippet("thesig'transaction");
-        assert_eq!(
+        let bit = test.ctx(&code.tokenize()).bit();
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).bit()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(bit)
         );
 
         let code = test.snippet("thesig'event");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).boolean()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(boolean)
         );
 
         let code = test.snippet("thesig'active");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).boolean()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(boolean)
         );
 
         let code = test.snippet("thesig'last_event");
-        assert_eq!(
+        let time = test.ctx(&code.tokenize()).time();
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).time()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(time)
         );
 
         let code = test.snippet("thesig'last_active");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).time()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(time)
         );
 
         let code = test.snippet("thesig'last_value");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).integer()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(integer)
         );
 
         let code = test.snippet("thesig'driving");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).boolean()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(boolean)
         );
 
         let code = test.snippet("thesig'driving_value");
-        assert_eq!(
+        assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                test.ctx(&code.tokenize()).integer()
-            )))
+            Ok(ResolvedName::ObjectName(ObjectName {
+                base: ObjectBase::Object(_),
+                type_mark: typ
+            })) if typ == Some(integer)
         );
     }
 
@@ -3362,5 +3401,27 @@ type enum_t is (alpha, beta);
                 "Might be function myfun[INTEGER return rec2_t]",
             )],
         )
+    }
+
+    #[test]
+    fn signal_attributes_can_be_used_in_sensitivity_lists() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "\
+entity mwe is
+end entity;
+
+architecture bhv of mwe is
+    signal foo: bit;
+begin
+    process is
+    begin
+        wait on foo'transaction;
+    end process;
+end architecture;
+        ",
+        );
+        check_no_diagnostics(&builder.analyze());
     }
 }

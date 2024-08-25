@@ -248,6 +248,10 @@ pub enum Related<'a> {
     ImplicitOf(EntRef<'a>),
     InstanceOf(EntRef<'a>),
     DeclaredBy(EntRef<'a>),
+    /// An entity with that is derived from another entity using an attribute.
+    /// For example, a delayed signal may be derived using the
+    /// `delayed_sig <= s'delayed(t0)` syntax
+    DerivedFrom(EntRef<'a>),
     None,
 }
 
@@ -355,11 +359,11 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn is_implicit(&self) -> bool {
+        use Related::*;
         match self.related {
-            Related::ImplicitOf(_) => true,
-            Related::InstanceOf(ent) => ent.is_implicit(),
-            Related::DeclaredBy(_) => false,
-            Related::None => false,
+            ImplicitOf(_) => true,
+            InstanceOf(ent) | DerivedFrom(ent) => ent.is_implicit(),
+            DeclaredBy(_) | None => false,
         }
     }
 
@@ -424,11 +428,11 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn is_implicit_of(&self, other: EntityId) -> bool {
+        use Related::*;
         match &self.related {
-            Related::ImplicitOf(ent) => ent.id() == other,
-            Related::InstanceOf(ent) => ent.is_implicit_of(other),
-            Related::None => false,
-            Related::DeclaredBy(_) => false,
+            ImplicitOf(ent) => ent.id() == other,
+            InstanceOf(ent) => ent.is_implicit_of(other),
+            DeclaredBy(_) | DerivedFrom(_) | None => false,
         }
     }
 
@@ -549,7 +553,7 @@ impl<'a> AnyEnt<'a> {
                     ),
                     ErrorCode::Duplicate,
                 )
-                .related(last_pos, "Previously specified here"))
+                    .related(last_pos, "Previously specified here"))
             }
             Entry::Vacant(entry) => {
                 entry.insert((pos.clone(), ent));
