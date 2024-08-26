@@ -12,7 +12,6 @@ use vhdl_lang::TokenSpan;
 /// examples:
 ///   target <= 1;
 ///   target(0).elem := 1
-
 impl<'a, 't> AnalyzeContext<'a, 't> {
     pub fn resolve_target(
         &self,
