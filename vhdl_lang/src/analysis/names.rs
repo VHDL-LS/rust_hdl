@@ -1481,12 +1481,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                             designator.pos(self.ctx),
                             &designator.item.item,
                         )
-                        .map(|design| {
-                            designator
-                                .item
-                                .reference
-                                .set_unique_reference(design.into());
-                            design
+                        .inspect(|design| {
+                            designator.item.reference.set_unique_reference(design.0)
                         })?,
                     );
                 } else {

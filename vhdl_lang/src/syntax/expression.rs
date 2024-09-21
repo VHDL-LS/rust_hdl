@@ -554,10 +554,7 @@ fn parse_expr(
 ///   8. misc_operator: ** | abs | not
 pub fn parse_expression(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expression>> {
     let state = ctx.stream.state();
-    parse_expr(ctx, 0).map_err(|err| {
-        ctx.stream.set_state(state);
-        err
-    })
+    parse_expr(ctx, 0).inspect_err(|_| ctx.stream.set_state(state))
 }
 
 #[cfg(test)]

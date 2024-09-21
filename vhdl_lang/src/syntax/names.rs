@@ -550,10 +550,7 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
 
 pub fn parse_name(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Name>> {
     let state = ctx.stream.state();
-    _parse_name(ctx).map_err(|err| {
-        ctx.stream.set_state(state);
-        err
-    })
+    _parse_name(ctx).inspect_err(|_| ctx.stream.set_state(state))
 }
 
 #[cfg(test)]

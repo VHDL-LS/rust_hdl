@@ -408,10 +408,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     &ent_name_span.pos(self.ctx),
                     &designator.item,
                 )
-                .map(|design| {
-                    designator.set_unique_reference(design.into());
-                    design
-                })?),
+                .inspect(|design| designator.set_unique_reference(design.0))?),
 
             // configuration cfg of lib.ent
             Name::Selected(ref mut prefix, ref mut designator) => {
