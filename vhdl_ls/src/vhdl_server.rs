@@ -53,6 +53,7 @@ pub struct VHDLServerSettings {
     pub no_lint: bool,
     pub silent: bool,
     pub non_project_file_handling: NonProjectFileHandling,
+    pub libraries_path: Option<String>,
 }
 
 pub struct VHDLServer {
@@ -123,7 +124,10 @@ impl VHDLServer {
         let mut config = Config::default();
 
         if self.use_external_config {
-            config.load_external_config(&mut self.message_filter(), None);
+            config.load_external_config(
+                &mut self.message_filter(),
+                self.settings.libraries_path.clone(),
+            );
         }
 
         match self.load_root_uri_config() {

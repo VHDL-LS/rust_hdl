@@ -14,6 +14,11 @@ struct Args {
     #[arg(long, default_value_t = false)]
     no_lint: bool,
 
+    /// Path to the config file for the VHDL standard libraries (i.e., IEEE std_logic_1164).
+    /// If omitted, will search for these libraries in a set of standard paths
+    #[arg(short = 'l', long)]
+    libraries: Option<String>,
+
     /// Normally warning and error messages are sent to window/showMessage
     /// This will silence all window/showMessage and only use window/logMessage
     #[arg(long, default_value_t = false)]
@@ -28,6 +33,7 @@ fn main() {
     vhdl_ls::start(VHDLServerSettings {
         no_lint: args.no_lint,
         silent: args.silent,
+        libraries_path: args.libraries,
         ..Default::default()
     });
 }
