@@ -248,7 +248,9 @@ impl Config {
         location: Option<String>,
     ) {
         if let Some(location) = location {
-            self.load_config(&PathBuf::from(location), "Installation", messages);
+            let mut path = PathBuf::from(location);
+            path.push("vhdl_ls.toml");
+            self.load_config(&path, "Installation", messages);
             return;
         }
         let search_paths = [
