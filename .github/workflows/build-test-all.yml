@@ -1,6 +1,6 @@
 name: Build & test all configs
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   release-notice:
@@ -32,7 +32,7 @@ jobs:
             ext: ""
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            ext: ""            
+            ext: ""
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: .exe
@@ -43,14 +43,12 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
           target: x86_64-unknown-linux-musl
           components: rustfmt, clippy
 
@@ -64,31 +62,19 @@ jobs:
           version: 1.0
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
+        run: cargo build --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: Test
-        uses: actions-rs/cargo@v1
         if: matrix.os != 'macos-latest' # There are no free runners for Apple Silicon available at the moment
-        with:
-          command: test
-          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
+        run: cargo test --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: rustfmt
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --package ${{ matrix.crate }} -- --check
+        run: cargo fmt --package ${{ matrix.crate }} -- --check
 
       - name: clippy
         if: matrix.os == 'ubuntu-latest'
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
+        run: cargo clippy --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
 
       - name: Assemble
         if: matrix.rust == 'stable'
@@ -100,7 +86,7 @@ jobs:
 
       - name: Upload
         if: matrix.rust == 'stable'
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: ${{ matrix.crate }}-${{ matrix.target }}
@@ -117,9 +103,9 @@ jobs:
         run: |
           echo ::set-output name=v::${GITHUB_REF/refs\/tags\/v/}
           echo "Version is v${GITHUB_REF/refs\/tags\/v/}"
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Get vhdl_lang linux-musl
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_lang-x86_64-unknown-linux-musl
       - name: Check vhdl_lang version
@@ -134,7 +120,7 @@ jobs:
             echo "Version string matched"
           fi
       - name: Get vhdl_ls linux-musl
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_ls-x86_64-unknown-linux-musl
       - name: Check vhdl_ls version
@@ -149,27 +135,27 @@ jobs:
             echo "Version string matched"
           fi
       - name: Get vhdl_lang linux-gnu
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
-          name: vhdl_lang-x86_64-unknown-linux-gnu          
+          name: vhdl_lang-x86_64-unknown-linux-gnu
       - name: Get vhdl_ls linux-gnu
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
-          name: vhdl_ls-x86_64-unknown-linux-gnu          
+          name: vhdl_ls-x86_64-unknown-linux-gnu
       - name: Get vhdl_lang windows
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_lang-x86_64-pc-windows-msvc
       - name: Get vhdl_ls windows
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_ls-x86_64-pc-windows-msvc
       - name: Get vhdl_lang macos
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_lang-aarch64-apple-darwin
       - name: Get vhdl_ls macos
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: vhdl_ls-aarch64-apple-darwin
       - name: Zip artifacts
