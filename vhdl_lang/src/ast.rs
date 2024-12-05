@@ -759,7 +759,7 @@ pub enum Signature {
 
 #[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum SubprogramSpecification {
-    Procedure(ProcedureSpecification),
+    Procedure(Box<ProcedureSpecification>),
     Function(FunctionSpecification),
 }
 

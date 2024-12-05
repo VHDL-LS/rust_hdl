@@ -1,6 +1,7 @@
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{LabeledConcurrentStatement, LabeledSequentialStatement, WithDecl};
 use crate::{HasTokenSpan, TokenId};
+use std::ops::Deref;
 use vhdl_lang::ast::WithToken;
 use vhdl_lang::TokenSpan;
 
@@ -51,6 +52,19 @@ impl<T> HasTokenSpan for WithTokenSpan<T> {
 
     fn get_end_token(&self) -> TokenId {
         self.span.end_token
+    }
+}
+
+impl<T> HasTokenSpan for Box<T>
+where
+    T: HasTokenSpan,
+{
+    fn get_start_token(&self) -> TokenId {
+        self.deref().get_start_token()
+    }
+
+    fn get_end_token(&self) -> TokenId {
+        self.deref().get_end_token()
     }
 }
 

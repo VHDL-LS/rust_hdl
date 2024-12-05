@@ -1738,7 +1738,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        match self.name_to_unambiguous_type(span, &resolved, ttyp, name.suffix_reference_mut()) {
+        match self.name_to_unambiguous_type(span, resolved, ttyp, name.suffix_reference_mut()) {
             Ok(Some(type_mark)) => {
                 if !self.can_be_target_type(type_mark, ttyp.base()) {
                     diagnostics.push(Diagnostic::type_mismatch(
