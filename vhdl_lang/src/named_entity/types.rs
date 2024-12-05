@@ -45,7 +45,7 @@ pub enum UniversalType {
     Integer,
 }
 
-impl<'a> Type<'a> {
+impl Type<'_> {
     pub fn describe(&self) -> &'static str {
         match self {
             Type::Alias(..) => "alias",

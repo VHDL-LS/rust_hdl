@@ -473,7 +473,7 @@ pub fn as_type_conversion(
     None
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     fn name_to_type(
         &self,
         pos: TokenSpan,

@@ -469,7 +469,7 @@ impl<T> WithDecl<T> {
 }
 
 impl<T> WithDecl<WithToken<T>> {
-    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &'a SrcPos {
         self.tree.pos(ctx)
     }
 }

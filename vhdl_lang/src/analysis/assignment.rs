@@ -12,7 +12,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     // @TODO maybe make generic function for expression/waveform.
     // wait until type checking to see if it makes sense
     pub fn analyze_expr_assignment(

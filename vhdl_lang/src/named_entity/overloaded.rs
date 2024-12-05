@@ -25,7 +25,7 @@ pub enum Overloaded<'a> {
     Alias(OverloadedEnt<'a>),
 }
 
-impl<'a> Debug for Overloaded<'a> {
+impl Debug for Overloaded<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Overloaded::UninstSubprogramDecl(..) => {

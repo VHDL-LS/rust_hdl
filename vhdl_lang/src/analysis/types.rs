@@ -12,7 +12,7 @@ use crate::named_entity::{Signature, *};
 use crate::HasTokenSpan;
 use analyze::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn resolve_subtype_indication(
         &self,
         scope: &Scope<'a>,

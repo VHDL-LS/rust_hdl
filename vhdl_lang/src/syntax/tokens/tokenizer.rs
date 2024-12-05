@@ -446,7 +446,7 @@ impl TokenId {
         TokenId(idx)
     }
 
-    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+    pub fn pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &'a SrcPos {
         ctx.get_pos(*self)
     }
 }

@@ -186,7 +186,7 @@ impl<'a> AsRef<OverloadedEnt<'a>> for ResolvedCall<'a> {
     }
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     /// Typecheck one overloaded call where the exact subprogram is known
     pub fn check_call(
         &self,

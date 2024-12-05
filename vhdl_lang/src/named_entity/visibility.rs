@@ -112,7 +112,7 @@ impl<'a> Visibility<'a> {
     }
 
     pub fn all_in_region(&self) -> impl Iterator<Item = &VisibleRegion<'a>> {
-        return self.all_in_regions.iter();
+        self.all_in_regions.iter()
     }
 
     pub fn visible(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {

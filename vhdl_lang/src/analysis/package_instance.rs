@@ -23,7 +23,7 @@ use crate::named_entity::*;
 use crate::Diagnostic;
 use crate::NullDiagnostics;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn generic_package_instance(
         &self,
         scope: &Scope<'a>,

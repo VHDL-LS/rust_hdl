@@ -14,7 +14,7 @@ use crate::named_entity::*;
 use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn analyze_concurrent_part(
         &self,
         scope: &Scope<'a>,

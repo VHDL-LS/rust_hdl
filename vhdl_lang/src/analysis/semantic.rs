@@ -14,7 +14,7 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn choices_with_ttyp(
         &self,
         scope: &Scope<'a>,
@@ -257,7 +257,7 @@ impl Diagnostic {
     }
 }
 
-impl<'a> ResolvedName<'a> {
+impl ResolvedName<'_> {
     pub(super) fn kind_error(&self, pos: impl AsRef<SrcPos>, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::mismatched_kinds(
             pos,

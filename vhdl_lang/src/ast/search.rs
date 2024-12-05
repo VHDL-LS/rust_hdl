@@ -1603,7 +1603,7 @@ impl<'a> ItemAtCursor<'a> {
     }
 }
 
-impl<'a> Searcher for ItemAtCursor<'a> {
+impl Searcher for ItemAtCursor<'_> {
     fn search_with_pos(&mut self, _ctx: &dyn TokenAccess, pos: &SrcPos) -> SearchState {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
@@ -1722,7 +1722,7 @@ impl<'a> FormatDeclaration<'a> {
     }
 }
 
-impl<'a> Searcher for FormatDeclaration<'a> {
+impl Searcher for FormatDeclaration<'_> {
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         let id = if let Some(id) = decl.ent_id() {
             id
@@ -1780,7 +1780,7 @@ impl<'a> FindAllReferences<'a> {
     }
 }
 
-impl<'a> Searcher for FindAllReferences<'a> {
+impl Searcher for FindAllReferences<'_> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         if let Some(id) = decl.ent_id() {
             let other = self.root.get_ent(id);
@@ -1813,7 +1813,7 @@ impl<'a> Searcher for FindAllReferences<'a> {
     }
 }
 
-impl<'a> FoundDeclaration<'a> {
+impl FoundDeclaration<'_> {
     fn end_ident_pos(&self) -> Option<TokenId> {
         match &self.ast {
             DeclarationItem::InterfaceObject(_) => None,
@@ -1863,7 +1863,7 @@ impl SubprogramSpecification {
     }
 }
 
-impl<'a> HasEntityId for FoundDeclaration<'a> {
+impl HasEntityId for FoundDeclaration<'_> {
     fn ent_id(&self) -> Option<EntityId> {
         self.ent_id_ref().get()
     }

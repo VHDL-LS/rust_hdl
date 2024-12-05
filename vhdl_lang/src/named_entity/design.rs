@@ -37,7 +37,7 @@ pub enum Design<'a> {
     Context(Region<'a>),
 }
 
-impl<'a> Design<'a> {
+impl Design<'_> {
     pub fn describe(&self) -> &'static str {
         use Design::*;
         match self {

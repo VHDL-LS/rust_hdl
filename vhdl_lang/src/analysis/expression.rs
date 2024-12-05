@@ -69,7 +69,7 @@ pub(super) struct TypeMatcher<'c, 'a, 't> {
     context: &'c AnalyzeContext<'a, 't>,
 }
 
-impl<'c, 'a, 't> TypeMatcher<'c, 'a, 't> {
+impl<'a> TypeMatcher<'_, 'a, '_> {
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
         if types.match_type(ttyp) {

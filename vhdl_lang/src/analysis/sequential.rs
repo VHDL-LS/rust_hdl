@@ -13,7 +13,7 @@ use crate::HasTokenSpan;
 use analyze::*;
 use target::AssignmentType;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,

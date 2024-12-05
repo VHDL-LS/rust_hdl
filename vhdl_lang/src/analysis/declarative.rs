@@ -134,7 +134,7 @@ impl Declaration {
     }
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn analyze_declarative_part(
         &self,
         scope: &Scope<'a>,

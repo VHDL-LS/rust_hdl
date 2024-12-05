@@ -262,7 +262,7 @@ fn single(name: &str) -> NameHierarchy {
     }
 }
 
-impl<'a> From<EntHierarchy<'a>> for NameHierarchy {
+impl From<EntHierarchy<'_>> for NameHierarchy {
     fn from(ent: EntHierarchy<'_>) -> Self {
         NameHierarchy {
             name: if matches!(ent.ent.designator(), Designator::Anonymous(_)) {

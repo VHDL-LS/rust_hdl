@@ -169,7 +169,7 @@ impl StandardTypes {
     }
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     fn ident(&self, name: &str) -> Designator {
         Designator::Identifier(self.root.symbol_utf8(name))
     }
