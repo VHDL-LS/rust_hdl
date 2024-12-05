@@ -15,7 +15,7 @@ use crate::data::*;
 use crate::named_entity::*;
 
 impl<'a, 't> AnalyzeContext<'a, 't> {
-    pub fn choice_with_ttyp(
+    pub fn choices_with_ttyp(
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>,
@@ -23,23 +23,84 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for choice in choices.iter_mut() {
-            match choice.item {
-                Choice::Expression(ref mut expr) => {
-                    if let Some(ttyp) = ttyp {
-                        self.expr_pos_with_ttyp(scope, ttyp, choice.span, expr, diagnostics)?;
-                    } else {
-                        self.expr_pos_unknown_ttyp(scope, choice.span, expr, diagnostics)?;
-                    }
-                }
-                Choice::DiscreteRange(ref mut drange) => {
-                    if let Some(ttyp) = ttyp {
-                        self.drange_with_ttyp(scope, ttyp, drange, diagnostics)?;
-                    } else {
-                        self.drange_unknown_type(scope, drange, diagnostics)?;
-                    }
-                }
-                Choice::Others => {}
+            self.choice_with_ttyp(scope, ttyp, choice, diagnostics)?;
+        }
+        Ok(())
+    }
+
+    fn check_resolved_name<T>(
+        &self,
+        ttyp: Option<TypeEnt<'a>>,
+        typ: TypeEnt<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        pos: &WithTokenSpan<T>,
+    ) {
+        if let Some(ttyp) = ttyp {
+            if !self.can_be_target_type(typ, ttyp.base()) {
+                diagnostics.push(Diagnostic::type_mismatch(
+                    &pos.pos(self.ctx),
+                    &typ.describe(),
+                    ttyp,
+                ));
             }
+        }
+    }
+
+    pub fn choice_with_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        ttyp: Option<TypeEnt<'a>>,
+        choice: &mut WithTokenSpan<Choice>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        match choice.item {
+            Choice::Expression(ref mut expr) => {
+                if let Expression::Name(name) = expr {
+                    if let Some(resolved_name) =
+                        as_fatal(self.name_resolve(scope, choice.span, name, diagnostics))?
+                    {
+                        match resolved_name {
+                            ResolvedName::Range(typ) => {
+                                self.check_resolved_name(ttyp, typ, diagnostics, choice)
+                            }
+                            ResolvedName::Type(typ) => {
+                                if !matches!(typ.kind(), Type::Subtype(_)) {
+                                    diagnostics.add(
+                                        choice.pos(self.ctx),
+                                        format!("{} must be a subtype", typ.describe(),),
+                                        ErrorCode::MismatchedKinds,
+                                    )
+                                } else {
+                                    self.check_resolved_name(ttyp, typ, diagnostics, choice)
+                                }
+                            }
+                            _ => {
+                                if let Some(ttyp) = ttyp {
+                                    self.check_resolved_name_type(
+                                        choice.span,
+                                        &resolved_name,
+                                        ttyp,
+                                        name,
+                                        diagnostics,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                } else if let Some(ttyp) = ttyp {
+                    self.expr_pos_with_ttyp(scope, ttyp, choice.span, expr, diagnostics)?;
+                } else {
+                    self.expr_pos_unknown_ttyp(scope, choice.span, expr, diagnostics)?;
+                }
+            }
+            Choice::DiscreteRange(ref mut drange) => {
+                if let Some(ttyp) = ttyp {
+                    self.drange_with_ttyp(scope, ttyp, drange, diagnostics)?;
+                } else {
+                    self.drange_unknown_type(scope, drange, diagnostics)?;
+                }
+            }
+            Choice::Others => {}
         }
         Ok(())
     }
@@ -180,7 +241,7 @@ impl Diagnostic {
         }
     }
 
-    pub fn add_type_candididates<'a>(
+    pub fn add_type_candidates<'a>(
         &mut self,
         prefix: &str,
         candidates: impl IntoIterator<Item = BaseType<'a>>,

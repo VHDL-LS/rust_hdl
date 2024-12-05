@@ -684,7 +684,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
-                                diag.add_type_candididates("Could be", implicit_bool_types);
+                                diag.add_type_candidates("Could be", implicit_bool_types);
                                 diagnostics.push(diag);
                             }
 
@@ -697,7 +697,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ),
                                     ErrorCode::AmbiguousExpression,
                                 );
-                                diag.add_type_candididates(
+                                diag.add_type_candidates(
                                     "Implicit boolean conversion operator ?? is not defined for",
                                     types,
                                 );

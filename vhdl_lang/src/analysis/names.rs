@@ -157,6 +157,7 @@ pub enum ResolvedName<'a> {
     Expression(DisambiguatedType<'a>),
     // Something that cannot be further selected
     Final(EntRef<'a>),
+    Range(TypeEnt<'a>),
 }
 
 impl<'a> ResolvedName<'a> {
@@ -307,6 +308,7 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Final(ent) => ent.describe(),
             ResolvedName::Expression(DisambiguatedType::Unambiguous(_)) => "Expression".to_owned(),
             ResolvedName::Expression(_) => "Ambiguous expression".to_owned(),
+            ResolvedName::Range(_) => "Range".to_owned(),
         }
     }
 
@@ -324,6 +326,7 @@ impl<'a> ResolvedName<'a> {
                 ObjectBase::ExternalName(_) => None,
             },
             ResolvedName::Expression(_) | ResolvedName::Final(_) => None,
+            ResolvedName::Range(typ) => typ.decl_pos(),
         }
     }
 
@@ -395,6 +398,7 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Overloaded(_, _) => None,
             ResolvedName::Expression(_) => None,
             ResolvedName::Final(_) => None,
+            ResolvedName::Range(typ) => Some((*typ).into()),
         }
     }
 }
@@ -478,12 +482,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         name: ResolvedName<'a>,
     ) -> Result<Option<DisambiguatedType<'a>>, Diagnostic> {
         match name {
-            ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::mismatched_kinds(
-                    pos.pos(self.ctx),
-                    format!("{} cannot be used in an expression", name.describe_type()),
-                ))
-            }
+            ResolvedName::Library(_)
+            | ResolvedName::Design(_)
+            | ResolvedName::Type(_)
+            | ResolvedName::Range(_) => Err(Diagnostic::mismatched_kinds(
+                pos.pos(self.ctx),
+                format!("{} cannot be used in an expression", name.describe_type()),
+            )),
             ResolvedName::Final(ent) => match ent.actual_kind() {
                 AnyEntKind::LoopParameter(typ) => {
                     Ok(typ.map(|typ| DisambiguatedType::Unambiguous(typ.into())))
@@ -517,7 +522,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         }
     }
 
-    fn name_to_unambiguous_type(
+    pub(crate) fn name_to_unambiguous_type(
         &self,
         span: TokenSpan,
         name: &ResolvedName<'a>,
@@ -526,12 +531,13 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         suffix_ref: Option<&mut Reference>,
     ) -> Result<Option<TypeEnt<'a>>, Diagnostic> {
         match name {
-            ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
-                Err(Diagnostic::mismatched_kinds(
-                    span.pos(self.ctx),
-                    format!("{} cannot be used in an expression", name.describe_type()),
-                ))
-            }
+            ResolvedName::Library(_)
+            | ResolvedName::Design(_)
+            | ResolvedName::Type(_)
+            | ResolvedName::Range(_) => Err(Diagnostic::mismatched_kinds(
+                span.pos(self.ctx),
+                format!("{} cannot be used in an expression", name.describe_type()),
+            )),
             ResolvedName::Final(ent) => match ent.actual_kind() {
                 AnyEntKind::LoopParameter(typ) => Ok(typ.map(|typ| typ.into())),
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(*typ)),
@@ -1067,14 +1073,17 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Err(EvalError::Unknown)
                 }
             }
-            AttributeDesignator::Range(_) => {
-                diagnostics.add(
-                    name_pos.pos(self.ctx),
-                    "Range cannot be used as an expression",
-                    ErrorCode::MismatchedKinds,
-                );
-                Err(EvalError::Unknown)
-            }
+            AttributeDesignator::Range(_) => match prefix {
+                ResolvedName::Type(typ) => Ok(ResolvedName::Range(*typ)),
+                _ => {
+                    diagnostics.add(
+                        name_pos.pos(self.ctx),
+                        format!("Range attribute cannot be used on {}", prefix.describe()),
+                        ErrorCode::MismatchedKinds,
+                    );
+                    Err(EvalError::Unknown)
+                }
+            },
             AttributeDesignator::Type(attr) => self
                 .resolve_type_attribute_suffix(prefix, prefix_pos, &attr, name_pos, diagnostics)
                 .map(|typ| ResolvedName::Type(typ.base().into())),
@@ -1526,6 +1535,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     return Err(EvalError::Unknown);
                 }
             }
+            ResolvedName::Range(_) => {
+                bail!(
+                    diagnostics,
+                    Diagnostic::cannot_be_prefix(&span.pos(self.ctx), resolved, suffix)
+                );
+            }
             ResolvedName::Type(typ) => match suffix {
                 Suffix::Selected(selected) => {
                     let typed_selection = match typ.selected(self.ctx, prefix.span, selected) {
@@ -1593,7 +1608,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::Type(_)
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
-            | ResolvedName::Final(_) => {
+            | ResolvedName::Final(_)
+            | ResolvedName::Range(_) => {
                 diagnostics.add(
                     name_pos.pos(self.ctx),
                     format!("{} {}", resolved.describe(), err_msg),
@@ -1619,6 +1635,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             | ResolvedName::ObjectName(_)
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
+            | ResolvedName::Range(_)
             | ResolvedName::Final(_) => {
                 bail!(
                     diagnostics,
@@ -1708,25 +1725,34 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             false,
             diagnostics,
         ))? {
-            // @TODO target_type already used above, functions could probably be simplified
-            match self.name_to_unambiguous_type(span, &resolved, ttyp, name.suffix_reference_mut())
-            {
-                Ok(Some(type_mark)) => {
-                    if !self.can_be_target_type(type_mark, ttyp.base()) {
-                        diagnostics.push(Diagnostic::type_mismatch(
-                            &span.pos(self.ctx),
-                            &resolved.describe_type(),
-                            ttyp,
-                        ));
-                    }
-                }
-                Ok(None) => {}
-                Err(diag) => {
-                    diagnostics.push(diag);
-                }
-            }
+            self.check_resolved_name_type(span, &resolved, ttyp, name, diagnostics);
         }
         Ok(())
+    }
+
+    pub fn check_resolved_name_type(
+        &self,
+        span: TokenSpan,
+        resolved: &ResolvedName<'a>,
+        ttyp: TypeEnt<'a>,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match self.name_to_unambiguous_type(span, &resolved, ttyp, name.suffix_reference_mut()) {
+            Ok(Some(type_mark)) => {
+                if !self.can_be_target_type(type_mark, ttyp.base()) {
+                    diagnostics.push(Diagnostic::type_mismatch(
+                        &span.pos(self.ctx),
+                        &resolved.describe_type(),
+                        ttyp,
+                    ));
+                }
+            }
+            Ok(None) => {}
+            Err(diag) => {
+                diagnostics.push(diag);
+            }
+        }
     }
 
     /// Analyze an indexed name where the prefix entity is already known
@@ -3093,7 +3119,7 @@ variable thevar : integer_vector(0 to 1);
             diagnostics,
             vec![Diagnostic::new(
                 code,
-                "Range cannot be used as an expression",
+                "Range attribute cannot be used on variable 'thevar'",
                 ErrorCode::MismatchedKinds,
             )],
         )

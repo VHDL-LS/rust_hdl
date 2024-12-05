@@ -81,7 +81,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         let resolved =
             self.name_resolve(scope, attr.name.span, &mut attr.name.item, diagnostics)?;
         let typ = match resolved {
-            ResolvedName::Type(typ) => typ,
+            ResolvedName::Type(typ) | ResolvedName::Range(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
             ResolvedName::Overloaded(ref des, ref overloaded) => {
                 let disamb = self

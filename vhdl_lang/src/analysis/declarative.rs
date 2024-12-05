@@ -350,6 +350,9 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         return Err(EvalError::Unknown);
                     }
                 }
+                ResolvedName::Range(_) => {
+                    return Err(EvalError::Unknown);
+                }
             }
         };
 

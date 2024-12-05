@@ -252,7 +252,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         item,
                         span: _,
                     } = alternative;
-                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
+                    self.choices_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }
             }

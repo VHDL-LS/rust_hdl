@@ -55,7 +55,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } in alternatives.iter_mut()
                 {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
-                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
+                    self.choices_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
             }
         }
@@ -105,7 +105,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 } in alternatives.iter_mut()
                 {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
-                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
+                    self.choices_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
             }
         }
