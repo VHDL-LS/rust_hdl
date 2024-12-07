@@ -1075,6 +1075,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             }
             AttributeDesignator::Range(_) => match prefix {
                 ResolvedName::Type(typ) => Ok(ResolvedName::Range(*typ)),
+                ResolvedName::ObjectName(oname) => Ok(ResolvedName::Range(oname.type_mark())),
                 _ => {
                     diagnostics.add(
                         name_pos.pos(self.ctx),
@@ -3097,30 +3098,6 @@ variable thevar : integer;
                 code.s1("missing"),
                 "Unknown attribute 'missing",
                 ErrorCode::Unresolved,
-            )],
-        )
-    }
-
-    #[test]
-    fn range_attribute() {
-        let test = TestSetup::new();
-        test.declarative_part(
-            "
-variable thevar : integer_vector(0 to 1);
-        ",
-        );
-        let code = test.snippet("thevar'range");
-        let mut diagnostics = Vec::new();
-        assert_eq!(
-            test.name_resolve(&code, None, &mut diagnostics),
-            Err(EvalError::Unknown)
-        );
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::new(
-                code,
-                "Range attribute cannot be used on variable 'thevar'",
-                ErrorCode::MismatchedKinds,
             )],
         )
     }
