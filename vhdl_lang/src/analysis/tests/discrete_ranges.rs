@@ -25,6 +25,7 @@ begin
       when t_my_enum_range => null;
       when t_my_enum_range'range => null;
       when A1 to A2 => null;
+      when ty_my_enum => null;
       when others => null;
     end case;
   end process;
@@ -77,11 +78,6 @@ end architecture;
                 code.s("t_my_other_enum_range", 2),
                 "subtype 't_my_other_enum_range' does not match type 't_my_enum'",
                 ErrorCode::TypeMismatch,
-            ),
-            Diagnostic::new(
-                code.s("t_my_enum", 3),
-                "type 't_my_enum' must be a subtype",
-                ErrorCode::MismatchedKinds,
             ),
         ],
     );

@@ -61,15 +61,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     {
                         match resolved_name {
                             ResolvedName::Type(typ) => {
-                                if !matches!(typ.kind(), Type::Subtype(_)) {
-                                    diagnostics.add(
-                                        choice.pos(self.ctx),
-                                        format!("{} must be a subtype", typ.describe(),),
-                                        ErrorCode::MismatchedKinds,
-                                    )
-                                } else {
-                                    self.check_resolved_name(ttyp, typ, diagnostics, choice)
-                                }
+                                self.check_resolved_name(ttyp, typ, diagnostics, choice)
                             }
                             _ => {
                                 if let Some(ttyp) = ttyp {
