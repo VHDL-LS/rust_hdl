@@ -350,16 +350,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                         return Err(EvalError::Unknown);
                     }
                 }
-                ResolvedName::Range(_) => {
-                    bail!(
-                        diagnostics,
-                        Diagnostic::new(
-                            name.pos(self.ctx),
-                            "Range cannot be aliased",
-                            ErrorCode::MismatchedKinds
-                        )
-                    );
-                }
             }
         };
 

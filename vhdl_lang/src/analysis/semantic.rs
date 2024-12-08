@@ -60,9 +60,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                         as_fatal(self.name_resolve(scope, choice.span, name, diagnostics))?
                     {
                         match resolved_name {
-                            ResolvedName::Range(typ) => {
-                                self.check_resolved_name(ttyp, typ, diagnostics, choice)
-                            }
                             ResolvedName::Type(typ) => {
                                 if !matches!(typ.kind(), Type::Subtype(_)) {
                                     diagnostics.add(

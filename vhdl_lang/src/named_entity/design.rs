@@ -13,6 +13,7 @@ use crate::ast::WithRef;
 use crate::named_entity::visibility::Visibility;
 use crate::Diagnostic;
 
+#[derive(Clone)]
 pub enum Design<'a> {
     Entity(Visibility<'a>, Region<'a>),
     /// A VHDL architecture.

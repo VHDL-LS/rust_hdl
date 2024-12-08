@@ -100,29 +100,3 @@ end entity test;
         )],
     )
 }
-
-#[test]
-fn aliases_of_ranges() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "\
-entity foo is
-end foo;
-
-architecture arch of foo is
-	constant x: bit_vector(12 downto 0) := \"000000000000\";
-	alias x_range is x'range;
-begin
-end arch;
-    ",
-    );
-    check_diagnostics(
-        builder.analyze(),
-        vec![Diagnostic::new(
-            code.s1("x'range"),
-            "Range cannot be aliased",
-            ErrorCode::MismatchedKinds,
-        )],
-    )
-}

@@ -7,6 +7,7 @@ use super::*;
 use crate::ast::Designator;
 use std::fmt::{Debug, Formatter};
 
+#[derive(Clone)]
 pub enum Overloaded<'a> {
     /// A subprogram declaration (meaning: without implementation).
     SubprogramDecl(Signature<'a>),

@@ -157,7 +157,6 @@ pub enum ResolvedName<'a> {
     Expression(DisambiguatedType<'a>),
     // Something that cannot be further selected
     Final(EntRef<'a>),
-    Range(TypeEnt<'a>),
 }
 
 impl<'a> ResolvedName<'a> {
@@ -293,22 +292,22 @@ impl<'a> ResolvedName<'a> {
     /// This is used in contexts where the type is not relevant
     /// Such as when assigning to a constant
     pub fn describe(&self) -> String {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Library(sym) => format!("library {sym}"),
-            ResolvedName::Design(ent) => ent.describe(),
-            ResolvedName::Type(ent) => ent.describe(),
-            ResolvedName::Overloaded(des, name) => {
+            Library(sym) => format!("library {sym}"),
+            Design(ent) => ent.describe(),
+            Type(ent) => ent.describe(),
+            Overloaded(des, name) => {
                 if let Some(ent) = name.as_unique() {
                     ent.describe()
                 } else {
                     format!("Overloaded name {des}")
                 }
             }
-            ResolvedName::ObjectName(oname) => oname.base.describe(),
-            ResolvedName::Final(ent) => ent.describe(),
-            ResolvedName::Expression(DisambiguatedType::Unambiguous(_)) => "Expression".to_owned(),
-            ResolvedName::Expression(_) => "Ambiguous expression".to_owned(),
-            ResolvedName::Range(_) => "Range".to_owned(),
+            ObjectName(oname) => oname.base.describe(),
+            Final(ent) => ent.describe(),
+            Expression(DisambiguatedType::Unambiguous(_)) => "Expression".to_owned(),
+            Expression(_) => "Ambiguous expression".to_owned(),
         }
     }
 
@@ -326,14 +325,14 @@ impl<'a> ResolvedName<'a> {
                 }
                 ObjectBase::ExternalName(_) => None,
             },
-            Expression(_) | Final(_) | Range(_) => None,
+            Expression(_) | Final(_) => None,
         }
     }
 
     fn type_mark(&self) -> Option<TypeEnt<'a>> {
         use ResolvedName::*;
         match self {
-            Type(typ) | Range(typ) => Some(*typ),
+            Type(typ) => Some(*typ),
             ObjectName(oname) => Some(oname.type_mark()),
             Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
             _ => None,
@@ -384,22 +383,22 @@ impl<'a> ResolvedName<'a> {
         Err(EvalError::Unknown)
     }
 
-    // The actual underlying entity
+    /// Returns the entity that this resolved name represents.
+    /// For example, when referencing a constant from some other context like
+    /// `work.some_pkg.some_constant`, the `ResolvedName` is an `ObjectName`.
+    /// The underlying entity is then the entity representing `some_constant`.
     fn as_actual_entity(&self) -> Option<EntRef<'a>> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::ObjectName(oname) => match oname.base {
+            ObjectName(oname) => match oname.base {
                 ObjectBase::Object(obj) => Some(*obj),
                 ObjectBase::ObjectAlias(obj, _) => Some(*obj),
                 ObjectBase::DeferredConstant(ent) => Some(ent),
                 ObjectBase::ExternalName(_) => None,
             },
-            ResolvedName::Type(typ) => Some((*typ).into()),
-            ResolvedName::Design(des) => Some((*des).into()),
-            ResolvedName::Library(..) => None,
-            ResolvedName::Overloaded(_, _) => None,
-            ResolvedName::Expression(_) => None,
-            ResolvedName::Final(_) => None,
-            ResolvedName::Range(typ) => Some((*typ).into()),
+            Type(typ) => Some((*typ).into()),
+            Design(des) => Some((*des).into()),
+            Library(..) | Overloaded(..) | Expression(_) | Final(_) => None,
         }
     }
 }
@@ -483,13 +482,12 @@ impl<'a> AnalyzeContext<'a, '_> {
         name: ResolvedName<'a>,
     ) -> Result<Option<DisambiguatedType<'a>>, Diagnostic> {
         match name {
-            ResolvedName::Library(_)
-            | ResolvedName::Design(_)
-            | ResolvedName::Type(_)
-            | ResolvedName::Range(_) => Err(Diagnostic::mismatched_kinds(
-                pos.pos(self.ctx),
-                format!("{} cannot be used in an expression", name.describe_type()),
-            )),
+            ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
+                Err(Diagnostic::mismatched_kinds(
+                    pos.pos(self.ctx),
+                    format!("{} cannot be used in an expression", name.describe_type()),
+                ))
+            }
             ResolvedName::Final(ent) => match ent.actual_kind() {
                 AnyEntKind::LoopParameter(typ) => {
                     Ok(typ.map(|typ| DisambiguatedType::Unambiguous(typ.into())))
@@ -532,13 +530,12 @@ impl<'a> AnalyzeContext<'a, '_> {
         suffix_ref: Option<&mut Reference>,
     ) -> Result<Option<TypeEnt<'a>>, Diagnostic> {
         match name {
-            ResolvedName::Library(_)
-            | ResolvedName::Design(_)
-            | ResolvedName::Type(_)
-            | ResolvedName::Range(_) => Err(Diagnostic::mismatched_kinds(
-                span.pos(self.ctx),
-                format!("{} cannot be used in an expression", name.describe_type()),
-            )),
+            ResolvedName::Library(_) | ResolvedName::Design(_) | ResolvedName::Type(_) => {
+                Err(Diagnostic::mismatched_kinds(
+                    span.pos(self.ctx),
+                    format!("{} cannot be used in an expression", name.describe_type()),
+                ))
+            }
             ResolvedName::Final(ent) => match ent.actual_kind() {
                 AnyEntKind::LoopParameter(typ) => Ok(typ.map(|typ| typ.into())),
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(*typ)),
@@ -577,9 +574,12 @@ impl<'a> AnalyzeContext<'a, '_> {
 
     /// An array type may be sliced with a type name
     /// For the parser this looks like a call or indexed name
-    /// Example:
+    ///
+    /// # Example:
+    /// ```vhdl
     /// subtype sub_t is natural range 0 to 1;
     /// arr(sub_t) := (others => 0);
+    /// ```
     fn assoc_as_discrete_range_type(
         &self,
         scope: &Scope<'a>,
@@ -1075,8 +1075,8 @@ impl<'a> AnalyzeContext<'a, '_> {
                 }
             }
             AttributeDesignator::Range(_) => match prefix {
-                ResolvedName::Type(typ) => Ok(ResolvedName::Range(*typ)),
-                ResolvedName::ObjectName(oname) => Ok(ResolvedName::Range(oname.type_mark())),
+                ResolvedName::Type(typ) => Ok(ResolvedName::Type(*typ)),
+                ResolvedName::ObjectName(oname) => Ok(ResolvedName::Type(oname.type_mark())),
                 _ => {
                     diagnostics.add(
                         name_pos.pos(self.ctx),
@@ -1537,12 +1537,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                     return Err(EvalError::Unknown);
                 }
             }
-            ResolvedName::Range(_) => {
-                bail!(
-                    diagnostics,
-                    Diagnostic::cannot_be_prefix(&span.pos(self.ctx), resolved, suffix)
-                );
-            }
             ResolvedName::Type(typ) => match suffix {
                 Suffix::Selected(selected) => {
                     let typed_selection = match typ.selected(self.ctx, prefix.span, selected) {
@@ -1610,8 +1604,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             | ResolvedName::Type(_)
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
-            | ResolvedName::Final(_)
-            | ResolvedName::Range(_) => {
+            | ResolvedName::Final(_) => {
                 diagnostics.add(
                     name_pos.pos(self.ctx),
                     format!("{} {}", resolved.describe(), err_msg),
@@ -1637,7 +1630,6 @@ impl<'a> AnalyzeContext<'a, '_> {
             | ResolvedName::ObjectName(_)
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
-            | ResolvedName::Range(_)
             | ResolvedName::Final(_) => {
                 bail!(
                     diagnostics,
