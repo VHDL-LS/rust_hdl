@@ -2185,3 +2185,18 @@ end package;
     );
     check_no_diagnostics(&builder.analyze())
 }
+
+#[test]
+fn attribute_after_range() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        r#"
+package foo is
+    constant x: bit_vector(12 downto 0) := "0000000000000";
+    constant y: natural := x'range'high;
+end package;
+    "#,
+    );
+    check_no_diagnostics(&builder.analyze())
+}

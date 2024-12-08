@@ -313,28 +313,29 @@ impl<'a> ResolvedName<'a> {
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Library(_) => None,
-            ResolvedName::Design(design) => design.decl_pos(),
-            ResolvedName::Type(typ) => typ.decl_pos(),
-            ResolvedName::Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
-            ResolvedName::ObjectName(name) => match name.base {
+            Library(_) => None,
+            Design(design) => design.decl_pos(),
+            Type(typ) => typ.decl_pos(),
+            Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
+            ObjectName(name) => match name.base {
                 ObjectBase::Object(ent) => ent.decl_pos(),
                 ObjectBase::DeferredConstant(ent) | ObjectBase::ObjectAlias(_, ent) => {
                     ent.decl_pos()
                 }
                 ObjectBase::ExternalName(_) => None,
             },
-            ResolvedName::Expression(_) | ResolvedName::Final(_) => None,
-            ResolvedName::Range(typ) => typ.decl_pos(),
+            Expression(_) | Final(_) | Range(_) => None,
         }
     }
 
     fn type_mark(&self) -> Option<TypeEnt<'a>> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Type(typ) => Some(*typ),
-            ResolvedName::ObjectName(oname) => Some(oname.type_mark()),
-            ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
+            Type(typ) | Range(typ) => Some(*typ),
+            ObjectName(oname) => Some(oname.type_mark()),
+            Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
             _ => None,
         }
     }
