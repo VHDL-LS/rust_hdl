@@ -25,7 +25,7 @@ begin
       when t_my_enum_range => null;
       when t_my_enum_range'range => null;
       when A1 to A2 => null;
-      when ty_my_enum => null;
+      when t_my_enum => null;
       when others => null;
     end case;
   end process;
