@@ -6,7 +6,7 @@
 
 [package]
 name = "vhdl_lang"
-version = "0.83.0"
+version = "0.83.1"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Frontend"
@@ -14,7 +14,7 @@ repository = "https://github.com/kraigher/rust_hdl"
 edition = "2021"
 
 [dependencies]
-vhdl_lang_macros = { version = "^0.83.0", path = "../vhdl_lang_macros" }
+vhdl_lang_macros = { version = "^0.83.1", path = "../vhdl_lang_macros" }
 pad = "0"
 fnv = "1"
 clap = { version = "4", features = ["derive"] }

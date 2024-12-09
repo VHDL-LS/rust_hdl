@@ -6,7 +6,7 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.83.0"
+version = "0.83.1"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
@@ -15,7 +15,7 @@ edition = "2021"
 readme = "../README.md"
 
 [dependencies]
-vhdl_lang = { version = "^0.83.0", path = "../vhdl_lang" }
+vhdl_lang = { version = "^0.83.1", path = "../vhdl_lang" }
 serde_json = "1"
 serde = "1"
 lsp-types = "^0.95.1"
