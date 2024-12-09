@@ -58,7 +58,6 @@ begin
     case my_sig_sub is
       when t_my_other_enum'range => null;
       when t_my_other_enum_range => null;
-      when t_my_enum => null;
       when others => null;
     end case;
   end process;
