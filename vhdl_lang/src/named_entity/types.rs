@@ -14,6 +14,7 @@ use fnv::FnvHashSet;
 
 use super::{Arena, EntRef, Related};
 
+#[derive(Clone)]
 pub enum Type<'a> {
     // Some types have an optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
@@ -45,7 +46,7 @@ pub enum UniversalType {
     Integer,
 }
 
-impl<'a> Type<'a> {
+impl Type<'_> {
     pub fn describe(&self) -> &'static str {
         match self {
             Type::Alias(..) => "alias",

@@ -292,46 +292,49 @@ impl<'a> ResolvedName<'a> {
     /// This is used in contexts where the type is not relevant
     /// Such as when assigning to a constant
     pub fn describe(&self) -> String {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Library(sym) => format!("library {sym}"),
-            ResolvedName::Design(ent) => ent.describe(),
-            ResolvedName::Type(ent) => ent.describe(),
-            ResolvedName::Overloaded(des, name) => {
+            Library(sym) => format!("library {sym}"),
+            Design(ent) => ent.describe(),
+            Type(ent) => ent.describe(),
+            Overloaded(des, name) => {
                 if let Some(ent) = name.as_unique() {
                     ent.describe()
                 } else {
                     format!("Overloaded name {des}")
                 }
             }
-            ResolvedName::ObjectName(oname) => oname.base.describe(),
-            ResolvedName::Final(ent) => ent.describe(),
-            ResolvedName::Expression(DisambiguatedType::Unambiguous(_)) => "Expression".to_owned(),
-            ResolvedName::Expression(_) => "Ambiguous expression".to_owned(),
+            ObjectName(oname) => oname.base.describe(),
+            Final(ent) => ent.describe(),
+            Expression(DisambiguatedType::Unambiguous(_)) => "Expression".to_owned(),
+            Expression(_) => "Ambiguous expression".to_owned(),
         }
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Library(_) => None,
-            ResolvedName::Design(design) => design.decl_pos(),
-            ResolvedName::Type(typ) => typ.decl_pos(),
-            ResolvedName::Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
-            ResolvedName::ObjectName(name) => match name.base {
+            Library(_) => None,
+            Design(design) => design.decl_pos(),
+            Type(typ) => typ.decl_pos(),
+            Overloaded(_, names) => names.as_unique().and_then(|it| it.decl_pos()),
+            ObjectName(name) => match name.base {
                 ObjectBase::Object(ent) => ent.decl_pos(),
                 ObjectBase::DeferredConstant(ent) | ObjectBase::ObjectAlias(_, ent) => {
                     ent.decl_pos()
                 }
                 ObjectBase::ExternalName(_) => None,
             },
-            ResolvedName::Expression(_) | ResolvedName::Final(_) => None,
+            Expression(_) | Final(_) => None,
         }
     }
 
     fn type_mark(&self) -> Option<TypeEnt<'a>> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::Type(typ) => Some(*typ),
-            ResolvedName::ObjectName(oname) => Some(oname.type_mark()),
-            ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
+            Type(typ) => Some(*typ),
+            ObjectName(oname) => Some(oname.type_mark()),
+            Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
             _ => None,
         }
     }
@@ -380,21 +383,22 @@ impl<'a> ResolvedName<'a> {
         Err(EvalError::Unknown)
     }
 
-    // The actual underlying entity
+    /// Returns the entity that this resolved name represents.
+    /// For example, when referencing a constant from some other context like
+    /// `work.some_pkg.some_constant`, the `ResolvedName` is an `ObjectName`.
+    /// The underlying entity is then the entity representing `some_constant`.
     fn as_actual_entity(&self) -> Option<EntRef<'a>> {
+        use ResolvedName::*;
         match self {
-            ResolvedName::ObjectName(oname) => match oname.base {
+            ObjectName(oname) => match oname.base {
                 ObjectBase::Object(obj) => Some(*obj),
                 ObjectBase::ObjectAlias(obj, _) => Some(*obj),
                 ObjectBase::DeferredConstant(ent) => Some(ent),
                 ObjectBase::ExternalName(_) => None,
             },
-            ResolvedName::Type(typ) => Some((*typ).into()),
-            ResolvedName::Design(des) => Some((*des).into()),
-            ResolvedName::Library(..) => None,
-            ResolvedName::Overloaded(_, _) => None,
-            ResolvedName::Expression(_) => None,
-            ResolvedName::Final(_) => None,
+            Type(typ) => Some((*typ).into()),
+            Design(des) => Some((*des).into()),
+            Library(..) | Overloaded(..) | Expression(_) | Final(_) => None,
         }
     }
 }
@@ -469,7 +473,7 @@ pub fn as_type_conversion(
     None
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     fn name_to_type(
         &self,
         pos: TokenSpan,
@@ -517,7 +521,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         }
     }
 
-    fn name_to_unambiguous_type(
+    pub(crate) fn name_to_unambiguous_type(
         &self,
         span: TokenSpan,
         name: &ResolvedName<'a>,
@@ -570,9 +574,12 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
     /// An array type may be sliced with a type name
     /// For the parser this looks like a call or indexed name
-    /// Example:
+    ///
+    /// # Example:
+    /// ```vhdl
     /// subtype sub_t is natural range 0 to 1;
     /// arr(sub_t) := (others => 0);
+    /// ```
     fn assoc_as_discrete_range_type(
         &self,
         scope: &Scope<'a>,
@@ -1067,14 +1074,18 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     Err(EvalError::Unknown)
                 }
             }
-            AttributeDesignator::Range(_) => {
-                diagnostics.add(
-                    name_pos.pos(self.ctx),
-                    "Range cannot be used as an expression",
-                    ErrorCode::MismatchedKinds,
-                );
-                Err(EvalError::Unknown)
-            }
+            AttributeDesignator::Range(_) => match prefix {
+                ResolvedName::Type(typ) => Ok(ResolvedName::Type(*typ)),
+                ResolvedName::ObjectName(oname) => Ok(ResolvedName::Type(oname.type_mark())),
+                _ => {
+                    diagnostics.add(
+                        name_pos.pos(self.ctx),
+                        format!("Range attribute cannot be used on {}", prefix.describe()),
+                        ErrorCode::MismatchedKinds,
+                    );
+                    Err(EvalError::Unknown)
+                }
+            },
             AttributeDesignator::Type(attr) => self
                 .resolve_type_attribute_suffix(prefix, prefix_pos, &attr, name_pos, diagnostics)
                 .map(|typ| ResolvedName::Type(typ.base().into())),
@@ -1708,25 +1719,34 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
             false,
             diagnostics,
         ))? {
-            // @TODO target_type already used above, functions could probably be simplified
-            match self.name_to_unambiguous_type(span, &resolved, ttyp, name.suffix_reference_mut())
-            {
-                Ok(Some(type_mark)) => {
-                    if !self.can_be_target_type(type_mark, ttyp.base()) {
-                        diagnostics.push(Diagnostic::type_mismatch(
-                            &span.pos(self.ctx),
-                            &resolved.describe_type(),
-                            ttyp,
-                        ));
-                    }
-                }
-                Ok(None) => {}
-                Err(diag) => {
-                    diagnostics.push(diag);
-                }
-            }
+            self.check_resolved_name_type(span, &resolved, ttyp, name, diagnostics);
         }
         Ok(())
+    }
+
+    pub fn check_resolved_name_type(
+        &self,
+        span: TokenSpan,
+        resolved: &ResolvedName<'a>,
+        ttyp: TypeEnt<'a>,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match self.name_to_unambiguous_type(span, resolved, ttyp, name.suffix_reference_mut()) {
+            Ok(Some(type_mark)) => {
+                if !self.can_be_target_type(type_mark, ttyp.base()) {
+                    diagnostics.push(Diagnostic::type_mismatch(
+                        &span.pos(self.ctx),
+                        &resolved.describe_type(),
+                        ttyp,
+                    ));
+                }
+            }
+            Ok(None) => {}
+            Err(diag) => {
+                diagnostics.push(diag);
+            }
+        }
     }
 
     /// Analyze an indexed name where the prefix entity is already known
@@ -3071,30 +3091,6 @@ variable thevar : integer;
                 code.s1("missing"),
                 "Unknown attribute 'missing",
                 ErrorCode::Unresolved,
-            )],
-        )
-    }
-
-    #[test]
-    fn range_attribute() {
-        let test = TestSetup::new();
-        test.declarative_part(
-            "
-variable thevar : integer_vector(0 to 1);
-        ",
-        );
-        let code = test.snippet("thevar'range");
-        let mut diagnostics = Vec::new();
-        assert_eq!(
-            test.name_resolve(&code, None, &mut diagnostics),
-            Err(EvalError::Unknown)
-        );
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::new(
-                code,
-                "Range cannot be used as an expression",
-                ErrorCode::MismatchedKinds,
             )],
         )
     }

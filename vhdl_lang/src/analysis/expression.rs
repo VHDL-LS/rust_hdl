@@ -69,7 +69,7 @@ pub(super) struct TypeMatcher<'c, 'a, 't> {
     context: &'c AnalyzeContext<'a, 't>,
 }
 
-impl<'c, 'a, 't> TypeMatcher<'c, 'a, 't> {
+impl<'a> TypeMatcher<'_, 'a, '_> {
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
         if types.match_type(ttyp) {
@@ -211,6 +211,22 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
         self.any_matcher().can_be_target_type(typ, ttyp)
+    }
+
+    pub fn check_type_mismatch(
+        &self,
+        typ: TypeEnt<'a>,
+        ttyp: TypeEnt<'a>,
+        pos: TokenSpan,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        if !self.can_be_target_type(typ, ttyp.base()) {
+            diagnostics.push(Diagnostic::type_mismatch(
+                &pos.pos(self.ctx),
+                &typ.describe(),
+                ttyp,
+            ));
+        }
     }
 
     pub fn expr_unknown_ttyp(
@@ -684,7 +700,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     "Ambiguous use of implicit boolean conversion ??",
                                     ErrorCode::AmbiguousCall,
                                 );
-                                diag.add_type_candididates("Could be", implicit_bool_types);
+                                diag.add_type_candidates("Could be", implicit_bool_types);
                                 diagnostics.push(diag);
                             }
 
@@ -697,7 +713,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                     ),
                                     ErrorCode::AmbiguousExpression,
                                 );
-                                diag.add_type_candididates(
+                                diag.add_type_candidates(
                                     "Implicit boolean conversion operator ?? is not defined for",
                                     types,
                                 );
@@ -741,13 +757,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some(type_mark) =
                     as_fatal(self.analyze_qualified_expression(scope, qexpr, diagnostics))?
                 {
-                    if !self.can_be_target_type(type_mark, target_base.base()) {
-                        diagnostics.push(Diagnostic::type_mismatch(
-                            &span.pos(self.ctx),
-                            &type_mark.describe(),
-                            target_type,
-                        ));
-                    }
+                    self.check_type_mismatch(type_mark, target_type, span, diagnostics);
                 }
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
@@ -772,14 +782,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ))? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
-
-                        if !self.can_be_target_type(op_type, target_type.base()) {
-                            diagnostics.push(Diagnostic::type_mismatch(
-                                &span.pos(self.ctx),
-                                &op_type.describe(),
-                                target_type,
-                            ));
-                        }
+                        self.check_type_mismatch(op_type, target_type, span, diagnostics);
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(
@@ -815,14 +818,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ))? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
-
-                        if !self.can_be_target_type(op_type, target_type.base()) {
-                            diagnostics.push(Diagnostic::type_mismatch(
-                                &span.pos(self.ctx),
-                                &op_type.describe(),
-                                target_type,
-                            ));
-                        }
+                        self.check_type_mismatch(op_type, target_type, span, diagnostics);
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(

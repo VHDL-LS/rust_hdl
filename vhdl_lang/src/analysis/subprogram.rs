@@ -15,7 +15,7 @@ use analyze::*;
 use itertools::Itertools;
 use vhdl_lang::TokenSpan;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     fn subprogram_header(
         &self,
         scope: &Scope<'a>,

@@ -192,12 +192,14 @@ pub fn parse_subprogram_specification(
         }))
     } else {
         let end_token = ctx.stream.get_last_token_id();
-        Ok(SubprogramSpecification::Procedure(ProcedureSpecification {
-            designator: designator.into(),
-            header,
-            parameter_list,
-            span: TokenSpan::new(start_token, end_token),
-        }))
+        Ok(SubprogramSpecification::Procedure(Box::new(
+            ProcedureSpecification {
+                designator: designator.into(),
+                header,
+                parameter_list,
+                span: TokenSpan::new(start_token, end_token),
+            },
+        )))
     }
 }
 
@@ -310,16 +312,18 @@ procedure foo;
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration {
                 span: code.token_span(),
-                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    designator: code
-                        .s1("foo")
-                        .ident()
-                        .map_into(SubprogramDesignator::Identifier)
-                        .into(),
-                    header: None,
-                    parameter_list: None,
-                    span: code.s1("procedure foo").token_span(),
-                })
+                specification: SubprogramSpecification::Procedure(Box::new(
+                    ProcedureSpecification {
+                        designator: code
+                            .s1("foo")
+                            .ident()
+                            .map_into(SubprogramDesignator::Identifier)
+                            .into(),
+                        header: None,
+                        parameter_list: None,
+                        span: code.s1("procedure foo").token_span(),
+                    }
+                ))
             }
         );
     }
@@ -442,20 +446,22 @@ procedure foo(foo : natural);
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration {
                 span: code.token_span(),
-                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    designator: code
-                        .s1("foo")
-                        .ident()
-                        .map_into(SubprogramDesignator::Identifier)
-                        .into(),
-                    header: None,
-                    parameter_list: Some(InterfaceList {
-                        interface_type: InterfaceType::Parameter,
-                        items: vec![code.s1("foo : natural").parameter()],
-                        span: code.between("(", ")").token_span()
-                    }),
-                    span: code.between("procedure", "natural)").token_span(),
-                })
+                specification: SubprogramSpecification::Procedure(Box::new(
+                    ProcedureSpecification {
+                        designator: code
+                            .s1("foo")
+                            .ident()
+                            .map_into(SubprogramDesignator::Identifier)
+                            .into(),
+                        header: None,
+                        parameter_list: Some(InterfaceList {
+                            interface_type: InterfaceType::Parameter,
+                            items: vec![code.s1("foo : natural").parameter()],
+                            span: code.between("(", ")").token_span()
+                        }),
+                        span: code.between("procedure", "natural)").token_span(),
+                    }
+                ))
             }
         );
     }
@@ -814,18 +820,20 @@ procedure my_proc
             decl,
             SubprogramDeclaration {
                 span: code.token_span(),
-                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    designator: code
-                        .s1("my_proc")
-                        .ident()
-                        .map_into(SubprogramDesignator::Identifier)
-                        .into(),
-                    header: code
-                        .s1("generic (x: natural := 4; y: real := 4)")
-                        .subprogram_header(),
-                    parameter_list: None,
-                    span: code.between("procedure", "4)").token_span(),
-                })
+                specification: SubprogramSpecification::Procedure(Box::new(
+                    ProcedureSpecification {
+                        designator: code
+                            .s1("my_proc")
+                            .ident()
+                            .map_into(SubprogramDesignator::Identifier)
+                            .into(),
+                        header: code
+                            .s1("generic (x: natural := 4; y: real := 4)")
+                            .subprogram_header(),
+                        parameter_list: None,
+                        span: code.between("procedure", "4)").token_span(),
+                    }
+                ))
             }
         );
     }
@@ -844,19 +852,21 @@ procedure my_proc
             decl,
             SubprogramDeclaration {
                 span: code.token_span(),
-                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
-                    designator: code
-                        .s1("my_proc")
-                        .ident()
-                        .map_into(SubprogramDesignator::Identifier)
-                        .into(),
-                    header: code
-                        .s1("generic (x: natural := 4; y: real := 4)
+                specification: SubprogramSpecification::Procedure(Box::new(
+                    ProcedureSpecification {
+                        designator: code
+                            .s1("my_proc")
+                            .ident()
+                            .map_into(SubprogramDesignator::Identifier)
+                            .into(),
+                        header: code
+                            .s1("generic (x: natural := 4; y: real := 4)
     generic map (x => 42)")
-                        .subprogram_header(),
-                    parameter_list: None,
-                    span: code.between("procedure", "42)").token_span(),
-                })
+                            .subprogram_header(),
+                        parameter_list: None,
+                        span: code.between("procedure", "42)").token_span(),
+                    }
+                ))
             }
         );
     }

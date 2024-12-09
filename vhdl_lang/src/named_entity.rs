@@ -204,13 +204,13 @@ impl<'a> AnyEntKind<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for AnyEntKind<'a> {
+impl std::fmt::Debug for AnyEntKind<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.describe())
     }
 }
 
-impl<'a> std::fmt::Debug for AnyEnt<'a> {
+impl std::fmt::Debug for AnyEnt<'_> {
     // We need a custom debug implementation for AnyEnt to avoid stack overflow on circular references
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let AnyEnt {
@@ -636,19 +636,19 @@ impl<'a> AnyEnt<'a> {
     }
 }
 
-impl<'a> std::cmp::PartialEq for AnyEnt<'a> {
+impl std::cmp::PartialEq for AnyEnt<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<'a> std::hash::Hash for AnyEnt<'a> {
+impl std::hash::Hash for AnyEnt<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id().hash(state)
     }
 }
 
-impl<'a> Eq for AnyEnt<'a> {}
+impl Eq for AnyEnt<'_> {}
 
 /// This trait is implemented for Ast-nodes which declare named entities
 pub trait HasEntityId {

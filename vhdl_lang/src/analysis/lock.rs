@@ -112,7 +112,7 @@ pub struct ReadGuard<'a, T, R> {
     guard: RwLockReadGuard<'a, AnalysisState<T, R>>,
 }
 
-impl<'a, T, R> ReadGuard<'a, T, R> {
+impl<T, R> ReadGuard<'_, T, R> {
     pub fn result(&self) -> &R {
         self.guard.result.as_ref().unwrap()
     }
@@ -122,7 +122,7 @@ impl<'a, T, R> ReadGuard<'a, T, R> {
     }
 }
 
-impl<'a, T, R> std::ops::Deref for ReadGuard<'a, T, R> {
+impl<T, R> std::ops::Deref for ReadGuard<'_, T, R> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -148,7 +148,7 @@ impl<'a, T, R> WriteGuard<'a, T, R> {
     }
 }
 
-impl<'a, T, R> std::ops::Deref for WriteGuard<'a, T, R> {
+impl<T, R> std::ops::Deref for WriteGuard<'_, T, R> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -156,7 +156,7 @@ impl<'a, T, R> std::ops::Deref for WriteGuard<'a, T, R> {
     }
 }
 
-impl<'a, T, R> std::ops::DerefMut for WriteGuard<'a, T, R> {
+impl<T, R> std::ops::DerefMut for WriteGuard<'_, T, R> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.guard.data
     }

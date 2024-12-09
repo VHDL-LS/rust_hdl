@@ -7,6 +7,7 @@ use super::*;
 use crate::ast::Designator;
 use std::fmt::{Debug, Formatter};
 
+#[derive(Clone)]
 pub enum Overloaded<'a> {
     /// A subprogram declaration (meaning: without implementation).
     SubprogramDecl(Signature<'a>),
@@ -25,7 +26,7 @@ pub enum Overloaded<'a> {
     Alias(OverloadedEnt<'a>),
 }
 
-impl<'a> Debug for Overloaded<'a> {
+impl Debug for Overloaded<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Overloaded::UninstSubprogramDecl(..) => {

@@ -45,7 +45,7 @@ impl<'a> CompletionSearcher<'a> {
     }
 }
 
-impl<'a> CompletionSearcher<'a> {
+impl CompletionSearcher<'_> {
     /// Add entity instantiation completions that are visible from within an architecture body
     fn add_entity_instantiations(&mut self, body: &ArchitectureBody) {
         let Some(ent_id) = body.ident.decl.get() else {
@@ -59,7 +59,7 @@ impl<'a> CompletionSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for CompletionSearcher<'a> {
+impl Searcher for CompletionSearcher<'_> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         let ent_id = match &decl.ast {
             DeclarationItem::Entity(ent_decl) => {

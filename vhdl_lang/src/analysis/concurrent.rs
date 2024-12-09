@@ -14,7 +14,7 @@ use crate::named_entity::*;
 use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn analyze_concurrent_part(
         &self,
         scope: &Scope<'a>,
@@ -188,7 +188,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         ref mut item,
                         span: _,
                     } = alternative;
-                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
+                    self.choices_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, parent, item, src_span, diagnostics)?;
                 }

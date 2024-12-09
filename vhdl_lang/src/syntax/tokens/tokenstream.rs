@@ -291,7 +291,7 @@ impl<'a> TokenStream<'a> {
     }
 }
 
-impl<'a> TokenAccess for TokenStream<'a> {
+impl TokenAccess for TokenStream<'_> {
     fn get_token(&self, id: TokenId) -> Option<&Token> {
         self.tokens[self.token_offset.get()..].get_token(id)
     }

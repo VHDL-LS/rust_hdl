@@ -43,7 +43,7 @@ impl<'a> DeadCodeSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for DeadCodeSearcher<'a> {
+impl Searcher for DeadCodeSearcher<'_> {
     fn search_pos_with_ref(
         &mut self,
         _ctx: &dyn TokenAccess,

@@ -14,7 +14,7 @@ use crate::named_entity::*;
 use crate::HasTokenSpan;
 use analyze::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn analyze_primary_unit(
         &self,
         unit: &mut AnyPrimaryUnit,

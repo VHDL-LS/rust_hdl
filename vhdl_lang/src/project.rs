@@ -284,7 +284,7 @@ impl Project {
         &'a self,
         library_name: &Symbol,
         source: &Source,
-    ) -> Vec<(EntHierarchy<'a>, &Vec<Token>)> {
+    ) -> Vec<(EntHierarchy<'a>, &'a Vec<Token>)> {
         self.root.document_symbols(library_name, source)
     }
 

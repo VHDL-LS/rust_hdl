@@ -18,7 +18,7 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::named_entity::*;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn range_unknown_typ(
         &self,
         scope: &Scope<'a>,

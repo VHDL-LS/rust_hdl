@@ -12,7 +12,7 @@ use vhdl_lang::TokenSpan;
 /// examples:
 ///   target <= 1;
 ///   target(0).elem := 1
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn resolve_target(
         &self,
         scope: &Scope<'a>,

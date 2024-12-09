@@ -120,7 +120,7 @@ pub trait HasIdent {
         &self.ident().item
     }
 
-    fn ident_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &SrcPos {
+    fn ident_pos<'a>(&'a self, ctx: &'a dyn TokenAccess) -> &'a SrcPos {
         self.ident().pos(ctx)
     }
 }

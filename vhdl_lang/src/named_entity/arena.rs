@@ -41,7 +41,7 @@ impl Default for ArenaId {
 pub struct LocalId(u32);
 
 /// Arena allocators used to store named entities
-
+///
 /// Local arena used for single design unit in a separate thread
 struct LocalArena {
     pub id: ArenaId,

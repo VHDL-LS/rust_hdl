@@ -84,7 +84,7 @@ impl<'a> ResolvedFormal<'a> {
     }
 }
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     fn resolve_formal(
         &self,
         formal_region: &FormalRegion<'a>,

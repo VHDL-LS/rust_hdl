@@ -13,7 +13,7 @@ use crate::HasTokenSpan;
 use analyze::*;
 use target::AssignmentType;
 
-impl<'a, 't> AnalyzeContext<'a, 't> {
+impl<'a> AnalyzeContext<'a, '_> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,
@@ -252,7 +252,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         item,
                         span: _,
                     } = alternative;
-                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
+                    self.choices_with_ttyp(scope, ctyp, choices, diagnostics)?;
                     self.analyze_sequential_part(scope, parent, item, diagnostics)?;
                 }
             }

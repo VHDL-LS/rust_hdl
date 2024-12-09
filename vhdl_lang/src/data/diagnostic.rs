@@ -107,7 +107,7 @@ pub trait DiagnosticHandler {
     fn push(&mut self, diagnostic: Diagnostic);
 }
 
-impl<'a> dyn DiagnosticHandler + 'a {
+impl dyn DiagnosticHandler + '_ {
     pub fn add(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>, code: ErrorCode) {
         self.push(Diagnostic::new(item, msg, code))
     }

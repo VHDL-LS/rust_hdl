@@ -74,7 +74,7 @@ impl<'a> MapAspectSearcher<'a> {
     }
 }
 
-impl<'a> Searcher for MapAspectSearcher<'a> {
+impl Searcher for MapAspectSearcher<'_> {
     /// Visit an instantiation statement extracting completions for ports or generics.
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         match &decl.ast {
