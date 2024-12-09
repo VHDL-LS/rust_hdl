@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+ */
+
 //! This Source Code Form is subject to the terms of the Mozilla Public
 //! License, v. 2.0. If a copy of the MPL was not distributed with this file,
 //! You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -211,6 +219,22 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
         self.any_matcher().can_be_target_type(typ, ttyp)
+    }
+
+    pub fn check_type_mismatch(
+        &self,
+        typ: TypeEnt<'a>,
+        ttyp: TypeEnt<'a>,
+        pos: TokenSpan,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        if !self.can_be_target_type(typ, ttyp.base()) {
+            diagnostics.push(Diagnostic::type_mismatch(
+                &pos.pos(self.ctx),
+                &typ.describe(),
+                ttyp,
+            ));
+        }
     }
 
     pub fn expr_unknown_ttyp(
@@ -741,13 +765,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 if let Some(type_mark) =
                     as_fatal(self.analyze_qualified_expression(scope, qexpr, diagnostics))?
                 {
-                    if !self.can_be_target_type(type_mark, target_base.base()) {
-                        diagnostics.push(Diagnostic::type_mismatch(
-                            &span.pos(self.ctx),
-                            &type_mark.describe(),
-                            target_type,
-                        ));
-                    }
+                    self.check_type_mismatch(type_mark, target_type, span, diagnostics);
                 }
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
@@ -772,14 +790,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ))? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
-
-                        if !self.can_be_target_type(op_type, target_type.base()) {
-                            diagnostics.push(Diagnostic::type_mismatch(
-                                &span.pos(self.ctx),
-                                &op_type.describe(),
-                                target_type,
-                            ));
-                        }
+                        self.check_type_mismatch(op_type, target_type, span, diagnostics);
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(
@@ -815,14 +826,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ))? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
-
-                        if !self.can_be_target_type(op_type, target_type.base()) {
-                            diagnostics.push(Diagnostic::type_mismatch(
-                                &span.pos(self.ctx),
-                                &op_type.describe(),
-                                target_type,
-                            ));
-                        }
+                        self.check_type_mismatch(op_type, target_type, span, diagnostics);
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(

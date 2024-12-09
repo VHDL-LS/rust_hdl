@@ -1,3 +1,11 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+ */
+
 //! This Source Code Form is subject to the terms of the Mozilla Public
 //! License, v. 2.0. If a copy of the MPL was not distributed with this file,
 //! You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -22,28 +30,9 @@ impl<'a> AnalyzeContext<'a, '_> {
         choices: &mut [WithTokenSpan<Choice>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        for choice in choices.iter_mut() {
-            self.choice_with_ttyp(scope, ttyp, choice, diagnostics)?;
-        }
-        Ok(())
-    }
-
-    fn check_resolved_name<T>(
-        &self,
-        ttyp: Option<TypeEnt<'a>>,
-        typ: TypeEnt<'a>,
-        diagnostics: &mut dyn DiagnosticHandler,
-        pos: &WithTokenSpan<T>,
-    ) {
-        if let Some(ttyp) = ttyp {
-            if !self.can_be_target_type(typ, ttyp.base()) {
-                diagnostics.push(Diagnostic::type_mismatch(
-                    &pos.pos(self.ctx),
-                    &typ.describe(),
-                    ttyp,
-                ));
-            }
-        }
+        choices
+            .iter_mut()
+            .try_for_each(|choice| self.choice_with_ttyp(scope, ttyp, choice, diagnostics))
     }
 
     pub fn choice_with_ttyp(
@@ -55,13 +44,16 @@ impl<'a> AnalyzeContext<'a, '_> {
     ) -> FatalResult {
         match choice.item {
             Choice::Expression(ref mut expr) => {
+                // Check any names like `typ'range` before checking for any expressions
                 if let Expression::Name(name) = expr {
                     if let Some(resolved_name) =
                         as_fatal(self.name_resolve(scope, choice.span, name, diagnostics))?
                     {
                         match resolved_name {
                             ResolvedName::Type(typ) => {
-                                self.check_resolved_name(ttyp, typ, diagnostics, choice)
+                                if let Some(ttyp) = ttyp {
+                                    self.check_type_mismatch(typ, ttyp, choice.span, diagnostics);
+                                }
                             }
                             _ => {
                                 if let Some(ttyp) = ttyp {
