@@ -101,65 +101,40 @@ jobs:
       - name: Get version
         id: v
         run: |
-          echo ::set-output name=v::${GITHUB_REF/refs\/tags\/v/}
+          echo "v=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
           echo "Version is v${GITHUB_REF/refs\/tags\/v/}"
       - uses: actions/checkout@v4
-      - name: Get vhdl_lang linux-musl
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: vhdl_lang-x86_64-unknown-linux-musl
+          name: vhdl_*
+          path: ~/temp
       - name: Check vhdl_lang version
         run: |
-          chmod u+x vhdl_lang-x86_64-unknown-linux-musl/bin/vhdl_lang
-          version_string=$(vhdl_lang-x86_64-unknown-linux-musl/bin/vhdl_lang --version)
-          if [ "$version_string" != "vhdl_lang ${{ steps.v.outputs.v }}" ]
+          chmod u+x ~/temp/vhdl_lang-x86_64-unknown-linux-musl/bin/vhdl_lang
+          version_string=$(~/temp/vhdl_lang-x86_64-unknown-linux-musl/bin/vhdl_lang --version)
+          if [ "$version_string" != "vhdl_lang $v" ]
           then
-            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang ${{ steps.v.outputs.v }}\""
+            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang $v\""
             exit 1
           else
             echo "Version string matched"
           fi
-      - name: Get vhdl_ls linux-musl
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_ls-x86_64-unknown-linux-musl
       - name: Check vhdl_ls version
         run: |
-          chmod u+x vhdl_ls-x86_64-unknown-linux-musl/bin/vhdl_ls
-          version_string=$(vhdl_ls-x86_64-unknown-linux-musl/bin/vhdl_ls --version)
-          if [ "$version_string" != "vhdl_ls ${{ steps.v.outputs.v }}" ]
+          chmod u+x ~/temp/vhdl_ls-x86_64-unknown-linux-musl/bin/vhdl_ls
+          version_string=$(~/temp/vhdl_ls-x86_64-unknown-linux-musl/bin/vhdl_ls --version)
+          if [ "$version_string" != "vhdl_ls $v" ]
           then
-            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang ${{ steps.v.outputs.v }}\""
+            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang $v\""
             exit 1
           else
             echo "Version string matched"
           fi
-      - name: Get vhdl_lang linux-gnu
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_lang-x86_64-unknown-linux-gnu
-      - name: Get vhdl_ls linux-gnu
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_ls-x86_64-unknown-linux-gnu
-      - name: Get vhdl_lang windows
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_lang-x86_64-pc-windows-msvc
-      - name: Get vhdl_ls windows
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_ls-x86_64-pc-windows-msvc
-      - name: Get vhdl_lang macos
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_lang-aarch64-apple-darwin
-      - name: Get vhdl_ls macos
-        uses: actions/download-artifact@v4
-        with:
-          name: vhdl_ls-aarch64-apple-darwin
       - name: Zip artifacts
         run: |
+          cd ~/temp
+          chmod +x */bin/vhdl*
           zip -r vhdl_lang-x86_64-unknown-linux-gnu.zip vhdl_lang-x86_64-unknown-linux-gnu
           zip -r vhdl_ls-x86_64-unknown-linux-gnu.zip vhdl_ls-x86_64-unknown-linux-gnu
           zip -r vhdl_lang-x86_64-unknown-linux-musl.zip vhdl_lang-x86_64-unknown-linux-musl
@@ -172,5 +147,5 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           draft: false
-          artifacts: "vhdl_lang-x86_64-unknown-linux-gnu.zip,vhdl_ls-x86_64-unknown-linux-gnu.zip,vhdl_lang-x86_64-unknown-linux-musl.zip,vhdl_ls-x86_64-unknown-linux-musl.zip,vhdl_lang-x86_64-pc-windows-msvc.zip,vhdl_ls-x86_64-pc-windows-msvc.zip,vhdl_lang-aarch64-apple-darwin.zip,vhdl_ls-aarch64-apple-darwin.zip"
+          artifacts: "~/temp/*.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
