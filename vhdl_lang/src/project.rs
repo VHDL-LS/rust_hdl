@@ -10,6 +10,7 @@ use crate::ast::DesignFile;
 use crate::completion::{list_completion_options, CompletionItem};
 use crate::config::Config;
 use crate::lint::dead_code::UnusedDeclarationsLinter;
+use crate::lint::sensitivity_list::SensitivityListLinter;
 use crate::named_entity::EntRef;
 use crate::standard::VHDLStandard;
 use crate::syntax::VHDLParser;
@@ -19,13 +20,19 @@ use std::collections::hash_map::Entry;
 use std::path::Path;
 use vhdl_lang::Token;
 
+#[derive(Default)]
+struct Linters {
+    unused_declarations: Option<UnusedDeclarationsLinter>,
+    sensitivity_list: Option<SensitivityListLinter>,
+}
+
 pub struct Project {
     parser: VHDLParser,
     config: Config,
     root: DesignRoot,
     files: FnvHashMap<FilePath, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
-    lint: Option<UnusedDeclarationsLinter>,
+    lint: Linters,
 }
 
 impl Project {
@@ -36,13 +43,22 @@ impl Project {
             files: FnvHashMap::default(),
             empty_libraries: FnvHashSet::default(),
             parser,
-            lint: None,
+            lint: Linters::default(),
             config: Config::default(),
         }
     }
 
     pub fn enable_unused_declaration_detection(&mut self) {
-        self.lint = Some(UnusedDeclarationsLinter::default());
+        self.lint.unused_declarations = Some(UnusedDeclarationsLinter::default());
+    }
+
+    pub fn enable_sensitivity_list_linting(&mut self) {
+        self.lint.sensitivity_list = Some(SensitivityListLinter::default());
+    }
+
+    pub fn enable_all_linters(&mut self) {
+        self.enable_unused_declaration_detection();
+        self.enable_sensitivity_list_linting();
     }
 
     /// Create instance from given configuration.
@@ -238,7 +254,11 @@ impl Project {
 
         let analyzed_units = self.root.analyze(&mut diagnostics);
 
-        if let Some(ref mut lint) = self.lint {
+        if let Some(ref mut lint) = self.lint.unused_declarations {
+            lint.lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
+        }
+
+        if let Some(ref mut lint) = self.lint.sensitivity_list {
             lint.lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
         }
 
