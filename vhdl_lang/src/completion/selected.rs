@@ -22,6 +22,7 @@ pub(crate) fn completions_for_selected_name<'b>(
     match ent.kind() {
         Object(object) => completions_for_type(root, object.subtype.type_mark().kind()),
         Design(design) => completions_for_design(root, design),
+        ElementDeclaration(subtyp) => completions_for_type(root, subtyp.type_mark.kind()),
         Library => ent
             .library_name()
             .map(|sym| list_primaries_for_lib(root, sym))
@@ -200,5 +201,45 @@ end package x;
                 CompletionItem::Keyword(All),
             ],
         );
+    }
+
+    #[test]
+    pub fn completing_nested_records() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+package foo is
+    type t_subrec is record
+        elem_a: bit;
+        elem_b: bit;
+    end record;
+
+    type my_record is record
+        abc: t_subrec;
+    end record;
+
+    signal y: my_record;
+    signal z: bit := y.abc.
+end foo;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("abc.").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let ent1 = root
+            .search_reference(code.source(), code.s1("elem_a").start())
+            .unwrap();
+
+        let ent2 = root
+            .search_reference(code.source(), code.s1("elem_b").start())
+            .unwrap();
+
+        assert_eq_unordered(
+            &options,
+            &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
+        )
     }
 }
