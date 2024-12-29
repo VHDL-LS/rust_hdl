@@ -122,7 +122,7 @@ fn parse_and_analyze_project(
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
-    project.enable_unused_declaration_detection();
+    project.enable_all_linters();
     let diagnostics = project.analyse();
 
     show_diagnostics(&diagnostics, &severity_map);

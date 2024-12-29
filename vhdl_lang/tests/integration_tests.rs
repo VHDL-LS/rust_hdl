@@ -29,7 +29,7 @@ pub fn parses_example_project_without_errors() {
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
-    project.enable_unused_declaration_detection();
+    project.enable_all_linters();
 
     let diagnostics = project.analyse();
     let diagnostics_with_errors = diagnostics
