@@ -133,22 +133,23 @@ fn lint_sensitivity_list(
         return vec![];
     }
 
-    let mut signals_in_sensitivity_list: FnvHashMap<_, _> = names
+    let signals_in_sensitivity_list: FnvHashMap<_, _> = names
         .iter()
         .flat_map(|name| {
             name.item
-                .get_suffix_reference()
+                .get_suffix_reference_disregard_index()
                 .map(|reference| (reference, name.span))
         })
         .collect();
-    let required_sensitivity_list =
-        generate_sensitivity_list(root, process, signals_in_sensitivity_list.clone(), ctx);
-    let mut missing_signals = Vec::new();
-    for (eid, src_pos) in required_sensitivity_list {
-        if signals_in_sensitivity_list.remove(&eid).is_none() {
-            missing_signals.push((eid, src_pos))
-        }
-    }
+    let mut searcher = SensitivityListChecker {
+        root,
+        sensitivity_list: signals_in_sensitivity_list.clone(),
+        superfluous_entities: signals_in_sensitivity_list,
+        found_entities: FnvHashMap::default(),
+    };
+    let _ = process.statements.search(ctx, &mut searcher);
+
+    let mut missing_signals = searcher.found_entities.into_iter().collect_vec();
     let mut diagnostics = Vec::new();
     if !missing_signals.is_empty() {
         missing_signals.sort_by(|(_, pos1), (_, pos2)| pos1.cmp(pos2));
@@ -160,7 +161,7 @@ fn lint_sensitivity_list(
                 pluralize(missing_signals.len(), "The signal", "Signals"),
                 missing_signals
                     .iter()
-                    .map(|(sig, _)| root.get_ent(*sig).designator.to_string())
+                    .map(|(sig, _)| format!("'{}'", root.get_ent(*sig).designator))
                     .join(", "),
                 pluralize(missing_signals.len(), "is", "are"),
             ),
@@ -169,13 +170,16 @@ fn lint_sensitivity_list(
         for (signal, pos) in missing_signals {
             diag.add_related(
                 pos,
-                format!("{} first read here", root.get_ent(signal).describe()),
+                format!(
+                    "signal '{}' first read here",
+                    root.get_ent(signal).designator
+                ),
             )
         }
         diagnostics.push(diag);
     }
 
-    for (_, pos) in signals_in_sensitivity_list {
+    for (_, pos) in searcher.superfluous_entities {
         diagnostics.push(Diagnostic::new(
             pos.get_pos(ctx),
             "Signal is never read in the process",
@@ -236,41 +240,18 @@ fn pluralize<'a>(len: usize, singular: &'a str, plural: &'a str) -> &'a str {
     }
 }
 
-/// finds all signals that are present in a sensitivity list,
-/// if the process contains the `all` keyword inside the sensitivity list.
-/// This is also used to compare against the actual values of the sensitivity list
-/// so that superfluous / lacking signals can be detected.
-///
-/// Caveats:
-/// - Information from extended names is not included
-/// - Information from procedure calls is not included
-struct SensitivityListGenerator<'a> {
+struct SensitivityListChecker<'a> {
     root: &'a DesignRoot,
     /// The sensitivity list present at the generate statement
     sensitivity_list: FnvHashMap<EntityId, TokenSpan>,
+    /// Additional entities that are in the Sensitivity list, but are never read in the process.
+    superfluous_entities: FnvHashMap<EntityId, TokenSpan>,
     /// A set of named entities that form the sensitivity list.
     /// Additionally, the token span of the first occurrence is also provided.
     found_entities: FnvHashMap<EntityId, SrcPos>,
 }
 
-/// Generate a sensitivity list from a process statement
-fn generate_sensitivity_list(
-    root: &DesignRoot,
-    process: &ProcessStatement,
-    sensitivity_list: FnvHashMap<EntityId, TokenSpan>,
-    ctx: &dyn TokenAccess,
-) -> FnvHashMap<EntityId, SrcPos> {
-    let mut searcher = SensitivityListGenerator {
-        root,
-        sensitivity_list,
-        found_entities: FnvHashMap::default(),
-    };
-    let _ = process.statements.search(ctx, &mut searcher);
-
-    searcher.found_entities
-}
-
-impl SensitivityListGenerator<'_> {
+impl SensitivityListChecker<'_> {
     fn analyze_expression(&mut self, expr: &Expression, span: TokenSpan, ctx: &dyn TokenAccess) {
         match expr {
             Expression::Binary(_, lhs, rhs) => {
@@ -295,7 +276,7 @@ impl SensitivityListGenerator<'_> {
             Expression::Qualified(qual_expr) => {
                 self.analyze_expression(&qual_expr.expr.item, qual_expr.expr.span, ctx)
             }
-            Expression::Name(name) => self.analyze_name(name, span, ctx),
+            Expression::Name(name) => self.analyze_name(name, span, ctx, false),
             Expression::New(allocator) => match &allocator.item {
                 Allocator::Qualified(qual_expr) => {
                     self.analyze_expression(&qual_expr.expr.item, qual_expr.expr.span, ctx)
@@ -307,21 +288,27 @@ impl SensitivityListGenerator<'_> {
         }
     }
 
-    fn analyze_name(&mut self, name: &Name, pos: TokenSpan, ctx: &dyn TokenAccess) {
+    fn analyze_name(
+        &mut self,
+        name: &Name,
+        pos: TokenSpan,
+        ctx: &dyn TokenAccess,
+        remove_only: bool,
+    ) {
         use Name::*;
         match name {
             Designator(designator) => {
-                self.analyze_designator(designator, pos, ctx);
+                self.analyze_designator(designator, pos, ctx, remove_only);
             }
-            Selected(_, suffix) => {
-                // self.analyze_name(&prefix.item, prefix.span, ctx);
-                self.analyze_designator(&suffix.item, pos, ctx);
+            Selected(prefix, suffix) => {
+                self.analyze_name(&prefix.item, prefix.span, ctx, true);
+                self.analyze_designator(&suffix.item, pos, ctx, remove_only);
             }
-            SelectedAll(prefix) => self.analyze_name(&prefix.item, prefix.span, ctx),
-            Slice(prefix, _) => self.analyze_name(&prefix.item, prefix.span, ctx),
+            SelectedAll(prefix) => self.analyze_name(&prefix.item, prefix.span, ctx, remove_only),
+            Slice(prefix, _) => self.analyze_name(&prefix.item, prefix.span, ctx, remove_only),
             Attribute(attr) => self.analyze_attribute_name(attr, ctx),
             CallOrIndexed(coi) => {
-                self.analyze_name(&coi.name.item, coi.name.span, ctx);
+                self.analyze_name(&coi.name.item, coi.name.span, ctx, remove_only);
                 for item in &coi.parameters.items {
                     match &item.actual.item {
                         ActualPart::Expression(expr) => {
@@ -342,17 +329,29 @@ impl SensitivityListGenerator<'_> {
         designator: &WithRef<Designator>,
         pos: TokenSpan,
         ctx: &dyn TokenAccess,
+        remove_only: bool,
     ) {
         if let Some(reference) = designator.reference.get() {
+            self.superfluous_entities.remove(&reference);
             let ent = self.root.get_ent(reference);
-            if ent.is_signal() {
-                self.sensitivity_list.remove(&ent.id);
+            if ent.is_signal() && !self.sensitivity_list.contains_key(&reference) && !remove_only {
+                self.found_entities
+                    .entry(reference)
+                    .or_insert_with(|| pos.get_pos(ctx));
             }
         }
     }
 
     fn analyze_attribute_name(&mut self, attr: &AttributeName, ctx: &dyn TokenAccess) {
-        self.analyze_name(&attr.name.item, attr.name.span, ctx);
+        use AttributeDesignator::*;
+        match attr.attr.item {
+            Ident(_) | Image => {}
+            // These likely do not belong inside a sensitivity list.
+            // However, true analysis can only be performed when it is known whether the name is
+            // static or not.
+            _ => return,
+        }
+        self.analyze_name(&attr.name.item, attr.name.span, ctx, false);
         if let Some(expr) = &attr.expr {
             self.analyze_expression(&expr.item, expr.span, ctx)
         }
@@ -411,7 +410,7 @@ impl SensitivityListGenerator<'_> {
     fn analyze_discrete_range(&mut self, range: &DiscreteRange, ctx: &dyn TokenAccess) {
         match range {
             DiscreteRange::Discrete(name, range) => {
-                self.analyze_name(&name.item, name.span, ctx);
+                self.analyze_name(&name.item, name.span, ctx, false);
                 if let Some(range) = range {
                     self.analyze_range(range, ctx)
                 }
@@ -460,7 +459,7 @@ impl SensitivityListGenerator<'_> {
     }
 }
 
-impl Searcher for SensitivityListGenerator<'_> {
+impl Searcher for SensitivityListChecker<'_> {
     fn search_decl(&mut self, ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
         use SequentialStatement::*;
         if let DeclarationItem::SequentialStatement(stmt) = &decl.ast {
@@ -546,29 +545,16 @@ enum ProcessCategory {
 /// ```
 /// but won't work for some more exotic, mixed processes.
 fn get_likely_process_category(root: &DesignRoot, process: &ProcessStatement) -> ProcessCategory {
-    // This might be incorrect for weird mixed processes like
-    // ```
-    // process (clk) is
-    // begin
-    //     if rising_edge(clk) then
-    //         // ...
-    //     end if;
-    //     a <= b or c;
-    // end process;
-    // ```
-    if process.statements.len() > 1 {
-        return ProcessCategory::Combinational;
-    };
-    // using iter().all(...) guards against cases like the following:
+    // using iter().any(...) guards against edge cases like the following:
     // ```
     // process(clkA, clkB) is
     // begin
     //     if rising_edge(clkA) then
     //     end if;
-    //     if rising_edge(clkB) then
-    //     end if;
+    //
+    //     some_assignment <= xy;
     // end process;
-    let is_likely_clocked = process.statements.iter().all(|stmt| {
+    let is_likely_clocked = process.statements.iter().any(|stmt| {
         match &stmt.statement.item {
             SequentialStatement::If(if_stmt) => {
                 // this is always guaranteed to be present
@@ -630,23 +616,14 @@ fn is_likely_clocked(root: &DesignRoot, expression: &Expression) -> bool {
 mod tests {
     use super::*;
     use crate::analysis::tests::{check_no_diagnostics, LibraryBuilder};
-    use crate::syntax::test::Code;
+    use crate::syntax::test::check_diagnostics;
     use std::cell::Cell;
-
-    fn get_ent(root: &DesignRoot, code: Code) -> (EntityId, SrcPos) {
-        (
-            root.search_reference(code.source(), code.start())
-                .unwrap()
-                .id,
-            code.pos(),
-        )
-    }
 
     #[test]
     fn extract_sensitivity_list_no_items() {
         let mut builder = LibraryBuilder::new();
 
-        let _ = builder.code(
+        builder.code(
             "libname",
             "
 entity ent is
@@ -662,11 +639,12 @@ end architecture;",
 
         let (root, diagnostics) = builder.get_analyzed_root();
         check_no_diagnostics(&diagnostics);
+
         let num_of_searches = Cell::new(0);
         let mut searcher = ProcessSearcher::new(|proc, ctx| {
             num_of_searches.set(num_of_searches.get() + 1);
-            let res = generate_sensitivity_list(&root, proc, ctx);
-            assert_eq!(res, FnvHashMap::default());
+            let diag = lint_sensitivity_list(&root, ctx, proc);
+            assert_eq!(diag, Vec::default());
         });
         let _ = root.search(&mut searcher);
         assert_eq!(num_of_searches.get(), 1)
@@ -688,15 +666,33 @@ end entity;
 architecture a of ent is
     -- all of these signals should be considered as being 'read' in the sensitivity list
     signal sig_b, sig_c, sig_d, sig_e, sig_f, sig_g, sig_h, sig_i, sig_j, sig_k, sig_l : bit;
+    -- all of these signals are fine and present in the sensitivity list
+    signal sig_0 : bit;
+    signal sig_1 : bit_vector(1 downto 0);
+    type t_rec is record
+        foo : bit;
+    end record;
+    signal sig_2 : t_rec;
+    signal sig_3, sig_4, sig_5, sig_6 : bit; 
+    -- superfluous signal
+    signal additional : bit;
     signal void : bit;
 
     function func(din: bit) return bit is
     begin
     end func;
 begin
-   process is
+   process(sig_0, sig_1(0), sig_2, sig_3, sig_4, sig_5, sig_6, additional) is
        variable void_var : bit;
    begin
+       if (sig_5 = '1') then
+           void <= sig_6;
+       end if;
+       void <= sig_3 or sig_4;
+       void <= sig_3;
+       void <= sig_2.foo;
+       void <= sig_0;
+       void <= sig_1(0);
        void <= sig_a;
        void <= sig_b;
        void <= sig_b;
@@ -720,25 +716,29 @@ end architecture;",
         check_no_diagnostics(&diagnostics);
 
         let expected_signals = [
-            get_ent(&root, code.s("sig_a", 2)),
-            get_ent(&root, code.s("sig_b", 2)),
-            get_ent(&root, code.s("sig_c", 2)),
-            get_ent(&root, code.s("sig_d", 2)),
-            get_ent(&root, code.s("sig_e", 2)),
-            get_ent(&root, code.s("sig_f", 2)),
-            get_ent(&root, code.s("sig_g", 2)),
-            get_ent(&root, code.s("sig_h", 2)),
-            get_ent(&root, code.s("sig_i", 2)),
-            get_ent(&root, code.s("sig_j", 2)),
-            get_ent(&root, code.s("sig_k", 2)),
-            get_ent(&root, code.s("sig_l", 2)),
-        ];
+            "sig_a", "sig_b", "sig_c", "sig_d", "sig_e", "sig_f", "sig_g", "sig_h", "sig_i",
+            "sig_j", "sig_k", "sig_l",
+        ]
+        .map(|value| (value, code.s(value, 2).pos()));
 
         let num_of_searches = Cell::new(0);
         let mut searcher = ProcessSearcher::new(|proc, ctx| {
             num_of_searches.set(num_of_searches.get() + 1);
-            let res = generate_sensitivity_list(&root, proc, ctx);
-            assert_eq!(res, expected_signals.iter().cloned().collect());
+            let res = lint_sensitivity_list(&root, ctx, proc);
+            let mut expected_missing_diag = Diagnostic::new(
+                code.s1("process").pos(), 
+                "Signals 'sig_a', 'sig_b', 'sig_c', 'sig_d', 'sig_e', 'sig_f', 'sig_g', 'sig_h', 'sig_i', 'sig_j', 'sig_k', 'sig_l' are not read in the sensitivity list",
+                ErrorCode::MissingInSensitivityList
+            );
+            for (name, pos) in &expected_signals {
+                expected_missing_diag.add_related(pos, format!("signal '{name}' first read here"));
+            }
+            let expected_superfluous_diag = Diagnostic::new(
+                code.s("additional", 2),
+                "Signal is never read in the process",
+                ErrorCode::SuperfluousInSensitivityList,
+            );
+            check_diagnostics(res, vec![expected_missing_diag, expected_superfluous_diag]);
         });
         let _ = root.search(&mut searcher);
         assert_eq!(num_of_searches.get(), 1)
@@ -845,6 +845,6 @@ end architecture;",
             idx.set(idx.get() + 1);
         });
         let _ = root.search(&mut searcher);
-        assert_eq!(idx.get(), 8);
+        assert_eq!(idx.get(), 9);
     }
 }
