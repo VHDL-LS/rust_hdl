@@ -1,0 +1,140 @@
+design_file ::= design_unit { design_unit }
+
+design_unit ::= context_clause library_unit
+
+library_unit ::= primary_unit | secondary_unit
+
+primary_unit ::=
+      entity_declaration
+    | configuration_declaration
+    | package_declaration
+    | package_instantiation_declaration
+    | context_declaration
+
+secondary_unit ::= architecture_body | package_body
+
+// MARK: Context clause
+
+context_clause ::= { context_item }
+
+context_item ::= library_clause | use_clause | context_reference
+
+library_clause ::= `library` identifier { `,` identifier  } `;`
+
+use_clause ::= `use` selected_name { `,` selected_name } `;`
+
+context_reference ::= `context` selected_name { `,` selected_name } `;`
+
+// MARK: Library units
+
+entity_declaration ::=
+    `entity` identifier `is`
+        entity_header
+        declarative_part
+    [ `begin`
+        entity_statement_part ]
+    `end` [ `entity` ] [ identifier ] `;`
+
+configuration_declaration ::=
+    `configuration` identifier `of` name `is`
+        declarative_part
+        { verification_unit_binding_indication `;` }
+        block_configuration
+    `end` [ `configuration` ]  [ identifier ] `;`
+
+package_declaration ::=
+    `package` identifier `is`
+        package_header
+        declarative_part
+    `end` [ `package` ] [ identifier ] `;`
+
+package_instantiation_declaration ::=
+    `package` identifier `is` `new` name
+        [ generic_map_aspect ] `;`
+
+context_declaration ::=
+    `context` identifier `is`
+        context_clause
+    `end` [ `context` ] [ identifier ] `;`
+
+architecture_body ::=
+    `architecture` identifier `of` name `is`
+        declarative_part
+    `begin`
+        statement_part
+    `end` [ `architecture` ] [ identifier ] `;`
+
+package_body ::=
+    `package` `body` identifier `is`
+        declarative_part
+    `end` [ `package` `body` ] [ identifier ] `;`
+
+// MARK: configuration
+
+configuration_item ::= block_configuration | component_configuration
+
+block_configuration ::=
+    `for` name
+        { use_clause }
+        { configuration_item }
+    `end` `for` `;`
+
+component_configuration ::=
+    `for` component_specification
+        [ binding_indication `;` ]
+        { verification_unit_binding_indication `;` }
+        [ block_configuration ]
+    `end` `for` `;`
+
+component_specification ::= instantiation_list `:` name
+
+binding_indication ::=
+    [ `use` entity_aspect ]
+    [ generic_map_aspect ]
+    [ port_map_aspect ]
+
+entity_aspect ::=
+      `entity` name [ `(` identifier `)` ]
+    | `configuration` name
+    | `open`
+
+instantiation_list ::=
+      identifier { `,` identifier }
+    | `others`
+    | `all`
+
+// MARK: Verification Unit
+
+verification_unit_binding_indication ::= `use` `vunit` name { `,` name }
+
+// MARK: Concurrent Statements
+
+label ::= identifier `:`
+
+concurrent_statement ::=
+      concurrent_procedure_call_statement
+    | block_statement
+    | process_statement
+    | concurrent_assert_statement
+    | concurrent_signal_assignment_statement
+    | instantiation_statement
+    | for_generate_statement
+    | if_generate_statement
+    | case_generate_statement
+
+concurrent_procedure_call_statement ::= [ label ] [ `postponed` ] call_or_indexed `;`
+
+block_statement ::=
+    label `block` [ `(` expression `)` [ `is` ]
+        block_header
+        declarative_part
+    `begin`
+        statement_part
+    `end` `block` [ identifier ] `;`
+
+process_statement ::=
+    [ label ] [ `postponed` ] `process` [ `(` sensitivity_list `)` ] [ `is` ]
+        declarative_part
+    `begin`
+        statement_part
+    `end` [ `postponed` ] `process` [ identifier ] `;`

@@ -1,0 +1,10 @@
+[package]
+name = "vhdl_syntax"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+assert_matches = "1.5.0"
+pretty_assertions = "1.4.1"
