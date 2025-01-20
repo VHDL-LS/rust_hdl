@@ -152,6 +152,10 @@ impl<'a> Object<'a> {
         self
     }
 
+    pub fn is_signal(&self) -> bool {
+        self.class == ObjectClass::Signal
+    }
+
     pub fn is_port(&self) -> bool {
         matches!(self.iface, Some(ObjectInterface::Port(..)))
     }

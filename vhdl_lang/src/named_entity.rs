@@ -417,6 +417,10 @@ impl<'a> AnyEnt<'a> {
         )
     }
 
+    pub fn is_signal(&self) -> bool {
+        matches!(self.kind(), AnyEntKind::Object(obj) if obj.is_signal())
+    }
+
     pub fn is_declared_by(&self, other: EntRef<'_>) -> bool {
         if let Related::DeclaredBy(ent) = self.related {
             if ent.id() == other.id() {

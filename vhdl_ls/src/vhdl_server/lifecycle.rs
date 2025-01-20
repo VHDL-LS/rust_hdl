@@ -50,7 +50,7 @@ impl VHDLServer {
         let config = self.load_config();
         self.severity_map = *config.severities();
         self.project = Project::from_config(config, &mut self.message_filter());
-        self.project.enable_unused_declaration_detection();
+        self.project.enable_all_linters();
         if let Some(options) = &init_params.initialization_options {
             self.apply_initial_options(options)
         }

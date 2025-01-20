@@ -339,6 +339,19 @@ impl Name {
         }
     }
 
+    /// Like [self.get_suffix_reference], but disregards final indexes, such as
+    /// `foo.bar.baz(0)`
+    pub fn get_suffix_reference_disregard_index(&self) -> Option<EntityId> {
+        use Name::*;
+        match self {
+            Designator(suffix) => suffix.reference.get(),
+            Selected(_, suffix) => suffix.item.reference.get(),
+            Slice(name, _) => name.item.get_suffix_reference_disregard_index(),
+            CallOrIndexed(coi) => coi.name.item.get_suffix_reference_disregard_index(),
+            _ => None,
+        }
+    }
+
     pub fn prefix(&self) -> Option<&Designator> {
         match self {
             Self::Attribute(attr) => attr.name.item.prefix(),
