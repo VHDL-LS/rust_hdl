@@ -157,11 +157,14 @@ lib1.files = [
     'tb_ent.vhd'
 ]
 
-# Wildcards are supported
+# Wildcards and exclude patterns are supported
 lib3.files = [
     'test/*.vhd',
     'src/*.vhd',
     'src/*/*.vhd',
+]
+lib3.exclude = [
+    'test/*_old.vhd',
 ]
 
 # Libraries can be marked as third-party to disable some analysis warnings, such as unused declarations
