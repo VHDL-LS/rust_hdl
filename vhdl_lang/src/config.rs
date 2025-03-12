@@ -6,6 +6,7 @@
 
 //! Configuration of the design hierarchy and other settings
 
+use std::collections::BTreeSet;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -34,6 +35,7 @@ pub struct Config {
 pub struct LibraryConfig {
     name: String,
     patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
     pub(crate) is_third_party: bool,
 }
 
@@ -88,7 +90,58 @@ impl LibraryConfig {
             }
         }
         // Remove duplicate file names from the result
-        result.into_iter().unique().collect()
+        result = result.into_iter().unique().collect();
+        // Gather exclded files
+        let mut exclude: Vec<PathBuf> = Vec::new();
+        for pattern in self.exclude_patterns.iter() {
+            let stripped_pattern = if cfg!(windows) {
+                pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
+            } else {
+                pattern.as_str()
+            };
+
+            if is_literal(stripped_pattern) {
+                let file_path = PathBuf::from(pattern);
+
+                if file_path.exists() {
+                    exclude.push(file_path);
+                } else {
+                    messages.push(Message::warning(format! {"File {pattern} does not exist"}));
+                }
+            } else {
+                match glob::glob(stripped_pattern) {
+                    Ok(paths) => {
+                        let mut empty_pattern = true;
+
+                        for file_path_or_error in paths {
+                            empty_pattern = false;
+                            match file_path_or_error {
+                                Ok(file_path) => {
+                                    exclude.push(file_path);
+                                }
+                                Err(err) => {
+                                    messages.push(Message::error(err.to_string()));
+                                }
+                            }
+                        }
+
+                        if empty_pattern {
+                            messages.push(Message::warning(format!(
+                                "Pattern '{stripped_pattern}' did not match any file"
+                            )));
+                        }
+                    }
+                    Err(err) => {
+                        messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
+                    }
+                }
+            }
+        }
+        // Remove excluded files from result
+        let to_remove = BTreeSet::from_iter(exclude);
+        result.retain(|e| !to_remove.contains(e));
+
+        result
     }
 
     /// Returns the name of the library
@@ -146,6 +199,29 @@ impl Config {
                 patterns.push(path);
             }
 
+            let mut exclude_patterns = Vec::new();
+            if let Some(opt) = lib.get("exclude") {
+                if let Some(opt) = opt.as_array() {
+                    let exclude_arr = opt;
+                    for exclude in exclude_arr.iter() {
+                        let exclude = exclude
+                            .as_str()
+                            .ok_or_else(|| format!("not a string {exclude}"))?;
+
+                        let exclude = substitute_environment_variables(exclude, &subst::Env)?;
+
+                        let path = parent.join(exclude);
+                        let path = path
+                            .to_str()
+                            .ok_or_else(|| format!("Could not convert {path:?} to string"))?
+                            .to_owned();
+                        exclude_patterns.push(path);
+                    }
+                } else {
+                    return Err(format!("excludes for library {name} is not array"));
+                }
+            }
+
             let mut is_third_party = false;
             if let Some(opt) = lib.get("is_third_party") {
                 if let Some(opt) = opt.as_bool() {
@@ -162,6 +238,7 @@ impl Config {
                 LibraryConfig {
                     name: name.to_owned(),
                     patterns,
+                    exclude_patterns,
                     is_third_party,
                 },
             );
@@ -630,7 +707,7 @@ lib.files = [
     }
 
     #[test]
-    fn test_warning_on_emtpy_glob_pattern() {
+    fn test_warning_on_emtpy_file_glob_pattern() {
         let parent = Path::new("parent_folder");
         let config = Config::from_str(
             "
@@ -653,6 +730,62 @@ lib.files = [
                 parent.join("missing*.vhd").to_str().unwrap()
             ))]
         );
+    }
+
+    #[test]
+    fn test_exclude_file_is_excluded() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+lib.exclude = [
+  'file2.vhd'
+]
+",
+            parent,
+        )
+        .unwrap();
+
+        let file1 = touch(parent, "file1.vhd");
+        let _file2 = touch(parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        assert_files_eq(&file_names, &[file1]);
+        assert_eq!(messages, vec![]);
+    }
+
+    #[test]
+    fn test_exclude_pattern_is_excluded() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+lib.exclude = [
+  'b*.vhd'
+]
+",
+            parent,
+        )
+        .unwrap();
+
+        let a1 = touch(parent, "a1.vhd");
+        let a2 = touch(parent, "a2.vhd");
+        let _b1 = touch(parent, "b1.vhd");
+        let _b2 = touch(parent, "b2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        assert_files_eq(&file_names, &[a1, a2]);
+        assert_eq!(messages, vec![]);
     }
 
     #[test]
