@@ -675,6 +675,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 name.decl.set_unique_reference(&record_element);
                 unassociated.remove(&record_element);
             }
+            self.analyze_mode_view_element(&mut element.mode, scope, diagnostics)?;
         }
         if !unassociated.is_empty() {
             diagnostics.add(
@@ -684,6 +685,34 @@ impl<'a> AnalyzeContext<'a, '_> {
             );
         }
         Ok(self.define(&mut view.ident, parent, AnyEntKind::View(typ), src_span))
+    }
+
+    fn analyze_mode_view_element(
+        &self,
+        mode: &mut ElementMode,
+        scope: &Scope<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult {
+        match mode {
+            ElementMode::Simple(_) => {}
+            ElementMode::Record(name) | ElementMode::Array(name) => {
+                let Some(resolved_name) =
+                    as_fatal(self.name_resolve(scope, name.span, &mut name.item, diagnostics))?
+                else {
+                    return Ok(());
+                };
+                match resolved_name {
+                    ResolvedName::Final(ent) if matches!(ent.kind(), AnyEntKind::View(_)) => {}
+                    _ => {
+                        diagnostics.push(Diagnostic::mismatched_kinds(
+                            name.span.pos(self.ctx),
+                            "Expected view",
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     fn find_deferred_constant_declaration(
