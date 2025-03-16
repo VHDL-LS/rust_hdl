@@ -617,3 +617,56 @@ end entity;
         )],
     )
 }
+
+#[test]
+fn undefined_name_for_nested_view() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package test is
+    type my_rec_t is record
+        a : bit;
+     end record;
+     view invalid_view of my_rec_t is
+         a : view undefined_view;
+     end view;
+end package;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("undefined_view"),
+            "No declaration of 'undefined_view'",
+            ErrorCode::Unresolved,
+        )],
+    )
+}
+
+#[test]
+fn view_that_is_not_a_view() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.code(
+        "libname",
+        "\
+package test is
+    constant some_constant : bit := '1';
+    type my_rec_t is record
+        a : bit;
+     end record;
+     view invalid_view of my_rec_t is
+         a : view some_constant;
+     end view;
+end package;
+    ",
+    );
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("a : view some_constant;").s1("some_constant"),
+            "Expected view",
+            ErrorCode::MismatchedKinds,
+        )],
+    )
+}
