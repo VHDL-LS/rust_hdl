@@ -89,7 +89,7 @@ impl Config {
                 .as_array()
                 .ok_or_else(|| format!("files for library {name} is not array"))?;
             let patterns = check_file_patterns(file_arr, parent)?;
-            
+
             let mut exclude_patterns = Vec::new();
             if let Some(opt) = lib.get("exclude") {
                 if let Some(opt) = opt.as_array() {
@@ -304,8 +304,10 @@ impl Config {
     }
 }
 
-fn match_file_patterns(patterns: &Vec<String>, messages: &mut dyn MessageHandler) -> BTreeSet<PathBuf>
-{
+fn match_file_patterns(
+    patterns: &[String],
+    messages: &mut dyn MessageHandler,
+) -> BTreeSet<PathBuf> {
     let mut result = BTreeSet::new();
     for pattern in patterns.iter() {
         let stripped_pattern = if cfg!(windows) {
@@ -354,8 +356,7 @@ fn match_file_patterns(patterns: &Vec<String>, messages: &mut dyn MessageHandler
     result
 }
 
-fn check_file_patterns(file_arr: &Vec<Value>, parent: &Path) -> Result<Vec<String>, String>
-{
+fn check_file_patterns(file_arr: &[Value], parent: &Path) -> Result<Vec<String>, String> {
     let mut patterns = Vec::new();
     for file in file_arr.iter() {
         let file = file
