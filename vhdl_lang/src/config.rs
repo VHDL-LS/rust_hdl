@@ -14,7 +14,6 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use fnv::FnvHashMap;
-use itertools::Itertools;
 use subst::VariableMap;
 use toml::{Table, Value};
 
@@ -44,104 +43,11 @@ impl LibraryConfig {
     /// Only include files that exists
     /// Files that do not exist produce a warning message
     pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
-        let mut result = Vec::new();
-        for pattern in self.patterns.iter() {
-            let stripped_pattern = if cfg!(windows) {
-                pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
-            } else {
-                pattern.as_str()
-            };
-
-            if is_literal(stripped_pattern) {
-                let file_path = PathBuf::from(pattern);
-
-                if file_path.exists() {
-                    result.push(file_path);
-                } else {
-                    messages.push(Message::warning(format! {"File {pattern} does not exist"}));
-                }
-            } else {
-                match glob::glob(stripped_pattern) {
-                    Ok(paths) => {
-                        let mut empty_pattern = true;
-
-                        for file_path_or_error in paths {
-                            empty_pattern = false;
-                            match file_path_or_error {
-                                Ok(file_path) => {
-                                    result.push(file_path);
-                                }
-                                Err(err) => {
-                                    messages.push(Message::error(err.to_string()));
-                                }
-                            }
-                        }
-
-                        if empty_pattern {
-                            messages.push(Message::warning(format!(
-                                "Pattern '{stripped_pattern}' did not match any file"
-                            )));
-                        }
-                    }
-                    Err(err) => {
-                        messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
-                    }
-                }
-            }
-        }
-        // Remove duplicate file names from the result
-        result = result.into_iter().unique().collect();
-        // Gather exclded files
-        let mut exclude: Vec<PathBuf> = Vec::new();
-        for pattern in self.exclude_patterns.iter() {
-            let stripped_pattern = if cfg!(windows) {
-                pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
-            } else {
-                pattern.as_str()
-            };
-
-            if is_literal(stripped_pattern) {
-                let file_path = PathBuf::from(pattern);
-
-                if file_path.exists() {
-                    exclude.push(file_path);
-                } else {
-                    messages.push(Message::warning(format! {"File {pattern} does not exist"}));
-                }
-            } else {
-                match glob::glob(stripped_pattern) {
-                    Ok(paths) => {
-                        let mut empty_pattern = true;
-
-                        for file_path_or_error in paths {
-                            empty_pattern = false;
-                            match file_path_or_error {
-                                Ok(file_path) => {
-                                    exclude.push(file_path);
-                                }
-                                Err(err) => {
-                                    messages.push(Message::error(err.to_string()));
-                                }
-                            }
-                        }
-
-                        if empty_pattern {
-                            messages.push(Message::warning(format!(
-                                "Pattern '{stripped_pattern}' did not match any file"
-                            )));
-                        }
-                    }
-                    Err(err) => {
-                        messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
-                    }
-                }
-            }
-        }
+        let mut result = match_file_patterns(&self.patterns, messages);
+        let exclude = match_file_patterns(&self.exclude_patterns, messages);
         // Remove excluded files from result
-        let to_remove = BTreeSet::from_iter(exclude);
-        result.retain(|e| !to_remove.contains(e));
-
-        result
+        result.retain(|e| !exclude.contains(e));
+        Vec::from_iter(result)
     }
 
     /// Returns the name of the library
@@ -182,41 +88,12 @@ impl Config {
                 .ok_or_else(|| format!("missing field files for library {name}"))?
                 .as_array()
                 .ok_or_else(|| format!("files for library {name} is not array"))?;
-
-            let mut patterns = Vec::new();
-            for file in file_arr.iter() {
-                let file = file
-                    .as_str()
-                    .ok_or_else(|| format!("not a string {file}"))?;
-
-                let file = substitute_environment_variables(file, &subst::Env)?;
-
-                let path = parent.join(file);
-                let path = path
-                    .to_str()
-                    .ok_or_else(|| format!("Could not convert {path:?} to string"))?
-                    .to_owned();
-                patterns.push(path);
-            }
-
+            let patterns = check_file_patterns(file_arr, parent)?;
+            
             let mut exclude_patterns = Vec::new();
             if let Some(opt) = lib.get("exclude") {
                 if let Some(opt) = opt.as_array() {
-                    let exclude_arr = opt;
-                    for exclude in exclude_arr.iter() {
-                        let exclude = exclude
-                            .as_str()
-                            .ok_or_else(|| format!("not a string {exclude}"))?;
-
-                        let exclude = substitute_environment_variables(exclude, &subst::Env)?;
-
-                        let path = parent.join(exclude);
-                        let path = path
-                            .to_str()
-                            .ok_or_else(|| format!("Could not convert {path:?} to string"))?
-                            .to_owned();
-                        exclude_patterns.push(path);
-                    }
+                    exclude_patterns = check_file_patterns(opt, parent)?;
                 } else {
                     return Err(format!("excludes for library {name} is not array"));
                 }
@@ -425,6 +302,76 @@ impl Config {
     pub fn standard(&self) -> VHDLStandard {
         self.standard
     }
+}
+
+fn match_file_patterns(patterns: &Vec<String>, messages: &mut dyn MessageHandler) -> BTreeSet<PathBuf>
+{
+    let mut result = BTreeSet::new();
+    for pattern in patterns.iter() {
+        let stripped_pattern = if cfg!(windows) {
+            pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
+        } else {
+            pattern.as_str()
+        };
+
+        if is_literal(stripped_pattern) {
+            let file_path = PathBuf::from(pattern);
+
+            if file_path.exists() {
+                result.insert(file_path);
+            } else {
+                messages.push(Message::warning(format! {"File {pattern} does not exist"}));
+            }
+        } else {
+            match glob::glob(stripped_pattern) {
+                Ok(paths) => {
+                    let mut empty_pattern = true;
+
+                    for file_path_or_error in paths {
+                        empty_pattern = false;
+                        match file_path_or_error {
+                            Ok(file_path) => {
+                                result.insert(file_path);
+                            }
+                            Err(err) => {
+                                messages.push(Message::error(err.to_string()));
+                            }
+                        }
+                    }
+
+                    if empty_pattern {
+                        messages.push(Message::warning(format!(
+                            "Pattern '{stripped_pattern}' did not match any file"
+                        )));
+                    }
+                }
+                Err(err) => {
+                    messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
+                }
+            }
+        }
+    }
+    result
+}
+
+fn check_file_patterns(file_arr: &Vec<Value>, parent: &Path) -> Result<Vec<String>, String>
+{
+    let mut patterns = Vec::new();
+    for file in file_arr.iter() {
+        let file = file
+            .as_str()
+            .ok_or_else(|| format!("not a string {file}"))?;
+
+        let file = substitute_environment_variables(file, &subst::Env)?;
+
+        let path = parent.join(file);
+        let path = path
+            .to_str()
+            .ok_or_else(|| format!("Could not convert {path:?} to string"))?
+            .to_owned();
+        patterns.push(path);
+    }
+    Ok(patterns)
 }
 
 fn substitute_environment_variables<'a, M>(s: &str, map: &'a M) -> Result<String, String>
