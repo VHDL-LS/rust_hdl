@@ -758,7 +758,18 @@ pub struct Comment {
     pub multi_line: bool,
 }
 
+impl Comment {
+    pub(crate) fn is_start_of_ignored_region(&self) -> bool {
+        self.value.trim() == "vhdl_ls off"
+    }
+
+    pub(crate) fn is_end_of_ignored_region(&self) -> bool {
+        self.value.trim() == "vhdl_ls on"
+    }
+}
+
 use crate::standard::VHDLStandard;
+use itertools::Itertools;
 use std::convert::AsRef;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub};
@@ -888,6 +899,45 @@ impl Token {
     /// and all changes that only affect comments.
     pub fn equal_format(&self, other: &Token) -> bool {
         self.kind == other.kind && self.value == other.value
+    }
+
+    pub(crate) fn leading_is_start_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        if let Some((index, _)) = comments
+            .leading
+            .iter()
+            .find_position(|comment| comment.is_start_of_ignored_region())
+        {
+            // This construct guards against the case where we have a `vhdl_ls on` in the same
+            // comment block after a a `vhdl_ls off`
+            !comments.leading[index..]
+                .iter()
+                .any(Comment::is_end_of_ignored_region)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn leading_is_end_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        comments
+            .leading
+            .iter()
+            .any(Comment::is_end_of_ignored_region)
+    }
+
+    pub(crate) fn trailing_is_end_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        comments
+            .trailing
+            .as_ref()
+            .is_some_and(Comment::is_end_of_ignored_region)
     }
 }
 
@@ -1973,7 +2023,38 @@ impl<'a> Tokenizer<'a> {
 
     pub fn pop(&mut self) -> DiagnosticResult<Option<Token>> {
         match self.pop_raw() {
-            Ok(token) => Ok(token),
+            Ok(None) => Ok(None),
+            Ok(Some(token)) => {
+                if token.leading_is_start_of_ignored_region() {
+                    if !token.trailing_is_end_of_ignored_region() {
+                        loop {
+                            match self.pop_raw() {
+                                Ok(None) => {
+                                    // Note: we should probably emit an unterminated error here
+                                    // instead of silently failing.
+                                    return Ok(None);
+                                }
+                                Ok(Some(tok)) => {
+                                    if tok.trailing_is_end_of_ignored_region() {
+                                        break;
+                                    } else if tok.leading_is_end_of_ignored_region() {
+                                        // Note: to be pedantic, the 'vhdl_ls on' should be
+                                        // removed from the comments. However, because we have
+                                        // no public API and the comments don't really play
+                                        // a crucial role in the language server or binary,
+                                        // we just emit the token for simplicity.
+                                        return Ok(Some(tok));
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    self.pop()
+                } else {
+                    Ok(Some(token))
+                }
+            }
             Err(err) => {
                 self.state.start = self.reader.state();
                 Err(Diagnostic::syntax_error(
@@ -3105,5 +3186,64 @@ entity -- €
                 .collect_vec(),
             vec![View, Default]
         );
+    }
+
+    #[test]
+    fn ignore_code_in_between_explicitly_ignored_regions() {
+        let tokens = kinds_tokenize(
+            "\
+entity foo is
+--vhdl_ls off
+I am ignored cod€
+--vhdl_ls on
+end foo;
+        ",
+        );
+        assert_eq!(
+            &tokens,
+            &[Entity, Identifier, Is, End, Identifier, SemiColon]
+        );
+
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+single_token
+--vhdl_ls on
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is, End, After]);
+    }
+
+    #[test]
+    fn ignore_code_without_on() {
+        // This should potentially emit a warning, but for now we just silently
+        // ignore that there should be a `vhdl_ls on` at some point.
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+single_token
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is]);
+    }
+
+    #[test]
+    fn on_directly_after_off() {
+        // This should potentially emit a warning, but for now we just silently
+        // ignore that there should be a `vhdl_ls on` at some point.
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+--vhdl_ls on
+single_token
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is, Identifier, End, After]);
     }
 }
