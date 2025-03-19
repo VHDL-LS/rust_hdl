@@ -454,8 +454,13 @@ mod tests {
         paths.iter().map(|path| abspath(path)).collect()
     }
 
+    // Check that two PathBuf slices are the same, ignoring order
     fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
-        assert_eq!(abspaths(got), abspaths(expected));
+        assert_eq!(got.len(), expected.len());
+        assert_eq!(
+            BTreeSet::from_iter(abspaths(got)),
+            BTreeSet::from_iter(abspaths(expected))
+        );
     }
 
     #[test]
