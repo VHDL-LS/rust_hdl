@@ -7,6 +7,7 @@ vunit_lib.exclude = [
     "vunit/vunit/vhdl/**/*93*",
     "vunit/vunit/vhdl/**/*2019*",
     'vunit/vunit/vhdl/com/test/tb_com_codec.vhd',
+    "vunit/vunit/vhdl/osvvm/*"
 ]
 
 osvvm.files = [
@@ -117,10 +118,8 @@ PoC.files = [
     #'PoC/src/sim/sim_simulation.v93.vhdl',
     'PoC/src/sim/sim_simulation.v08.vhdl',
     'PoC/src/sim/sim_waveform.vhdl',
-
     #'PoC/src/io/iic/*.vhdl',
     'PoC/src/io/uart/*.vhdl',
-
     #'PoC/src/io/pmod/*.vhdl',
     #'PoC/src/io/*.vhdl',
 
@@ -134,9 +133,7 @@ PoC.files = [
     #'PoC/src/io/ddrio/ddrio_out_xilinx.vhdl',
     #'PoC/src/io/ddrio/ddrio_in_xilinx.vhdl',
     'PoC/src/io/ddrio/ddrio_out.vhdl',
-
     'PoC/src/cache/*.vhdl',
-
     'PoC/src/arith/arith_sqrt.vhdl',
     'PoC/src/arith/arith_same.vhdl',
     'PoC/src/arith/arith_scaler.vhdl',
@@ -162,7 +159,6 @@ PoC.files = [
     'PoC/src/arith/arith_counter_gray.vhdl',
     'PoC/src/arith/arith_counter_ring.vhdl',
     'PoC/src/arith/arith_div.vhdl',
-
     #'PoC/src/net/arp/*.vhdl',
     #'PoC/src/net/udp/*.vhdl',
     #'PoC/src/net/ipv4/*.vhdl',
@@ -180,9 +176,7 @@ PoC.files = [
     # Ambiguous use of to string
     #'PoC/src/bus/stream/stream.pkg.vhdl',
     'PoC/src/bus/stream/stream_Buffer.vhdl',
-
     'PoC/src/bus/*.vhdl',
-
     'PoC/src/comm/*.vhdl',
     #'PoC/src/comm/remote/remote_terminal_control.vhdl',
 
@@ -200,7 +194,6 @@ PoC.files = [
     'PoC/src/common/debug.vhdl',
     'PoC/src/common/components.vhdl',
     'PoC/src/common/utils.vhdl',
-
     'PoC/src/sort/sortnet/*.vhdl',
     'PoC/src/sort/*.vhdl',
     'PoC/src/fifo/fifo.pkg.vhdl',
@@ -226,7 +219,6 @@ PoC.files = [
     #'PoC/src/mem/sdram/sdram_ctrl_fsm.vhdl',
     #'PoC/src/mem/ddr2/ddr2_mem2mig_adapter_Spartan6.vhdl',
     'PoC/src/mem/mem.pkg.vhdl',
-
     'PoC/src/mem/ocram/ocram.pkg.vhdl',
     #'PoC/src/mem/ocram/altera/ocram_tdp_altera.vhdl',
     #'PoC/src/mem/ocram/altera/ocram_sp_altera.vhdl',
@@ -237,14 +229,12 @@ PoC.files = [
     'PoC/src/mem/ocram/ocram_sdp_wf.vhdl',
     'PoC/src/mem/ocram/ocram_tdp_sim.vhdl',
     'PoC/src/mem/ocram/ocram_esdp.vhdl',
-
     'PoC/src/mem/ddr3/*.vhdl',
     'PoC/src/mem/lut/*.vhdl',
     'PoC/src/mem/ocrom/*.vhdl',
     'PoC/src/misc/stat/*.vhdl',
     'PoC/src/misc/filter/*.vhdl',
     'PoC/src/misc/gearbox/*.vhdl',
-
     'PoC/src/misc/sync/sync_Vector.vhdl',
     #'PoC/src/misc/sync/sync_Reset_Xilinx.vhdl',
     #'PoC/src/misc/sync/sync_Bits_Altera.vhdl',
