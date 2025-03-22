@@ -107,7 +107,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: vhdl_*
+          pattern: vhdl_*
           path: ~/temp
       - name: Check vhdl_lang version
         run: |
