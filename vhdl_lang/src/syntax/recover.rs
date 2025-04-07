@@ -13,7 +13,7 @@ use crate::TokenId;
 /// When the next token is
 /// * a semicolon, then consume that token and produce no error
 /// * a token that could be confused with a semicolon (i.e., a comma),
-///     then consume that token and report an error
+///   then consume that token and report an error
 /// * none of these choices: do not consume the token and report an error
 pub fn expect_semicolon(ctx: &mut ParsingContext<'_>) -> Option<TokenId> {
     let token = match ctx.stream.peek_expect() {

@@ -233,7 +233,7 @@ impl<'a> AnalyzeContext<'a, '_> {
     ///
     /// * `scope` - The scope that this instance was declared in
     /// * `inst_subprogram_ent` - A reference to the instantiated subprogram entity.
-    ///     Used to set the parent reference of the signature
+    ///   Used to set the parent reference of the signature
     /// * `uninst_name` - The [ResolvedName] of the uninstantiated subprogram
     /// * `instance` - A reference to the AST element of the subprogram instantiation
     /// * `diagnostics` - The diagnostics handler

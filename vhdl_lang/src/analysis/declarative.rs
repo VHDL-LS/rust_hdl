@@ -1317,9 +1317,9 @@ const UNASSOCIATED_DISPLAY_THRESHOLD: usize = 3;
 /// The returned message has the format "Missing association of x".
 /// * If there is only one element, the message becomes "Missing association of element the_element"
 /// * If there are more elements, the message becomes
-///     "Missing association of element the_element1, the_element2 and the_element3"
+///   "Missing association of element the_element1, the_element2 and the_element3"
 /// * If there are more elements than [UNASSOCIATED_DISPLAY_THRESHOLD], the message will be truncated
-///     to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
+///   to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
 fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement<'_>>) -> String {
     assert!(
         !unassociated.is_empty(),
