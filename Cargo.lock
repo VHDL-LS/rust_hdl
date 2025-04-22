@@ -103,9 +103,9 @@ checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "brunch"
-version = "0.9.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0213369ce5beadc65e9218c969c663c0fd6e730df41d8c02a39ecaf9c5022f70"
+checksum = "016d950e43311624fa0b3e1bfe340f49f1913d21d76165f883ede0cfee569b62"
 dependencies = [
  "dactyl",
  "unicode-width 0.2.0",
@@ -210,9 +210,9 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "dactyl"
-version = "0.10.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7da384f05892997ed02b2c29b5c90f67712c17f2bee88371d84dc5d4547e493"
+checksum = "8a4d2c8b71b31d345e76c2532f9c9a99eae384ec1f47a6eb6347e35b5645aae4"
 
 [[package]]
 name = "diff"

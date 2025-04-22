@@ -6,13 +6,14 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.84.0"
-authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
-license = "MPL-2.0"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "VHDL Language Server"
-repository = "https://github.com/kraigher/rust_hdl"
-edition = "2021"
-readme = "../README.md"
+repository.workspace = true
+edition.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 vhdl_lang = { version = "^0.84.0", path = "../vhdl_lang" }

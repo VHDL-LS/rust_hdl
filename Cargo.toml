@@ -7,3 +7,12 @@
 [workspace]
 resolver = "2"
 members = ["vhdl_lang_macros", "vhdl_lang", "vhdl_ls"]
+
+[workspace.package]
+version = "0.84.0"
+authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
+license = "MPL-2.0"
+edition = "2021"
+rust-version = "1.82"
+repository = "https://github.com/VHDL-LS/rust_hdl"
+readme = "README.md"
