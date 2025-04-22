@@ -6,12 +6,13 @@
 
 [package]
 name = "vhdl_lang"
-version = "0.84.0"
-authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
-license = "MPL-2.0"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "VHDL Language Frontend"
-repository = "https://github.com/kraigher/rust_hdl"
-edition = "2021"
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 vhdl_lang_macros = { version = "^0.84.0", path = "../vhdl_lang_macros" }
@@ -34,7 +35,7 @@ enum-map = "2.7.3"
 tempfile = "3"
 pretty_assertions = "1"
 assert_matches = "1"
-brunch = "0"
+brunch = "0.8"
 assert_cmd = "2.0.14"
 predicates = "3.1.0"
 
