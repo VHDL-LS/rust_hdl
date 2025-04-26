@@ -31,7 +31,9 @@ use crate::ast::{
     SensitivityList, SequentialStatement, SignalAttribute, UnitId, UnitKey, Waveform, WithRef,
 };
 use crate::data::{DiagnosticHandler, ErrorCode, Symbol};
-use crate::{Config, Diagnostic, EntityId, HasTokenSpan, SrcPos, TokenAccess, TokenSpan};
+use crate::{
+    AnyEntKind, Config, Diagnostic, EntityId, HasTokenSpan, SrcPos, TokenAccess, TokenSpan,
+};
 use fnv::FnvHashMap;
 use itertools::Itertools;
 use std::collections::hash_map::Entry;
@@ -590,19 +592,33 @@ fn is_likely_clocked(root: &DesignRoot, expression: &Expression) -> bool {
                 attribute.attr.item == AttributeDesignator::Signal(SignalAttribute::Event)
             }
             Name::CallOrIndexed(coi) => {
-                if let Some(reference) = coi.name.item.get_suffix_reference() {
-                    let ent = root.get_ent(reference);
-                    if let Some(library_name) = ent.library_name() {
-                        if (library_name.name_utf8().to_lowercase() == "ieee"
-                            || library_name.name_utf8().to_lowercase() == "std")
-                            && (ent.designator.to_string().to_lowercase() == "rising_edge"
-                                || ent.designator.to_string().to_lowercase() == "falling_edge")
-                        {
-                            return true;
+                let Some(reference) = coi.name.item.get_suffix_reference() else {
+                    return false;
+                };
+                let ent = root.get_ent(reference);
+                match ent.kind() {
+                    // Any function that has one argument and returns `boolean`
+                    // is considered clocked.
+                    // This is true, for example, for the standard
+                    // RISING_EDGE(signal S: BOOLEAN) return BOOLEAN; and
+                    // FALLING_EDGE(signal S: BOOLEAN) return BOOLEAN;
+                    // functions.
+                    AnyEntKind::Overloaded(ovl) => {
+                        // FIXME: This check could include check for a function
+                        // Currently, checks functions, procedures and other miscellaneous items
+                        let signature = ovl.signature();
+                        if signature.formals.len() != 1 {
+                            return false;
                         }
+                        let Some(ret_type) = signature.return_type else {
+                            return false;
+                        };
+                        // FIXME: This should probably check that `ret_type` is the actual boolean type
+                        // and not the std boolean type
+                        ret_type.designator == Designator::Identifier(root.symbol_utf8("BOOLEAN"))
                     }
+                    _ => false,
                 }
-                false
             }
             _ => false,
         },
@@ -846,5 +862,54 @@ end architecture;",
         });
         let _ = root.search(&mut searcher);
         assert_eq!(idx.get(), 9);
+    }
+
+    // GitHub issue: 378
+    #[test]
+    fn check_generic_clk_edge() {
+        let mut builder = LibraryBuilder::new();
+
+        builder.code(
+            "libname",
+            "
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity generic_clk_edge_function_warning is
+    generic (
+        function active_edge(signal s: std_ulogic) return boolean
+    );
+    port (
+        clk: in std_ulogic;
+        data_out: out std_ulogic
+    );
+end entity;
+
+architecture behavioural of generic_clk_edge_function_warning is
+    signal internal_signal: std_ulogic := '0';
+begin
+    process (clk)
+    begin
+        if active_edge(clk) then  -- Trigger: function call via generic
+            internal_signal <= not internal_signal;
+        end if;
+    end process;
+
+    data_out <= internal_signal;
+end architecture;",
+        );
+
+        builder.add_std_logic_1164();
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let num_of_searches = Cell::new(0);
+        let mut searcher = ProcessSearcher::new(|proc, ctx| {
+            num_of_searches.set(num_of_searches.get() + 1);
+            let diag = lint_sensitivity_list(&root, ctx, proc);
+            assert_eq!(diag, Vec::default());
+        });
+        let _ = root.search(&mut searcher);
+        assert_eq!(num_of_searches.get(), 1)
     }
 }
