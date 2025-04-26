@@ -2652,6 +2652,34 @@ my_other_ident",
     }
 
     #[test]
+    fn non_ascii_before_bit_string() {
+        let code = Code::new("€X\"ABC\"");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![
+                Err(Diagnostic::syntax_error(
+                    code.s1("€"),
+                    "Found invalid latin-1 character '€'",
+                )),
+                Ok(Token {
+                    kind: BitString,
+                    value: Value::BitString(
+                        Latin1String::from_utf8_unchecked("X\"ABC\""),
+                        ast::BitString {
+                            length: None,
+                            base: BaseSpecifier::X,
+                            value: Latin1String::from_utf8_unchecked("ABC"),
+                        }
+                    ),
+                    pos: code.s1("X\"ABC\"").pos(),
+                    comments: None,
+                })
+            ],
+        );
+    }
+
+    #[test]
     fn tokenize_based_integer() {
         assert_eq!(
             kind_value_tokenize("2#101#"),

@@ -185,6 +185,7 @@ pub struct Position {
     /// Line (zero-based).
     pub line: u32,
     /// Column (zero-based).
+    /// The character offset is utf-16 encoded
     pub character: u32,
 }
 
