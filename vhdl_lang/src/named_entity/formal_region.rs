@@ -5,7 +5,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::{
-    ast::{Designator, InterfaceType, Mode, ObjectClass},
+    ast::{Designator, InterfaceType, Mode},
     Diagnostic, SrcPos,
 };
 
@@ -226,14 +226,6 @@ impl<'a> FormalRegion<'a> {
 
     pub fn nth(&self, idx: usize) -> Option<InterfaceEnt<'a>> {
         self.entities.get(idx).cloned()
-    }
-
-    pub fn unary(&self) -> Option<InterfaceEnt<'a>> {
-        if self.len() == 1 {
-            self.nth(0)
-        } else {
-            None
-        }
     }
 }
 
