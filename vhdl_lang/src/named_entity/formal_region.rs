@@ -4,13 +4,13 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use super::*;
 use crate::{
     ast::{Designator, InterfaceType, Mode},
     Diagnostic, SrcPos,
 };
+use itertools::Itertools;
 use std::ops::Deref;
-
-use super::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceEnt<'a> {
@@ -132,20 +132,6 @@ impl<'a> GpkgInterfaceEnt<'a> {
     }
 }
 
-impl<'a> std::ops::Deref for GpkgInterfaceEnt<'a> {
-    type Target = AnyEnt<'a>;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            GpkgInterfaceEnt::Type(typ) => typ.deref(),
-            GpkgInterfaceEnt::Constant(obj) => obj.deref(),
-            GpkgInterfaceEnt::Subprogram(subp) => subp.deref(),
-            // `ent` is of type `&&AnyEnt`. `deref()` returns `&AnyEnt` which is what we want
-            #[allow(suspicious_double_ref_op)]
-            GpkgInterfaceEnt::Package(ent) => ent.deref(),
-        }
-    }
-}
-
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Clone)]
 pub struct FormalRegion<'a> {
@@ -226,9 +212,15 @@ impl<'a> ParameterEnt<'a> {
         self.0
     }
 
+    pub fn is_parameter(ent: EntRef<'a>) -> bool {
+        Self::from_any(ent).is_some()
+    }
+
     pub fn from_any(ent: EntRef<'a>) -> Option<ParameterEnt<'a>> {
         match ent.kind() {
-            AnyEntKind::Object(_) | AnyEntKind::InterfaceFile(_) => Some(ParameterEnt(ent)),
+            AnyEntKind::Object(Object { iface: Some(_), .. }) | AnyEntKind::InterfaceFile(_) => {
+                Some(ParameterEnt(ent))
+            }
             _ => None,
         }
     }
@@ -294,14 +286,12 @@ impl<'a> ParameterRegion<'a> {
     pub fn from_formal_region(
         formal_region: FormalRegion<'a>,
     ) -> Result<ParameterRegion<'a>, Vec<InterfaceEnt<'a>>> {
-        let mut invalid_formals = Vec::new();
-        for entity in &formal_region.entities {
-            match entity.kind() {
-                AnyEntKind::InterfaceFile(_)
-                | AnyEntKind::Object(Object { iface: Some(_), .. }) => {}
-                _ => invalid_formals.push(*entity),
-            }
-        }
+        let invalid_formals = formal_region
+            .entities
+            .iter()
+            .filter(|ent| !ParameterEnt::is_parameter(ent))
+            .copied()
+            .collect_vec();
         if invalid_formals.is_empty() {
             Ok(ParameterRegion(formal_region))
         } else {
@@ -322,10 +312,7 @@ impl<'a> ParameterRegion<'a> {
     }
 
     pub(crate) fn add(&mut self, ent: EntRef<'a>) {
-        debug_assert!(matches!(
-            ent.kind(),
-            AnyEntKind::InterfaceFile(_) | AnyEntKind::Object(Object { iface: Some(_), .. })
-        ));
+        assert!(ParameterEnt::is_parameter(ent));
         self.0.add(ent)
     }
 }

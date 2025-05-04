@@ -396,7 +396,6 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
-    // TODO: This does not correctly deal with aliases
     pub fn map_type_ent(
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
