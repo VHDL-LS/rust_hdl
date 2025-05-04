@@ -303,29 +303,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 }
                             }
 
-                            let (generic_region, port_region) = ent_region.to_entity_formal();
-
-                            self.check_association(
-                                &entity_name.pos(self.ctx),
-                                &generic_region,
+                            self.analyze_generics_and_ports(
                                 scope,
-                                instance
-                                    .generic_map
-                                    .as_mut()
-                                    .map(|it| it.list.items.as_mut_slice())
-                                    .unwrap_or(&mut []),
+                                instance.generic_map.as_mut(),
+                                instance.port_map.as_mut(),
                                 diagnostics,
-                            )?;
-                            self.check_association(
-                                &entity_name.pos(self.ctx),
-                                &port_region,
-                                scope,
-                                instance
-                                    .port_map
-                                    .as_mut()
-                                    .map(|it| it.list.items.as_mut_slice())
-                                    .unwrap_or(&mut []),
-                                diagnostics,
+                                entity_name,
+                                ent_region,
                             )?;
                             Ok(())
                         }
@@ -368,28 +352,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 };
 
                 if let AnyEntKind::Component(ent_region) = ent.kind() {
-                    let (generic_region, port_region) = ent_region.to_entity_formal();
-                    self.check_association(
-                        &component_name.pos(self.ctx),
-                        &generic_region,
+                    self.analyze_generics_and_ports(
                         scope,
-                        instance
-                            .generic_map
-                            .as_mut()
-                            .map(|it| it.list.items.as_mut_slice())
-                            .unwrap_or(&mut []),
+                        instance.generic_map.as_mut(),
+                        instance.port_map.as_mut(),
                         diagnostics,
-                    )?;
-                    self.check_association(
-                        &component_name.pos(self.ctx),
-                        &port_region,
-                        scope,
-                        instance
-                            .port_map
-                            .as_mut()
-                            .map(|it| it.list.items.as_mut_slice())
-                            .unwrap_or(&mut []),
-                        diagnostics,
+                        component_name,
+                        ent_region,
                     )?;
                     Ok(())
                 } else {
@@ -426,6 +395,40 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)
             }
         }
+    }
+
+    pub fn analyze_generics_and_ports(
+        &self,
+        scope: &Scope<'a>,
+        generic_map_aspect: Option<&mut MapAspect>,
+        port_map_aspect: Option<&mut MapAspect>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        entity_name: &mut WithTokenSpan<Name>,
+        ent_region: &Region<'a>,
+    ) -> FatalResult {
+        let (generic_region, port_region) = ent_region.to_entity_formal();
+
+        as_fatal(
+            self.generic_map(
+                scope,
+                &entity_name.pos(self.ctx),
+                generic_region,
+                generic_map_aspect
+                    .map(|it| it.list.items.as_mut_slice())
+                    .unwrap_or(&mut []),
+                diagnostics,
+            ),
+        )?;
+        self.check_association(
+            &entity_name.pos(self.ctx),
+            &port_region,
+            scope,
+            port_map_aspect
+                .map(|it| it.list.items.as_mut_slice())
+                .unwrap_or(&mut []),
+            diagnostics,
+        )?;
+        Ok(())
     }
 
     pub fn analyze_map_aspect(

@@ -55,7 +55,7 @@ impl<'a> Region<'a> {
         let mut ports = Vec::with_capacity(self.entities.len());
 
         for ent in self.entities.values() {
-            if let NamedEntities::Single(ent) = ent {
+            if let Some(ent) = ent.as_unique() {
                 if let Some(ent) = InterfaceEnt::from_any(ent) {
                     if ent.is_signal() {
                         ports.push(ent);

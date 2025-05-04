@@ -744,3 +744,44 @@ end entity;
         )],
     );
 }
+
+#[test]
+fn generic_function_in_entity_instantiation() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity generic_signal_entity is
+    generic (
+        function active_edge(signal s: bit) return boolean
+    );
+end entity;
+
+architecture behavioural of generic_signal_entity is
+begin
+end architecture;
+
+entity test is
+end entity;
+
+architecture behavioural of test is
+    component generic_signal_component is
+    generic (
+        function active_edge(signal s: bit) return boolean
+    );
+    end component;
+begin
+    generic_signal_entity_inst: entity work.generic_signal_entity
+        generic map (
+            active_edge => rising_edge
+        );
+
+    generic_signal_component_inst: generic_signal_component
+        generic map (
+            active_edge => rising_edge
+        );
+end architecture;
+        ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}

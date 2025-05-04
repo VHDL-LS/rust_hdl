@@ -67,146 +67,150 @@ impl<'a> AnalyzeContext<'a, '_> {
             .map(|(_, resolved_formal)| resolved_formal)
             .zip(generic_map.iter_mut().map(|assoc| &mut assoc.actual))
         {
-            let Some(formal) = resolved_formal else {
-                continue;
-            };
             match &mut actual.item {
-                ActualPart::Expression(expr) => match &formal.iface {
-                    InterfaceEnt::Type(uninst_typ) => {
-                        let typ = if let Expression::Name(name) = expr {
-                            match name.as_mut() {
-                                // Could be an array constraint such as integer_vector(0 to 3)
-                                // @TODO we ignore the suffix for now
-                                Name::Slice(prefix, drange) => {
-                                    let typ = self.type_name(
-                                        scope,
-                                        prefix.span,
-                                        &mut prefix.item,
-                                        diagnostics,
-                                    )?;
-                                    if let Type::Array { indexes, .. } = typ.base().kind() {
-                                        if let Some(Some(idx_typ)) = indexes.first() {
-                                            self.drange_with_ttyp(
-                                                scope,
-                                                (*idx_typ).into(),
-                                                drange,
-                                                diagnostics,
-                                            )?;
+                ActualPart::Expression(expr) => {
+                    let Some(formal) = resolved_formal else {
+                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, &mut NullDiagnostics)?;
+                        continue;
+                    };
+                    match &formal.iface {
+                        InterfaceEnt::Type(uninst_typ) => {
+                            let typ = if let Expression::Name(name) = expr {
+                                match name.as_mut() {
+                                    // Could be an array constraint such as integer_vector(0 to 3)
+                                    // @TODO we ignore the suffix for now
+                                    Name::Slice(prefix, drange) => {
+                                        let typ = self.type_name(
+                                            scope,
+                                            prefix.span,
+                                            &mut prefix.item,
+                                            diagnostics,
+                                        )?;
+                                        if let Type::Array { indexes, .. } = typ.base().kind() {
+                                            if let Some(Some(idx_typ)) = indexes.first() {
+                                                self.drange_with_ttyp(
+                                                    scope,
+                                                    (*idx_typ).into(),
+                                                    drange,
+                                                    diagnostics,
+                                                )?;
+                                            }
+                                        } else {
+                                            diagnostics.add(
+                                                actual.pos(self.ctx),
+                                                format!(
+                                                    "Array constraint cannot be used for {}",
+                                                    typ.describe()
+                                                ),
+                                                ErrorCode::TypeMismatch,
+                                            );
                                         }
-                                    } else {
-                                        diagnostics.add(
-                                            actual.pos(self.ctx),
-                                            format!(
-                                                "Array constraint cannot be used for {}",
-                                                typ.describe()
-                                            ),
-                                            ErrorCode::TypeMismatch,
-                                        );
+                                        typ
                                     }
-                                    typ
-                                }
-                                // Could be a record constraint such as rec_t(field(0 to 3))
-                                // @TODO we ignore the suffix for now
-                                Name::CallOrIndexed(call) if call.could_be_indexed_name() => self
-                                    .type_name(
-                                    scope,
-                                    call.name.span,
-                                    &mut call.name.item,
-                                    diagnostics,
-                                )?,
-                                _ => self.type_name(scope, actual.span, name, diagnostics)?,
-                            }
-                        } else {
-                            diagnostics.add(
-                                actual.pos(self.ctx),
-                                "Cannot map expression to type generic",
-                                ErrorCode::MismatchedKinds,
-                            );
-                            continue;
-                        };
-
-                        mapping.insert(uninst_typ.id(), typ);
-                    }
-                    InterfaceEnt::Object(obj) if obj.is_constant() => self.expr_pos_with_ttyp(
-                        scope,
-                        self.map_type_ent(&mapping, obj.type_mark(), scope),
-                        actual.span,
-                        expr,
-                        diagnostics,
-                    )?,
-                    InterfaceEnt::Subprogram(target) => match expr {
-                        Expression::Name(name) => {
-                            let resolved =
-                                self.name_resolve(scope, actual.span, name, diagnostics)?;
-                            if let ResolvedName::Overloaded(des, overloaded) = resolved {
-                                let signature = target.subprogram_key().map(|base_type| {
-                                    mapping
-                                        .get(&base_type.id())
-                                        .map(|ent| ent.base())
-                                        .unwrap_or(base_type)
-                                });
-                                if let Some(ent) = overloaded.get(&signature) {
-                                    name.set_unique_reference(&ent);
-                                } else {
-                                    let mut diag = Diagnostic::mismatched_kinds(
-                                        actual.pos(self.ctx),
-                                        format!(
-                                            "Cannot map '{des}' to subprogram generic {}{}",
-                                            target.designator(),
-                                            signature.key().describe()
-                                        ),
-                                    );
-
-                                    diag.add_subprogram_candidates(
-                                        "Does not match",
-                                        overloaded.entities(),
-                                    );
-
-                                    diagnostics.push(diag)
+                                    // Could be a record constraint such as rec_t(field(0 to 3))
+                                    // @TODO we ignore the suffix for now
+                                    Name::CallOrIndexed(call) if call.could_be_indexed_name() => {
+                                        self.type_name(
+                                            scope,
+                                            call.name.span,
+                                            &mut call.name.item,
+                                            diagnostics,
+                                        )?
+                                    }
+                                    _ => self.type_name(scope, actual.span, name, diagnostics)?,
                                 }
                             } else {
                                 diagnostics.add(
                                     actual.pos(self.ctx),
-                                    format!(
-                                        "Cannot map {} to subprogram generic",
-                                        resolved.describe()
-                                    ),
+                                    "Cannot map expression to type generic",
                                     ErrorCode::MismatchedKinds,
-                                )
-                            }
-                        }
-                        Expression::Literal(Literal::String(string)) => {
-                            if Operator::from_latin1(string.clone()).is_none() {
-                                diagnostics.add(
-                                    actual.pos(self.ctx),
-                                    "Invalid operator symbol",
-                                    ErrorCode::InvalidOperatorSymbol,
                                 );
+                                continue;
+                            };
+
+                            mapping.insert(uninst_typ.id(), typ);
+                        }
+                        InterfaceEnt::Object(obj) if obj.is_constant() => self.expr_pos_with_ttyp(
+                            scope,
+                            self.map_type_ent(&mapping, obj.type_mark(), scope),
+                            actual.span,
+                            expr,
+                            diagnostics,
+                        )?,
+                        InterfaceEnt::Subprogram(target) => match expr {
+                            Expression::Name(name) => {
+                                let resolved =
+                                    self.name_resolve(scope, actual.span, name, diagnostics)?;
+                                if let ResolvedName::Overloaded(des, overloaded) = resolved {
+                                    let signature = target.subprogram_key().map(|base_type| {
+                                        mapping
+                                            .get(&base_type.id())
+                                            .map(|ent| ent.base())
+                                            .unwrap_or(base_type)
+                                    });
+                                    if let Some(ent) = overloaded.get(&signature) {
+                                        name.set_unique_reference(&ent);
+                                    } else {
+                                        let mut diag = Diagnostic::mismatched_kinds(
+                                            actual.pos(self.ctx),
+                                            format!(
+                                                "Cannot map '{des}' to subprogram generic {}{}",
+                                                target.designator(),
+                                                signature.key().describe()
+                                            ),
+                                        );
+
+                                        diag.add_subprogram_candidates(
+                                            "Does not match",
+                                            overloaded.entities(),
+                                        );
+
+                                        diagnostics.push(diag)
+                                    }
+                                } else {
+                                    diagnostics.add(
+                                        actual.pos(self.ctx),
+                                        format!(
+                                            "Cannot map {} to subprogram generic",
+                                            resolved.describe()
+                                        ),
+                                        ErrorCode::MismatchedKinds,
+                                    )
+                                }
                             }
-                        }
-                        _ => diagnostics.add(
-                            actual.pos(self.ctx),
-                            "Cannot map expression to subprogram generic",
-                            ErrorCode::MismatchedKinds,
-                        ),
-                    },
-                    InterfaceEnt::Package(_) => match expr {
-                        Expression::Name(name) => {
-                            self.name_resolve(scope, actual.span, name, diagnostics)?;
-                        }
-                        _ => diagnostics.add(
-                            actual.pos(self.ctx),
-                            "Cannot map expression to package generic",
-                            ErrorCode::MismatchedKinds,
-                        ),
-                    },
-                    _ => diagnostics.push(Diagnostic::invalid_formal(
-                        formal
-                            .iface
-                            .decl_pos()
-                            .expect("Formal without declaration position"),
-                    )),
-                },
+                            Expression::Literal(Literal::String(string)) => {
+                                if Operator::from_latin1(string.clone()).is_none() {
+                                    diagnostics.add(
+                                        actual.pos(self.ctx),
+                                        "Invalid operator symbol",
+                                        ErrorCode::InvalidOperatorSymbol,
+                                    );
+                                }
+                            }
+                            _ => diagnostics.add(
+                                actual.pos(self.ctx),
+                                "Cannot map expression to subprogram generic",
+                                ErrorCode::MismatchedKinds,
+                            ),
+                        },
+                        InterfaceEnt::Package(_) => match expr {
+                            Expression::Name(name) => {
+                                self.name_resolve(scope, actual.span, name, diagnostics)?;
+                            }
+                            _ => diagnostics.add(
+                                actual.pos(self.ctx),
+                                "Cannot map expression to package generic",
+                                ErrorCode::MismatchedKinds,
+                            ),
+                        },
+                        _ => diagnostics.push(Diagnostic::invalid_formal(
+                            formal
+                                .iface
+                                .decl_pos()
+                                .expect("Formal without declaration position"),
+                        )),
+                    }
+                }
                 ActualPart::Open => {
                     // @TODO
                 }
