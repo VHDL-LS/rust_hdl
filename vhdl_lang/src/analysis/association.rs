@@ -669,7 +669,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 .expect("Object or file interface without type");
                             self.expr_pos_with_ttyp(
                                 scope,
-                                self.map_type_ent(&mapping, typ, scope),
+                                self.map_type_ent(mapping, typ, scope),
                                 actual.span,
                                 expr,
                                 diagnostics,
