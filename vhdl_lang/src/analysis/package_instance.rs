@@ -360,7 +360,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                 AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype, scope))
             }
             AnyEntKind::Sequential(s) => AnyEntKind::Sequential(*s),
-            AnyEntKind::Concurrent(c) => AnyEntKind::Concurrent(*c),
+            AnyEntKind::Concurrent(c, region) => {
+                AnyEntKind::Concurrent(*c, self.map_region(parent, mapping, region, scope)?)
+            }
             AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj, scope)),
             AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(
                 typ.map(|typ| self.map_type_ent(mapping, typ.into(), scope).base()),

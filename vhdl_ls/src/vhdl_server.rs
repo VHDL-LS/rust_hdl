@@ -479,8 +479,8 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::Type(t) => type_kind(t),
         AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
         AnyEntKind::Sequential(_) => SymbolKind::NAMESPACE,
-        AnyEntKind::Concurrent(Some(Concurrent::Instance)) => SymbolKind::MODULE,
-        AnyEntKind::Concurrent(_) => SymbolKind::NAMESPACE,
+        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => SymbolKind::MODULE,
+        AnyEntKind::Concurrent(..) => SymbolKind::NAMESPACE,
         AnyEntKind::Library => SymbolKind::NAMESPACE,
         AnyEntKind::View(_) => SymbolKind::INTERFACE,
         AnyEntKind::Design(d) => match d {

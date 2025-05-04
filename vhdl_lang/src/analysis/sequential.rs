@@ -438,7 +438,7 @@ impl<'a> From<EntRef<'a>> for SequentialRoot<'a> {
                     SequentialRoot::Process
                 }
             }
-            AnyEntKind::Concurrent(Some(Concurrent::Process)) => SequentialRoot::Process,
+            AnyEntKind::Concurrent(Some(Concurrent::Process), _) => SequentialRoot::Process,
             _ => SequentialRoot::Process,
         }
     }

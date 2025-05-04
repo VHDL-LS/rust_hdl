@@ -48,7 +48,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
-                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ(), Region::default()),
                     Some(label.pos(self.ctx)),
                     span,
                     Some(self.source()),
@@ -61,7 +61,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     scope.anonymous_designator(),
                     Some(parent),
                     Related::None,
-                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ(), Region::default()),
                     None,
                     span,
                     Some(self.source()),
@@ -108,6 +108,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 )?;
                 self.analyze_declarative_part(&nested, parent, &mut block.decl, diagnostics)?;
                 self.analyze_concurrent_part(&nested, parent, &mut block.statements, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Block),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
@@ -130,6 +137,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.define_labels_for_sequential_part(&nested, parent, statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
                 self.analyze_sequential_part(&nested, parent, statements, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Process),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let ForGenerateStatement {
@@ -153,6 +167,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                     diagnostics,
                 );
                 self.analyze_generate_body(&nested, parent, body, src_span, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Generate),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 let Conditionals {
@@ -248,7 +269,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.ctx,
                 self.arena,
                 parent,
-                AnyEntKind::Concurrent(Some(Concurrent::Generate)),
+                AnyEntKind::Concurrent(Some(Concurrent::Generate), Region::default()),
                 span,
                 Some(self.source()),
             );

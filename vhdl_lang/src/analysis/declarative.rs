@@ -47,24 +47,26 @@ impl Declaration {
         match parent {
             // LRM: block_declarative_item
             AnyEntKind::Design(Design::Architecture(..))
-            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate)) => matches!(
-                self,
-                Object(ObjectDeclaration {
-                    class: Constant | Signal | SharedVariable,
-                    ..
-                }) | File(_)
-                    | Type(_)
-                    | Component(_)
-                    | Attribute(_)
-                    | Alias(_)
-                    | SubprogramDeclaration(_)
-                    | SubprogramInstantiation(_)
-                    | SubprogramBody(_)
-                    | Use(_)
-                    | Package(_)
-                    | Configuration(_)
-                    | View(_)
-            ),
+            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate), _) => {
+                matches!(
+                    self,
+                    Object(ObjectDeclaration {
+                        class: Constant | Signal | SharedVariable,
+                        ..
+                    }) | File(_)
+                        | Type(_)
+                        | Component(_)
+                        | Attribute(_)
+                        | Alias(_)
+                        | SubprogramDeclaration(_)
+                        | SubprogramInstantiation(_)
+                        | SubprogramBody(_)
+                        | Use(_)
+                        | Package(_)
+                        | Configuration(_)
+                        | View(_)
+                )
+            }
             // LRM: configuration_declarative_item
             AnyEntKind::Design(Design::Configuration) => {
                 matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
@@ -92,7 +94,7 @@ impl Declaration {
                 | Overloaded::UninstSubprogramDecl(..)
                 | Overloaded::UninstSubprogram(..),
             )
-            | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            | AnyEntKind::Concurrent(Some(Concurrent::Process), _)
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
                 Object(ObjectDeclaration {
@@ -1261,7 +1263,7 @@ fn get_entity_class(ent: EntRef<'_>) -> Option<EntityClass> {
         AnyEntKind::Type(Type::Subtype(_)) => Some(EntityClass::Subtype),
         AnyEntKind::Type(_) => Some(EntityClass::Type),
         AnyEntKind::ElementDeclaration(_) => None,
-        AnyEntKind::Concurrent(_) => Some(EntityClass::Label),
+        AnyEntKind::Concurrent(..) => Some(EntityClass::Label),
         AnyEntKind::Sequential(_) => Some(EntityClass::Label),
         AnyEntKind::Object(obj) => match obj.class {
             ObjectClass::Signal => Some(EntityClass::Signal),
