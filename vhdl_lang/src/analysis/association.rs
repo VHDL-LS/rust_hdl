@@ -60,7 +60,7 @@ impl<'a> ResolvedFormal<'a> {
         }
     }
 
-    fn partial_with_typ(&self, suffix_type: TypeEnt<'a>) -> Option<Self> {
+    fn partial_with_typ(self, suffix_type: TypeEnt<'a>) -> Option<Self> {
         if !self.is_converted {
             Some(Self {
                 idx: self.idx,
@@ -75,10 +75,10 @@ impl<'a> ResolvedFormal<'a> {
         }
     }
 
-    fn partial(&self) -> Self {
+    fn partial(self) -> Self {
         Self {
             is_partial: true,
-            ..*self
+            ..self
         }
     }
 
@@ -112,16 +112,11 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut prefix.item,
                     diagnostics,
                 )?;
-
-                let suffix_ent = match resolved_prefix.require_type_mark() {
-                    Err(e) => {
-                        diagnostics.push(e);
-                        return Err(EvalError::Unknown);
-                    }
-                    Ok(type_mark) => type_mark
-                        .selected(self.ctx, prefix.span, suffix)
-                        .into_eval_result(diagnostics)?,
-                };
+                let suffix_ent = resolved_prefix
+                    .require_type_mark()
+                    .into_eval_result(diagnostics)?
+                    .selected(self.ctx, prefix.span, suffix)
+                    .into_eval_result(diagnostics)?;
 
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
@@ -226,13 +221,10 @@ impl<'a> AnalyzeContext<'a, '_> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            let ctyp = match resolved_formal.require_type_mark() {
-                                Err(e) => {
-                                    diagnostics.push(e);
-                                    return Err(EvalError::Unknown);
-                                }
-                                Ok(type_mark) => type_mark.base(),
-                            };
+                            let ctyp = resolved_formal
+                                .require_type_mark()
+                                .into_eval_result(diagnostics)?
+                                .base();
                             if !typ.base().is_closely_related(ctyp) {
                                 bail!(
                                     diagnostics,
@@ -246,13 +238,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                             typ
                         }
                         Some(ResolvedName::Overloaded(des, overloaded)) => {
-                            let resolved_type = match resolved_formal.require_type_mark() {
-                                Err(e) => {
-                                    diagnostics.push(e);
-                                    return Err(EvalError::Unknown);
-                                }
-                                Ok(type_mark) => type_mark,
-                            };
+                            let resolved_type = resolved_formal
+                                .require_type_mark()
+                                .into_eval_result(diagnostics)?;
                             let mut candidates = Vec::with_capacity(overloaded.len());
 
                             for ent in overloaded.entities() {
@@ -307,13 +295,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                         &mut indexed_name.name.item,
                         diagnostics,
                     )?;
-                    let resolved_type = match resolved_prefix.require_type_mark() {
-                        Err(e) => {
-                            diagnostics.push(e);
-                            return Err(EvalError::Unknown);
-                        }
-                        Ok(type_mark) => type_mark,
-                    };
+                    let resolved_type = resolved_prefix
+                        .require_type_mark()
+                        .into_eval_result(diagnostics)?;
 
                     let new_typ = self.analyze_indexed_name(
                         scope,
@@ -348,6 +332,17 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
+    /// Verifies that named arguments follow positional arguments.
+    ///
+    /// ## Compliant example
+    /// ```vhdl
+    /// foo(0, arg1 => 0);
+    /// ```
+    ///
+    /// ## Non-Compliant example
+    /// ```vhdl
+    /// foo(arg1 => 0, 0);
+    /// ```
     pub fn check_positional_before_named(
         &self,
         elems: &[AssociationElement],
@@ -378,6 +373,12 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
+    /// Combines formal elements (the ones that were declared at a function,
+    /// procedure, entity, package, e.t.c.) with the actual elements (the ones
+    /// that are present at the call / instantiation site).
+    /// The result is a vector of tuples where the first refers to the token span
+    /// of the actual and the second to the resolved formal.
+    /// If there is an extraneous argument, the resolved formal will be `None`.
     pub fn combine_formal_with_actuals<'e>(
         &self,
         formal_region: &FormalRegion<'a>,
@@ -403,6 +404,7 @@ impl<'a> AnalyzeContext<'a, '_> {
 
                 result.push((formal.span, resolved_formal));
             } else if let Some(formal) = formal_region.nth(actual_idx) {
+                // positional argument
                 // Actual index is same as formal index for positional argument
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
                 result.push((actual.span, Some(formal)));
@@ -418,6 +420,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(result)
     }
 
+    /// Check for missing and duplicate associations.
     pub fn check_missing_and_duplicates(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
@@ -503,52 +506,38 @@ impl<'a> AnalyzeContext<'a, '_> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
         let resolved_pairs =
-            as_fatal(self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics))?;
+            self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
 
-        if let Some(resolved_pairs) = resolved_pairs {
-            for (resolved_formal, actual) in resolved_pairs
-                .iter()
-                .map(|(_, resolved_formal)| resolved_formal)
-                .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
-            {
-                match &mut actual.item {
-                    ActualPart::Expression(expr) => {
-                        let Some(resolved_formal) = resolved_formal else {
-                            self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
-                            continue;
-                        };
-                        if formal_region.typ == InterfaceType::Parameter {
-                            self.check_parameter_interface(
-                                resolved_formal,
-                                expr,
-                                scope,
-                                actual.span,
-                                diagnostics,
-                            )?;
-                        }
-                        if let Some(type_mark) = resolved_formal.type_mark {
-                            self.expr_pos_with_ttyp(
-                                scope,
-                                type_mark,
-                                actual.span,
-                                expr,
-                                diagnostics,
-                            )?;
-                        }
+        for (resolved_formal, actual) in resolved_pairs
+            .iter()
+            .map(|(_, resolved_formal)| resolved_formal)
+            .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
+        {
+            match &mut actual.item {
+                ActualPart::Expression(expr) => {
+                    let Some(resolved_formal) = resolved_formal else {
+                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
+                        continue;
+                    };
+                    if formal_region.typ == InterfaceType::Parameter {
+                        self.check_parameter_interface(
+                            resolved_formal,
+                            expr,
+                            scope,
+                            actual.span,
+                            diagnostics,
+                        )?;
                     }
-                    ActualPart::Open => {}
+                    if let Some(type_mark) = resolved_formal.type_mark {
+                        self.expr_pos_with_ttyp(scope, type_mark, actual.span, expr, diagnostics)?;
+                    }
                 }
+                ActualPart::Open => {}
             }
-            as_fatal(self.check_missing_and_duplicates(
-                error_pos,
-                resolved_pairs,
-                formal_region,
-                diagnostics,
-            ))?;
         }
-        Ok(())
+        self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)
     }
 
     pub fn generic_map(

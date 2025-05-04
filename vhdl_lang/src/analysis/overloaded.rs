@@ -10,7 +10,6 @@ use vhdl_lang::TokenAccess;
 use super::analyze::*;
 use super::expression::ExpressionType;
 use super::scope::*;
-use crate::ast::search::clear_references;
 use crate::ast::token_range::WithToken;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
@@ -196,13 +195,13 @@ impl<'a> AnalyzeContext<'a, '_> {
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.check_association(
+        as_fatal(self.check_association(
             error_pos,
             FormalRegion::ref_from_param_ref(ent.formals()),
             scope,
             assocs,
             diagnostics,
-        )?;
+        ))?;
         Ok(())
     }
 
@@ -229,7 +228,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 assocs,
                 &mut NullDiagnostics,
             ))? {
-                // Since we pass in a ParameterRegion, we should only get back Parameter Entities
+                // Since we are in a ParameterRegion, we should only get back Parameter Entities
                 // that are all convertible to types.
                 let resolved = resolved
                     .into_iter()
@@ -242,10 +241,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                     subpgm: *ent,
                     formals: resolved,
                 });
-            }
-
-            for elem in assocs.iter_mut() {
-                clear_references(elem, self.ctx);
             }
         }
 

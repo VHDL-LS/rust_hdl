@@ -244,7 +244,7 @@ impl Diagnostic {
     ) -> Diagnostic {
         Diagnostic::new(
             pos,
-            format!("{} does not match {}", desc, expected_type.describe(),),
+            format!("{} does not match {}", desc, expected_type.describe()),
             ErrorCode::TypeMismatch,
         )
     }

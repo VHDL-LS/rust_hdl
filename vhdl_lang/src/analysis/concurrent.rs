@@ -419,14 +419,16 @@ impl<'a> AnalyzeContext<'a, '_> {
                 diagnostics,
             ),
         )?;
-        self.check_association(
-            &entity_name.pos(self.ctx),
-            &port_region,
-            scope,
-            port_map_aspect
-                .map(|it| it.list.items.as_mut_slice())
-                .unwrap_or(&mut []),
-            diagnostics,
+        as_fatal(
+            self.check_association(
+                &entity_name.pos(self.ctx),
+                &port_region,
+                scope,
+                port_map_aspect
+                    .map(|it| it.list.items.as_mut_slice())
+                    .unwrap_or(&mut []),
+                diagnostics,
+            ),
         )?;
         Ok(())
     }
