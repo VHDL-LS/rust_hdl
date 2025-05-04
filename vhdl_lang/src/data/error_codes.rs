@@ -180,6 +180,16 @@ pub enum ErrorCode {
     /// ```
     MismatchedEntityClass,
 
+    /// The object class of an external name does not match the declared
+    ///
+    /// # Example
+    /// ```vhdl
+    /// signal foo : bit;
+    /// -- ...
+    /// << signal from.somewhere.foo : constant >>
+    /// ```
+    MismatchedObjectClass,
+
     /// The attribute specification is not in the immediate declarative part
     ///
     /// # Example
@@ -494,6 +504,7 @@ impl Default for SeverityMap {
             | SignatureMismatch
             | AmbiguousInstantiation
             | MismatchedSubprogramInstantiation
+            | MismatchedObjectClass
             | VoidReturn
             | NonVoidReturn
             | IllegalReturn

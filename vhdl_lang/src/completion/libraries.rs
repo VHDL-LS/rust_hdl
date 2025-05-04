@@ -38,4 +38,22 @@ mod tests {
             ],
         )
     }
+
+    #[test]
+    pub fn completes_external_library_names() {
+        let input = LibraryBuilder::new();
+        let code = Code::new("<< signal @");
+        let (root, _) = input.get_analyzed_root();
+        let cursor = code.end();
+        let options = list_completion_options(&root, code.source(), cursor);
+        assert_eq_unordered(
+            &options,
+            &[
+                CompletionItem::Simple(
+                    root.get_ent(root.get_lib(&root.symbol_utf8("std")).unwrap().id()),
+                ),
+                CompletionItem::Work,
+            ],
+        )
+    }
 }

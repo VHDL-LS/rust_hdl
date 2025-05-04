@@ -12,6 +12,7 @@ mod custom_attributes;
 mod declarations;
 mod deferred_constant;
 mod discrete_ranges;
+mod external_names;
 mod hierarchy;
 mod homographs;
 mod implicit;

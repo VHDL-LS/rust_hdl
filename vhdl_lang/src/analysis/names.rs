@@ -1273,8 +1273,41 @@ impl<'a> AnalyzeContext<'a, '_> {
                 });
             }
             SplitName::External(ename) => {
-                let ExternalName { subtype, class, .. } = ename;
+                let ExternalName {
+                    subtype,
+                    class,
+                    path,
+                    ..
+                } = ename;
                 let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
+                let resolved_path = self.resolve_external_path(scope, path, diagnostics)?;
+                match resolved_path {
+                    Some(ResolvedName::ObjectName(obj)) => {
+                        if !self.can_be_target_type(obj.type_mark(), subtype.base()) {
+                            diagnostics.push(Diagnostic::type_mismatch(
+                                &path.pos(self.ctx),
+                                &obj.describe_type(),
+                                subtype.type_mark(),
+                            ))
+                        }
+                        if *class != obj.base.class().into() {
+                            diagnostics.push(Diagnostic::new(
+                                path.pos(self.ctx),
+                                format!("class {} does not match {}", *class, obj.base.class()),
+                                ErrorCode::MismatchedObjectClass,
+                            ))
+                        }
+                    }
+                    None => {
+                        // ignore; we do not analyze this yet
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::mismatched_kinds(
+                            path.pos(self.ctx),
+                            "External path must point to a constant, variable or signal",
+                        ));
+                    }
+                }
                 return Ok(ResolvedName::ObjectName(ObjectName {
                     base: ObjectBase::ExternalName(*class),
                     type_mark: Some(subtype.type_mark().to_owned()),
@@ -1581,6 +1614,25 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         Ok(resolved)
+    }
+
+    // Currently, only resolved Package name
+    fn resolve_external_path(
+        &self,
+        scope: &Scope<'a>,
+        path: &mut WithTokenSpan<ExternalPath>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Option<ResolvedName<'a>>> {
+        match path.item {
+            ExternalPath::Package(ref mut pkg) => Ok(Some(self.name_resolve(
+                scope,
+                pkg.span,
+                &mut pkg.item,
+                diagnostics,
+            )?)),
+            ExternalPath::Absolute(_) => Ok(None),
+            ExternalPath::Relative(_, _) => Ok(None),
+        }
     }
 
     // Helper function:
