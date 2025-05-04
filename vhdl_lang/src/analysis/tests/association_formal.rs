@@ -785,3 +785,41 @@ end architecture;
     );
     check_no_diagnostics(&builder.analyze());
 }
+
+#[test]
+#[ignore]
+fn generic_type_from_port_in_map() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity foo is
+    generic (
+        type t
+    );
+    port (
+        clk: in t
+    );
+end entity foo;
+
+architecture rtl of foo is
+begin
+end architecture;
+
+entity test is
+end entity test;
+
+architecture rtl of te is
+begin
+    foo_inst: entity work.foo
+    generic map(
+        t => bit
+    )
+    port map(
+        clk => '1'
+    );
+end architecture;
+        ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
