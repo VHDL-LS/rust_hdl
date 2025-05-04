@@ -22,7 +22,7 @@ pub(crate) struct ResolvedFormal<'a> {
     idx: usize,
 
     /// The underlying interface object
-    iface: InterfaceEnt<'a>,
+    pub(crate) iface: InterfaceEnt<'a>,
 
     // Has the formal been selected, indexed or sliced?
     /// Example:
@@ -378,7 +378,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
-    fn combine_formal_with_actuals<'e>(
+    pub fn combine_formal_with_actuals<'e>(
         &self,
         formal_region: &FormalRegion<'a>,
         scope: &Scope<'a>,
@@ -418,7 +418,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(result)
     }
 
-    fn check_missing_and_duplicates(
+    pub fn check_missing_and_duplicates(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         resolved_pairs: Vec<(TokenSpan, Option<ResolvedFormal<'a>>)>,
@@ -561,52 +561,55 @@ impl<'a> AnalyzeContext<'a, '_> {
         actual_pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match resolved_formal.iface.interface_class() {
-            InterfaceClass::Signal => {
-                let Some(name) =
-                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
-                else {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Expression must be a name denoting a signal",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
-                    return Ok(());
-                };
-                if !matches!(name, ResolvedName::ObjectName(
-                                                        ObjectName { base, .. },
-                                                    ) if base.class() == ObjectClass::Signal)
-                {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Name must denote a signal name",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
+        match resolved_formal.iface {
+            InterfaceEnt::Object(o) => match o.class() {
+                ObjectClass::Signal => {
+                    let Some(name) =
+                        as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                    else {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Expression must be a name denoting a signal",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                        return Ok(());
+                    };
+                    if !matches!(name, ResolvedName::ObjectName(
+                                                            ObjectName { base, .. },
+                                                        ) if base.class() == ObjectClass::Signal)
+                    {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Name must denote a signal name",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                    }
                 }
-            }
-            InterfaceClass::Variable => {
-                let Some(name) =
-                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
-                else {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Expression must be a name denoting a variable or shared variable",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
-                    return Ok(());
-                };
-                if !matches!(name, ResolvedName::ObjectName(
+                ObjectClass::Constant => {}
+                ObjectClass::Variable | ObjectClass::SharedVariable => {
+                    let Some(name) =
+                        as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                    else {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Expression must be a name denoting a variable or shared variable",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                        return Ok(());
+                    };
+                    if !matches!(name, ResolvedName::ObjectName(
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
-                {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Name must denote a variable name",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
+                    {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Name must denote a variable name",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                    }
                 }
-            }
-            InterfaceClass::File => {
+            },
+            InterfaceEnt::File(_) => {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {

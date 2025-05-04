@@ -53,48 +53,25 @@ impl<'a> AnalyzeContext<'a, '_> {
     pub fn generic_map(
         &self,
         scope: &Scope<'a>,
+        error_pos: &SrcPos, // The position of the instance/call-site
         generics: FormalRegion<'a>,
         generic_map: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
+        let resolved_pairs =
+            self.combine_formal_with_actuals(&generics, scope, generic_map, diagnostics)?;
         let mut mapping = FnvHashMap::default();
 
-        // @TODO check missing associations
-        for (idx, assoc) in generic_map.iter_mut().enumerate() {
-            let formal = if let Some(formal) = &mut assoc.formal {
-                let formal_pos = formal.pos(self.ctx);
-                if let Name::Designator(des) = &mut formal.item {
-                    match generics.lookup(&formal_pos, &des.item) {
-                        Ok((_, ent)) => {
-                            des.set_unique_reference(&ent);
-                            ent
-                        }
-                        Err(err) => {
-                            diagnostics.push(err);
-                            continue;
-                        }
-                    }
-                } else {
-                    diagnostics.add(
-                        formal.pos(self.ctx),
-                        "Expected simple name for package generic formal",
-                        ErrorCode::MismatchedKinds,
-                    );
-                    continue;
-                }
-            } else if let Some(ent) = generics.nth(idx) {
-                ent
-            } else {
-                diagnostics.add(
-                    assoc.actual.pos(self.ctx),
-                    "Extra actual for generic map",
-                    ErrorCode::TooManyArguments,
-                );
+        for (resolved_formal, actual) in resolved_pairs
+            .iter()
+            .map(|(_, resolved_formal)| resolved_formal)
+            .zip(generic_map.iter_mut().map(|assoc| &mut assoc.actual))
+        {
+            let Some(formal) = resolved_formal else {
                 continue;
             };
-
-            match &mut assoc.actual.item {
-                ActualPart::Expression(expr) => match formal {
+            match &mut actual.item {
+                ActualPart::Expression(expr) => match &formal.iface {
                     InterfaceEnt::Type(uninst_typ) => {
                         let typ = if let Expression::Name(name) = expr {
                             match name.as_mut() {
@@ -118,7 +95,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                         }
                                     } else {
                                         diagnostics.add(
-                                            assoc.actual.pos(self.ctx),
+                                            actual.pos(self.ctx),
                                             format!(
                                                 "Array constraint cannot be used for {}",
                                                 typ.describe()
@@ -137,11 +114,11 @@ impl<'a> AnalyzeContext<'a, '_> {
                                     &mut call.name.item,
                                     diagnostics,
                                 )?,
-                                _ => self.type_name(scope, assoc.actual.span, name, diagnostics)?,
+                                _ => self.type_name(scope, actual.span, name, diagnostics)?,
                             }
                         } else {
                             diagnostics.add(
-                                assoc.actual.pos(self.ctx),
+                                actual.pos(self.ctx),
                                 "Cannot map expression to type generic",
                                 ErrorCode::MismatchedKinds,
                             );
@@ -153,14 +130,14 @@ impl<'a> AnalyzeContext<'a, '_> {
                     InterfaceEnt::Object(obj) if obj.is_constant() => self.expr_pos_with_ttyp(
                         scope,
                         self.map_type_ent(&mapping, obj.type_mark(), scope),
-                        assoc.actual.span,
+                        actual.span,
                         expr,
                         diagnostics,
                     )?,
                     InterfaceEnt::Subprogram(target) => match expr {
                         Expression::Name(name) => {
                             let resolved =
-                                self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
+                                self.name_resolve(scope, actual.span, name, diagnostics)?;
                             if let ResolvedName::Overloaded(des, overloaded) = resolved {
                                 let signature = target.subprogram_key().map(|base_type| {
                                     mapping
@@ -172,7 +149,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                     name.set_unique_reference(&ent);
                                 } else {
                                     let mut diag = Diagnostic::mismatched_kinds(
-                                        assoc.actual.pos(self.ctx),
+                                        actual.pos(self.ctx),
                                         format!(
                                             "Cannot map '{des}' to subprogram generic {}{}",
                                             target.designator(),
@@ -189,7 +166,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 }
                             } else {
                                 diagnostics.add(
-                                    assoc.actual.pos(self.ctx),
+                                    actual.pos(self.ctx),
                                     format!(
                                         "Cannot map {} to subprogram generic",
                                         resolved.describe()
@@ -201,30 +178,31 @@ impl<'a> AnalyzeContext<'a, '_> {
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
                                 diagnostics.add(
-                                    assoc.actual.pos(self.ctx),
+                                    actual.pos(self.ctx),
                                     "Invalid operator symbol",
                                     ErrorCode::InvalidOperatorSymbol,
                                 );
                             }
                         }
                         _ => diagnostics.add(
-                            assoc.actual.pos(self.ctx),
+                            actual.pos(self.ctx),
                             "Cannot map expression to subprogram generic",
                             ErrorCode::MismatchedKinds,
                         ),
                     },
                     InterfaceEnt::Package(_) => match expr {
                         Expression::Name(name) => {
-                            self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
+                            self.name_resolve(scope, actual.span, name, diagnostics)?;
                         }
                         _ => diagnostics.add(
-                            assoc.actual.pos(self.ctx),
+                            actual.pos(self.ctx),
                             "Cannot map expression to package generic",
                             ErrorCode::MismatchedKinds,
                         ),
                     },
                     _ => diagnostics.push(Diagnostic::invalid_formal(
                         formal
+                            .iface
                             .decl_pos()
                             .expect("Formal without declaration position"),
                     )),
@@ -234,6 +212,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 }
             }
         }
+        self.check_missing_and_duplicates(error_pos, resolved_pairs, &generics, diagnostics)?;
         Ok(mapping)
     }
 
@@ -252,6 +231,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         let mapping = if let Some(generic_map) = generic_map {
             self.generic_map(
                 &nested,
+                decl_pos,
                 generics,
                 generic_map.list.items.as_mut_slice(),
                 diagnostics,

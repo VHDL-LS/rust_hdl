@@ -21,25 +21,6 @@ pub enum InterfaceEnt<'a> {
     Package(DesignEnt<'a>),
 }
 
-#[derive(Eq, PartialEq)]
-pub enum InterfaceClass {
-    Signal,
-    Variable,
-    Constant,
-    File,
-}
-
-impl From<ObjectClass> for InterfaceClass {
-    fn from(value: ObjectClass) -> Self {
-        match value {
-            ObjectClass::Signal => InterfaceClass::Signal,
-            ObjectClass::Constant => InterfaceClass::Constant,
-            ObjectClass::Variable => InterfaceClass::Variable,
-            ObjectClass::SharedVariable => InterfaceClass::Variable,
-        }
-    }
-}
-
 impl<'a> InterfaceEnt<'a> {
     pub fn inner(&self) -> EntRef<'a> {
         match self {
@@ -79,22 +60,8 @@ impl<'a> InterfaceEnt<'a> {
         }
     }
 
-    pub fn interface_class(&self) -> InterfaceClass {
-        match self.kind() {
-            AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => InterfaceClass::File,
-            AnyEntKind::Object(obj) => obj.class.into(),
-            _ => {
-                debug_assert!(
-                    false,
-                    "Interface ent should never be anything but an object or a file"
-                );
-                InterfaceClass::Constant
-            }
-        }
-    }
-
     pub fn is_signal(&self) -> bool {
-        self.interface_class() == InterfaceClass::Signal
+        matches!(self, InterfaceEnt::Object(obj) if obj.is_signal())
     }
 
     pub fn is_out_or_inout_signal(&self) -> bool {

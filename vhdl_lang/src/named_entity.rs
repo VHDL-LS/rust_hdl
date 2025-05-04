@@ -39,8 +39,8 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
-    FormalRegion, GpkgInterfaceEnt, InterfaceClass, InterfaceEnt, ParameterEnt, ParameterRegion,
-    RecordElement, RecordRegion,
+    FormalRegion, GpkgInterfaceEnt, InterfaceEnt, ParameterEnt, ParameterRegion, RecordElement,
+    RecordRegion,
 };
 
 /// The kind of [AnyEnt].
