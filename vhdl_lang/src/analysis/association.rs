@@ -499,18 +499,26 @@ impl<'a> AnalyzeContext<'a, '_> {
         self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)
     }
 
+    /// Checks associations irrelevant of the actual kind (i.e., can analyzes generic maps,
+    /// port maps and subprogram calls).
+    ///
+    /// * `error_pos` Position of the instance or call site
+    /// * `formal_region` The formals, i.e., the declared elements
+    /// * `mapping` Maps generic types to their actual values. This is a mutable reference so that
+    ///   generic maps can populate the content appropriately while port maps and parameters will
+    ///   only read from it.
     pub fn check_association<'e>(
         &self,
-        error_pos: &SrcPos, // The position of the instance/call-site
+        error_pos: &SrcPos,
         formal_region: &FormalRegion<'a>,
+        mapping: &mut FnvHashMap<EntityId, TypeEnt<'a>>,
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
+    ) -> EvalResult {
         let resolved_pairs =
             self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
 
-        let mut mapping = FnvHashMap::default();
         for (resolved_formal, actual) in resolved_pairs
             .iter()
             .map(|(_, resolved_formal)| resolved_formal)
@@ -673,7 +681,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             }
         }
         self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)?;
-        Ok(mapping)
+        Ok(())
     }
 
     // LRM 4.2.2.1: In a subprogram, the interface mode must match the mode of the actual designator

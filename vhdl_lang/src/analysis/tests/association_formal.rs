@@ -787,7 +787,6 @@ end architecture;
 }
 
 #[test]
-#[ignore]
 fn generic_type_from_port_in_map() {
     let mut builder = LibraryBuilder::new();
     builder.code(
@@ -809,7 +808,7 @@ end architecture;
 entity test is
 end entity test;
 
-architecture rtl of te is
+architecture rtl of test is
 begin
     foo_inst: entity work.foo
     generic map(

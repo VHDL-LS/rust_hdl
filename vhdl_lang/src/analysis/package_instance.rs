@@ -56,17 +56,17 @@ impl<'a> AnalyzeContext<'a, '_> {
         let nested = scope.nested().in_package_declaration();
         let (generics, other) = uninst_region.to_package_generic();
 
-        let mapping = if let Some(generic_map) = generic_map {
+        let mut mapping = FnvHashMap::default();
+        if let Some(generic_map) = generic_map {
             self.check_association(
                 decl_pos,
                 &generics,
+                &mut mapping,
                 &nested,
                 generic_map.list.items.as_mut_slice(),
                 diagnostics,
-            )?
-        } else {
-            FnvHashMap::default()
-        };
+            )?;
+        }
 
         for uninst in other {
             match self.instantiate(Some(ent), &mapping, uninst, &nested) {

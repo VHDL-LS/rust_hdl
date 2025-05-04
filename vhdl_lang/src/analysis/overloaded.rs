@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use fnv::FnvHashSet;
+use fnv::{FnvHashMap, FnvHashSet};
 use vhdl_lang::TokenAccess;
 
 use super::analyze::*;
@@ -198,6 +198,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         as_fatal(self.check_association(
             error_pos,
             FormalRegion::ref_from_param_ref(ent.formals()),
+            &mut FnvHashMap::default(),
             scope,
             assocs,
             diagnostics,
