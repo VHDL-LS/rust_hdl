@@ -71,16 +71,16 @@ impl<'a> Region<'a> {
         (ports, generics)
     }
 
-    pub(crate) fn to_package_generic(&self) -> (GpkgRegion<'a>, Vec<EntRef<'a>>) {
+    pub(crate) fn to_package_generic(&self) -> (FormalRegion<'a>, Vec<EntRef<'a>>) {
         // @TODO separate generics and ports
-        let mut generics = Vec::with_capacity(self.entities.len());
+        let mut generics: Vec<InterfaceEnt<'a>> = Vec::with_capacity(self.entities.len());
         let mut other = Vec::with_capacity(self.entities.len());
 
         for ent in self.entities.values() {
             match ent {
                 NamedEntities::Single(ent) => {
                     if let Some(ent) = GpkgInterfaceEnt::from_any(ent) {
-                        generics.push(ent);
+                        generics.push(ent.into());
                         continue;
                     }
                     other.push(*ent);
@@ -88,7 +88,7 @@ impl<'a> Region<'a> {
                 NamedEntities::Overloaded(overloaded) => {
                     if overloaded.len() == 1 {
                         if let Some(ent) = GpkgInterfaceEnt::from_any(overloaded.first().into()) {
-                            generics.push(ent);
+                            generics.push(ent.into());
                             continue;
                         }
                     }
@@ -100,7 +100,10 @@ impl<'a> Region<'a> {
         // Sorting by source file position gives declaration order
         generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         other.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
-        (GpkgRegion::new(generics), other)
+        (
+            FormalRegion::new_with(InterfaceType::Generic, generics),
+            other,
+        )
     }
 
     fn check_deferred_constant_pairs(&self, diagnostics: &mut dyn DiagnosticHandler) {

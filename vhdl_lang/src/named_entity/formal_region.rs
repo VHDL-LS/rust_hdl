@@ -13,9 +13,12 @@ use std::ops::Deref;
 use super::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct InterfaceEnt<'a> {
-    /// InterfaceObject or InterfaceFile
-    ent: EntRef<'a>,
+pub enum InterfaceEnt<'a> {
+    Type(TypeEnt<'a>),
+    Object(ObjectEnt<'a>),
+    File(FileEnt<'a>),
+    Subprogram(OverloadedEnt<'a>),
+    Package(DesignEnt<'a>),
 }
 
 #[derive(Eq, PartialEq)]
@@ -39,27 +42,40 @@ impl From<ObjectClass> for InterfaceClass {
 
 impl<'a> InterfaceEnt<'a> {
     pub fn inner(&self) -> EntRef<'a> {
-        self.ent
+        match self {
+            InterfaceEnt::Type(typ) => typ.inner(),
+            InterfaceEnt::File(typ) => typ.inner(),
+            InterfaceEnt::Object(obj) => obj.inner(),
+            InterfaceEnt::Subprogram(overloaded) => overloaded.inner(),
+            InterfaceEnt::Package(pkg) => pkg.inner(),
+        }
     }
 
     pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         match ent.kind() {
-            AnyEntKind::Object(Object { iface: Some(_), .. })
-            | AnyEntKind::InterfaceFile(..)
-            | AnyEntKind::Design(Design::InterfacePackageInstance(_))
-            | AnyEntKind::Type(Type::Interface)
-            | AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => {
-                Some(InterfaceEnt { ent })
+            AnyEntKind::Object(Object { iface: Some(_), .. }) => {
+                Some(InterfaceEnt::Object(ObjectEnt::from_any(ent).unwrap()))
             }
+            AnyEntKind::InterfaceFile(_) => {
+                Some(InterfaceEnt::File(FileEnt::from_any(ent).unwrap()))
+            }
+            AnyEntKind::Design(Design::InterfacePackageInstance(_)) => {
+                Some(InterfaceEnt::Package(DesignEnt::from_any(ent).unwrap()))
+            }
+            AnyEntKind::Type(Type::Interface) => {
+                Some(InterfaceEnt::Type(TypeEnt::from_any(ent).unwrap()))
+            }
+            AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
+                InterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
+            ),
             _ => None,
         }
     }
 
     pub fn has_default(&self) -> bool {
-        if let AnyEntKind::Object(Object { has_default, .. }) = self.ent.kind() {
-            *has_default
-        } else {
-            false
+        match self {
+            InterfaceEnt::Object(o) => o.kind().has_default,
+            _ => false,
         }
     }
 
@@ -82,9 +98,9 @@ impl<'a> InterfaceEnt<'a> {
     }
 
     pub fn is_out_or_inout_signal(&self) -> bool {
-        match self.ent.kind() {
-            AnyEntKind::Object(obj) => {
-                obj.class == ObjectClass::Signal
+        match self {
+            InterfaceEnt::Object(obj) => {
+                obj.class() == ObjectClass::Signal
                     && matches!(
                         obj.mode(),
                         Some(InterfaceMode::Simple(Mode::Out | Mode::InOut))
@@ -95,9 +111,9 @@ impl<'a> InterfaceEnt<'a> {
     }
 
     pub fn type_mark(&self) -> Option<TypeEnt<'a>> {
-        match self.ent.kind() {
-            AnyEntKind::Object(obj) => Some(obj.subtype.type_mark()),
-            AnyEntKind::InterfaceFile(file_type) => Some(*file_type),
+        match self {
+            InterfaceEnt::Object(obj) => Some(obj.type_mark()),
+            InterfaceEnt::File(file_type) => Some(file_type.type_mark()),
             _ => None,
         }
     }
@@ -106,7 +122,7 @@ impl<'a> InterfaceEnt<'a> {
 impl<'a> std::ops::Deref for InterfaceEnt<'a> {
     type Target = AnyEnt<'a>;
     fn deref(&self) -> EntRef<'a> {
-        self.ent
+        self.inner()
     }
 }
 
@@ -115,7 +131,18 @@ pub enum GpkgInterfaceEnt<'a> {
     Type(TypeEnt<'a>),
     Constant(ObjectEnt<'a>),
     Subprogram(OverloadedEnt<'a>),
-    Package(EntRef<'a>),
+    Package(DesignEnt<'a>),
+}
+
+impl<'a> From<GpkgInterfaceEnt<'a>> for InterfaceEnt<'a> {
+    fn from(value: GpkgInterfaceEnt<'a>) -> Self {
+        match value {
+            GpkgInterfaceEnt::Type(typ) => InterfaceEnt::Type(typ),
+            GpkgInterfaceEnt::Constant(obj) => InterfaceEnt::Object(obj),
+            GpkgInterfaceEnt::Subprogram(ovlded) => InterfaceEnt::Subprogram(ovlded),
+            GpkgInterfaceEnt::Package(pkg) => InterfaceEnt::Package(pkg),
+        }
+    }
 }
 
 impl<'a> GpkgInterfaceEnt<'a> {
@@ -131,7 +158,7 @@ impl<'a> GpkgInterfaceEnt<'a> {
                 GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
             ),
             AnyEntKind::Design(Design::InterfacePackageInstance(_)) => {
-                Some(GpkgInterfaceEnt::Package(ent))
+                Some(GpkgInterfaceEnt::Package(DesignEnt::from_any(ent).unwrap()))
             }
             _ => None,
         }
@@ -244,7 +271,7 @@ impl<'a> ParameterEnt<'a> {
             AnyEntKind::Object(obj) => obj.subtype.type_mark(),
             AnyEntKind::InterfaceFile(file_type) => *file_type,
             _ => {
-                unreachable!();
+                unreachable!("unexpected type {:?}", self.0.kind());
             }
         }
     }
@@ -268,7 +295,7 @@ impl<'a> ParameterEnt<'a> {
 
 impl<'a> From<ParameterEnt<'a>> for InterfaceEnt<'a> {
     fn from(value: ParameterEnt<'a>) -> Self {
-        InterfaceEnt { ent: value.0 }
+        InterfaceEnt::from_any(value.0).expect("Any ParameterEnt should be an InterfaceEnt")
     }
 }
 
@@ -416,37 +443,5 @@ impl<'a> std::ops::Deref for RecordElement<'a> {
 impl<'a> From<RecordElement<'a>> for EntRef<'a> {
     fn from(value: RecordElement<'a>) -> Self {
         value.ent
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GpkgRegion<'a> {
-    entities: Vec<GpkgInterfaceEnt<'a>>,
-}
-
-impl<'a> GpkgRegion<'a> {
-    pub fn new(entities: Vec<GpkgInterfaceEnt<'a>>) -> Self {
-        Self { entities }
-    }
-
-    pub fn lookup(
-        &self,
-        pos: &SrcPos,
-        designator: &Designator,
-    ) -> Result<(usize, GpkgInterfaceEnt<'a>), Diagnostic> {
-        for (idx, ent) in self.entities.iter().enumerate() {
-            if ent.designator() == designator {
-                return Ok((idx, *ent));
-            }
-        }
-        Err(Diagnostic::new(
-            pos,
-            format!("No declaration of '{designator}'"),
-            ErrorCode::Unresolved,
-        ))
-    }
-
-    pub fn nth(&self, idx: usize) -> Option<GpkgInterfaceEnt<'a>> {
-        self.entities.get(idx).cloned()
     }
 }

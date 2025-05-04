@@ -31,13 +31,16 @@ pub use visibility::{Visibility, Visible};
 mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
+mod file;
+pub use file::FileEnt;
 mod formal_region;
+
 use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
-    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, ParameterEnt,
-    ParameterRegion, RecordElement, RecordRegion,
+    FormalRegion, GpkgInterfaceEnt, InterfaceClass, InterfaceEnt, ParameterEnt, ParameterRegion,
+    RecordElement, RecordRegion,
 };
 
 /// The kind of [AnyEnt].
@@ -418,7 +421,23 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn is_signal(&self) -> bool {
-        matches!(self.kind(), AnyEntKind::Object(obj) if obj.is_signal())
+        matches!(
+            self.kind(),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Signal,
+                ..
+            })
+        )
+    }
+
+    pub fn is_constant(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                ..
+            })
+        )
     }
 
     pub fn is_declared_by(&self, other: EntRef<'_>) -> bool {

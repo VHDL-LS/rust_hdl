@@ -243,6 +243,10 @@ impl<'a> OverloadedEnt<'a> {
         }
     }
 
+    pub fn inner(&self) -> EntRef<'a> {
+        self.ent
+    }
+
     pub fn subprogram_key(&self) -> SubprogramKey<'a> {
         let key = self.signature().key();
         if self.is_uninst_subprogram() {

@@ -53,7 +53,7 @@ impl<'a> AnalyzeContext<'a, '_> {
     pub fn generic_map(
         &self,
         scope: &Scope<'a>,
-        generics: GpkgRegion<'a>,
+        generics: FormalRegion<'a>,
         generic_map: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
@@ -95,7 +95,7 @@ impl<'a> AnalyzeContext<'a, '_> {
 
             match &mut assoc.actual.item {
                 ActualPart::Expression(expr) => match formal {
-                    GpkgInterfaceEnt::Type(uninst_typ) => {
+                    InterfaceEnt::Type(uninst_typ) => {
                         let typ = if let Expression::Name(name) = expr {
                             match name.as_mut() {
                                 // Could be an array constraint such as integer_vector(0 to 3)
@@ -150,14 +150,14 @@ impl<'a> AnalyzeContext<'a, '_> {
 
                         mapping.insert(uninst_typ.id(), typ);
                     }
-                    GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
+                    InterfaceEnt::Object(obj) if obj.is_constant() => self.expr_pos_with_ttyp(
                         scope,
                         self.map_type_ent(&mapping, obj.type_mark(), scope),
                         assoc.actual.span,
                         expr,
                         diagnostics,
                     )?,
-                    GpkgInterfaceEnt::Subprogram(target) => match expr {
+                    InterfaceEnt::Subprogram(target) => match expr {
                         Expression::Name(name) => {
                             let resolved =
                                 self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
@@ -213,7 +213,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                             ErrorCode::MismatchedKinds,
                         ),
                     },
-                    GpkgInterfaceEnt::Package(_) => match expr {
+                    InterfaceEnt::Package(_) => match expr {
                         Expression::Name(name) => {
                             self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
                         }
@@ -223,6 +223,11 @@ impl<'a> AnalyzeContext<'a, '_> {
                             ErrorCode::MismatchedKinds,
                         ),
                     },
+                    _ => diagnostics.push(Diagnostic::invalid_formal(
+                        formal
+                            .decl_pos()
+                            .expect("Formal without declaration position"),
+                    )),
                 },
                 ActualPart::Open => {
                     // @TODO
