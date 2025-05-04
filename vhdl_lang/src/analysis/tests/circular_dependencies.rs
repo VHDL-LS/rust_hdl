@@ -275,7 +275,7 @@ package pkg2 is new work.gpkg generic map (g => true);
 #[test]
 fn use_library_all() {
     let mut builder = LibraryBuilder::new();
-    let code = builder.code(
+    builder.code(
         "libname",
         "
 use work.all;
@@ -290,20 +290,46 @@ package pkg2 is
   constant const : natural := 0;
 end package;",
     );
-    let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        vec![
-            Diagnostic::new(
-                code.s("pkg1", 2),
-                "Found circular dependency",
-                ErrorCode::CircularDependency,
-            ),
-            Diagnostic::new(
-                code.s("work.all", 1),
-                "Found circular dependency",
-                ErrorCode::CircularDependency,
-            ),
-        ],
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn circular_dependency_own_library_all() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "lib",
+        "
+library lib;
+use lib.all;
+
+entity a is
+end entity;
+
+architecture a_rtl of a is
+begin
+end;",
     );
+    // This is allowed because 'lib' refers to it's own library
+    // (similar to `library work` statement)
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn circular_dependency_own_library() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "lib",
+        "
+package foo is
+    constant bar : bit := '0';
+end foo;
+
+library lib;
+use lib.foo.bar;
+
+entity a is
+end entity;
+",
+    );
+    check_no_diagnostics(&builder.analyze());
 }

@@ -253,6 +253,11 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         library_name: &Symbol,
         scope: &Scope<'a>,
     ) -> FatalResult {
+        let library = self.get_library(library_name).unwrap();
+        if library == self.work_library() {
+            // This is the current library. All elements are already in scope.
+            return Ok(());
+        }
         let units = self.root.get_library_units(library_name).unwrap();
 
         for unit in units.values() {
