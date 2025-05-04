@@ -453,18 +453,16 @@ impl<'a> AnalyzeContext<'a, '_> {
             return_type,
         } = signature;
 
-        let FormalRegion {
-            typ,
-            entities: uninst_entities,
-        } = formals;
+        let uninst_entities = formals.iter();
 
         let mut inst_entities = Vec::with_capacity(uninst_entities.len());
         for uninst in uninst_entities {
-            let inst = self.instantiate(parent, mapping, uninst, scope)?;
+            let inst = self.instantiate(parent, mapping, uninst.into_inner(), scope)?;
 
-            if let Some(inst) = InterfaceEnt::from_any(inst) {
+            if let Some(inst) = ParameterEnt::from_any(inst) {
                 inst_entities.push(inst);
             } else {
+                // TODO: This can probably happen
                 return Err((
                     "Internal error, expected interface to be instantiated as interface".to_owned(),
                     ErrorCode::Internal,
@@ -473,10 +471,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         Ok(Signature {
-            formals: FormalRegion {
-                typ: *typ,
-                entities: inst_entities,
-            },
+            formals: ParameterRegion::new(inst_entities),
             return_type: return_type.map(|typ| self.map_type_ent(mapping, typ, scope)),
         })
     }

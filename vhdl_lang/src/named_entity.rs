@@ -36,8 +36,8 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
-    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
-    RecordRegion,
+    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, ParameterEnt,
+    ParameterRegion, RecordElement, RecordRegion,
 };
 
 /// The kind of [AnyEnt].
@@ -132,7 +132,7 @@ impl<'a> AnyEntKind<'a> {
     /// * `formals` - The formal arguments of the function
     /// * `return_type` - The return type of the function
     pub(crate) fn new_function_decl(
-        formals: FormalRegion<'a>,
+        formals: ParameterRegion<'a>,
         return_type: TypeEnt<'a>,
     ) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
@@ -146,7 +146,7 @@ impl<'a> AnyEntKind<'a> {
     ///
     /// # Arguments
     /// * `formals` - The formal arguments of the procedure
-    pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
+    pub(crate) fn new_procedure_decl(formals: ParameterRegion<'a>) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 

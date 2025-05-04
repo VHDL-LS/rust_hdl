@@ -8,6 +8,7 @@ use crate::{
     ast::{Designator, InterfaceType, Mode},
     Diagnostic, SrcPos,
 };
+use std::ops::Deref;
 
 use super::*;
 
@@ -93,22 +94,12 @@ impl<'a> InterfaceEnt<'a> {
         }
     }
 
-    pub fn type_mark(&self) -> TypeEnt<'a> {
+    pub fn type_mark(&self) -> Option<TypeEnt<'a>> {
         match self.ent.kind() {
-            AnyEntKind::Object(obj) => obj.subtype.type_mark(),
-            AnyEntKind::InterfaceFile(file_type) => *file_type,
-            _ => {
-                unreachable!();
-            }
+            AnyEntKind::Object(obj) => Some(obj.subtype.type_mark()),
+            AnyEntKind::InterfaceFile(file_type) => Some(*file_type),
+            _ => None,
         }
-    }
-
-    pub fn base_type(&self) -> TypeEnt<'a> {
-        self.type_mark().base_type()
-    }
-
-    pub fn base(&self) -> BaseType<'a> {
-        self.type_mark().base()
     }
 }
 
@@ -226,6 +217,128 @@ impl<'a> FormalRegion<'a> {
 
     pub fn nth(&self, idx: usize) -> Option<InterfaceEnt<'a>> {
         self.entities.get(idx).cloned()
+    }
+
+    pub fn ref_from_param_ref(parameter_region: &'a ParameterRegion<'a>) -> &'a FormalRegion<'a> {
+        &parameter_region.0
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ParameterEnt<'a>(EntRef<'a>);
+
+impl<'a> ParameterEnt<'a> {
+    pub fn into_inner(self) -> EntRef<'a> {
+        self.0
+    }
+
+    pub fn from_any(ent: EntRef<'a>) -> Option<ParameterEnt<'a>> {
+        match ent.kind() {
+            AnyEntKind::Object(_) | AnyEntKind::InterfaceFile(_) => Some(ParameterEnt(ent)),
+            _ => None,
+        }
+    }
+
+    pub fn type_mark(&self) -> TypeEnt<'a> {
+        match self.0.kind() {
+            AnyEntKind::Object(obj) => obj.subtype.type_mark(),
+            AnyEntKind::InterfaceFile(file_type) => *file_type,
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+
+    pub fn base_type(&self) -> TypeEnt<'a> {
+        self.type_mark().base_type()
+    }
+
+    pub fn base(&self) -> BaseType<'a> {
+        self.type_mark().base()
+    }
+
+    pub fn has_default(&self) -> bool {
+        if let AnyEntKind::Object(Object { has_default, .. }) = self.0.kind() {
+            *has_default
+        } else {
+            false
+        }
+    }
+}
+
+impl<'a> From<ParameterEnt<'a>> for InterfaceEnt<'a> {
+    fn from(value: ParameterEnt<'a>) -> Self {
+        InterfaceEnt { ent: value.0 }
+    }
+}
+
+impl<'a> Deref for ParameterEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> EntRef<'a> {
+        self.0
+    }
+}
+
+#[derive(Clone)]
+#[repr(transparent)]
+pub struct ParameterRegion<'a>(FormalRegion<'a>);
+
+impl Default for ParameterRegion<'_> {
+    fn default() -> Self {
+        ParameterRegion(FormalRegion::new(InterfaceType::Parameter))
+    }
+}
+
+impl<'a> ParameterRegion<'a> {
+    pub fn new(entities: Vec<ParameterEnt<'a>>) -> ParameterRegion<'a> {
+        ParameterRegion(FormalRegion::new_with(
+            InterfaceType::Parameter,
+            entities.into_iter().map(|ent| ent.into()).collect(),
+        ))
+    }
+
+    pub fn from_formal_region(
+        formal_region: FormalRegion<'a>,
+    ) -> Result<ParameterRegion<'a>, Vec<InterfaceEnt<'a>>> {
+        let mut invalid_formals = Vec::new();
+        for entity in &formal_region.entities {
+            match entity.kind() {
+                AnyEntKind::InterfaceFile(_)
+                | AnyEntKind::Object(Object { iface: Some(_), .. }) => {}
+                _ => invalid_formals.push(*entity),
+            }
+        }
+        if invalid_formals.is_empty() {
+            Ok(ParameterRegion(formal_region))
+        } else {
+            Err(invalid_formals)
+        }
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = ParameterEnt<'a>> + '_ {
+        self.0.iter().map(|ent| ParameterEnt(ent.inner()))
+    }
+
+    pub fn nth(&self, idx: usize) -> Option<ParameterEnt<'a>> {
+        self.0.nth(idx).map(|ent| ParameterEnt(ent.inner()))
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub(crate) fn add(&mut self, ent: EntRef<'a>) {
+        debug_assert!(matches!(
+            ent.kind(),
+            AnyEntKind::InterfaceFile(_) | AnyEntKind::Object(Object { iface: Some(_), .. })
+        ));
+        self.0.add(ent)
+    }
+}
+
+impl<'a> From<ParameterRegion<'a>> for FormalRegion<'a> {
+    fn from(value: ParameterRegion<'a>) -> Self {
+        value.0
     }
 }
 

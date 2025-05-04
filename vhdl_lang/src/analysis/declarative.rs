@@ -564,7 +564,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
-                        FormalRegion::new_params(),
+                        ParameterRegion::default(),
                         None,
                     ))),
                     src_span,
