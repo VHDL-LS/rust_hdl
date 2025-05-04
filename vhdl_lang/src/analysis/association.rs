@@ -515,27 +515,27 @@ impl<'a> AnalyzeContext<'a, '_> {
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        if let Some(resolved_formal) = resolved_formal {
-                            if formal_region.typ == InterfaceType::Parameter {
-                                self.check_parameter_interface(
-                                    resolved_formal,
-                                    expr,
-                                    scope,
-                                    actual.span,
-                                    diagnostics,
-                                )?;
-                            }
-                            if let Some(type_mark) = resolved_formal.type_mark {
-                                self.expr_pos_with_ttyp(
-                                    scope,
-                                    type_mark,
-                                    actual.span,
-                                    expr,
-                                    diagnostics,
-                                )?;
-                            }
-                        } else {
+                        let Some(resolved_formal) = resolved_formal else {
                             self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
+                            continue;
+                        };
+                        if formal_region.typ == InterfaceType::Parameter {
+                            self.check_parameter_interface(
+                                resolved_formal,
+                                expr,
+                                scope,
+                                actual.span,
+                                diagnostics,
+                            )?;
+                        }
+                        if let Some(type_mark) = resolved_formal.type_mark {
+                            self.expr_pos_with_ttyp(
+                                scope,
+                                type_mark,
+                                actual.span,
+                                expr,
+                                diagnostics,
+                            )?;
                         }
                     }
                     ActualPart::Open => {}
