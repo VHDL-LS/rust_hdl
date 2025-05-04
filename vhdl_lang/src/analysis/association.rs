@@ -506,10 +506,11 @@ impl<'a> AnalyzeContext<'a, '_> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
+    ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
         let resolved_pairs =
             self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
 
+        let mut mapping = FnvHashMap::default();
         for (resolved_formal, actual) in resolved_pairs
             .iter()
             .map(|(_, resolved_formal)| resolved_formal)
@@ -518,7 +519,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             match &mut actual.item {
                 ActualPart::Expression(expr) => {
                     let Some(resolved_formal) = resolved_formal else {
-                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
+                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, &mut NullDiagnostics)?;
                         continue;
                     };
                     if formal_region.typ == InterfaceType::Parameter {
@@ -530,40 +531,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                             diagnostics,
                         )?;
                     }
-                    if let Some(type_mark) = resolved_formal.type_mark {
-                        self.expr_pos_with_ttyp(scope, type_mark, actual.span, expr, diagnostics)?;
-                    }
-                }
-                ActualPart::Open => {}
-            }
-        }
-        self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)
-    }
-
-    pub fn generic_map(
-        &self,
-        scope: &Scope<'a>,
-        error_pos: &SrcPos, // The position of the instance/call-site
-        generics: FormalRegion<'a>,
-        generic_map: &mut [AssociationElement],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
-        let resolved_pairs =
-            self.combine_formal_with_actuals(&generics, scope, generic_map, diagnostics)?;
-        let mut mapping = FnvHashMap::default();
-
-        for (resolved_formal, actual) in resolved_pairs
-            .iter()
-            .map(|(_, resolved_formal)| resolved_formal)
-            .zip(generic_map.iter_mut().map(|assoc| &mut assoc.actual))
-        {
-            match &mut actual.item {
-                ActualPart::Expression(expr) => {
-                    let Some(formal) = resolved_formal else {
-                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, &mut NullDiagnostics)?;
-                        continue;
-                    };
-                    match &formal.iface {
+                    match &resolved_formal.iface {
                         InterfaceEnt::Type(uninst_typ) => {
                             let typ = if let Expression::Name(name) = expr {
                                 match name.as_mut() {
@@ -620,13 +588,6 @@ impl<'a> AnalyzeContext<'a, '_> {
 
                             mapping.insert(uninst_typ.id(), typ);
                         }
-                        InterfaceEnt::Object(obj) if obj.is_constant() => self.expr_pos_with_ttyp(
-                            scope,
-                            self.map_type_ent(&mapping, obj.type_mark(), scope),
-                            actual.span,
-                            expr,
-                            diagnostics,
-                        )?,
                         InterfaceEnt::Subprogram(target) => match expr {
                             Expression::Name(name) => {
                                 let resolved =
@@ -693,20 +654,25 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 ErrorCode::MismatchedKinds,
                             ),
                         },
-                        _ => diagnostics.push(Diagnostic::invalid_formal(
-                            formal
-                                .iface
-                                .decl_pos()
-                                .expect("Formal without declaration position"),
-                        )),
+                        InterfaceEnt::Object(_) | InterfaceEnt::File(_) => {
+                            // use the resolved formal's type since it could be converted
+                            let typ = resolved_formal
+                                .require_type_mark()
+                                .expect("Object or file interface without type");
+                            self.expr_pos_with_ttyp(
+                                scope,
+                                self.map_type_ent(&mapping, typ, scope),
+                                actual.span,
+                                expr,
+                                diagnostics,
+                            )?
+                        }
                     }
                 }
-                ActualPart::Open => {
-                    // @TODO
-                }
+                ActualPart::Open => {}
             }
         }
-        self.check_missing_and_duplicates(error_pos, resolved_pairs, &generics, diagnostics)?;
+        self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)?;
         Ok(mapping)
     }
 

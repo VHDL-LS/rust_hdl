@@ -57,10 +57,10 @@ impl<'a> AnalyzeContext<'a, '_> {
         let (generics, other) = uninst_region.to_package_generic();
 
         let mapping = if let Some(generic_map) = generic_map {
-            self.generic_map(
-                &nested,
+            self.check_association(
                 decl_pos,
-                generics,
+                &generics,
+                &nested,
                 generic_map.list.items.as_mut_slice(),
                 diagnostics,
             )?
@@ -396,6 +396,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
+    // TODO: This does not correctly deal with aliases
     pub fn map_type_ent(
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
@@ -405,8 +406,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         match mapping.get(&typ.id()) {
             None => {
                 if let Some(entity) = scope
-                    .lookup(&typ.designator)
-                    .ok()
+                    .lookup_immediate(&typ.designator)
                     .and_then(|result| result.into_non_overloaded().ok())
                     .and_then(TypeEnt::from_any)
                 {

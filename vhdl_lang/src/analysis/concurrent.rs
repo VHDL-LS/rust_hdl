@@ -409,10 +409,10 @@ impl<'a> AnalyzeContext<'a, '_> {
         let (generic_region, port_region) = ent_region.to_entity_formal();
 
         as_fatal(
-            self.generic_map(
-                scope,
+            self.check_association(
                 &entity_name.pos(self.ctx),
-                generic_region,
+                &generic_region,
+                scope,
                 generic_map_aspect
                     .map(|it| it.list.items.as_mut_slice())
                     .unwrap_or(&mut []),
