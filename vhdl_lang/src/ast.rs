@@ -164,6 +164,16 @@ impl From<ExternalObjectClass> for ObjectClass {
     }
 }
 
+impl From<ObjectClass> for ExternalObjectClass {
+    fn from(object: ObjectClass) -> ExternalObjectClass {
+        match object {
+            ObjectClass::Constant => ExternalObjectClass::Constant,
+            ObjectClass::Variable | ObjectClass::SharedVariable => ExternalObjectClass::Variable,
+            ObjectClass::Signal => ExternalObjectClass::Signal,
+        }
+    }
+}
+
 /// LRM 8.7 External names
 #[derive(PartialEq, Debug, Clone)]
 pub enum ExternalPath {

@@ -94,7 +94,7 @@ pub enum AnyEntKind<'a> {
     /// to the exact statement (i.e., block process or generate).
     /// Not all statements are handled at the moment, therefore the associated
     /// data is optional.
-    Concurrent(Option<Concurrent>),
+    Concurrent(Option<Concurrent>, Region<'a>),
     /// A sequential statement. The associated [Sequential] data is a reference
     /// to the exact statement (i.e., loop, if or else statement).
     /// Not all statements are handled at the moment, therefore the associated
@@ -191,8 +191,8 @@ impl<'a> AnyEntKind<'a> {
             Component(..) => "component",
             Attribute(..) => "attribute",
             Overloaded(overloaded) => overloaded.describe(),
-            Concurrent(Some(c)) => c.describe(),
-            Concurrent(None) => "label",
+            Concurrent(Some(c), _) => c.describe(),
+            Concurrent(None, _) => "label",
             Sequential(Some(s)) => s.describe(),
             Sequential(None) => "label",
             LoopParameter(_) => "loop parameter",

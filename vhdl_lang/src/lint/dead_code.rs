@@ -107,7 +107,7 @@ fn can_be_locally_unused(ent: EntRef<'_>) -> bool {
     // No labels
     if matches!(
         ent.kind(),
-        AnyEntKind::Concurrent(_) | AnyEntKind::Sequential(_)
+        AnyEntKind::Concurrent(..) | AnyEntKind::Sequential(_)
     ) {
         return false;
     }

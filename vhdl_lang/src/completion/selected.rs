@@ -242,4 +242,30 @@ end foo;
             &[CompletionItem::Simple(ent1), CompletionItem::Simple(ent2)],
         )
     }
+
+    // It is currently unclear, whether the lack of this feature is a parser or analyzer limitation
+    #[test]
+    #[ignore]
+    pub fn completing_external_primary_unit_names() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libA",
+            "\
+package foo is
+    signal y: my_record;
+    signal z: bit := << signal @libA.
+end foo;
+        ",
+        );
+
+        let (root, _) = builder.get_analyzed_root();
+        let cursor = code.s1("@libA.").end();
+        let options = list_completion_options(&root, code.source(), cursor);
+
+        let ent1 = root
+            .search_reference(code.source(), code.s1("foo").start())
+            .unwrap();
+
+        assert_eq_unordered(&options, &[CompletionItem::Simple(ent1)])
+    }
 }

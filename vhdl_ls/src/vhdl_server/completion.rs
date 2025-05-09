@@ -209,7 +209,7 @@ fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
         },
         AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
         AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
-        AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Concurrent(..) => CompletionItemKind::MODULE,
         AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
         AnyEntKind::Object(object) => match object.class {
             ObjectClass::Signal => CompletionItemKind::EVENT,

@@ -202,7 +202,7 @@ impl<'a> ResolvedName<'a> {
             AnyEntKind::Library
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
-            | AnyEntKind::Concurrent(_)
+            | AnyEntKind::Concurrent(..)
             | AnyEntKind::Sequential(_)
             | AnyEntKind::LoopParameter(_) => {
                 return Err((
@@ -258,7 +258,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::View(_)
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
-            | AnyEntKind::Concurrent(_)
+            | AnyEntKind::Concurrent(..)
             | AnyEntKind::Sequential(_)
             | AnyEntKind::LoopParameter(_)
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
@@ -1273,8 +1273,40 @@ impl<'a> AnalyzeContext<'a, '_> {
                 });
             }
             SplitName::External(ename) => {
-                let ExternalName { subtype, class, .. } = ename;
+                let ExternalName {
+                    subtype,
+                    class,
+                    path,
+                    ..
+                } = ename;
                 let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
+                match self.resolve_external_path(scope, path, diagnostics)? {
+                    Some(ResolvedName::ObjectName(obj)) => {
+                        if !self.can_be_target_type(obj.type_mark(), subtype.base()) {
+                            diagnostics.push(Diagnostic::type_mismatch(
+                                &path.pos(self.ctx),
+                                &obj.describe_type(),
+                                subtype.type_mark(),
+                            ))
+                        }
+                        if *class != obj.base.class().into() {
+                            diagnostics.push(Diagnostic::new(
+                                path.pos(self.ctx),
+                                format!("class {} does not match {}", *class, obj.base.class()),
+                                ErrorCode::MismatchedObjectClass,
+                            ))
+                        }
+                    }
+                    None => {
+                        // ignore; we do not analyze this yet
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::mismatched_kinds(
+                            path.pos(self.ctx),
+                            "External path must point to a constant, variable or signal",
+                        ));
+                    }
+                }
                 return Ok(ResolvedName::ObjectName(ObjectName {
                     base: ObjectBase::ExternalName(*class),
                     type_mark: Some(subtype.type_mark().to_owned()),
@@ -1581,6 +1613,24 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         Ok(resolved)
+    }
+
+    // Currently, only resolves Package name
+    fn resolve_external_path(
+        &self,
+        scope: &Scope<'a>,
+        path: &mut WithTokenSpan<ExternalPath>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Option<ResolvedName<'a>>> {
+        match &mut path.item {
+            ExternalPath::Package(pkg) => Ok(Some(self.name_resolve(
+                scope,
+                pkg.span,
+                &mut pkg.item,
+                diagnostics,
+            )?)),
+            _ => Ok(None),
+        }
     }
 
     // Helper function:
@@ -2251,7 +2301,7 @@ constant c0 : rec_t := (others => 0);
 ",
         );
 
-        assert_matches!(test.name_resolve(&test.snippet("c0.field"), None, &mut NoDiagnostics), 
+        assert_matches!(test.name_resolve(&test.snippet("c0.field"), None, &mut NoDiagnostics),
             Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("natural"));
     }
 
@@ -2493,7 +2543,7 @@ type enum2_t is (alpha, beta);
         test.declarative_part(
             "
 type ptr_t is access integer_vector;
-variable vptr : ptr_t; 
+variable vptr : ptr_t;
 ",
         );
         let code = test.snippet("vptr(0 to 1)");
@@ -2509,7 +2559,7 @@ variable vptr : ptr_t;
         test.declarative_part(
             "
 type ptr_t is access integer_vector;
-variable vptr : ptr_t; 
+variable vptr : ptr_t;
 ",
         );
         let code = test.snippet("vptr(0)");
@@ -2637,7 +2687,7 @@ variable c0 : arr_t;
         let test = TestSetup::new();
         test.declarative_part(
             "
-type arr_t is array (integer range 0 to 3) of integer;        
+type arr_t is array (integer range 0 to 3) of integer;
         ",
         );
         let code = test.snippet("arr_t'left");
@@ -2654,7 +2704,7 @@ type arr_t is array (integer range 0 to 3) of integer;
         let test = TestSetup::new();
         test.declarative_part(
             "
-type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of integer;        
+type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of integer;
         ",
         );
         let code = test.snippet("arr_t'left(1)");
@@ -2710,7 +2760,7 @@ type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of intege
 
         test.declarative_part(
             "
-type arr_t is array (integer range 0 to 3) of integer;        
+type arr_t is array (integer range 0 to 3) of integer;
         ",
         );
 
@@ -2729,7 +2779,7 @@ type arr_t is array (integer range 0 to 3) of integer;
 
         test.declarative_part(
             "
-type arr_t is array (integer range 0 to 3) of integer;        
+type arr_t is array (integer range 0 to 3) of integer;
 constant c0 : arr_t := (others => 0);
         ",
         );
@@ -2749,7 +2799,7 @@ constant c0 : arr_t := (others => 0);
 
         test.declarative_part(
             "
-type arr_t is array (integer range 0 to 3) of integer;        
+type arr_t is array (integer range 0 to 3) of integer;
 constant c0 : arr_t := (others => 0);
         ",
         );
@@ -2954,7 +3004,7 @@ variable thevar : integer;
         let test = TestSetup::new();
         test.declarative_part(
             "
-signal thesig : integer; 
+signal thesig : integer;
         ",
         );
 
@@ -3100,7 +3150,7 @@ variable thevar : integer;
         let test = TestSetup::new();
         test.declarative_part(
             "
-signal thesig : integer; 
+signal thesig : integer;
         ",
         );
 
