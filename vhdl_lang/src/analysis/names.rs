@@ -1615,7 +1615,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(resolved)
     }
 
-    // Currently, only resolved Package name
+    // Currently, only resolves Package name
     fn resolve_external_path(
         &self,
         scope: &Scope<'a>,
