@@ -35,7 +35,8 @@ pub(crate) struct ResolvedFormal<'a> {
     /// port map(to_slv(foo) => sig)
     is_converted: bool,
 
-    /// The type of the potentially partial or converted formal
+    /// The type of the potentially partial or converted formal.
+    /// `None`, if the formal does not have to a type (e.g., packages or subprograms).
     type_mark: Option<TypeEnt<'a>>,
 }
 
@@ -50,7 +51,7 @@ impl<'a> ResolvedFormal<'a> {
         }
     }
 
-    fn convert(&self, into_type: TypeEnt<'a>) -> Self {
+    fn convert(self, into_type: TypeEnt<'a>) -> Self {
         Self {
             idx: self.idx,
             iface: self.iface,
@@ -83,14 +84,13 @@ impl<'a> ResolvedFormal<'a> {
     }
 
     pub fn require_type_mark(&self) -> Result<TypeEnt<'a>, Diagnostic> {
-        match self.type_mark {
-            None => Err(Diagnostic::invalid_formal(
+        self.type_mark.ok_or_else(|| {
+            Diagnostic::invalid_formal(
                 self.iface
                     .decl_pos()
-                    .expect("Interface ent must have a declaration position"),
-            )),
-            Some(type_mark) => Ok(type_mark),
-        }
+                    .expect("InterfaceEnt must have a declaration position"),
+            )
+        })
     }
 }
 
@@ -378,7 +378,8 @@ impl<'a> AnalyzeContext<'a, '_> {
     /// that are present at the call / instantiation site).
     /// The result is a vector of tuples where the first refers to the token span
     /// of the actual and the second to the resolved formal.
-    /// If there is an extraneous argument, the resolved formal will be `None`.
+    /// If there is are extraneous arguments, the resolved formals at that position
+    /// will be `None`.
     pub fn combine_formal_with_actuals<'e>(
         &self,
         formal_region: &FormalRegion<'a>,
@@ -499,11 +500,11 @@ impl<'a> AnalyzeContext<'a, '_> {
         self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)
     }
 
-    /// Checks associations irrelevant of the actual kind (i.e., can analyzes generic maps,
+    /// Checks associations irrelevant of the actual kind (i.e., can analyze generic maps,
     /// port maps and subprogram calls).
     ///
     /// * `error_pos` Position of the instance or call site
-    /// * `formal_region` The formals, i.e., the declared elements
+    /// * `formal_region` The formals (i.e., the declared elements)
     /// * `mapping` Maps generic types to their actual values. This is a mutable reference so that
     ///   generic maps can populate the content appropriately while port maps and parameters will
     ///   only read from it.
@@ -531,7 +532,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         continue;
                     };
                     if formal_region.typ == InterfaceType::Parameter {
-                        self.check_parameter_interface(
+                        self.check_interface_mode_mismatch(
                             resolved_formal,
                             expr,
                             scope,
@@ -684,9 +685,11 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(())
     }
 
-    // LRM 4.2.2.1: In a subprogram, the interface mode must match the mode of the actual designator
-    // when the interface mode is signal, variable or file. Furthermore, they must be a single name.
-    fn check_parameter_interface(
+    /// From LRM 4.2.2.1:
+    /// In a subprogram, the interface mode must match the mode of the actual designator
+    /// when the interface mode is signal, variable or file.
+    /// Furthermore, they must be a single name.
+    fn check_interface_mode_mismatch(
         &self,
         resolved_formal: &ResolvedFormal<'a>,
         expr: &mut Expression,
@@ -718,7 +721,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                         );
                     }
                 }
-                ObjectClass::Constant => {}
                 ObjectClass::Variable | ObjectClass::SharedVariable => {
                     let Some(name) =
                         as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
@@ -741,6 +743,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         );
                     }
                 }
+                ObjectClass::Constant => {}
             },
             InterfaceEnt::File(_) => {
                 let Some(name) =

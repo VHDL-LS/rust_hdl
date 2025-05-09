@@ -197,7 +197,7 @@ impl<'a> AnalyzeContext<'a, '_> {
     ) -> FatalResult {
         as_fatal(self.check_association(
             error_pos,
-            FormalRegion::ref_from_param_ref(ent.formals()),
+            ent.formals().as_formal_region(),
             &mut FnvHashMap::default(),
             scope,
             assocs,
@@ -224,7 +224,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         for ent in candidates.iter() {
             if let Some(resolved) = as_fatal(self.resolve_association_formals(
                 call_pos,
-                FormalRegion::ref_from_param_ref(ent.formals()),
+                ent.formals().as_formal_region(),
                 scope,
                 assocs,
                 &mut NullDiagnostics,

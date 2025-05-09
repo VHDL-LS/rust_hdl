@@ -198,10 +198,6 @@ impl<'a> FormalRegion<'a> {
     pub fn nth(&self, idx: usize) -> Option<InterfaceEnt<'a>> {
         self.entities.get(idx).cloned()
     }
-
-    pub fn ref_from_param_ref(parameter_region: &'a ParameterRegion<'a>) -> &'a FormalRegion<'a> {
-        &parameter_region.0
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -297,6 +293,10 @@ impl<'a> ParameterRegion<'a> {
         } else {
             Err(invalid_formals)
         }
+    }
+
+    pub fn as_formal_region(&self) -> &FormalRegion<'a> {
+        &self.0
     }
 
     pub fn iter(&self) -> impl ExactSizeIterator<Item = ParameterEnt<'a>> + '_ {
