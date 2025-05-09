@@ -243,7 +243,7 @@ end foo;
         )
     }
 
-    // It is currently unclear, whether the pack of this is a parser or analyzer limitation
+    // It is currently unclear, whether the lack of this feature is a parser or analyzer limitation
     #[test]
     #[ignore]
     pub fn completing_external_primary_unit_names() {

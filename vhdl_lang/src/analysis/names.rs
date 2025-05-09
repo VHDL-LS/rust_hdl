@@ -1280,8 +1280,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     ..
                 } = ename;
                 let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
-                let resolved_path = self.resolve_external_path(scope, path, diagnostics)?;
-                match resolved_path {
+                match self.resolve_external_path(scope, path, diagnostics)? {
                     Some(ResolvedName::ObjectName(obj)) => {
                         if !self.can_be_target_type(obj.type_mark(), subtype.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
@@ -1630,8 +1629,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 &mut pkg.item,
                 diagnostics,
             )?)),
-            ExternalPath::Absolute(_) => Ok(None),
-            ExternalPath::Relative(_, _) => Ok(None),
+            _ => Ok(None),
         }
     }
 

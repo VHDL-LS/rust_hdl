@@ -186,7 +186,7 @@ pub enum ErrorCode {
     /// ```vhdl
     /// signal foo : bit;
     /// -- ...
-    /// << signal from.somewhere.foo : constant >>
+    /// << constant from.somewhere.foo : bit >>
     /// ```
     MismatchedObjectClass,
 
