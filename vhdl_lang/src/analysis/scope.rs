@@ -363,13 +363,6 @@ impl<'a> Scope<'a> {
     pub fn anonymous_designator(&self) -> Designator {
         Designator::Anonymous(self.next_anonymous())
     }
-
-    pub fn lookup_in_root(&self, designator: &Designator) -> Option<NamedEntities<'a>> {
-        match self.0.borrow().parent.as_ref() {
-            None => self.lookup_immediate(designator),
-            Some(parent) => parent.lookup_in_root(designator),
-        }
-    }
 }
 
 impl<'a> NamedEntities<'a> {
