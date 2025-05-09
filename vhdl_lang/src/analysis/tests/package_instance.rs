@@ -115,6 +115,12 @@ package ipkg3 is new work.gpkg
                 ErrorCode::Unresolved,
             ),
             Diagnostic::new(
+                code.s("ipkg1", 1),
+                "No association of type 'type_t'",
+                ErrorCode::Unassociated,
+            )
+            .related(code.s1("type type_t").s1("type_t"), "Defined here"),
+            Diagnostic::new(
                 code.s("missing", 2),
                 "No declaration of 'missing'",
                 ErrorCode::Unresolved,
@@ -684,4 +690,28 @@ end architecture;
 
     let diag = builder.analyze();
     check_no_diagnostics(&diag);
+}
+
+#[test]
+fn too_many_arguments_packages() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package test_pkg is
+    generic (N : integer);
+end package;
+
+package pkg_inst is new work.test_pkg generic map (8, 9);
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("9"),
+            "Unexpected extra argument",
+            ErrorCode::TooManyArguments,
+        )],
+    );
 }

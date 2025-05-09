@@ -4,13 +4,12 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use fnv::FnvHashSet;
+use fnv::{FnvHashMap, FnvHashSet};
 use vhdl_lang::TokenAccess;
 
 use super::analyze::*;
 use super::expression::ExpressionType;
 use super::scope::*;
-use crate::ast::search::clear_references;
 use crate::ast::token_range::WithToken;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
@@ -44,7 +43,7 @@ enum Rejection<'a> {
     Procedure,
 
     // The amount of actuals or named actuals do not match formals
-    MissingFormals(Vec<InterfaceEnt<'a>>),
+    MissingFormals(Vec<ParameterEnt<'a>>),
 }
 
 struct Candidate<'a> {
@@ -196,7 +195,14 @@ impl<'a> AnalyzeContext<'a, '_> {
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.check_association(error_pos, ent.formals(), scope, assocs, diagnostics)?;
+        as_fatal(self.check_association(
+            error_pos,
+            ent.formals().as_formal_region(),
+            &mut FnvHashMap::default(),
+            scope,
+            assocs,
+            diagnostics,
+        ))?;
         Ok(())
     }
 
@@ -218,19 +224,24 @@ impl<'a> AnalyzeContext<'a, '_> {
         for ent in candidates.iter() {
             if let Some(resolved) = as_fatal(self.resolve_association_formals(
                 call_pos,
-                ent.formals(),
+                ent.formals().as_formal_region(),
                 scope,
                 assocs,
                 &mut NullDiagnostics,
             ))? {
+                // Since we are in a ParameterRegion, we should only get back Parameter Entities
+                // that are all convertible to types.
+                let resolved = resolved
+                    .into_iter()
+                    .map(|ent| {
+                        ent.require_type_mark()
+                            .expect("Resolved formal should have type")
+                    })
+                    .collect();
                 result.push(ResolvedCall {
                     subpgm: *ent,
                     formals: resolved,
                 });
-            }
-
-            for elem in assocs.iter_mut() {
-                clear_references(elem, self.ctx);
             }
         }
 

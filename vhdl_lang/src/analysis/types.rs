@@ -71,8 +71,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     self.source(),
                 );
 
-                let signature =
-                    Signature::new(FormalRegion::new(InterfaceType::Parameter), Some(enum_type));
+                let signature = Signature::new(ParameterRegion::default(), Some(enum_type));
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(

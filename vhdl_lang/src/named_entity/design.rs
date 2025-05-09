@@ -67,6 +67,10 @@ impl<'a> DesignEnt<'a> {
         }
     }
 
+    pub fn inner(&self) -> EntRef<'a> {
+        self.0
+    }
+
     pub fn kind(&self) -> &'a Design<'a> {
         if let AnyEntKind::Design(typ) = self.0.kind() {
             typ

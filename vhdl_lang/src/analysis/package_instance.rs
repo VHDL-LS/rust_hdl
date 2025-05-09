@@ -8,15 +8,9 @@ use fnv::FnvHashMap;
 use vhdl_lang::SrcPos;
 
 use super::analyze::*;
-use super::names::ResolvedName;
 use super::scope::*;
-use crate::ast::AssociationElement;
-use crate::ast::Expression;
-use crate::ast::Literal;
-use crate::ast::Name;
-use crate::ast::Operator;
+use crate::ast::MapAspect;
 use crate::ast::PackageInstantiation;
-use crate::ast::{ActualPart, MapAspect};
 use crate::data::error_codes::ErrorCode;
 use crate::data::DiagnosticHandler;
 use crate::named_entity::*;
@@ -50,188 +44,6 @@ impl<'a> AnalyzeContext<'a, '_> {
         .map(|(region, _)| region)
     }
 
-    pub fn generic_map(
-        &self,
-        scope: &Scope<'a>,
-        generics: GpkgRegion<'a>,
-        generic_map: &mut [AssociationElement],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<FnvHashMap<EntityId, TypeEnt<'a>>> {
-        let mut mapping = FnvHashMap::default();
-
-        // @TODO check missing associations
-        for (idx, assoc) in generic_map.iter_mut().enumerate() {
-            let formal = if let Some(formal) = &mut assoc.formal {
-                let formal_pos = formal.pos(self.ctx);
-                if let Name::Designator(des) = &mut formal.item {
-                    match generics.lookup(&formal_pos, &des.item) {
-                        Ok((_, ent)) => {
-                            des.set_unique_reference(&ent);
-                            ent
-                        }
-                        Err(err) => {
-                            diagnostics.push(err);
-                            continue;
-                        }
-                    }
-                } else {
-                    diagnostics.add(
-                        formal.pos(self.ctx),
-                        "Expected simple name for package generic formal",
-                        ErrorCode::MismatchedKinds,
-                    );
-                    continue;
-                }
-            } else if let Some(ent) = generics.nth(idx) {
-                ent
-            } else {
-                diagnostics.add(
-                    assoc.actual.pos(self.ctx),
-                    "Extra actual for generic map",
-                    ErrorCode::TooManyArguments,
-                );
-                continue;
-            };
-
-            match &mut assoc.actual.item {
-                ActualPart::Expression(expr) => match formal {
-                    GpkgInterfaceEnt::Type(uninst_typ) => {
-                        let typ = if let Expression::Name(name) = expr {
-                            match name.as_mut() {
-                                // Could be an array constraint such as integer_vector(0 to 3)
-                                // @TODO we ignore the suffix for now
-                                Name::Slice(prefix, drange) => {
-                                    let typ = self.type_name(
-                                        scope,
-                                        prefix.span,
-                                        &mut prefix.item,
-                                        diagnostics,
-                                    )?;
-                                    if let Type::Array { indexes, .. } = typ.base().kind() {
-                                        if let Some(Some(idx_typ)) = indexes.first() {
-                                            self.drange_with_ttyp(
-                                                scope,
-                                                (*idx_typ).into(),
-                                                drange,
-                                                diagnostics,
-                                            )?;
-                                        }
-                                    } else {
-                                        diagnostics.add(
-                                            assoc.actual.pos(self.ctx),
-                                            format!(
-                                                "Array constraint cannot be used for {}",
-                                                typ.describe()
-                                            ),
-                                            ErrorCode::TypeMismatch,
-                                        );
-                                    }
-                                    typ
-                                }
-                                // Could be a record constraint such as rec_t(field(0 to 3))
-                                // @TODO we ignore the suffix for now
-                                Name::CallOrIndexed(call) if call.could_be_indexed_name() => self
-                                    .type_name(
-                                    scope,
-                                    call.name.span,
-                                    &mut call.name.item,
-                                    diagnostics,
-                                )?,
-                                _ => self.type_name(scope, assoc.actual.span, name, diagnostics)?,
-                            }
-                        } else {
-                            diagnostics.add(
-                                assoc.actual.pos(self.ctx),
-                                "Cannot map expression to type generic",
-                                ErrorCode::MismatchedKinds,
-                            );
-                            continue;
-                        };
-
-                        mapping.insert(uninst_typ.id(), typ);
-                    }
-                    GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
-                        scope,
-                        self.map_type_ent(&mapping, obj.type_mark(), scope),
-                        assoc.actual.span,
-                        expr,
-                        diagnostics,
-                    )?,
-                    GpkgInterfaceEnt::Subprogram(target) => match expr {
-                        Expression::Name(name) => {
-                            let resolved =
-                                self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
-                            if let ResolvedName::Overloaded(des, overloaded) = resolved {
-                                let signature = target.subprogram_key().map(|base_type| {
-                                    mapping
-                                        .get(&base_type.id())
-                                        .map(|ent| ent.base())
-                                        .unwrap_or(base_type)
-                                });
-                                if let Some(ent) = overloaded.get(&signature) {
-                                    name.set_unique_reference(&ent);
-                                } else {
-                                    let mut diag = Diagnostic::mismatched_kinds(
-                                        assoc.actual.pos(self.ctx),
-                                        format!(
-                                            "Cannot map '{des}' to subprogram generic {}{}",
-                                            target.designator(),
-                                            signature.key().describe()
-                                        ),
-                                    );
-
-                                    diag.add_subprogram_candidates(
-                                        "Does not match",
-                                        overloaded.entities(),
-                                    );
-
-                                    diagnostics.push(diag)
-                                }
-                            } else {
-                                diagnostics.add(
-                                    assoc.actual.pos(self.ctx),
-                                    format!(
-                                        "Cannot map {} to subprogram generic",
-                                        resolved.describe()
-                                    ),
-                                    ErrorCode::MismatchedKinds,
-                                )
-                            }
-                        }
-                        Expression::Literal(Literal::String(string)) => {
-                            if Operator::from_latin1(string.clone()).is_none() {
-                                diagnostics.add(
-                                    assoc.actual.pos(self.ctx),
-                                    "Invalid operator symbol",
-                                    ErrorCode::InvalidOperatorSymbol,
-                                );
-                            }
-                        }
-                        _ => diagnostics.add(
-                            assoc.actual.pos(self.ctx),
-                            "Cannot map expression to subprogram generic",
-                            ErrorCode::MismatchedKinds,
-                        ),
-                    },
-                    GpkgInterfaceEnt::Package(_) => match expr {
-                        Expression::Name(name) => {
-                            self.name_resolve(scope, assoc.actual.span, name, diagnostics)?;
-                        }
-                        _ => diagnostics.add(
-                            assoc.actual.pos(self.ctx),
-                            "Cannot map expression to package generic",
-                            ErrorCode::MismatchedKinds,
-                        ),
-                    },
-                },
-                ActualPart::Open => {
-                    // @TODO
-                }
-            }
-        }
-        Ok(mapping)
-    }
-
     pub fn generic_instance(
         &self,
         ent: EntRef<'a>,
@@ -244,16 +56,17 @@ impl<'a> AnalyzeContext<'a, '_> {
         let nested = scope.nested().in_package_declaration();
         let (generics, other) = uninst_region.to_package_generic();
 
-        let mapping = if let Some(generic_map) = generic_map {
-            self.generic_map(
+        let mut mapping = FnvHashMap::default();
+        if let Some(generic_map) = generic_map {
+            self.check_association(
+                decl_pos,
+                &generics,
+                &mut mapping,
                 &nested,
-                generics,
                 generic_map.list.items.as_mut_slice(),
                 diagnostics,
-            )?
-        } else {
-            FnvHashMap::default()
-        };
+            )?;
+        }
 
         for uninst in other {
             match self.instantiate(Some(ent), &mapping, uninst, &nested) {
@@ -453,16 +266,13 @@ impl<'a> AnalyzeContext<'a, '_> {
             return_type,
         } = signature;
 
-        let FormalRegion {
-            typ,
-            entities: uninst_entities,
-        } = formals;
+        let uninst_entities = formals.iter();
 
         let mut inst_entities = Vec::with_capacity(uninst_entities.len());
         for uninst in uninst_entities {
-            let inst = self.instantiate(parent, mapping, uninst, scope)?;
+            let inst = self.instantiate(parent, mapping, uninst.into_inner(), scope)?;
 
-            if let Some(inst) = InterfaceEnt::from_any(inst) {
+            if let Some(inst) = ParameterEnt::from_any(inst) {
                 inst_entities.push(inst);
             } else {
                 return Err((
@@ -473,10 +283,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         Ok(Signature {
-            formals: FormalRegion {
-                typ: *typ,
-                entities: inst_entities,
-            },
+            formals: ParameterRegion::new(inst_entities),
             return_type: return_type.map(|typ| self.map_type_ent(mapping, typ, scope)),
         })
     }
@@ -589,7 +396,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
-    fn map_type_ent(
+    pub fn map_type_ent(
         &self,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         typ: TypeEnt<'a>,
@@ -598,8 +405,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         match mapping.get(&typ.id()) {
             None => {
                 if let Some(entity) = scope
-                    .lookup(&typ.designator)
-                    .ok()
+                    .lookup_immediate(&typ.designator)
                     .and_then(|result| result.into_non_overloaded().ok())
                     .and_then(TypeEnt::from_any)
                 {

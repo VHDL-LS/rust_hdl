@@ -307,13 +307,13 @@ impl<'a> AnalyzeContext<'a, '_> {
         formals: impl IntoIterator<Item = (Designator, AnyEntKind<'a>)>,
         return_type: Option<TypeEnt<'a>>,
     ) -> OverloadedEnt<'a> {
-        let mut region = FormalRegion::new_params();
+        let mut region = ParameterRegion::default();
 
         let subpgm_ent = self.arena.implicit(
             implicit_of.into(),
             des,
             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
-                FormalRegion::new_params(),
+                ParameterRegion::default(),
                 return_type,
             ))),
         );

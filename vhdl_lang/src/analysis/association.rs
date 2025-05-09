@@ -6,7 +6,6 @@
 
 use crate::analysis::names::ObjectName;
 use fnv::FnvHashMap;
-use itertools::Itertools;
 use vhdl_lang::TokenSpan;
 
 use super::analyze::*;
@@ -18,12 +17,12 @@ use crate::data::*;
 use crate::named_entity::*;
 
 #[derive(Copy, Clone)]
-struct ResolvedFormal<'a> {
+pub(crate) struct ResolvedFormal<'a> {
     /// The index in the formal parameter list
     idx: usize,
 
     /// The underlying interface object
-    iface: InterfaceEnt<'a>,
+    pub(crate) iface: InterfaceEnt<'a>,
 
     // Has the formal been selected, indexed or sliced?
     /// Example:
@@ -36,8 +35,9 @@ struct ResolvedFormal<'a> {
     /// port map(to_slv(foo) => sig)
     is_converted: bool,
 
-    /// The type of the potentially partial or converted formal
-    type_mark: TypeEnt<'a>,
+    /// The type of the potentially partial or converted formal.
+    /// `None`, if the formal does not have to a type (e.g., packages or subprograms).
+    type_mark: Option<TypeEnt<'a>>,
 }
 
 impl<'a> ResolvedFormal<'a> {
@@ -51,24 +51,24 @@ impl<'a> ResolvedFormal<'a> {
         }
     }
 
-    fn convert(&self, into_type: TypeEnt<'a>) -> Self {
+    fn convert(self, into_type: TypeEnt<'a>) -> Self {
         Self {
             idx: self.idx,
             iface: self.iface,
             is_partial: self.is_partial,
             is_converted: true,
-            type_mark: into_type,
+            type_mark: Some(into_type),
         }
     }
 
-    fn partial_with_typ(&self, suffix_type: TypeEnt<'a>) -> Option<Self> {
+    fn partial_with_typ(self, suffix_type: TypeEnt<'a>) -> Option<Self> {
         if !self.is_converted {
             Some(Self {
                 idx: self.idx,
                 iface: self.iface,
                 is_partial: true,
                 is_converted: self.is_converted,
-                type_mark: suffix_type,
+                type_mark: Some(suffix_type),
             })
         } else {
             // Converted formals may not be further selected
@@ -76,11 +76,21 @@ impl<'a> ResolvedFormal<'a> {
         }
     }
 
-    fn partial(&self) -> Self {
+    fn partial(self) -> Self {
         Self {
             is_partial: true,
-            ..*self
+            ..self
         }
+    }
+
+    pub fn require_type_mark(&self) -> Result<TypeEnt<'a>, Diagnostic> {
+        self.type_mark.ok_or_else(|| {
+            Diagnostic::invalid_formal(
+                self.iface
+                    .decl_pos()
+                    .expect("InterfaceEnt must have a declaration position"),
+            )
+        })
     }
 }
 
@@ -102,11 +112,12 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut prefix.item,
                     diagnostics,
                 )?;
-
                 let suffix_ent = resolved_prefix
-                    .type_mark
+                    .require_type_mark()
+                    .into_eval_result(diagnostics)?
                     .selected(self.ctx, prefix.span, suffix)
                     .into_eval_result(diagnostics)?;
+
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
                     if let Some(resolved_formal) =
@@ -210,7 +221,10 @@ impl<'a> AnalyzeContext<'a, '_> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            let ctyp = resolved_formal.type_mark.base();
+                            let ctyp = resolved_formal
+                                .require_type_mark()
+                                .into_eval_result(diagnostics)?
+                                .base();
                             if !typ.base().is_closely_related(ctyp) {
                                 bail!(
                                     diagnostics,
@@ -224,13 +238,16 @@ impl<'a> AnalyzeContext<'a, '_> {
                             typ
                         }
                         Some(ResolvedName::Overloaded(des, overloaded)) => {
+                            let resolved_type = resolved_formal
+                                .require_type_mark()
+                                .into_eval_result(diagnostics)?;
                             let mut candidates = Vec::with_capacity(overloaded.len());
 
                             for ent in overloaded.entities() {
                                 if ent.is_function()
-                                    && ent.signature().can_be_called_with_single_parameter(
-                                        resolved_formal.type_mark,
-                                    )
+                                    && ent
+                                        .signature()
+                                        .can_be_called_with_single_parameter(resolved_type)
                                 {
                                     candidates.push(ent);
                                 }
@@ -254,7 +271,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                         format!(
                                             "No function '{}' accepting {}",
                                             fcall.name,
-                                            resolved_formal.type_mark.describe()
+                                            resolved_type.describe()
                                         ),
                                         ErrorCode::Unresolved,
                                     )
@@ -278,12 +295,15 @@ impl<'a> AnalyzeContext<'a, '_> {
                         &mut indexed_name.name.item,
                         diagnostics,
                     )?;
+                    let resolved_type = resolved_prefix
+                        .require_type_mark()
+                        .into_eval_result(diagnostics)?;
 
                     let new_typ = self.analyze_indexed_name(
                         scope,
                         name_pos,
                         indexed_name.name.suffix_pos(),
-                        resolved_prefix.type_mark,
+                        resolved_type,
                         &mut indexed_name.indexes,
                         diagnostics,
                     )?;
@@ -312,6 +332,17 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
+    /// Verifies that named arguments follow positional arguments.
+    ///
+    /// ## Compliant example
+    /// ```vhdl
+    /// foo(0, arg1 => 0);
+    /// ```
+    ///
+    /// ## Non-Compliant example
+    /// ```vhdl
+    /// foo(arg1 => 0, 0);
+    /// ```
     pub fn check_positional_before_named(
         &self,
         elems: &[AssociationElement],
@@ -342,7 +373,14 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
     }
 
-    fn combine_formal_with_actuals<'e>(
+    /// Combines formal elements (the ones that were declared at a function,
+    /// procedure, entity, package, e.t.c.) with the actual elements (the ones
+    /// that are present at the call / instantiation site).
+    /// The result is a vector of tuples where the first refers to the token span
+    /// of the actual and the second to the resolved formal.
+    /// If there is are extraneous arguments, the resolved formals at that position
+    /// will be `None`.
+    pub fn combine_formal_with_actuals<'e>(
         &self,
         formal_region: &FormalRegion<'a>,
         scope: &Scope<'a>,
@@ -367,6 +405,7 @@ impl<'a> AnalyzeContext<'a, '_> {
 
                 result.push((formal.span, resolved_formal));
             } else if let Some(formal) = formal_region.nth(actual_idx) {
+                // positional argument
                 // Actual index is same as formal index for positional argument
                 let formal = ResolvedFormal::new_basic(actual_idx, formal);
                 result.push((actual.span, Some(formal)));
@@ -382,18 +421,19 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(result)
     }
 
-    fn check_missing_and_duplicates(
+    /// Check for missing and duplicate associations.
+    pub fn check_missing_and_duplicates(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
-        resolved_pairs: &[(TokenSpan, Option<ResolvedFormal<'a>>)],
+        resolved_pairs: Vec<(TokenSpan, Option<ResolvedFormal<'a>>)>,
         formal_region: &FormalRegion<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<TypeEnt<'a>>> {
+    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
         let mut is_error = false;
         let mut result = Vec::default();
 
         let mut associated: FnvHashMap<usize, (TokenSpan, ResolvedFormal<'_>)> = Default::default();
-        for (actual_pos, resolved_formal) in resolved_pairs.iter() {
+        for (actual_pos, resolved_formal) in resolved_pairs {
             match resolved_formal {
                 Some(resolved_formal) => {
                     if let Some((prev_pos, prev_formal)) = associated.get(&resolved_formal.idx) {
@@ -412,8 +452,8 @@ impl<'a> AnalyzeContext<'a, '_> {
                             diagnostics.push(diag);
                         }
                     }
-                    result.push(resolved_formal.type_mark);
-                    associated.insert(resolved_formal.idx, (*actual_pos, *resolved_formal));
+                    result.push(resolved_formal);
+                    associated.insert(resolved_formal.idx, (actual_pos, resolved_formal));
                 }
                 None => {
                     is_error = true;
@@ -454,73 +494,202 @@ impl<'a> AnalyzeContext<'a, '_> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<TypeEnt<'a>>> {
+    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
         let resolved_pairs =
             self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
-        self.check_missing_and_duplicates(error_pos, &resolved_pairs, formal_region, diagnostics)
+        self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)
     }
 
+    /// Checks associations irrelevant of the actual kind (i.e., can analyze generic maps,
+    /// port maps and subprogram calls).
+    ///
+    /// * `error_pos` Position of the instance or call site
+    /// * `formal_region` The formals (i.e., the declared elements)
+    /// * `mapping` Maps generic types to their actual values. This is a mutable reference so that
+    ///   generic maps can populate the content appropriately while port maps and parameters will
+    ///   only read from it.
     pub fn check_association<'e>(
         &self,
-        error_pos: &SrcPos, // The position of the instance/call-site
+        error_pos: &SrcPos,
         formal_region: &FormalRegion<'a>,
+        mapping: &mut FnvHashMap<EntityId, TypeEnt<'a>>,
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> EvalResult {
         let resolved_pairs =
-            as_fatal(self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics))?;
+            self.combine_formal_with_actuals(formal_region, scope, elems, diagnostics)?;
 
-        if let Some(resolved_pairs) = resolved_pairs {
-            as_fatal(self.check_missing_and_duplicates(
-                error_pos,
-                &resolved_pairs,
-                formal_region,
-                diagnostics,
-            ))?;
+        for (resolved_formal, actual) in resolved_pairs
+            .iter()
+            .map(|(_, resolved_formal)| resolved_formal)
+            .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
+        {
+            match &mut actual.item {
+                ActualPart::Expression(expr) => {
+                    let Some(resolved_formal) = resolved_formal else {
+                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, &mut NullDiagnostics)?;
+                        continue;
+                    };
+                    if formal_region.typ == InterfaceType::Parameter {
+                        self.check_interface_mode_mismatch(
+                            resolved_formal,
+                            expr,
+                            scope,
+                            actual.span,
+                            diagnostics,
+                        )?;
+                    }
+                    match &resolved_formal.iface {
+                        InterfaceEnt::Type(uninst_typ) => {
+                            let typ = if let Expression::Name(name) = expr {
+                                match name.as_mut() {
+                                    // Could be an array constraint such as integer_vector(0 to 3)
+                                    // @TODO we ignore the suffix for now
+                                    Name::Slice(prefix, drange) => {
+                                        let typ = self.type_name(
+                                            scope,
+                                            prefix.span,
+                                            &mut prefix.item,
+                                            diagnostics,
+                                        )?;
+                                        if let Type::Array { indexes, .. } = typ.base().kind() {
+                                            if let Some(Some(idx_typ)) = indexes.first() {
+                                                self.drange_with_ttyp(
+                                                    scope,
+                                                    (*idx_typ).into(),
+                                                    drange,
+                                                    diagnostics,
+                                                )?;
+                                            }
+                                        } else {
+                                            diagnostics.add(
+                                                actual.pos(self.ctx),
+                                                format!(
+                                                    "Array constraint cannot be used for {}",
+                                                    typ.describe()
+                                                ),
+                                                ErrorCode::TypeMismatch,
+                                            );
+                                        }
+                                        typ
+                                    }
+                                    // Could be a record constraint such as rec_t(field(0 to 3))
+                                    // @TODO we ignore the suffix for now
+                                    Name::CallOrIndexed(call) if call.could_be_indexed_name() => {
+                                        self.type_name(
+                                            scope,
+                                            call.name.span,
+                                            &mut call.name.item,
+                                            diagnostics,
+                                        )?
+                                    }
+                                    _ => self.type_name(scope, actual.span, name, diagnostics)?,
+                                }
+                            } else {
+                                diagnostics.add(
+                                    actual.pos(self.ctx),
+                                    "Cannot map expression to type generic",
+                                    ErrorCode::MismatchedKinds,
+                                );
+                                continue;
+                            };
 
-            let resolved_formals = resolved_pairs
-                .into_iter()
-                .map(|(_, resolved_formal)| resolved_formal)
-                .collect_vec();
+                            mapping.insert(uninst_typ.id(), typ);
+                        }
+                        InterfaceEnt::Subprogram(target) => match expr {
+                            Expression::Name(name) => {
+                                let resolved =
+                                    self.name_resolve(scope, actual.span, name, diagnostics)?;
+                                if let ResolvedName::Overloaded(des, overloaded) = resolved {
+                                    let signature = target.subprogram_key().map(|base_type| {
+                                        mapping
+                                            .get(&base_type.id())
+                                            .map(|ent| ent.base())
+                                            .unwrap_or(base_type)
+                                    });
+                                    if let Some(ent) = overloaded.get(&signature) {
+                                        name.set_unique_reference(&ent);
+                                    } else {
+                                        let mut diag = Diagnostic::mismatched_kinds(
+                                            actual.pos(self.ctx),
+                                            format!(
+                                                "Cannot map '{des}' to subprogram generic {}{}",
+                                                target.designator(),
+                                                signature.key().describe()
+                                            ),
+                                        );
 
-            for (resolved_formal, actual) in resolved_formals
-                .iter()
-                .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
-            {
-                match &mut actual.item {
-                    ActualPart::Expression(expr) => {
-                        if let Some(resolved_formal) = resolved_formal {
-                            if formal_region.typ == InterfaceType::Parameter {
-                                self.check_parameter_interface(
-                                    resolved_formal,
-                                    expr,
-                                    scope,
-                                    actual.span,
-                                    diagnostics,
-                                )?;
+                                        diag.add_subprogram_candidates(
+                                            "Does not match",
+                                            overloaded.entities(),
+                                        );
+
+                                        diagnostics.push(diag)
+                                    }
+                                } else {
+                                    diagnostics.add(
+                                        actual.pos(self.ctx),
+                                        format!(
+                                            "Cannot map {} to subprogram generic",
+                                            resolved.describe()
+                                        ),
+                                        ErrorCode::MismatchedKinds,
+                                    )
+                                }
                             }
+                            Expression::Literal(Literal::String(string)) => {
+                                if Operator::from_latin1(string.clone()).is_none() {
+                                    diagnostics.add(
+                                        actual.pos(self.ctx),
+                                        "Invalid operator symbol",
+                                        ErrorCode::InvalidOperatorSymbol,
+                                    );
+                                }
+                            }
+                            _ => diagnostics.add(
+                                actual.pos(self.ctx),
+                                "Cannot map expression to subprogram generic",
+                                ErrorCode::MismatchedKinds,
+                            ),
+                        },
+                        InterfaceEnt::Package(_) => match expr {
+                            Expression::Name(name) => {
+                                self.name_resolve(scope, actual.span, name, diagnostics)?;
+                            }
+                            _ => diagnostics.add(
+                                actual.pos(self.ctx),
+                                "Cannot map expression to package generic",
+                                ErrorCode::MismatchedKinds,
+                            ),
+                        },
+                        InterfaceEnt::Object(_) | InterfaceEnt::File(_) => {
+                            // use the resolved formal's type since it could be converted
+                            let typ = resolved_formal
+                                .require_type_mark()
+                                .expect("Object or file interface without type");
                             self.expr_pos_with_ttyp(
                                 scope,
-                                resolved_formal.type_mark,
+                                self.map_type_ent(mapping, typ, scope),
                                 actual.span,
                                 expr,
                                 diagnostics,
-                            )?;
-                        } else {
-                            self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
+                            )?
                         }
                     }
-                    ActualPart::Open => {}
                 }
+                ActualPart::Open => {}
             }
         }
+        self.check_missing_and_duplicates(error_pos, resolved_pairs, formal_region, diagnostics)?;
         Ok(())
     }
 
-    // LRM 4.2.2.1: In a subprogram, the interface mode must match the mode of the actual designator
-    // when the interface mode is signal, variable or file. Furthermore, they must be a single name.
-    fn check_parameter_interface(
+    /// From LRM 4.2.2.1:
+    /// In a subprogram, the interface mode must match the mode of the actual designator
+    /// when the interface mode is signal, variable or file.
+    /// Furthermore, they must be a single name.
+    fn check_interface_mode_mismatch(
         &self,
         resolved_formal: &ResolvedFormal<'a>,
         expr: &mut Expression,
@@ -528,52 +697,55 @@ impl<'a> AnalyzeContext<'a, '_> {
         actual_pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match resolved_formal.iface.interface_class() {
-            InterfaceClass::Signal => {
-                let Some(name) =
-                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
-                else {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Expression must be a name denoting a signal",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
-                    return Ok(());
-                };
-                if !matches!(name, ResolvedName::ObjectName(
-                                                        ObjectName { base, .. },
-                                                    ) if base.class() == ObjectClass::Signal)
-                {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Name must denote a signal name",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
+        match resolved_formal.iface {
+            InterfaceEnt::Object(o) => match o.class() {
+                ObjectClass::Signal => {
+                    let Some(name) =
+                        as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                    else {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Expression must be a name denoting a signal",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                        return Ok(());
+                    };
+                    if !matches!(name, ResolvedName::ObjectName(
+                                                            ObjectName { base, .. },
+                                                        ) if base.class() == ObjectClass::Signal)
+                    {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Name must denote a signal name",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                    }
                 }
-            }
-            InterfaceClass::Variable => {
-                let Some(name) =
-                    as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
-                else {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Expression must be a name denoting a variable or shared variable",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
-                    return Ok(());
-                };
-                if !matches!(name, ResolvedName::ObjectName(
+                ObjectClass::Variable | ObjectClass::SharedVariable => {
+                    let Some(name) =
+                        as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
+                    else {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Expression must be a name denoting a variable or shared variable",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                        return Ok(());
+                    };
+                    if !matches!(name, ResolvedName::ObjectName(
                                                         ObjectName { base, .. },
                                                     ) if base.class() == ObjectClass::Variable || base.class() == ObjectClass::SharedVariable)
-                {
-                    diagnostics.add(
-                        actual_pos.pos(self.ctx),
-                        "Name must denote a variable name",
-                        ErrorCode::InterfaceModeMismatch,
-                    );
+                    {
+                        diagnostics.add(
+                            actual_pos.pos(self.ctx),
+                            "Name must denote a variable name",
+                            ErrorCode::InterfaceModeMismatch,
+                        );
+                    }
                 }
-            }
-            InterfaceClass::File => {
+                ObjectClass::Constant => {}
+            },
+            InterfaceEnt::File(_) => {
                 let Some(name) =
                     as_fatal(self.expression_as_name(expr, scope, actual_pos, diagnostics))?
                 else {

@@ -83,6 +83,18 @@ impl<'a> AnalyzeContext<'a, '_> {
         Ok(())
     }
 
+    fn push_invalid_formals_into_diagnostics(
+        &self,
+        invalid_formals: &[InterfaceEnt<'a>],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        for invalid_formal in invalid_formals {
+            if let Some(decl_pos) = invalid_formal.decl_pos() {
+                diagnostics.push(Diagnostic::invalid_formal(decl_pos))
+            }
+        }
+    }
+
     pub(crate) fn subprogram_specification(
         &self,
         scope: &Scope<'a>,
@@ -100,7 +112,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 .clone()
                 .into_designator(),
             parent,
-            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
+            AnyEntKind::Overloaded(to_kind(Signature::new(ParameterRegion::default(), None))),
             Some(subprogram.subpgm_designator().pos(self.ctx)),
             span,
             Some(self.source()),
@@ -124,7 +136,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut fun.return_type.item,
                     diagnostics,
                 );
-                (Signature::new(params?, Some(return_type?)), generic_map)
+                match ParameterRegion::from_formal_region(params?) {
+                    Ok(params) => (Signature::new(params, Some(return_type?)), generic_map),
+                    Err(invalid_formals) => {
+                        self.push_invalid_formals_into_diagnostics(&invalid_formals, diagnostics);
+                        return Err(EvalError::Unknown);
+                    }
+                }
             }
             SubprogramSpecification::Procedure(procedure) => {
                 let generic_map = if let Some(header) = &mut procedure.header {
@@ -137,7 +155,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 } else {
                     Ok(FormalRegion::new_params())
                 };
-                (Signature::new(params?, None), generic_map)
+                match ParameterRegion::from_formal_region(params?) {
+                    Ok(params) => (Signature::new(params, None), generic_map),
+                    Err(invalid_formals) => {
+                        self.push_invalid_formals_into_diagnostics(&invalid_formals, diagnostics);
+                        return Err(EvalError::Unknown);
+                    }
+                }
             }
         };
 
