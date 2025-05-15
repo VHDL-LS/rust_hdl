@@ -101,12 +101,10 @@ impl VHDLServer {
 
     /// Load the workspace root configuration file
     fn load_root_uri_config(&self) -> io::Result<Config> {
-        let config_file = self.config_file.as_ref().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "Workspace root configuration file not set",
-            )
-        })?;
+        let config_file = self
+            .config_file
+            .as_ref()
+            .ok_or_else(|| io::Error::other("Workspace root configuration file not set"))?;
         let config = Config::read_file_path(config_file)?;
 
         // Log which file was loaded

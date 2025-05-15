@@ -164,7 +164,7 @@ impl Config {
 
         let parent = file_name.parent().unwrap();
 
-        Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
+        Config::from_str(&contents, parent).map_err(io::Error::other)
     }
 
     pub fn get_library(&self, name: &str) -> Option<&LibraryConfig> {
