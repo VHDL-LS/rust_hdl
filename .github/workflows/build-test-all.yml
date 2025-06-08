@@ -43,7 +43,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -55,7 +55,7 @@ jobs:
       - name: Add Apple Silicon Dependencies
         run: rustup target add aarch64-apple-darwin
 
-      - uses: awalsh128/cache-apt-pkgs-action@v1
+      - uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40  # v1.5.0
         if: matrix.os == 'ubuntu-latest'
         with:
           packages: musl-tools # provides musl-gcc
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload
         if: matrix.rust == 'stable'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: ${{ matrix.crate }}-${{ matrix.target }}
@@ -103,9 +103,9 @@ jobs:
         run: |
           echo "v=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
           echo "Version is v${GITHUB_REF/refs\/tags\/v/}"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           pattern: vhdl_*
           path: ~/temp
@@ -144,7 +144,7 @@ jobs:
           zip -r vhdl_ls-aarch64-apple-darwin.zip vhdl_ls-aarch64-apple-darwin
           zip -r vhdl_lang-aarch64-apple-darwin.zip vhdl_lang-aarch64-apple-darwin
       - name: Do release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@440c8c1cb0ed28b9f43e4d1d670870f059653174  # v1.16.0
         with:
           draft: false
           artifacts: "~/temp/*.zip"
