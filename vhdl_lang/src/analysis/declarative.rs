@@ -1349,8 +1349,8 @@ fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement<'_>>
         desc
     };
     if unassociated.len() == 1 {
-        format!("Missing association of element {}", description)
+        format!("Missing association of element {description}")
     } else {
-        format!("Missing association of elements {}", description)
+        format!("Missing association of elements {description}")
     }
 }

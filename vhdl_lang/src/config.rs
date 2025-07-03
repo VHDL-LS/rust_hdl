@@ -78,8 +78,7 @@ impl Config {
         for (name, lib) in libs.iter() {
             if name.to_lowercase() == "work" {
                 return Err(format!(
-                    "The '{}' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'",
-                    name
+                    "The '{name}' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'"
                 ));
             }
 

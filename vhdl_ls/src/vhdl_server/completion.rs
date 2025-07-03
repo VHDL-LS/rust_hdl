@@ -84,7 +84,7 @@ impl VHDLServer {
                     let (ports, generics) = region.ports_and_generics();
                     let mut idx = 4;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
-                        line += &*format!("\n {} map(\n", purpose);
+                        line += &*format!("\n {purpose} map(\n");
                         for (i, generic) in elements.iter().enumerate() {
                             line += &*format!(
                                 "    {} => ${{{}:{}}}",

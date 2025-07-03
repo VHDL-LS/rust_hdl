@@ -190,7 +190,7 @@ impl<'a> FormalRegion<'a> {
         if let Some(ent) = InterfaceEnt::from_any(param) {
             self.entities.push(ent);
         } else {
-            println!("kind: {:?}", param);
+            println!("kind: {param:?}");
             debug_assert!(false);
         }
     }

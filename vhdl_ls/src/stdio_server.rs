@@ -43,7 +43,7 @@ impl RpcChannel for ConnectionRpcChannel {
     fn send_notification(&self, method: String, params: Value) {
         let notification = lsp_server::Notification { method, params };
 
-        trace!("Sending notification: {:?}", notification);
+        trace!("Sending notification: {notification:?}");
         self.connection.sender.send(notification.into()).unwrap();
     }
 
@@ -84,7 +84,7 @@ impl ConnectionRpcChannel {
     fn main_event_loop(&self, mut server: VHDLServer) {
         info!("Language server initialized, waiting for messages ...");
         while let Ok(message) = self.connection.receiver.recv() {
-            trace!("Received message: {:?}", message);
+            trace!("Received message: {message:?}");
             match message {
                 lsp_server::Message::Request(request) => {
                     match self.connection.handle_shutdown(&request) {
@@ -110,7 +110,7 @@ impl ConnectionRpcChannel {
 
     /// Send responses (to requests sent by the client) back to the client.
     fn send_response(&self, response: lsp_server::Response) {
-        trace!("Sending response: {:?}", response);
+        trace!("Sending response: {response:?}");
         self.connection.sender.send(response.into()).unwrap();
     }
 
@@ -131,7 +131,7 @@ impl ConnectionRpcChannel {
             })
         }
 
-        trace!("Handling request: {:?}", request);
+        trace!("Handling request: {request:?}");
         let request = match extract::<request::GotoDeclaration>(request) {
             Ok((id, params)) => {
                 let result =
@@ -231,7 +231,7 @@ impl ConnectionRpcChannel {
             Err(request) => request,
         };
 
-        debug!("Unhandled request: {:?}", request);
+        debug!("Unhandled request: {request:?}");
         self.send_response(lsp_server::Response::new_err(
             request.id,
             lsp_server::ErrorCode::MethodNotFound as i32,
@@ -256,7 +256,7 @@ impl ConnectionRpcChannel {
             })
         }
 
-        trace!("Handling notification: {:?}", notification);
+        trace!("Handling notification: {notification:?}");
         // textDocument/didChange
         let notification = match extract::<notification::DidChangeTextDocument>(notification) {
             Ok(params) => return server.text_document_did_change_notification(&params),
@@ -279,13 +279,13 @@ impl ConnectionRpcChannel {
         };
 
         if !notification.method.starts_with("$/") {
-            debug!("Unhandled notification: {:?}", notification);
+            debug!("Unhandled notification: {notification:?}");
         }
     }
 
     /// Handle incoming responses (to requests sent by us) from the client.
     fn handle_response(&self, _server: &mut VHDLServer, response: lsp_server::Response) {
-        trace!("Handling response: {:?}", response);
+        trace!("Handling response: {response:?}");
         // We currently can ignore incoming responses as the implemented
         // outgoing requests do not require confirmation by the client.
     }

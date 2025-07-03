@@ -312,7 +312,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         } else if ok_kind.is_empty() {
             diagnostics.add(
                 call_name.pos(self.ctx),
-                format!("uninstantiated subprogram {} cannot be called", call_name),
+                format!("uninstantiated subprogram {call_name} cannot be called"),
                 ErrorCode::InvalidCall,
             );
             return Err(EvalError::Unknown);

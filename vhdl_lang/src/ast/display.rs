@@ -628,7 +628,7 @@ impl Display for Designator {
             Designator::Identifier(ref sym) => write!(f, "{sym}"),
             Designator::OperatorSymbol(ref op) => write!(f, "\"{op}\""),
             Designator::Character(byte) => write!(f, "'{}'", iso_8859_1_to_utf8(&[*byte])),
-            Designator::Anonymous(idx) => write!(f, "<anonymous {}>", idx),
+            Designator::Anonymous(idx) => write!(f, "<anonymous {idx}>"),
         }
     }
 }
@@ -765,7 +765,7 @@ impl Display for ObjectDeclaration {
             self.class,
             self.idents
                 .iter()
-                .map(|ident| format!("{}", ident))
+                .map(|ident| format!("{ident}"))
                 .join(", "),
             self.subtype_indication,
         )?;
@@ -916,7 +916,7 @@ impl Display for SubprogramInstantiation {
         write!(f, " is new ")?;
         write!(f, "{}", self.subprogram_name)?;
         if let Some(signature) = &self.signature {
-            write!(f, " {}", signature)?;
+            write!(f, " {signature}")?;
         }
         if let Some(generic_map) = &self.generic_map {
             writeln!(f, " generic map (")?;

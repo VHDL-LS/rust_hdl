@@ -563,7 +563,7 @@ impl Display for TokenSpan {
 
 impl Debug for TokenSpan {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -2732,7 +2732,7 @@ my_other_ident",
         // May not use digit larger than or equal base
         let code = Code::new("3#3#");
         let (tokens, _) = code.tokenize_result();
-        println!("{:?}", tokens);
+        println!("{tokens:?}");
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
