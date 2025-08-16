@@ -22,6 +22,7 @@ impl VHDLServer {
                 ));
                 let config = self.load_config();
                 self.severity_map = *config.severities();
+                self.case_transform = config.preferred_case();
 
                 self.project
                     .update_config(config, &mut self.message_filter());

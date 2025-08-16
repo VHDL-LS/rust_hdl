@@ -48,6 +48,7 @@ impl VHDLServer {
     pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
         self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
+        self.case_transform = config.preferred_case();
         self.severity_map = *config.severities();
         self.project = Project::from_config(config, &mut self.message_filter());
         self.project.enable_all_linters();

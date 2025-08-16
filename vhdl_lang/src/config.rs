@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
+use std::str::FromStr;
 
 use fnv::FnvHashMap;
 use subst::VariableMap;
@@ -21,6 +22,116 @@ use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::standard::VHDLStandard;
 
+/// Defines standard VHDL case conventions.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Case {
+    /// All lower case, i.e., `std_logic_vector`
+    Lower,
+    /// All upper-case, i.e., `STD_LOGIC_VECTOR`
+    Upper,
+    /// Pascal case, i.e., `Std_Logic_Vector`
+    Pascal,
+}
+
+impl FromStr for Case {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "lower" | "snake" => Case::Lower,
+            "upper" | "upper_snake" => Case::Upper,
+            "pascal" | "upper_camel" => Case::Pascal,
+            other => return Err(other.to_string()),
+        })
+    }
+}
+
+impl Case {
+    /// Converts the case in place, modifying the passed string.
+    pub fn convert(&self, val: &mut str) {
+        match self {
+            Case::Lower => val.make_ascii_lowercase(),
+            Case::Upper => val.make_ascii_uppercase(),
+            Case::Pascal => {
+                // SAFETY: changing ASCII letters only does not invalidate UTF-8.
+                let bytes = unsafe { val.as_bytes_mut() };
+                // First letter should be uppercased
+                let mut next_uppercase = true;
+                for byte in bytes {
+                    if byte == &b'_' {
+                        next_uppercase = true;
+                        continue;
+                    }
+                    if next_uppercase {
+                        byte.make_ascii_uppercase();
+                    } else {
+                        byte.make_ascii_lowercase();
+                    }
+                    next_uppercase = false;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod case_tests {
+    use super::*;
+
+    #[test]
+    fn test_case_lower() {
+        let mut test = String::from("STD_LOGIC_VECTOR");
+        Case::Lower.convert(&mut test);
+        assert_eq!(test, "std_logic_vector");
+    }
+
+    #[test]
+    fn test_case_upper() {
+        let mut test = String::from("std_logic_vector");
+        Case::Upper.convert(&mut test);
+        assert_eq!(test, "STD_LOGIC_VECTOR");
+    }
+
+    #[test]
+    fn test_case_pascal() {
+        let mut test = String::from("std_logic_vector");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std_Logic_Vector");
+    }
+
+    #[test]
+    fn test_case_empty() {
+        for case in &[Case::Lower, Case::Upper, Case::Pascal] {
+            let mut test = String::new();
+            case.convert(&mut test);
+            assert_eq!(test, "");
+        }
+    }
+
+    #[test]
+    fn test_case_underscore_only() {
+        for case in &[Case::Lower, Case::Upper, Case::Pascal] {
+            let mut test = String::from("___");
+            case.convert(&mut test);
+            assert_eq!(test, "___");
+        }
+    }
+
+    #[test]
+    fn test_case_consecutive_underscore() {
+        let mut test = String::from("std__logic___vector");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std__Logic___Vector");
+    }
+
+    #[test]
+    fn test_case_mixed() {
+        let mut test = String::from("StD_LoGiC_VeCToR");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std_Logic_Vector");
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
@@ -28,6 +139,7 @@ pub struct Config {
     standard: VHDLStandard,
     // Defines the severity that diagnostics are displayed with
     severities: SeverityMap,
+    preferred_case: Option<Case>,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -126,10 +238,22 @@ impl Config {
             SeverityMap::default()
         };
 
+        let case = if let Some(case) = config.get("preferred_case") {
+            Some(
+                case.as_str()
+                    .ok_or("preferred_case must be a string")?
+                    .parse()
+                    .map_err(|other| format!("Case '{other}' not valid"))?,
+            )
+        } else {
+            None
+        };
+
         Ok(Config {
             libraries,
             severities,
             standard,
+            preferred_case: case,
         })
     }
 
@@ -192,6 +316,7 @@ impl Config {
             }
         }
         self.severities = config.severities;
+        self.preferred_case = config.preferred_case;
     }
 
     /// Load configuration file from installation folder
@@ -300,6 +425,11 @@ impl Config {
     /// By default, VHDL 2008 is assumed
     pub fn standard(&self) -> VHDLStandard {
         self.standard
+    }
+
+    /// Returns the casing that is preferred by the user for linting or completions.
+    pub fn preferred_case(&self) -> Option<Case> {
+        self.preferred_case
     }
 }
 
