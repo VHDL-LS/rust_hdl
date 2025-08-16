@@ -7,74 +7,78 @@ use vhdl_lang::ast::{Designator, ObjectClass};
 use vhdl_lang::{kind_str, AnyEntKind, Design, EntRef, InterfaceEnt, Overloaded};
 
 impl VHDLServer {
-    fn completion_item_to_lsp_item(
-        &self,
-        item: vhdl_lang::CompletionItem,
-    ) -> lsp_types::CompletionItem {
+    fn insert_text(&self, val: impl ToString) -> String {
+        let mut val = val.to_string();
+        if let Some(case) = &self.case_transform {
+            case.convert(&mut val)
+        }
+        val
+    }
+
+    fn completion_item_to_lsp_item(&self, item: vhdl_lang::CompletionItem) -> CompletionItem {
         match item {
-            vhdl_lang::CompletionItem::Simple(ent) => entity_to_completion_item(ent),
+            vhdl_lang::CompletionItem::Simple(ent) => self.entity_to_completion_item(ent),
             vhdl_lang::CompletionItem::Work => CompletionItem {
-                label: "work".to_string(),
+                label: self.insert_text("work"),
                 detail: Some("work library".to_string()),
                 kind: Some(CompletionItemKind::MODULE),
-                insert_text: Some("work".to_string()),
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::Formal(ent) => {
-                let mut item = entity_to_completion_item(ent);
+                let mut item = self.entity_to_completion_item(ent);
                 if self.client_supports_snippets() {
                     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
                     item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
                 }
                 item
             }
-            vhdl_lang::CompletionItem::Overloaded(desi, count) => CompletionItem {
-                label: desi.to_string(),
-                detail: Some(format!("+{count} overloaded")),
-                kind: match desi {
+            vhdl_lang::CompletionItem::Overloaded(desi, count) => {
+                let kind = match desi {
                     Designator::Identifier(_) => Some(CompletionItemKind::FUNCTION),
                     Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
                     _ => None,
-                },
-                insert_text: Some(desi.to_string()),
-                ..Default::default()
-            },
+                };
+                CompletionItem {
+                    label: self.insert_text(desi),
+                    detail: Some(format!("+{count} overloaded")),
+                    kind,
+                    ..Default::default()
+                }
+            }
             vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
-                label: kind_str(kind).to_string(),
+                label: self.insert_text(kind_str(kind)),
                 detail: Some(kind_str(kind).to_string()),
-                insert_text: Some(kind_str(kind).to_string()),
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::Instantiation(ent, architectures) => {
-                let work_name = "work";
+                let work_name = self.insert_text("work");
 
                 let library_names = if let Some(lib_name) = ent.library_name() {
-                    vec![work_name.to_string(), lib_name.name().to_string()]
+                    vec![work_name, self.insert_text(lib_name.name())]
                 } else {
-                    vec![work_name.to_string()]
+                    vec![work_name]
                 };
                 let (region, is_component_instantiation) = match ent.kind() {
                     AnyEntKind::Design(Design::Entity(_, region)) => (region, false),
                     AnyEntKind::Component(region) => (region, true),
                     // should never happen but better return some value instead of crashing
-                    _ => return entity_to_completion_item(ent),
+                    _ => return self.entity_to_completion_item(ent),
                 };
+                let designator = self.insert_text(&ent.designator);
                 let template = if self.client_supports_snippets() {
                     let mut line = if is_component_instantiation {
-                        format!("${{1:{}_inst}}: {}", ent.designator, ent.designator)
+                        format!("${{1:{designator}_inst}}: {designator}",)
                     } else {
                         format!(
-                            "${{1:{}_inst}}: entity ${{2|{}|}}.{}",
-                            ent.designator,
+                            "${{1:{designator}_inst}}: entity ${{2|{}|}}.{designator}",
                             library_names.join(","),
-                            ent.designator
                         )
                     };
                     if architectures.len() > 1 {
                         line.push_str("(${3|");
                         for (i, architecture) in architectures.iter().enumerate() {
-                            line.push_str(&architecture.designator().to_string());
+                            line.push_str(&self.insert_text(architecture.designator()));
                             if i != architectures.len() - 1 {
                                 line.push(',')
                             }
@@ -84,11 +88,11 @@ impl VHDLServer {
                     let (ports, generics) = region.ports_and_generics();
                     let mut idx = 4;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
-                        line += &*format!("\n {purpose} map(\n");
+                        line += &*format!("\n {purpose} {}(\n", self.insert_text("map"));
                         for (i, generic) in elements.iter().enumerate() {
+                            let generic_designator = self.insert_text(&generic.designator);
                             line += &*format!(
-                                "    {} => ${{{}:{}}}",
-                                generic.designator, idx, generic.designator
+                                "    {generic_designator} => ${{{idx}:{generic_designator}}}",
                             );
                             idx += 1;
                             if i != elements.len() - 1 {
@@ -99,18 +103,18 @@ impl VHDLServer {
                         line += ")";
                     };
                     if !generics.is_empty() {
-                        interface_ent(generics, "generic");
+                        interface_ent(generics, &self.insert_text("generic"));
                     }
                     if !ports.is_empty() {
-                        interface_ent(ports, "port");
+                        interface_ent(ports, &self.insert_text("port"));
                     }
                     line += ";";
                     line
                 } else {
-                    format!("{}", ent.designator)
+                    designator.clone()
                 };
                 CompletionItem {
-                    label: format!("{} instantiation", ent.designator),
+                    label: format!("{designator} instantiation"),
                     insert_text: Some(template),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     kind: Some(CompletionItemKind::MODULE),
@@ -118,9 +122,7 @@ impl VHDLServer {
                 }
             }
             vhdl_lang::CompletionItem::Attribute(attribute) => CompletionItem {
-                label: format!("{attribute}"),
-                detail: Some(format!("{attribute}")),
-                insert_text: Some(format!("{attribute}")),
+                label: self.insert_text(attribute),
                 kind: Some(CompletionItemKind::REFERENCE),
                 ..Default::default()
             },
@@ -177,16 +179,15 @@ impl VHDLServer {
         }
         params
     }
-}
 
-fn entity_to_completion_item(ent: EntRef) -> CompletionItem {
-    CompletionItem {
-        label: ent.designator.to_string(),
-        detail: Some(ent.describe()),
-        kind: Some(entity_kind_to_completion_kind(ent.kind())),
-        data: serde_json::to_value(ent.id.to_raw()).ok(),
-        insert_text: Some(ent.designator.to_string()),
-        ..Default::default()
+    fn entity_to_completion_item(&self, ent: EntRef) -> CompletionItem {
+        CompletionItem {
+            label: self.insert_text(&ent.designator),
+            detail: Some(ent.describe()),
+            kind: Some(entity_kind_to_completion_kind(ent.kind())),
+            data: serde_json::to_value(ent.id.to_raw()).ok(),
+            ..Default::default()
+        }
     }
 }
 

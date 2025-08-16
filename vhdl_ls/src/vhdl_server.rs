@@ -22,7 +22,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
+    AnyEntKind, Case, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
     Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
@@ -66,6 +66,7 @@ pub struct VHDLServer {
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
+    case_transform: Option<Case>,
     string_matcher: SkimMatcherV2,
 }
 
@@ -81,6 +82,7 @@ impl VHDLServer {
             config_file: None,
             severity_map: SeverityMap::default(),
             string_matcher: SkimMatcherV2::default().use_cache(true).ignore_case(),
+            case_transform: None,
         }
     }
 
@@ -96,6 +98,7 @@ impl VHDLServer {
             config_file: None,
             severity_map: SeverityMap::default(),
             string_matcher: SkimMatcherV2::default(),
+            case_transform: None,
         }
     }
 
