@@ -18,8 +18,8 @@ jobs:
         - vhdl_ls
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: jerray/publish-docker-action@v1.0.3
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+    - uses: jerray/publish-docker-action@87d84711629b0dc9f6bb127b568413cc92a2088e  # v1.0.5
       env:
         CRATE: ${{ matrix.crate }}
       with:
@@ -28,7 +28,7 @@ jobs:
         repository: kraigher/${{ matrix.crate }}
         auto_tag: true
         build_args: CRATE
-  
+
   # A job is required when the publish job is skipped
   skip-publish:
     name: Skip publish
