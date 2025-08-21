@@ -6,6 +6,7 @@
 
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
+use crate::syntax::ConcurrentConditionalSignalAssignmentSyntax;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 use crate::tokens::TokenStream;
@@ -112,23 +113,8 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Keyword(Kw::Assert)) => {
                 self.start_node_at(checkpoint, ConcurrentAssertionStatement);
-                self.concurrent_assert_statement_inner();
+                self.assertion();
             }
-            Some(Keyword(Kw::Postponed)) => match self.peek_nth_token(1) {
-                Some(Keyword(Kw::Process)) => {
-                    self.start_node_at(checkpoint, ProcessStatement);
-                    self.process_statement_inner();
-                }
-                Some(Keyword(Kw::Assert)) => {
-                    self.start_node_at(checkpoint, ConcurrentAssertionStatement);
-                    self.concurrent_assert_statement_inner();
-                }
-                Some(Keyword(Kw::With)) => {
-                    self.start_node_at(checkpoint, ConcurrentSelectedSignalAssignment);
-                    self.concurrent_selected_signal_assignment_inner();
-                }
-                _ => todo!("Postponed concurrent signal assignment or procedure call"),
-            },
             Some(Keyword(Kw::With)) => {
                 self.start_node_at(checkpoint, ConcurrentSelectedSignalAssignment);
                 self.concurrent_selected_signal_assignment_inner();
@@ -138,11 +124,19 @@ impl<T: TokenStream> Parser<T> {
                 self.name();
                 match self.peek_token() {
                     Some(LTE) => {
-                        self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
                         self.skip();
                         self.opt_token(Keyword(Kw::Guarded));
                         self.opt_delay_mechanism();
+                        let waveform_checkpoint = self.checkpoint();
                         self.waveform();
+                        if self.opt_token(Keyword(Kw::When)) {
+                            self.start_node_at(checkpoint, ConcurrentConditionalSignalAssignment);
+                            self.start_node_at(waveform_checkpoint, ConditionalWaveforms);
+                            self.conditional_waveforms_after_first_when();
+                            self.end_node();
+                        } else {
+                            self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
+                        }
                     }
                     Some(Keyword(Kw::Port | Kw::Generic)) => {
                         self.start_node_at(checkpoint2, ComponentInstantiatedUnit);
@@ -164,6 +158,14 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 
+    /// Parse conditional waveforms, assuming the first `waveform when` is already parsed
+    fn conditional_waveforms_after_first_when(&mut self) {
+        self.expression();
+        while self.next_is(Keyword(Kw::Else)) {
+            todo!()
+        }
+    }
+
     fn concurrent_selected_signal_assignment_inner(&mut self) {
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_kw(Kw::With);
@@ -183,11 +185,6 @@ impl<T: TokenStream> Parser<T> {
         } else {
             self.name()
         }
-    }
-
-    fn concurrent_assert_statement_inner(&mut self) {
-        self.opt_token(Keyword(Kw::Postponed));
-        self.assertion();
     }
 
     pub fn assertion(&mut self) {

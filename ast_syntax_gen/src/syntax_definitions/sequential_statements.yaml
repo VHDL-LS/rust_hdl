@@ -121,6 +121,7 @@ ConditionalWaveforms: !Sequence
   - node: ConditionalWaveformElseWhenExpression
     repeated: true
   - node: ConditionalWaveformElseItem
+    optional: true
 
 TransportDelayMechanism: !Sequence
   - keyword: Transport
@@ -135,7 +136,6 @@ InertialDelayMechanism: !Sequence
 DelayMechanism: !Choice
   - node: TransportDelayMechanism
   - node: InertialDelayMechanism
-
 
 ExitStatement: !Sequence
   - token: Identifier

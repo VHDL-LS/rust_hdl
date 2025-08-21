@@ -71,6 +71,7 @@ ComponentInstantiationStatement: !Sequence
 
 ConcurrentProcedureCallOrComponentInstantiationStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - node: Name
@@ -78,20 +79,15 @@ ConcurrentProcedureCallOrComponentInstantiationStatement: !Sequence
 
 ConcurrentAssertionStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - node: Assertion
   - token: SemiColon
 
-ConcurrentProcedureCallStatement: !Sequence
-  - node: Label
-  - keyword: Postponed
-    optional: true
-  - node: Name
-  - token: SemiColon
-
 ConcurrentSimpleSignalAssignment: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - node: Target
@@ -105,13 +101,21 @@ ConcurrentSimpleSignalAssignment: !Sequence
 
 ConcurrentConditionalSignalAssignment: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - node: Target
-  - node: ConditionalSignalAssignment
+  - token: LTE
+  - keyword: Guarded
+    optional: true
+  - node: DelayMechanism
+    optional: true
+  - node: ConditionalWaveforms
+  - token: SemiColon
 
 ConcurrentSelectedSignalAssignment: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - keyword: With
@@ -131,7 +135,6 @@ ConcurrentSelectedSignalAssignment: !Sequence
 ConcurrentStatement: !Choice
   - node: BlockStatement
   - node: ProcessStatement
-  - node: ConcurrentProcedureCallStatement
   - node: ConcurrentAssertionStatement
   - node: ComponentInstantiationStatement
   - node: ConcurrentSelectedSignalAssignment

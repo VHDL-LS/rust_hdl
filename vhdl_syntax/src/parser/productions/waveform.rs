@@ -22,11 +22,16 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn delay_mechanism(&mut self) {
-        self.start_node(DelayMechanism);
+        let checkpoint = self.checkpoint();
         match_next_token_consume!(self,
-            Keyword(Kw::Transport), Keyword(Kw::Inertial) => {
+            Keyword(Kw::Transport) => {
+                self.start_node_at(checkpoint, TransportDelayMechanism);
+            },
+            Keyword(Kw::Inertial) => {
+                self.start_node_at(checkpoint, InertialDelayMechanism);
             },
             Keyword(Kw::Reject) => {
+                self.start_node_at(checkpoint, InertialDelayMechanism);
                 self.expression();
                 self.expect_kw(Kw::Inertial);
             }
@@ -48,14 +53,18 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 
-    pub fn waveform(&mut self) {
-        self.start_node(Waveform);
-        if self.opt_token(Keyword(Kw::Unaffected)) {
-            self.end_node();
-            return;
-        }
+    pub fn waveform_elements(&mut self) {
+        self.start_node(WaveformElements);
         self.separated_list(Parser::waveform_element, Comma);
         self.end_node();
+    }
+
+    pub fn waveform(&mut self) {
+        if self.next_is(Keyword(Kw::Unaffected)) {
+            self.skip_into_node(UnaffectedWaveform);
+        } else {
+            self.waveform_elements();
+        }
     }
 
     pub fn waveform_element(&mut self) {

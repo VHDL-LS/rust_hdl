@@ -431,41 +431,6 @@ impl ConcurrentAssertionStatementSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConcurrentProcedureCallStatementSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConcurrentProcedureCallStatementSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ConcurrentProcedureCallStatement => {
-                Some(ConcurrentProcedureCallStatementSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConcurrentProcedureCallStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn postponed_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Postponed))
-            .nth(0)
-    }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ConcurrentSimpleSignalAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -546,10 +511,31 @@ impl ConcurrentConditionalSignalAssignmentSyntax {
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
-    pub fn conditional_signal_assignment(&self) -> Option<ConditionalSignalAssignmentSyntax> {
+    pub fn lte_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+    }
+    pub fn guarded_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Guarded))
+            .nth(0)
+    }
+    pub fn delay_mechanism(&self) -> Option<DelayMechanismSyntax> {
         self.0
             .children()
-            .filter_map(ConditionalSignalAssignmentSyntax::cast)
+            .filter_map(DelayMechanismSyntax::cast)
+            .nth(0)
+    }
+    pub fn conditional_waveforms(&self) -> Option<ConditionalWaveformsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConditionalWaveformsSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == SemiColon)
             .nth(0)
     }
 }
@@ -631,7 +617,6 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
 pub enum ConcurrentStatementSyntax {
     BlockStatement(BlockStatementSyntax),
     ProcessStatement(ProcessStatementSyntax),
-    ConcurrentProcedureCallStatement(ConcurrentProcedureCallStatementSyntax),
     ConcurrentAssertionStatement(ConcurrentAssertionStatementSyntax),
     ComponentInstantiationStatement(ComponentInstantiationStatementSyntax),
     ConcurrentSelectedSignalAssignment(ConcurrentSelectedSignalAssignmentSyntax),
@@ -654,11 +639,6 @@ impl AstNode for ConcurrentStatementSyntax {
             NodeKind::ProcessStatement => Some(ConcurrentStatementSyntax::ProcessStatement(
                 ProcessStatementSyntax::cast(node).unwrap(),
             )),
-            NodeKind::ConcurrentProcedureCallStatement => {
-                Some(ConcurrentStatementSyntax::ConcurrentProcedureCallStatement(
-                    ConcurrentProcedureCallStatementSyntax::cast(node).unwrap(),
-                ))
-            }
             NodeKind::ConcurrentAssertionStatement => {
                 Some(ConcurrentStatementSyntax::ConcurrentAssertionStatement(
                     ConcurrentAssertionStatementSyntax::cast(node).unwrap(),
@@ -713,7 +693,6 @@ impl AstNode for ConcurrentStatementSyntax {
         match self {
             ConcurrentStatementSyntax::BlockStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::ProcessStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::ConcurrentProcedureCallStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::ConcurrentAssertionStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::ComponentInstantiationStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::ConcurrentSelectedSignalAssignment(inner) => inner.raw(),

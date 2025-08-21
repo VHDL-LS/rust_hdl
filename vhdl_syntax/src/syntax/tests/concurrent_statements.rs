@@ -10,7 +10,9 @@ use crate::syntax::tests::{check_nodes, node};
 use crate::syntax::{
     BlockHeaderSyntax, BlockStatementSyntax, CaseGenerateAlternativeSyntax,
     CaseGenerateStatementSyntax, ComponentInstantiationStatementSyntax,
+    ConcurrentAssertionStatementSyntax, ConcurrentConditionalSignalAssignmentSyntax,
     ConcurrentProcedureCallOrComponentInstantiationStatementSyntax,
+    ConcurrentSelectedSignalAssignmentSyntax, ConcurrentSimpleSignalAssignmentSyntax,
 };
 
 #[test]
@@ -228,5 +230,189 @@ fn component_instantiation_statement() {
         label => "foo:",
         name => "bar",
         semi_colon_token => ";"
+    );
+}
+
+#[test]
+fn assertion_statement() {
+    let syntax_node = node::<ConcurrentAssertionStatementSyntax>(
+        Parser::concurrent_statement,
+        "foo: postponed assert false;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        assertion => "assert false",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentAssertionStatementSyntax>(
+        Parser::concurrent_statement,
+        "postponed assert false;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => "postponed",
+        assertion => "assert false",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentAssertionStatementSyntax>(
+        Parser::concurrent_statement,
+        "foo: assert false;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => None,
+        assertion => "assert false",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node =
+        node::<ConcurrentAssertionStatementSyntax>(Parser::concurrent_statement, "assert false;");
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        assertion => "assert false",
+        semi_colon_token => ";"
+    );
+}
+
+#[test]
+fn concurrent_simple_signal_assignment() {
+    let syntax_node = node::<ConcurrentSimpleSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo: postponed foo <= guarded transport bar;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        target => "foo",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "transport",
+        waveform => "bar",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSimpleSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "postponed foo <= guarded transport bar;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => "postponed",
+        target => "foo",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "transport",
+        waveform => "bar",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSimpleSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo <= guarded transport bar;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        target => "foo",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "transport",
+        waveform => "bar",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSimpleSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo <= transport bar;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        target => "foo",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => "transport",
+        waveform => "bar",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node =
+        node::<ConcurrentSimpleSignalAssignmentSyntax>(Parser::concurrent_statement, "foo <= bar;");
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        target => "foo",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => None,
+        waveform => "bar",
+        semi_colon_token => ";"
+    );
+}
+
+#[test]
+fn concurrent_conditional_signal_assignment() {
+    let syntax_node = node::<ConcurrentConditionalSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo: postponed bar <= guarded inertial '1' when condition;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "inertial",
+        conditional_waveforms => "'1' when condition",
+        semi_colon_token => ";",
+    );
+
+    let syntax_node = node::<ConcurrentConditionalSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "postponed bar <= guarded inertial '1' when condition;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => "postponed",
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "inertial",
+        conditional_waveforms => "'1' when condition",
+        semi_colon_token => ";",
+    );
+
+    let syntax_node = node::<ConcurrentConditionalSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo: bar <= inertial '1' when condition;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => None,
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => "inertial",
+        conditional_waveforms => "'1' when condition",
+        semi_colon_token => ";",
+    );
+
+    let syntax_node = node::<ConcurrentConditionalSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "bar <= '1' when condition;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => None,
+        conditional_waveforms => "'1' when condition",
+        semi_colon_token => ";",
     );
 }
