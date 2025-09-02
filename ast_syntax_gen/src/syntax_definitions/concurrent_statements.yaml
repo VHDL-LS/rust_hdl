@@ -148,6 +148,7 @@ ConcurrentStatement: !Choice
 
 ForGenerateStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: For
   - node: ParameterSpecification
   - keyword: Generate
@@ -164,7 +165,6 @@ ForGenerateStatement: !Sequence
 GenerateStatementBody: !Sequence
   - node: Declaration
     repeated: true
-    optional: true
   - keyword: Begin
     optional: true
   - node: ConcurrentStatement
@@ -180,6 +180,7 @@ GenerateStatementBody: !Sequence
 IfGenerateElsif: !Sequence
   - keyword: Elsif
   - node: Label
+    optional: true
   - node: Expression
   - keyword: Generate
   - node: GenerateStatementBody
@@ -187,14 +188,17 @@ IfGenerateElsif: !Sequence
 IfGenerateElse: !Sequence
   - keyword: Else
   - node: Label
+    optional: true
   - keyword: Generate
   - node: GenerateStatementBody
 
 IfGenerateStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: If
   - node: Label
     name: alternative_label
+    optional: true
   - node: Expression
     name: condition
   - keyword: Generate

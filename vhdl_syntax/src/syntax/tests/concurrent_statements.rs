@@ -6,14 +6,8 @@
 
 use crate::check;
 use crate::parser::Parser;
+use crate::syntax::concurrent_statements::*;
 use crate::syntax::tests::{check_nodes, node};
-use crate::syntax::{
-    BlockHeaderSyntax, BlockStatementSyntax, CaseGenerateAlternativeSyntax,
-    CaseGenerateStatementSyntax, ComponentInstantiationStatementSyntax,
-    ConcurrentAssertionStatementSyntax, ConcurrentConditionalSignalAssignmentSyntax,
-    ConcurrentProcedureCallOrComponentInstantiationStatementSyntax,
-    ConcurrentSelectedSignalAssignmentSyntax, ConcurrentSimpleSignalAssignmentSyntax,
-};
 
 #[test]
 fn block_header() {
@@ -414,5 +408,278 @@ fn concurrent_conditional_signal_assignment() {
         delay_mechanism => None,
         conditional_waveforms => "'1' when condition",
         semi_colon_token => ";",
+    );
+}
+
+// TODO: target can be name or aggregate; conflicts with expression
+#[test]
+fn concurrent_selected_signal_assignment() {
+    let syntax_node = node::<ConcurrentSelectedSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo: postponed with expr select? bar <= guarded transport '1' when 0;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        with_token => "with",
+        expression => "expr",
+        select_token => "select",
+        que_token => "?",
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "transport",
+        selected_waveforms => "'1' when 0",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSelectedSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "postponed with expr select bar <= guarded transport '1' when 0, '0' when others;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => "postponed",
+        with_token => "with",
+        expression => "expr",
+        select_token => "select",
+        que_token => None,
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => "guarded",
+        delay_mechanism => "transport",
+        selected_waveforms => "'1' when 0, '0' when others",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSelectedSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "foo: with expr select bar <= transport '1' when 0, '0' when others;",
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => None,
+        with_token => "with",
+        expression => "expr",
+        select_token => "select",
+        que_token => None,
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => "transport",
+        selected_waveforms => "'1' when 0, '0' when others",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ConcurrentSelectedSignalAssignmentSyntax>(
+        Parser::concurrent_statement,
+        "with expr select bar <= '1' when 0, '0' when others;",
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        with_token => "with",
+        expression => "expr",
+        select_token => "select",
+        que_token => None,
+        target => "bar",
+        lte_token => "<=",
+        guarded_token => None,
+        delay_mechanism => None,
+        selected_waveforms => "'1' when 0, '0' when others",
+        semi_colon_token => ";"
+    );
+}
+
+#[test]
+fn for_generate_statement() {
+    let syntax_node = node::<ForGenerateStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+        foo: for i in 0 to 5 generate
+            bar <= '1';
+        end generate foo;
+        "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        for_token => "for",
+        parameter_specification => "i in 0 to 5",
+        generate_token => "generate",
+        generate_statement_body => "bar <= '1';",
+        end_token => "end",
+        trailing_generate_token_token => "generate",
+        trailing_generate_label_token => "foo",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ForGenerateStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+        foo: for i in 0 to 5 generate
+            bar <= '1';
+        end generate;
+        "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        for_token => "for",
+        parameter_specification => "i in 0 to 5",
+        generate_token => "generate",
+        generate_statement_body => "bar <= '1';",
+        end_token => "end",
+        trailing_generate_token_token => "generate",
+        trailing_generate_label_token => None,
+        semi_colon_token => ";"
+    );
+}
+
+#[test]
+fn generate_statement_body() {
+    let syntax_node = node::<GenerateStatementBodySyntax>(
+        Parser::generate_statement_body,
+        r#"
+          signal bar : boolean;
+        begin
+          bar <= '1';
+        end foo;
+        "#,
+    );
+
+    check!(syntax_node,
+        begin_token => "begin",
+        end_token => "end",
+        alternative_label_token => "foo",
+        semi_colon_token => ";",
+    );
+    check_nodes(syntax_node.declarations(), "signal bar : boolean;");
+    check_nodes(syntax_node.concurrent_statements(), "bar <= '1';");
+
+    let syntax_node = node::<GenerateStatementBodySyntax>(
+        Parser::generate_statement_body,
+        r#"
+          signal bar : boolean;
+        end foo;
+        "#,
+    );
+
+    check!(syntax_node,
+        begin_token => None,
+        end_token => "end",
+        alternative_label_token => "foo",
+        semi_colon_token => ";",
+    );
+    check_nodes(syntax_node.declarations(), "signal bar : boolean;");
+
+    let syntax_node = node::<GenerateStatementBodySyntax>(
+        Parser::generate_statement_body,
+        r#"
+          signal bar : boolean;
+        "#,
+    );
+
+    check!(syntax_node,
+        begin_token => None,
+        end_token => None,
+        alternative_label_token => None,
+        semi_colon_token => None,
+    );
+    check_nodes(syntax_node.declarations(), "signal bar : boolean;");
+}
+
+#[test]
+fn if_generate_elsif() {
+    let syntax_node = node::<IfGenerateElsifSyntax>(
+        Parser::if_generate_elsif,
+        r#"
+          elsif alt_label: foo generate
+              baz <= '1';
+        "#,
+    );
+
+    check!(syntax_node,
+        elsif_token => "elsif",
+        label => "alt_label:",
+        expression => "foo",
+        generate_token => "generate",
+        generate_statement_body => "baz <= '1';"
+    );
+
+    let syntax_node = node::<IfGenerateElsifSyntax>(
+        Parser::if_generate_elsif,
+        r#"
+          elsif foo generate
+              baz <= '1';
+        "#,
+    );
+
+    check!(syntax_node,
+        elsif_token => "elsif",
+        label => None,
+        expression => "foo",
+        generate_token => "generate",
+        generate_statement_body => "baz <= '1';"
+    );
+}
+
+#[test]
+fn if_generate_else() {
+    let syntax_node = node::<IfGenerateElseSyntax>(
+        Parser::if_generate_else,
+        r#"
+          else alt_label: generate
+              baz <= '1';
+        "#,
+    );
+    check!(syntax_node,
+        else_token => "else",
+        label => "alt_label:",
+        generate_token => "generate",
+        generate_statement_body => "baz <= '1';"
+    );
+
+    let syntax_node = node::<IfGenerateElseSyntax>(
+        Parser::if_generate_else,
+        r#"
+          else generate
+              baz <= '1';
+        "#,
+    );
+
+    check!(syntax_node,
+        else_token => "else",
+        label => None,
+        generate_token => "generate",
+        generate_statement_body => "baz <= '1';"
+    );
+}
+
+#[test]
+fn if_generate() {
+    let syntax_node = node::<IfGenerateStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+        label1: if alt_label1: true generate foo <= '0';
+        elsif false generate foo <= '1';
+        else generate foo <= 'X';
+        end generate label1;
+        "#,
+    );
+    check!(syntax_node,
+        label => "label1:",
+        if_token => "if",
+        alternative_label => "alt_label1:",
+        condition => "true",
+        generate_token => "generate",
+        generate_statement_body => "foo <= '0';",
+        if_generate_else => "else generate foo <= 'X';",
+        end_token => "end",
+        trailing_generate_token => "generate",
+        trailing_generate_label_token => "label1",
+        semi_colon_token => ";"
+    );
+    check_nodes(
+        syntax_node.if_generate_elsifs(),
+        "elsif false generate  foo <= '1';",
     );
 }

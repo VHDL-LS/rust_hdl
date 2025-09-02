@@ -73,20 +73,25 @@ BinaryExpression: !Sequence
   - node: Expression
     name: rhs
 
-# TODO: These wrappers are really unintuitive
 LiteralExpression: !Sequence
   - node: Literal
 
+PhysicalLiteralExpression: !Sequence
+  - node: PhysicalLiteral
+
+NameExpression: !Sequence
+  - node: Name
+
 Expression: !Choice
   - node: LiteralExpression
-  - node: PhysicalLiteral
+  - node: PhysicalLiteralExpression
   - node: UnaryExpression
   - node: BinaryExpression
   - node: ParenthesizedExpressionOrAggregate
   - node: Allocator
   - node: QualifiedExpression
   - node: TypeConversion
-  - node: Name
+  - node: NameExpression
 
 Aggregate: !Sequence
   - token: LeftPar

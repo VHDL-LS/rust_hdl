@@ -230,6 +230,25 @@ impl<T: TokenStream> Parser<T> {
         self.opt_identifier();
     }
 
+    pub fn if_generate_elsif(&mut self) {
+        self.start_node(IfGenerateElsif);
+        self.skip();
+        self.opt_label();
+        self.condition();
+        self.expect_kw(Kw::Generate);
+        self.generate_statement_body();
+        self.end_node();
+    }
+
+    pub fn if_generate_else(&mut self) {
+        self.start_node(IfGenerateElse);
+        self.skip();
+        self.opt_label();
+        self.expect_kw(Kw::Generate);
+        self.generate_statement_body();
+        self.end_node();
+    }
+
     fn if_generate_statement_inner(&mut self) {
         self.expect_kw(Kw::If);
         self.opt_label();
@@ -237,21 +256,10 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::Generate);
         self.generate_statement_body();
         while self.next_is(Keyword(Kw::Elsif)) {
-            self.start_node(IfGenerateElsif);
-            self.skip();
-            self.opt_label();
-            self.condition();
-            self.expect_kw(Kw::Generate);
-            self.generate_statement_body();
-            self.end_node();
+            self.if_generate_elsif();
         }
         if self.next_is(Keyword(Kw::Else)) {
-            self.start_node(IfGenerateElse);
-            self.skip();
-            self.opt_label();
-            self.expect_kw(Kw::Generate);
-            self.generate_statement_body();
-            self.end_node();
+            self.if_generate_else();
         }
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
         self.opt_identifier();

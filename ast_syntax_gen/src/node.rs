@@ -415,6 +415,7 @@ impl Model {
     pub fn do_checks(&self) {
         self.check_no_duplicates();
         self.check_all_nodes_exist();
+        self.check_choices_are_unique();
     }
 
     pub fn do_postprocessing(&mut self) {
@@ -556,10 +557,64 @@ impl Model {
         }
     }
 
+    /// Check that all `Choice` nodes contain elements that are only reachable by this choice
+    pub fn check_choices_are_unique(&self) {
+        let mut found_nodes = HashSet::new();
+        for node in self.all_nodes() {
+            match node {
+                Node::Items(_) => {}
+                Node::Choices(choice) => match &choice.items {
+                    NodesOrTokens::Nodes(nodes) => {
+                        for node in nodes {
+                            let used_sites = self.check_where_node_is_used(node);
+                            if used_sites.len() > 1 && !found_nodes.contains(&node.name) {
+                                found_nodes.insert(node.name.clone());
+                                println!("Node {} is used multiple times, but must only be used in a single choice node", node.name);
+                            }
+                        }
+                    }
+                    NodesOrTokens::Tokens(_) => {}
+                },
+            }
+        }
+    }
+
+    pub fn check_where_node_is_used(&self, orig_node: &NodeRef) -> Vec<NodeRef> {
+        let mut referenced_nodes = vec![];
+        for node in self.all_nodes() {
+            match node {
+                Node::Items(items) => {
+                    for item in &items.items {
+                        match item {
+                            TokenOrNode::Node(node) => {
+                                if node == orig_node {
+                                    referenced_nodes.push(node.clone());
+                                }
+                            }
+                            TokenOrNode::Token(_) => {}
+                        }
+                    }
+                }
+                Node::Choices(choices) => match &choices.items {
+                    NodesOrTokens::Nodes(nodes) => {
+                        for node in nodes {
+                            if node == orig_node {
+                                referenced_nodes.push(node.clone());
+                            }
+                        }
+                    }
+                    NodesOrTokens::Tokens(_) => {}
+                },
+            }
+        }
+        referenced_nodes
+    }
+
     pub fn generate_mod(&self) -> TokenStream {
-        let sections = self
-            .sections
-            .keys()
+        let mut sections = self.sections.keys().collect::<Vec<_>>();
+        sections.sort();
+        let sections = sections
+            .into_iter()
             .map(|section| {
                 let mod_ident = format_ident!("{}", section);
                 quote! {

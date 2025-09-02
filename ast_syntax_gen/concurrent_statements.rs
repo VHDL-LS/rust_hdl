@@ -571,14 +571,7 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0
-            .children()
-            .filter(|node| {
-                ExpressionSyntax::cast(node.clone()).is_some()
-                    || TargetSyntax::cast(node.clone()).is_some()
-            })
-            .nth(0)
-            .and_then(|node| ExpressionSyntax::cast(node.clone()))
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn select_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -590,14 +583,7 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
         self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
-        self.0
-            .children()
-            .filter(|node| {
-                ExpressionSyntax::cast(node.clone()).is_some()
-                    || TargetSyntax::cast(node.clone()).is_some()
-            })
-            .nth(1)
-            .and_then(|node| TargetSyntax::cast(node.clone()))
+        self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
         self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
