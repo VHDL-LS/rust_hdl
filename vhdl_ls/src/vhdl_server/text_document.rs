@@ -4,8 +4,8 @@ use crate::vhdl_server::{
 };
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, DocumentHighlight,
-    DocumentHighlightKind, GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent,
-    MarkupKind, ReferenceParams, TextDocumentItem, TextDocumentPositionParams,
+    DocumentHighlightKind, GotoDefinitionResponse, Hover, HoverContents, LanguageString, Location,
+    MarkedString, ReferenceParams, TextDocumentItem, TextDocumentPositionParams,
 };
 use vhdl_lang::{Message, Source};
 
@@ -108,10 +108,10 @@ impl VHDLServer {
         let value = self.project.format_declaration(ent)?;
 
         Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: format!("```vhdl\n{value}\n```"),
-            }),
+            contents: HoverContents::Scalar(MarkedString::LanguageString(LanguageString {
+                language: "vhdl".to_string(),
+                value,
+            })),
             range: None,
         })
     }
