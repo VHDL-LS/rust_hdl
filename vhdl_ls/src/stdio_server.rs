@@ -88,9 +88,10 @@ impl ConnectionRpcChannel {
             match message {
                 lsp_server::Message::Request(request) => {
                     match self.connection.handle_shutdown(&request) {
-                        Ok(shutdown) => {
-                            if shutdown {
+                        Ok(should_exit) => {
+                            if should_exit {
                                 server.shutdown_server();
+                                server.exit_notification();
                             } else {
                                 self.handle_request(&mut server, request)
                             }
@@ -270,11 +271,6 @@ impl ConnectionRpcChannel {
         // workspace.didChangeWatchedFiles
         let notification = match extract::<notification::DidChangeWatchedFiles>(notification) {
             Ok(params) => return server.workspace_did_change_watched_files(&params),
-            Err(notification) => notification,
-        };
-        // exit
-        let notification = match extract::<notification::Exit>(notification) {
-            Ok(_params) => return server.exit_notification(),
             Err(notification) => notification,
         };
 
