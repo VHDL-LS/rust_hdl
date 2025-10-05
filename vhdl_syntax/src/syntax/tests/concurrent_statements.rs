@@ -680,6 +680,183 @@ fn if_generate() {
     );
     check_nodes(
         syntax_node.if_generate_elsifs(),
-        "elsif false generate  foo <= '1';",
+        "elsif false generate foo <= '1';",
+    );
+}
+
+#[test]
+fn component_instantiated_unit() {
+    let syntax_node = node::<ComponentInstantiatedUnitSyntax>(
+        Parser::component_instantiated_unit,
+        "component foo",
+    );
+    check!(syntax_node,
+        component_token => "component",
+        name => "foo"
+    );
+
+    let syntax_node =
+        node::<ComponentInstantiatedUnitSyntax>(Parser::component_instantiated_unit, "foo");
+    check!(syntax_node,
+        component_token => None,
+        name => "foo"
+    );
+}
+
+#[test]
+fn entity_instantiated_unit() {
+    let syntax_node =
+        node::<EntityInstantiatedUnitSyntax>(Parser::entity_instantiated_unit, "entity foo");
+    check!(syntax_node,
+        entity_token => "entity",
+        name => "foo",
+    );
+
+    let syntax_node =
+        node::<EntityInstantiatedUnitSyntax>(Parser::entity_instantiated_unit, "entity foo(bar)");
+    check!(syntax_node,
+        entity_token => "entity",
+        name => "foo(bar)"
+    );
+}
+
+#[test]
+fn configuration_instantiated_unit() {
+    let syntax_node = node::<ConfigurationInstantiatedUnitSyntax>(
+        Parser::configuration_instantiated_unit,
+        "configuration foo",
+    );
+    check!(syntax_node,
+        configuration_token => "configuration",
+        name => "foo",
+    );
+}
+
+#[test]
+fn process_statement() {
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+process
+begin
+end process;
+    "#,
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        process_token => "process",
+        parenthesized_process_sensitivity_list => None,
+        is_token => None,
+        end_token => "end",
+        trailing_postponed_token => None,
+        trailing_process_token => "process",
+        trailing_process_label_token => None,
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+foo: process
+begin
+end process foo;
+    "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => None,
+        process_token => "process",
+        parenthesized_process_sensitivity_list => None,
+        is_token => None,
+        end_token => "end",
+        trailing_postponed_token => None,
+        trailing_process_token => "process",
+        trailing_process_label_token => "foo",
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+foo: postponed process
+begin
+end postponed process;
+    "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        process_token => "process",
+        parenthesized_process_sensitivity_list => None,
+        is_token => None,
+        end_token => "end",
+        trailing_postponed_token => "postponed",
+        trailing_process_token => "process",
+        trailing_process_label_token => None,
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+foo: postponed process(all)
+begin
+end process;
+    "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        process_token => "process",
+        parenthesized_process_sensitivity_list => "(all)",
+        is_token => None,
+        end_token => "end",
+        trailing_postponed_token => None,
+        trailing_process_token => "process",
+        trailing_process_label_token => None,
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+foo: postponed process(foo,bar)
+begin
+end process;
+    "#,
+    );
+    check!(syntax_node,
+        label => "foo:",
+        postponed_token => "postponed",
+        process_token => "process",
+        parenthesized_process_sensitivity_list => "(foo,bar)",
+        is_token => None,
+        end_token => "end",
+        trailing_postponed_token => None,
+        trailing_process_token => "process",
+        trailing_process_label_token => None,
+        semi_colon_token => ";"
+    );
+
+    let syntax_node = node::<ProcessStatementSyntax>(
+        Parser::concurrent_statement,
+        r#"
+process is
+begin
+end process;
+    "#,
+    );
+    check!(syntax_node,
+        label => None,
+        postponed_token => None,
+        process_token => "process",
+        parenthesized_process_sensitivity_list => None,
+        is_token => "is",
+        end_token => "end",
+        trailing_postponed_token => None,
+        trailing_process_token => "process",
+        trailing_process_label_token => None,
+        semi_colon_token => ";"
     );
 }
