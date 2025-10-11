@@ -19,6 +19,9 @@ impl AstNode for AttributeSpecificationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AttributeSpecification)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -73,6 +76,9 @@ impl AstNode for BindingIndicationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BindingIndication)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -112,6 +118,9 @@ impl AstNode for ComponentSpecificationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentSpecification)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -140,6 +149,9 @@ impl AstNode for CompoundConfigurationSpecificationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CompoundConfigurationSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -203,19 +215,25 @@ pub enum ConfigurationSpecificationSyntax {
 }
 impl AstNode for ConfigurationSpecificationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SimpleConfigurationSpecification => Some(
+        if SimpleConfigurationSpecificationSyntax::can_cast(&node) {
+            return Some(
                 ConfigurationSpecificationSyntax::SimpleConfigurationSpecification(
                     SimpleConfigurationSpecificationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::CompoundConfigurationSpecification => Some(
+            );
+        };
+        if CompoundConfigurationSpecificationSyntax::can_cast(&node) {
+            return Some(
                 ConfigurationSpecificationSyntax::CompoundConfigurationSpecification(
                     CompoundConfigurationSpecificationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            _ => None,
-        }
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SimpleConfigurationSpecificationSyntax::can_cast(node)
+            || CompoundConfigurationSpecificationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -237,6 +255,9 @@ impl AstNode for DisconnectionSpecificationSyntax {
             NodeKind::DisconnectionSpecification => Some(DisconnectionSpecificationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::DisconnectionSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -280,6 +301,9 @@ impl AstNode for EntityEntityAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityEntityAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -322,6 +346,9 @@ impl AstNode for EntityConfigurationAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityConfigurationAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -346,6 +373,9 @@ impl AstNode for EntityOpenAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityOpenAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -366,20 +396,27 @@ pub enum EntityAspectSyntax {
 }
 impl AstNode for EntityAspectSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::EntityEntityAspect => Some(EntityAspectSyntax::EntityEntityAspect(
+        if EntityEntityAspectSyntax::can_cast(&node) {
+            return Some(EntityAspectSyntax::EntityEntityAspect(
                 EntityEntityAspectSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::EntityConfigurationAspect => {
-                Some(EntityAspectSyntax::EntityConfigurationAspect(
-                    EntityConfigurationAspectSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::EntityOpenAspect => Some(EntityAspectSyntax::EntityOpenAspect(
+            ));
+        };
+        if EntityConfigurationAspectSyntax::can_cast(&node) {
+            return Some(EntityAspectSyntax::EntityConfigurationAspect(
+                EntityConfigurationAspectSyntax::cast(node).unwrap(),
+            ));
+        };
+        if EntityOpenAspectSyntax::can_cast(&node) {
+            return Some(EntityAspectSyntax::EntityOpenAspect(
                 EntityOpenAspectSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        EntityEntityAspectSyntax::can_cast(node)
+            || EntityConfigurationAspectSyntax::can_cast(node)
+            || EntityOpenAspectSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -471,6 +508,9 @@ impl AstNode for EntityDesignatorSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityDesignator)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -484,48 +524,6 @@ impl EntityDesignatorSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct OthersDesignatorSyntax(pub(crate) SyntaxNode);
-impl AstNode for OthersDesignatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::OthersDesignator => Some(OthersDesignatorSyntax(node)),
-            _ => None,
-        }
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl OthersDesignatorSyntax {
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::All))
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct AllDesignatorSyntax(pub(crate) SyntaxNode);
-impl AstNode for AllDesignatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AllDesignator => Some(AllDesignatorSyntax(node)),
-            _ => None,
-        }
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl AllDesignatorSyntax {
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::All))
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct EntityDesignatorListSyntax(pub(crate) SyntaxNode);
 impl AstNode for EntityDesignatorListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -533,6 +531,9 @@ impl AstNode for EntityDesignatorListSyntax {
             NodeKind::EntityDesignatorList => Some(EntityDesignatorListSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityDesignatorList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -547,31 +548,88 @@ impl EntityDesignatorListSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct EntityNameListAllSyntax(pub(crate) SyntaxNode);
+impl AstNode for EntityNameListAllSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::EntityNameListAll => Some(EntityNameListAllSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityNameListAll)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl EntityNameListAllSyntax {
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::All))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct EntityNameListOthersSyntax(pub(crate) SyntaxNode);
+impl AstNode for EntityNameListOthersSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::EntityNameListOthers => Some(EntityNameListOthersSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityNameListOthers)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl EntityNameListOthersSyntax {
+    pub fn others_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum EntityNameListSyntax {
     EntityDesignatorList(EntityDesignatorListSyntax),
-    AllDesignator(AllDesignatorSyntax),
-    OthersDesignator(OthersDesignatorSyntax),
+    EntityNameListAll(EntityNameListAllSyntax),
+    EntityNameListOthers(EntityNameListOthersSyntax),
 }
 impl AstNode for EntityNameListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::EntityDesignatorList => Some(EntityNameListSyntax::EntityDesignatorList(
+        if EntityDesignatorListSyntax::can_cast(&node) {
+            return Some(EntityNameListSyntax::EntityDesignatorList(
                 EntityDesignatorListSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AllDesignator => Some(EntityNameListSyntax::AllDesignator(
-                AllDesignatorSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::OthersDesignator => Some(EntityNameListSyntax::OthersDesignator(
-                OthersDesignatorSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        if EntityNameListAllSyntax::can_cast(&node) {
+            return Some(EntityNameListSyntax::EntityNameListAll(
+                EntityNameListAllSyntax::cast(node).unwrap(),
+            ));
+        };
+        if EntityNameListOthersSyntax::can_cast(&node) {
+            return Some(EntityNameListSyntax::EntityNameListOthers(
+                EntityNameListOthersSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        EntityDesignatorListSyntax::can_cast(node)
+            || EntityNameListAllSyntax::can_cast(node)
+            || EntityNameListOthersSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             EntityNameListSyntax::EntityDesignatorList(inner) => inner.raw(),
-            EntityNameListSyntax::AllDesignator(inner) => inner.raw(),
-            EntityNameListSyntax::OthersDesignator(inner) => inner.raw(),
+            EntityNameListSyntax::EntityNameListAll(inner) => inner.raw(),
+            EntityNameListSyntax::EntityNameListOthers(inner) => inner.raw(),
         }
     }
 }
@@ -584,6 +642,9 @@ impl AstNode for EntitySpecificationSyntax {
             NodeKind::EntitySpecification => Some(EntitySpecificationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntitySpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -636,6 +697,9 @@ impl AstNode for GuardedSignalSpecificationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GuardedSignalSpecification)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -660,6 +724,9 @@ impl AstNode for InstantiationListListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InstantiationListList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -673,33 +740,88 @@ impl InstantiationListListSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct InstantiationListAllSyntax(pub(crate) SyntaxNode);
+impl AstNode for InstantiationListAllSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::InstantiationListAll => Some(InstantiationListAllSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InstantiationListAll)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InstantiationListAllSyntax {
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::All))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InstantiationListOthersSyntax(pub(crate) SyntaxNode);
+impl AstNode for InstantiationListOthersSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::InstantiationListOthers => Some(InstantiationListOthersSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InstantiationListOthers)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InstantiationListOthersSyntax {
+    pub fn others_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum InstantiationListSyntax {
     InstantiationListList(InstantiationListListSyntax),
-    OthersDesignator(OthersDesignatorSyntax),
-    AllDesignator(AllDesignatorSyntax),
+    InstantiationListAll(InstantiationListAllSyntax),
+    InstantiationListOthers(InstantiationListOthersSyntax),
 }
 impl AstNode for InstantiationListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::InstantiationListList => {
-                Some(InstantiationListSyntax::InstantiationListList(
-                    InstantiationListListSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::OthersDesignator => Some(InstantiationListSyntax::OthersDesignator(
-                OthersDesignatorSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AllDesignator => Some(InstantiationListSyntax::AllDesignator(
-                AllDesignatorSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+        if InstantiationListListSyntax::can_cast(&node) {
+            return Some(InstantiationListSyntax::InstantiationListList(
+                InstantiationListListSyntax::cast(node).unwrap(),
+            ));
+        };
+        if InstantiationListAllSyntax::can_cast(&node) {
+            return Some(InstantiationListSyntax::InstantiationListAll(
+                InstantiationListAllSyntax::cast(node).unwrap(),
+            ));
+        };
+        if InstantiationListOthersSyntax::can_cast(&node) {
+            return Some(InstantiationListSyntax::InstantiationListOthers(
+                InstantiationListOthersSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InstantiationListListSyntax::can_cast(node)
+            || InstantiationListAllSyntax::can_cast(node)
+            || InstantiationListOthersSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             InstantiationListSyntax::InstantiationListList(inner) => inner.raw(),
-            InstantiationListSyntax::OthersDesignator(inner) => inner.raw(),
-            InstantiationListSyntax::AllDesignator(inner) => inner.raw(),
+            InstantiationListSyntax::InstantiationListAll(inner) => inner.raw(),
+            InstantiationListSyntax::InstantiationListOthers(inner) => inner.raw(),
         }
     }
 }
@@ -712,6 +834,9 @@ impl AstNode for SignalListListSyntax {
             NodeKind::SignalListList => Some(SignalListListSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SignalListList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -726,31 +851,88 @@ impl SignalListListSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SignalListAllSyntax(pub(crate) SyntaxNode);
+impl AstNode for SignalListAllSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SignalListAll => Some(SignalListAllSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SignalListAll)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SignalListAllSyntax {
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::All))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SignalListOthersSyntax(pub(crate) SyntaxNode);
+impl AstNode for SignalListOthersSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SignalListOthers => Some(SignalListOthersSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SignalListOthers)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SignalListOthersSyntax {
+    pub fn others_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum SignalListSyntax {
     SignalListList(SignalListListSyntax),
-    OthersDesignator(OthersDesignatorSyntax),
-    AllDesignator(AllDesignatorSyntax),
+    SignalListAll(SignalListAllSyntax),
+    SignalListOthers(SignalListOthersSyntax),
 }
 impl AstNode for SignalListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SignalListList => Some(SignalListSyntax::SignalListList(
+        if SignalListListSyntax::can_cast(&node) {
+            return Some(SignalListSyntax::SignalListList(
                 SignalListListSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::OthersDesignator => Some(SignalListSyntax::OthersDesignator(
-                OthersDesignatorSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AllDesignator => Some(SignalListSyntax::AllDesignator(
-                AllDesignatorSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        if SignalListAllSyntax::can_cast(&node) {
+            return Some(SignalListSyntax::SignalListAll(
+                SignalListAllSyntax::cast(node).unwrap(),
+            ));
+        };
+        if SignalListOthersSyntax::can_cast(&node) {
+            return Some(SignalListSyntax::SignalListOthers(
+                SignalListOthersSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SignalListListSyntax::can_cast(node)
+            || SignalListAllSyntax::can_cast(node)
+            || SignalListOthersSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             SignalListSyntax::SignalListList(inner) => inner.raw(),
-            SignalListSyntax::OthersDesignator(inner) => inner.raw(),
-            SignalListSyntax::AllDesignator(inner) => inner.raw(),
+            SignalListSyntax::SignalListAll(inner) => inner.raw(),
+            SignalListSyntax::SignalListOthers(inner) => inner.raw(),
         }
     }
 }
@@ -765,6 +947,9 @@ impl AstNode for SimpleConfigurationSpecificationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SimpleConfigurationSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -825,6 +1010,9 @@ impl AstNode for VerificationUnitBindingIndicationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::VerificationUnitBindingIndication)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -857,6 +1045,9 @@ impl AstNode for VerificationUnitListSyntax {
             NodeKind::VerificationUnitList => Some(VerificationUnitListSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::VerificationUnitList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

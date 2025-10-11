@@ -33,17 +33,15 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn entity_name_list(&mut self) {
-        self.start_node(EntityNameList);
         match_next_token!(self,
-            Keyword(Kw::All) => self.skip_into_node(AllDesignator),
-            Keyword(Kw::Others) => self.skip_into_node(OthersDesignator),
+            Keyword(Kw::All) => self.skip_into_node(EntityNameListAll),
+            Keyword(Kw::Others) => self.skip_into_node(EntityNameListOthers),
             Identifier, StringLiteral, CharacterLiteral => {
                 self.start_node(EntityDesignatorList);
                 self.separated_list(Parser::entity_designator, Comma);
                 self.end_node();
             }
         );
-        self.end_node();
     }
 
     pub fn entity_class(&mut self) {
@@ -67,7 +65,7 @@ impl<T: TokenStream> Parser<T> {
             Keyword(Kw::File),
             Keyword(Kw::Property),
             Keyword(Kw::Sequence),
-        ])
+        ]);
     }
 
     pub fn entity_designator(&mut self) {
@@ -80,7 +78,7 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn entity_tag(&mut self) {
-        self.expect_one_of_tokens([Identifier, CharacterLiteral, StringLiteral])
+        self.expect_one_of_tokens([Identifier, CharacterLiteral, StringLiteral]);
     }
 
     pub(crate) fn attribute_declaration(&mut self) {
@@ -129,18 +127,17 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      EntityDesignatorList
-        EntityDesignator
-          Identifier 'foo'
+    EntityDesignatorList
+      EntityDesignator
+        Identifier 'foo'
     Colon
     Keyword(Signal)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",
@@ -158,18 +155,17 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      EntityDesignatorList
-        EntityDesignator
-          StringLiteral '\"**\"'
+    EntityDesignatorList
+      EntityDesignator
+        StringLiteral '\"**\"'
     Colon
     Keyword(Function)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",
@@ -187,21 +183,20 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      EntityDesignatorList
-        EntityDesignator
-          Identifier 'foo'
-        Comma
-        EntityDesignator
-          Identifier 'bar'
+    EntityDesignatorList
+      EntityDesignator
+        Identifier 'foo'
+      Comma
+      EntityDesignator
+        Identifier 'bar'
     Colon
     Keyword(Signal)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",
@@ -219,17 +214,16 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      AllDesignator
-        Keyword(All)
+    EntityNameListAll
+      Keyword(All)
     Colon
     Keyword(Signal)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",
@@ -247,17 +241,16 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      OthersDesignator
-        Keyword(Others)
+    EntityNameListOthers
+      Keyword(Others)
     Colon
     Keyword(Signal)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",
@@ -275,24 +268,23 @@ AttributeSpecification
   Identifier 'attr_name'
   Keyword(Of)
   EntitySpecification
-    EntityNameList
-      EntityDesignatorList
-        EntityDesignator
-          Identifier 'foo'
-          Signature
-            LeftSquare
-            Keyword(Return)
-            Name
-              Identifier 'natural'
-            RightSquare
+    EntityDesignatorList
+      EntityDesignator
+        Identifier 'foo'
+        Signature
+          LeftSquare
+          Keyword(Return)
+          Name
+            Identifier 'natural'
+          RightSquare
     Colon
     Keyword(Function)
   Keyword(Is)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   SemiColon
 ",

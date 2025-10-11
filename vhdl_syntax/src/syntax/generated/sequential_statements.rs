@@ -19,6 +19,9 @@ impl AstNode for AssertionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Assertion)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -61,6 +64,9 @@ impl AstNode for AssertionStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AssertionStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -93,6 +99,9 @@ impl AstNode for CaseStatementAlternativeSyntax {
             NodeKind::CaseStatementAlternative => Some(CaseStatementAlternativeSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseStatementAlternative)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -129,6 +138,9 @@ impl AstNode for CaseStatementSyntax {
             NodeKind::CaseStatement => Some(CaseStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -200,6 +212,9 @@ impl AstNode for ConditionClauseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionClause)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -225,6 +240,9 @@ impl AstNode for ConditionalElseWhenExpressionSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalElseWhenExpression)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -259,6 +277,9 @@ impl AstNode for ConditionalElseItemSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalElseItem)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -282,6 +303,9 @@ impl AstNode for ConditionalExpressionsSyntax {
             NodeKind::ConditionalExpressions => Some(ConditionalExpressionsSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalExpressions)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -323,6 +347,9 @@ impl AstNode for ConditionalForceAssignmentSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalForceAssignment)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -363,19 +390,25 @@ pub enum ConditionalSignalAssignmentSyntax {
 }
 impl AstNode for ConditionalSignalAssignmentSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ConditionalWaveformAssignment => Some(
+        if ConditionalWaveformAssignmentSyntax::can_cast(&node) {
+            return Some(
                 ConditionalSignalAssignmentSyntax::ConditionalWaveformAssignment(
                     ConditionalWaveformAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::ConditionalForceAssignment => Some(
+            );
+        };
+        if ConditionalForceAssignmentSyntax::can_cast(&node) {
+            return Some(
                 ConditionalSignalAssignmentSyntax::ConditionalForceAssignment(
                     ConditionalForceAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            _ => None,
-        }
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ConditionalWaveformAssignmentSyntax::can_cast(node)
+            || ConditionalForceAssignmentSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -395,6 +428,9 @@ impl AstNode for ConditionalVariableAssignmentSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalVariableAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -433,6 +469,9 @@ impl AstNode for ConditionalWaveformAssignmentSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalWaveformAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -475,6 +514,9 @@ impl AstNode for ConditionalWaveformElseWhenExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalWaveformElseWhenExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -508,6 +550,9 @@ impl AstNode for ConditionalWaveformElseItemSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalWaveformElseItem)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -531,6 +576,9 @@ impl AstNode for ConditionalWaveformsSyntax {
             NodeKind::ConditionalWaveforms => Some(ConditionalWaveformsSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalWaveforms)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -572,6 +620,9 @@ impl AstNode for TransportDelayMechanismSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::TransportDelayMechanism)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -592,6 +643,9 @@ impl AstNode for InertialDelayMechanismSyntax {
             NodeKind::InertialDelayMechanism => Some(InertialDelayMechanismSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InertialDelayMechanism)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -621,17 +675,21 @@ pub enum DelayMechanismSyntax {
 }
 impl AstNode for DelayMechanismSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::TransportDelayMechanism => {
-                Some(DelayMechanismSyntax::TransportDelayMechanism(
-                    TransportDelayMechanismSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::InertialDelayMechanism => Some(DelayMechanismSyntax::InertialDelayMechanism(
+        if TransportDelayMechanismSyntax::can_cast(&node) {
+            return Some(DelayMechanismSyntax::TransportDelayMechanism(
+                TransportDelayMechanismSyntax::cast(node).unwrap(),
+            ));
+        };
+        if InertialDelayMechanismSyntax::can_cast(&node) {
+            return Some(DelayMechanismSyntax::InertialDelayMechanism(
                 InertialDelayMechanismSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        TransportDelayMechanismSyntax::can_cast(node)
+            || InertialDelayMechanismSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -649,6 +707,9 @@ impl AstNode for ExitStatementSyntax {
             NodeKind::ExitStatement => Some(ExitStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExitStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -722,6 +783,9 @@ impl AstNode for IfStatementElsifSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfStatementElsif)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -758,6 +822,9 @@ impl AstNode for IfStatementElseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfStatementElse)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -784,6 +851,9 @@ impl AstNode for IfStatementSyntax {
             NodeKind::IfStatement => Some(IfStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -863,6 +933,9 @@ impl AstNode for WhileIterationSchemeSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::WhileIterationScheme)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -886,6 +959,9 @@ impl AstNode for ForIterationSchemeSyntax {
             NodeKind::ForIterationScheme => Some(ForIterationSchemeSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ForIterationScheme)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -912,15 +988,20 @@ pub enum IterationSchemeSyntax {
 }
 impl AstNode for IterationSchemeSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::WhileIterationScheme => Some(IterationSchemeSyntax::WhileIterationScheme(
+        if WhileIterationSchemeSyntax::can_cast(&node) {
+            return Some(IterationSchemeSyntax::WhileIterationScheme(
                 WhileIterationSchemeSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ForIterationScheme => Some(IterationSchemeSyntax::ForIterationScheme(
+            ));
+        };
+        if ForIterationSchemeSyntax::can_cast(&node) {
+            return Some(IterationSchemeSyntax::ForIterationScheme(
                 ForIterationSchemeSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        WhileIterationSchemeSyntax::can_cast(node) || ForIterationSchemeSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -938,6 +1019,9 @@ impl AstNode for LoopStatementSyntax {
             NodeKind::LoopStatement => Some(LoopStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::LoopStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -999,6 +1083,9 @@ impl AstNode for NextStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NextStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1044,6 +1131,9 @@ impl AstNode for NullStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NullStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1073,6 +1163,9 @@ impl AstNode for ParameterSpecificationSyntax {
             NodeKind::ParameterSpecification => Some(ParameterSpecificationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParameterSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1107,6 +1200,9 @@ impl AstNode for ProcedureCallStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProcedureCallStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1133,6 +1229,9 @@ impl AstNode for ReportStatementSyntax {
             NodeKind::ReportStatement => Some(ReportStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ReportStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1170,6 +1269,9 @@ impl AstNode for ReturnStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ReturnStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1196,6 +1298,9 @@ impl AstNode for SelectedExpressionItemSyntax {
             NodeKind::SelectedExpressionItem => Some(SelectedExpressionItemSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedExpressionItem)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1224,6 +1329,9 @@ impl AstNode for SelectedExpressionsSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedExpressions)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1248,6 +1356,9 @@ impl AstNode for SelectedForceAssignmentSyntax {
             NodeKind::SelectedForceAssignment => Some(SelectedForceAssignmentSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedForceAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1309,6 +1420,9 @@ impl AstNode for SelectedWaveformItemSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedWaveformItem)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1336,6 +1450,9 @@ impl AstNode for SelectedWaveformsSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedWaveforms)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1359,19 +1476,21 @@ pub enum SelectedSignalAssignmentSyntax {
 }
 impl AstNode for SelectedSignalAssignmentSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SelectedWaveformAssignment => {
-                Some(SelectedSignalAssignmentSyntax::SelectedWaveformAssignment(
-                    SelectedWaveformAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::SelectedForceAssignment => {
-                Some(SelectedSignalAssignmentSyntax::SelectedForceAssignment(
-                    SelectedForceAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if SelectedWaveformAssignmentSyntax::can_cast(&node) {
+            return Some(SelectedSignalAssignmentSyntax::SelectedWaveformAssignment(
+                SelectedWaveformAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if SelectedForceAssignmentSyntax::can_cast(&node) {
+            return Some(SelectedSignalAssignmentSyntax::SelectedForceAssignment(
+                SelectedForceAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SelectedWaveformAssignmentSyntax::can_cast(node)
+            || SelectedForceAssignmentSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1389,6 +1508,9 @@ impl AstNode for SelectedVariableAssignmentSyntax {
             NodeKind::SelectedVariableAssignment => Some(SelectedVariableAssignmentSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedVariableAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1443,6 +1565,9 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
             NodeKind::SelectedWaveformAssignment => Some(SelectedWaveformAssignmentSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedWaveformAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1501,6 +1626,9 @@ impl AstNode for SensitivityClauseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SensitivityClause)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1524,6 +1652,9 @@ impl AstNode for SequentialStatementsSyntax {
             NodeKind::SequentialStatements => Some(SequentialStatementsSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SequentialStatements)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1556,54 +1687,87 @@ pub enum SequentialStatementSyntax {
 }
 impl AstNode for SequentialStatementSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::WaitStatement => Some(SequentialStatementSyntax::WaitStatement(
+        if WaitStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::WaitStatement(
                 WaitStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AssertionStatement => Some(SequentialStatementSyntax::AssertionStatement(
+            ));
+        };
+        if AssertionStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::AssertionStatement(
                 AssertionStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ReportStatement => Some(SequentialStatementSyntax::ReportStatement(
+            ));
+        };
+        if ReportStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::ReportStatement(
                 ReportStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SignalAssignmentStatement => {
-                Some(SequentialStatementSyntax::SignalAssignmentStatement(
-                    SignalAssignmentStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::VariableAssignmentStatement => {
-                Some(SequentialStatementSyntax::VariableAssignmentStatement(
-                    VariableAssignmentStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ProcedureCallStatement => {
-                Some(SequentialStatementSyntax::ProcedureCallStatement(
-                    ProcedureCallStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::IfStatement => Some(SequentialStatementSyntax::IfStatement(
+            ));
+        };
+        if SignalAssignmentStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::SignalAssignmentStatement(
+                SignalAssignmentStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if VariableAssignmentStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::VariableAssignmentStatement(
+                VariableAssignmentStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ProcedureCallStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::ProcedureCallStatement(
+                ProcedureCallStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if IfStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::IfStatement(
                 IfStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::CaseStatement => Some(SequentialStatementSyntax::CaseStatement(
+            ));
+        };
+        if CaseStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::CaseStatement(
                 CaseStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::LoopStatement => Some(SequentialStatementSyntax::LoopStatement(
+            ));
+        };
+        if LoopStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::LoopStatement(
                 LoopStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::NextStatement => Some(SequentialStatementSyntax::NextStatement(
+            ));
+        };
+        if NextStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::NextStatement(
                 NextStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ExitStatement => Some(SequentialStatementSyntax::ExitStatement(
+            ));
+        };
+        if ExitStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::ExitStatement(
                 ExitStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ReturnStatement => Some(SequentialStatementSyntax::ReturnStatement(
+            ));
+        };
+        if ReturnStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::ReturnStatement(
                 ReturnStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::NullStatement => Some(SequentialStatementSyntax::NullStatement(
+            ));
+        };
+        if NullStatementSyntax::can_cast(&node) {
+            return Some(SequentialStatementSyntax::NullStatement(
                 NullStatementSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        WaitStatementSyntax::can_cast(node)
+            || AssertionStatementSyntax::can_cast(node)
+            || ReportStatementSyntax::can_cast(node)
+            || SignalAssignmentStatementSyntax::can_cast(node)
+            || VariableAssignmentStatementSyntax::can_cast(node)
+            || ProcedureCallStatementSyntax::can_cast(node)
+            || IfStatementSyntax::can_cast(node)
+            || CaseStatementSyntax::can_cast(node)
+            || LoopStatementSyntax::can_cast(node)
+            || NextStatementSyntax::can_cast(node)
+            || ExitStatementSyntax::can_cast(node)
+            || ReturnStatementSyntax::can_cast(node)
+            || NullStatementSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1632,6 +1796,9 @@ impl AstNode for SignalAssignmentStatementSyntax {
             NodeKind::SignalAssignmentStatement => Some(SignalAssignmentStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SignalAssignmentStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1668,6 +1835,9 @@ impl AstNode for SimpleForceAssignmentSyntax {
             NodeKind::SimpleForceAssignment => Some(SimpleForceAssignmentSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SimpleForceAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1708,6 +1878,9 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SimpleReleaseAssignment)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1744,6 +1917,9 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SimpleWaveformAssignment)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1779,24 +1955,27 @@ pub enum SimpleSignalAssignmentSyntax {
 }
 impl AstNode for SimpleSignalAssignmentSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SimpleWaveformAssignment => {
-                Some(SimpleSignalAssignmentSyntax::SimpleWaveformAssignment(
-                    SimpleWaveformAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::SimpleForceAssignment => {
-                Some(SimpleSignalAssignmentSyntax::SimpleForceAssignment(
-                    SimpleForceAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::SimpleReleaseAssignment => {
-                Some(SimpleSignalAssignmentSyntax::SimpleReleaseAssignment(
-                    SimpleReleaseAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if SimpleWaveformAssignmentSyntax::can_cast(&node) {
+            return Some(SimpleSignalAssignmentSyntax::SimpleWaveformAssignment(
+                SimpleWaveformAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if SimpleForceAssignmentSyntax::can_cast(&node) {
+            return Some(SimpleSignalAssignmentSyntax::SimpleForceAssignment(
+                SimpleForceAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if SimpleReleaseAssignmentSyntax::can_cast(&node) {
+            return Some(SimpleSignalAssignmentSyntax::SimpleReleaseAssignment(
+                SimpleReleaseAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SimpleWaveformAssignmentSyntax::can_cast(node)
+            || SimpleForceAssignmentSyntax::can_cast(node)
+            || SimpleReleaseAssignmentSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1815,6 +1994,9 @@ impl AstNode for SimpleVariableAssignmentSyntax {
             NodeKind::SimpleVariableAssignment => Some(SimpleVariableAssignmentSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SimpleVariableAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1841,24 +2023,73 @@ impl SimpleVariableAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum TargetSyntax {
-    Name(NameSyntax),
-    Aggregate(AggregateSyntax),
-}
-impl AstNode for TargetSyntax {
+pub struct NameTargetSyntax(pub(crate) SyntaxNode);
+impl AstNode for NameTargetSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Name => Some(TargetSyntax::Name(NameSyntax::cast(node).unwrap())),
-            NodeKind::Aggregate => Some(TargetSyntax::Aggregate(
-                AggregateSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::NameTarget => Some(NameTargetSyntax(node)),
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameTarget)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl NameTargetSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct AggregateTargetSyntax(pub(crate) SyntaxNode);
+impl AstNode for AggregateTargetSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::AggregateTarget => Some(AggregateTargetSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AggregateTarget)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl AggregateTargetSyntax {
+    pub fn aggregate(&self) -> Option<AggregateSyntax> {
+        self.0.children().filter_map(AggregateSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum TargetSyntax {
+    NameTarget(NameTargetSyntax),
+    AggregateTarget(AggregateTargetSyntax),
+}
+impl AstNode for TargetSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if NameTargetSyntax::can_cast(&node) {
+            return Some(TargetSyntax::NameTarget(
+                NameTargetSyntax::cast(node).unwrap(),
+            ));
+        };
+        if AggregateTargetSyntax::can_cast(&node) {
+            return Some(TargetSyntax::AggregateTarget(
+                AggregateTargetSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        NameTargetSyntax::can_cast(node) || AggregateTargetSyntax::can_cast(node)
+    }
     fn raw(&self) -> SyntaxNode {
         match self {
-            TargetSyntax::Name(inner) => inner.raw(),
-            TargetSyntax::Aggregate(inner) => inner.raw(),
+            TargetSyntax::NameTarget(inner) => inner.raw(),
+            TargetSyntax::AggregateTarget(inner) => inner.raw(),
         }
     }
 }
@@ -1871,6 +2102,9 @@ impl AstNode for TimeoutClauseSyntax {
             NodeKind::TimeoutClause => Some(TimeoutClauseSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::TimeoutClause)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1895,24 +2129,31 @@ pub enum VariableAssignmentStatementSyntax {
 }
 impl AstNode for VariableAssignmentStatementSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SimpleVariableAssignment => {
-                Some(VariableAssignmentStatementSyntax::SimpleVariableAssignment(
-                    SimpleVariableAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ConditionalVariableAssignment => Some(
+        if SimpleVariableAssignmentSyntax::can_cast(&node) {
+            return Some(VariableAssignmentStatementSyntax::SimpleVariableAssignment(
+                SimpleVariableAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConditionalVariableAssignmentSyntax::can_cast(&node) {
+            return Some(
                 VariableAssignmentStatementSyntax::ConditionalVariableAssignment(
                     ConditionalVariableAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::SelectedVariableAssignment => Some(
+            );
+        };
+        if SelectedVariableAssignmentSyntax::can_cast(&node) {
+            return Some(
                 VariableAssignmentStatementSyntax::SelectedVariableAssignment(
                     SelectedVariableAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            _ => None,
-        }
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SimpleVariableAssignmentSyntax::can_cast(node)
+            || ConditionalVariableAssignmentSyntax::can_cast(node)
+            || SelectedVariableAssignmentSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1931,6 +2172,9 @@ impl AstNode for WaitStatementSyntax {
             NodeKind::WaitStatement => Some(WaitStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::WaitStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1980,6 +2224,9 @@ impl AstNode for WaveformElementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::WaveformElement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2007,6 +2254,9 @@ impl AstNode for WaveformElementsSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::WaveformElements)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2028,6 +2278,9 @@ impl AstNode for UnaffectedWaveformSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UnaffectedWaveform)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2047,15 +2300,20 @@ pub enum WaveformSyntax {
 }
 impl AstNode for WaveformSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::WaveformElements => Some(WaveformSyntax::WaveformElements(
+        if WaveformElementsSyntax::can_cast(&node) {
+            return Some(WaveformSyntax::WaveformElements(
                 WaveformElementsSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::UnaffectedWaveform => Some(WaveformSyntax::UnaffectedWaveform(
+            ));
+        };
+        if UnaffectedWaveformSyntax::can_cast(&node) {
+            return Some(WaveformSyntax::UnaffectedWaveform(
                 UnaffectedWaveformSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        WaveformElementsSyntax::can_cast(node) || UnaffectedWaveformSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {

@@ -73,7 +73,7 @@ SubprogramInstantiationDeclaration: !Sequence
     optional: true
   - token: SemiColon
 
-PackageDeclaration: !Sequence
+Package: !Sequence
   - keyword: Package
   - token: Identifier
     name: name
@@ -118,7 +118,7 @@ PackageBody: !Sequence
     optional: true
   - token: SemiColon
 
-PackageInstantiationDeclaration: !Sequence
+PackageInstantiation: !Sequence
   - keyword: Package
   - token: Identifier
     name: name

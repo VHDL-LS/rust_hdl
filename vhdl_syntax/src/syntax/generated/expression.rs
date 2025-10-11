@@ -48,6 +48,9 @@ impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedExpressionOrAggregate)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -128,6 +131,9 @@ impl AstNode for UnaryExpressionSyntax {
             NodeKind::UnaryExpression => Some(UnaryExpressionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UnaryExpression)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -258,6 +264,9 @@ impl AstNode for BinaryExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BinaryExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -285,6 +294,9 @@ impl AstNode for LiteralExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::LiteralExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -295,61 +307,133 @@ impl LiteralExpressionSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct PhysicalLiteralExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for PhysicalLiteralExpressionSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PhysicalLiteralExpression => Some(PhysicalLiteralExpressionSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PhysicalLiteralExpression)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PhysicalLiteralExpressionSyntax {
+    pub fn physical_literal(&self) -> Option<PhysicalLiteralSyntax> {
+        self.0
+            .children()
+            .filter_map(PhysicalLiteralSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct NameExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for NameExpressionSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::NameExpression => Some(NameExpressionSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameExpression)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl NameExpressionSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ExpressionSyntax {
     LiteralExpression(LiteralExpressionSyntax),
-    PhysicalLiteral(PhysicalLiteralSyntax),
+    PhysicalLiteralExpression(PhysicalLiteralExpressionSyntax),
     UnaryExpression(UnaryExpressionSyntax),
     BinaryExpression(BinaryExpressionSyntax),
     ParenthesizedExpressionOrAggregate(ParenthesizedExpressionOrAggregateSyntax),
     Allocator(AllocatorSyntax),
     QualifiedExpression(QualifiedExpressionSyntax),
     TypeConversion(TypeConversionSyntax),
-    Name(NameSyntax),
+    NameExpression(NameExpressionSyntax),
 }
 impl AstNode for ExpressionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::LiteralExpression => Some(ExpressionSyntax::LiteralExpression(
+        if LiteralExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::LiteralExpression(
                 LiteralExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PhysicalLiteral => Some(ExpressionSyntax::PhysicalLiteral(
-                PhysicalLiteralSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::UnaryExpression => Some(ExpressionSyntax::UnaryExpression(
+            ));
+        };
+        if PhysicalLiteralExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::PhysicalLiteralExpression(
+                PhysicalLiteralExpressionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if UnaryExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::UnaryExpression(
                 UnaryExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::BinaryExpression => Some(ExpressionSyntax::BinaryExpression(
+            ));
+        };
+        if BinaryExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::BinaryExpression(
                 BinaryExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ParenthesizedExpressionOrAggregate => {
-                Some(ExpressionSyntax::ParenthesizedExpressionOrAggregate(
-                    ParenthesizedExpressionOrAggregateSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::Allocator => Some(ExpressionSyntax::Allocator(
+            ));
+        };
+        if ParenthesizedExpressionOrAggregateSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::ParenthesizedExpressionOrAggregate(
+                ParenthesizedExpressionOrAggregateSyntax::cast(node).unwrap(),
+            ));
+        };
+        if AllocatorSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::Allocator(
                 AllocatorSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::QualifiedExpression => Some(ExpressionSyntax::QualifiedExpression(
+            ));
+        };
+        if QualifiedExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::QualifiedExpression(
                 QualifiedExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::TypeConversion => Some(ExpressionSyntax::TypeConversion(
+            ));
+        };
+        if TypeConversionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::TypeConversion(
                 TypeConversionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::Name => Some(ExpressionSyntax::Name(NameSyntax::cast(node).unwrap())),
-            _ => None,
-        }
+            ));
+        };
+        if NameExpressionSyntax::can_cast(&node) {
+            return Some(ExpressionSyntax::NameExpression(
+                NameExpressionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        LiteralExpressionSyntax::can_cast(node)
+            || PhysicalLiteralExpressionSyntax::can_cast(node)
+            || UnaryExpressionSyntax::can_cast(node)
+            || BinaryExpressionSyntax::can_cast(node)
+            || ParenthesizedExpressionOrAggregateSyntax::can_cast(node)
+            || AllocatorSyntax::can_cast(node)
+            || QualifiedExpressionSyntax::can_cast(node)
+            || TypeConversionSyntax::can_cast(node)
+            || NameExpressionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             ExpressionSyntax::LiteralExpression(inner) => inner.raw(),
-            ExpressionSyntax::PhysicalLiteral(inner) => inner.raw(),
+            ExpressionSyntax::PhysicalLiteralExpression(inner) => inner.raw(),
             ExpressionSyntax::UnaryExpression(inner) => inner.raw(),
             ExpressionSyntax::BinaryExpression(inner) => inner.raw(),
             ExpressionSyntax::ParenthesizedExpressionOrAggregate(inner) => inner.raw(),
             ExpressionSyntax::Allocator(inner) => inner.raw(),
             ExpressionSyntax::QualifiedExpression(inner) => inner.raw(),
             ExpressionSyntax::TypeConversion(inner) => inner.raw(),
-            ExpressionSyntax::Name(inner) => inner.raw(),
+            ExpressionSyntax::NameExpression(inner) => inner.raw(),
         }
     }
 }
@@ -362,6 +446,9 @@ impl AstNode for AggregateSyntax {
             NodeKind::Aggregate => Some(AggregateSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Aggregate)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -396,6 +483,9 @@ impl AstNode for SubtypeIndicationAllocatorSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubtypeIndicationAllocator)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -415,59 +505,59 @@ impl SubtypeIndicationAllocatorSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct QualifiedExpressionAllocatorSyntax(pub(crate) SyntaxNode);
-impl AstNode for QualifiedExpressionAllocatorSyntax {
+pub struct ExpressionAllocatorSyntax(pub(crate) SyntaxNode);
+impl AstNode for ExpressionAllocatorSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::QualifiedExpressionAllocator => {
-                Some(QualifiedExpressionAllocatorSyntax(node))
-            }
+            NodeKind::ExpressionAllocator => Some(ExpressionAllocatorSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExpressionAllocator)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl QualifiedExpressionAllocatorSyntax {
+impl ExpressionAllocatorSyntax {
     pub fn new_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::New))
             .nth(0)
     }
-    pub fn qualified_expression(&self) -> Option<QualifiedExpressionSyntax> {
-        self.0
-            .children()
-            .filter_map(QualifiedExpressionSyntax::cast)
-            .nth(0)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
 pub enum AllocatorSyntax {
     SubtypeIndicationAllocator(SubtypeIndicationAllocatorSyntax),
-    QualifiedExpressionAllocator(QualifiedExpressionAllocatorSyntax),
+    ExpressionAllocator(ExpressionAllocatorSyntax),
 }
 impl AstNode for AllocatorSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SubtypeIndicationAllocator => {
-                Some(AllocatorSyntax::SubtypeIndicationAllocator(
-                    SubtypeIndicationAllocatorSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::QualifiedExpressionAllocator => {
-                Some(AllocatorSyntax::QualifiedExpressionAllocator(
-                    QualifiedExpressionAllocatorSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if SubtypeIndicationAllocatorSyntax::can_cast(&node) {
+            return Some(AllocatorSyntax::SubtypeIndicationAllocator(
+                SubtypeIndicationAllocatorSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ExpressionAllocatorSyntax::can_cast(&node) {
+            return Some(AllocatorSyntax::ExpressionAllocator(
+                ExpressionAllocatorSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SubtypeIndicationAllocatorSyntax::can_cast(node)
+            || ExpressionAllocatorSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             AllocatorSyntax::SubtypeIndicationAllocator(inner) => inner.raw(),
-            AllocatorSyntax::QualifiedExpressionAllocator(inner) => inner.raw(),
+            AllocatorSyntax::ExpressionAllocator(inner) => inner.raw(),
         }
     }
 }
@@ -480,6 +570,9 @@ impl AstNode for OthersChoiceSyntax {
             NodeKind::OthersChoice => Some(OthersChoiceSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::OthersChoice)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -494,31 +587,85 @@ impl OthersChoiceSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum ChoiceSyntax {
-    Expression(ExpressionSyntax),
-    OthersChoice(OthersChoiceSyntax),
-    DiscreteRange(DiscreteRangeSyntax),
-}
-impl AstNode for ChoiceSyntax {
+pub struct ExpressionChoiceSyntax(pub(crate) SyntaxNode);
+impl AstNode for ExpressionChoiceSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Expression => Some(ChoiceSyntax::Expression(
-                ExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::OthersChoice => Some(ChoiceSyntax::OthersChoice(
-                OthersChoiceSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::DiscreteRange => Some(ChoiceSyntax::DiscreteRange(
-                DiscreteRangeSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::ExpressionChoice => Some(ExpressionChoiceSyntax(node)),
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExpressionChoice)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ExpressionChoiceSyntax {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct DiscreteRangeChoiceSyntax(pub(crate) SyntaxNode);
+impl AstNode for DiscreteRangeChoiceSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::DiscreteRangeChoice => Some(DiscreteRangeChoiceSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::DiscreteRangeChoice)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl DiscreteRangeChoiceSyntax {
+    pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
+        self.0
+            .children()
+            .filter_map(DiscreteRangeSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum ChoiceSyntax {
+    ExpressionChoice(ExpressionChoiceSyntax),
+    OthersChoice(OthersChoiceSyntax),
+    DiscreteRangeChoice(DiscreteRangeChoiceSyntax),
+}
+impl AstNode for ChoiceSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if ExpressionChoiceSyntax::can_cast(&node) {
+            return Some(ChoiceSyntax::ExpressionChoice(
+                ExpressionChoiceSyntax::cast(node).unwrap(),
+            ));
+        };
+        if OthersChoiceSyntax::can_cast(&node) {
+            return Some(ChoiceSyntax::OthersChoice(
+                OthersChoiceSyntax::cast(node).unwrap(),
+            ));
+        };
+        if DiscreteRangeChoiceSyntax::can_cast(&node) {
+            return Some(ChoiceSyntax::DiscreteRangeChoice(
+                DiscreteRangeChoiceSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ExpressionChoiceSyntax::can_cast(node)
+            || OthersChoiceSyntax::can_cast(node)
+            || DiscreteRangeChoiceSyntax::can_cast(node)
+    }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ChoiceSyntax::Expression(inner) => inner.raw(),
+            ChoiceSyntax::ExpressionChoice(inner) => inner.raw(),
             ChoiceSyntax::OthersChoice(inner) => inner.raw(),
-            ChoiceSyntax::DiscreteRange(inner) => inner.raw(),
+            ChoiceSyntax::DiscreteRangeChoice(inner) => inner.raw(),
         }
     }
 }
@@ -531,6 +678,9 @@ impl AstNode for ChoicesSyntax {
             NodeKind::Choices => Some(ChoicesSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Choices)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -552,6 +702,9 @@ impl AstNode for ElementAssociationSyntax {
             NodeKind::ElementAssociation => Some(ElementAssociationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ElementAssociation)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -580,6 +733,9 @@ impl AstNode for QualifiedExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::QualifiedExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -591,13 +747,8 @@ impl QualifiedExpressionSyntax {
     pub fn tick_token(&self) -> Option<SyntaxToken> {
         self.0.tokens().filter(|token| token.kind() == Tick).nth(0)
     }
-    pub fn parenthesized_expression_or_aggregate(
-        &self,
-    ) -> Option<ParenthesizedExpressionOrAggregateSyntax> {
-        self.0
-            .children()
-            .filter_map(ParenthesizedExpressionOrAggregateSyntax::cast)
-            .nth(0)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -608,6 +759,9 @@ impl AstNode for TypeConversionSyntax {
             NodeKind::TypeConversion => Some(TypeConversionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::TypeConversion)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

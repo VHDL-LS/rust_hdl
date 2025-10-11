@@ -28,6 +28,9 @@ where
     /// Cast an abstract SyntaxNode into the AstNode described by `Self`
     fn cast(node: SyntaxNode) -> Option<Self>;
 
+    /// Returns whether this AST node can successfully cast the `node`
+    fn can_cast(node: &SyntaxNode) -> bool;
+
     /// Return the underlying Syntax Node
     fn raw(&self) -> SyntaxNode;
 

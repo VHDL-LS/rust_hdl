@@ -5,7 +5,7 @@ Declaration: !Choice
   - node: SubprogramBody
   - node: SubprogramInstantiationDeclaration
   - node: PackageDeclaration
-  - node: PackageBody
+  - node: PackageBodyDeclaration
   - node: PackageInstantiationDeclaration
   - node: TypeDeclaration
   - node: SubtypeDeclaration
@@ -16,7 +16,7 @@ Declaration: !Choice
   - node: AttributeSpecification
   - node: ConfigurationSpecification
   - node: DisconnectionSpecification
-  - node: UseClause
+  - node: UseClauseDeclaration
   - node: GroupTemplateDeclaration
   - node: GroupDeclaration
   - node: ConstantDeclaration
@@ -27,22 +27,19 @@ Declaration: !Choice
   - node: PslSequenceDeclaration
   - node: PslClockDeclaration
 
-InertialExpression: !Sequence
-  - keyword: Inertial
-    optional: true
-  - node: Expression
+PackageDeclaration: !Sequence
+  - node: Package
 
-ActualDesignator: !Choice
-  - node: InertialExpression
-  - node: Name
-  - node: SubtypeIndication
-  - node: OpenRange
+PackageInstantiationDeclaration: !Sequence
+  - node: PackageInstantiation
 
-ActualPart: !Choice
-  - node: Name
-  - node: ActualDesignator
-    parenthesized: true
-    optional: true
+PackageBodyDeclaration: !Sequence
+  - node: PackageBody
+
+UseClauseDeclaration: !Sequence
+  - node: UseClause
+
+ActualPart: !Sequence []
 
 AliasDeclaration: !Sequence
   - keyword: Alias
@@ -111,18 +108,23 @@ ConstantDeclaration: !Sequence
     optional: true
   - token: SemiColon
 
-Constraint: !Choice
+RangeConstraintConstraint: !Sequence
   - node: RangeConstraint
+
+Constraint: !Choice
+  - node: RangeConstraintConstraint
   - node: ArrayConstraint
   - node: RecordConstraint
 
-ElementConstraint: !Choice
-  - node: ArrayConstraint
-  - node: RecordConstraint
+ResolutionIndicationElementResolution: !Sequence
+  - node: ResolutionIndication
+
+RecordResolutionElementResolution: !Sequence
+  - node: RecordResolution
 
 ElementResolution: !Choice
-  - node: ResolutionIndication
-  - node: RecordResolution
+  - node: ResolutionIndicationElementResolution
+  - node: RecordResolutionElementResolution
 
 EntityClassEntry: !Sequence
   - node: EntityClass
@@ -266,16 +268,19 @@ InterfacePackageGenericMapAspect: !Sequence
   - node: InterfacePackageGenericMapAspectInner
   - token: RightPar
 
-BoxToken: !Sequence
+InterfacePackageGenericMapAspectBox: !Sequence
   - token: BOX
 
-DefaultToken: !Sequence
+InterfacePackageGenericMapAspectDefault: !Sequence
   - keyword: Default
 
-InterfacePackageGenericMapAspectInner: !Choice
-  - node: BoxToken
-  - node: DefaultToken
+InterfacePackageGenericMapAspectAssociations: !Sequence
   - node: AssociationList
+
+InterfacePackageGenericMapAspectInner: !Choice
+  - node: InterfacePackageGenericMapAspectBox
+  - node: InterfacePackageGenericMapAspectDefault
+  - node: InterfacePackageGenericMapAspectAssociations
 
 InterfaceProcedureSpecification: !Sequence
   - keyword: Procedure
@@ -309,9 +314,15 @@ InterfaceSubprogramDeclaration: !Sequence
     optional: true
   - token: SemiColon
 
-InterfaceSubprogramDefault: !Choice
+InterfaceSubprogramDefaultName: !Sequence
   - node: Name
-  - node: BoxToken
+
+InterfaceSubprogramDefaultBox: !Sequence
+  - token: BOX
+
+InterfaceSubprogramDefault: !Choice
+  - node: InterfaceSubprogramDefaultName
+  - node: InterfaceSubprogramDefaultBox
 
 InterfaceSubprogramSpecification: !Choice
   - node: InterfaceProcedureSpecification
@@ -363,9 +374,15 @@ RecordResolution: !Sequence
   - token: Comma
     repeated: true
 
-ResolutionIndication: !Choice
+NameResolutionIndication: !Sequence
   - node: Name
+
+ElementResolutionResolutionIndication: !Sequence
   - node: ElementResolution
+
+ResolutionIndication: !Choice
+  - node: NameResolutionIndication
+  - node: ElementResolutionResolutionIndication
     parenthesized: true
 
 SignalDeclaration: !Sequence

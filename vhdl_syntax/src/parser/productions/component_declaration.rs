@@ -102,7 +102,7 @@ ComponentDeclaration
     Keyword(Generic)
     LeftPar
     InterfaceList
-      InterfaceObjectDeclaration
+      InterfaceConstantDeclaration
         IdentifierList
           Identifier 'foo'
         Colon
@@ -136,7 +136,7 @@ ComponentDeclaration
     Keyword(Port)
     LeftPar
     InterfaceList
-      InterfaceObjectDeclaration
+      InterfaceConstantDeclaration
         IdentifierList
           Identifier 'foo'
         Colon

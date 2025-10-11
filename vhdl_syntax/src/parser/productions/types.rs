@@ -20,7 +20,7 @@ impl<T: TokenStream> Parser<T> {
             self.end_node();
             return;
         }
-        self.start_node_at(checkpoint, TypeDeclaration);
+        self.start_node_at(checkpoint, FullTypeDeclaration);
         self.expect_kw(Kw::Is);
         self.type_definition();
         self.expect_token(SemiColon);
@@ -112,7 +112,7 @@ IncompleteTypeDeclaration
             Parser::type_declaration,
             "type IntegerFile is file of integer;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'IntegerFile'
   Keyword(Is)
@@ -129,7 +129,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type sl_file is file of ieee.std_logic_1164.std_ulogic;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'sl_file'
   Keyword(Is)
@@ -155,7 +155,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type str_ptr_t is access string;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'str_ptr_t'
   Keyword(Is)
@@ -173,7 +173,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type p_t is protected end protected;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'p_t'
   Keyword(Is)
@@ -189,7 +189,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type p_t is protected end protected p_t;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'p_t'
   Keyword(Is)
@@ -211,7 +211,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type p_t is protected body end protected body;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'p_t'
   Keyword(Is)
@@ -228,7 +228,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type p_t is protected body end protected body p_t;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'p_t'
   Keyword(Is)

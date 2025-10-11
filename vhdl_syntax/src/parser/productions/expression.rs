@@ -38,8 +38,12 @@ fn unary_precedence(token: TokenKind) -> Option<NonZeroU8> {
 impl<T: TokenStream> Parser<T> {
     pub fn primary(&mut self) {
         match_next_token!(self,
-            Identifier, LtLt => self.name(),
-            BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Kw::Null) => self.skip_into_node(Literal),
+            Identifier, LtLt => {
+              self.start_node(NameExpression);
+              self.name();
+              self.end_node();
+            },
+            BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Kw::Null) => self.skip_into_node(LiteralExpression),
             AbstractLiteral => {
                 let checkpoint = self.checkpoint();
                 self.skip();
@@ -47,7 +51,7 @@ impl<T: TokenStream> Parser<T> {
                     self.start_node_at(checkpoint, PhysicalLiteral);
                     self.name();
                 } else {
-                    self.start_node_at(checkpoint, Literal);
+                    self.start_node_at(checkpoint, LiteralExpression);
                 }
                 self.end_node();
             },
@@ -110,7 +114,7 @@ mod tests {
         check_expr(
             "'a'",
             "\
-Literal
+LiteralExpression
   CharacterLiteral ''a''
         ",
         );
@@ -121,7 +125,7 @@ Literal
         check_expr(
             "71",
             "\
-Literal
+LiteralExpression
   AbstractLiteral '71'
         ",
         );
@@ -132,7 +136,7 @@ Literal
         check_expr(
             "7.1",
             "\
-Literal
+LiteralExpression
   AbstractLiteral '7.1'
         ",
         );
@@ -143,7 +147,7 @@ Literal
         check_expr(
             "\"string\"",
             "\
-Literal
+LiteralExpression
   StringLiteral '\"string\"'
         ",
         );
@@ -154,7 +158,7 @@ Literal
         check_expr(
             "null",
             "\
-Literal
+LiteralExpression
   Keyword(Null)
         ",
         );
@@ -171,18 +175,19 @@ Literal
         check_expr(
             "<< signal dut.foo : boolean >>",
             "\
-Name
-  ExternalName
-    LtLt
-    Keyword(Signal)
-    ExternalPathName
-      PartialPathname
-        Identifier 'dut'
-        Dot
-        Identifier 'foo'
-    Colon
-    Identifier 'boolean'
-    GtGt
+NameExpression
+  Name
+    ExternalSignalName
+      LtLt
+      Keyword(Signal)
+      RelativePathname
+        PartialPathname
+          Identifier 'dut'
+          Dot
+          Identifier 'foo'
+      Colon
+      Identifier 'boolean'
+      GtGt
         ",
         );
     }
@@ -193,10 +198,10 @@ Name
             "1 + 2",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
             ",
         )
@@ -208,10 +213,10 @@ BinaryExpression
             "1 - 2",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Minus
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
             ",
         )
@@ -224,7 +229,7 @@ BinaryExpression
             "\
 UnaryExpression
   Keyword(Abs)
-  Literal
+  LiteralExpression
     AbstractLiteral '9'
             ",
         )
@@ -237,7 +242,7 @@ UnaryExpression
             "\
 UnaryExpression
   QueQue
-  Literal
+  LiteralExpression
     AbstractLiteral '9'
             ",
         )
@@ -250,8 +255,9 @@ UnaryExpression
             "\
 UnaryExpression
   Keyword(Not)
-  Name
-    Identifier 'false'
+  NameExpression
+    Name
+      Identifier 'false'
             ",
         )
     }
@@ -312,7 +318,7 @@ PhysicalLiteral
             "2 * 1 ns",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
   Times
   PhysicalLiteral
@@ -363,10 +369,10 @@ UnaryExpression
             "\
 ParenthesizedExpressionOrAggregate
   LeftPar
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Comma
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
   RightPar",
         )
@@ -381,10 +387,10 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   RightPar",
         )
@@ -399,13 +405,13 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Bar
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '3'
   RightPar",
         )
@@ -422,7 +428,7 @@ ParenthesizedExpressionOrAggregate
     Choices
       Keyword(Others)
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   RightPar",
         )
@@ -445,14 +451,14 @@ ParenthesizedExpressionOrAggregate
     Choices
       Keyword(Others)
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   Comma
   ElementAssociation
     Choices
       Keyword(Others)
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   RightPar",
         )
@@ -467,13 +473,13 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
     RightArrow
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Comma
-  Literal
+  LiteralExpression
     AbstractLiteral '3'
   RightPar",
         )
@@ -485,16 +491,16 @@ ParenthesizedExpressionOrAggregate
             "1 + (2 + 3)",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Plus
   ParenthesizedExpressionOrAggregate
     LeftPar
     BinaryExpression
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
       Plus
-      Literal
+      LiteralExpression
         AbstractLiteral '3'
     RightPar
         ",
@@ -510,14 +516,14 @@ BinaryExpression
   ParenthesizedExpressionOrAggregate
     LeftPar
     BinaryExpression
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Plus
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightPar
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '3'
         ",
         )
@@ -529,7 +535,7 @@ BinaryExpression
             "1 + 1 ns",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Plus
   PhysicalLiteral
@@ -543,7 +549,7 @@ BinaryExpression
             "\
 BinaryExpression
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Times
     PhysicalLiteral
@@ -551,7 +557,7 @@ BinaryExpression
       Name
         Identifier 'ns'
   Times
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
         ",
         );
@@ -560,13 +566,13 @@ BinaryExpression
             "\
 BinaryExpression
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '3'
         ",
         );
@@ -575,13 +581,13 @@ BinaryExpression
             "\
 BinaryExpression
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Minus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Minus
-  Literal
+  LiteralExpression
     AbstractLiteral '3'
         ",
         );
@@ -589,14 +595,14 @@ BinaryExpression
             "1+2*3",
             "\
 BinaryExpression
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   Plus
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
     Times
-    Literal
+    LiteralExpression
       AbstractLiteral '3'
         ",
         );
@@ -607,14 +613,14 @@ BinaryExpression
   ParenthesizedExpressionOrAggregate
     LeftPar
     BinaryExpression
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Plus
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightPar
   Times
-  Literal
+  LiteralExpression
     AbstractLiteral '3'
         ",
         );
@@ -624,10 +630,10 @@ BinaryExpression
 UnaryExpression
   Minus
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Times
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
         ",
         );
@@ -637,10 +643,10 @@ UnaryExpression
 BinaryExpression
   UnaryExpression
     Keyword(Not)
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
         ",
         );
@@ -652,10 +658,10 @@ BinaryExpression
     Keyword(Abs)
     UnaryExpression
       Keyword(Not)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
         ",
         );
@@ -666,7 +672,7 @@ UnaryExpression
   Keyword(Not)
   UnaryExpression
     Minus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
         ",
         );
@@ -677,7 +683,7 @@ UnaryExpression
   Keyword(Not)
   UnaryExpression
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
         ",
         );
@@ -691,12 +697,12 @@ UnaryExpression
     UnaryExpression
       QueQue
       BinaryExpression
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
         Pow
         UnaryExpression
           QueQue
-          Literal
+          LiteralExpression
             AbstractLiteral '2'
         ",
         );
@@ -707,19 +713,19 @@ BinaryExpression
   BinaryExpression
     UnaryExpression
       Keyword(Abs)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
     Keyword(Sll)
     BinaryExpression
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
       Plus
-      Literal
+      LiteralExpression
         AbstractLiteral '3'
   Keyword(And)
   UnaryExpression
     Minus
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
         ",
         );
@@ -728,17 +734,17 @@ BinaryExpression
             "\
 BinaryExpression
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Keyword(And)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '3'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '4'
         ",
         );
@@ -748,10 +754,10 @@ BinaryExpression
 BinaryExpression
   UnaryExpression
     Keyword(And)
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
   Plus
-  Literal
+  LiteralExpression
     AbstractLiteral '2'
         ",
         );

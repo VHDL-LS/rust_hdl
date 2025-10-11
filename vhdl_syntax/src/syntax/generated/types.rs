@@ -19,6 +19,9 @@ impl AstNode for AccessTypeDefinitionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AccessTypeDefinition)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -46,6 +49,9 @@ impl AstNode for ArrayConstraintSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ArrayConstraint)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -57,11 +63,8 @@ impl ArrayConstraintSyntax {
             .filter_map(IndexConstraintSyntax::cast)
             .nth(0)
     }
-    pub fn element_constraint(&self) -> Option<ElementConstraintSyntax> {
-        self.0
-            .children()
-            .filter_map(ElementConstraintSyntax::cast)
-            .nth(0)
+    pub fn constraint(&self) -> Option<ConstraintSyntax> {
+        self.0.children().filter_map(ConstraintSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -71,19 +74,21 @@ pub enum ArrayTypeDefinitionSyntax {
 }
 impl AstNode for ArrayTypeDefinitionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UnboundedArrayDefinition => {
-                Some(ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(
-                    UnboundedArrayDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ConstrainedArrayDefinition => {
-                Some(ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(
-                    ConstrainedArrayDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if UnboundedArrayDefinitionSyntax::can_cast(&node) {
+            return Some(ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(
+                UnboundedArrayDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConstrainedArrayDefinitionSyntax::can_cast(&node) {
+            return Some(ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(
+                ConstrainedArrayDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        UnboundedArrayDefinitionSyntax::can_cast(node)
+            || ConstrainedArrayDefinitionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -100,19 +105,20 @@ pub enum CompositeTypeDefinitionSyntax {
 }
 impl AstNode for CompositeTypeDefinitionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ArrayTypeDefinition => {
-                Some(CompositeTypeDefinitionSyntax::ArrayTypeDefinition(
-                    ArrayTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::RecordTypeDefinition => {
-                Some(CompositeTypeDefinitionSyntax::RecordTypeDefinition(
-                    RecordTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if ArrayTypeDefinitionSyntax::can_cast(&node) {
+            return Some(CompositeTypeDefinitionSyntax::ArrayTypeDefinition(
+                ArrayTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if RecordTypeDefinitionSyntax::can_cast(&node) {
+            return Some(CompositeTypeDefinitionSyntax::RecordTypeDefinition(
+                RecordTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ArrayTypeDefinitionSyntax::can_cast(node) || RecordTypeDefinitionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -130,6 +136,9 @@ impl AstNode for ConstrainedArrayDefinitionSyntax {
             NodeKind::ConstrainedArrayDefinition => Some(ConstrainedArrayDefinitionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConstrainedArrayDefinition)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -183,47 +192,74 @@ impl DirectionSyntax {
 }
 
 #[derive(Debug, Clone)]
-pub enum DiscreteRangeSyntax {
-    SubtypeIndication(SubtypeIndicationSyntax),
-    Range(RangeSyntax),
-    OpenRange(OpenRangeSyntax),
-}
-impl AstNode for DiscreteRangeSyntax {
+pub struct SubtypeIndicationDiscreteDiscreteRangeSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubtypeIndicationDiscreteDiscreteRangeSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::SubtypeIndication => Some(DiscreteRangeSyntax::SubtypeIndication(
-                SubtypeIndicationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::Range => Some(DiscreteRangeSyntax::Range(RangeSyntax::cast(node).unwrap())),
-            NodeKind::OpenRange => Some(DiscreteRangeSyntax::OpenRange(
-                OpenRangeSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::SubtypeIndicationDiscreteDiscreteRange => {
+                Some(SubtypeIndicationDiscreteDiscreteRangeSyntax(node))
+            }
             _ => None,
         }
     }
-    fn raw(&self) -> SyntaxNode {
-        match self {
-            DiscreteRangeSyntax::SubtypeIndication(inner) => inner.raw(),
-            DiscreteRangeSyntax::Range(inner) => inner.raw(),
-            DiscreteRangeSyntax::OpenRange(inner) => inner.raw(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct OpenRangeSyntax(pub(crate) SyntaxNode);
-impl AstNode for OpenRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::OpenRange => Some(OpenRangeSyntax(node)),
-            _ => None,
-        }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::SubtypeIndicationDiscreteDiscreteRange
+        )
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl OpenRangeSyntax {
+impl SubtypeIndicationDiscreteDiscreteRangeSyntax {
+    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(SubtypeIndicationSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SubtypeIndicationDiscreteRangeSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubtypeIndicationDiscreteRangeSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SubtypeIndicationDiscreteRange => {
+                Some(SubtypeIndicationDiscreteRangeSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubtypeIndicationDiscreteRange)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SubtypeIndicationDiscreteRangeSyntax {
+    pub fn range(&self) -> Option<RangeSyntax> {
+        self.0.children().filter_map(RangeSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct OpenDiscreteRangeSyntax(pub(crate) SyntaxNode);
+impl AstNode for OpenDiscreteRangeSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::OpenDiscreteRange => Some(OpenDiscreteRangeSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::OpenDiscreteRange)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl OpenDiscreteRangeSyntax {
     pub fn open_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -232,6 +268,45 @@ impl OpenRangeSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub enum DiscreteRangeSyntax {
+    SubtypeIndicationDiscreteDiscreteRange(SubtypeIndicationDiscreteDiscreteRangeSyntax),
+    SubtypeIndicationDiscreteRange(SubtypeIndicationDiscreteRangeSyntax),
+    OpenDiscreteRange(OpenDiscreteRangeSyntax),
+}
+impl AstNode for DiscreteRangeSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if SubtypeIndicationDiscreteDiscreteRangeSyntax::can_cast(&node) {
+            return Some(DiscreteRangeSyntax::SubtypeIndicationDiscreteDiscreteRange(
+                SubtypeIndicationDiscreteDiscreteRangeSyntax::cast(node).unwrap(),
+            ));
+        };
+        if SubtypeIndicationDiscreteRangeSyntax::can_cast(&node) {
+            return Some(DiscreteRangeSyntax::SubtypeIndicationDiscreteRange(
+                SubtypeIndicationDiscreteRangeSyntax::cast(node).unwrap(),
+            ));
+        };
+        if OpenDiscreteRangeSyntax::can_cast(&node) {
+            return Some(DiscreteRangeSyntax::OpenDiscreteRange(
+                OpenDiscreteRangeSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SubtypeIndicationDiscreteDiscreteRangeSyntax::can_cast(node)
+            || SubtypeIndicationDiscreteRangeSyntax::can_cast(node)
+            || OpenDiscreteRangeSyntax::can_cast(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        match self {
+            DiscreteRangeSyntax::SubtypeIndicationDiscreteDiscreteRange(inner) => inner.raw(),
+            DiscreteRangeSyntax::SubtypeIndicationDiscreteRange(inner) => inner.raw(),
+            DiscreteRangeSyntax::OpenDiscreteRange(inner) => inner.raw(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ElementDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -239,6 +314,9 @@ impl AstNode for ElementDeclarationSyntax {
             NodeKind::ElementDeclaration => Some(ElementDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ElementDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -276,6 +354,9 @@ impl AstNode for EnumerationTypeDefinitionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EnumerationTypeDefinition)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -309,6 +390,9 @@ impl AstNode for FileTypeDefinitionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FileTypeDefinition)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -339,6 +423,9 @@ impl AstNode for IdentifierListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IdentifierList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -362,6 +449,9 @@ impl AstNode for IncompleteTypeDeclarationSyntax {
             NodeKind::IncompleteTypeDeclaration => Some(IncompleteTypeDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IncompleteTypeDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -396,6 +486,9 @@ impl AstNode for IndexSubtypeDefinitionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IndexSubtypeDefinition)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -423,6 +516,9 @@ impl AstNode for PhysicalLiteralSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PhysicalLiteral)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -446,6 +542,9 @@ impl AstNode for PhysicalTypeDefinitionSyntax {
             NodeKind::PhysicalTypeDefinition => Some(PhysicalTypeDefinitionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PhysicalTypeDefinition)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -505,6 +604,9 @@ impl AstNode for PrimaryUnitDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PrimaryUnitDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -531,6 +633,9 @@ impl AstNode for ProtectedTypeBodySyntax {
             NodeKind::ProtectedTypeBody => Some(ProtectedTypeBodySyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeBody)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -586,6 +691,9 @@ impl AstNode for ProtectedTypeDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -626,17 +734,20 @@ pub enum ProtectedTypeDefinitionSyntax {
 }
 impl AstNode for ProtectedTypeDefinitionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeDeclaration => {
-                Some(ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(
-                    ProtectedTypeDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ProtectedTypeBody => Some(ProtectedTypeDefinitionSyntax::ProtectedTypeBody(
+        if ProtectedTypeDeclarationSyntax::can_cast(&node) {
+            return Some(ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(
+                ProtectedTypeDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ProtectedTypeBodySyntax::can_cast(&node) {
+            return Some(ProtectedTypeDefinitionSyntax::ProtectedTypeBody(
                 ProtectedTypeBodySyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ProtectedTypeDeclarationSyntax::can_cast(node) || ProtectedTypeBodySyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -655,6 +766,9 @@ impl AstNode for RangeExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RangeExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -671,23 +785,51 @@ impl RangeExpressionSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct AttributeRangeSyntax(pub(crate) SyntaxNode);
+impl AstNode for AttributeRangeSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::AttributeRange => Some(AttributeRangeSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AttributeRange)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl AttributeRangeSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum RangeSyntax {
-    Name(NameSyntax),
+    AttributeRange(AttributeRangeSyntax),
     RangeExpression(RangeExpressionSyntax),
 }
 impl AstNode for RangeSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Name => Some(RangeSyntax::Name(NameSyntax::cast(node).unwrap())),
-            NodeKind::RangeExpression => Some(RangeSyntax::RangeExpression(
+        if AttributeRangeSyntax::can_cast(&node) {
+            return Some(RangeSyntax::AttributeRange(
+                AttributeRangeSyntax::cast(node).unwrap(),
+            ));
+        };
+        if RangeExpressionSyntax::can_cast(&node) {
+            return Some(RangeSyntax::RangeExpression(
                 RangeExpressionSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        AttributeRangeSyntax::can_cast(node) || RangeExpressionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            RangeSyntax::Name(inner) => inner.raw(),
+            RangeSyntax::AttributeRange(inner) => inner.raw(),
             RangeSyntax::RangeExpression(inner) => inner.raw(),
         }
     }
@@ -701,6 +843,9 @@ impl AstNode for RangeConstraintSyntax {
             NodeKind::RangeConstraint => Some(RangeConstraintSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RangeConstraint)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -725,6 +870,9 @@ impl AstNode for RecordConstraintSyntax {
             NodeKind::RecordConstraint => Some(RecordConstraintSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordConstraint)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -763,6 +911,9 @@ impl AstNode for RecordElementConstraintSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordElementConstraint)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -771,11 +922,8 @@ impl RecordElementConstraintSyntax {
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
-    pub fn element_constraint(&self) -> Option<ElementConstraintSyntax> {
-        self.0
-            .children()
-            .filter_map(ElementConstraintSyntax::cast)
-            .nth(0)
+    pub fn constraint(&self) -> Option<ConstraintSyntax> {
+        self.0.children().filter_map(ConstraintSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -786,6 +934,9 @@ impl AstNode for RecordTypeDefinitionSyntax {
             NodeKind::RecordTypeDefinition => Some(RecordTypeDefinitionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordTypeDefinition)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -821,34 +972,63 @@ impl RecordTypeDefinitionSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct NumericTypeDefinitionSyntax(pub(crate) SyntaxNode);
+impl AstNode for NumericTypeDefinitionSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::NumericTypeDefinition => Some(NumericTypeDefinitionSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NumericTypeDefinition)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl NumericTypeDefinitionSyntax {
+    pub fn range_constraint(&self) -> Option<RangeConstraintSyntax> {
+        self.0
+            .children()
+            .filter_map(RangeConstraintSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ScalarTypeDefinitionSyntax {
     EnumerationTypeDefinition(EnumerationTypeDefinitionSyntax),
-    RangeConstraint(RangeConstraintSyntax),
+    NumericTypeDefinition(NumericTypeDefinitionSyntax),
     PhysicalTypeDefinition(PhysicalTypeDefinitionSyntax),
 }
 impl AstNode for ScalarTypeDefinitionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::EnumerationTypeDefinition => {
-                Some(ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(
-                    EnumerationTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::RangeConstraint => Some(ScalarTypeDefinitionSyntax::RangeConstraint(
-                RangeConstraintSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PhysicalTypeDefinition => {
-                Some(ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(
-                    PhysicalTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if EnumerationTypeDefinitionSyntax::can_cast(&node) {
+            return Some(ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(
+                EnumerationTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if NumericTypeDefinitionSyntax::can_cast(&node) {
+            return Some(ScalarTypeDefinitionSyntax::NumericTypeDefinition(
+                NumericTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if PhysicalTypeDefinitionSyntax::can_cast(&node) {
+            return Some(ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(
+                PhysicalTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        EnumerationTypeDefinitionSyntax::can_cast(node)
+            || NumericTypeDefinitionSyntax::can_cast(node)
+            || PhysicalTypeDefinitionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(inner) => inner.raw(),
-            ScalarTypeDefinitionSyntax::RangeConstraint(inner) => inner.raw(),
+            ScalarTypeDefinitionSyntax::NumericTypeDefinition(inner) => inner.raw(),
             ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(inner) => inner.raw(),
         }
     }
@@ -862,6 +1042,9 @@ impl AstNode for SecondaryUnitDeclarationSyntax {
             NodeKind::SecondaryUnitDeclaration => Some(SecondaryUnitDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SecondaryUnitDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -899,6 +1082,9 @@ impl AstNode for IndexConstraintSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IndexConstraint)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -932,6 +1118,9 @@ impl AstNode for IndexSubtypeDefinitionListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IndexSubtypeDefinitionList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -956,6 +1145,9 @@ impl AstNode for UnboundedArrayDefinitionSyntax {
             NodeKind::UnboundedArrayDefinition => Some(UnboundedArrayDefinitionSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UnboundedArrayDefinition)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

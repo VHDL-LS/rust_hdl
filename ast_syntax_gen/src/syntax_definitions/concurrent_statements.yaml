@@ -242,9 +242,15 @@ ConfigurationInstantiatedUnit: !Sequence
 AllSensitivityList: !Sequence
   - keyword: All
 
+SensitivityList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true
+
 ProcessSensitivityList: !Choice
   - node: AllSensitivityList
-  - node: NameList
+  - node: SensitivityList
 
 ProcessStatement: !Sequence
   - node: Label

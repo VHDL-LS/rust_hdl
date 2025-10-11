@@ -19,6 +19,9 @@ impl AstNode for SubprogramDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -44,19 +47,20 @@ pub enum SubprogramSpecificationSyntax {
 }
 impl AstNode for SubprogramSpecificationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProcedureSpecification => {
-                Some(SubprogramSpecificationSyntax::ProcedureSpecification(
-                    ProcedureSpecificationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::FunctionSpecification => {
-                Some(SubprogramSpecificationSyntax::FunctionSpecification(
-                    FunctionSpecificationSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if ProcedureSpecificationSyntax::can_cast(&node) {
+            return Some(SubprogramSpecificationSyntax::ProcedureSpecification(
+                ProcedureSpecificationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if FunctionSpecificationSyntax::can_cast(&node) {
+            return Some(SubprogramSpecificationSyntax::FunctionSpecification(
+                FunctionSpecificationSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ProcedureSpecificationSyntax::can_cast(node) || FunctionSpecificationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -74,6 +78,9 @@ impl AstNode for ProcedureSpecificationSyntax {
             NodeKind::ProcedureSpecification => Some(ProcedureSpecificationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProcedureSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -110,6 +117,9 @@ impl AstNode for FunctionSpecificationSyntax {
             NodeKind::FunctionSpecification => Some(FunctionSpecificationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FunctionSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -162,6 +172,9 @@ impl AstNode for ParenthesizedInterfaceListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedInterfaceList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -194,6 +207,9 @@ impl AstNode for ParameterListSyntax {
             NodeKind::ParameterList => Some(ParameterListSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParameterList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -243,6 +259,9 @@ impl AstNode for SubprogramHeaderSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramHeader)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -269,6 +288,9 @@ impl AstNode for SubprogramBodySyntax {
             NodeKind::SubprogramBody => Some(SubprogramBodySyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramBody)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -357,6 +379,9 @@ impl AstNode for SubprogramInstantiationDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramInstantiationDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -406,19 +431,22 @@ impl SubprogramInstantiationDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PackageDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PackageDeclarationSyntax {
+pub struct PackageSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::PackageDeclaration => Some(PackageDeclarationSyntax(node)),
+            NodeKind::Package => Some(PackageSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Package)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl PackageDeclarationSyntax {
+impl PackageSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -480,6 +508,9 @@ impl AstNode for PackageHeaderSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageHeader)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -512,6 +543,9 @@ impl AstNode for PackageBodySyntax {
             NodeKind::PackageBody => Some(PackageBodySyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageBody)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -577,21 +611,22 @@ impl PackageBodySyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PackageInstantiationDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PackageInstantiationDeclarationSyntax {
+pub struct PackageInstantiationSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageInstantiationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::PackageInstantiationDeclaration => {
-                Some(PackageInstantiationDeclarationSyntax(node))
-            }
+            NodeKind::PackageInstantiation => Some(PackageInstantiationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageInstantiation)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl PackageInstantiationDeclarationSyntax {
+impl PackageInstantiationSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -640,6 +675,9 @@ impl AstNode for SignatureSyntax {
             NodeKind::Signature => Some(SignatureSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Signature)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

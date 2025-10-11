@@ -183,7 +183,7 @@ EntityDeclaration
       Keyword(Generic)
       LeftPar
       InterfaceList
-        InterfaceObjectDeclaration
+        InterfaceConstantDeclaration
           Keyword(Constant)
           IdentifierList
             Identifier 'a'
@@ -196,7 +196,7 @@ EntityDeclaration
       Keyword(Port)
       LeftPar
       InterfaceList
-        InterfaceObjectDeclaration
+        InterfaceConstantDeclaration
           IdentifierList
             Identifier 'b'
             Comma
@@ -205,7 +205,7 @@ EntityDeclaration
           Keyword(Out)
           Identifier 'std_logic'
         SemiColon
-        InterfaceObjectDeclaration
+        InterfaceSignalDeclaration
           Keyword(Signal)
           IdentifierList
             Identifier 'd'

@@ -119,7 +119,7 @@ mod tests {
             Parser::type_declaration,
             "type int_arr_t is array (natural range <>) of integer;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'int_arr_t'
   Keyword(Is)
@@ -142,7 +142,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type int_arr_2d_t is array (natural range <>, integer range <>) of positive;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'int_arr_2d_t'
   Keyword(Is)
@@ -174,7 +174,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type constrained_int_arr is array (0 to 1) of positive;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'constrained_int_arr'
   Keyword(Is)
@@ -182,11 +182,11 @@ TypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      Range
-        Literal
+      RangeExpression
+        LiteralExpression
           AbstractLiteral '0'
         Keyword(To)
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
       RightPar
     Keyword(Of)
@@ -199,7 +199,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type constrained_int_arr_2d is array (10 downto 5, 'A' to 'B', enum_t'range) of bit;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'constrained_int_arr_2d'
   Keyword(Is)
@@ -207,18 +207,18 @@ TypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      Range
-        Literal
+      RangeExpression
+        LiteralExpression
           AbstractLiteral '10'
         Keyword(Downto)
-        Literal
+        LiteralExpression
           AbstractLiteral '5'
       Comma
-      Range
-        Literal
+      RangeExpression
+        LiteralExpression
           CharacterLiteral ''A''
         Keyword(To)
-        Literal
+        LiteralExpression
           CharacterLiteral ''B''
       Comma
       RawTokens
@@ -239,7 +239,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type rec_t is record state: enum_t; end record;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'rec_t'
   Keyword(Is)
@@ -261,7 +261,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type rec_t is record s1: bit; s2, s3: std_ulogic; end record;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'rec_t'
   Keyword(Is)

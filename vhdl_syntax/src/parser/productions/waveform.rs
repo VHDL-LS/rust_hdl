@@ -88,7 +88,7 @@ mod tests {
             Parser::delay_mechanism,
             "transport",
             "\
-DelayMechanism
+TransportDelayMechanism
   Keyword(Transport)
         ",
         )
@@ -100,7 +100,7 @@ DelayMechanism
             Parser::delay_mechanism,
             "inertial",
             "\
-DelayMechanism
+InertialDelayMechanism
   Keyword(Inertial)
         ",
         )
@@ -112,7 +112,7 @@ DelayMechanism
             Parser::delay_mechanism,
             "reject 2 ns inertial",
             "\
-DelayMechanism
+InertialDelayMechanism
   Keyword(Reject)
   PhysicalLiteral
     AbstractLiteral '2'
@@ -129,16 +129,17 @@ DelayMechanism
             Parser::waveform,
             "bar(1 to 3)",
             "\
-Waveform
+WaveformElements
   WaveformElement
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Keyword(To)
-        AbstractLiteral '3'
-        RightPar
+    NameExpression
+      Name
+        Identifier 'bar'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          Keyword(To)
+          AbstractLiteral '3'
+          RightPar
         ",
         )
     }
@@ -149,16 +150,17 @@ Waveform
             Parser::waveform,
             "bar(1 to 3) after 2 ns",
             "\
-Waveform
+WaveformElements
   WaveformElement
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Keyword(To)
-        AbstractLiteral '3'
-        RightPar
+    NameExpression
+      Name
+        Identifier 'bar'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          Keyword(To)
+          AbstractLiteral '3'
+          RightPar
     Keyword(After)
     PhysicalLiteral
       AbstractLiteral '2'
@@ -174,16 +176,17 @@ Waveform
             Parser::waveform,
             "bar(1 to 3) after 2 ns, expr after 1 ns",
             "\
-Waveform
+WaveformElements
   WaveformElement
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Keyword(To)
-        AbstractLiteral '3'
-        RightPar
+    NameExpression
+      Name
+        Identifier 'bar'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          Keyword(To)
+          AbstractLiteral '3'
+          RightPar
     Keyword(After)
     PhysicalLiteral
       AbstractLiteral '2'
@@ -191,8 +194,9 @@ Waveform
         Identifier 'ns'
   Comma
   WaveformElement
-    Name
-      Identifier 'expr'
+    NameExpression
+      Name
+        Identifier 'expr'
     Keyword(After)
     PhysicalLiteral
       AbstractLiteral '1'
@@ -208,7 +212,7 @@ Waveform
             Parser::waveform,
             "unaffected",
             "\
-Waveform
+UnaffectedWaveform
   Keyword(Unaffected)
         ",
         )

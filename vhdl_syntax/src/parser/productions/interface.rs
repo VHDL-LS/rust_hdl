@@ -61,12 +61,18 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn interface_object_declaration(&mut self) {
-        self.start_node(InterfaceObjectDeclaration);
-        self.opt_tokens([
+      // TODO: file
+        let checkpoint = self.checkpoint();
+        let tok = self.opt_tokens([
             Keyword(Kw::Signal),
             Keyword(Kw::Constant),
             Keyword(Kw::Variable),
         ]);
+        match tok {
+            Some(Keyword(Kw::Signal)) => self.start_node_at(checkpoint, InterfaceSignalDeclaration),
+            Some(Keyword(Kw::Variable)) => self.start_node_at(checkpoint, InterfaceVariableDeclaration),
+            _ => self.start_node_at(checkpoint, InterfaceConstantDeclaration),
+        }
         self.identifier_list();
         self.expect_token(Colon);
         self.opt_mode();
@@ -134,9 +140,7 @@ impl<T: TokenStream> Parser<T> {
     fn actual_part_bounded(&mut self, max_index: usize) {
         self.start_node(ActualPart);
         // Parsing of `actual_part` would boil down to `name | expression | subtype_indication`
-        self.start_node(RawTokens);
         self.skip_to(max_index);
-        self.end_node();
         self.end_node();
     }
 }
@@ -155,13 +159,11 @@ mod tests {
 AssociationList
   AssociationElement
     ActualPart
-      RawTokens
-        Identifier 'arg1'
+      Identifier 'arg1'
   Comma
   AssociationElement
     ActualPart
-      RawTokens
-        Identifier 'arg2'
+      Identifier 'arg2'
 ",
         );
 
@@ -176,8 +178,7 @@ AssociationList
         Identifier 'p1'
     RightArrow
     ActualPart
-      RawTokens
-        AbstractLiteral '1'
+      AbstractLiteral '1'
   Comma
   AssociationElement
     FormalPart
@@ -189,8 +190,7 @@ AssociationList
           RightPar
     RightArrow
     ActualPart
-      RawTokens
-        Identifier 'sl_sig'
+      Identifier 'sl_sig'
 ",
         );
     }
@@ -233,7 +233,7 @@ PortClause
             Parser::interface_declaration,
             "a : in std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
   Colon
@@ -245,7 +245,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "a : out std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
   Colon
@@ -257,7 +257,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "signal a : out std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceSignalDeclaration
   Keyword(Signal)
   IdentifierList
     Identifier 'a'
@@ -270,7 +270,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "constant a : out std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   Keyword(Constant)
   IdentifierList
     Identifier 'a'
@@ -283,7 +283,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "a : inout std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
   Colon
@@ -295,7 +295,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "a : linkage std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
   Colon
@@ -307,7 +307,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "a : buffer std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
   Colon
@@ -319,7 +319,7 @@ InterfaceObjectDeclaration
             Parser::interface_declaration,
             "a, b, c : in std_logic",
             "\
-InterfaceObjectDeclaration
+InterfaceConstantDeclaration
   IdentifierList
     Identifier 'a'
     Comma

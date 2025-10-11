@@ -19,6 +19,9 @@ impl AstNode for ArchitectureBodySyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ArchitectureBody)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -101,6 +104,9 @@ impl AstNode for BlockConfigurationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockConfiguration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -154,6 +160,9 @@ impl AstNode for ParenthesizedGenerateSpecificationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedGenerateSpecification)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -187,6 +196,9 @@ impl AstNode for BlockSpecificationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockSpecification)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -205,26 +217,81 @@ impl BlockSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum GenerateSpecificationSyntax {
-    DiscreteRange(DiscreteRangeSyntax),
-    Expression(ExpressionSyntax),
-}
-impl AstNode for GenerateSpecificationSyntax {
+pub struct DiscreteRangeGenerateSpecificationSyntax(pub(crate) SyntaxNode);
+impl AstNode for DiscreteRangeGenerateSpecificationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::DiscreteRange => Some(GenerateSpecificationSyntax::DiscreteRange(
-                DiscreteRangeSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::Expression => Some(GenerateSpecificationSyntax::Expression(
-                ExpressionSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::DiscreteRangeGenerateSpecification => {
+                Some(DiscreteRangeGenerateSpecificationSyntax(node))
+            }
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::DiscreteRangeGenerateSpecification)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl DiscreteRangeGenerateSpecificationSyntax {
+    pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
+        self.0
+            .children()
+            .filter_map(DiscreteRangeSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct NameGenerateSpecificationSyntax(pub(crate) SyntaxNode);
+impl AstNode for NameGenerateSpecificationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::NameGenerateSpecification => Some(NameGenerateSpecificationSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameGenerateSpecification)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl NameGenerateSpecificationSyntax {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum GenerateSpecificationSyntax {
+    DiscreteRangeGenerateSpecification(DiscreteRangeGenerateSpecificationSyntax),
+    NameGenerateSpecification(NameGenerateSpecificationSyntax),
+}
+impl AstNode for GenerateSpecificationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if DiscreteRangeGenerateSpecificationSyntax::can_cast(&node) {
+            return Some(
+                GenerateSpecificationSyntax::DiscreteRangeGenerateSpecification(
+                    DiscreteRangeGenerateSpecificationSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        if NameGenerateSpecificationSyntax::can_cast(&node) {
+            return Some(GenerateSpecificationSyntax::NameGenerateSpecification(
+                NameGenerateSpecificationSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        DiscreteRangeGenerateSpecificationSyntax::can_cast(node)
+            || NameGenerateSpecificationSyntax::can_cast(node)
+    }
     fn raw(&self) -> SyntaxNode {
         match self {
-            GenerateSpecificationSyntax::DiscreteRange(inner) => inner.raw(),
-            GenerateSpecificationSyntax::Expression(inner) => inner.raw(),
+            GenerateSpecificationSyntax::DiscreteRangeGenerateSpecification(inner) => inner.raw(),
+            GenerateSpecificationSyntax::NameGenerateSpecification(inner) => inner.raw(),
         }
     }
 }
@@ -239,6 +306,9 @@ impl AstNode for SemiColonTerminatedBindingIndicationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SemiColonTerminatedBindingIndication)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -269,6 +339,12 @@ impl AstNode for SemiColonTerminatedVerificationUnitBindingIndicationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::SemiColonTerminatedVerificationUnitBindingIndication
+        )
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -290,19 +366,22 @@ impl SemiColonTerminatedVerificationUnitBindingIndicationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ComponentConfigurationSyntax(pub(crate) SyntaxNode);
-impl AstNode for ComponentConfigurationSyntax {
+pub struct ComponentConfigurationItemSyntax(pub(crate) SyntaxNode);
+impl AstNode for ComponentConfigurationItemSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::ComponentConfiguration => Some(ComponentConfigurationSyntax(node)),
+            NodeKind::ComponentConfigurationItem => Some(ComponentConfigurationItemSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentConfigurationItem)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ComponentConfigurationSyntax {
+impl ComponentConfigurationItemSyntax {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -364,6 +443,9 @@ impl AstNode for ConfigurationDeclarationSyntax {
             NodeKind::ConfigurationDeclaration => Some(ConfigurationDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConfigurationDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -440,28 +522,56 @@ impl ConfigurationDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum ConfigurationItemSyntax {
-    BlockConfiguration(BlockConfigurationSyntax),
-    ComponentConfiguration(ComponentConfigurationSyntax),
-}
-impl AstNode for ConfigurationItemSyntax {
+pub struct BlockConfigurationItemSyntax(pub(crate) SyntaxNode);
+impl AstNode for BlockConfigurationItemSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::BlockConfiguration => Some(ConfigurationItemSyntax::BlockConfiguration(
-                BlockConfigurationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ComponentConfiguration => {
-                Some(ConfigurationItemSyntax::ComponentConfiguration(
-                    ComponentConfigurationSyntax::cast(node).unwrap(),
-                ))
-            }
+            NodeKind::BlockConfigurationItem => Some(BlockConfigurationItemSyntax(node)),
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockConfigurationItem)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl BlockConfigurationItemSyntax {
+    pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
+        self.0
+            .children()
+            .filter_map(BlockConfigurationSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum ConfigurationItemSyntax {
+    BlockConfigurationItem(BlockConfigurationItemSyntax),
+    ComponentConfigurationItem(ComponentConfigurationItemSyntax),
+}
+impl AstNode for ConfigurationItemSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if BlockConfigurationItemSyntax::can_cast(&node) {
+            return Some(ConfigurationItemSyntax::BlockConfigurationItem(
+                BlockConfigurationItemSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ComponentConfigurationItemSyntax::can_cast(&node) {
+            return Some(ConfigurationItemSyntax::ComponentConfigurationItem(
+                ComponentConfigurationItemSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        BlockConfigurationItemSyntax::can_cast(node)
+            || ComponentConfigurationItemSyntax::can_cast(node)
+    }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ConfigurationItemSyntax::BlockConfiguration(inner) => inner.raw(),
-            ConfigurationItemSyntax::ComponentConfiguration(inner) => inner.raw(),
+            ConfigurationItemSyntax::BlockConfigurationItem(inner) => inner.raw(),
+            ConfigurationItemSyntax::ComponentConfigurationItem(inner) => inner.raw(),
         }
     }
 }
@@ -474,6 +584,9 @@ impl AstNode for EntityDeclarationSyntax {
             NodeKind::EntityDeclaration => Some(EntityDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -553,6 +666,9 @@ impl AstNode for EntityHeaderSyntax {
             NodeKind::EntityHeader => Some(EntityHeaderSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityHeader)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

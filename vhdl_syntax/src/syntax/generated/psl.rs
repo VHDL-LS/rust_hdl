@@ -19,6 +19,9 @@ impl AstNode for PslDirectiveSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PslDirective)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -32,6 +35,9 @@ impl AstNode for PslPropertyDeclarationSyntax {
             NodeKind::PslPropertyDeclaration => Some(PslPropertyDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PslPropertyDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -47,6 +53,9 @@ impl AstNode for PslSequenceDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PslSequenceDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -61,6 +70,9 @@ impl AstNode for PslClockDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PslClockDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -74,6 +86,9 @@ impl AstNode for PslVerificationUnitSyntax {
             NodeKind::PslVerificationUnit => Some(PslVerificationUnitSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PslVerificationUnit)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

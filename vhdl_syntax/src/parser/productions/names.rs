@@ -169,14 +169,19 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn external_name(&mut self) {
         // LRM §8.7
-        self.start_node(ExternalName);
+        let checkpoint = self.checkpoint();
         self.expect_token(LtLt);
 
-        self.expect_one_of_tokens([
+        let tok = self.expect_one_of_tokens([
             Keyword(Kw::Constant),
             Keyword(Kw::Signal),
             Keyword(Kw::Variable),
         ]);
+        match tok {
+            Some(Keyword(Kw::Signal)) => self.start_node_at(checkpoint, ExternalSignalName),
+            Some(Keyword(Kw::Variable)) => self.start_node_at(checkpoint, ExternalVariableName),
+            _ => self.start_node_at(checkpoint, ExternalConstantName),
+        }
         self.external_pathname();
         self.expect_token(Colon);
         self.subtype_indication();
@@ -187,9 +192,9 @@ impl<T: TokenStream> Parser<T> {
 
     fn external_pathname(&mut self) {
         // LRM §8.7
-        self.start_node(ExternalPathName);
         match_next_token!(self,
         CommAt => {
+            self.start_node(PackagePathname);
             self.expect_token(CommAt);
             self.identifier();
             self.expect_token(Dot);
@@ -204,9 +209,9 @@ impl<T: TokenStream> Parser<T> {
             self.start_node(AbsolutePathname);
             self.expect_token(Dot);
             self.partial_pathname();
-            self.end_node();
         },
         Circ, Identifier => {
+            self.start_node(RelativePathname);
             while self.opt_token(Circ) {
                 self.expect_token(Dot);
             }

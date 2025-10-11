@@ -12,5 +12,5 @@ use std::collections::VecDeque;
 pub fn check(func: impl FnOnce(&mut Parser<VecDeque<Token>>), input: &str, output: &str) {
     let (entity, diagnostics) = input.parse_syntax(func);
     assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
-    assert_eq!(entity.test_text().trim(), output.trim());
+    assert_eq!(output.trim(), entity.test_text().trim());
 }

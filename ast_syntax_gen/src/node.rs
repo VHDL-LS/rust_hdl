@@ -189,6 +189,9 @@ impl SequenceNode {
                         _ => None,
                     }
                 }
+                fn can_cast(node: &SyntaxNode) -> bool {
+                    matches!(node.kind(), NodeKind::#node_kind)
+                }
                 fn raw(&self) -> SyntaxNode {
                     self.0.clone()
                 }
@@ -288,11 +291,19 @@ impl ChoiceNode {
         match &self.items {
             NodesOrTokens::Nodes(nodes) => {
                 let cast_branches: Vec<TokenStream> = nodes.iter().map(|item| {
-                    let node_kind = item.node_kind_ident();
                     let enum_variant = item.enum_variant_ident();
                     let syntax_name = item.syntax_name();
                     quote! {
-                        NodeKind::#node_kind => Some(#enum_name::#enum_variant(#syntax_name::cast(node).unwrap()))
+                        if #syntax_name::can_cast(&node) {
+                            // BlockStatementSyntax::cast(node).unwrap()
+                            return Some(#enum_name::#enum_variant(#syntax_name::cast(node).unwrap()))
+                        }
+                    }
+                }).collect();
+                let can_cast_branches: Vec<TokenStream> = nodes.iter().map(|item| {
+                    let syntax_name = item.syntax_name();
+                    quote! {
+                        #syntax_name::can_cast(node)
                     }
                 }).collect();
                 let raw_branches: Vec<TokenStream> = nodes
@@ -307,10 +318,11 @@ impl ChoiceNode {
                 quote! {
                     impl AstNode for #enum_name {
                         fn cast(node: SyntaxNode) -> Option<Self> {
-                            match node.kind() {
-                                #(#cast_branches ,)*
-                                _ => None,
-                            }
+                            #(#cast_branches ;)*
+                            None
+                        }
+                        fn can_cast(node: &SyntaxNode) -> bool {
+                            #(#can_cast_branches)||*
                         }
                         fn raw(&self) -> SyntaxNode {
                              match self {
@@ -635,6 +647,10 @@ impl Model {
         self.all_nodes().map(|node| node.name()).collect()
     }
 
+    pub fn collect_all_sequence_node_kinds(&self) -> HashSet<String> {
+        self.all_nodes().filter(|node| matches!(node, Node::Items(_))).map(|node| node.name()).collect()
+    }
+
     pub fn all_nodes(&self) -> impl Iterator<Item = &Node> {
         self.sections.values().flatten()
     }
@@ -645,7 +661,7 @@ impl Model {
 
     pub fn generate_node_kind_enum(&self) -> TokenStream {
         let mut choices = self
-            .collect_all_node_kinds()
+            .collect_all_sequence_node_kinds()
             .into_iter()
             .map(|kind| format_ident!("{}", kind))
             .collect::<Vec<_>>();

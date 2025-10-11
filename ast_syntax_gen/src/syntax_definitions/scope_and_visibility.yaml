@@ -2,7 +2,7 @@
 
 UseClause: !Sequence
   - keyword: Use
-  - node: SelectedName
+  - node: Name
     repeated: true
   - token: Comma
     repeated: true

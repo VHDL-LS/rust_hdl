@@ -6,7 +6,6 @@
 
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
-use crate::syntax::ConcurrentConditionalSignalAssignmentSyntax;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 use crate::tokens::TokenStream;
@@ -64,6 +63,27 @@ impl<T: TokenStream> Parser<T> {
         }
     }
 
+    pub(crate) fn component_instantiated_unit(&mut self) {
+        self.start_node(ComponentInstantiatedUnit);
+        self.opt_token(Keyword(Kw::Component));
+        self.name();
+        self.end_node();
+    }
+
+    pub(crate) fn entity_instantiated_unit(&mut self) {
+        self.start_node(EntityInstantiatedUnit);
+        self.expect_kw(Kw::Entity);
+        self.name();
+        self.end_node();
+    }
+
+    pub(crate) fn configuration_instantiated_unit(&mut self) {
+        self.start_node(ConfigurationInstantiatedUnit);
+        self.expect_kw(Kw::Configuration);
+        self.name();
+        self.end_node();
+    }
+
     pub(crate) fn concurrent_statement(&mut self) {
         let checkpoint = self.checkpoint();
         self.opt_label();
@@ -79,24 +99,17 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Keyword(Kw::Component)) => {
                 self.start_node_at(checkpoint, ComponentInstantiationStatement);
-                self.skip();
-                self.name();
+                self.component_instantiated_unit();
                 self.instantiation_statement_inner();
             }
             Some(Keyword(Kw::Configuration)) => {
-                self.start_node_at(checkpoint, ConfigurationInstantiatedUnit);
-                self.skip();
-                self.name();
+                self.start_node_at(checkpoint, ComponentInstantiationStatement);
+                self.configuration_instantiated_unit();
                 self.instantiation_statement_inner();
             }
             Some(Keyword(Kw::Entity)) => {
-                self.start_node_at(checkpoint, EntityInstantiatedUnit);
-                self.skip();
-                self.name();
-                if self.opt_token(LeftPar) {
-                    self.identifier();
-                    self.expect_token(RightPar);
-                }
+                self.start_node_at(checkpoint, ComponentInstantiationStatement);
+                self.entity_instantiated_unit();
                 self.instantiation_statement_inner();
             }
             Some(Keyword(Kw::For)) => {
@@ -124,6 +137,8 @@ impl<T: TokenStream> Parser<T> {
                 self.name();
                 match self.peek_token() {
                     Some(LTE) => {
+                        self.start_node_at(checkpoint2, NameTarget);
+                        self.end_node();
                         self.skip();
                         self.opt_token(Keyword(Kw::Guarded));
                         self.opt_delay_mechanism();
@@ -181,9 +196,13 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn target(&mut self) {
         if self.next_is(LeftPar) {
+          self.start_node(AggregateTarget);
             self.aggregate();
+            self.end_node();
         } else {
-            self.name()
+          self.start_node(NameTarget);
+            self.name();
+            self.end_node();
         }
     }
 
@@ -308,13 +327,16 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn process_sensitivity_list(&mut self) {
-        self.start_node(ProcessSensitivityList);
+        self.start_node(ParenthesizedProcessSensitivityList);
         self.expect_token(LeftPar);
-        if self.next_is(Keyword(Kw::All)) {
-            self.skip();
-        }
         if self.next_is(RightPar) {
-            // noop
+          // This is illegal, but considered only at the analysis stage
+          self.skip();
+          self.end_node();
+          return;
+        }
+        if self.next_is(Keyword(Kw::All)) {
+            self.skip_into_node(AllSensitivityList);
         } else {
             self.name_list();
         }
@@ -341,7 +363,7 @@ mod tests {
         check_stmt(
             "foo(clk);",
             "\
-ProcedureCallStatement
+ConcurrentProcedureCallOrComponentInstantiationStatement
   Name
     Identifier 'foo'
     RawTokens
@@ -358,7 +380,7 @@ ProcedureCallStatement
         check_stmt(
             "postponed foo(clk);",
             "\
-ProcedureCallStatement
+ConcurrentProcedureCallOrComponentInstantiationStatement
   Keyword(Postponed)
   Name
     Identifier 'foo'
@@ -376,7 +398,7 @@ ProcedureCallStatement
         check_stmt(
             "name: foo(clk);",
             "\
-ProcedureCallStatement
+ConcurrentProcedureCallOrComponentInstantiationStatement
   Label
     Identifier 'name'
     Colon
@@ -396,7 +418,7 @@ ProcedureCallStatement
         check_stmt(
             "foo;",
             "\
-ProcedureCallStatement
+ConcurrentProcedureCallOrComponentInstantiationStatement
   Name
     Identifier 'foo'
   SemiColon
@@ -427,11 +449,11 @@ BlockStatement
     Colon
     Identifier 'natural'
     ColonEq
-    Literal
+    LiteralExpression
       AbstractLiteral '0'
     SemiColon
   Keyword(Begin)
-  ProcedureCallStatement
+  ConcurrentProcedureCallOrComponentInstantiationStatement
     Label
       Identifier 'name2'
       Colon
@@ -490,11 +512,13 @@ BlockStatement
   ParenthesizedExpression
     LeftPar
     BinaryExpression
-      Name
-        Identifier 'cond'
+      NameExpression
+        Name
+          Identifier 'cond'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
     RightPar
   BlockHeader
   Keyword(Begin)
@@ -521,11 +545,13 @@ BlockStatement
   ParenthesizedExpression
     LeftPar
     BinaryExpression
-      Name
-        Identifier 'cond'
+      NameExpression
+        Name
+          Identifier 'cond'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
     RightPar
   Keyword(Is)
   BlockHeader
@@ -560,60 +586,60 @@ BlockStatement
       Keyword(Generic)
       LeftPar
       InterfaceList
-        InterfaceObjectDeclaration
+        InterfaceConstantDeclaration
           IdentifierList
             Identifier 'gen'
           Colon
           Identifier 'integer'
           ColonEq
-          Literal
+          LiteralExpression
             AbstractLiteral '1'
       RightPar
       SemiColon
-    GenericMapAspect
-      Keyword(Generic)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              Identifier 'gen'
-          RightArrow
-          ActualPart
-            RawTokens
+    SemiColonTerminatedGenericMapAspect
+      GenericMapAspect
+        Keyword(Generic)
+        Keyword(Map)
+        LeftPar
+        AssociationList
+          AssociationElement
+            FormalPart
+              Name
+                Identifier 'gen'
+            RightArrow
+            ActualPart
               AbstractLiteral '1'
-      RightPar
-    SemiColon
+        RightPar
+      SemiColon
     PortClause
       Keyword(Port)
       LeftPar
       InterfaceList
-        InterfaceObjectDeclaration
+        InterfaceConstantDeclaration
           IdentifierList
             Identifier 'prt'
           Colon
           Identifier 'integer'
           ColonEq
-          Literal
+          LiteralExpression
             AbstractLiteral '1'
       RightPar
       SemiColon
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              Identifier 'prt'
-          RightArrow
-          ActualPart
-            RawTokens
+    SemiColonTerminatedPortMapAspect
+      PortMapAspect
+        Keyword(Port)
+        Keyword(Map)
+        LeftPar
+        AssociationList
+          AssociationElement
+            FormalPart
+              Name
+                Identifier 'prt'
+            RightArrow
+            ActualPart
               AbstractLiteral '2'
-      RightPar
-    SemiColon
+        RightPar
+      SemiColon
   Keyword(Begin)
   Keyword(End)
   Keyword(Block)
@@ -732,7 +758,7 @@ end process;",
             "\
 ProcessStatement
   Keyword(Process)
-  ProcessSensitivityList
+  ParenthesizedProcessSensitivityList
     LeftPar
     NameList
       Name
@@ -763,7 +789,7 @@ end process;",
             "\
 ProcessStatement
   Keyword(Process)
-  ProcessSensitivityList
+  ParenthesizedProcessSensitivityList
     LeftPar
     RightPar
   Keyword(Is)
@@ -798,11 +824,13 @@ ConcurrentAssertionStatement
   Assertion
     Keyword(Assert)
     BinaryExpression
-      Name
-        Identifier 'cond'
+      NameExpression
+        Name
+          Identifier 'cond'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
   SemiColon
         ",
         );
@@ -818,11 +846,13 @@ ConcurrentAssertionStatement
   Assertion
     Keyword(Assert)
     BinaryExpression
-      Name
-        Identifier 'cond'
+      NameExpression
+        Name
+          Identifier 'cond'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
   SemiColon
         ",
         );
@@ -834,19 +864,21 @@ ConcurrentAssertionStatement
             "foo <= bar(2 to 3);",
             "\
 ConcurrentSimpleSignalAssignment
-  Name
-    Identifier 'foo'
+  NameTarget
+    Name
+      Identifier 'foo'
   LTE
-  Waveform
+  WaveformElements
     WaveformElement
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '2'
-          Keyword(To)
-          AbstractLiteral '3'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '2'
+            Keyword(To)
+            AbstractLiteral '3'
+            RightPar
   SemiColon
         ",
         );
@@ -858,29 +890,31 @@ ConcurrentSimpleSignalAssignment
             "<< signal dut.foo : std_logic >> <= bar(2 to 3);",
             "\
 ConcurrentSimpleSignalAssignment
-  Name
-    ExternalName
-      LtLt
-      Keyword(Signal)
-      ExternalPathName
-        PartialPathname
-          Identifier 'dut'
-          Dot
-          Identifier 'foo'
-      Colon
-      Identifier 'std_logic'
-      GtGt
+  NameTarget
+    Name
+      ExternalSignalName
+        LtLt
+        Keyword(Signal)
+        RelativePathname
+          PartialPathname
+            Identifier 'dut'
+            Dot
+            Identifier 'foo'
+        Colon
+        Identifier 'std_logic'
+        GtGt
   LTE
-  Waveform
+  WaveformElements
     WaveformElement
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '2'
-          Keyword(To)
-          AbstractLiteral '3'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '2'
+            Keyword(To)
+            AbstractLiteral '3'
+            RightPar
   SemiColon
         ",
         );
@@ -895,37 +929,40 @@ ConcurrentSimpleSignalAssignment
 ConcurrentSelectedSignalAssignment
   Keyword(With)
   BinaryExpression
+    NameExpression
+      Name
+        Identifier 'x'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  Keyword(Select)
+  NameTarget
     Name
-      Identifier 'x'
+      Identifier 'foo'
       RawTokens
         LeftPar
         AbstractLiteral '0'
         RightPar
-    Plus
-    Literal
-      AbstractLiteral '1'
-  Keyword(Select)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
   LTE
-  DelayMechanism
+  TransportDelayMechanism
     Keyword(Transport)
   SelectedWaveforms
     SelectedWaveformItem
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
-            RawTokens
-              LeftPar
-              AbstractLiteral '1'
-              Comma
-              AbstractLiteral '2'
-              RightPar
+          NameExpression
+            Name
+              Identifier 'bar'
+              RawTokens
+                LeftPar
+                AbstractLiteral '1'
+                Comma
+                AbstractLiteral '2'
+                RightPar
           Keyword(After)
           PhysicalLiteral
             AbstractLiteral '2'
@@ -933,10 +970,10 @@ ConcurrentSelectedSignalAssignment
               Identifier 'ns'
       Keyword(When)
       Choices
-        Literal
+        LiteralExpression
           AbstractLiteral '0'
         Bar
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
   SemiColon
         ",
@@ -952,15 +989,16 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Keyword(Component)
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  ComponentInstantiatedUnit
+    Keyword(Component)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   SemiColon",
         );
     }
@@ -970,19 +1008,20 @@ ComponentInstantiationStatement
         check_stmt(
             "inst: configuration lib.foo.bar;",
             "\
-ConfigurationInstantiatedUnit
+ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Keyword(Configuration)
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  ConfigurationInstantiatedUnit
+    Keyword(Configuration)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   SemiColon
         ",
         );
@@ -993,19 +1032,20 @@ ConfigurationInstantiatedUnit
         check_stmt(
             "inst: entity lib.foo.bar;",
             "\
-EntityInstantiatedUnit
+ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Keyword(Entity)
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  EntityInstantiatedUnit
+    Keyword(Entity)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   SemiColon
         ",
         );
@@ -1017,23 +1057,24 @@ EntityInstantiatedUnit
         check_stmt(
             "inst: entity lib.foo.bar(arch);",
             "\
-EntityInstantiatedUnit
+ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Keyword(Entity)
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
-    RawTokens
-      LeftPar
-      Identifier 'arch'
-      RightPar
+  EntityInstantiatedUnit
+    Keyword(Entity)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
+      RawTokens
+        LeftPar
+        Identifier 'arch'
+        RightPar
   SemiColon
         ",
         );
@@ -1055,15 +1096,16 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Keyword(Component)
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  ComponentInstantiatedUnit
+    Keyword(Component)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   GenericMapAspect
     Keyword(Generic)
     Keyword(Map)
@@ -1075,8 +1117,7 @@ ComponentInstantiationStatement
             Identifier 'const'
         RightArrow
         ActualPart
-          RawTokens
-            AbstractLiteral '1'
+          AbstractLiteral '1'
     RightPar
   PortMapAspect
     Keyword(Port)
@@ -1089,8 +1130,7 @@ ComponentInstantiationStatement
             Identifier 'clk'
         RightArrow
         ActualPart
-          RawTokens
-            Identifier 'clk_foo'
+          Identifier 'clk_foo'
     RightPar
   SemiColon",
         );
@@ -1109,14 +1149,15 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  ComponentInstantiatedUnit
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   PortMapAspect
     Keyword(Port)
     Keyword(Map)
@@ -1128,8 +1169,7 @@ ComponentInstantiationStatement
             Identifier 'clk'
         RightArrow
         ActualPart
-          RawTokens
-            Identifier 'clk_foo'
+          Identifier 'clk_foo'
     RightPar
   SemiColon",
         );
@@ -1148,14 +1188,15 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'foo'
-    SelectedName
-      Dot
-      Identifier 'bar'
+  ComponentInstantiatedUnit
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
   GenericMapAspect
     Keyword(Generic)
     Keyword(Map)
@@ -1167,8 +1208,7 @@ ComponentInstantiationStatement
             Identifier 'const'
         RightArrow
         ActualPart
-          RawTokens
-            AbstractLiteral '1'
+          AbstractLiteral '1'
     RightPar
   SemiColon",
         );
@@ -1189,11 +1229,11 @@ ForGenerateStatement
   ParameterSpecification
     Identifier 'idx'
     Keyword(In)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Keyword(Generate)
   GenerateStatementBody
@@ -1220,22 +1260,24 @@ ForGenerateStatement
   ParameterSpecification
     Identifier 'idx'
     Keyword(In)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Keyword(Generate)
   GenerateStatementBody
     ConcurrentSimpleSignalAssignment
-      Name
-        Identifier 'foo'
+      NameTarget
+        Name
+          Identifier 'foo'
       LTE
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
+          NameExpression
+            Name
+              Identifier 'bar'
       SemiColon
   Keyword(End)
   Keyword(Generate)
@@ -1261,23 +1303,25 @@ ForGenerateStatement
   ParameterSpecification
     Identifier 'idx'
     Keyword(In)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Keyword(Generate)
   GenerateStatementBody
     Keyword(Begin)
     ConcurrentSimpleSignalAssignment
-      Name
-        Identifier 'foo'
+      NameTarget
+        Name
+          Identifier 'foo'
       LTE
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
+          NameExpression
+            Name
+              Identifier 'bar'
       SemiColon
   Keyword(End)
   Keyword(Generate)
@@ -1299,22 +1343,24 @@ ForGenerateStatement
   ParameterSpecification
     Identifier 'idx'
     Keyword(In)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Keyword(Generate)
   GenerateStatementBody
     ConcurrentSimpleSignalAssignment
-      Name
-        Identifier 'foo'
+      NameTarget
+        Name
+          Identifier 'foo'
       LTE
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
+          NameExpression
+            Name
+              Identifier 'bar'
       SemiColon
   Keyword(End)
   Keyword(Generate)
@@ -1338,23 +1384,25 @@ ForGenerateStatement
   ParameterSpecification
     Identifier 'idx'
     Keyword(In)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
   Keyword(Generate)
   GenerateStatementBody
     Keyword(Begin)
     ConcurrentSimpleSignalAssignment
-      Name
-        Identifier 'foo'
+      NameTarget
+        Name
+          Identifier 'foo'
       LTE
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
+          NameExpression
+            Name
+              Identifier 'bar'
       SemiColon
     Keyword(End)
     SemiColon
@@ -1403,11 +1451,13 @@ IfGenerateStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Generate)
   GenerateStatementBody
   Keyword(End)
@@ -1431,11 +1481,13 @@ IfGenerateStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Generate)
   GenerateStatementBody
     Keyword(Begin)
@@ -1461,21 +1513,25 @@ IfGenerateStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Generate)
   GenerateStatementBody
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression
-      Name
-        Identifier 'cond2'
+      NameExpression
+        Name
+          Identifier 'cond2'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
   IfGenerateElse
@@ -1564,21 +1620,25 @@ IfGenerateStatement
     Identifier 'alt1'
     Colon
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Generate)
   GenerateStatementBody
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression
-      Name
-        Identifier 'cond2'
+      NameExpression
+        Name
+          Identifier 'cond2'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
       Keyword(End)
@@ -1621,11 +1681,13 @@ IfGenerateStatement
     Identifier 'alt1'
     Colon
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Generate)
   GenerateStatementBody
     Keyword(End)
@@ -1637,11 +1699,13 @@ IfGenerateStatement
       Identifier 'alt2'
       Colon
     BinaryExpression
-      Name
-        Identifier 'cond2'
+      NameExpression
+        Name
+          Identifier 'cond2'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
       Keyword(End)
@@ -1680,34 +1744,37 @@ CaseGenerateStatement
     Colon
   Keyword(Case)
   BinaryExpression
-    Name
-      Identifier 'expr'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
+    NameExpression
+      Name
+        Identifier 'expr'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Keyword(Generate)
   CaseGenerateAlternative
     Keyword(When)
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Bar
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
       ConcurrentSimpleSignalAssignment
-        Name
-          Identifier 'sig'
+        NameTarget
+          Name
+            Identifier 'sig'
         LTE
-        Waveform
+        WaveformElements
           WaveformElement
-            Name
-              Identifier 'value'
+            NameExpression
+              Name
+                Identifier 'value'
         SemiColon
   CaseGenerateAlternative
     Keyword(When)
@@ -1715,7 +1782,7 @@ CaseGenerateStatement
       Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ProcedureCallStatement
+      ConcurrentProcedureCallOrComponentInstantiationStatement
         Name
           Identifier 'foo'
           RawTokens
@@ -1746,14 +1813,15 @@ CaseGenerateStatement
     Colon
   Keyword(Case)
   BinaryExpression
-    Name
-      Identifier 'expr'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
+    NameExpression
+      Name
+        Identifier 'expr'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   Keyword(Generate)
   CaseGenerateAlternative
@@ -1762,21 +1830,23 @@ CaseGenerateStatement
       Identifier 'alt1'
       Colon
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Bar
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
       ConcurrentSimpleSignalAssignment
-        Name
-          Identifier 'sig'
+        NameTarget
+          Name
+            Identifier 'sig'
         LTE
-        Waveform
+        WaveformElements
           WaveformElement
-            Name
-              Identifier 'value'
+            NameExpression
+              Name
+                Identifier 'value'
         SemiColon
   CaseGenerateAlternative
     Keyword(When)
@@ -1787,7 +1857,7 @@ CaseGenerateStatement
       Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ProcedureCallStatement
+      ConcurrentProcedureCallOrComponentInstantiationStatement
         Name
           Identifier 'foo'
           RawTokens

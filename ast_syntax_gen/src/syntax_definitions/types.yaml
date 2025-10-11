@@ -6,7 +6,7 @@ AccessTypeDefinition: !Sequence
 
 ArrayConstraint: !Sequence
   - node: IndexConstraint
-  - node: ElementConstraint
+  - node: Constraint
 
 ArrayTypeDefinition: !Choice
   - node: UnboundedArrayDefinition
@@ -26,13 +26,19 @@ Direction: !Choice
   - keyword: To
   - keyword: Downto
 
-DiscreteRange: !Choice
+SubtypeIndicationDiscreteDiscreteRange: !Sequence
   - node: SubtypeIndication
-  - node: Range
-  - node: OpenRange
 
-OpenRange: !Sequence
+SubtypeIndicationDiscreteRange: !Sequence
+  - node: Range
+
+OpenDiscreteRange: !Sequence
   - keyword: Open
+
+DiscreteRange: !Choice
+  - node: SubtypeIndicationDiscreteDiscreteRange
+  - node: SubtypeIndicationDiscreteRange
+  - node: OpenDiscreteRange
 
 ElementDeclaration: !Sequence
   - node: IdentifierList
@@ -121,8 +127,11 @@ RangeExpression: !Sequence
   - node: Expression
     name: rhs
 
-Range: !Choice
+AttributeRange: !Sequence
   - node: Name
+
+Range: !Choice
+  - node: AttributeRange
   - node: RangeExpression
 
 RangeConstraint: !Sequence
@@ -139,7 +148,7 @@ RecordConstraint: !Sequence
 
 RecordElementConstraint: !Sequence
   - node: Name
-  - node: ElementConstraint
+  - node: Constraint
 
 RecordTypeDefinition: !Sequence
   - keyword: Record
@@ -151,9 +160,12 @@ RecordTypeDefinition: !Sequence
   - token: Identifier
     name: trailing_name
 
+NumericTypeDefinition: !Sequence
+  - node: RangeConstraint
+
 ScalarTypeDefinition: !Choice
   - node: EnumerationTypeDefinition
-  - node: RangeConstraint
+  - node: NumericTypeDefinition
   - node: PhysicalTypeDefinition
 
 SecondaryUnitDeclaration: !Sequence

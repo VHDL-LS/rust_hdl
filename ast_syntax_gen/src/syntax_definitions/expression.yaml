@@ -105,21 +105,27 @@ SubtypeIndicationAllocator: !Sequence
   - keyword: New
   - node: SubtypeIndication
 
-QualifiedExpressionAllocator: !Sequence
+ExpressionAllocator: !Sequence
   - keyword: New
-  - node: QualifiedExpression
+  - node: Expression
 
 Allocator: !Choice
   - node: SubtypeIndicationAllocator
-  - node: QualifiedExpressionAllocator
+  - node: ExpressionAllocator
 
 OthersChoice: !Sequence
   - keyword: Others
 
-Choice: !Choice
+ExpressionChoice: !Sequence
   - node: Expression
-  - node: OthersChoice
+
+DiscreteRangeChoice: !Sequence
   - node: DiscreteRange
+
+Choice: !Choice
+  - node: ExpressionChoice
+  - node: OthersChoice
+  - node: DiscreteRangeChoice
 
 Choices: !Sequence
   - node: Choice
@@ -135,7 +141,7 @@ ElementAssociation: !Sequence
 QualifiedExpression: !Sequence
   - node: Name
   - token: Tick
-  - node: ParenthesizedExpressionOrAggregate
+  - node: Expression
 
 TypeConversion: !Sequence
   - node: Name

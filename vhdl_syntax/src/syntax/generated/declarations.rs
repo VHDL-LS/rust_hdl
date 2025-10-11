@@ -16,7 +16,7 @@ pub enum DeclarationSyntax {
     SubprogramBody(SubprogramBodySyntax),
     SubprogramInstantiationDeclaration(SubprogramInstantiationDeclarationSyntax),
     PackageDeclaration(PackageDeclarationSyntax),
-    PackageBody(PackageBodySyntax),
+    PackageBodyDeclaration(PackageBodyDeclarationSyntax),
     PackageInstantiationDeclaration(PackageInstantiationDeclarationSyntax),
     TypeDeclaration(TypeDeclarationSyntax),
     SubtypeDeclaration(SubtypeDeclarationSyntax),
@@ -27,7 +27,7 @@ pub enum DeclarationSyntax {
     AttributeSpecification(AttributeSpecificationSyntax),
     ConfigurationSpecification(ConfigurationSpecificationSyntax),
     DisconnectionSpecification(DisconnectionSpecificationSyntax),
-    UseClause(UseClauseSyntax),
+    UseClauseDeclaration(UseClauseDeclarationSyntax),
     GroupTemplateDeclaration(GroupTemplateDeclarationSyntax),
     GroupDeclaration(GroupDeclarationSyntax),
     ConstantDeclaration(ConstantDeclarationSyntax),
@@ -40,96 +40,159 @@ pub enum DeclarationSyntax {
 }
 impl AstNode for DeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SubprogramDeclaration => Some(DeclarationSyntax::SubprogramDeclaration(
+        if SubprogramDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SubprogramDeclaration(
                 SubprogramDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SubprogramBody => Some(DeclarationSyntax::SubprogramBody(
+            ));
+        };
+        if SubprogramBodySyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SubprogramBody(
                 SubprogramBodySyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SubprogramInstantiationDeclaration => {
-                Some(DeclarationSyntax::SubprogramInstantiationDeclaration(
-                    SubprogramInstantiationDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::PackageDeclaration => Some(DeclarationSyntax::PackageDeclaration(
+            ));
+        };
+        if SubprogramInstantiationDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SubprogramInstantiationDeclaration(
+                SubprogramInstantiationDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if PackageDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PackageDeclaration(
                 PackageDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PackageBody => Some(DeclarationSyntax::PackageBody(
-                PackageBodySyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PackageInstantiationDeclaration => {
-                Some(DeclarationSyntax::PackageInstantiationDeclaration(
-                    PackageInstantiationDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::TypeDeclaration => Some(DeclarationSyntax::TypeDeclaration(
+            ));
+        };
+        if PackageBodyDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PackageBodyDeclaration(
+                PackageBodyDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if PackageInstantiationDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PackageInstantiationDeclaration(
+                PackageInstantiationDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if TypeDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::TypeDeclaration(
                 TypeDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SubtypeDeclaration => Some(DeclarationSyntax::SubtypeDeclaration(
+            ));
+        };
+        if SubtypeDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SubtypeDeclaration(
                 SubtypeDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::FileDeclaration => Some(DeclarationSyntax::FileDeclaration(
+            ));
+        };
+        if FileDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::FileDeclaration(
                 FileDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AliasDeclaration => Some(DeclarationSyntax::AliasDeclaration(
+            ));
+        };
+        if AliasDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::AliasDeclaration(
                 AliasDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ComponentDeclaration => Some(DeclarationSyntax::ComponentDeclaration(
+            ));
+        };
+        if ComponentDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::ComponentDeclaration(
                 ComponentDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AttributeDeclaration => Some(DeclarationSyntax::AttributeDeclaration(
+            ));
+        };
+        if AttributeDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::AttributeDeclaration(
                 AttributeDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AttributeSpecification => Some(DeclarationSyntax::AttributeSpecification(
+            ));
+        };
+        if AttributeSpecificationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::AttributeSpecification(
                 AttributeSpecificationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ConfigurationSpecification => {
-                Some(DeclarationSyntax::ConfigurationSpecification(
-                    ConfigurationSpecificationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::DisconnectionSpecification => {
-                Some(DeclarationSyntax::DisconnectionSpecification(
-                    DisconnectionSpecificationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::UseClause => Some(DeclarationSyntax::UseClause(
-                UseClauseSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::GroupTemplateDeclaration => {
-                Some(DeclarationSyntax::GroupTemplateDeclaration(
-                    GroupTemplateDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::GroupDeclaration => Some(DeclarationSyntax::GroupDeclaration(
+            ));
+        };
+        if ConfigurationSpecificationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::ConfigurationSpecification(
+                ConfigurationSpecificationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if DisconnectionSpecificationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::DisconnectionSpecification(
+                DisconnectionSpecificationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if UseClauseDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::UseClauseDeclaration(
+                UseClauseDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if GroupTemplateDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::GroupTemplateDeclaration(
+                GroupTemplateDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if GroupDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::GroupDeclaration(
                 GroupDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ConstantDeclaration => Some(DeclarationSyntax::ConstantDeclaration(
+            ));
+        };
+        if ConstantDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::ConstantDeclaration(
                 ConstantDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SignalDeclaration => Some(DeclarationSyntax::SignalDeclaration(
+            ));
+        };
+        if SignalDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SignalDeclaration(
                 SignalDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::VariableDeclaration => Some(DeclarationSyntax::VariableDeclaration(
+            ));
+        };
+        if VariableDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::VariableDeclaration(
                 VariableDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SharedVariableDeclaration => {
-                Some(DeclarationSyntax::SharedVariableDeclaration(
-                    SharedVariableDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::PslPropertyDeclaration => Some(DeclarationSyntax::PslPropertyDeclaration(
+            ));
+        };
+        if SharedVariableDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::SharedVariableDeclaration(
+                SharedVariableDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if PslPropertyDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PslPropertyDeclaration(
                 PslPropertyDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PslSequenceDeclaration => Some(DeclarationSyntax::PslSequenceDeclaration(
+            ));
+        };
+        if PslSequenceDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PslSequenceDeclaration(
                 PslSequenceDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::PslClockDeclaration => Some(DeclarationSyntax::PslClockDeclaration(
+            ));
+        };
+        if PslClockDeclarationSyntax::can_cast(&node) {
+            return Some(DeclarationSyntax::PslClockDeclaration(
                 PslClockDeclarationSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SubprogramDeclarationSyntax::can_cast(node)
+            || SubprogramBodySyntax::can_cast(node)
+            || SubprogramInstantiationDeclarationSyntax::can_cast(node)
+            || PackageDeclarationSyntax::can_cast(node)
+            || PackageBodyDeclarationSyntax::can_cast(node)
+            || PackageInstantiationDeclarationSyntax::can_cast(node)
+            || TypeDeclarationSyntax::can_cast(node)
+            || SubtypeDeclarationSyntax::can_cast(node)
+            || FileDeclarationSyntax::can_cast(node)
+            || AliasDeclarationSyntax::can_cast(node)
+            || ComponentDeclarationSyntax::can_cast(node)
+            || AttributeDeclarationSyntax::can_cast(node)
+            || AttributeSpecificationSyntax::can_cast(node)
+            || ConfigurationSpecificationSyntax::can_cast(node)
+            || DisconnectionSpecificationSyntax::can_cast(node)
+            || UseClauseDeclarationSyntax::can_cast(node)
+            || GroupTemplateDeclarationSyntax::can_cast(node)
+            || GroupDeclarationSyntax::can_cast(node)
+            || ConstantDeclarationSyntax::can_cast(node)
+            || SignalDeclarationSyntax::can_cast(node)
+            || VariableDeclarationSyntax::can_cast(node)
+            || SharedVariableDeclarationSyntax::can_cast(node)
+            || PslPropertyDeclarationSyntax::can_cast(node)
+            || PslSequenceDeclarationSyntax::can_cast(node)
+            || PslClockDeclarationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -137,7 +200,7 @@ impl AstNode for DeclarationSyntax {
             DeclarationSyntax::SubprogramBody(inner) => inner.raw(),
             DeclarationSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
             DeclarationSyntax::PackageDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PackageBody(inner) => inner.raw(),
+            DeclarationSyntax::PackageBodyDeclaration(inner) => inner.raw(),
             DeclarationSyntax::PackageInstantiationDeclaration(inner) => inner.raw(),
             DeclarationSyntax::TypeDeclaration(inner) => inner.raw(),
             DeclarationSyntax::SubtypeDeclaration(inner) => inner.raw(),
@@ -148,7 +211,7 @@ impl AstNode for DeclarationSyntax {
             DeclarationSyntax::AttributeSpecification(inner) => inner.raw(),
             DeclarationSyntax::ConfigurationSpecification(inner) => inner.raw(),
             DeclarationSyntax::DisconnectionSpecification(inner) => inner.raw(),
-            DeclarationSyntax::UseClause(inner) => inner.raw(),
+            DeclarationSyntax::UseClauseDeclaration(inner) => inner.raw(),
             DeclarationSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
             DeclarationSyntax::GroupDeclaration(inner) => inner.raw(),
             DeclarationSyntax::ConstantDeclaration(inner) => inner.raw(),
@@ -163,124 +226,111 @@ impl AstNode for DeclarationSyntax {
 }
 
 #[derive(Debug, Clone)]
-pub struct InertialExpressionSyntax(pub(crate) SyntaxNode);
-impl AstNode for InertialExpressionSyntax {
+pub struct PackageDeclarationSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::InertialExpression => Some(InertialExpressionSyntax(node)),
+            NodeKind::PackageDeclaration => Some(PackageDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl InertialExpressionSyntax {
-    pub fn inertial_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Inertial))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+impl PackageDeclarationSyntax {
+    pub fn package(&self) -> Option<PackageSyntax> {
+        self.0.children().filter_map(PackageSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
-pub enum ActualDesignatorSyntax {
-    InertialExpression(InertialExpressionSyntax),
-    Name(NameSyntax),
-    SubtypeIndication(SubtypeIndicationSyntax),
-    OpenRange(OpenRangeSyntax),
-}
-impl AstNode for ActualDesignatorSyntax {
+pub struct PackageInstantiationDeclarationSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageInstantiationDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::InertialExpression => Some(ActualDesignatorSyntax::InertialExpression(
-                InertialExpressionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::Name => Some(ActualDesignatorSyntax::Name(
-                NameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::SubtypeIndication => Some(ActualDesignatorSyntax::SubtypeIndication(
-                SubtypeIndicationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::OpenRange => Some(ActualDesignatorSyntax::OpenRange(
-                OpenRangeSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
-    }
-    fn raw(&self) -> SyntaxNode {
-        match self {
-            ActualDesignatorSyntax::InertialExpression(inner) => inner.raw(),
-            ActualDesignatorSyntax::Name(inner) => inner.raw(),
-            ActualDesignatorSyntax::SubtypeIndication(inner) => inner.raw(),
-            ActualDesignatorSyntax::OpenRange(inner) => inner.raw(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ParenthesizedActualDesignatorSyntax(pub(crate) SyntaxNode);
-impl AstNode for ParenthesizedActualDesignatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ParenthesizedActualDesignator => {
-                Some(ParenthesizedActualDesignatorSyntax(node))
+            NodeKind::PackageInstantiationDeclaration => {
+                Some(PackageInstantiationDeclarationSyntax(node))
             }
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageInstantiationDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ParenthesizedActualDesignatorSyntax {
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == LeftPar)
-            .nth(0)
-    }
-    pub fn actual_designator(&self) -> Option<ActualDesignatorSyntax> {
+impl PackageInstantiationDeclarationSyntax {
+    pub fn package_instantiation(&self) -> Option<PackageInstantiationSyntax> {
         self.0
             .children()
-            .filter_map(ActualDesignatorSyntax::cast)
-            .nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter_map(PackageInstantiationSyntax::cast)
             .nth(0)
     }
 }
 #[derive(Debug, Clone)]
-pub enum ActualPartSyntax {
-    Name(NameSyntax),
-    ParenthesizedActualDesignator(ParenthesizedActualDesignatorSyntax),
+pub struct PackageBodyDeclarationSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageBodyDeclarationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackageBodyDeclaration => Some(PackageBodyDeclarationSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageBodyDeclaration)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
 }
+impl PackageBodyDeclarationSyntax {
+    pub fn package_body(&self) -> Option<PackageBodySyntax> {
+        self.0.children().filter_map(PackageBodySyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct UseClauseDeclarationSyntax(pub(crate) SyntaxNode);
+impl AstNode for UseClauseDeclarationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::UseClauseDeclaration => Some(UseClauseDeclarationSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UseClauseDeclaration)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl UseClauseDeclarationSyntax {
+    pub fn use_clause(&self) -> Option<UseClauseSyntax> {
+        self.0.children().filter_map(UseClauseSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ActualPartSyntax(pub(crate) SyntaxNode);
 impl AstNode for ActualPartSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Name => Some(ActualPartSyntax::Name(NameSyntax::cast(node).unwrap())),
-            NodeKind::ParenthesizedActualDesignator => {
-                Some(ActualPartSyntax::ParenthesizedActualDesignator(
-                    ParenthesizedActualDesignatorSyntax::cast(node).unwrap(),
-                ))
-            }
+            NodeKind::ActualPart => Some(ActualPartSyntax(node)),
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ActualPart)
+    }
     fn raw(&self) -> SyntaxNode {
-        match self {
-            ActualPartSyntax::Name(inner) => inner.raw(),
-            ActualPartSyntax::ParenthesizedActualDesignator(inner) => inner.raw(),
-        }
+        self.0.clone()
     }
 }
-
+impl ActualPartSyntax {}
 #[derive(Debug, Clone)]
 pub struct AliasDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for AliasDeclarationSyntax {
@@ -289,6 +339,9 @@ impl AstNode for AliasDeclarationSyntax {
             NodeKind::AliasDeclaration => Some(AliasDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AliasDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -368,6 +421,9 @@ impl AstNode for AssociationElementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AssociationElement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -395,6 +451,9 @@ impl AstNode for AssociationListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AssociationList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -415,6 +474,9 @@ impl AstNode for AttributeDeclarationSyntax {
             NodeKind::AttributeDeclaration => Some(AttributeDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AttributeDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -454,6 +516,9 @@ impl AstNode for ComponentDeclarationSyntax {
             NodeKind::ComponentDeclaration => Some(ComponentDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -521,6 +586,9 @@ impl AstNode for ConstantDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConstantDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -564,29 +632,62 @@ impl ConstantDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct RangeConstraintConstraintSyntax(pub(crate) SyntaxNode);
+impl AstNode for RangeConstraintConstraintSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::RangeConstraintConstraint => Some(RangeConstraintConstraintSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RangeConstraintConstraint)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RangeConstraintConstraintSyntax {
+    pub fn range_constraint(&self) -> Option<RangeConstraintSyntax> {
+        self.0
+            .children()
+            .filter_map(RangeConstraintSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ConstraintSyntax {
-    RangeConstraint(RangeConstraintSyntax),
+    RangeConstraintConstraint(RangeConstraintConstraintSyntax),
     ArrayConstraint(ArrayConstraintSyntax),
     RecordConstraint(RecordConstraintSyntax),
 }
 impl AstNode for ConstraintSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RangeConstraint => Some(ConstraintSyntax::RangeConstraint(
-                RangeConstraintSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ArrayConstraint => Some(ConstraintSyntax::ArrayConstraint(
+        if RangeConstraintConstraintSyntax::can_cast(&node) {
+            return Some(ConstraintSyntax::RangeConstraintConstraint(
+                RangeConstraintConstraintSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ArrayConstraintSyntax::can_cast(&node) {
+            return Some(ConstraintSyntax::ArrayConstraint(
                 ArrayConstraintSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::RecordConstraint => Some(ConstraintSyntax::RecordConstraint(
+            ));
+        };
+        if RecordConstraintSyntax::can_cast(&node) {
+            return Some(ConstraintSyntax::RecordConstraint(
                 RecordConstraintSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        RangeConstraintConstraintSyntax::can_cast(node)
+            || ArrayConstraintSyntax::can_cast(node)
+            || RecordConstraintSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ConstraintSyntax::RangeConstraint(inner) => inner.raw(),
+            ConstraintSyntax::RangeConstraintConstraint(inner) => inner.raw(),
             ConstraintSyntax::ArrayConstraint(inner) => inner.raw(),
             ConstraintSyntax::RecordConstraint(inner) => inner.raw(),
         }
@@ -594,51 +695,86 @@ impl AstNode for ConstraintSyntax {
 }
 
 #[derive(Debug, Clone)]
-pub enum ElementConstraintSyntax {
-    ArrayConstraint(ArrayConstraintSyntax),
-    RecordConstraint(RecordConstraintSyntax),
-}
-impl AstNode for ElementConstraintSyntax {
+pub struct ResolutionIndicationElementResolutionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ResolutionIndicationElementResolutionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::ArrayConstraint => Some(ElementConstraintSyntax::ArrayConstraint(
-                ArrayConstraintSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::RecordConstraint => Some(ElementConstraintSyntax::RecordConstraint(
-                RecordConstraintSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::ResolutionIndicationElementResolution => {
+                Some(ResolutionIndicationElementResolutionSyntax(node))
+            }
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ResolutionIndicationElementResolution)
+    }
     fn raw(&self) -> SyntaxNode {
-        match self {
-            ElementConstraintSyntax::ArrayConstraint(inner) => inner.raw(),
-            ElementConstraintSyntax::RecordConstraint(inner) => inner.raw(),
-        }
+        self.0.clone()
     }
 }
-
+impl ResolutionIndicationElementResolutionSyntax {
+    pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(ResolutionIndicationSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct RecordResolutionElementResolutionSyntax(pub(crate) SyntaxNode);
+impl AstNode for RecordResolutionElementResolutionSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::RecordResolutionElementResolution => {
+                Some(RecordResolutionElementResolutionSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordResolutionElementResolution)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RecordResolutionElementResolutionSyntax {
+    pub fn record_resolution(&self) -> Option<RecordResolutionSyntax> {
+        self.0
+            .children()
+            .filter_map(RecordResolutionSyntax::cast)
+            .nth(0)
+    }
+}
 #[derive(Debug, Clone)]
 pub enum ElementResolutionSyntax {
-    ResolutionIndication(ResolutionIndicationSyntax),
-    RecordResolution(RecordResolutionSyntax),
+    ResolutionIndicationElementResolution(ResolutionIndicationElementResolutionSyntax),
+    RecordResolutionElementResolution(RecordResolutionElementResolutionSyntax),
 }
 impl AstNode for ElementResolutionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ResolutionIndication => Some(ElementResolutionSyntax::ResolutionIndication(
-                ResolutionIndicationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::RecordResolution => Some(ElementResolutionSyntax::RecordResolution(
-                RecordResolutionSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+        if ResolutionIndicationElementResolutionSyntax::can_cast(&node) {
+            return Some(
+                ElementResolutionSyntax::ResolutionIndicationElementResolution(
+                    ResolutionIndicationElementResolutionSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        if RecordResolutionElementResolutionSyntax::can_cast(&node) {
+            return Some(ElementResolutionSyntax::RecordResolutionElementResolution(
+                RecordResolutionElementResolutionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ResolutionIndicationElementResolutionSyntax::can_cast(node)
+            || RecordResolutionElementResolutionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ElementResolutionSyntax::ResolutionIndication(inner) => inner.raw(),
-            ElementResolutionSyntax::RecordResolution(inner) => inner.raw(),
+            ElementResolutionSyntax::ResolutionIndicationElementResolution(inner) => inner.raw(),
+            ElementResolutionSyntax::RecordResolutionElementResolution(inner) => inner.raw(),
         }
     }
 }
@@ -651,6 +787,9 @@ impl AstNode for EntityClassEntrySyntax {
             NodeKind::EntityClassEntry => Some(EntityClassEntrySyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityClassEntry)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -673,6 +812,9 @@ impl AstNode for EntityClassEntryListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityClassEntryList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -693,6 +835,9 @@ impl AstNode for FileDeclarationSyntax {
             NodeKind::FileDeclaration => Some(FileDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FileDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -742,6 +887,9 @@ impl AstNode for FileOpenInformationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FileOpenInformation)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -775,6 +923,9 @@ impl AstNode for ParenthesizedNameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedName)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -805,6 +956,9 @@ impl AstNode for FormalPartSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FormalPart)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -828,6 +982,9 @@ impl AstNode for FullTypeDeclarationSyntax {
             NodeKind::FullTypeDeclaration => Some(FullTypeDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::FullTypeDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -874,6 +1031,9 @@ impl AstNode for GenericClauseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenericClause)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -918,6 +1078,9 @@ impl AstNode for GenericMapAspectSyntax {
             NodeKind::GenericMapAspect => Some(GenericMapAspectSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenericMapAspect)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -964,6 +1127,9 @@ impl AstNode for GroupConstituentListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GroupConstituentList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -984,6 +1150,9 @@ impl AstNode for GroupDeclarationSyntax {
             NodeKind::GroupDeclaration => Some(GroupDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GroupDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1041,6 +1210,9 @@ impl AstNode for GroupTemplateDeclarationSyntax {
             NodeKind::GroupTemplateDeclaration => Some(GroupTemplateDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GroupTemplateDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1101,6 +1273,9 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceConstantDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1152,29 +1327,35 @@ pub enum InterfaceDeclarationSyntax {
 }
 impl AstNode for InterfaceDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::InterfaceObjectDeclaration => {
-                Some(InterfaceDeclarationSyntax::InterfaceObjectDeclaration(
-                    InterfaceObjectDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::InterfaceIncompleteTypeDeclaration => Some(
+        if InterfaceObjectDeclarationSyntax::can_cast(&node) {
+            return Some(InterfaceDeclarationSyntax::InterfaceObjectDeclaration(
+                InterfaceObjectDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if InterfaceIncompleteTypeDeclarationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceDeclarationSyntax::InterfaceIncompleteTypeDeclaration(
                     InterfaceIncompleteTypeDeclarationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::InterfaceSubprogramDeclaration => {
-                Some(InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(
-                    InterfaceSubprogramDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::InterfacePackageDeclaration => {
-                Some(InterfaceDeclarationSyntax::InterfacePackageDeclaration(
-                    InterfacePackageDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+            );
+        };
+        if InterfaceSubprogramDeclarationSyntax::can_cast(&node) {
+            return Some(InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(
+                InterfaceSubprogramDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if InterfacePackageDeclarationSyntax::can_cast(&node) {
+            return Some(InterfaceDeclarationSyntax::InterfacePackageDeclaration(
+                InterfacePackageDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InterfaceObjectDeclarationSyntax::can_cast(node)
+            || InterfaceIncompleteTypeDeclarationSyntax::can_cast(node)
+            || InterfaceSubprogramDeclarationSyntax::can_cast(node)
+            || InterfacePackageDeclarationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1194,6 +1375,9 @@ impl AstNode for InterfaceFileDeclarationSyntax {
             NodeKind::InterfaceFileDeclaration => Some(InterfaceFileDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceFileDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1232,6 +1416,9 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceFunctionSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1292,6 +1479,9 @@ impl AstNode for InterfaceIncompleteTypeDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceIncompleteTypeDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1325,6 +1515,9 @@ impl AstNode for InterfaceListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1350,29 +1543,39 @@ pub enum InterfaceObjectDeclarationSyntax {
 }
 impl AstNode for InterfaceObjectDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::InterfaceConstantDeclaration => Some(
+        if InterfaceConstantDeclarationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceObjectDeclarationSyntax::InterfaceConstantDeclaration(
                     InterfaceConstantDeclarationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::InterfaceSignalDeclaration => Some(
+            );
+        };
+        if InterfaceSignalDeclarationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceObjectDeclarationSyntax::InterfaceSignalDeclaration(
                     InterfaceSignalDeclarationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::InterfaceVariableDeclaration => Some(
+            );
+        };
+        if InterfaceVariableDeclarationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceObjectDeclarationSyntax::InterfaceVariableDeclaration(
                     InterfaceVariableDeclarationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::InterfaceFileDeclaration => {
-                Some(InterfaceObjectDeclarationSyntax::InterfaceFileDeclaration(
-                    InterfaceFileDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+            );
+        };
+        if InterfaceFileDeclarationSyntax::can_cast(&node) {
+            return Some(InterfaceObjectDeclarationSyntax::InterfaceFileDeclaration(
+                InterfaceFileDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InterfaceConstantDeclarationSyntax::can_cast(node)
+            || InterfaceSignalDeclarationSyntax::can_cast(node)
+            || InterfaceVariableDeclarationSyntax::can_cast(node)
+            || InterfaceFileDeclarationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1392,6 +1595,9 @@ impl AstNode for InterfacePackageDeclarationSyntax {
             NodeKind::InterfacePackageDeclaration => Some(InterfacePackageDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfacePackageDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1451,6 +1657,9 @@ impl AstNode for InterfacePackageGenericMapAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfacePackageGenericMapAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1490,37 +1699,50 @@ impl InterfacePackageGenericMapAspectSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct BoxTokenSyntax(pub(crate) SyntaxNode);
-impl AstNode for BoxTokenSyntax {
+pub struct InterfacePackageGenericMapAspectBoxSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfacePackageGenericMapAspectBoxSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::BoxToken => Some(BoxTokenSyntax(node)),
+            NodeKind::InterfacePackageGenericMapAspectBox => {
+                Some(InterfacePackageGenericMapAspectBoxSyntax(node))
+            }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfacePackageGenericMapAspectBox)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl BoxTokenSyntax {
+impl InterfacePackageGenericMapAspectBoxSyntax {
     pub fn box_token(&self) -> Option<SyntaxToken> {
         self.0.tokens().filter(|token| token.kind() == BOX).nth(0)
     }
 }
 #[derive(Debug, Clone)]
-pub struct DefaultTokenSyntax(pub(crate) SyntaxNode);
-impl AstNode for DefaultTokenSyntax {
+pub struct InterfacePackageGenericMapAspectDefaultSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfacePackageGenericMapAspectDefaultSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::DefaultToken => Some(DefaultTokenSyntax(node)),
+            NodeKind::InterfacePackageGenericMapAspectDefault => {
+                Some(InterfacePackageGenericMapAspectDefaultSyntax(node))
+            }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::InterfacePackageGenericMapAspectDefault
+        )
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl DefaultTokenSyntax {
+impl InterfacePackageGenericMapAspectDefaultSyntax {
     pub fn default_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -1529,36 +1751,66 @@ impl DefaultTokenSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum InterfacePackageGenericMapAspectInnerSyntax {
-    BoxToken(BoxTokenSyntax),
-    DefaultToken(DefaultTokenSyntax),
-    AssociationList(AssociationListSyntax),
-}
-impl AstNode for InterfacePackageGenericMapAspectInnerSyntax {
+pub struct InterfacePackageGenericMapAspectAssociationsSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfacePackageGenericMapAspectAssociationsSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::BoxToken => Some(InterfacePackageGenericMapAspectInnerSyntax::BoxToken(
-                BoxTokenSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::DefaultToken => {
-                Some(InterfacePackageGenericMapAspectInnerSyntax::DefaultToken(
-                    DefaultTokenSyntax::cast(node).unwrap(),
-                ))
+            NodeKind::InterfacePackageGenericMapAspectAssociations => {
+                Some(InterfacePackageGenericMapAspectAssociationsSyntax(node))
             }
-            NodeKind::AssociationList => Some(
-                InterfacePackageGenericMapAspectInnerSyntax::AssociationList(
-                    AssociationListSyntax::cast(node).unwrap(),
-                ),
-            ),
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::InterfacePackageGenericMapAspectAssociations
+        )
+    }
     fn raw(&self) -> SyntaxNode {
-        match self {
-            InterfacePackageGenericMapAspectInnerSyntax::BoxToken(inner) => inner.raw(),
-            InterfacePackageGenericMapAspectInnerSyntax::DefaultToken(inner) => inner.raw(),
-            InterfacePackageGenericMapAspectInnerSyntax::AssociationList(inner) => inner.raw(),
-        }
+        self.0.clone()
+    }
+}
+impl InterfacePackageGenericMapAspectAssociationsSyntax {
+    pub fn association_list(&self) -> Option<AssociationListSyntax> {
+        self.0
+            .children()
+            .filter_map(AssociationListSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum InterfacePackageGenericMapAspectInnerSyntax {
+    InterfacePackageGenericMapAspectBox(InterfacePackageGenericMapAspectBoxSyntax),
+    InterfacePackageGenericMapAspectDefault(InterfacePackageGenericMapAspectDefaultSyntax),
+    InterfacePackageGenericMapAspectAssociations(
+        InterfacePackageGenericMapAspectAssociationsSyntax,
+    ),
+}
+impl AstNode for InterfacePackageGenericMapAspectInnerSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if InterfacePackageGenericMapAspectBoxSyntax::can_cast(&node) {
+            return Some(
+                InterfacePackageGenericMapAspectInnerSyntax::InterfacePackageGenericMapAspectBox(
+                    InterfacePackageGenericMapAspectBoxSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        if InterfacePackageGenericMapAspectDefaultSyntax::can_cast(&node) {
+            return Some (InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectDefault (InterfacePackageGenericMapAspectDefaultSyntax :: cast (node) . unwrap ()));
+        };
+        if InterfacePackageGenericMapAspectAssociationsSyntax::can_cast(&node) {
+            return Some (InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectAssociations (InterfacePackageGenericMapAspectAssociationsSyntax :: cast (node) . unwrap ()));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InterfacePackageGenericMapAspectBoxSyntax::can_cast(node)
+            || InterfacePackageGenericMapAspectDefaultSyntax::can_cast(node)
+            || InterfacePackageGenericMapAspectAssociationsSyntax::can_cast(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        match self { InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectBox (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectDefault (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectAssociations (inner) => inner . raw () , }
     }
 }
 
@@ -1572,6 +1824,9 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceProcedureSpecification)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1620,6 +1875,9 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
             NodeKind::InterfaceSignalDeclaration => Some(InterfaceSignalDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceSignalDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1683,6 +1941,9 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceSubprogramDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1716,26 +1977,82 @@ impl InterfaceSubprogramDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum InterfaceSubprogramDefaultSyntax {
-    Name(NameSyntax),
-    BoxToken(BoxTokenSyntax),
-}
-impl AstNode for InterfaceSubprogramDefaultSyntax {
+pub struct InterfaceSubprogramDefaultNameSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfaceSubprogramDefaultNameSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Name => Some(InterfaceSubprogramDefaultSyntax::Name(
-                NameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::BoxToken => Some(InterfaceSubprogramDefaultSyntax::BoxToken(
-                BoxTokenSyntax::cast(node).unwrap(),
-            )),
+            NodeKind::InterfaceSubprogramDefaultName => {
+                Some(InterfaceSubprogramDefaultNameSyntax(node))
+            }
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceSubprogramDefaultName)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InterfaceSubprogramDefaultNameSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InterfaceSubprogramDefaultBoxSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfaceSubprogramDefaultBoxSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::InterfaceSubprogramDefaultBox => {
+                Some(InterfaceSubprogramDefaultBoxSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceSubprogramDefaultBox)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InterfaceSubprogramDefaultBoxSyntax {
+    pub fn box_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == BOX).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum InterfaceSubprogramDefaultSyntax {
+    InterfaceSubprogramDefaultName(InterfaceSubprogramDefaultNameSyntax),
+    InterfaceSubprogramDefaultBox(InterfaceSubprogramDefaultBoxSyntax),
+}
+impl AstNode for InterfaceSubprogramDefaultSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        if InterfaceSubprogramDefaultNameSyntax::can_cast(&node) {
+            return Some(
+                InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultName(
+                    InterfaceSubprogramDefaultNameSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        if InterfaceSubprogramDefaultBoxSyntax::can_cast(&node) {
+            return Some(
+                InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultBox(
+                    InterfaceSubprogramDefaultBoxSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InterfaceSubprogramDefaultNameSyntax::can_cast(node)
+            || InterfaceSubprogramDefaultBoxSyntax::can_cast(node)
+    }
     fn raw(&self) -> SyntaxNode {
         match self {
-            InterfaceSubprogramDefaultSyntax::Name(inner) => inner.raw(),
-            InterfaceSubprogramDefaultSyntax::BoxToken(inner) => inner.raw(),
+            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultName(inner) => inner.raw(),
+            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultBox(inner) => inner.raw(),
         }
     }
 }
@@ -1747,19 +2064,25 @@ pub enum InterfaceSubprogramSpecificationSyntax {
 }
 impl AstNode for InterfaceSubprogramSpecificationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::InterfaceProcedureSpecification => Some(
+        if InterfaceProcedureSpecificationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceSubprogramSpecificationSyntax::InterfaceProcedureSpecification(
                     InterfaceProcedureSpecificationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::InterfaceFunctionSpecification => Some(
+            );
+        };
+        if InterfaceFunctionSpecificationSyntax::can_cast(&node) {
+            return Some(
                 InterfaceSubprogramSpecificationSyntax::InterfaceFunctionSpecification(
                     InterfaceFunctionSpecificationSyntax::cast(node).unwrap(),
                 ),
-            ),
-            _ => None,
-        }
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        InterfaceProcedureSpecificationSyntax::can_cast(node)
+            || InterfaceFunctionSpecificationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1783,6 +2106,9 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfaceVariableDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1868,6 +2194,9 @@ impl AstNode for PortClauseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PortClause)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1912,6 +2241,9 @@ impl AstNode for PortMapAspectSyntax {
             NodeKind::PortMapAspect => Some(PortMapAspectSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PortMapAspect)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1958,6 +2290,9 @@ impl AstNode for RecordElementResolutionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordElementResolution)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1985,6 +2320,9 @@ impl AstNode for RecordResolutionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordResolution)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2002,31 +2340,86 @@ impl RecordResolutionSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ParenthesizedElementResolutionSyntax(pub(crate) SyntaxNode);
-impl AstNode for ParenthesizedElementResolutionSyntax {
+pub struct NameResolutionIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for NameResolutionIndicationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::ParenthesizedElementResolution => {
-                Some(ParenthesizedElementResolutionSyntax(node))
-            }
+            NodeKind::NameResolutionIndication => Some(NameResolutionIndicationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameResolutionIndication)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ParenthesizedElementResolutionSyntax {
+impl NameResolutionIndicationSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElementResolutionResolutionIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElementResolutionResolutionIndicationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ElementResolutionResolutionIndication => {
+                Some(ElementResolutionResolutionIndicationSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ElementResolutionResolutionIndication)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElementResolutionResolutionIndicationSyntax {
+    pub fn element_resolution(&self) -> Option<ElementResolutionSyntax> {
+        self.0
+            .children()
+            .filter_map(ElementResolutionSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ParenthesizedElementResolutionResolutionIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for ParenthesizedElementResolutionResolutionIndicationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ParenthesizedElementResolutionResolutionIndication => Some(
+                ParenthesizedElementResolutionResolutionIndicationSyntax(node),
+            ),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::ParenthesizedElementResolutionResolutionIndication
+        )
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ParenthesizedElementResolutionResolutionIndicationSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == LeftPar)
             .nth(0)
     }
-    pub fn element_resolution(&self) -> Option<ElementResolutionSyntax> {
+    pub fn element_resolution_resolution_indication(
+        &self,
+    ) -> Option<ElementResolutionResolutionIndicationSyntax> {
         self.0
             .children()
-            .filter_map(ElementResolutionSyntax::cast)
+            .filter_map(ElementResolutionResolutionIndicationSyntax::cast)
             .nth(0)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
@@ -2038,27 +2431,37 @@ impl ParenthesizedElementResolutionSyntax {
 }
 #[derive(Debug, Clone)]
 pub enum ResolutionIndicationSyntax {
-    Name(NameSyntax),
-    ParenthesizedElementResolution(ParenthesizedElementResolutionSyntax),
+    NameResolutionIndication(NameResolutionIndicationSyntax),
+    ParenthesizedElementResolutionResolutionIndication(
+        ParenthesizedElementResolutionResolutionIndicationSyntax,
+    ),
 }
 impl AstNode for ResolutionIndicationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Name => Some(ResolutionIndicationSyntax::Name(
-                NameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ParenthesizedElementResolution => {
-                Some(ResolutionIndicationSyntax::ParenthesizedElementResolution(
-                    ParenthesizedElementResolutionSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if NameResolutionIndicationSyntax::can_cast(&node) {
+            return Some(ResolutionIndicationSyntax::NameResolutionIndication(
+                NameResolutionIndicationSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ParenthesizedElementResolutionResolutionIndicationSyntax::can_cast(&node) {
+            return Some(
+                ResolutionIndicationSyntax::ParenthesizedElementResolutionResolutionIndication(
+                    ParenthesizedElementResolutionResolutionIndicationSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        NameResolutionIndicationSyntax::can_cast(node)
+            || ParenthesizedElementResolutionResolutionIndicationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ResolutionIndicationSyntax::Name(inner) => inner.raw(),
-            ResolutionIndicationSyntax::ParenthesizedElementResolution(inner) => inner.raw(),
+            ResolutionIndicationSyntax::NameResolutionIndication(inner) => inner.raw(),
+            ResolutionIndicationSyntax::ParenthesizedElementResolutionResolutionIndication(
+                inner,
+            ) => inner.raw(),
         }
     }
 }
@@ -2071,6 +2474,9 @@ impl AstNode for SignalDeclarationSyntax {
             NodeKind::SignalDeclaration => Some(SignalDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SignalDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -2147,6 +2553,9 @@ impl AstNode for SubtypeDeclarationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubtypeDeclaration)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2192,6 +2601,9 @@ impl AstNode for SubtypeIndicationSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubtypeIndication)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -2217,17 +2629,20 @@ pub enum TypeDeclarationSyntax {
 }
 impl AstNode for TypeDeclarationSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::FullTypeDeclaration => Some(TypeDeclarationSyntax::FullTypeDeclaration(
+        if FullTypeDeclarationSyntax::can_cast(&node) {
+            return Some(TypeDeclarationSyntax::FullTypeDeclaration(
                 FullTypeDeclarationSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::IncompleteTypeDeclaration => {
-                Some(TypeDeclarationSyntax::IncompleteTypeDeclaration(
-                    IncompleteTypeDeclarationSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+            ));
+        };
+        if IncompleteTypeDeclarationSyntax::can_cast(&node) {
+            return Some(TypeDeclarationSyntax::IncompleteTypeDeclaration(
+                IncompleteTypeDeclarationSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        FullTypeDeclarationSyntax::can_cast(node) || IncompleteTypeDeclarationSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -2247,28 +2662,39 @@ pub enum TypeDefinitionSyntax {
 }
 impl AstNode for TypeDefinitionSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ScalarTypeDefinition => Some(TypeDefinitionSyntax::ScalarTypeDefinition(
+        if ScalarTypeDefinitionSyntax::can_cast(&node) {
+            return Some(TypeDefinitionSyntax::ScalarTypeDefinition(
                 ScalarTypeDefinitionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::CompositeTypeDefinition => {
-                Some(TypeDefinitionSyntax::CompositeTypeDefinition(
-                    CompositeTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::AccessTypeDefinition => Some(TypeDefinitionSyntax::AccessTypeDefinition(
+            ));
+        };
+        if CompositeTypeDefinitionSyntax::can_cast(&node) {
+            return Some(TypeDefinitionSyntax::CompositeTypeDefinition(
+                CompositeTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        if AccessTypeDefinitionSyntax::can_cast(&node) {
+            return Some(TypeDefinitionSyntax::AccessTypeDefinition(
                 AccessTypeDefinitionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::FileTypeDefinition => Some(TypeDefinitionSyntax::FileTypeDefinition(
+            ));
+        };
+        if FileTypeDefinitionSyntax::can_cast(&node) {
+            return Some(TypeDefinitionSyntax::FileTypeDefinition(
                 FileTypeDefinitionSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ProtectedTypeDefinition => {
-                Some(TypeDefinitionSyntax::ProtectedTypeDefinition(
-                    ProtectedTypeDefinitionSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+            ));
+        };
+        if ProtectedTypeDefinitionSyntax::can_cast(&node) {
+            return Some(TypeDefinitionSyntax::ProtectedTypeDefinition(
+                ProtectedTypeDefinitionSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ScalarTypeDefinitionSyntax::can_cast(node)
+            || CompositeTypeDefinitionSyntax::can_cast(node)
+            || AccessTypeDefinitionSyntax::can_cast(node)
+            || FileTypeDefinitionSyntax::can_cast(node)
+            || ProtectedTypeDefinitionSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -2289,6 +2715,9 @@ impl AstNode for VariableDeclarationSyntax {
             NodeKind::VariableDeclaration => Some(VariableDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::VariableDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -2340,6 +2769,9 @@ impl AstNode for SharedVariableDeclarationSyntax {
             NodeKind::SharedVariableDeclaration => Some(SharedVariableDeclarationSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SharedVariableDeclaration)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

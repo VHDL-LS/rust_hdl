@@ -19,6 +19,9 @@ impl AstNode for AbsolutePathnameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AbsolutePathname)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -42,6 +45,9 @@ impl AstNode for AttributeNameSyntax {
             NodeKind::AttributeName => Some(AttributeNameSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AttributeName)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -96,18 +102,27 @@ pub enum ExternalNameSyntax {
 }
 impl AstNode for ExternalNameSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExternalConstantName => Some(ExternalNameSyntax::ExternalConstantName(
+        if ExternalConstantNameSyntax::can_cast(&node) {
+            return Some(ExternalNameSyntax::ExternalConstantName(
                 ExternalConstantNameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ExternalSignalName => Some(ExternalNameSyntax::ExternalSignalName(
+            ));
+        };
+        if ExternalSignalNameSyntax::can_cast(&node) {
+            return Some(ExternalNameSyntax::ExternalSignalName(
                 ExternalSignalNameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ExternalVariableName => Some(ExternalNameSyntax::ExternalVariableName(
+            ));
+        };
+        if ExternalVariableNameSyntax::can_cast(&node) {
+            return Some(ExternalNameSyntax::ExternalVariableName(
                 ExternalVariableNameSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ExternalConstantNameSyntax::can_cast(node)
+            || ExternalSignalNameSyntax::can_cast(node)
+            || ExternalVariableNameSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -126,6 +141,9 @@ impl AstNode for ExternalConstantNameSyntax {
             NodeKind::ExternalConstantName => Some(ExternalConstantNameSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExternalConstantName)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -169,6 +187,9 @@ impl AstNode for ExternalSignalNameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExternalSignalName)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -211,6 +232,9 @@ impl AstNode for ExternalVariableNameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ExternalVariableName)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -252,18 +276,27 @@ pub enum ExternalPathNameSyntax {
 }
 impl AstNode for ExternalPathNameSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PackagePathname => Some(ExternalPathNameSyntax::PackagePathname(
+        if PackagePathnameSyntax::can_cast(&node) {
+            return Some(ExternalPathNameSyntax::PackagePathname(
                 PackagePathnameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AbsolutePathname => Some(ExternalPathNameSyntax::AbsolutePathname(
+            ));
+        };
+        if AbsolutePathnameSyntax::can_cast(&node) {
+            return Some(ExternalPathNameSyntax::AbsolutePathname(
                 AbsolutePathnameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::RelativePathname => Some(ExternalPathNameSyntax::RelativePathname(
+            ));
+        };
+        if RelativePathnameSyntax::can_cast(&node) {
+            return Some(ExternalPathNameSyntax::RelativePathname(
                 RelativePathnameSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        PackagePathnameSyntax::can_cast(node)
+            || AbsolutePathnameSyntax::can_cast(node)
+            || RelativePathnameSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -282,6 +315,9 @@ impl AstNode for PackagePathnameSyntax {
             NodeKind::PackagePathname => Some(PackagePathnameSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackagePathname)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -310,6 +346,9 @@ impl AstNode for RelativePathnameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RelativePathname)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -337,17 +376,16 @@ impl AstNode for PartialPathnameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PartialPathname)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
 impl PartialPathnameSyntax {
-    pub fn parenthesized_expression_or_aggregates(
-        &self,
-    ) -> impl Iterator<Item = ParenthesizedExpressionOrAggregateSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ParenthesizedExpressionOrAggregateSyntax::cast)
+    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
+        self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0.tokens().filter(|token| token.kind() == Dot)
@@ -367,6 +405,9 @@ impl AstNode for NameListSyntax {
             NodeKind::NameList => Some(NameListSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -388,6 +429,9 @@ impl AstNode for LabelSyntax {
             NodeKind::Label => Some(LabelSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Label)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -458,6 +502,9 @@ impl AstNode for NameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Name)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -479,6 +526,9 @@ impl AstNode for NameDesignatorPrefixSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::NameDesignatorPrefix)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -498,15 +548,20 @@ pub enum NamePrefixSyntax {
 }
 impl AstNode for NamePrefixSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExternalName => Some(NamePrefixSyntax::ExternalName(
+        if ExternalNameSyntax::can_cast(&node) {
+            return Some(NamePrefixSyntax::ExternalName(
                 ExternalNameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::NameDesignatorPrefix => Some(NamePrefixSyntax::NameDesignatorPrefix(
+            ));
+        };
+        if NameDesignatorPrefixSyntax::can_cast(&node) {
+            return Some(NamePrefixSyntax::NameDesignatorPrefix(
                 NameDesignatorPrefixSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ExternalNameSyntax::can_cast(node) || NameDesignatorPrefixSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -552,6 +607,9 @@ impl AstNode for SelectedNameSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedName)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -572,18 +630,27 @@ pub enum NameTailSyntax {
 }
 impl AstNode for NameTailSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SelectedName => Some(NameTailSyntax::SelectedName(
+        if SelectedNameSyntax::can_cast(&node) {
+            return Some(NameTailSyntax::SelectedName(
                 SelectedNameSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::RawTokens => Some(NameTailSyntax::RawTokens(
+            ));
+        };
+        if RawTokensSyntax::can_cast(&node) {
+            return Some(NameTailSyntax::RawTokens(
                 RawTokensSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::AttributeName => Some(NameTailSyntax::AttributeName(
+            ));
+        };
+        if AttributeNameSyntax::can_cast(&node) {
+            return Some(NameTailSyntax::AttributeName(
                 AttributeNameSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        SelectedNameSyntax::can_cast(node)
+            || RawTokensSyntax::can_cast(node)
+            || AttributeNameSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -602,6 +669,9 @@ impl AstNode for RawTokensSyntax {
             NodeKind::RawTokens => Some(RawTokensSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RawTokens)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

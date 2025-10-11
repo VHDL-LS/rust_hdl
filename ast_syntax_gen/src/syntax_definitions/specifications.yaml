@@ -97,13 +97,6 @@ EntityClass: !Choice
 EntityDesignator: !Sequence
   - node: EntityTag
   - node: Signature
-    optional: true
-
-OthersDesignator: !Sequence
-  - keyword: All
-
-AllDesignator: !Sequence
-  - keyword: All
 
 EntityDesignatorList: !Sequence
   - node: EntityDesignator
@@ -111,10 +104,16 @@ EntityDesignatorList: !Sequence
   - token: Comma
     repeated: true
 
+EntityNameListAll: !Sequence
+  - keyword: All
+
+EntityNameListOthers: !Sequence
+  - keyword: Others
+
 EntityNameList: !Choice
   - node: EntityDesignatorList
-  - node: AllDesignator
-  - node: OthersDesignator
+  - node: EntityNameListAll
+  - node: EntityNameListOthers
 
 EntitySpecification: !Sequence
   - node: EntityNameList
@@ -137,10 +136,16 @@ InstantiationListList: !Sequence
   - token: Comma
     repeated: true
 
+InstantiationListAll: !Sequence
+  - keyword: All
+
+InstantiationListOthers: !Sequence
+  - keyword: Others
+
 InstantiationList: !Choice
   - node: InstantiationListList
-  - node: OthersDesignator
-  - node: AllDesignator
+  - node: InstantiationListAll
+  - node: InstantiationListOthers
 
 SignalListList: !Sequence
   - node: Name
@@ -148,10 +153,16 @@ SignalListList: !Sequence
   - token: Comma
     repeated: true
 
+SignalListAll: !Sequence
+  - keyword: All
+
+SignalListOthers: !Sequence
+  - keyword: Others
+
 SignalList: !Choice
   - node: SignalListList
-  - node: OthersDesignator
-  - node: AllDesignator
+  - node: SignalListAll
+  - node: SignalListOthers
 
 SimpleConfigurationSpecification: !Sequence
   - keyword: For

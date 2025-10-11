@@ -19,10 +19,8 @@ ContextDeclaration: !Sequence
     optional: true
   - token: SemiColon
 
-ContextItem: !Choice
-  - node: LibraryClause
+UseClauseContextItem: !Sequence
   - node: UseClause
-  - node: ContextReference
 
 ContextReference: !Sequence
   - keyword: Context
@@ -31,6 +29,11 @@ ContextReference: !Sequence
   - token: Comma
     repeated: true
   - token: SemiColon
+
+ContextItem: !Choice
+  - node: LibraryClause
+  - node: UseClauseContextItem
+  - node: ContextReference
 
 DesignFile: !Sequence
   - node: DesignUnit
@@ -55,14 +58,24 @@ LogicalNameList: !Sequence
   - token: Comma
     repeated: true
 
+PrimaryUnitPackageDeclaration: !Sequence
+  - node: Package
+
+PackageInstantiationDeclarationPrimaryUnit: !Sequence
+  - node: PackageInstantiation
+
+
 PrimaryUnit: !Choice
   - node: EntityDeclaration
   - node: ConfigurationDeclaration
-  - node: PackageDeclaration
-  - node: PackageInstantiationDeclaration
+  - node: PrimaryUnitPackageDeclaration
+  - node: PackageInstantiationDeclarationPrimaryUnit
   - node: ContextDeclaration
   - node: PslVerificationUnit
 
+SecondaryUnitPackageBody: !Sequence
+  - node: PackageBody
+
 SecondaryUnit: !Choice
   - node: ArchitectureBody
-  - node: PackageBody
+  - node: SecondaryUnitPackageBody

@@ -391,9 +391,15 @@ SimpleVariableAssignment: !Sequence
   - node: Expression
   - token: SemiColon
 
-Target: !Choice
+NameTarget: !Sequence
   - node: Name
+
+AggregateTarget: !Sequence
   - node: Aggregate
+
+Target: !Choice
+  - node: NameTarget
+  - node: AggregateTarget
 
 TimeoutClause: !Sequence
   - keyword: For

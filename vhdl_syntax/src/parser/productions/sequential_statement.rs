@@ -498,11 +498,13 @@ WaitStatement
   ConditionClause
     Keyword(Until)
     BinaryExpression
-      Name
-        Identifier 'a'
+      NameExpression
+        Name
+          Identifier 'a'
       EQ
-      Name
-        Identifier 'b'
+      NameExpression
+        Name
+          Identifier 'b'
   SemiColon
         ",
         );
@@ -542,8 +544,9 @@ WaitStatement
         Identifier 'foo'
   ConditionClause
     Keyword(Until)
-    Name
-      Identifier 'bar'
+    NameExpression
+      Name
+        Identifier 'bar'
   TimeoutClause
     Keyword(For)
     PhysicalLiteral
@@ -563,8 +566,9 @@ WaitStatement
             "\
 AssertionStatement
   Keyword(Assert)
-  Name
-    Identifier 'false'
+  NameExpression
+    Name
+      Identifier 'false'
   SemiColon",
         )
     }
@@ -577,14 +581,16 @@ AssertionStatement
             "\
 AssertionStatement
   Keyword(Assert)
-  Name
-    Identifier 'false'
+  NameExpression
+    Name
+      Identifier 'false'
   Keyword(Report)
-  Literal
+  LiteralExpression
     StringLiteral '\"message\"'
   Keyword(Severity)
-  Name
-    Identifier 'error'
+  NameExpression
+    Name
+      Identifier 'error'
   SemiColon",
         )
     }
@@ -597,11 +603,12 @@ AssertionStatement
             "\
 ReportStatement
   Keyword(Report)
-  Literal
+  LiteralExpression
     StringLiteral '\"message\"'
   Keyword(Severity)
-  Name
-    Identifier 'error'
+  NameExpression
+    Name
+      Identifier 'error'
   SemiColon",
         )
     }
@@ -642,8 +649,9 @@ NextStatement
 NextStatement
   Keyword(Next)
   Keyword(When)
-  Name
-    Identifier 'condition'
+  NameExpression
+    Name
+      Identifier 'condition'
   SemiColon
         ",
         );
@@ -659,8 +667,9 @@ NextStatement
   Keyword(Next)
   Identifier 'foo'
   Keyword(When)
-  Name
-    Identifier 'condition'
+  NameExpression
+    Name
+      Identifier 'condition'
   SemiColon
         ",
         );
@@ -702,8 +711,9 @@ ExitStatement
 ExitStatement
   Keyword(Exit)
   Keyword(When)
-  Name
-    Identifier 'condition'
+  NameExpression
+    Name
+      Identifier 'condition'
   SemiColon
         ",
         );
@@ -719,8 +729,9 @@ ExitStatement
   Keyword(Exit)
   Identifier 'foo'
   Keyword(When)
-  Name
-    Identifier 'condition'
+  NameExpression
+    Name
+      Identifier 'condition'
   SemiColon
         ",
         );
@@ -748,10 +759,10 @@ ReturnStatement
 ReturnStatement
   Keyword(Return)
   BinaryExpression
-    Literal
+    LiteralExpression
       AbstractLiteral '1'
     Plus
-    Literal
+    LiteralExpression
       AbstractLiteral '2'
   SemiColon
         ",
@@ -782,11 +793,13 @@ end if;",
 IfStatement
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
   Keyword(End)
@@ -809,28 +822,32 @@ end if;",
 IfStatement
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
     SimpleVariableAssignment
-      Name
-        Identifier 'x'
+      NameTarget
+        Name
+          Identifier 'x'
       ColonEq
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       SemiColon
   Keyword(End)
@@ -856,28 +873,32 @@ IfStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
     SimpleVariableAssignment
-      Name
-        Identifier 'x'
+      NameTarget
+        Name
+          Identifier 'x'
       ColonEq
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       SemiColon
   Keyword(End)
@@ -902,31 +923,35 @@ end if;",
 IfStatement
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
   IfStatementElse
     Keyword(Else)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'x'
+        NameTarget
+          Name
+            Identifier 'x'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
         SemiColon
   Keyword(End)
@@ -953,31 +978,35 @@ IfStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
   IfStatementElse
     Keyword(Else)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'x'
+        NameTarget
+          Name
+            Identifier 'x'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
         SemiColon
   Keyword(End)
@@ -1004,48 +1033,55 @@ end if;",
 IfStatement
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
   IfStatementElsif
     Keyword(Elsif)
     BinaryExpression
-      Name
-        Identifier 'cond2'
+      NameExpression
+        Name
+          Identifier 'cond2'
       EQ
-      Name
-        Identifier 'false'
+      NameExpression
+        Name
+          Identifier 'false'
     Keyword(Then)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'y'
+        NameTarget
+          Name
+            Identifier 'y'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '2'
         SemiColon
   IfStatementElse
     Keyword(Else)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'x'
+        NameTarget
+          Name
+            Identifier 'x'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
         SemiColon
   Keyword(End)
@@ -1074,48 +1110,55 @@ IfStatement
     Colon
   Keyword(If)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'foo'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameTarget
+        Name
+          Identifier 'foo'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       SemiColon
   IfStatementElsif
     Keyword(Elsif)
     BinaryExpression
-      Name
-        Identifier 'cond2'
+      NameExpression
+        Name
+          Identifier 'cond2'
       EQ
-      Name
-        Identifier 'false'
+      NameExpression
+        Name
+          Identifier 'false'
     Keyword(Then)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'y'
+        NameTarget
+          Name
+            Identifier 'y'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '2'
         SemiColon
   IfStatementElse
     Keyword(Else)
     SequentialStatements
       SimpleVariableAssignment
-        Name
-          Identifier 'x'
+        NameTarget
+          Name
+            Identifier 'x'
         ColonEq
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
         SemiColon
   Keyword(End)
@@ -1142,30 +1185,33 @@ end case;",
             "\
 CaseStatement
   Keyword(Case)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        RightPar
   Keyword(Is)
   CaseStatementAlternative
     Keyword(When)
     Choices
-      Literal
+      LiteralExpression
         AbstractLiteral '1'
       Bar
-      Literal
+      LiteralExpression
         AbstractLiteral '2'
     RightArrow
     SequentialStatements
       ProcedureCallStatement
-        Name
-          Identifier 'stmt1'
+        NameTarget
+          Name
+            Identifier 'stmt1'
         SemiColon
       ProcedureCallStatement
-        Name
-          Identifier 'stmt2'
+        NameTarget
+          Name
+            Identifier 'stmt2'
         SemiColon
   CaseStatementAlternative
     Keyword(When)
@@ -1174,12 +1220,14 @@ CaseStatement
     RightArrow
     SequentialStatements
       ProcedureCallStatement
-        Name
-          Identifier 'stmt3'
+        NameTarget
+          Name
+            Identifier 'stmt3'
         SemiColon
       ProcedureCallStatement
-        Name
-          Identifier 'stmt4'
+        NameTarget
+          Name
+            Identifier 'stmt4'
         SemiColon
   Keyword(End)
   Keyword(Case)
@@ -1200,12 +1248,13 @@ end case?;",
 CaseStatement
   Keyword(Case)
   Que
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        RightPar
   Keyword(Is)
   CaseStatementAlternative
     Keyword(When)
@@ -1241,12 +1290,14 @@ LoopStatement
   Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'stmt1'
+      NameTarget
+        Name
+          Identifier 'stmt1'
       SemiColon
     ProcedureCallStatement
-      Name
-        Identifier 'stmt2'
+      NameTarget
+        Name
+          Identifier 'stmt2'
       SemiColon
   Keyword(End)
   Keyword(Loop)
@@ -1270,20 +1321,24 @@ LoopStatement
   WhileIterationScheme
     Keyword(While)
     BinaryExpression
-      Name
-        Identifier 'foo'
+      NameExpression
+        Name
+          Identifier 'foo'
       EQ
-      Name
-        Identifier 'true'
+      NameExpression
+        Name
+          Identifier 'true'
   Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'stmt1'
+      NameTarget
+        Name
+          Identifier 'stmt1'
       SemiColon
     ProcedureCallStatement
-      Name
-        Identifier 'stmt2'
+      NameTarget
+        Name
+          Identifier 'stmt2'
       SemiColon
   Keyword(End)
   Keyword(Loop)
@@ -1308,21 +1363,23 @@ LoopStatement
     ParameterSpecification
       Identifier 'idx'
       Keyword(In)
-      Range
-        Literal
+      RangeExpression
+        LiteralExpression
           AbstractLiteral '0'
         Keyword(To)
-        Literal
+        LiteralExpression
           AbstractLiteral '3'
   Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
-      Name
-        Identifier 'stmt1'
+      NameTarget
+        Name
+          Identifier 'stmt1'
       SemiColon
     ProcedureCallStatement
-      Name
-        Identifier 'stmt2'
+      NameTarget
+        Name
+          Identifier 'stmt2'
       SemiColon
   Keyword(End)
   Keyword(Loop)
@@ -1338,23 +1395,25 @@ LoopStatement
             "foo(0) <= bar(1,2) after 2 ns;",
             "\
 SimpleWaveformAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
-  Waveform
+  WaveformElements
     WaveformElement
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       Keyword(After)
       PhysicalLiteral
         AbstractLiteral '2'
@@ -1372,22 +1431,24 @@ SimpleWaveformAssignment
             "foo(0) <= force bar(1,2);",
             "\
 SimpleForceAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
   Keyword(Force)
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   SemiColon",
         );
     }
@@ -1399,12 +1460,13 @@ SimpleForceAssignment
             "foo(0) <= release;",
             "\
 SimpleReleaseAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
   Keyword(Release)
   SemiColon",
@@ -1418,29 +1480,31 @@ SimpleReleaseAssignment
             "<< signal dut.foo : boolean  >> <= bar(1,2);",
             "\
 SimpleWaveformAssignment
-  Name
-    ExternalName
-      LtLt
-      Keyword(Signal)
-      ExternalPathName
-        PartialPathname
-          Identifier 'dut'
-          Dot
-          Identifier 'foo'
-      Colon
-      Identifier 'boolean'
-      GtGt
+  NameTarget
+    Name
+      ExternalSignalName
+        LtLt
+        Keyword(Signal)
+        RelativePathname
+          PartialPathname
+            Identifier 'dut'
+            Dot
+            Identifier 'foo'
+        Colon
+        Identifier 'boolean'
+        GtGt
   LTE
-  Waveform
+  WaveformElements
     WaveformElement
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
   SemiColon",
         );
     }
@@ -1452,25 +1516,27 @@ SimpleWaveformAssignment
             "foo(0) <= transport bar(1,2);",
             "\
 SimpleWaveformAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
-  DelayMechanism
+  TransportDelayMechanism
     Keyword(Transport)
-  Waveform
+  WaveformElements
     WaveformElement
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
   SemiColon",
         );
     }
@@ -1482,21 +1548,23 @@ SimpleWaveformAssignment
             "foo(0) := bar(1,2);",
             "\
 SimpleVariableAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   ColonEq
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   SemiColon",
         );
     }
@@ -1508,27 +1576,29 @@ SimpleVariableAssignment
             "<< variable dut.foo : boolean >> := bar(1,2);",
             "\
 SimpleVariableAssignment
-  Name
-    ExternalName
-      LtLt
-      Keyword(Variable)
-      ExternalPathName
-        PartialPathname
-          Identifier 'dut'
-          Dot
-          Identifier 'foo'
-      Colon
-      Identifier 'boolean'
-      GtGt
+  NameTarget
+    Name
+      ExternalVariableName
+        LtLt
+        Keyword(Variable)
+        RelativePathname
+          PartialPathname
+            Identifier 'dut'
+            Dot
+            Identifier 'foo'
+        Colon
+        Identifier 'boolean'
+        GtGt
   ColonEq
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   SemiColon
             ",
         );
@@ -1541,22 +1611,26 @@ SimpleVariableAssignment
             "(foo, 1 => bar) := bar;",
             "\
 SimpleVariableAssignment
-  Aggregate
-    LeftPar
-    Name
-      Identifier 'foo'
-    Comma
-    ElementAssociation
-      Choices
-        Literal
-          AbstractLiteral '1'
-      RightArrow
-      Name
-        Identifier 'bar'
-    RightPar
+  AggregateTarget
+    Aggregate
+      LeftPar
+      NameExpression
+        Name
+          Identifier 'foo'
+      Comma
+      ElementAssociation
+        Choices
+          LiteralExpression
+            AbstractLiteral '1'
+        RightArrow
+        NameExpression
+          Name
+            Identifier 'bar'
+      RightPar
   ColonEq
-  Name
-    Identifier 'bar'
+  NameExpression
+    Name
+      Identifier 'bar'
   SemiColon",
         );
     }
@@ -1571,22 +1645,26 @@ SimpleVariableAssignment
   Label
     Identifier 'name'
     Colon
-  Aggregate
-    LeftPar
-    Name
-      Identifier 'foo'
-    Comma
-    ElementAssociation
-      Choices
-        Literal
-          AbstractLiteral '1'
-      RightArrow
-      Name
-        Identifier 'bar'
-    RightPar
+  AggregateTarget
+    Aggregate
+      LeftPar
+      NameExpression
+        Name
+          Identifier 'foo'
+      Comma
+      ElementAssociation
+        Choices
+          LiteralExpression
+            AbstractLiteral '1'
+        RightArrow
+        NameExpression
+          Name
+            Identifier 'bar'
+      RightPar
   ColonEq
-  Name
-    Identifier 'bar'
+  NameExpression
+    Name
+      Identifier 'bar'
   SemiColon",
         );
     }
@@ -1601,21 +1679,23 @@ SimpleVariableAssignment
   Label
     Identifier 'name'
     Colon
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   ColonEq
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   SemiColon
             ",
         );
@@ -1634,44 +1714,48 @@ with x(0) + 1 select
 SelectedVariableAssignment
   Keyword(With)
   BinaryExpression
+    NameExpression
+      Name
+        Identifier 'x'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  Keyword(Select)
+  NameTarget
     Name
-      Identifier 'x'
+      Identifier 'foo'
       RawTokens
         LeftPar
         AbstractLiteral '0'
         RightPar
-    Plus
-    Literal
-      AbstractLiteral '1'
-  Keyword(Select)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
   ColonEq
   SelectedExpressions
     SelectedExpressionItem
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       Keyword(When)
       Choices
-        Literal
+        LiteralExpression
           AbstractLiteral '0'
         Bar
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
     Comma
     SelectedExpressionItem
-      Name
-        Identifier 'def'
+      NameExpression
+        Name
+          Identifier 'def'
       Keyword(When)
       Choices
         Keyword(Others)
@@ -1689,14 +1773,15 @@ foo(0) := bar(1,2) when cond = true;
         ",
             "\
 ConditionalVariableAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   ColonEq
-  ConditionalWhenExpression
+  NameExpression
     Name
       Identifier 'bar'
       RawTokens
@@ -1705,11 +1790,13 @@ ConditionalVariableAssignment
         Comma
         AbstractLiteral '2'
         RightPar
-    Keyword(When)
-    BinaryExpression
+  Keyword(When)
+  BinaryExpression
+    NameExpression
       Name
         Identifier 'cond'
-      EQ
+    EQ
+    NameExpression
       Name
         Identifier 'true'
   SemiColon",
@@ -1725,25 +1812,28 @@ foo(0) <= force bar(1,2) when cond;
         ",
             "\
 ConditionalForceAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
   Keyword(Force)
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   Keyword(When)
-  Name
-    Identifier 'cond'
+  NameExpression
+    Name
+      Identifier 'cond'
   SemiColon",
         );
     }
@@ -1757,35 +1847,41 @@ foo(0) := bar(1,2) when cond = true else expr2 when cond2;
         ",
             "\
 ConditionalVariableAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   ColonEq
-  Name
-    Identifier 'bar'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   Keyword(When)
   BinaryExpression
-    Name
-      Identifier 'cond'
+    NameExpression
+      Name
+        Identifier 'cond'
     EQ
-    Name
-      Identifier 'true'
+    NameExpression
+      Name
+        Identifier 'true'
   ConditionalElseWhenExpression
     Keyword(Else)
-    Name
-      Identifier 'expr2'
+    NameExpression
+      Name
+        Identifier 'expr2'
     Keyword(When)
-    Name
-      Identifier 'cond2'
+    NameExpression
+      Name
+        Identifier 'cond2'
   SemiColon",
         );
     }
@@ -1799,14 +1895,15 @@ foo(0) := bar(1,2) when cond = true else expr2;
         ",
             "\
 ConditionalVariableAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   ColonEq
-  ConditionalWhenExpression
+  NameExpression
     Name
       Identifier 'bar'
       RawTokens
@@ -1815,17 +1912,20 @@ ConditionalVariableAssignment
         Comma
         AbstractLiteral '2'
         RightPar
-    Keyword(When)
-    BinaryExpression
+  Keyword(When)
+  BinaryExpression
+    NameExpression
       Name
         Identifier 'cond'
-      EQ
+    EQ
+    NameExpression
       Name
         Identifier 'true'
-  ConditionalElseExpression
+  ConditionalElseItem
     Keyword(Else)
-    Name
-      Identifier 'expr2'
+    NameExpression
+      Name
+        Identifier 'expr2'
   SemiColon",
         );
     }
@@ -1839,16 +1939,17 @@ foo(0) <= bar(1,2) after 2 ns when cond;
         ",
             "\
 ConditionalWaveformAssignment
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LTE
-  ConditionalWhenWaveform
-    Waveform
-      WaveformElement
+  WaveformElements
+    WaveformElement
+      NameExpression
         Name
           Identifier 'bar'
           RawTokens
@@ -1857,12 +1958,13 @@ ConditionalWaveformAssignment
             Comma
             AbstractLiteral '2'
             RightPar
-        Keyword(After)
-        PhysicalLiteral
-          AbstractLiteral '2'
-          Name
-            Identifier 'ns'
-    Keyword(When)
+      Keyword(After)
+      PhysicalLiteral
+        AbstractLiteral '2'
+        Name
+          Identifier 'ns'
+  Keyword(When)
+  NameExpression
     Name
       Identifier 'cond'
   SemiColon",
@@ -1882,37 +1984,40 @@ with x(0) + 1 select
 SelectedWaveformAssignment
   Keyword(With)
   BinaryExpression
+    NameExpression
+      Name
+        Identifier 'x'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  Keyword(Select)
+  NameTarget
     Name
-      Identifier 'x'
+      Identifier 'foo'
       RawTokens
         LeftPar
         AbstractLiteral '0'
         RightPar
-    Plus
-    Literal
-      AbstractLiteral '1'
-  Keyword(Select)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
   LTE
-  DelayMechanism
+  TransportDelayMechanism
     Keyword(Transport)
   SelectedWaveforms
     SelectedWaveformItem
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'bar'
-            RawTokens
-              LeftPar
-              AbstractLiteral '1'
-              Comma
-              AbstractLiteral '2'
-              RightPar
+          NameExpression
+            Name
+              Identifier 'bar'
+              RawTokens
+                LeftPar
+                AbstractLiteral '1'
+                Comma
+                AbstractLiteral '2'
+                RightPar
           Keyword(After)
           PhysicalLiteral
             AbstractLiteral '2'
@@ -1920,17 +2025,18 @@ SelectedWaveformAssignment
               Identifier 'ns'
       Keyword(When)
       Choices
-        Literal
+        LiteralExpression
           AbstractLiteral '0'
         Bar
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
     Comma
     SelectedWaveformItem
-      Waveform
+      WaveformElements
         WaveformElement
-          Name
-            Identifier 'def'
+          NameExpression
+            Name
+              Identifier 'def'
       Keyword(When)
       Choices
         Keyword(Others)
@@ -1951,45 +2057,49 @@ with x(0) + 1 select
 SelectedForceAssignment
   Keyword(With)
   BinaryExpression
+    NameExpression
+      Name
+        Identifier 'x'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  Keyword(Select)
+  NameTarget
     Name
-      Identifier 'x'
+      Identifier 'foo'
       RawTokens
         LeftPar
         AbstractLiteral '0'
         RightPar
-    Plus
-    Literal
-      AbstractLiteral '1'
-  Keyword(Select)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '0'
-      RightPar
   LTE
   Keyword(Force)
   SelectedExpressions
     SelectedExpressionItem
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Comma
-          AbstractLiteral '2'
-          RightPar
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
       Keyword(When)
       Choices
-        Literal
+        LiteralExpression
           AbstractLiteral '0'
         Bar
-        Literal
+        LiteralExpression
           AbstractLiteral '1'
     Comma
     SelectedExpressionItem
-      Name
-        Identifier 'def'
+      NameExpression
+        Name
+          Identifier 'def'
       Keyword(When)
       Choices
         Keyword(Others)
@@ -2005,14 +2115,15 @@ SelectedForceAssignment
             "foo(1, 2);",
             "\
 ProcedureCallStatement
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Comma
-      AbstractLiteral '2'
-      RightPar
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
   SemiColon
         ",
         );
@@ -2025,8 +2136,9 @@ ProcedureCallStatement
             "foo;",
             "\
 ProcedureCallStatement
-  Name
-    Identifier 'foo'
+  NameTarget
+    Name
+      Identifier 'foo'
   SemiColon
         ",
         );

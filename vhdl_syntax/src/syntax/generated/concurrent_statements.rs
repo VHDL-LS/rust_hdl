@@ -21,6 +21,9 @@ impl AstNode for SemiColonTerminatedGenericMapAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SemiColonTerminatedGenericMapAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -50,6 +53,9 @@ impl AstNode for SemiColonTerminatedPortMapAspectSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SemiColonTerminatedPortMapAspect)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -76,6 +82,9 @@ impl AstNode for BlockHeaderSyntax {
             NodeKind::BlockHeader => Some(BlockHeaderSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockHeader)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -113,6 +122,9 @@ impl AstNode for ParenthesizedExpressionSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedExpression)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -142,6 +154,9 @@ impl AstNode for BlockStatementSyntax {
             NodeKind::BlockStatement => Some(BlockStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -222,6 +237,9 @@ impl AstNode for CaseGenerateAlternativeSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseGenerateAlternative)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -260,6 +278,9 @@ impl AstNode for CaseGenerateStatementSyntax {
             NodeKind::CaseGenerateStatement => Some(CaseGenerateStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseGenerateStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -327,6 +348,9 @@ impl AstNode for ComponentInstantiationStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentInstantiationStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -371,6 +395,12 @@ impl AstNode for ConcurrentProcedureCallOrComponentInstantiationStatementSyntax 
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement
+        )
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -406,6 +436,9 @@ impl AstNode for ConcurrentAssertionStatementSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConcurrentAssertionStatement)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -440,6 +473,9 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConcurrentSimpleSignalAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -493,6 +529,9 @@ impl AstNode for ConcurrentConditionalSignalAssignmentSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConcurrentConditionalSignalAssignment)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -550,6 +589,9 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConcurrentSelectedSignalAssignment)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -571,14 +613,7 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0
-            .children()
-            .filter(|node| {
-                ExpressionSyntax::cast(node.clone()).is_some()
-                    || TargetSyntax::cast(node.clone()).is_some()
-            })
-            .nth(0)
-            .and_then(|node| ExpressionSyntax::cast(node.clone()))
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn select_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -590,14 +625,7 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
         self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
-        self.0
-            .children()
-            .filter(|node| {
-                ExpressionSyntax::cast(node.clone()).is_some()
-                    || TargetSyntax::cast(node.clone()).is_some()
-            })
-            .nth(1)
-            .and_then(|node| TargetSyntax::cast(node.clone()))
+        self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
         self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
@@ -646,62 +674,88 @@ pub enum ConcurrentStatementSyntax {
 }
 impl AstNode for ConcurrentStatementSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::BlockStatement => Some(ConcurrentStatementSyntax::BlockStatement(
+        if BlockStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::BlockStatement(
                 BlockStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ProcessStatement => Some(ConcurrentStatementSyntax::ProcessStatement(
+            ));
+        };
+        if ProcessStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::ProcessStatement(
                 ProcessStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::ConcurrentAssertionStatement => {
-                Some(ConcurrentStatementSyntax::ConcurrentAssertionStatement(
-                    ConcurrentAssertionStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ComponentInstantiationStatement => {
-                Some(ConcurrentStatementSyntax::ComponentInstantiationStatement(
-                    ComponentInstantiationStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ConcurrentSelectedSignalAssignment => Some(
+            ));
+        };
+        if ConcurrentAssertionStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::ConcurrentAssertionStatement(
+                ConcurrentAssertionStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ComponentInstantiationStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::ComponentInstantiationStatement(
+                ComponentInstantiationStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConcurrentSelectedSignalAssignmentSyntax::can_cast(&node) {
+            return Some(
                 ConcurrentStatementSyntax::ConcurrentSelectedSignalAssignment(
                     ConcurrentSelectedSignalAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::ConcurrentConditionalSignalAssignment => Some(
+            );
+        };
+        if ConcurrentConditionalSignalAssignmentSyntax::can_cast(&node) {
+            return Some(
                 ConcurrentStatementSyntax::ConcurrentConditionalSignalAssignment(
                     ConcurrentConditionalSignalAssignmentSyntax::cast(node).unwrap(),
                 ),
-            ),
-            NodeKind::ConcurrentSimpleSignalAssignment => {
-                Some(ConcurrentStatementSyntax::ConcurrentSimpleSignalAssignment(
-                    ConcurrentSimpleSignalAssignmentSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement => Some(
+            );
+        };
+        if ConcurrentSimpleSignalAssignmentSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::ConcurrentSimpleSignalAssignment(
+                ConcurrentSimpleSignalAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConcurrentProcedureCallOrComponentInstantiationStatementSyntax::can_cast(&node) {
+            return Some(
                 ConcurrentStatementSyntax::ConcurrentProcedureCallOrComponentInstantiationStatement(
                     ConcurrentProcedureCallOrComponentInstantiationStatementSyntax::cast(node)
                         .unwrap(),
                 ),
-            ),
-            NodeKind::ForGenerateStatement => {
-                Some(ConcurrentStatementSyntax::ForGenerateStatement(
-                    ForGenerateStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::IfGenerateStatement => Some(ConcurrentStatementSyntax::IfGenerateStatement(
+            );
+        };
+        if ForGenerateStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::ForGenerateStatement(
+                ForGenerateStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if IfGenerateStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::IfGenerateStatement(
                 IfGenerateStatementSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::CaseGenerateStatement => {
-                Some(ConcurrentStatementSyntax::CaseGenerateStatement(
-                    CaseGenerateStatementSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::PslDirective => Some(ConcurrentStatementSyntax::PslDirective(
+            ));
+        };
+        if CaseGenerateStatementSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::CaseGenerateStatement(
+                CaseGenerateStatementSyntax::cast(node).unwrap(),
+            ));
+        };
+        if PslDirectiveSyntax::can_cast(&node) {
+            return Some(ConcurrentStatementSyntax::PslDirective(
                 PslDirectiveSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        BlockStatementSyntax::can_cast(node)
+            || ProcessStatementSyntax::can_cast(node)
+            || ConcurrentAssertionStatementSyntax::can_cast(node)
+            || ComponentInstantiationStatementSyntax::can_cast(node)
+            || ConcurrentSelectedSignalAssignmentSyntax::can_cast(node)
+            || ConcurrentConditionalSignalAssignmentSyntax::can_cast(node)
+            || ConcurrentSimpleSignalAssignmentSyntax::can_cast(node)
+            || ConcurrentProcedureCallOrComponentInstantiationStatementSyntax::can_cast(node)
+            || ForGenerateStatementSyntax::can_cast(node)
+            || IfGenerateStatementSyntax::can_cast(node)
+            || CaseGenerateStatementSyntax::can_cast(node)
+            || PslDirectiveSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -731,6 +785,9 @@ impl AstNode for ForGenerateStatementSyntax {
             NodeKind::ForGenerateStatement => Some(ForGenerateStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ForGenerateStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -798,6 +855,9 @@ impl AstNode for GenerateStatementBodySyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenerateStatementBody)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -847,6 +907,9 @@ impl AstNode for IfGenerateElsifSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfGenerateElsif)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -886,6 +949,9 @@ impl AstNode for IfGenerateElseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfGenerateElse)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -921,6 +987,9 @@ impl AstNode for IfGenerateStatementSyntax {
             NodeKind::IfGenerateStatement => Some(IfGenerateStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfGenerateStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -996,24 +1065,27 @@ pub enum InstantiatedUnitSyntax {
 }
 impl AstNode for InstantiatedUnitSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ComponentInstantiatedUnit => {
-                Some(InstantiatedUnitSyntax::ComponentInstantiatedUnit(
-                    ComponentInstantiatedUnitSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::EntityInstantiatedUnit => {
-                Some(InstantiatedUnitSyntax::EntityInstantiatedUnit(
-                    EntityInstantiatedUnitSyntax::cast(node).unwrap(),
-                ))
-            }
-            NodeKind::ConfigurationInstantiatedUnit => {
-                Some(InstantiatedUnitSyntax::ConfigurationInstantiatedUnit(
-                    ConfigurationInstantiatedUnitSyntax::cast(node).unwrap(),
-                ))
-            }
-            _ => None,
-        }
+        if ComponentInstantiatedUnitSyntax::can_cast(&node) {
+            return Some(InstantiatedUnitSyntax::ComponentInstantiatedUnit(
+                ComponentInstantiatedUnitSyntax::cast(node).unwrap(),
+            ));
+        };
+        if EntityInstantiatedUnitSyntax::can_cast(&node) {
+            return Some(InstantiatedUnitSyntax::EntityInstantiatedUnit(
+                EntityInstantiatedUnitSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConfigurationInstantiatedUnitSyntax::can_cast(&node) {
+            return Some(InstantiatedUnitSyntax::ConfigurationInstantiatedUnit(
+                ConfigurationInstantiatedUnitSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        ComponentInstantiatedUnitSyntax::can_cast(node)
+            || EntityInstantiatedUnitSyntax::can_cast(node)
+            || ConfigurationInstantiatedUnitSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1032,6 +1104,9 @@ impl AstNode for ComponentInstantiatedUnitSyntax {
             NodeKind::ComponentInstantiatedUnit => Some(ComponentInstantiatedUnitSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentInstantiatedUnit)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1056,6 +1131,9 @@ impl AstNode for EntityInstantiatedUnitSyntax {
             NodeKind::EntityInstantiatedUnit => Some(EntityInstantiatedUnitSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::EntityInstantiatedUnit)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1101,6 +1179,9 @@ impl AstNode for ConfigurationInstantiatedUnitSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConfigurationInstantiatedUnit)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1125,6 +1206,9 @@ impl AstNode for AllSensitivityListSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::AllSensitivityList)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -1138,26 +1222,55 @@ impl AllSensitivityListSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SensitivityListSyntax(pub(crate) SyntaxNode);
+impl AstNode for SensitivityListSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SensitivityList => Some(SensitivityListSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SensitivityList)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SensitivityListSyntax {
+    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
+        self.0.children().filter_map(NameSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0.tokens().filter(|token| token.kind() == Comma)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ProcessSensitivityListSyntax {
     AllSensitivityList(AllSensitivityListSyntax),
-    NameList(NameListSyntax),
+    SensitivityList(SensitivityListSyntax),
 }
 impl AstNode for ProcessSensitivityListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AllSensitivityList => Some(ProcessSensitivityListSyntax::AllSensitivityList(
+        if AllSensitivityListSyntax::can_cast(&node) {
+            return Some(ProcessSensitivityListSyntax::AllSensitivityList(
                 AllSensitivityListSyntax::cast(node).unwrap(),
-            )),
-            NodeKind::NameList => Some(ProcessSensitivityListSyntax::NameList(
-                NameListSyntax::cast(node).unwrap(),
-            )),
-            _ => None,
-        }
+            ));
+        };
+        if SensitivityListSyntax::can_cast(&node) {
+            return Some(ProcessSensitivityListSyntax::SensitivityList(
+                SensitivityListSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        AllSensitivityListSyntax::can_cast(node) || SensitivityListSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
         match self {
             ProcessSensitivityListSyntax::AllSensitivityList(inner) => inner.raw(),
-            ProcessSensitivityListSyntax::NameList(inner) => inner.raw(),
+            ProcessSensitivityListSyntax::SensitivityList(inner) => inner.raw(),
         }
     }
 }
@@ -1172,6 +1285,9 @@ impl AstNode for ParenthesizedProcessSensitivityListSyntax {
             }
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ParenthesizedProcessSensitivityList)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1205,6 +1321,9 @@ impl AstNode for ProcessStatementSyntax {
             NodeKind::ProcessStatement => Some(ProcessStatementSyntax(node)),
             _ => None,
         }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProcessStatement)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

@@ -65,7 +65,7 @@ RelativePathname: !Sequence
   - node: PartialPathname
 
 PartialPathname: !Sequence
-  - node: ParenthesizedExpressionOrAggregate
+  - node: Name
     repeated: true
   - token: Dot
     repeated: true

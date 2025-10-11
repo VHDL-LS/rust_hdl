@@ -37,11 +37,17 @@ BlockSpecification: !Sequence
   - node: GenerateSpecification
     parenthesized: true
 
-GenerateSpecification: !Choice
+DiscreteRangeGenerateSpecification: !Sequence
   - node: DiscreteRange
+
+NameGenerateSpecification: !Sequence
   - node: Expression
 
-ComponentConfiguration: !Sequence
+GenerateSpecification: !Choice
+  - node: DiscreteRangeGenerateSpecification
+  - node: NameGenerateSpecification
+
+ComponentConfigurationItem: !Sequence
   - keyword: For
   - node: ComponentSpecification
   - node: BindingIndication
@@ -76,9 +82,12 @@ ConfigurationDeclaration: !Sequence
     name: trailing_name
   - token: SemiColon
 
-ConfigurationItem: !Choice
+BlockConfigurationItem: !Sequence
   - node: BlockConfiguration
-  - node: ComponentConfiguration
+
+ConfigurationItem: !Choice
+  - node: BlockConfigurationItem
+  - node: ComponentConfigurationItem
 
 EntityDeclaration: !Sequence
   - keyword: Entity

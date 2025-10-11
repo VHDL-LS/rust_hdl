@@ -112,13 +112,14 @@ impl<T: TokenStream> Parser<T> {
         }
     }
 
-    pub(crate) fn expect_one_of_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) {
+    pub(crate) fn expect_one_of_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) -> Option<TokenKind> {
         for kind in kinds {
             if self.opt_token(kind) {
-                return;
+                return Some(kind);
             }
         }
         self.expect_tokens_err(kinds);
+        None
     }
 
     pub(crate) fn peek_token(&self) -> Option<TokenKind> {

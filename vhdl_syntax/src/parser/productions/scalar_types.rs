@@ -36,7 +36,7 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn enumeration_literal(&mut self) {
-        self.expect_one_of_tokens([Identifier, CharacterLiteral])
+        self.expect_one_of_tokens([Identifier, CharacterLiteral]);
     }
 
     pub fn range(&mut self) {
@@ -48,17 +48,18 @@ impl<T: TokenStream> Parser<T> {
 
         // `max_index` should point to the end of the range to parse (exclusive).
         // This way the parser can use a bounded lookahead to distinguish between range expressions (using `to` or `downto`) and attribute names.
-        self.start_node(Range);
 
         let is_range_expression = self
             .lookahead_max_token_index(max_index, [Keyword(Kw::To), Keyword(Kw::Downto)])
             .is_ok();
 
         if is_range_expression {
+            self.start_node(RangeExpression);
             self.expression();
             self.expect_one_of_tokens([Keyword(Kw::To), Keyword(Kw::Downto)]);
             self.expression();
         } else {
+            self.start_node(AttributeRange);
             self.name_bounded(max_index);
         }
 
@@ -98,17 +99,18 @@ mod tests {
             Parser::type_declaration,
             "type positive_t is range 0 to C_MAX;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'positive_t'
   Keyword(Is)
   Keyword(Range)
-  Range
-    Literal
+  RangeExpression
+    LiteralExpression
       AbstractLiteral '0'
     Keyword(To)
-    Name
-      Identifier 'C_MAX'
+    NameExpression
+      Name
+        Identifier 'C_MAX'
   SemiColon
 ",
         );
@@ -120,16 +122,17 @@ TypeDeclaration
             Parser::type_declaration,
             "type some_float_t is range C_MAX downto 3.141592654;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'some_float_t'
   Keyword(Is)
   Keyword(Range)
-  Range
-    Name
-      Identifier 'C_MAX'
+  RangeExpression
+    NameExpression
+      Name
+        Identifier 'C_MAX'
     Keyword(Downto)
-    Literal
+    LiteralExpression
       AbstractLiteral '3.141592654'
   SemiColon
 ",
@@ -148,17 +151,17 @@ type dec_t is range 0 to 1e10 units
     alias_prim =   prim;
 end units;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'dec_t'
   Keyword(Is)
   PhysicalTypeDefinition
     Keyword(Range)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '1e10'
     Keyword(Units)
     PrimaryUnitDeclaration
@@ -197,17 +200,17 @@ type distance_t is range 0 to 10 units
     m;
 end units;",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'distance_t'
   Keyword(Is)
   PhysicalTypeDefinition
     Keyword(Range)
-    Range
-      Literal
+    RangeExpression
+      LiteralExpression
         AbstractLiteral '0'
       Keyword(To)
-      Literal
+      LiteralExpression
         AbstractLiteral '10'
     Keyword(Units)
     PrimaryUnitDeclaration
@@ -226,7 +229,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type enum_t is (A);",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'enum_t'
   Keyword(Is)
@@ -242,7 +245,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type enum_2_t is (S1, S2, S3);",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'enum_2_t'
   Keyword(Is)
@@ -262,7 +265,7 @@ TypeDeclaration
             Parser::type_declaration,
             "type chars_t is ('A', 'B');",
             "\
-TypeDeclaration
+FullTypeDeclaration
   Keyword(Type)
   Identifier 'chars_t'
   Keyword(Is)
@@ -283,11 +286,11 @@ TypeDeclaration
             Parser::range,
             "100 downto 10",
             "\
-Range
-  Literal
+RangeExpression
+  LiteralExpression
     AbstractLiteral '100'
   Keyword(Downto)
-  Literal
+  LiteralExpression
     AbstractLiteral '10'
 ",
         );
@@ -296,11 +299,11 @@ Range
             Parser::range,
             "0 to 0",
             "\
-Range
-  Literal
+RangeExpression
+  LiteralExpression
     AbstractLiteral '0'
   Keyword(To)
-  Literal
+  LiteralExpression
     AbstractLiteral '0'
 ",
         );
@@ -309,7 +312,7 @@ Range
             Parser::range,
             "slv32_t'range",
             "\
-Range
+AttributeRange
   Name
     Identifier 'slv32_t'
     AttributeName

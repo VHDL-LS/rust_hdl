@@ -19,6 +19,9 @@ impl AstNode for UseClauseSyntax {
             _ => None,
         }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UseClause)
+    }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
@@ -30,8 +33,8 @@ impl UseClauseSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Use))
             .nth(0)
     }
-    pub fn selected_names(&self) -> impl Iterator<Item = SelectedNameSyntax> + use<'_> {
-        self.0.children().filter_map(SelectedNameSyntax::cast)
+    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
+        self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0.tokens().filter(|token| token.kind() == Comma)

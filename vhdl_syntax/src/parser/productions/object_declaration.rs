@@ -114,7 +114,7 @@ ConstantDeclaration
   Colon
   Identifier 'std_ulogic'
   ColonEq
-  Literal
+  LiteralExpression
     CharacterLiteral ''0''
   SemiColon
 ",
@@ -151,7 +151,7 @@ SignalDeclaration
   Colon
   Identifier 'natural'
   ColonEq
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   SemiColon
 ",
@@ -182,7 +182,7 @@ SignalDeclaration
   Identifier 'bit'
   Keyword(Bus)
   ColonEq
-  Literal
+  LiteralExpression
     CharacterLiteral ''0''
   SemiColon
 ",
@@ -219,7 +219,7 @@ VariableDeclaration
   Colon
   Identifier 'natural'
   ColonEq
-  Literal
+  LiteralExpression
     AbstractLiteral '1'
   SemiColon
 ",
@@ -284,7 +284,7 @@ FileDeclaration
   Identifier 'bit'
   FileOpenInformation
     Keyword(Is)
-    Literal
+    LiteralExpression
       StringLiteral '\"./path_to_file.txt\"'
   SemiColon
 ",
@@ -301,10 +301,11 @@ FileDeclaration
   Identifier 'bit'
   FileOpenInformation
     Keyword(Open)
-    Name
-      Identifier 'WRITE_MODE'
+    NameExpression
+      Name
+        Identifier 'WRITE_MODE'
     Keyword(Is)
-    Literal
+    LiteralExpression
       StringLiteral '\"./path_to_file.txt\"'
   SemiColon
 ",
