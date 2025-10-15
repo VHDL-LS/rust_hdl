@@ -151,10 +151,10 @@ impl VHDLFormatter<'_> {
         });
         buffer.line_break();
         self.format_token_id(block.begin_token, buffer);
-        buffer.line_break();
         indented!(buffer, {
             self.format_concurrent_statements(&block.statements, buffer)
         });
+        buffer.line_break();
         self.format_token_span(
             TokenSpan::new(block.end_token, block.span.end_token - 1),
             buffer,
