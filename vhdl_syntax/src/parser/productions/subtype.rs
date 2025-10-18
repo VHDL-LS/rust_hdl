@@ -6,10 +6,13 @@
 
 use crate::parser::Parser;
 use crate::tokens::TokenStream;
+use crate::syntax::NodeKind::*;
 
 impl<T: TokenStream> Parser<T> {
     pub fn subtype_indication(&mut self) {
+        self.start_node(SubtypeIndication);
         // TODO
         self.identifier();
+        self.end_node();
     }
 }

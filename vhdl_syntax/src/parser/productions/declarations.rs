@@ -6,6 +6,7 @@
 
 use crate::parser::Parser;
 use crate::tokens::TokenKind::*;
+use crate::syntax::NodeKind::*;
 use crate::tokens::TokenStream;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
@@ -60,12 +61,18 @@ impl<T: TokenStream> Parser<T> {
                 Keyword(Kw::Constant) => self.constant_declaration(),
                 Keyword(Kw::Signal) => self.signal_declaration(),
                 Keyword(Kw::Attribute) => self.attribute_declaration(),
-                Keyword(Kw::Use) => self.use_clause(),
+                Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
                 Keyword(Kw::View) => self.view_declaration(),
                 _ => self.expect_tokens_err([Keyword(Kw::Type)]),
             }
         }
+    }
+
+    pub fn use_clause_declaration(&mut self) {
+        self.start_node(UseClauseDeclaration);
+        self.use_clause();
+        self.end_node();
     }
 
     pub fn configuration_specification(&mut self) {

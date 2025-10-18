@@ -13,6 +13,7 @@ use crate::tokens::Token;
 use std::collections::VecDeque;
 
 mod concurrent_statements;
+mod declarations;
 
 fn node<T: AstNode>(func: impl FnOnce(&mut Parser<VecDeque<Token>>), input: &str) -> T {
     let (entity, diagnostics) = input.parse_syntax(func);

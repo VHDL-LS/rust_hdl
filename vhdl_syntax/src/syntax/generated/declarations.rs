@@ -2262,10 +2262,10 @@ impl PortMapAspectSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Map))
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
-            .children()
-            .filter_map(InterfaceListSyntax::cast)
+            .tokens()
+            .filter(|token| token.kind() == LeftPar)
             .nth(0)
     }
     pub fn association_list(&self) -> Option<AssociationListSyntax> {
@@ -2274,10 +2274,10 @@ impl PortMapAspectSyntax {
             .filter_map(AssociationListSyntax::cast)
             .nth(0)
     }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == RightPar)
             .nth(0)
     }
 }

@@ -12,6 +12,7 @@ use crate::tokens::TokenStream;
 impl<T: TokenStream> Parser<T> {
     pub fn package_instantiation_declaration(&mut self) {
         self.start_node(PackageInstantiationDeclaration);
+        self.start_node(crate::syntax::node_kind::NodeKind::PackageInstantiation);
         self.expect_kw(crate::tokens::token_kind::Keyword::Package);
         self.identifier();
         self.expect_tokens([
@@ -20,6 +21,7 @@ impl<T: TokenStream> Parser<T> {
         ]);
         self.name();
         self.opt_generic_map_aspect();
+        self.end_node();
         self.expect_token(SemiColon);
         self.end_node();
     }

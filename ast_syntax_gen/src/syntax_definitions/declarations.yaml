@@ -359,9 +359,9 @@ PortClause: !Sequence
 PortMapAspect: !Sequence
   - keyword: Port
   - keyword: Map
-  - node: InterfaceList
+  - token: LeftPar
   - node: AssociationList
-  - token: SemiColon
+  - token: RightPar
 
 RecordElementResolution: !Sequence
   - token: Identifier

@@ -52,16 +52,15 @@ impl<T: TokenStream> Parser<T> {
             Some(Keyword(Kw::Signal | Kw::Constant | Kw::Variable) | Identifier) => {
                 self.interface_object_declaration();
             }
-            Some(Keyword(Kw::File)) => {}
-            Some(Keyword(Kw::Type)) => {}
-            Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => {}
-            Some(Keyword(Kw::Package)) => {}
-            _ => {}
+            Some(Keyword(Kw::File)) => todo!(),
+            Some(Keyword(Kw::Type)) => todo!(),
+            Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => todo!(),
+            Some(Keyword(Kw::Package)) => todo!(),
+            _ => todo!()
         }
     }
 
     pub fn interface_object_declaration(&mut self) {
-      // TODO: file
         let checkpoint = self.checkpoint();
         let tok = self.opt_tokens([
             Keyword(Kw::Signal),

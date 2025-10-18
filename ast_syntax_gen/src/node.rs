@@ -82,10 +82,6 @@ impl NodeRef {
         format_ident!("{}", self.kind.to_case(Case::UpperCamel))
     }
 
-    fn node_kind_ident(&self) -> Ident {
-        format_ident!("{}", self.kind.to_case(Case::UpperCamel))
-    }
-
     pub fn build_getter(&self) -> TokenStream {
         let fn_name = self.getter_name();
         let syntax_name = self.syntax_name();

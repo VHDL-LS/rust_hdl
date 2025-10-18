@@ -17,6 +17,7 @@ mod identifier;
 mod interface;
 mod names;
 mod object_declaration;
+mod package;
 mod package_instantiation;
 mod scalar_types;
 mod sequential_statement;
