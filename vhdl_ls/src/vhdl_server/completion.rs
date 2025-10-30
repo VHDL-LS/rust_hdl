@@ -28,7 +28,10 @@ impl VHDLServer {
                 let mut item = self.entity_to_completion_item(ent);
                 if self.client_supports_snippets() {
                     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-                    item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
+                    item.insert_text = Some(format!(
+                        "{} => $1,",
+                        item.insert_text.as_ref().unwrap_or(&item.label)
+                    ));
                 }
                 item
             }
