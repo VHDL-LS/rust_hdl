@@ -291,11 +291,11 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 if self.peek() == Some(b'-') {
                     self.skip();
                     self.skip();
-                    let mut comment = Latin1String::default();
+                    let mut comment = Vec::default();
                     while let Some(ch) = self.skip_if(|ch| !matches!(ch, b'\r' | b'\n')) {
                         comment.push(ch);
                     }
-                    TriviaPiece::LineComment(comment.to_string())
+                    TriviaPiece::LineComment(String::from_utf8(comment).expect("Invalid utf-8 in comments"))
                 } else {
                     return None;
                 }
@@ -304,7 +304,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 if self.peek() == Some(b'*') {
                     self.skip();
                     self.skip();
-                    let mut comment = Latin1String::default();
+                    let mut comment = Vec::default();
                     loop {
                         if self.current == Some(b'*') && self.peek() == Some(b'/') {
                             self.skip();
@@ -314,7 +314,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                         let Some(ch) = self.skip() else { break };
                         comment.push(ch)
                     }
-                    TriviaPiece::BlockComment(comment.to_string())
+                    TriviaPiece::BlockComment(String::from_utf8(comment).expect("Invalid utf-8 in comments"))
                 } else {
                     return None;
                 }
