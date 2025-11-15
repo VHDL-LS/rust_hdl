@@ -16,8 +16,10 @@ ArchitectureBody: !Sequence
   - keyword: End
   - keyword: Architecture
     name: trailing_architecture
+    optional: true
   - token: Identifier
     name: trailing_name
+    optional: true
   - token: SemiColon
 
 BlockConfiguration: !Sequence

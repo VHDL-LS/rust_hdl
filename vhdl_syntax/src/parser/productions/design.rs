@@ -5,7 +5,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
-use crate::match_next_token;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -25,33 +24,38 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn design_unit(&mut self) {
-        if !self.tokenizer.has_next() {
-            self.eof_err();
-            return;
-        }
         self.start_node(NodeKind::DesignUnit);
         self.context_clause();
-        match_next_token!(self,
-            Keyword(Kw::Entity) => self.entity(),
-            Keyword(Kw::Configuration) => todo!(),
-            Keyword(Kw::Package) => todo!(),
-            Keyword(Kw::Context) => todo!(),
-            Keyword(Kw::Architecture) => todo!()
-        );
+        match self.peek_token() {
+            Some(Keyword(Kw::Architecture)) => self.architecture(),
+            Some(Keyword(Kw::Package)) => {
+                if self.next_nth_is(Keyword(Kw::Body), 1) {
+                    self.start_node(NodeKind::SecondaryUnitPackageBody);
+                    self.package_body();
+                    self.end_node();
+                } else if self.next_nth_is(Keyword(Kw::New), 3) {
+                    self.package_instantiation_declaration();
+                } else {
+                    self.package_declaration();
+                }
+            }
+            Some(Keyword(Kw::Entity)) => self.entity(),
+            Some(Keyword(Kw::Configuration)) => todo!(),
+            Some(Keyword(Kw::Context)) => todo!(),
+            Some(_) => todo!("token: {:?}", self.tokenizer.peek(0).unwrap()),
+            None => {},
+        }
         self.end_node();
     }
 
     pub fn context_clause(&mut self) {
         self.start_node(NodeKind::ContextClause);
         loop {
-            match self.tokenizer.peek_next() {
-                Some(tok) => match tok.kind() {
-                    Keyword(Kw::Use) => self.use_clause(),
-                    Keyword(Kw::Library) => self.library_clause(),
-                    Keyword(Kw::Context) => self.context_reference(),
-                    _ => break,
-                },
-                _ => self.eof_err(),
+            match self.peek_token() {
+              Some(Keyword(Kw::Use)) => self.use_clause(),
+              Some(Keyword(Kw::Library)) => self.library_clause(),
+              Some(Keyword(Kw::Context)) => self.context_reference(),
+              _ => break
             }
         }
         self.end_node();

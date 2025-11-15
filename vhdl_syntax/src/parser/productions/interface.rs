@@ -21,7 +21,9 @@ impl<T: TokenStream> Parser<T> {
         self.start_node(GenericClause);
         self.expect_kw(Kw::Generic);
         self.expect_token(LeftPar);
-        self.interface_list();
+          if !(self.next_is(RightPar)) {
+          self.interface_list();
+        }
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
     }
@@ -36,7 +38,9 @@ impl<T: TokenStream> Parser<T> {
         self.start_node(PortClause);
         self.expect_kw(Kw::Port);
         self.expect_token(LeftPar);
-        self.interface_list();
+        if !(self.next_is(RightPar)) {
+          self.interface_list();
+        }
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
     }
@@ -203,7 +207,6 @@ AssociationList
 GenericClause
   Keyword(Generic)
   LeftPar
-  InterfaceList
   RightPar
   SemiColon
 ",
@@ -219,7 +222,6 @@ GenericClause
 PortClause
   Keyword(Port)
   LeftPar
-  InterfaceList
   RightPar
   SemiColon
 ",
@@ -237,7 +239,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(In)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -249,7 +252,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(Out)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -262,7 +266,8 @@ InterfaceSignalDeclaration
     Identifier 'a'
   Colon
   Keyword(Out)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -275,7 +280,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(Out)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -287,7 +293,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(Inout)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -299,7 +306,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(Linkage)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -311,7 +319,8 @@ InterfaceConstantDeclaration
     Identifier 'a'
   Colon
   Keyword(Buffer)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
         check(
@@ -327,8 +336,30 @@ InterfaceConstantDeclaration
     Identifier 'c'
   Colon
   Keyword(In)
-  Identifier 'std_logic'
+  SubtypeIndication
+    Identifier 'std_logic'
 ",
         );
     }
+
+      #[test]
+  fn subtype_indication_in_interface_declaration() {
+    check(
+            Parser::interface_declaration,
+            "a : std_ulogic_vector(31 downto 0)",
+            "\
+InterfaceConstantDeclaration
+  IdentifierList
+    Identifier 'a'
+    Comma
+    Identifier 'b'
+    Comma
+    Identifier 'c'
+  Colon
+  Keyword(In)
+  SubtypeIndication
+    Identifier 'std_logic'
+",
+        );
+  }
 }

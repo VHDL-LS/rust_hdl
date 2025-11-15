@@ -64,7 +64,10 @@ impl<T: TokenStream> Parser<T> {
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
                 Keyword(Kw::View) => self.view_declaration(),
-                _ => self.expect_tokens_err([Keyword(Kw::Type)]),
+                _ => {
+                    self.skip();
+                    self.expect_tokens_err([Keyword(Kw::Type)])
+                },
             }
         }
     }
@@ -72,6 +75,12 @@ impl<T: TokenStream> Parser<T> {
     pub fn use_clause_declaration(&mut self) {
         self.start_node(UseClauseDeclaration);
         self.use_clause();
+        self.end_node();
+    }
+
+    pub fn package_declaration(&mut self) {
+        self.start_node(PackageDeclaration);
+        self.package();
         self.end_node();
     }
 

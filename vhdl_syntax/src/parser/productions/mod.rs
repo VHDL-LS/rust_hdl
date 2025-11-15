@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 mod alias_declaration;
+mod architecture;
 mod association_lists;
 mod attributes;
 mod component_declaration;

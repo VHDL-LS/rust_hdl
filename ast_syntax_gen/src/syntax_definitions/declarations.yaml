@@ -412,7 +412,6 @@ SubtypeDeclaration: !Sequence
 SubtypeIndication: !Sequence
   - node: ResolutionIndication
   - node: Name
-  - node: Constraint
 
 TypeDeclaration: !Choice
   - node: FullTypeDeclaration

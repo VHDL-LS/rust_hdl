@@ -177,7 +177,17 @@ impl<T: TokenStream> Parser<T> {
     fn conditional_waveforms_after_first_when(&mut self) {
         self.expression();
         while self.next_is(Keyword(Kw::Else)) {
-            todo!()
+          let checkpoint = self.checkpoint();
+          self.expect_kw(Kw::Else);
+          self.waveform();
+          if self.opt_token(Keyword(Kw::When)) {
+            self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
+            self.expression();
+          } else {
+            self.start_node_at(checkpoint, ConditionalWaveformElseItem);
+            self.end_node();
+            break;
+          }
         }
     }
 
@@ -319,7 +329,7 @@ impl<T: TokenStream> Parser<T> {
         self.opt_token(Keyword(Kw::Is));
         self.declarative_part();
         self.expect_token(Keyword(Kw::Begin));
-        self.concurrent_statements();
+        self.sequence_of_statements();
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_token(Keyword(Kw::Process));

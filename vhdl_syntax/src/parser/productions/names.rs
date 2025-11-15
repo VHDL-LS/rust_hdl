@@ -251,6 +251,13 @@ impl<T: TokenStream> Parser<T> {
         if self.opt_token(Keyword(Kw::Others)) {
             return;
         }
+        let checkpoint = self.checkpoint();
         self.expression(); // TODO: can also be discrete range
+        if self.next_is_one_of([Keyword(Kw::To), Keyword(Kw::Downto)]) {
+            self.skip();
+            self.start_node_at(checkpoint, RangeExpression);
+            self.expression();
+            self.end_node();
+        }
     }
 }

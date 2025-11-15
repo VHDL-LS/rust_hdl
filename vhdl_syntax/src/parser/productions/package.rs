@@ -10,11 +10,12 @@ impl<T: TokenStream> Parser<T> {
         self.start_node(Package);
         self.expect_kw(Kw::Package);
         self.identifier();
+        self.expect_kw(Kw::Is);
         self.package_header();
         self.declarative_part();
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Package));
-        self.identifier();
+        self.opt_identifier();
         self.expect_token(SemiColon);
         self.end_node();
     }
@@ -24,6 +25,21 @@ impl<T: TokenStream> Parser<T> {
         self.opt_generic_clause();
         self.opt_generic_map_aspect();
         self.opt_token(SemiColon);
+        self.end_node();
+    }
+
+    pub fn package_body(&mut self) {
+        self.start_node(PackageBody);
+        self.expect_kw(Kw::Package);
+        self.expect_kw(Kw::Body);
+        self.identifier();
+        self.expect_kw(Kw::Is);
+        self.declarative_part();
+        self.expect_kw(Kw::End);
+        self.opt_token(Keyword(Kw::Package));
+        self.opt_token(Keyword(Kw::Body));
+        self.opt_identifier();
+        self.expect_token(SemiColon);
         self.end_node();
     }
 }

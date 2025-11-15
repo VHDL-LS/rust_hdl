@@ -302,7 +302,7 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Keyword(Kw::Return)) => {
                 self.start_node_at(checkpoint, ReturnStatement);
-                self.next_or_exit_statement_inner(Kw::Return);
+                self.return_statement_inner();
             }
             Some(Keyword(Kw::Null)) => {
                 self.start_node_at(checkpoint, NullStatement);
@@ -399,10 +399,10 @@ impl<T: TokenStream> Parser<T> {
                     Some(SemiColon) => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
                     }
-                    _ => todo!(),
+                    _ => todo!("token = {}", self.tokenizer.peek_next().unwrap()),
                 }
             }
-            _ => todo!(),
+            _ => todo!("token = {}", self.tokenizer.peek_next().unwrap()),
         }
         self.expect_token(SemiColon);
         self.end_node();

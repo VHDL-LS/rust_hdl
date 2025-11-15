@@ -7,12 +7,29 @@
 use crate::parser::Parser;
 use crate::tokens::TokenStream;
 use crate::syntax::NodeKind::*;
+use crate::tokens::TokenKind::*;
+use crate::tokens::Keyword as Kw;
 
 impl<T: TokenStream> Parser<T> {
     pub fn subtype_indication(&mut self) {
         self.start_node(SubtypeIndication);
-        // TODO
-        self.identifier();
+        if self.next_is(LeftPar) {
+            todo!()
+        } else {
+            self.name();
+        }
+        self.opt_constraint();
+        // TODO: constraints
         self.end_node();
+    }
+
+    fn opt_constraint(&mut self) {
+        if self.next_is(Keyword(Kw::Range)) {
+            self.start_node(RangeConstraint);
+            self.skip();
+            self.range();
+            self.end_node();
+        }
+        // all other constraints are handled by `name`
     }
 }

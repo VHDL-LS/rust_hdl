@@ -29,7 +29,6 @@ impl<T: TokenStream> Parser<T> {
             true
         } else if self.opt_token(Keyword(Kw::Procedure)) {
             self.start_node(ProcedureSpecification);
-            self.skip();
             false
         } else {
             self.expect_tokens_err([
@@ -78,7 +77,7 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::Is);
         self.declarative_part();
         self.expect_kw(Kw::Begin);
-        self.concurrent_statements();
+        self.sequence_of_statements();
         self.expect_kw(Kw::End);
         self.subprogram_kind();
         self.opt_designator();
