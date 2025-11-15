@@ -70,8 +70,6 @@ impl<T: TokenStream> Parser<T> {
     pub fn discrete_range(&mut self) {
         // One of the following tokens must follow after a `discrete_range`.
         //    FOLLOW(discrete_range) := "," | ")" | "|" | "=>" | "generate" | "loop" | ";"
-        // If a `to` or `downto` is found before any of the other tokens, the discrete range is a `range`!
-        // Otherwise put everything before in a `RawTokens` node!
         let end_of_range = match self.lookahead([
             Comma,
             RightPar,
@@ -79,9 +77,7 @@ impl<T: TokenStream> Parser<T> {
             Bar,
             Keyword(Kw::Generate),
             Keyword(Kw::Loop),
-            SemiColon,
-            Keyword(Kw::To),
-            Keyword(Kw::Downto),
+            SemiColon
         ]) {
             Ok((tok, end_index)) => Some((tok, end_index)),
             // If EOF is reached, the range cannot be parsed correctly
@@ -96,14 +92,10 @@ impl<T: TokenStream> Parser<T> {
             Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
         };
 
-        if let Some((tok, end_index)) = end_of_range {
-            if tok == Keyword(Kw::To) || tok == Keyword(Kw::Downto) {
-                self.range();
-            } else {
-                self.start_node(RawTokens);
-                self.skip_to(end_index);
-                self.end_node();
-            }
+        if let Some((_, end_index)) = end_of_range {
+            self.start_node(RawTokens);
+            self.skip_to(end_index);
+            self.end_node();
         }
     }
 }
