@@ -81,6 +81,14 @@ impl<T: TokenStream> Parser<T> {
         self.expect_one_of_tokens([Identifier, CharacterLiteral, StringLiteral]);
     }
 
+    pub(crate) fn attribute_declaration_or_specification(&mut self) {
+      if self.next_nth_is(Keyword(Kw::Of), 2) {
+        self.attribute_specification();
+      } else {
+        self.attribute_declaration();
+      }
+    }
+
     pub(crate) fn attribute_declaration(&mut self) {
         self.start_node(AttributeDeclaration);
         self.expect_kw(Kw::Attribute);

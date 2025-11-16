@@ -148,15 +148,18 @@ impl<T: TokenStream> Parser<T> {
             }
             self.expect_token(Tick);
 
-            // `range` is a keyword, but may appear as an `attribute_name`
-            if !self.opt_identifier() {
-                self.expect_kw(Kw::Range);
+            // Enable qualified expressions
+            if !self.next_is(LeftPar) {
+                // `range` is a keyword, but may appear as an `attribute_name`
+                if !self.opt_identifier() {
+                    self.expect_kw(Kw::Range);
+                }
             }
 
             if self.next_is(LeftPar) {
                 self.start_node(ParenthesizedExpressionOrAggregate);
                 self.expect_token(LeftPar);
-                self.expression();
+                self.separated_list(Parser::expression, Comma);
                 self.expect_token(RightPar);
                 self.end_node();
             }

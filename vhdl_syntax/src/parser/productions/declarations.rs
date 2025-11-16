@@ -60,7 +60,7 @@ impl<T: TokenStream> Parser<T> {
                 Keyword(Kw::Shared | Kw::Variable) => self.variable_declaration(),
                 Keyword(Kw::Constant) => self.constant_declaration(),
                 Keyword(Kw::Signal) => self.signal_declaration(),
-                Keyword(Kw::Attribute) => self.attribute_declaration(),
+                Keyword(Kw::Attribute) => self.attribute_declaration_or_specification(),
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
                 Keyword(Kw::View) => self.view_declaration(),

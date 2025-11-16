@@ -59,8 +59,19 @@ impl<T: TokenStream> Parser<T> {
                 self.start_node(ParenthesizedExpressionOrAggregate);
                 self.aggregate_inner();
                 self.end_node();
+            },
+            Keyword(Kw::New) => {
+              self.allocator();
             }
         );
+    }
+
+    pub fn allocator(&mut self) {
+      self.start_node(ExpressionAllocator);
+      self.expect_kw(Kw::New);
+      // TODO: This is still incorrect
+      self.name();
+      self.end_node();
     }
 
     fn unary_expression(&mut self) {
