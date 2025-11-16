@@ -13,7 +13,7 @@ fn main() {
 
     check_parsing_and_reemitting(args);
 
-    // check_file("/Users/lukasscheller/IdeaProjects/rust_hdl/example_project/PoC/tb/cache/cache_mem_tb.vhdl");
+    // check_file("/Users/lukasscheller/IdeaProjects/rust_hdl/example_project/PoC/tb/arith/arith_firstone_tb.vhdl");
 }
 
 fn check_parsing_and_reemitting(args: Vec<&'static str>) {

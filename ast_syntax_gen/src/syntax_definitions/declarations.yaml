@@ -227,11 +227,11 @@ InterfaceFileDeclaration: !Sequence
 
 InterfaceFunctionSpecification: !Sequence
   - node: FunctionPurity
+    optional: true
   - keyword: Function
   - node: Designator
-  - keyword: Parameter
-  - token: LeftPar
-  - node: InterfaceList
+  - node: ParameterList
+    optional: true
   - keyword: Return
   - node: Name
 
