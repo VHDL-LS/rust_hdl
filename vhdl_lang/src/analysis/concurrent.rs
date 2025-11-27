@@ -197,6 +197,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     sels:
                         Selection {
                             ref mut expression,
+                            is_matching: _,
                             ref mut alternatives,
                         },
                     end_label_pos: _,
