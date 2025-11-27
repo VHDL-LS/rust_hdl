@@ -59,7 +59,7 @@ impl<T: TokenStream> Parser<T> {
             Some(Keyword(Kw::File)) => self.interface_file_declaration(),
             Some(Keyword(Kw::Type)) => self.interface_type_declaration(),
             Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => self.interface_subprogram_declaration(),
-            Some(Keyword(Kw::Package)) => todo!(),
+            Some(Keyword(Kw::Package)) => self.interface_package_declaration(),
             _ => todo!()
         }
     }
@@ -82,7 +82,21 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn interface_subprogram_declaration(&mut self) {
       self.start_node(InterfaceSubprogramDeclaration);
+      self.interface_subprogram_specification();
+      if self.opt_token(Keyword(Kw::Is)) {
+        self.interface_subprogram_default();
+      }
       self.end_node();
+    }
+
+    pub fn interface_subprogram_default(&mut self) {
+      if self.next_is(BOX) {
+        self.skip_into_node(InterfaceSubprogramDefaultBox);
+      } else {
+        self.start_node(InterfaceSubprogramDefaultName);
+        self.name();
+        self.end_node();
+      }
     }
 
     pub fn interface_subprogram_specification(&mut self) {
@@ -117,7 +131,7 @@ impl<T: TokenStream> Parser<T> {
       self.start_node(ParameterList);
       self.opt_token(Keyword(Kw::Parameter));
       self.expect_token(LeftPar);
-      self.identifier_list();
+      self.interface_list();
       self.expect_token(RightPar);
       self.expect_kw(Kw::Return);
       self.type_mark();

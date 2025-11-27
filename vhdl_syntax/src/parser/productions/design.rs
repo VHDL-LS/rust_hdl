@@ -25,6 +25,7 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn design_unit(&mut self) {
         self.start_node(NodeKind::DesignUnit);
+        
         self.context_clause();
         match self.peek_token() {
             Some(Keyword(Kw::Architecture)) => self.architecture(),
@@ -41,11 +42,24 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Keyword(Kw::Entity)) => self.entity(),
             Some(Keyword(Kw::Configuration)) => todo!(),
-            Some(Keyword(Kw::Context)) => todo!(),
+            Some(Keyword(Kw::Context)) => self.context_declaration(),
             Some(_) => todo!("token: {:?}", self.tokenizer.peek(0).unwrap()),
             None => {},
         }
         self.end_node();
+    }
+
+    pub fn context_declaration(&mut self) {
+      self.start_node(NodeKind::ContextDeclaration);
+      self.expect_kw(Kw::Context);
+      self.identifier();
+      self.expect_kw(Kw::Is);
+      self.context_clause();
+      self.expect_kw(Kw::End);
+      self.opt_token(Keyword(Kw::Context));
+      self.opt_identifier();
+      self.expect_token(SemiColon);
+      self.end_node();
     }
 
     pub fn context_clause(&mut self) {
@@ -54,7 +68,13 @@ impl<T: TokenStream> Parser<T> {
             match self.peek_token() {
               Some(Keyword(Kw::Use)) => self.use_clause(),
               Some(Keyword(Kw::Library)) => self.library_clause(),
-              Some(Keyword(Kw::Context)) => self.context_reference(),
+              Some(Keyword(Kw::Context)) => {
+                if !self.next_nth_is(Keyword(Kw::Is), 2) {
+                  self.context_reference()
+                } else {
+                    break;
+                }
+              },
               _ => break
             }
         }
@@ -78,7 +98,11 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn context_reference(&mut self) {
-        todo!();
+        self.start_node(NodeKind::ContextReference);
+        self.expect_kw(Kw::Context);
+        self.name_list();
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 }
 

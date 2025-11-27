@@ -159,7 +159,7 @@ impl<T: TokenStream> Parser<T> {
             if self.next_is(LeftPar) {
                 self.start_node(ParenthesizedExpressionOrAggregate);
                 self.expect_token(LeftPar);
-                self.separated_list(Parser::expression, Comma);
+                self.association_list();
                 self.expect_token(RightPar);
                 self.end_node();
             }
