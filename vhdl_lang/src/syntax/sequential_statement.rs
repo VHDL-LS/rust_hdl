@@ -393,6 +393,7 @@ where
 pub fn parse_selection<T, F>(
     ctx: &mut ParsingContext<'_>,
     expression: WithTokenSpan<Expression>,
+    is_matching: bool,
     parse_item: F,
 ) -> ParseResult<Selection<T>>
 where
@@ -422,6 +423,7 @@ where
 
     Ok(Selection {
         expression,
+        is_matching,
         alternatives,
     })
 }
@@ -520,12 +522,13 @@ pub fn parse_target(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<T
 fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<SequentialStatement> {
     let expression = parse_expression(ctx)?;
     ctx.stream.expect_kind(Select)?;
+    let is_matching = ctx.stream.pop_if_kind(Que).is_some();
     let target = parse_target(ctx)?;
     expect_token!(
         ctx.stream,
         token,
         ColonEq => {
-            let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?);
+            let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, is_matching, parse_expression)?);
             Ok(SequentialStatement::VariableAssignment(VariableAssignment {
                 target,
                 rhs,
@@ -536,13 +539,13 @@ fn parse_selected_assignment(ctx: &mut ParsingContext<'_>) -> ParseResult<Sequen
                 Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                     target,
                     force_mode: parse_optional_force_mode(ctx)?,
-                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_expression)?)
+                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, is_matching, parse_expression)?)
                 }))
             } else {
                 Ok(SequentialStatement::SignalAssignment(SignalAssignment {
                     target,
                     delay_mechanism: parse_delay_mechanism(ctx)?,
-                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?)
+                    rhs: AssignmentRightHand::Selected(parse_selection(ctx, expression, is_matching, parse_waveform)?)
                 }))
             }
         }
@@ -1097,6 +1100,7 @@ with x(0) + 1 select
 
         let selection = Selection {
             expression: code.s1("x(0) + 1").expr(),
+            is_matching: false,
             alternatives: vec![
                 Alternative {
                     choices: code.s1("0|1").choices(),
@@ -1246,6 +1250,7 @@ with x(0) + 1 select
 
         let selection = Selection {
             expression: code.s1("x(0) + 1").expr(),
+            is_matching: false,
             alternatives: vec![
                 Alternative {
                     choices: code.s1("0|1").choices(),
@@ -1290,6 +1295,7 @@ with x(0) + 1 select
 
         let selection = Selection {
             expression: code.s1("x(0) + 1").expr(),
+            is_matching: false,
             alternatives: vec![
                 Alternative {
                     choices: code.s1("0|1").choices(),
@@ -1312,6 +1318,51 @@ with x(0) + 1 select
                     SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                         target: code.s1("foo(0)").name().map_into(Target::Name),
                         force_mode: None,
+                        rhs: AssignmentRightHand::Selected(selection),
+                    }),
+                    code.token_span()
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn parse_matching_selected_assignment() {
+        let (code, statement) = parse(
+            "\
+with x(0) + 1 select?
+   foo(0) <= transport bar(1,2) after 2 ns when 0|1,
+                       def when others;",
+        );
+
+        let selection = Selection {
+            expression: code.s1("x(0) + 1").expr(),
+            is_matching: true,
+            alternatives: vec![
+                Alternative {
+                    choices: code.s1("0|1").choices(),
+                    item: code.s1("bar(1,2) after 2 ns").waveform(),
+                    span: code.s1("bar(1,2) after 2 ns when 0|1").token_span(),
+                },
+                Alternative {
+                    choices: code.s1("others").choices(),
+                    item: code.s1("def").waveform(),
+                    span: code.s1("def when others").token_span(),
+                },
+            ],
+        };
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                WithTokenSpan::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        delay_mechanism: Some(WithTokenSpan::new(
+                            DelayMechanism::Transport,
+                            code.s1("transport").token_span()
+                        )),
                         rhs: AssignmentRightHand::Selected(selection),
                     }),
                     code.token_span()

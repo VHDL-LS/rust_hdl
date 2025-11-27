@@ -323,12 +323,18 @@ fn parse_selected_signal_assignment(
     ctx.stream.expect_kind(With)?;
     let expression = parse_expression(ctx)?;
     ctx.stream.expect_kind(Select)?;
+    let is_matching = ctx.stream.pop_if_kind(Que).is_some();
     let target = parse_target(ctx)?;
     ctx.stream.expect_kind(LTE)?;
     // @TODO guarded
     let guarded = false;
     let delay_mechanism = parse_delay_mechanism(ctx)?;
-    let rhs = AssignmentRightHand::Selected(parse_selection(ctx, expression, parse_waveform)?);
+    let rhs = AssignmentRightHand::Selected(parse_selection(
+        ctx,
+        expression,
+        is_matching,
+        parse_waveform,
+    )?);
     Ok(ConcurrentSignalAssignment {
         postponed,
         guarded,
@@ -591,6 +597,7 @@ fn parse_case_generate_statement(
     Ok(CaseGenerateStatement {
         sels: Selection {
             expression,
+            is_matching: false,
             alternatives,
         },
         end_label_pos: check_label_identifier_mismatch(ctx, label, end_ident),
@@ -1360,6 +1367,7 @@ with x(0) + 1 select
 
         let selection = Selection {
             expression: code.s1("x(0) + 1").expr(),
+            is_matching: false,
             alternatives: vec![Alternative {
                 choices: code.s1("0|1").choices(),
                 item: code.s1("bar(1,2) after 2 ns").waveform(),
@@ -2126,6 +2134,7 @@ end generate;",
         let gen = CaseGenerateStatement {
             sels: Selection {
                 expression: code.s1("expr(0) + 2").expr(),
+                is_matching: false,
                 alternatives: vec![
                     Alternative {
                         choices: code.s1("1 | 2").choices(),
@@ -2180,6 +2189,7 @@ end generate gen1;",
         let gen = CaseGenerateStatement {
             sels: Selection {
                 expression: code.s1("expr(0) + 2").expr(),
+                is_matching: false,
                 alternatives: vec![
                     Alternative {
                         choices: code.s1("1 | 2").choices(),

@@ -215,6 +215,7 @@ fn search_selection<T: Search>(
 ) -> SearchResult {
     let Selection {
         expression,
+        is_matching: _,
         alternatives,
     } = selection;
     return_if_found!(expression.search(ctx, searcher));
@@ -246,6 +247,7 @@ fn search_assignment<T: Search>(
         AssignmentRightHand::Selected(selection) => {
             let Selection {
                 expression,
+                is_matching: _,
                 alternatives,
             } = selection;
             // expression comes before target

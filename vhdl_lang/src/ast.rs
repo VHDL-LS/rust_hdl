@@ -1075,6 +1075,7 @@ pub struct Alternative<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Selection<T> {
     pub expression: WithTokenSpan<Expression>,
+    pub is_matching: bool,
     pub alternatives: Vec<Alternative<T>>,
 }
 
