@@ -16,7 +16,7 @@ readme.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-vhdl_lang = { version = "^0.85.0", path = "../vhdl_lang" }
+vhdl_lang = { version = "^0.86.0", path = "../vhdl_lang" }
 serde_json = "1"
 serde = "1"
 lsp-types = "^0.95.1"
