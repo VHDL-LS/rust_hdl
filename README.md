@@ -156,6 +156,8 @@ If nothing is specified, 2008 is used.
 ```toml
 # What standard to use. This is optional and defaults to VHDL2008.
 standard = "2008"
+# The preferred case for completions.
+preferred_case = "lower"
 # File names are either absolute or relative to the parent folder of the vhdl_ls.toml file
 [libraries]
 lib2.files = [
