@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "title": "Schema for the vhdl_ls language server toml configuration",
+  "description": "Configuration schema for vhdl_ls, the VHDL language server. Defines libraries, linting rules, and code formatting preferences.",
+  "type": "object",
+  "properties": {
+    "preferred_case": {
+      "description": "The preferred letter case for code completions and suggestions (e.g., lower, upper_snake, pascal).",
+      "type": "string",
+      "enum": [
+        "lower",
+        "snake",
+        "upper",
+        "upper_snake",
+        "pascal",
+        "upper_camel"
+      ]
+    },
+    "standard": {
+      "description": "The VHDL standard version for analysis and linting. Supports short (e.g., '08') and full (e.g., '2008') notation.",
+      "type": "string",
+      "enum": ["1993", "93", "2008", "08", "2019", "19"]
+    },
+    "libraries": {
+      "type": "object",
+      "description": "Defines VHDL libraries in the project. Each library name (except 'work') maps to an object specifying source files.",
+      "patternProperties": {
+        "^(?!work$).+$": {
+          "type": "object",
+          "description": "A VHDL library definition. Library names must not be 'work' (reserved by VHDL spec).",
+          "properties": {
+            "files": {
+              "type": "array",
+              "description": "Array of source file paths or glob patterns belonging to this library. Either absolute or relative to vhdl_ls.toml.",
+              "items": {
+                "type": "string",
+                "description": "A file path or glob pattern (e.g., 'src/**/*.vhd', 'lib/ieee.vhd')."
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "description": "Array of source file paths or glob patterns to exclude from this library.",
+              "items": {
+                "type": "string",
+                "description": "A file path or glob pattern to exclude (e.g., 'legacy/*', 'src/*_old.vhd')."
+              }
+            },
+            "is_third_party": {
+              "type": "boolean",
+              "description": "Whether this library is third-party. May affect diagnostic reporting. Defaults to false.",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "required": ["files"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "lint": {
+      "type": "object",
+      "description": "Configures linting rules. Each key is a rule name, and the value controls its behavior (true/false to enable/disable, or a string for specific severity).",
+      "patternProperties": {
+        "^.+$": {
+          "anyOf": [
+            { "type": "boolean" },
+            {
+              "type": "string",
+              "enum": ["hint", "info", "warning", "error"]
+            }
+          ],
+          "description": "Lint rule configuration. Can be a boolean (enable/disable) or a string (e.g., 'warning', 'error')."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["libraries"]
+}
