@@ -130,31 +130,15 @@ opening a certain file type, see the [Neovim LSP documentation](https://neovim.i
 
 ## Configuration
 
-The language server needs to know your library mapping to perform full analysis of the code. For this it uses a
-configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
-
-`vhdl_ls` will load configuration files in the following order of priority (first to last):
-
-1. A file named `.vhdl_ls.toml` in the user home folder.
-2. A file name from the `VHDL_LS_CONFIG` environment variable.
-3. A file named `vhdl_ls.toml` in the workspace root.
-
-Settings in a later files overwrites those from previously loaded files.
-
-Define the VHDL revision to use for parsing and analysis with the `standard` key.
-The expected value is the year associated the VHDL standard.
-Supported standards are 1993, 2008 and 2019 where both the long version ("2008") and the short version ("08") can be
-used.
-If nothing is specified, 2008 is used.
+The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 
 > [!NOTE]
-> Defining the standard feature is a relatively new feature (since april 2024).
-> Anything but the 2008 standard will not change much at the moment.
+> Read the full documentation in [the wiki](https://github.com/VHDL-LS/rust_hdl/wiki/VHDL%E2%80%90LS-Configuration)
 
-**Example vhdl_ls.toml**
+### Example vhdl_ls.toml / Quickstart
 
 ```toml
-# What standard to use. This is optional and defaults to VHDL2008.
+# What standard to use. This is optional and defaults to VHDL 2008.
 standard = "2008"
 # The preferred case for completions.
 preferred_case = "lower"
@@ -188,18 +172,6 @@ UNISIM.is_third_party = true
 unused = 'error' # Upgrade the 'unused' diagnostic to the 'error' severity
 unnecessary_work_library = false # Disable linting for the 'library work;' statement
 ```
-
-Using the `lint` table, you can configure the severity of diagnostics or turn of diagnostics altogether.
-
-> [!WARNING]
-> You can overwrite every diagnostic error code including syntax or analysis errors using the lint table.
-> However, the intended use-case is for lints only.
-> Overwriting syntax or analysis errors (e.g., error codes `mismatched_kinds` or `syntax`) can cause unwanted side
-> effects
-
-Paths in the `vhdl_ls.toml` can contain glob patterns (i.e., `.../*/`).
-On Unix machines, they can contain environment variables using the `$NAME` or `${NAME}` syntax.
-On Windows machines, use the `%NAME%` syntax to substitute environment variables.
 
 ## Ignoring errors
 

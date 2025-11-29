@@ -1,0 +1,3 @@
+[libraries.mylib]
+files = ["a.vhd"]
+unexpected = 123
