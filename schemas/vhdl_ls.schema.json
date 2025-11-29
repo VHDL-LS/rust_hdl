@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema",
+  "id": "https://github.com/VHDL-LS/rust_hdl",
   "title": "Schema for the vhdl_ls language server toml configuration",
   "description": "Configuration schema for vhdl_ls, the VHDL language server. Defines libraries, linting rules, and code formatting preferences.",
   "type": "object",
