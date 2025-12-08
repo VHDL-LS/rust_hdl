@@ -227,7 +227,7 @@ choice ::=
     | "others"
 
 // § 9.3.3.1
-choices ::= choice { | choice }
+choices ::= choice { "|" choice }
 
 // § 3.4.3
 component_configuration ::=
@@ -399,7 +399,7 @@ context_item ::=
 
 // § 13.4
 context_reference ::=
-    "context" selected_name { , selected_name } ";"
+    "context" selected_name { "," selected_name } ";"
 
 // § 15.5.2
 decimal_literal ::= integer [ "." integer ] [ exponent ]
@@ -429,7 +429,7 @@ disconnection_specification ::=
 discrete_range ::= discrete_subtype_indication | range
 
 // § 9.3.3.1
-element_association ::= [ choices => ] expression
+element_association ::= [ choices "=>" ] expression
 
 // § 6.3
 element_constraint ::= array_constraint | record_constraint
@@ -475,7 +475,7 @@ entity_class ::=
 entity_class_entry ::= entity_class [ "<>" ]
 
 // § 6.9
-entity_class_entry_list ::= entity_class_entry { , entity_class_entry }
+entity_class_entry_list ::= entity_class_entry { "," entity_class_entry }
 
 // § 3.2.1
 entity_declaration ::=
@@ -524,7 +524,7 @@ entity_header ::=
 
 // § 7.2
 entity_name_list ::=
-     entity_designator { , entity_designator }
+     entity_designator { "," entity_designator }
     | "others"
     | "all"
 
@@ -556,7 +556,7 @@ exit_statement ::=
     [ label ":" ] "exit" [ loop_label ] [ "when" condition ] ";"
 
 // § 15.5.2
-exponent ::= E [ + ] integer | E – integer
+exponent ::= E [ "+" ] integer | E "–" integer
 
 // § 9.1
 expression ::=
@@ -567,7 +567,7 @@ expression ::=
 extended_digit ::= digit | letter
 
 // § 15.4.3
-extended_identifier ::= \\ graphic_character { graphic_character } \\
+extended_identifier ::= "\\" graphic_character { graphic_character } "\\"
 
 // § 8.7
 external_name ::=
@@ -923,7 +923,7 @@ next_statement ::=
     [ label ":" ] "next" [ loop_label ] [ "when" condition ] ";"
 
 // § 10.14
-null_statement ::= [ label : ] "null" ";"
+null_statement ::= [ label ":" ] "null" ";"
 
 // § 9.3.2
 numeric_literal ::= abstract_literal | physical_literal
@@ -1025,7 +1025,7 @@ pathname_element ::=
     entity_simple_name
     | component_instantiation_label
     | block_label
-    | generate_statement_label [ ( static_expression ) ]
+    | generate_statement_label [ "(" static_expression ")" ]
     | package_simple_name
 
 // § 5.2.4.1
