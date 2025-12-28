@@ -103,7 +103,7 @@ attribute_specification ::= "attribute" attribute_designator "of" entity_specifi
 base ::= integer
 
 // § 15.8
-base_specifier ::= B | O | X | UB | UO | UX | SB | SO | SX | D
+base_specifier ::= "B" | "O" | "X" | "UB" | "UO" | "UX" | "SB" | "SO" | "SX" | "D"
 
 // § 15.5.3
 based_integer ::= extended_digit { [ underline ] extended_digit }
@@ -1090,7 +1090,7 @@ process_declarative_item ::=
     | subprogram_instantiation_declaration
     | package_declaration
     | package_body
-    | package instantiation_declaration
+    | package_instantiation_declaration
     | type_declaration
     | subtype_declaration
     | constant_declaration
@@ -1124,7 +1124,7 @@ process_statement_part ::= { sequential_statement }
 protected_type_body ::=
     "protected" "body"
         protected_type_body_declarative_part
-    "end" "protected" "body" [ protected_type_simple name ]
+    "end" "protected" "body" [ protected_type_simple_name ]
 
 // § 5.6.3
 protected_type_body_declarative_item ::=
