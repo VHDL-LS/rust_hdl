@@ -67,11 +67,11 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn allocator(&mut self) {
-        self.start_node(ExpressionAllocator);
-        self.expect_kw(Kw::New);
-        // TODO: This is still incorrect
-        self.name();
-        self.end_node();
+      self.start_node(ExpressionAllocator);
+      self.expect_kw(Kw::New);
+      // TODO: This is still incorrect
+      self.subtype_indication();
+      self.end_node();
     }
 
     fn unary_expression(&mut self) {

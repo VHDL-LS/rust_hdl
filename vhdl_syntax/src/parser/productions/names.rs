@@ -166,7 +166,7 @@ impl<T: TokenStream> Parser<T> {
                     // Since `RightPar` is in `kinds` that's not possible!
                     Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
                 };
-                if let Some(end_index) = end_index_opt {
+                if end_index_opt.is_some() {
                     self.start_node(ParenthesizedExpressionOrAggregate);
                     self.expect_token(LeftPar);
                     self.association_list();
