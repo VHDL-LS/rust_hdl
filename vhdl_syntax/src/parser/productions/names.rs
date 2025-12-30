@@ -157,11 +157,23 @@ impl<T: TokenStream> Parser<T> {
             }
 
             if self.next_is(LeftPar) {
-                self.start_node(ParenthesizedExpressionOrAggregate);
-                self.expect_token(LeftPar);
-                self.association_list();
-                self.expect_token(RightPar);
-                self.end_node();
+                let end_index_opt = match self.lookahead_max_token_index(max_index, [RightPar]) {
+                    Ok((_, end_index)) => Some(end_index),
+                    Err((LookaheadError::MaxIndexReached, _)) => None,
+                    // Skip parsing of the parenthesized group, if EOF is reached
+                    Err((LookaheadError::Eof, _)) => None,
+                    // This error is only possible, when a `RightPar` is found before any token in `kinds`.
+                    // Since `RightPar` is in `kinds` that's not possible!
+                    Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
+                };
+                if let Some(end_index) = end_index_opt {
+                    self.start_node(ParenthesizedExpressionOrAggregate);
+                    self.expect_token(LeftPar);
+                    self.association_list();
+                    self.expect_token(RightPar);
+                    self.end_node();
+                }
+                // TODO: Error
             }
             self.end_node();
             self.opt_name_tail_bounded(max_index)
