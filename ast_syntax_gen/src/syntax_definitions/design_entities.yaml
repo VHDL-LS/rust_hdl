@@ -22,6 +22,13 @@ ArchitectureBody: !Sequence
     optional: true
   - token: SemiColon
 
+BlockConfigurationItem: !Sequence
+  - node: BlockConfiguration
+
+ConfigurationItem: !Choice
+  - node: BlockConfigurationItem
+  - node: ComponentConfigurationItem
+
 BlockConfiguration: !Sequence
   - keyword: For
   - node: BlockSpecification
@@ -33,21 +40,6 @@ BlockConfiguration: !Sequence
   - keyword: For
     name: trailing_for
   - token: SemiColon
-
-BlockSpecification: !Sequence
-  - node: Name
-  - node: GenerateSpecification
-    parenthesized: true
-
-DiscreteRangeGenerateSpecification: !Sequence
-  - node: DiscreteRange
-
-NameGenerateSpecification: !Sequence
-  - node: Expression
-
-GenerateSpecification: !Choice
-  - node: DiscreteRangeGenerateSpecification
-  - node: NameGenerateSpecification
 
 ComponentConfigurationItem: !Sequence
   - keyword: For
@@ -62,6 +54,22 @@ ComponentConfigurationItem: !Sequence
   - keyword: For
     name: trailing_for
   - token: SemiColon
+
+BlockSpecification: !Sequence
+  - node: Name
+  - node: GenerateSpecification
+    parenthesized: true
+    optional: true
+
+DiscreteRangeGenerateSpecification: !Sequence
+  - node: DiscreteRange
+
+NameGenerateSpecification: !Sequence
+  - node: Expression
+
+GenerateSpecification: !Choice
+  - node: DiscreteRangeGenerateSpecification
+  - node: NameGenerateSpecification
 
 ConfigurationDeclaration: !Sequence
   - keyword: Configuration
@@ -80,16 +88,11 @@ ConfigurationDeclaration: !Sequence
   - keyword: End
   - keyword: Configuration
     name: trailing_configuration
+    optional: true
   - token: Identifier
     name: trailing_name
+    optional: true
   - token: SemiColon
-
-BlockConfigurationItem: !Sequence
-  - node: BlockConfiguration
-
-ConfigurationItem: !Choice
-  - node: BlockConfigurationItem
-  - node: ComponentConfigurationItem
 
 EntityDeclaration: !Sequence
   - keyword: Entity
