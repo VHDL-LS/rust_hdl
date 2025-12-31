@@ -114,7 +114,12 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::Of);
         self.name();
         self.expect_kw(Kw::Is);
-        self.declarative_part();
+        // In general, we want to allow as many declarations as possible
+        // to enable robust parsing. However, "for" clashed with the
+        // declarative part "for".
+        if !self.next_is(Keyword(Kw::For)) {
+            self.opt_declarative_part();
+        }
         if self.next_is(Keyword(Kw::Vunit)) {
             todo!("VUnit")
         }
@@ -160,7 +165,6 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Identifier) => {
                 let checkpoint = self.checkpoint();
-                self.skip();
                 self.name();
                 match self.peek_token() {
                     Some(Colon) => {

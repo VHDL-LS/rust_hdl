@@ -18,7 +18,7 @@ impl<T: TokenStream> Parser<T> {
         self.expect_token(Keyword(Kw::Is));
         self.entity_header();
         if self.opt_token(Keyword(Kw::Begin)) {
-            self.labeled_concurrent_statements();
+            self.concurrent_statements();
         }
         self.expect_token(Keyword(Kw::End));
         self.opt_token(Keyword(Kw::Entity));

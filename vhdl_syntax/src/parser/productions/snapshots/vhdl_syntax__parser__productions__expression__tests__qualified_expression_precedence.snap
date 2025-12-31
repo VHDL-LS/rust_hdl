@@ -8,23 +8,17 @@ BinaryExpression
       Identifier 'mark0'
       AttributeName
         Tick
-        ParenthesizedExpressionOrAggregate
-          LeftPar
-          AssociationList
-            AssociationElement
-              ActualPart
-                AbstractLiteral '0'
-          RightPar
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
   LT
   NameExpression
     Name
       Identifier 'mark1'
       AttributeName
         Tick
-        ParenthesizedExpressionOrAggregate
-          LeftPar
-          AssociationList
-            AssociationElement
-              ActualPart
-                AbstractLiteral '1'
-          RightPar
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        RightPar

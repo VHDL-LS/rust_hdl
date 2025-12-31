@@ -499,23 +499,8 @@ def resolve_well_known_names(rules: dict[str, Rule]) -> dict[str, Rule]:
 
 
 def insert_builtins(rules: dict[str, Rule]) -> dict[str, Rule]:
-    @dataclass
-    class Builtin(Production):
-        name: str
-
-        def visit(self) -> Generator[Production, None, None]:
-            yield self
-
-        def rewrite(
-            self, action: Callable[[Production], Production | None]
-        ) -> Production:
-            if (new_self := action(self)) is not None:
-                return new_self
-            else:
-                return self
-        
-        def __str__(self) -> str:
-            return f"<builtin.{self.name}>"
+    class Builtin(Terminal):
+        pass
 
     mapping = {
         "identifier",
@@ -574,20 +559,289 @@ def remove_dead_productions(rules: dict[str, Rule], top_level: str) -> dict[str,
     return {name: rule for name, rule in rules.items() if name in reachable}
 
 
+
+
+def get_start_symbols(production: Production) -> set[str]:
+    """Extract all terminals that can appear at the start of a production.
+
+    Args:
+        production: A production with resolved non-terminals
+
+    Returns:
+        A set of terminal values that can appear at the start
+    """
+    start_symbols: set[str] = set()
+
+    def collect_start_terminals(prod: Production) -> None:
+        """Recursively collect first terminals from a production."""
+        if isinstance(prod, Terminal):
+            start_symbols.add(prod.value)
+        elif isinstance(prod, Concatenation):
+            for element in prod.elements:
+                collect_start_terminals(element)
+                if not can_be_empty(element):
+                    break
+        elif isinstance(prod, Alternative):
+            for element in prod.elements:
+                collect_start_terminals(element)
+        elif isinstance(prod, Repetition):
+            collect_start_terminals(prod.value)
+        elif isinstance(prod, Optional):
+            collect_start_terminals(prod.value)
+        elif isinstance(prod, ResolvedNonTerminal):
+            collect_start_terminals(prod.production)
+
+    def can_be_empty(prod: Production) -> bool:
+        """Check if a production can match empty string."""
+        if isinstance(prod, Optional | Repetition):
+            return True
+        elif isinstance(prod, Concatenation):
+            return all(can_be_empty(el) for el in prod.elements)
+        elif isinstance(prod, Alternative):
+            return any(can_be_empty(el) for el in prod.elements)
+        else:
+            return False
+
+    collect_start_terminals(production)
+    return start_symbols
+
+
+def compute_first_sets(rules: dict[str, Rule]) -> dict[str, set[str]]:
+    """Compute FIRST sets for all non-terminals in the grammar.
+    
+    The FIRST set of a non-terminal contains all terminals that can appear
+    at the start of any string derivable from that non-terminal.
+    
+    Args:
+        rules: Dictionary of grammar rules
+        
+    Returns:
+        A dictionary mapping non-terminal names to their FIRST sets
+    """
+    first_sets: dict[str, set[str]] = {name: set() for name in rules}
+    
+    def can_derive_empty(prod: Production) -> bool:
+        """Check if a production can derive the empty string."""
+        if isinstance(prod, Optional | Repetition):
+            return True
+        elif isinstance(prod, Concatenation):
+            return all(can_derive_empty(el) for el in prod.elements)
+        elif isinstance(prod, Alternative):
+            return any(can_derive_empty(el) for el in prod.elements)
+        else:
+            return False
+    
+    def add_first_from_production(nt_name: str, prod: Production) -> bool:
+        """Add FIRST terminals from production to non-terminal's FIRST set.
+        
+        Returns True if new terminals were added.
+        """
+        added = False
+        if isinstance(prod, Terminal):
+            if prod.value not in first_sets[nt_name]:
+                first_sets[nt_name].add(prod.value)
+                added = True
+        elif isinstance(prod, Concatenation):
+            for element in prod.elements:
+                new_count = len(first_sets[nt_name])
+                add_first_from_production(nt_name, element)
+                if len(first_sets[nt_name]) > new_count:
+                    added = True
+                if not can_derive_empty(element):
+                    break
+        elif isinstance(prod, Alternative):
+            for element in prod.elements:
+                new_count = len(first_sets[nt_name])
+                add_first_from_production(nt_name, element)
+                if len(first_sets[nt_name]) > new_count:
+                    added = True
+        elif isinstance(prod, Optional | Repetition):
+            new_count = len(first_sets[nt_name])
+            add_first_from_production(nt_name, prod.value)
+            if len(first_sets[nt_name]) > new_count:
+                added = True
+        elif isinstance(prod, NonTerminal):
+            if prod.value in first_sets:
+                before = len(first_sets[nt_name])
+                first_sets[nt_name].update(first_sets[prod.value])
+                added = len(first_sets[nt_name]) > before
+        elif isinstance(prod, ResolvedNonTerminal):
+            if prod.name in first_sets:
+                before = len(first_sets[nt_name])
+                first_sets[nt_name].update(first_sets[prod.name])
+                added = len(first_sets[nt_name]) > before
+        
+        return added
+    
+    # Fixed-point iteration until no changes
+    changed = True
+    while changed:
+        changed = False
+        for name, rule in rules.items():
+            if add_first_from_production(name, rule.production):
+                changed = True
+    
+    return first_sets
+
+
+def compute_follow_sets(
+    rules: dict[str, Rule], first_sets: dict[str, set[str]], top_level: str
+) -> dict[str, set[str]]:
+    """Compute FOLLOW sets for all non-terminals in the grammar.
+    
+    The FOLLOW set of a non-terminal contains all terminals that can appear
+    immediately after that non-terminal in some valid derivation.
+    
+    Args:
+        rules: Dictionary of grammar rules
+        first_sets: Pre-computed FIRST sets for all non-terminals
+        top_level: Name of the top-level production
+        
+    Returns:
+        A dictionary mapping non-terminal names to their FOLLOW sets
+    """
+    follow_sets: dict[str, set[str]] = {name: set() for name in rules}
+    
+    # The top-level non-terminal can be followed by end-of-input
+    follow_sets[top_level].add("$")
+    
+    def add_follows_from_production(
+        nt_name: str, prod: Production, following: set[str]
+    ) -> bool:
+        """Recursively process a production and add FOLLOW information.
+        
+        Args:
+            nt_name: Non-terminal being analyzed
+            prod: Production to process
+            following: Terminals that can follow this production
+            
+        Returns:
+            True if any FOLLOW set was modified
+        """
+        added = False
+        
+        if isinstance(prod, Concatenation):
+            for i, element in enumerate(prod.elements):
+                element_follow = following.copy()
+                # Add FIRST of everything after this element
+                for next_elem in prod.elements[i + 1 :]:
+                    if isinstance(next_elem, Terminal):
+                        element_follow.add(next_elem.value)
+                    elif isinstance(next_elem, NonTerminal):
+                        if next_elem.value in first_sets:
+                            element_follow.update(first_sets[next_elem.value])
+                    elif isinstance(next_elem, ResolvedNonTerminal):
+                        if next_elem.name in first_sets:
+                            element_follow.update(first_sets[next_elem.name])
+                    
+                    # If this element can't derive empty, stop
+                    if isinstance(next_elem, Optional | Repetition):
+                        continue
+                    elif isinstance(next_elem, Terminal | NonTerminal | ResolvedNonTerminal):
+                        break
+                    elif isinstance(next_elem, Alternative):
+                        break
+                
+                if add_follows_from_production(nt_name, element, element_follow):
+                    added = True
+                    
+        elif isinstance(prod, Alternative):
+            for element in prod.elements:
+                if add_follows_from_production(nt_name, element, following):
+                    added = True
+                    
+        elif isinstance(prod, Optional | Repetition):
+            if add_follows_from_production(nt_name, prod.value, following):
+                added = True
+                
+        elif isinstance(prod, NonTerminal):
+            before = len(follow_sets[prod.value])
+            follow_sets[prod.value].update(following)
+            if len(follow_sets[prod.value]) > before:
+                added = True
+                
+        elif isinstance(prod, ResolvedNonTerminal):
+            before = len(follow_sets[prod.name])
+            follow_sets[prod.name].update(following)
+            if len(follow_sets[prod.name]) > before:
+                added = True
+        
+        return added
+    
+    # Fixed-point iteration
+    changed = True
+    while changed:
+        changed = False
+        for name, rule in rules.items():
+            if add_follows_from_production(name, rule.production, follow_sets[name]):
+                changed = True
+    
+    return follow_sets
+
+
+def get_all_terminals(production: Production, rules: dict[str, Rule] | None = None) -> set[str]:
+    """Extract all terminals that may appear as part of a production.
+    
+    Recursively traverses the production tree, following resolved and unresolved non-terminal
+    references to find all terminal symbols that can appear in the production.
+    
+    Args:
+        production: A production (should have resolved non-terminals via resolve_non_terminals)
+        rules: Optional dictionary of rules. If provided, unresolved NonTerminals will also be traversed.
+               Without this, only ResolvedNonTerminals are followed, potentially missing some terminals.
+    
+    Returns:
+        A set of all terminal values that appear anywhere in the production
+    """
+    terminals: set[str] = set()
+    visited: set[str] = set()  # Track visited non-terminals to avoid infinite loops
+    
+    def collect_terminals(prod: Production) -> None:
+        """Recursively collect all terminals from a production."""
+        if isinstance(prod, Terminal):
+            terminals.add(prod.value)
+        elif isinstance(prod, Concatenation):
+            for element in prod.elements:
+                collect_terminals(element)
+        elif isinstance(prod, Alternative):
+            for element in prod.elements:
+                collect_terminals(element)
+        elif isinstance(prod, Repetition):
+            collect_terminals(prod.value)
+        elif isinstance(prod, Optional):
+            collect_terminals(prod.value)
+        elif isinstance(prod, NonTerminal):
+            # Resolve unresolved non-terminals if rules dict is provided
+            if rules and prod.value not in visited:
+                visited.add(prod.value)
+                if prod.value in rules:
+                    collect_terminals(rules[prod.value].production)
+        elif isinstance(prod, ResolvedNonTerminal):
+            # Follow resolved non-terminals
+            if prod.name not in visited:
+                visited.add(prod.name)
+                collect_terminals(prod.production)
+    
+    collect_terminals(production)
+    return terminals
+
+def print_rules(rules: dict[str, Rule]):
+    for rule in rules.values():
+        print(f"{rule}\n")
+
 if __name__ == "__main__":
     with open("productions.txt") as infile:
         text = infile.read()
-        tokenizer = Tokenizer(text)
-        tokens = list(tokenizer)
-        insert_semicolons(tokens)
-        parser = Parser(tokens)
-        rules: dict[str, Rule] = {}
-        for rule in parser.rules():
-            rules[rule.name] = rule
-        mappings = {"signal_name": "name"}
-        rules = resolve_well_known_names(rules)
-        rules = insert_builtins(rules)
-        rules = remove_dead_productions(rules, "design_file")
-        rules = resolve_non_terminals(rules)
-        for rule in rules.values():
-            print(rule)
+
+    tokenizer = Tokenizer(text)
+    tokens = list(tokenizer)
+    insert_semicolons(tokens)
+    parser = Parser(tokens)
+    rules: dict[str, Rule] = {}
+    for rule in parser.rules():
+        rules[rule.name] = rule
+    rules = resolve_well_known_names(rules)
+    rules = insert_builtins(rules)
+    rules = remove_dead_productions(rules, "design_file")
+    rules = resolve_non_terminals(rules)
+    print_rules(rules)

@@ -23,7 +23,6 @@ mod package_instantiation;
 mod scalar_types;
 mod sequential_statement;
 mod signature;
-mod statements;
 mod subprogram;
 mod subtype;
 mod types;

@@ -7,12 +7,9 @@ NameExpression
     Identifier 'foo'
     AttributeName
       Tick
-      ParenthesizedExpressionOrAggregate
-        LeftPar
-        AssociationList
-          AssociationElement
-            ActualPart
-              AbstractLiteral '1'
-              Plus
-              AbstractLiteral '2'
-        RightPar
+    RawTokens
+      LeftPar
+      AbstractLiteral '1'
+      Plus
+      AbstractLiteral '2'
+      RightPar

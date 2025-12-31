@@ -54,12 +54,6 @@ DisconnectionSpecification: !Sequence
 EntityEntityAspect: !Sequence
   - keyword: Entity
   - node: Name
-  - token: LeftPar
-    optional: true
-  - token: Identifier
-    optional: true
-  - token: RightPar
-    optional: true
 
 EntityConfigurationAspect: !Sequence
   - keyword: Configuration

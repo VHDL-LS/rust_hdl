@@ -4,11 +4,12 @@ expression: "expr_to_test_text(\"new integer_vector(foo'range)\")"
 ---
 ExpressionAllocator
   Keyword(New)
-  Name
-    Identifier 'integer_vector'
-    RawTokens
-      LeftPar
-      Identifier 'foo'
-      Tick
-      Keyword(Range)
-      RightPar
+  SubtypeIndication
+    Name
+      Identifier 'integer_vector'
+      RawTokens
+        LeftPar
+        Identifier 'foo'
+        Tick
+        Keyword(Range)
+        RightPar

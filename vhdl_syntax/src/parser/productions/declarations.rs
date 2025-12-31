@@ -5,8 +5,8 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::parser::Parser;
+use crate::syntax::NodeKind::{self, *};
 use crate::tokens::TokenKind::*;
-use crate::syntax::NodeKind::*;
 use crate::tokens::TokenStream;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
@@ -67,7 +67,7 @@ impl<T: TokenStream> Parser<T> {
                 _ => {
                     self.skip();
                     self.expect_tokens_err([Keyword(Kw::Type)])
-                },
+                }
             }
         }
     }
@@ -85,7 +85,53 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn configuration_specification(&mut self) {
-        todo!()
+        let checkpoint = self.checkpoint();
+        self.expect_kw(Kw::For);
+        self.component_specifiaction();
+        self.binding_indication();
+        if self.next_is(Keyword(Kw::Vunit)) {
+            self.start_node_at(checkpoint, NodeKind::CompoundConfigurationSpecification);
+            todo!("VUnit");
+            self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+        } else {
+            self.start_node_at(checkpoint, NodeKind::SimpleConfigurationSpecification);
+            self.expect_token(SemiColon);
+            if self.next_is(Keyword(Kw::End)) {
+                self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+            }
+            self.end_node();
+        }
+    }
+
+    pub fn component_specifiaction(&mut self) {
+        self.start_node(NodeKind::ComponentSpecification);
+        match self.peek_token() {
+            Some(Keyword(Kw::All)) => {
+                self.skip_into_node(NodeKind::InstantiationListAll);
+            }
+            Some(Keyword(Kw::Others)) => {
+                self.skip_into_node(NodeKind::InstantiationListOthers);
+            }
+            Some(Identifier) => {
+                self.start_node(NodeKind::InstantiationListList);
+                self.skip();
+                while self.next_is(Comma) {
+                    self.skip();
+                    self.identifier();
+                }
+                self.end_node();
+            }
+            None => {
+                self.eof_err();
+                return;
+            }
+            _ => {
+                todo!("Error handling")
+            }
+        }
+        self.expect_token(Colon);
+        self.name();
+        self.end_node();
     }
 
     pub fn view_declaration(&mut self) {

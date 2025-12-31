@@ -8,12 +8,10 @@ fn main() {
     } */
     let args = vec![
         "",
-        "/Users/lukasscheller/IdeaProjects/rust_hdl/example_project/",
+        "/Users/lukasscheller/rust_hdl/example_project/",
     ];
 
     check_parsing_and_reemitting(args);
-
-    // check_file("/Users/lukasscheller/IdeaProjects/rust_hdl/example_project/PoC/tb/arith/arith_firstone_tb.vhdl");
 }
 
 fn check_parsing_and_reemitting(args: Vec<&'static str>) {
