@@ -31,7 +31,7 @@ ConfigurationItem: !Choice
 
 BlockConfiguration: !Sequence
   - keyword: For
-  - node: BlockSpecification
+  - node: Name
   - node: UseClause
     repeated: true
   - node: ConfigurationItem
@@ -46,30 +46,16 @@ ComponentConfigurationItem: !Sequence
   - node: ComponentSpecification
   - node: BindingIndication
     terminated: SemiColon
+    optional: true
   - node: VerificationUnitBindingIndication
     terminated: SemiColon
     repeated: true
   - node: BlockConfiguration
+    optional: true
   - keyword: End
   - keyword: For
     name: trailing_for
   - token: SemiColon
-
-BlockSpecification: !Sequence
-  - node: Name
-  - node: GenerateSpecification
-    parenthesized: true
-    optional: true
-
-DiscreteRangeGenerateSpecification: !Sequence
-  - node: DiscreteRange
-
-NameGenerateSpecification: !Sequence
-  - node: Expression
-
-GenerateSpecification: !Choice
-  - node: DiscreteRangeGenerateSpecification
-  - node: NameGenerateSpecification
 
 ConfigurationDeclaration: !Sequence
   - keyword: Configuration
