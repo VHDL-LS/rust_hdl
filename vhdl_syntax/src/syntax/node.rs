@@ -180,8 +180,8 @@ impl SyntaxToken {
         let token = Token::new(
             self.kind(),
             text,
-            self.leading_trivia(),
-            self.trailing_trivia(),
+            self.green().leading_trivia().clone(),
+            self.green().trailing_trivia().clone(),
         );
         self.clone_with_token(token)
     }
@@ -421,9 +421,10 @@ mod tests {
     use crate::syntax::node::{SyntaxElement, SyntaxNode};
     use crate::syntax::node_kind::NodeKind::EntityDeclaration;
     use crate::syntax::rewrite::RewriteAction;
-    use crate::tokens;
+    use crate::tokens::Tokenize;
     use crate::tokens::{Keyword, Token, TokenKind, Trivia, TriviaPiece};
     use std::collections::VecDeque;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn no_leading_trivia() {
@@ -535,9 +536,7 @@ mod tests {
 
     #[test]
     fn no_rewrite_is_noop() {
-        let orig_tokens = tokens! {
-            entity foo is end foo;
-        };
+        let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(0, orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
@@ -552,7 +551,7 @@ mod tests {
     #[test]
     fn rewrite_tokens() {
         let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(0, tokens! { entity foo is end foo; });
+        data.push_tokens(0, "entity foo is end foo;".tokenize());
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite_tokens(|tok| {
             if tok.text() == "foo" {
@@ -567,17 +566,13 @@ mod tests {
             .collect::<VecDeque<_>>();
         assert_eq!(
             new_tokens,
-            tokens! {
-                entity bar is end bar;
-            }
+            "entity bar is end bar;".tokenize().collect::<Vec<_>>()
         );
     }
 
     #[test]
     fn rewrite_does_not_modify_self() {
-        let orig_tokens = tokens! {
-            entity foo is end foo;
-        };
+        let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(0, orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
