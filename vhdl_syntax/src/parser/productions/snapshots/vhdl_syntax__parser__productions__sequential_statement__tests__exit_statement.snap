@@ -1,0 +1,7 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::exit_statement, \"exit;\")"
+---
+ExitStatement
+  Keyword(Exit)
+  SemiColon

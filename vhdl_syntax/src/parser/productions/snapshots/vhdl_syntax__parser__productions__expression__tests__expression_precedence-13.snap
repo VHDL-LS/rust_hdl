@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"abs 1 sll 2 + 3 and -1\")"
+---
+BinaryExpression
+  BinaryExpression
+    UnaryExpression
+      Keyword(Abs)
+      LiteralExpression
+        AbstractLiteral '1'
+    Keyword(Sll)
+    BinaryExpression
+      LiteralExpression
+        AbstractLiteral '2'
+      Plus
+      LiteralExpression
+        AbstractLiteral '3'
+  Keyword(And)
+  UnaryExpression
+    Minus
+    LiteralExpression
+      AbstractLiteral '1'

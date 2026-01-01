@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type int_arr_2d_t is array (natural range <>, integer range <>) of positive;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'int_arr_2d_t'
+  Keyword(Is)
+  UnboundedArrayDefinition
+    Keyword(Array)
+    LeftPar
+    IndexSubtypeDefinition
+      Name
+        Identifier 'natural'
+      Keyword(Range)
+      BOX
+    Comma
+    IndexSubtypeDefinition
+      Name
+        Identifier 'integer'
+      Keyword(Range)
+      BOX
+    RightPar
+    Keyword(Of)
+    SubtypeIndication
+      Name
+        Identifier 'positive'
+  SemiColon

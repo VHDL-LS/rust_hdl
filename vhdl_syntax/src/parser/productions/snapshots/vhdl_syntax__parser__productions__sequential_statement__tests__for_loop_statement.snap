@@ -1,0 +1,29 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::loop_statement,\n\"\\\nfor idx in 0 to 3 loop\n  stmt1;\n  stmt2;\nend loop;\")"
+---
+LoopStatement
+  ForIterationScheme
+    Keyword(For)
+    ParameterSpecification
+      Identifier 'idx'
+      Keyword(In)
+      RawTokens
+        AbstractLiteral '0'
+        Keyword(To)
+        AbstractLiteral '3'
+  Keyword(Loop)
+  SequentialStatements
+    ProcedureCallStatement
+      NameTarget
+        Name
+          Identifier 'stmt1'
+      SemiColon
+    ProcedureCallStatement
+      NameTarget
+        Name
+          Identifier 'stmt2'
+      SemiColon
+  Keyword(End)
+  Keyword(Loop)
+  SemiColon

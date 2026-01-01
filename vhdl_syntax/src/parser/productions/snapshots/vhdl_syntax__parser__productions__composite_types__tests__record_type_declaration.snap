@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type rec_t is record state: enum_t; end record;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'rec_t'
+  Keyword(Is)
+  RecordTypeDefinition
+    Keyword(Record)
+    ElementDeclaration
+      IdentifierList
+        Identifier 'state'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'enum_t'
+      SemiColon
+    Keyword(End)
+    Keyword(Record)
+  SemiColon

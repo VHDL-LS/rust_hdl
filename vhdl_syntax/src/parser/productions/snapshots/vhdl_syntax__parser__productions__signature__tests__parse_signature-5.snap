@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/signature.rs
+expression: "to_test_text(Parser::signature, \"[arg1_t]\")"
+---
+Signature
+  LeftSquare
+  NameList
+    Name
+      Identifier 'arg1_t'
+  RightSquare

@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/alias_declaration.rs
+expression: "to_test_text(Parser::alias_declaration,\n\"alias foo is name [return natural];\",)"
+---
+AliasDeclaration
+  Keyword(Alias)
+  Identifier 'foo'
+  Keyword(Is)
+  Name
+    Identifier 'name'
+  Signature
+    LeftSquare
+    Keyword(Return)
+    Name
+      Identifier 'natural'
+    RightSquare
+  SemiColon

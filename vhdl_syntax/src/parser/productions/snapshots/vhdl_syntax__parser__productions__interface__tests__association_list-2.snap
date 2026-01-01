@@ -1,0 +1,24 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::association_list, \"p1 => 1, std_ulogic(p2)=>     sl_sig\")"
+---
+AssociationList
+  AssociationElement
+    FormalPart
+      Name
+        Identifier 'p1'
+    RightArrow
+    ActualPart
+      AbstractLiteral '1'
+  Comma
+  AssociationElement
+    FormalPart
+      Name
+        Identifier 'std_ulogic'
+        RawTokens
+          LeftPar
+          Identifier 'p2'
+          RightPar
+    RightArrow
+    ActualPart
+      Identifier 'sl_sig'

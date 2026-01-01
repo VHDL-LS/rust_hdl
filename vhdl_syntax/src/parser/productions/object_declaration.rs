@@ -81,234 +81,68 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn constant_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::constant_declaration,
-            "constant C1: std_ulogic;",
-            "\
-ConstantDeclaration
-  Keyword(Constant)
-  IdentifierList
-    Identifier 'C1'
-  Colon
-  Identifier 'std_ulogic'
-  SemiColon
-",
-        );
-        check(
+            "constant C1: std_ulogic;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::constant_declaration,
-            "constant C1,C2,C3: std_ulogic := '0';",
-            "\
-ConstantDeclaration
-  Keyword(Constant)
-  IdentifierList
-    Identifier 'C1'
-    Comma
-    Identifier 'C2'
-    Comma
-    Identifier 'C3'
-  Colon
-  Identifier 'std_ulogic'
-  ColonEq
-  LiteralExpression
-    CharacterLiteral ''0''
-  SemiColon
-",
-        );
+            "constant C1,C2,C3: std_ulogic := '0';"
+        ));
     }
 
     #[test]
     fn signal_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(Parser::signal_declaration, "signal s1: bit;"));
+        insta::assert_snapshot!(to_test_text(
             Parser::signal_declaration,
-            "signal s1: bit;",
-            "\
-SignalDeclaration
-  Keyword(Signal)
-  IdentifierList
-    Identifier 's1'
-  Colon
-  Identifier 'bit'
-  SemiColon
-",
-        );
-        check(
+            "signal s, ss, sss : natural := 1;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::signal_declaration,
-            "signal s, ss, sss : natural := 1;",
-            "\
-SignalDeclaration
-  Keyword(Signal)
-  IdentifierList
-    Identifier 's'
-    Comma
-    Identifier 'ss'
-    Comma
-    Identifier 'sss'
-  Colon
-  Identifier 'natural'
-  ColonEq
-  LiteralExpression
-    AbstractLiteral '1'
-  SemiColon
-",
-        );
-        check(
+            "signal reg_s: bit register;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::signal_declaration,
-            "signal reg_s: bit register;",
-            "\
-SignalDeclaration
-  Keyword(Signal)
-  IdentifierList
-    Identifier 'reg_s'
-  Colon
-  Identifier 'bit'
-  Keyword(Register)
-  SemiColon
-",
-        );
-        check(
-            Parser::signal_declaration,
-            "signal bus_s: bit bus := '0';",
-            "\
-SignalDeclaration
-  Keyword(Signal)
-  IdentifierList
-    Identifier 'bus_s'
-  Colon
-  Identifier 'bit'
-  Keyword(Bus)
-  ColonEq
-  LiteralExpression
-    CharacterLiteral ''0''
-  SemiColon
-",
-        );
+            "signal bus_s: bit bus := '0';"
+        ));
     }
 
     #[test]
     fn variable_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::variable_declaration,
-            "variable v1: bit;",
-            "\
-VariableDeclaration
-  Keyword(Variable)
-  IdentifierList
-    Identifier 'v1'
-  Colon
-  Identifier 'bit'
-  SemiColon
-",
-        );
-        check(
+            "variable v1: bit;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::variable_declaration,
-            "variable v, vv, vvv : natural := 1;",
-            "\
-VariableDeclaration
-  Keyword(Variable)
-  IdentifierList
-    Identifier 'v'
-    Comma
-    Identifier 'vv'
-    Comma
-    Identifier 'vvv'
-  Colon
-  Identifier 'natural'
-  ColonEq
-  LiteralExpression
-    AbstractLiteral '1'
-  SemiColon
-",
-        );
-        check(
+            "variable v, vv, vvv : natural := 1;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::variable_declaration,
-            "shared variable shared_v: natural;",
-            "\
-VariableDeclaration
-  Keyword(Shared)
-  Keyword(Variable)
-  IdentifierList
-    Identifier 'shared_v'
-  Colon
-  Identifier 'natural'
-  SemiColon
-",
-        );
+            "shared variable shared_v: natural;"
+        ));
     }
 
     #[test]
     fn file_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(Parser::file_declaration, "file v1: bit;"));
+        insta::assert_snapshot!(to_test_text(
             Parser::file_declaration,
-            "file v1: bit;",
-            "\
-FileDeclaration
-  Keyword(File)
-  IdentifierList
-    Identifier 'v1'
-  Colon
-  Identifier 'bit'
-  SemiColon
-",
-        );
-        check(
+            "file f, ff, fff : natural;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::file_declaration,
-            "file f, ff, fff : natural;",
-            "\
-FileDeclaration
-  Keyword(File)
-  IdentifierList
-    Identifier 'f'
-    Comma
-    Identifier 'ff'
-    Comma
-    Identifier 'fff'
-  Colon
-  Identifier 'natural'
-  SemiColon
-",
-        );
-        check(
+            "file f_path: bit is \"./path_to_file.txt\";"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::file_declaration,
-            "file f_path: bit is \"./path_to_file.txt\";",
-            "\
-FileDeclaration
-  Keyword(File)
-  IdentifierList
-    Identifier 'f_path'
-  Colon
-  Identifier 'bit'
-  FileOpenInformation
-    Keyword(Is)
-    LiteralExpression
-      StringLiteral '\"./path_to_file.txt\"'
-  SemiColon
-",
-        );
-        check(
-            Parser::file_declaration,
-            "file f_path: bit open WRITE_MODE is \"./path_to_file.txt\";",
-            "\
-FileDeclaration
-  Keyword(File)
-  IdentifierList
-    Identifier 'f_path'
-  Colon
-  Identifier 'bit'
-  FileOpenInformation
-    Keyword(Open)
-    NameExpression
-      Name
-        Identifier 'WRITE_MODE'
-    Keyword(Is)
-    LiteralExpression
-      StringLiteral '\"./path_to_file.txt\"'
-  SemiColon
-",
-        );
+            "file f_path: bit open WRITE_MODE is \"./path_to_file.txt\";"
+        ));
     }
 }

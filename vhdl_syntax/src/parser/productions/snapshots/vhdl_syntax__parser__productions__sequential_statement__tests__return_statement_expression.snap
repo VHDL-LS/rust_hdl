@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::return_statement, \"return 1 + 2;\")"
+---
+ReturnStatement
+  Keyword(Return)
+  BinaryExpression
+    LiteralExpression
+      AbstractLiteral '1'
+    Plus
+    LiteralExpression
+      AbstractLiteral '2'
+  SemiColon

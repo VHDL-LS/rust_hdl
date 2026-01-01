@@ -27,64 +27,37 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn simple_components() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::component_declaration,
             "\
 component foo
 end component;
-",
-            "\
-ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(End)
-  Keyword(Component)
-  SemiColon
-            ",
-        );
-        check(
+"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::component_declaration,
             "\
 component foo is
 end component;
-",
-            "\
-ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(Is)
-  Keyword(End)
-  Keyword(Component)
-  SemiColon
-            ",
-        );
-        check(
+"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::component_declaration,
             "\
 component foo is
 end component foo;
 ",
-            "\
-ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(Is)
-  Keyword(End)
-  Keyword(Component)
-  Identifier 'foo'
-  SemiColon
-            ",
-        );
+        ));
     }
 
     #[test]
     fn components_with_generics() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::component_declaration,
             "\
 component foo is
@@ -93,32 +66,12 @@ component foo is
   );
 end component;
 ",
-            "\
-ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(Is)
-  GenericClause
-    Keyword(Generic)
-    LeftPar
-    InterfaceList
-      InterfaceConstantDeclaration
-        IdentifierList
-          Identifier 'foo'
-        Colon
-        Identifier 'natural'
-    RightPar
-    SemiColon
-  Keyword(End)
-  Keyword(Component)
-  SemiColon
-            ",
-        );
+        ));
     }
 
     #[test]
     fn components_with_port() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::component_declaration,
             "\
 component foo is
@@ -127,26 +80,6 @@ component foo is
   );
 end component;
 ",
-            "\
-ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(Is)
-  PortClause
-    Keyword(Port)
-    LeftPar
-    InterfaceList
-      InterfaceConstantDeclaration
-        IdentifierList
-          Identifier 'foo'
-        Colon
-        Identifier 'natural'
-    RightPar
-    SemiColon
-  Keyword(End)
-  Keyword(Component)
-  SemiColon
-            ",
-        );
+        ));
     }
 }

@@ -5,6 +5,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -25,7 +26,7 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn design_unit(&mut self) {
         self.start_node(NodeKind::DesignUnit);
-        
+
         self.context_clause();
         match self.peek_token() {
             Some(Keyword(Kw::Architecture)) => self.architecture(),
@@ -44,38 +45,38 @@ impl<T: TokenStream> Parser<T> {
             Some(Keyword(Kw::Configuration)) => todo!(),
             Some(Keyword(Kw::Context)) => self.context_declaration(),
             Some(_) => todo!("token: {:?}", self.tokenizer.peek(0).unwrap()),
-            None => {},
+            None => {}
         }
         self.end_node();
     }
 
     pub fn context_declaration(&mut self) {
-      self.start_node(NodeKind::ContextDeclaration);
-      self.expect_kw(Kw::Context);
-      self.identifier();
-      self.expect_kw(Kw::Is);
-      self.context_clause();
-      self.expect_kw(Kw::End);
-      self.opt_token(Keyword(Kw::Context));
-      self.opt_identifier();
-      self.expect_token(SemiColon);
-      self.end_node();
+        self.start_node(NodeKind::ContextDeclaration);
+        self.expect_kw(Kw::Context);
+        self.identifier();
+        self.expect_kw(Kw::Is);
+        self.context_clause();
+        self.expect_kw(Kw::End);
+        self.opt_token(Keyword(Kw::Context));
+        self.opt_identifier();
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn context_clause(&mut self) {
         self.start_node(NodeKind::ContextClause);
         loop {
             match self.peek_token() {
-              Some(Keyword(Kw::Use)) => self.use_clause(),
-              Some(Keyword(Kw::Library)) => self.library_clause(),
-              Some(Keyword(Kw::Context)) => {
-                if !self.next_nth_is(Keyword(Kw::Is), 2) {
-                  self.context_reference()
-                } else {
-                    break;
+                Some(Keyword(Kw::Use)) => self.use_clause(),
+                Some(Keyword(Kw::Library)) => self.library_clause(),
+                Some(Keyword(Kw::Context)) => {
+                    if !self.next_nth_is(Keyword(Kw::Is), 2) {
+                        self.context_reference()
+                    } else {
+                        break;
+                    }
                 }
-              },
-              _ => break
+                _ => break,
             }
         }
         self.end_node();
@@ -108,11 +109,11 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{test_utils::check, Parser};
+    use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
     fn parse_simple_entity() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::design_file,
             "\
 entity my_ent is
@@ -123,102 +124,25 @@ entity my_ent2 is
 begin
 end entity;
 ",
-            "\
-DesignFile
-  DesignUnit
-    ContextClause
-    EntityDeclaration
-      Keyword(Entity)
-      Identifier 'my_ent'
-      Keyword(Is)
-      EntityHeader
-      Keyword(Begin)
-      Keyword(End)
-      Identifier 'my_ent'
-      SemiColon
-  DesignUnit
-    ContextClause
-    EntityDeclaration
-      Keyword(Entity)
-      Identifier 'my_ent2'
-      Keyword(Is)
-      EntityHeader
-      Keyword(Begin)
-      Keyword(End)
-      Keyword(Entity)
-      SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn parse_entity_with_context_clause() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::design_file,
             "\
-            library ieee;
-            use ieee.std_logic_1164.all;
+library ieee;
+use ieee.std_logic_1164.all;
 
-            entity my_ent is
-            begin
-            end my_ent;
-        ",
-            "\
-DesignFile
-  DesignUnit
-    ContextClause
-      LibraryClause
-        Keyword(Library)
-        IdentifierList
-          Identifier 'ieee'
-        SemiColon
-      UseClause
-        Keyword(Use)
-        NameList
-          Name
-            Identifier 'ieee'
-            SelectedName
-              Dot
-              Identifier 'std_logic_1164'
-            SelectedName
-              Dot
-              Keyword(All)
-        SemiColon
-    EntityDeclaration
-      Keyword(Entity)
-      Identifier 'my_ent'
-      Keyword(Is)
-      EntityHeader
-      Keyword(Begin)
-      Keyword(End)
-      Identifier 'my_ent'
-      SemiColon
-",
-        );
+entity my_ent is
+begin
+end my_ent;",
+        ));
     }
 
     #[test]
     fn parse_use_clause() {
-        check(
-            Parser::use_clause,
-            "use lib1.lib2.lib3.all;",
-            "\
-UseClause
-  Keyword(Use)
-  NameList
-    Name
-      Identifier 'lib1'
-      SelectedName
-        Dot
-        Identifier 'lib2'
-      SelectedName
-        Dot
-        Identifier 'lib3'
-      SelectedName
-        Dot
-        Keyword(All)
-  SemiColon
-",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::use_clause, "use lib1.lib2.lib3.all;"));
     }
 }

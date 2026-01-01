@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\nprocess is\nbegin\nend postponed process;\",)"
+---
+ProcessStatement
+  Keyword(Process)
+  Keyword(Is)
+  Keyword(Begin)
+  SequentialStatements
+  Keyword(End)
+  Keyword(Postponed)
+  Keyword(Process)
+  SemiColon

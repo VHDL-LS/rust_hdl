@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"not + ?? 1 ** ?? 2\")"
+---
+UnaryExpression
+  Keyword(Not)
+  UnaryExpression
+    Plus
+    UnaryExpression
+      QueQue
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '1'
+        Pow
+        UnaryExpression
+          QueQue
+          LiteralExpression
+            AbstractLiteral '2'

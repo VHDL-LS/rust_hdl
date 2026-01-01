@@ -1,0 +1,38 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\ngen: if cond = true generate\nelsif cond2 = true generate\nelse generate\nend generate;\",)"
+---
+IfGenerateStatement
+  Label
+    Identifier 'gen'
+    Colon
+  Keyword(If)
+  BinaryExpression
+    NameExpression
+      Name
+        Identifier 'cond'
+    EQ
+    NameExpression
+      Name
+        Identifier 'true'
+  Keyword(Generate)
+  GenerateStatementBody
+  IfGenerateElsif
+    Keyword(Elsif)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond2'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Generate)
+    GenerateStatementBody
+  IfGenerateElse
+    Keyword(Else)
+    Keyword(Generate)
+    GenerateStatementBody
+  Keyword(End)
+  Keyword(Generate)
+  SemiColon

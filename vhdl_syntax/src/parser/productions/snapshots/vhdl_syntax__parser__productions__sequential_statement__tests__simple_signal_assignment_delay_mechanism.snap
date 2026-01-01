@@ -1,0 +1,27 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement, \"foo(0) <= transport bar(1,2);\")"
+---
+SimpleWaveformAssignment
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  LTE
+  TransportDelayMechanism
+    Keyword(Transport)
+  WaveformElements
+    WaveformElement
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+  SemiColon

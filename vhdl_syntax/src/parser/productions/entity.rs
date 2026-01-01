@@ -37,35 +37,24 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn parse_simple_entity() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::entity,
             "\
 entity my_ent is
 begin
 end my_ent;
 ",
-            "\
-EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
-  EntityHeader
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn parse_entity_with_generics() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::entity,
             "\
 entity my_ent is
@@ -73,29 +62,12 @@ entity my_ent is
 begin
 end my_ent;
 ",
-            "\
-EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
-  EntityHeader
-    GenericClause
-      Keyword(Generic)
-      LeftPar
-      InterfaceList
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn parse_entity_with_ports() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::entity,
             "\
 entity my_ent is
@@ -103,29 +75,12 @@ entity my_ent is
 begin
 end my_ent;
 ",
-            "\
-EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
-  EntityHeader
-    PortClause
-      Keyword(Port)
-      LeftPar
-      InterfaceList
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn parse_entity_with_generics_and_ports() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::entity,
             "\
 entity my_ent is
@@ -134,34 +89,11 @@ entity my_ent is
 begin
 end my_ent;
 ",
-            "\
-EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
-  EntityHeader
-    GenericClause
-      Keyword(Generic)
-      LeftPar
-      InterfaceList
-      RightPar
-      SemiColon
-    PortClause
-      Keyword(Port)
-      LeftPar
-      InterfaceList
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
-",
-        );
+        ));
     }
     #[test]
     fn parse_entity_with_filled_generics_and_ports() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::entity,
             "\
 entity my_ent is
@@ -173,52 +105,6 @@ entity my_ent is
 begin
 end my_ent;
 ",
-            "\
-EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
-  EntityHeader
-    GenericClause
-      Keyword(Generic)
-      LeftPar
-      InterfaceList
-        InterfaceConstantDeclaration
-          Keyword(Constant)
-          IdentifierList
-            Identifier 'a'
-          Colon
-          Keyword(In)
-          Identifier 'bit'
-      RightPar
-      SemiColon
-    PortClause
-      Keyword(Port)
-      LeftPar
-      InterfaceList
-        InterfaceConstantDeclaration
-          IdentifierList
-            Identifier 'b'
-            Comma
-            Identifier 'c'
-          Colon
-          Keyword(Out)
-          Identifier 'std_logic'
-        SemiColon
-        InterfaceSignalDeclaration
-          Keyword(Signal)
-          IdentifierList
-            Identifier 'd'
-          Colon
-          Keyword(Linkage)
-          Identifier 'boolean'
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
-",
-        );
+        ));
     }
 }

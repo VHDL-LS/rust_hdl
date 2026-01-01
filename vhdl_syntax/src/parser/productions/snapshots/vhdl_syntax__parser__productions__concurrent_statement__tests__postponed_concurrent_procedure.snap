@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"postponed foo(clk);\",)"
+---
+ConcurrentProcedureCallOrComponentInstantiationStatement
+  Keyword(Postponed)
+  Name
+    Identifier 'foo'
+    RawTokens
+      LeftPar
+      Identifier 'clk'
+      RightPar
+  SemiColon

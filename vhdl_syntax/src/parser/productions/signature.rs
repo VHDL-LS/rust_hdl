@@ -32,79 +32,17 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{test_utils::check, Parser};
+    use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
     fn parse_signature() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::signature,
-            "[natural, bit return unsigned]",
-            "\
-Signature
-  LeftSquare
-  NameList
-    Name
-      Identifier 'natural'
-    Comma
-    Name
-      Identifier 'bit'
-  Keyword(Return)
-  Name
-    Identifier 'unsigned'
-  RightSquare
-",
-        );
-
-        check(
-            Parser::signature,
-            "[]",
-            "\
-Signature
-  LeftSquare
-  RightSquare
-",
-        );
-
-        check(
-            Parser::signature,
-            "[return ret_t]",
-            "\
-Signature
-  LeftSquare
-  Keyword(Return)
-  Name
-    Identifier 'ret_t'
-  RightSquare
-",
-        );
-
-        check(
-            Parser::signature,
-            "[arg1_t, arg2_t]",
-            "\
-Signature
-  LeftSquare
-  NameList
-    Name
-      Identifier 'arg1_t'
-    Comma
-    Name
-      Identifier 'arg2_t'
-  RightSquare
-",
-        );
-
-        check(
-            Parser::signature,
-            "[arg1_t]",
-            "\
-Signature
-  LeftSquare
-  NameList
-    Name
-      Identifier 'arg1_t'
-  RightSquare
-",
-        );
+            "[natural, bit return unsigned]"
+        ));
+        insta::assert_snapshot!(to_test_text(Parser::signature, "[]"));
+        insta::assert_snapshot!(to_test_text(Parser::signature, "[return ret_t]"));
+        insta::assert_snapshot!(to_test_text(Parser::signature, "[arg1_t, arg2_t]"));
+        insta::assert_snapshot!(to_test_text(Parser::signature, "[arg1_t]"));
     }
 }

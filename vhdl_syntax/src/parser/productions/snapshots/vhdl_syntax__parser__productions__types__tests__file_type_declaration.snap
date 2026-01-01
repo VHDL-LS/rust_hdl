@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration, \"type IntegerFile is file of integer;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'IntegerFile'
+  Keyword(Is)
+  FileTypeDefinition
+    Keyword(File)
+    Keyword(Of)
+    Name
+      Identifier 'integer'
+  SemiColon

@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+assertion_line: 127
+expression: output
+---
+DesignFile
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'my_ent'
+      Keyword(Is)
+      EntityHeader
+      Keyword(Begin)
+      Keyword(End)
+      Identifier 'my_ent'
+      SemiColon
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'my_ent2'
+      Keyword(Is)
+      EntityHeader
+      Keyword(Begin)
+      Keyword(End)
+      Keyword(Entity)
+      SemiColon

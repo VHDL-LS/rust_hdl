@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"(others => 1)\")"
+---
+ParenthesizedExpressionOrAggregate
+  LeftPar
+  ElementAssociation
+    Choices
+      Keyword(Others)
+    RightArrow
+    LiteralExpression
+      AbstractLiteral '1'
+  RightPar

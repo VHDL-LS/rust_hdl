@@ -102,181 +102,45 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::{to_test_text};
     use crate::parser::Parser;
 
     #[test]
     fn array_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type int_arr_t is array (natural range <>) of integer;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'int_arr_t'
-  Keyword(Is)
-  UnboundedArrayDefinition
-    Keyword(Array)
-    LeftPar
-    IndexSubtypeDefinition
-      Name
-        Identifier 'natural'
-      Keyword(Range)
-      BOX
-    RightPar
-    Keyword(Of)
-    Identifier 'integer'
-  SemiColon
-",
-        );
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type int_arr_2d_t is array (natural range <>, integer range <>) of positive;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'int_arr_2d_t'
-  Keyword(Is)
-  UnboundedArrayDefinition
-    Keyword(Array)
-    LeftPar
-    IndexSubtypeDefinition
-      Name
-        Identifier 'natural'
-      Keyword(Range)
-      BOX
-    Comma
-    IndexSubtypeDefinition
-      Name
-        Identifier 'integer'
-      Keyword(Range)
-      BOX
-    RightPar
-    Keyword(Of)
-    Identifier 'positive'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn array_type_declaration_with_discrete_range() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type constrained_int_arr is array (0 to 1) of positive;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'constrained_int_arr'
-  Keyword(Is)
-  ConstrainedArrayDefinition
-    Keyword(Array)
-    IndexConstraint
-      LeftPar
-      RangeExpression
-        LiteralExpression
-          AbstractLiteral '0'
-        Keyword(To)
-        LiteralExpression
-          AbstractLiteral '1'
-      RightPar
-    Keyword(Of)
-    Identifier 'positive'
-  SemiColon
-",
-        );
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type constrained_int_arr_2d is array (10 downto 5, 'A' to 'B', enum_t'range) of bit;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'constrained_int_arr_2d'
-  Keyword(Is)
-  ConstrainedArrayDefinition
-    Keyword(Array)
-    IndexConstraint
-      LeftPar
-      RangeExpression
-        LiteralExpression
-          AbstractLiteral '10'
-        Keyword(Downto)
-        LiteralExpression
-          AbstractLiteral '5'
-      Comma
-      RangeExpression
-        LiteralExpression
-          CharacterLiteral ''A''
-        Keyword(To)
-        LiteralExpression
-          CharacterLiteral ''B''
-      Comma
-      RawTokens
-        Identifier 'enum_t'
-        Tick
-        Keyword(Range)
-      RightPar
-    Keyword(Of)
-    Identifier 'bit'
-  SemiColon
-",
-        );
+            "type constrained_int_arr_2d is array (10 downto 5, 'A' to 'B', enum_t'range) of bit;"
+        ));
     }
 
     #[test]
     fn record_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type rec_t is record state: enum_t; end record;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'rec_t'
-  Keyword(Is)
-  RecordTypeDefinition
-    Keyword(Record)
-    ElementDeclaration
-      IdentifierList
-        Identifier 'state'
-      Colon
-      Identifier 'enum_t'
-      SemiColon
-    Keyword(End)
-    Keyword(Record)
-  SemiColon
-",
-        );
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type rec_t is record s1: bit; s2, s3: std_ulogic; end record;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'rec_t'
-  Keyword(Is)
-  RecordTypeDefinition
-    Keyword(Record)
-    ElementDeclaration
-      IdentifierList
-        Identifier 's1'
-      Colon
-      Identifier 'bit'
-      SemiColon
-    ElementDeclaration
-      IdentifierList
-        Identifier 's2'
-        Comma
-        Identifier 's3'
-      Colon
-      Identifier 'std_ulogic'
-      SemiColon
-    Keyword(End)
-    Keyword(Record)
-  SemiColon
-",
-        );
+        ));
     }
 }

@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/attributes.rs
+expression: "to_test_text(Parser::attribute_declaration, \"attribute foo : lib.name;\")"
+---
+AttributeDeclaration
+  Keyword(Attribute)
+  Identifier 'foo'
+  Colon
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'name'
+  SemiColon

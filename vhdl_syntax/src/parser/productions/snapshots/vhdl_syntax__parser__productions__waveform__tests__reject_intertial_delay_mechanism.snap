@@ -1,0 +1,11 @@
+---
+source: vhdl_syntax/src/parser/productions/waveform.rs
+expression: "to_test_text(Parser::delay_mechanism, \"reject 2 ns inertial\")"
+---
+InertialDelayMechanism
+  Keyword(Reject)
+  PhysicalLiteral
+    AbstractLiteral '2'
+    Name
+      Identifier 'ns'
+  Keyword(Inertial)

@@ -177,17 +177,17 @@ impl<T: TokenStream> Parser<T> {
     fn conditional_waveforms_after_first_when(&mut self) {
         self.expression();
         while self.next_is(Keyword(Kw::Else)) {
-          let checkpoint = self.checkpoint();
-          self.expect_kw(Kw::Else);
-          self.waveform();
-          if self.opt_token(Keyword(Kw::When)) {
-            self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
-            self.expression();
-          } else {
-            self.start_node_at(checkpoint, ConditionalWaveformElseItem);
-            self.end_node();
-            break;
-          }
+            let checkpoint = self.checkpoint();
+            self.expect_kw(Kw::Else);
+            self.waveform();
+            if self.opt_token(Keyword(Kw::When)) {
+                self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
+                self.expression();
+            } else {
+                self.start_node_at(checkpoint, ConditionalWaveformElseItem);
+                self.end_node();
+                break;
+            }
         }
     }
 
@@ -206,11 +206,11 @@ impl<T: TokenStream> Parser<T> {
 
     pub fn target(&mut self) {
         if self.next_is(LeftPar) {
-          self.start_node(AggregateTarget);
+            self.start_node(AggregateTarget);
             self.aggregate();
             self.end_node();
         } else {
-          self.start_node(NameTarget);
+            self.start_node(NameTarget);
             self.name();
             self.end_node();
         }
@@ -340,10 +340,10 @@ impl<T: TokenStream> Parser<T> {
         self.start_node(ParenthesizedProcessSensitivityList);
         self.expect_token(LeftPar);
         if self.next_is(RightPar) {
-          // This is illegal, but considered only at the analysis stage
-          self.skip();
-          self.end_node();
-          return;
+            // This is illegal, but considered only at the analysis stage
+            self.skip();
+            self.end_node();
+            return;
         }
         if self.next_is(Keyword(Kw::All)) {
             self.skip_into_node(AllSensitivityList);
@@ -361,221 +361,78 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
-    fn check_stmt(input: &str, output: &str) {
-        check(Parser::concurrent_statement, input, output);
+    fn stmt_to_test_text(input: &str) -> String {
+        to_test_text(Parser::concurrent_statement, input)
     }
 
     #[test]
     fn concurrent_procedure() {
-        check_stmt(
-            "foo(clk);",
-            "\
-ConcurrentProcedureCallOrComponentInstantiationStatement
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      Identifier 'clk'
-      RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("foo(clk);",));
     }
 
     #[test]
     fn postponed_concurrent_procedure() {
-        check_stmt(
-            "postponed foo(clk);",
-            "\
-ConcurrentProcedureCallOrComponentInstantiationStatement
-  Keyword(Postponed)
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      Identifier 'clk'
-      RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("postponed foo(clk);",));
     }
 
     #[test]
     fn labeled_concurrent_procedure() {
-        check_stmt(
-            "name: foo(clk);",
-            "\
-ConcurrentProcedureCallOrComponentInstantiationStatement
-  Label
-    Identifier 'name'
-    Colon
-  Name
-    Identifier 'foo'
-    RawTokens
-      LeftPar
-      Identifier 'clk'
-      RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("name: foo(clk);",));
     }
 
     #[test]
     fn concurrent_procedure_no_args() {
-        check_stmt(
-            "foo;",
-            "\
-ConcurrentProcedureCallOrComponentInstantiationStatement
-  Name
-    Identifier 'foo'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("foo;",));
     }
 
     #[test]
     fn block() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name : block
   constant const : natural := 0;
 begin
   name2: foo(clk);
 end block;",
-            "\
-BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  BlockHeader
-  ConstantDeclaration
-    Keyword(Constant)
-    IdentifierList
-      Identifier 'const'
-    Colon
-    Identifier 'natural'
-    ColonEq
-    LiteralExpression
-      AbstractLiteral '0'
-    SemiColon
-  Keyword(Begin)
-  ConcurrentProcedureCallOrComponentInstantiationStatement
-    Label
-      Identifier 'name2'
-      Colon
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        Identifier 'clk'
-        RightPar
-    SemiColon
-  Keyword(End)
-  Keyword(Block)
-  SemiColon
-
-        ",
-        );
+        ));
     }
 
     #[test]
     fn block_variant() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name : block is
 begin
 end block name;",
-            "\
-BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  Keyword(Is)
-  BlockHeader
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Block)
-  Identifier 'name'
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn guarded_block() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name : block (cond = true)
 begin
 end block;",
-            "\
-BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  ParenthesizedExpression
-    LeftPar
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-    RightPar
-  BlockHeader
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Block)
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn guarded_block_variant() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name : block (cond = true) is
 begin
 end block;",
-            "\
-BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  ParenthesizedExpression
-    LeftPar
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-    RightPar
-  Keyword(Is)
-  BlockHeader
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Block)
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn block_header() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name: block is
   generic(gen: integer := 1);
@@ -584,236 +441,82 @@ name: block is
   port map(prt => 2);
 begin
 end block;",
-            "\
-BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  Keyword(Is)
-  BlockHeader
-    GenericClause
-      Keyword(Generic)
-      LeftPar
-      InterfaceList
-        InterfaceConstantDeclaration
-          IdentifierList
-            Identifier 'gen'
-          Colon
-          Identifier 'integer'
-          ColonEq
-          LiteralExpression
-            AbstractLiteral '1'
-      RightPar
-      SemiColon
-    SemiColonTerminatedGenericMapAspect
-      GenericMapAspect
-        Keyword(Generic)
-        Keyword(Map)
-        LeftPar
-        AssociationList
-          AssociationElement
-            FormalPart
-              Name
-                Identifier 'gen'
-            RightArrow
-            ActualPart
-              AbstractLiteral '1'
-        RightPar
-      SemiColon
-    PortClause
-      Keyword(Port)
-      LeftPar
-      InterfaceList
-        InterfaceConstantDeclaration
-          IdentifierList
-            Identifier 'prt'
-          Colon
-          Identifier 'integer'
-          ColonEq
-          LiteralExpression
-            AbstractLiteral '1'
-      RightPar
-      SemiColon
-    SemiColonTerminatedPortMapAspect
-      PortMapAspect
-        Keyword(Port)
-        Keyword(Map)
-        LeftPar
-        AssociationList
-          AssociationElement
-            FormalPart
-              Name
-                Identifier 'prt'
-            RightArrow
-            ActualPart
-              AbstractLiteral '2'
-        RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Block)
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn process_statement() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 process
 begin
 end process;",
-            "\
-ProcessStatement
-  Keyword(Process)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Process)
-  SemiColon
-        ",
-        )
+        ))
     }
 
     #[test]
     fn test_process_statement_variant() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 name : process is
 begin
 end process name;",
-            "\
-ProcessStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Process)
-  Keyword(Is)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Process)
-  Identifier 'name'
-  SemiColon
-        ",
-        )
+        ))
     }
 
     #[test]
     fn postponed_statement() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 postponed process
 begin
 end process;",
-            "\
-ProcessStatement
-  Keyword(Postponed)
-  Keyword(Process)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Process)
-  SemiColon
-        ",
-        )
+        ))
     }
 
     #[test]
     fn postponed_process_statement_end_postponed() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 postponed process
 begin
 end postponed process;",
-            "\
-ProcessStatement
-  Keyword(Postponed)
-  Keyword(Process)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Postponed)
-  Keyword(Process)
-  SemiColon
-        ",
-        )
+        ))
     }
 
     #[test]
     fn process_statement_end_postponed() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 process is
 begin
 end postponed process;",
-            "\
-ProcessStatement
-  Keyword(Process)
-  Keyword(Is)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Postponed)
-  Keyword(Process)
-  SemiColon
-        ",
-        )
+        ))
     }
 
     #[test]
     fn process_statement_sensitivity() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 process (clk, vec(1)) is
 begin
 end process;",
-            "\
-ProcessStatement
-  Keyword(Process)
-  ParenthesizedProcessSensitivityList
-    LeftPar
-    NameList
-      Name
-        Identifier 'clk'
-      Comma
-      Name
-        Identifier 'vec'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          RightPar
-    RightPar
-  Keyword(Is)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Process)
-  SemiColon",
-        )
+        ))
     }
 
     #[test]
     fn process_empty_sensitivity() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 process () is
 begin
 end process;",
-            "\
-ProcessStatement
-  Keyword(Process)
-  ParenthesizedProcessSensitivityList
-    LeftPar
-    RightPar
-  Keyword(Is)
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Process)
-  SemiColon",
-        )
+        ))
     }
 
     #[test]
-    #[ignore]
     fn process_statement_full() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 process (all) is
   variable foo : boolean;
@@ -821,278 +524,63 @@ begin
   foo <= true;
   wait;
 end process;",
-            "TODO",
-        );
+        ));
     }
 
     #[test]
     fn concurrent_assert() {
-        check_stmt(
-            "assert cond = true;",
-            "\
-ConcurrentAssertionStatement
-  Assertion
-    Keyword(Assert)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("assert cond = true;",));
     }
 
     #[test]
     fn postponed_concurrent_assert() {
-        check_stmt(
-            "postponed assert cond = true;",
-            "\
-ConcurrentAssertionStatement
-  Keyword(Postponed)
-  Assertion
-    Keyword(Assert)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("postponed assert cond = true;",));
     }
 
     #[test]
     fn concurrent_signal_assignment() {
-        check_stmt(
-            "foo <= bar(2 to 3);",
-            "\
-ConcurrentSimpleSignalAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-  LTE
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '2'
-            Keyword(To)
-            AbstractLiteral '3'
-            RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("foo <= bar(2 to 3);",));
     }
 
     #[test]
     fn concurrent_signal_assignment_external_name() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "<< signal dut.foo : std_logic >> <= bar(2 to 3);",
-            "\
-ConcurrentSimpleSignalAssignment
-  NameTarget
-    Name
-      ExternalSignalName
-        LtLt
-        Keyword(Signal)
-        RelativePathname
-          PartialPathname
-            Identifier 'dut'
-            Dot
-            Identifier 'foo'
-        Colon
-        Identifier 'std_logic'
-        GtGt
-  LTE
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '2'
-            Keyword(To)
-            AbstractLiteral '3'
-            RightPar
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn selected_signal_assignment() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "with x(0) + 1 select
    foo(0) <= transport bar(1,2) after 2 ns when 0|1;",
-            "\
-ConcurrentSelectedSignalAssignment
-  Keyword(With)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'x'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  Keyword(Select)
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  TransportDelayMechanism
-    Keyword(Transport)
-  SelectedWaveforms
-    SelectedWaveformItem
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-              RawTokens
-                LeftPar
-                AbstractLiteral '1'
-                Comma
-                AbstractLiteral '2'
-                RightPar
-          Keyword(After)
-          PhysicalLiteral
-            AbstractLiteral '2'
-            Name
-              Identifier 'ns'
-      Keyword(When)
-      Choices
-        LiteralExpression
-          AbstractLiteral '0'
-        Bar
-        LiteralExpression
-          AbstractLiteral '1'
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn component_instantiation() {
-        check_stmt(
-            "inst: component lib.foo.bar;",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  ComponentInstantiatedUnit
-    Keyword(Component)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  SemiColon",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("inst: component lib.foo.bar;",));
     }
 
     #[test]
     fn configuration_instantiation() {
-        check_stmt(
-            "inst: configuration lib.foo.bar;",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  ConfigurationInstantiatedUnit
-    Keyword(Configuration)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("inst: configuration lib.foo.bar;",));
     }
 
     #[test]
     fn entity_instantiation() {
-        check_stmt(
-            "inst: entity lib.foo.bar;",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  EntityInstantiatedUnit
-    Keyword(Entity)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("inst: entity lib.foo.bar;",));
     }
 
     #[test]
     fn entity_instantiation_architecture() {
         // Note: the architecture is part of the name to simplify
-        check_stmt(
-            "inst: entity lib.foo.bar(arch);",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  EntityInstantiatedUnit
-    Keyword(Entity)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-      RawTokens
-        LeftPar
-        Identifier 'arch'
-        RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(stmt_to_test_text("inst: entity lib.foo.bar(arch);",));
     }
 
     #[test]
     fn component_aspect_maps() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 inst: component lib.foo.bar
   generic map (
@@ -1101,342 +589,89 @@ inst: component lib.foo.bar
   port map (
    clk => clk_foo
   );",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  ComponentInstantiatedUnit
-    Keyword(Component)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  GenericMapAspect
-    Keyword(Generic)
-    Keyword(Map)
-    LeftPar
-    AssociationList
-      AssociationElement
-        FormalPart
-          Name
-            Identifier 'const'
-        RightArrow
-        ActualPart
-          AbstractLiteral '1'
-    RightPar
-  PortMapAspect
-    Keyword(Port)
-    Keyword(Map)
-    LeftPar
-    AssociationList
-      AssociationElement
-        FormalPart
-          Name
-            Identifier 'clk'
-        RightArrow
-        ActualPart
-          Identifier 'clk_foo'
-    RightPar
-  SemiColon",
-        );
+        ));
     }
 
     #[test]
     fn component_no_keyword_port_aspect_map() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 inst: lib.foo.bar
   port map (
    clk => clk_foo
   );",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  ComponentInstantiatedUnit
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  PortMapAspect
-    Keyword(Port)
-    Keyword(Map)
-    LeftPar
-    AssociationList
-      AssociationElement
-        FormalPart
-          Name
-            Identifier 'clk'
-        RightArrow
-        ActualPart
-          Identifier 'clk_foo'
-    RightPar
-  SemiColon",
-        );
+        ));
     }
 
     #[test]
     fn component_no_keyword_generic_aspect_map() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 inst: lib.foo.bar
   generic map (
    const => 1
   );",
-            "\
-ComponentInstantiationStatement
-  Label
-    Identifier 'inst'
-    Colon
-  ComponentInstantiatedUnit
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
-  GenericMapAspect
-    Keyword(Generic)
-    Keyword(Map)
-    LeftPar
-    AssociationList
-      AssociationElement
-        FormalPart
-          Name
-            Identifier 'const'
-        RightArrow
-        ActualPart
-          AbstractLiteral '1'
-    RightPar
-  SemiColon",
-        );
+        ));
     }
 
     #[test]
     fn for_generate_empty() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
 end generate;",
-            "\
-ForGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(For)
-  ParameterSpecification
-    Identifier 'idx'
-    Keyword(In)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1'
-  Keyword(Generate)
-  GenerateStatementBody
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
     fn for_generate() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
   foo <= bar;
 end generate;",
-            "\
-ForGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(For)
-  ParameterSpecification
-    Identifier 'idx'
-    Keyword(In)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1'
-  Keyword(Generate)
-  GenerateStatementBody
-    ConcurrentSimpleSignalAssignment
-      NameTarget
-        Name
-          Identifier 'foo'
-      LTE
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
     fn for_generate_empty_declarations() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
 end generate;",
-            "\
-ForGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(For)
-  ParameterSpecification
-    Identifier 'idx'
-    Keyword(In)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1'
-  Keyword(Generate)
-  GenerateStatementBody
-    Keyword(Begin)
-    ConcurrentSimpleSignalAssignment
-      NameTarget
-        Name
-          Identifier 'foo'
-      LTE
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
 
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
   foo <= bar;
 end generate;",
-            "\
-ForGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(For)
-  ParameterSpecification
-    Identifier 'idx'
-    Keyword(In)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1'
-  Keyword(Generate)
-  GenerateStatementBody
-    ConcurrentSimpleSignalAssignment
-      NameTarget
-        Name
-          Identifier 'foo'
-      LTE
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
 
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
 end;
 end generate;",
-            "\
-ForGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(For)
-  ParameterSpecification
-    Identifier 'idx'
-    Keyword(In)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1'
-  Keyword(Generate)
-  GenerateStatementBody
-    Keyword(Begin)
-    ConcurrentSimpleSignalAssignment
-      NameTarget
-        Name
-          Identifier 'foo'
-      LTE
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-      SemiColon
-    Keyword(End)
-    SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
-    #[ignore]
     fn for_generate_declarations() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
 end generate;",
-            "TODO",
-        );
+        ));
 
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
@@ -1444,121 +679,42 @@ begin
   foo <= bar;
 end;
 end generate;",
-            "TODO",
-        );
+        ));
     }
 
     #[test]
     fn if_generate_empty() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if cond = true generate
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
     fn if_generate_declarative_region() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if cond = true generate
 begin
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-    Keyword(Begin)
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
     fn if_elseif_else_generate_empty() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if cond = true generate
 elsif cond2 = true generate
 else generate
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-  IfGenerateElsif
-    Keyword(Elsif)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond2'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-    Keyword(Generate)
-    GenerateStatementBody
-  IfGenerateElse
-    Keyword(Else)
-    Keyword(Generate)
-    GenerateStatementBody
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
-  ",
-        );
+        ));
     }
 
     #[test]
-    #[ignore]
     fn test_if_elseif_else_generate() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if cond = true generate
   variable v1 : boolean;
@@ -1573,46 +729,12 @@ else generate
 begin
   foo3(clk);
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    Name
-      Identifier 'cond'
-    EQ
-    Name
-      Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-    TODO
-  ElsifGenerateBranch
-    Keyword(Elsif)
-    BinaryExpression
-      Name
-        Identifier 'cond2'
-      EQ
-      Name
-        Identifier 'true'
-    Keyword(Generate)
-    GenerateStatementBody
-      TODO
-  ElseGenerateBranch
-    Keyword(Else)
-    Keyword(Generate)
-    GenerateStatementBody
-      TODO
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon",
-        );
+        ));
     }
 
     #[test]
     fn if_elseif_else_generate_alternative_label() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if alt1: cond = true generate
 elsif cond2 = true generate
@@ -1620,59 +742,12 @@ end alt2;
 else alt3: generate
 end alt4;
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  Label
-    Identifier 'alt1'
-    Colon
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-  IfGenerateElsif
-    Keyword(Elsif)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond2'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-    Keyword(Generate)
-    GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt2'
-      SemiColon
-  IfGenerateElse
-    Keyword(Else)
-    Label
-      Identifier 'alt3'
-      Colon
-    Keyword(Generate)
-    GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt4'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon",
-        )
+        ))
     }
 
     #[test]
     fn if_elseif_else_generate_inner_end() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: if alt1: cond = true generate
 end alt1;
@@ -1681,65 +756,12 @@ end alt2;
 else alt3: generate
 end alt3;
 end generate;",
-            "\
-IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  Label
-    Identifier 'alt1'
-    Colon
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
-  GenerateStatementBody
-    Keyword(End)
-    Identifier 'alt1'
-    SemiColon
-  IfGenerateElsif
-    Keyword(Elsif)
-    Label
-      Identifier 'alt2'
-      Colon
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond2'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-    Keyword(Generate)
-    GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt2'
-      SemiColon
-  IfGenerateElse
-    Keyword(Else)
-    Label
-      Identifier 'alt3'
-      Colon
-    Keyword(Generate)
-    GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt3'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon",
-        )
+        ))
     }
 
     #[test]
     fn case_generate() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen: case expr(0) + 2 generate
   when 1 | 2 =>
@@ -1747,68 +769,12 @@ gen: case expr(0) + 2 generate
   when others =>
     foo(clk);
 end generate;",
-            "\
-CaseGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(Case)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'expr'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  Keyword(Generate)
-  CaseGenerateAlternative
-    Keyword(When)
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-      Bar
-      LiteralExpression
-        AbstractLiteral '2'
-    RightArrow
-    GenerateStatementBody
-      ConcurrentSimpleSignalAssignment
-        NameTarget
-          Name
-            Identifier 'sig'
-        LTE
-        WaveformElements
-          WaveformElement
-            NameExpression
-              Name
-                Identifier 'value'
-        SemiColon
-  CaseGenerateAlternative
-    Keyword(When)
-    Choices
-      Keyword(Others)
-    RightArrow
-    GenerateStatementBody
-      ConcurrentProcedureCallOrComponentInstantiationStatement
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            Identifier 'clk'
-            RightPar
-        SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon",
-        );
+        ));
     }
 
     #[test]
     fn case_generate_alternative_label() {
-        check_stmt(
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 gen1: case expr(0) + 2 generate
   when alt1: 1 | 2 =>
@@ -1816,69 +782,6 @@ gen1: case expr(0) + 2 generate
   when alt2: others =>
     foo(clk);
 end generate gen1;",
-            "\
-CaseGenerateStatement
-  Label
-    Identifier 'gen1'
-    Colon
-  Keyword(Case)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'expr'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  Keyword(Generate)
-  CaseGenerateAlternative
-    Keyword(When)
-    Label
-      Identifier 'alt1'
-      Colon
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-      Bar
-      LiteralExpression
-        AbstractLiteral '2'
-    RightArrow
-    GenerateStatementBody
-      ConcurrentSimpleSignalAssignment
-        NameTarget
-          Name
-            Identifier 'sig'
-        LTE
-        WaveformElements
-          WaveformElement
-            NameExpression
-              Name
-                Identifier 'value'
-        SemiColon
-  CaseGenerateAlternative
-    Keyword(When)
-    Label
-      Identifier 'alt2'
-      Colon
-    Choices
-      Keyword(Others)
-    RightArrow
-    GenerateStatementBody
-      ConcurrentProcedureCallOrComponentInstantiationStatement
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            Identifier 'clk'
-            RightPar
-        SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  Identifier 'gen1'
-  SemiColon",
-        );
+        ));
     }
 }

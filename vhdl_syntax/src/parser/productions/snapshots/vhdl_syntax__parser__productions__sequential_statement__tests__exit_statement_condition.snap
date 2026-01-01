@@ -1,0 +1,11 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::exit_statement, \"exit when condition;\")"
+---
+ExitStatement
+  Keyword(Exit)
+  Keyword(When)
+  NameExpression
+    Name
+      Identifier 'condition'
+  SemiColon

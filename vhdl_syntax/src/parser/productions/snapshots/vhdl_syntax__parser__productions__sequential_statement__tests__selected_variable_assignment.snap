@@ -1,0 +1,53 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement,\n\"\\\nwith x(0) + 1 select\n   foo(0) := bar(1,2) when 0|1,\n             def when others;\n        \")"
+---
+SelectedVariableAssignment
+  Keyword(With)
+  BinaryExpression
+    NameExpression
+      Name
+        Identifier 'x'
+        RawTokens
+          LeftPar
+          AbstractLiteral '0'
+          RightPar
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  Keyword(Select)
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  ColonEq
+  SelectedExpressions
+    SelectedExpressionItem
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+      Keyword(When)
+      Choices
+        LiteralExpression
+          AbstractLiteral '0'
+        Bar
+        LiteralExpression
+          AbstractLiteral '1'
+    Comma
+    SelectedExpressionItem
+      NameExpression
+        Name
+          Identifier 'def'
+      Keyword(When)
+      Choices
+        Keyword(Others)
+  SemiColon

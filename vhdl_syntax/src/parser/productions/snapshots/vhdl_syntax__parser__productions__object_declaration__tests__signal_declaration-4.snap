@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::signal_declaration, \"signal bus_s: bit bus := '0';\")"
+---
+SignalDeclaration
+  Keyword(Signal)
+  IdentifierList
+    Identifier 'bus_s'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'bit'
+  Keyword(Bus)
+  ColonEq
+  LiteralExpression
+    CharacterLiteral ''0''
+  SemiColon

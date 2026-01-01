@@ -1,0 +1,8 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"abs 9\")"
+---
+UnaryExpression
+  Keyword(Abs)
+  LiteralExpression
+    AbstractLiteral '9'

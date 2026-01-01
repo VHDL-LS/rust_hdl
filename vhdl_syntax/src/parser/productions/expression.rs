@@ -67,11 +67,11 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn allocator(&mut self) {
-      self.start_node(ExpressionAllocator);
-      self.expect_kw(Kw::New);
-      // TODO: This is still incorrect
-      self.name();
-      self.end_node();
+        self.start_node(ExpressionAllocator);
+        self.expect_kw(Kw::New);
+        // TODO: This is still incorrect
+        self.name();
+        self.end_node();
     }
 
     fn unary_expression(&mut self) {
@@ -113,336 +113,148 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
-    fn check_expr(input: &str, output: &str) {
-        check(Parser::expression, input, output)
+    fn expr_to_test_text(input: &str) -> String {
+        to_test_text(Parser::expression, input)
     }
 
     #[test]
     fn character_literal() {
-        check_expr(
-            "'a'",
-            "\
-LiteralExpression
-  CharacterLiteral ''a''
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("'a'"));
     }
 
     #[test]
     fn abstract_integer_literal() {
-        check_expr(
-            "71",
-            "\
-LiteralExpression
-  AbstractLiteral '71'
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("71",));
     }
 
     #[test]
     fn abstract_real_literal() {
-        check_expr(
-            "7.1",
-            "\
-LiteralExpression
-  AbstractLiteral '7.1'
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("7.1",));
     }
 
     #[test]
     fn string_literal() {
-        check_expr(
-            "\"string\"",
-            "\
-LiteralExpression
-  StringLiteral '\"string\"'
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("\"string\"",));
     }
 
     #[test]
     fn null_literal() {
-        check_expr(
-            "null",
-            "\
-LiteralExpression
-  Keyword(Null)
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("null",));
     }
 
     #[test]
     #[ignore]
     fn operator_symbol() {
-        check_expr("\"+\"(1, 2)", todo!());
+        insta::assert_snapshot!(expr_to_test_text("\"+\"(1, 2)"));
     }
 
     #[test]
     fn external_name() {
-        check_expr(
-            "<< signal dut.foo : boolean >>",
-            "\
-NameExpression
-  Name
-    ExternalSignalName
-      LtLt
-      Keyword(Signal)
-      RelativePathname
-        PartialPathname
-          Identifier 'dut'
-          Dot
-          Identifier 'foo'
-      Colon
-      Identifier 'boolean'
-      GtGt
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("<< signal dut.foo : boolean >>"));
     }
 
     #[test]
     fn add_expression() {
-        check_expr(
-            "1 + 2",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '1'
-  Plus
-  LiteralExpression
-    AbstractLiteral '2'
-            ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("1 + 2"))
     }
 
     #[test]
     fn sub_expression() {
-        check_expr(
-            "1 - 2",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '1'
-  Minus
-  LiteralExpression
-    AbstractLiteral '2'
-            ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("1 - 2"))
     }
 
     #[test]
     fn abs_expression() {
-        check_expr(
-            "abs 9",
-            "\
-UnaryExpression
-  Keyword(Abs)
-  LiteralExpression
-    AbstractLiteral '9'
-            ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("abs 9"))
     }
 
     #[test]
     fn condition_operator() {
-        check_expr(
-            "?? 9",
-            "\
-UnaryExpression
-  QueQue
-  LiteralExpression
-    AbstractLiteral '9'
-            ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("?? 9"))
     }
 
     #[test]
     fn not_expression() {
-        check_expr(
-            "not false",
-            "\
-UnaryExpression
-  Keyword(Not)
-  NameExpression
-    Name
-      Identifier 'false'
-            ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("not false"))
     }
 
-    #[ignore]
     #[test]
     fn allocator() {
-        check_expr("new integer_vector'(0, 1)", todo!())
+        insta::assert_snapshot!(expr_to_test_text("new integer_vector'(0, 1)"))
     }
 
-    #[ignore]
     #[test]
     fn allocator_subtype() {
-        check_expr("new integer_vector", todo!())
+        insta::assert_snapshot!(expr_to_test_text("new integer_vector"))
     }
 
-    #[ignore]
     #[test]
     fn allocator_subtype_constrained() {
-        check_expr("new integer_vector(0 to 1)", todo!())
+        insta::assert_snapshot!(expr_to_test_text("new integer_vector(0 to 1)"))
     }
 
-    #[ignore]
     #[test]
     fn allocator_subtype_constrained_range_attribute() {
-        check_expr("new integer_vector(foo'range)", todo!())
+        insta::assert_snapshot!(expr_to_test_text("new integer_vector(foo'range)"))
     }
 
     #[test]
     fn physical_unit() {
-        check_expr(
-            "1 ns",
-            "\
-PhysicalLiteral
-  AbstractLiteral '1'
-  Name
-    Identifier 'ns'
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("1 ns"))
     }
 
     #[test]
     fn physical_unit_real() {
-        check_expr(
-            "1.0 ns",
-            "\
-PhysicalLiteral
-  AbstractLiteral '1.0'
-  Name
-    Identifier 'ns'
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("1.0 ns"))
     }
 
     #[test]
     fn physical_unit_binary_expression() {
-        check_expr(
-            "2 * 1 ns",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '2'
-  Times
-  PhysicalLiteral
-    AbstractLiteral '1'
-    Name
-      Identifier 'ns'
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("2 * 1 ns"))
     }
 
     #[test]
     fn physical_unit_unary_expression() {
-        check_expr(
-            "- 1 ns",
-            "\
-UnaryExpression
-  Minus
-  PhysicalLiteral
-    AbstractLiteral '1'
-    Name
-      Identifier 'ns'
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("- 1 ns"))
     }
 
-    #[ignore]
     #[test]
     fn qualified_expression() {
-        check_expr("foo'(1+2)", todo!())
+        insta::assert_snapshot!(expr_to_test_text("foo'(1+2)"))
     }
 
-    #[ignore]
     #[test]
     fn qualified_expression_precedence() {
-        check_expr("mark0'(0) < mark1'(1)", todo!())
+        insta::assert_snapshot!(expr_to_test_text("mark0'(0) < mark1'(1)"))
     }
 
-    #[ignore]
     #[test]
+    #[ignore]
     fn qualified_aggregate() {
-        check_expr("foo'(others => '1')", todo!())
+        insta::assert_snapshot!(expr_to_test_text("foo'(others => '1')"))
     }
 
     #[test]
     fn positional_aggregate() {
-        check_expr(
-            "(1, 2)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  LiteralExpression
-    AbstractLiteral '1'
-  Comma
-  LiteralExpression
-    AbstractLiteral '2'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(1, 2)"))
     }
 
     #[test]
     fn named_aggregate() {
-        check_expr(
-            "(1 => 2)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  ElementAssociation
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '2'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(1 => 2)"))
     }
 
     #[test]
     fn named_aggregate_many_choices() {
-        check_expr(
-            "(1 | 2 => 3)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  ElementAssociation
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-      Bar
-      LiteralExpression
-        AbstractLiteral '2'
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '3'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(1 | 2 => 3)"))
     }
 
     #[test]
     fn aggregate_others() {
-        check_expr(
-            "(others => 1)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  ElementAssociation
-    Choices
-      Keyword(Others)
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '1'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(others => 1)"))
     }
 
     #[ignore]
@@ -453,324 +265,40 @@ ParenthesizedExpressionOrAggregate
 
     #[test]
     fn multiple_others_aggregate() {
-        check_expr(
-            "(others => 1, others => 2)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  ElementAssociation
-    Choices
-      Keyword(Others)
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '1'
-  Comma
-  ElementAssociation
-    Choices
-      Keyword(Others)
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '2'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(others => 1, others => 2)"))
     }
 
     #[test]
     fn mixed_aggregate() {
-        check_expr(
-            "(1 => 2, 3)",
-            "\
-ParenthesizedExpressionOrAggregate
-  LeftPar
-  ElementAssociation
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-    RightArrow
-    LiteralExpression
-      AbstractLiteral '2'
-  Comma
-  LiteralExpression
-    AbstractLiteral '3'
-  RightPar",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(1 => 2, 3)"))
     }
 
     #[test]
     fn nested_expression_par_second() {
-        check_expr(
-            "1 + (2 + 3)",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '1'
-  Plus
-  ParenthesizedExpressionOrAggregate
-    LeftPar
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '2'
-      Plus
-      LiteralExpression
-        AbstractLiteral '3'
-    RightPar
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("1 + (2 + 3)"))
     }
 
     #[test]
     fn nested_expression_par_first() {
-        check_expr(
-            "(1 + 2) + 3",
-            "\
-BinaryExpression
-  ParenthesizedExpressionOrAggregate
-    LeftPar
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '1'
-      Plus
-      LiteralExpression
-        AbstractLiteral '2'
-    RightPar
-  Plus
-  LiteralExpression
-    AbstractLiteral '3'
-        ",
-        )
+        insta::assert_snapshot!(expr_to_test_text("(1 + 2) + 3"))
     }
 
     #[test]
     fn expression_precedence() {
-        check_expr(
-            "1 + 1 ns",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '1'
-  Plus
-  PhysicalLiteral
-    AbstractLiteral '1'
-    Name
-      Identifier 'ns'
-                ",
-        );
-        check_expr(
-            "1 * 1 ns * 2",
-            "\
-BinaryExpression
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Times
-    PhysicalLiteral
-      AbstractLiteral '1'
-      Name
-        Identifier 'ns'
-  Times
-  LiteralExpression
-    AbstractLiteral '2'
-        ",
-        );
-        check_expr(
-            "1+2+3",
-            "\
-BinaryExpression
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  Plus
-  LiteralExpression
-    AbstractLiteral '3'
-        ",
-        );
-        check_expr(
-            "1-2-3",
-            "\
-BinaryExpression
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Minus
-    LiteralExpression
-      AbstractLiteral '2'
-  Minus
-  LiteralExpression
-    AbstractLiteral '3'
-        ",
-        );
-        check_expr(
-            "1+2*3",
-            "\
-BinaryExpression
-  LiteralExpression
-    AbstractLiteral '1'
-  Plus
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '2'
-    Times
-    LiteralExpression
-      AbstractLiteral '3'
-        ",
-        );
-        check_expr(
-            "(1+2)*3",
-            "\
-BinaryExpression
-  ParenthesizedExpressionOrAggregate
-    LeftPar
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '1'
-      Plus
-      LiteralExpression
-        AbstractLiteral '2'
-    RightPar
-  Times
-  LiteralExpression
-    AbstractLiteral '3'
-        ",
-        );
-        check_expr(
-            "-1 * 2",
-            "\
-UnaryExpression
-  Minus
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Times
-    LiteralExpression
-      AbstractLiteral '2'
-        ",
-        );
-        check_expr(
-            "not 1 + 2",
-            "\
-BinaryExpression
-  UnaryExpression
-    Keyword(Not)
-    LiteralExpression
-      AbstractLiteral '1'
-  Plus
-  LiteralExpression
-    AbstractLiteral '2'
-        ",
-        );
-        check_expr(
-            "abs not 1 + 2",
-            "\
-BinaryExpression
-  UnaryExpression
-    Keyword(Abs)
-    UnaryExpression
-      Keyword(Not)
-      LiteralExpression
-        AbstractLiteral '1'
-  Plus
-  LiteralExpression
-    AbstractLiteral '2'
-        ",
-        );
-        check_expr(
-            "not - 1",
-            "\
-UnaryExpression
-  Keyword(Not)
-  UnaryExpression
-    Minus
-    LiteralExpression
-      AbstractLiteral '1'
-        ",
-        );
-        check_expr(
-            "not + 1",
-            "\
-UnaryExpression
-  Keyword(Not)
-  UnaryExpression
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-        ",
-        );
-        check_expr(
-            "not + ?? 1 ** ?? 2",
-            "\
-UnaryExpression
-  Keyword(Not)
-  UnaryExpression
-    Plus
-    UnaryExpression
-      QueQue
-      BinaryExpression
-        LiteralExpression
-          AbstractLiteral '1'
-        Pow
-        UnaryExpression
-          QueQue
-          LiteralExpression
-            AbstractLiteral '2'
-        ",
-        );
-        check_expr(
-            "abs 1 sll 2 + 3 and -1",
-            "\
-BinaryExpression
-  BinaryExpression
-    UnaryExpression
-      Keyword(Abs)
-      LiteralExpression
-        AbstractLiteral '1'
-    Keyword(Sll)
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '2'
-      Plus
-      LiteralExpression
-        AbstractLiteral '3'
-  Keyword(And)
-  UnaryExpression
-    Minus
-    LiteralExpression
-      AbstractLiteral '1'
-        ",
-        );
-        check_expr(
-            "1 + 2 and 3 + 4",
-            "\
-BinaryExpression
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  Keyword(And)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '3'
-    Plus
-    LiteralExpression
-      AbstractLiteral '4'
-        ",
-        );
-        check_expr(
-            "and 1 + 2",
-            "\
-BinaryExpression
-  UnaryExpression
-    Keyword(And)
-    LiteralExpression
-      AbstractLiteral '1'
-  Plus
-  LiteralExpression
-    AbstractLiteral '2'
-        ",
-        );
+        insta::assert_snapshot!(expr_to_test_text("1 + 1 ns"));
+        insta::assert_snapshot!(expr_to_test_text("1 * 1 ns * 2"));
+        insta::assert_snapshot!(expr_to_test_text("1+2+3"));
+        insta::assert_snapshot!(expr_to_test_text("1-2-3"));
+        insta::assert_snapshot!(expr_to_test_text("1+2*3"));
+        insta::assert_snapshot!(expr_to_test_text("(1+2)*3"));
+        insta::assert_snapshot!(expr_to_test_text("-1 * 2"));
+        insta::assert_snapshot!(expr_to_test_text("not 1 + 2"));
+        insta::assert_snapshot!(expr_to_test_text("abs not 1 + 2"));
+        insta::assert_snapshot!(expr_to_test_text("not - 1"));
+        insta::assert_snapshot!(expr_to_test_text("not + 1"));
+        insta::assert_snapshot!(expr_to_test_text("not + ?? 1 ** ?? 2"));
+        insta::assert_snapshot!(expr_to_test_text("abs 1 sll 2 + 3 and -1"));
+        insta::assert_snapshot!(expr_to_test_text("1 + 2 and 3 + 4"));
+        insta::assert_snapshot!(expr_to_test_text("and 1 + 2"));
     }
 }

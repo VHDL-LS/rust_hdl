@@ -79,142 +79,47 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn transport_delay_mechanism() {
-        check(
-            Parser::delay_mechanism,
-            "transport",
-            "\
-TransportDelayMechanism
-  Keyword(Transport)
-        ",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::delay_mechanism, "transport"))
     }
 
     #[test]
     fn intertial_delay_mechanism() {
-        check(
-            Parser::delay_mechanism,
-            "inertial",
-            "\
-InertialDelayMechanism
-  Keyword(Inertial)
-        ",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::delay_mechanism, "inertial"))
     }
 
     #[test]
     fn reject_intertial_delay_mechanism() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::delay_mechanism,
-            "reject 2 ns inertial",
-            "\
-InertialDelayMechanism
-  Keyword(Reject)
-  PhysicalLiteral
-    AbstractLiteral '2'
-    Name
-      Identifier 'ns'
-  Keyword(Inertial)
-        ",
-        )
+            "reject 2 ns inertial"
+        ))
     }
 
     #[test]
     fn waveform() {
-        check(
-            Parser::waveform,
-            "bar(1 to 3)",
-            "\
-WaveformElements
-  WaveformElement
-    NameExpression
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Keyword(To)
-          AbstractLiteral '3'
-          RightPar
-        ",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::waveform, "bar(1 to 3)"))
     }
 
     #[test]
     fn waveform_after() {
-        check(
-            Parser::waveform,
-            "bar(1 to 3) after 2 ns",
-            "\
-WaveformElements
-  WaveformElement
-    NameExpression
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Keyword(To)
-          AbstractLiteral '3'
-          RightPar
-    Keyword(After)
-    PhysicalLiteral
-      AbstractLiteral '2'
-      Name
-        Identifier 'ns'
-        ",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::waveform, "bar(1 to 3) after 2 ns"))
     }
 
     #[test]
     fn waveform_after_many() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::waveform,
-            "bar(1 to 3) after 2 ns, expr after 1 ns",
-            "\
-WaveformElements
-  WaveformElement
-    NameExpression
-      Name
-        Identifier 'bar'
-        RawTokens
-          LeftPar
-          AbstractLiteral '1'
-          Keyword(To)
-          AbstractLiteral '3'
-          RightPar
-    Keyword(After)
-    PhysicalLiteral
-      AbstractLiteral '2'
-      Name
-        Identifier 'ns'
-  Comma
-  WaveformElement
-    NameExpression
-      Name
-        Identifier 'expr'
-    Keyword(After)
-    PhysicalLiteral
-      AbstractLiteral '1'
-      Name
-        Identifier 'ns'
-        ",
-        )
+            "bar(1 to 3) after 2 ns, expr after 1 ns"
+        ))
     }
 
     #[test]
     fn unaffected_waveform() {
-        check(
-            Parser::waveform,
-            "unaffected",
-            "\
-UnaffectedWaveform
-  Keyword(Unaffected)
-        ",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::waveform, "unaffected"))
     }
 }

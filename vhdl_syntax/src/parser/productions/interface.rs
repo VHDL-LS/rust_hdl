@@ -21,8 +21,8 @@ impl<T: TokenStream> Parser<T> {
         self.start_node(GenericClause);
         self.expect_kw(Kw::Generic);
         self.expect_token(LeftPar);
-          if !(self.next_is(RightPar)) {
-          self.interface_list();
+        if !(self.next_is(RightPar)) {
+            self.interface_list();
         }
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
@@ -39,7 +39,7 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::Port);
         self.expect_token(LeftPar);
         if !(self.next_is(RightPar)) {
-          self.interface_list();
+            self.interface_list();
         }
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
@@ -58,115 +58,117 @@ impl<T: TokenStream> Parser<T> {
             }
             Some(Keyword(Kw::File)) => self.interface_file_declaration(),
             Some(Keyword(Kw::Type)) => self.interface_type_declaration(),
-            Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => self.interface_subprogram_declaration(),
+            Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => {
+                self.interface_subprogram_declaration()
+            }
             Some(Keyword(Kw::Package)) => self.interface_package_declaration(),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 
     pub fn interface_file_declaration(&mut self) {
-      self.start_node(InterfaceFileDeclaration);
-      self.expect_kw(Kw::File);
-      self.identifier_list();
-      self.expect_token(Colon);
-      self.subtype_indication();
-      self.end_node();
+        self.start_node(InterfaceFileDeclaration);
+        self.expect_kw(Kw::File);
+        self.identifier_list();
+        self.expect_token(Colon);
+        self.subtype_indication();
+        self.end_node();
     }
 
     pub fn interface_type_declaration(&mut self) {
-      self.start_node(InterfaceIncompleteTypeDeclaration);
-      self.expect_kw(Kw::Type);
-      self.identifier();
-      self.end_node();
+        self.start_node(InterfaceIncompleteTypeDeclaration);
+        self.expect_kw(Kw::Type);
+        self.identifier();
+        self.end_node();
     }
 
     pub fn interface_subprogram_declaration(&mut self) {
-      self.start_node(InterfaceSubprogramDeclaration);
-      self.interface_subprogram_specification();
-      if self.opt_token(Keyword(Kw::Is)) {
-        self.interface_subprogram_default();
-      }
-      self.end_node();
+        self.start_node(InterfaceSubprogramDeclaration);
+        self.interface_subprogram_specification();
+        if self.opt_token(Keyword(Kw::Is)) {
+            self.interface_subprogram_default();
+        }
+        self.end_node();
     }
 
     pub fn interface_subprogram_default(&mut self) {
-      if self.next_is(BOX) {
-        self.skip_into_node(InterfaceSubprogramDefaultBox);
-      } else {
-        self.start_node(InterfaceSubprogramDefaultName);
-        self.name();
-        self.end_node();
-      }
+        if self.next_is(BOX) {
+            self.skip_into_node(InterfaceSubprogramDefaultBox);
+        } else {
+            self.start_node(InterfaceSubprogramDefaultName);
+            self.name();
+            self.end_node();
+        }
     }
 
     pub fn interface_subprogram_specification(&mut self) {
-      if self.next_is(Keyword(Kw::Procedure)) {
-        self.interface_procedure_specification();
-      } else {
-        self.interface_function_specification();
-      }
+        if self.next_is(Keyword(Kw::Procedure)) {
+            self.interface_procedure_specification();
+        } else {
+            self.interface_function_specification();
+        }
     }
 
     pub fn interface_procedure_specification(&mut self) {
-      self.start_node(InterfaceProcedureSpecification);
-      self.end_node();
+        self.start_node(InterfaceProcedureSpecification);
+        self.end_node();
     }
 
     pub fn interface_function_specification(&mut self) {
-      self.start_node(InterfaceFunctionSpecification);
-      self.opt_function_purity();
-      self.expect_kw(Kw::Function);
-      self.designator();
-      self.opt_parameter_list();
-      self.end_node();
+        self.start_node(InterfaceFunctionSpecification);
+        self.opt_function_purity();
+        self.expect_kw(Kw::Function);
+        self.designator();
+        self.opt_parameter_list();
+        self.end_node();
     }
 
     fn opt_parameter_list(&mut self) {
-      if self.next_is_one_of([Keyword(Kw::Parameter), LeftPar]) {
-        self.parameter_list();
-      }
+        if self.next_is_one_of([Keyword(Kw::Parameter), LeftPar]) {
+            self.parameter_list();
+        }
     }
 
     pub fn parameter_list(&mut self) {
-      self.start_node(ParameterList);
-      self.opt_token(Keyword(Kw::Parameter));
-      self.expect_token(LeftPar);
-      self.interface_list();
-      self.expect_token(RightPar);
-      self.expect_kw(Kw::Return);
-      self.type_mark();
-      self.end_node();
+        self.start_node(ParameterList);
+        self.opt_token(Keyword(Kw::Parameter));
+        self.expect_token(LeftPar);
+        self.interface_list();
+        self.expect_token(RightPar);
+        self.expect_kw(Kw::Return);
+        self.type_mark();
+        self.end_node();
     }
 
     pub fn opt_function_purity(&mut self) {
-      self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);
+        self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);
     }
 
     pub fn interface_package_declaration(&mut self) {
-      self.start_node(InterfacePackageDeclaration);
-      self.expect_kw(Kw::Package);
-      self.identifier();
-      self.expect_kw(Kw::Is);
-      self.expect_kw(Kw::New);
-      self.name();
-      self.interface_package_generic_map_aspect();
-      self.end_node();
+        self.start_node(InterfacePackageDeclaration);
+        self.expect_kw(Kw::Package);
+        self.identifier();
+        self.expect_kw(Kw::Is);
+        self.expect_kw(Kw::New);
+        self.name();
+        self.interface_package_generic_map_aspect();
+        self.end_node();
     }
 
     pub fn interface_package_generic_map_aspect(&mut self) {
-      self.expect_kw(Kw::Generic);
-      self.expect_kw(Kw::Map);
-      self.expect_token(LeftPar);
-      if self.next_is(BOX) {
-        self.skip_into_node(InterfacePackageGenericMapAspectBox);
-      } else if self.next_is(Keyword(Kw::Default)) {
-        self.skip_into_node(InterfacePackageGenericMapAspectDefault);
-      } else {
-        self.start_node(InterfacePackageGenericMapAspectAssociations);
-        self.association_list();
-        self.end_node();
-      }
-      self.expect_token(RightPar);
+        self.expect_kw(Kw::Generic);
+        self.expect_kw(Kw::Map);
+        self.expect_token(LeftPar);
+        if self.next_is(BOX) {
+            self.skip_into_node(InterfacePackageGenericMapAspectBox);
+        } else if self.next_is(Keyword(Kw::Default)) {
+            self.skip_into_node(InterfacePackageGenericMapAspectDefault);
+        } else {
+            self.start_node(InterfacePackageGenericMapAspectAssociations);
+            self.association_list();
+            self.end_node();
+        }
+        self.expect_token(RightPar);
     }
 
     pub fn interface_object_declaration(&mut self) {
@@ -178,7 +180,9 @@ impl<T: TokenStream> Parser<T> {
         ]);
         match tok {
             Some(Keyword(Kw::Signal)) => self.start_node_at(checkpoint, InterfaceSignalDeclaration),
-            Some(Keyword(Kw::Variable)) => self.start_node_at(checkpoint, InterfaceVariableDeclaration),
+            Some(Keyword(Kw::Variable)) => {
+                self.start_node_at(checkpoint, InterfaceVariableDeclaration)
+            }
             _ => self.start_node_at(checkpoint, InterfaceConstantDeclaration),
         }
         self.identifier_list();
@@ -255,216 +259,70 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn association_list() {
-        check(
-            Parser::association_list,
-            "arg1, arg2",
-            "\
-AssociationList
-  AssociationElement
-    ActualPart
-      Identifier 'arg1'
-  Comma
-  AssociationElement
-    ActualPart
-      Identifier 'arg2'
-",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::association_list, "arg1, arg2",));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::association_list,
-            "p1 => 1, std_ulogic(p2)=>     sl_sig",
-            "\
-AssociationList
-  AssociationElement
-    FormalPart
-      Name
-        Identifier 'p1'
-    RightArrow
-    ActualPart
-      AbstractLiteral '1'
-  Comma
-  AssociationElement
-    FormalPart
-      Name
-        Identifier 'std_ulogic'
-        RawTokens
-          LeftPar
-          Identifier 'p2'
-          RightPar
-    RightArrow
-    ActualPart
-      Identifier 'sl_sig'
-",
-        );
+            "p1 => 1, std_ulogic(p2)=>     sl_sig"
+        ));
     }
 
     #[test]
     fn empty_generic_clause() {
-        check(
-            Parser::generic_clause,
-            "generic();",
-            "\
-GenericClause
-  Keyword(Generic)
-  LeftPar
-  RightPar
-  SemiColon
-",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::generic_clause, "generic();",));
     }
 
     #[test]
     fn empty_port_clause() {
-        check(
-            Parser::port_clause,
-            "port();",
-            "\
-PortClause
-  Keyword(Port)
-  LeftPar
-  RightPar
-  SemiColon
-",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::port_clause, "port();",));
     }
 
     #[test]
     fn object_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
             "a : in std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(In)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "a : out std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Out)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+            "a : out std_logic"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "signal a : out std_logic",
-            "\
-InterfaceSignalDeclaration
-  Keyword(Signal)
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Out)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+            "signal a : out std_logic"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "constant a : out std_logic",
-            "\
-InterfaceConstantDeclaration
-  Keyword(Constant)
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Out)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+            "constant a : out std_logic"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "a : inout std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Inout)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+            "a : inout std_logic"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
             "a : linkage std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Linkage)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "a : buffer std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-  Colon
-  Keyword(Buffer)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-        check(
+            "a : buffer std_logic"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
-            "a, b, c : in std_logic",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-    Comma
-    Identifier 'b'
-    Comma
-    Identifier 'c'
-  Colon
-  Keyword(In)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
+            "a, b, c : in std_logic"
+        ));
     }
 
-      #[test]
-  fn subtype_indication_in_interface_declaration() {
-    check(
+    #[test]
+    fn subtype_indication_in_interface_declaration() {
+        insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
             "a : std_ulogic_vector(31 downto 0)",
-            "\
-InterfaceConstantDeclaration
-  IdentifierList
-    Identifier 'a'
-    Comma
-    Identifier 'b'
-    Comma
-    Identifier 'c'
-  Colon
-  Keyword(In)
-  SubtypeIndication
-    Identifier 'std_logic'
-",
-        );
-  }
+        ));
+    }
 }

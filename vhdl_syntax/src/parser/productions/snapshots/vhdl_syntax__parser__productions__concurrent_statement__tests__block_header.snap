@@ -1,0 +1,77 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\nname: block is\n  generic(gen: integer := 1);\n  generic map(gen => 1);\n  port(prt: integer := 1);\n  port map(prt => 2);\nbegin\nend block;\",)"
+---
+BlockStatement
+  Label
+    Identifier 'name'
+    Colon
+  Keyword(Block)
+  Keyword(Is)
+  BlockHeader
+    GenericClause
+      Keyword(Generic)
+      LeftPar
+      InterfaceList
+        InterfaceConstantDeclaration
+          IdentifierList
+            Identifier 'gen'
+          Colon
+          SubtypeIndication
+            Name
+              Identifier 'integer'
+          ColonEq
+          LiteralExpression
+            AbstractLiteral '1'
+      RightPar
+      SemiColon
+    SemiColonTerminatedGenericMapAspect
+      GenericMapAspect
+        Keyword(Generic)
+        Keyword(Map)
+        LeftPar
+        AssociationList
+          AssociationElement
+            FormalPart
+              Name
+                Identifier 'gen'
+            RightArrow
+            ActualPart
+              AbstractLiteral '1'
+        RightPar
+      SemiColon
+    PortClause
+      Keyword(Port)
+      LeftPar
+      InterfaceList
+        InterfaceConstantDeclaration
+          IdentifierList
+            Identifier 'prt'
+          Colon
+          SubtypeIndication
+            Name
+              Identifier 'integer'
+          ColonEq
+          LiteralExpression
+            AbstractLiteral '1'
+      RightPar
+      SemiColon
+    SemiColonTerminatedPortMapAspect
+      PortMapAspect
+        Keyword(Port)
+        Keyword(Map)
+        LeftPar
+        AssociationList
+          AssociationElement
+            FormalPart
+              Name
+                Identifier 'prt'
+            RightArrow
+            ActualPart
+              AbstractLiteral '2'
+        RightPar
+      SemiColon
+  Keyword(Begin)
+  Keyword(End)
+  Keyword(Block)
+  SemiColon

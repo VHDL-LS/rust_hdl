@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration, \"signal a : out std_logic\")"
+---
+InterfaceSignalDeclaration
+  Keyword(Signal)
+  IdentifierList
+    Identifier 'a'
+  Colon
+  Keyword(Out)
+  SubtypeIndication
+    Name
+      Identifier 'std_logic'

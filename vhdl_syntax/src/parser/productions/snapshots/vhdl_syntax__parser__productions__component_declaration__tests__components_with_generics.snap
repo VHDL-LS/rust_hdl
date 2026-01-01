@@ -1,0 +1,24 @@
+---
+source: vhdl_syntax/src/parser/productions/component_declaration.rs
+expression: "to_test_text(Parser::component_declaration,\n\"\\\ncomponent foo is\n  generic (\n    foo : natural\n  );\nend component;\n\",)"
+---
+ComponentDeclaration
+  Keyword(Component)
+  Identifier 'foo'
+  Keyword(Is)
+  GenericClause
+    Keyword(Generic)
+    LeftPar
+    InterfaceList
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+    RightPar
+    SemiColon
+  Keyword(End)
+  Keyword(Component)
+  SemiColon

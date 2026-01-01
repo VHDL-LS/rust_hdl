@@ -1,0 +1,24 @@
+---
+source: vhdl_syntax/src/parser/productions/component_declaration.rs
+expression: "to_test_text(Parser::component_declaration,\n\"\\\ncomponent foo is\n  port (\n    foo : natural\n  );\nend component;\n\",)"
+---
+ComponentDeclaration
+  Keyword(Component)
+  Identifier 'foo'
+  Keyword(Is)
+  PortClause
+    Keyword(Port)
+    LeftPar
+    InterfaceList
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+    RightPar
+    SemiColon
+  Keyword(End)
+  Keyword(Component)
+  SemiColon

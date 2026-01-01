@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"new integer_vector(0 to 1)\")"
+---
+ExpressionAllocator
+  Keyword(New)
+  Name
+    Identifier 'integer_vector'
+    RawTokens
+      LeftPar
+      AbstractLiteral '0'
+      Keyword(To)
+      AbstractLiteral '1'
+      RightPar

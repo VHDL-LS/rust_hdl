@@ -89,159 +89,63 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn incomplete_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type incomplete_type;",
-            "\
-IncompleteTypeDeclaration
-  Keyword(Type)
-  Identifier 'incomplete_type'
-  SemiColon
-",
-        );
+            "type incomplete_type;"
+        ));
     }
 
     #[test]
     fn file_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type IntegerFile is file of integer;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'IntegerFile'
-  Keyword(Is)
-  FileTypeDefinition
-    Keyword(File)
-    Keyword(Of)
-    Name
-      Identifier 'integer'
-  SemiColon
-",
-        );
+            "type IntegerFile is file of integer;"
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type sl_file is file of ieee.std_logic_1164.std_ulogic;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'sl_file'
-  Keyword(Is)
-  FileTypeDefinition
-    Keyword(File)
-    Keyword(Of)
-    Name
-      Identifier 'ieee'
-      SelectedName
-        Dot
-        Identifier 'std_logic_1164'
-      SelectedName
-        Dot
-        Identifier 'std_ulogic'
-  SemiColon
-",
-        );
+            "type sl_file is file of ieee.std_logic_1164.std_ulogic;"
+        ));
     }
 
     #[test]
     fn access_type_definition() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type str_ptr_t is access string;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'str_ptr_t'
-  Keyword(Is)
-  AccessTypeDefinition
-    Keyword(Access)
-    Identifier 'string'
-  SemiColon
-",
-        );
+            "type str_ptr_t is access string;"
+        ));
     }
 
     #[test]
     fn protected_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type p_t is protected end protected;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'p_t'
-  Keyword(Is)
-  ProtectedTypeDeclaration
-    Keyword(Protected)
-    Keyword(End)
-    Keyword(Protected)
-  SemiColon
-",
-        );
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type p_t is protected end protected p_t;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'p_t'
-  Keyword(Is)
-  ProtectedTypeDeclaration
-    Keyword(Protected)
-    Keyword(End)
-    Keyword(Protected)
-    Identifier 'p_t'
-  SemiColon
-",
-        );
+            "type p_t is protected end protected p_t;"
+        ));
 
         // TODO: Test protected types with content
     }
 
     #[test]
     fn protected_type_body() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type p_t is protected body end protected body;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'p_t'
-  Keyword(Is)
-  ProtectedTypeBody
-    Keyword(Protected)
-    Keyword(Body)
-    Keyword(End)
-    Keyword(Protected)
-    Keyword(Body)
-  SemiColon
-",
-        );
-        check(
+            "type p_t is protected body end protected body;"
+        ));
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type p_t is protected body end protected body p_t;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'p_t'
-  Keyword(Is)
-  ProtectedTypeBody
-    Keyword(Protected)
-    Keyword(Body)
-    Keyword(End)
-    Keyword(Protected)
-    Keyword(Body)
-    Identifier 'p_t'
-  SemiColon
-",
-        );
+            "type p_t is protected body end protected body p_t;"
+        ));
 
         // TODO: Test protected types with content
     }

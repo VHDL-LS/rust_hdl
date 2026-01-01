@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::constant_declaration, \"constant C1: std_ulogic;\")"
+---
+ConstantDeclaration
+  Keyword(Constant)
+  IdentifierList
+    Identifier 'C1'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'std_ulogic'
+  SemiColon

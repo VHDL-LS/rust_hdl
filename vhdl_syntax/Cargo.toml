@@ -10,6 +10,7 @@ serde = { version = "1.0.228", optional = true, features = ["derive"]}
 [dev-dependencies]
 assert_matches = "1.5.0"
 pretty_assertions = "1.4.1"
+insta = { version = "1.36", features = ["redactions"] }
 
 [features]
 serde = ["dep:serde"]

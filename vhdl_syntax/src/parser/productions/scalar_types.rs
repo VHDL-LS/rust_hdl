@@ -90,58 +90,28 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn integer_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type positive_t is range 0 to C_MAX;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'positive_t'
-  Keyword(Is)
-  Keyword(Range)
-  RangeExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Keyword(To)
-    NameExpression
-      Name
-        Identifier 'C_MAX'
-  SemiColon
-",
-        );
+            "type positive_t is range 0 to C_MAX;"
+        ));
     }
 
     #[test]
     fn floating_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type some_float_t is range C_MAX downto 3.141592654;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'some_float_t'
-  Keyword(Is)
-  Keyword(Range)
-  RangeExpression
-    NameExpression
-      Name
-        Identifier 'C_MAX'
-    Keyword(Downto)
-    LiteralExpression
-      AbstractLiteral '3.141592654'
-  SemiColon
-",
-        );
+            "type some_float_t is range C_MAX downto 3.141592654;"
+        ));
     }
 
     #[test]
     fn physical_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "\
 type dec_t is range 0 to 1e10 units
@@ -149,176 +119,40 @@ type dec_t is range 0 to 1e10 units
     sec        = 2 prim;
     ter        = 3 prim;
     alias_prim =   prim;
-end units;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'dec_t'
-  Keyword(Is)
-  PhysicalTypeDefinition
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1e10'
-    Keyword(Units)
-    PrimaryUnitDeclaration
-      Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'sec'
-      EQ
-      AbstractLiteral '2'
-      Name
-        Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'ter'
-      EQ
-      AbstractLiteral '3'
-      Name
-        Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'alias_prim'
-      EQ
-      Name
-        Identifier 'prim'
-      SemiColon
-    Keyword(End)
-    Keyword(Units)
-  SemiColon
-",
-        );
+end units;"
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "\
 type distance_t is range 0 to 10 units
     m;
-end units;",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'distance_t'
-  Keyword(Is)
-  PhysicalTypeDefinition
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '10'
-    Keyword(Units)
-    PrimaryUnitDeclaration
-      Identifier 'm'
-      SemiColon
-    Keyword(End)
-    Keyword(Units)
-  SemiColon
-",
-        );
+end units;"
+        ));
     }
 
     #[test]
     fn enumeration_type_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type enum_t is (A);",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'enum_t'
-  Keyword(Is)
-  EnumerationTypeDefinition
-    LeftPar
-    Identifier 'A'
-    RightPar
-  SemiColon
-",
-        );
+            "type enum_t is (A);"
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type enum_2_t is (S1, S2, S3);",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'enum_2_t'
-  Keyword(Is)
-  EnumerationTypeDefinition
-    LeftPar
-    Identifier 'S1'
-    Comma
-    Identifier 'S2'
-    Comma
-    Identifier 'S3'
-    RightPar
-  SemiColon
-",
-        );
+            "type enum_2_t is (S1, S2, S3);"
+        ));
 
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
-            "type chars_t is ('A', 'B');",
-            "\
-FullTypeDeclaration
-  Keyword(Type)
-  Identifier 'chars_t'
-  Keyword(Is)
-  EnumerationTypeDefinition
-    LeftPar
-    CharacterLiteral ''A''
-    Comma
-    CharacterLiteral ''B''
-    RightPar
-  SemiColon
-",
-        );
+            "type chars_t is ('A', 'B');"
+        ));
     }
 
     #[test]
     fn range() {
-        check(
-            Parser::range,
-            "100 downto 10",
-            "\
-RangeExpression
-  LiteralExpression
-    AbstractLiteral '100'
-  Keyword(Downto)
-  LiteralExpression
-    AbstractLiteral '10'
-",
-        );
-
-        check(
-            Parser::range,
-            "0 to 0",
-            "\
-RangeExpression
-  LiteralExpression
-    AbstractLiteral '0'
-  Keyword(To)
-  LiteralExpression
-    AbstractLiteral '0'
-",
-        );
-
-        check(
-            Parser::range,
-            "slv32_t'range",
-            "\
-AttributeRange
-  Name
-    Identifier 'slv32_t'
-    AttributeName
-      Tick
-      Keyword(Range)
-",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::range, "100 downto 10"));
+        insta::assert_snapshot!(to_test_text(Parser::range, "0 to 0"));
+        insta::assert_snapshot!(to_test_text(Parser::range, "slv32_t'range"));
     }
 }

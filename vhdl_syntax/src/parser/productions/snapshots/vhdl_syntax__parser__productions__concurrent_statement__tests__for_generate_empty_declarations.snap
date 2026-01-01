@@ -1,0 +1,33 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\ngen: for idx in 0 to 1 generate\nbegin\n  foo <= bar;\nend generate;\",)"
+---
+ForGenerateStatement
+  Label
+    Identifier 'gen'
+    Colon
+  Keyword(For)
+  ParameterSpecification
+    Identifier 'idx'
+    Keyword(In)
+    RawTokens
+      AbstractLiteral '0'
+      Keyword(To)
+      AbstractLiteral '1'
+  Keyword(Generate)
+  GenerateStatementBody
+    Keyword(Begin)
+    ConcurrentSimpleSignalAssignment
+      NameTarget
+        Name
+          Identifier 'foo'
+      LTE
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              Identifier 'bar'
+      SemiColon
+  Keyword(End)
+  Keyword(Generate)
+  SemiColon

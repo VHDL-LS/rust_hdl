@@ -1,0 +1,9 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement, \"foo;\")"
+---
+ProcedureCallStatement
+  NameTarget
+    Name
+      Identifier 'foo'
+  SemiColon

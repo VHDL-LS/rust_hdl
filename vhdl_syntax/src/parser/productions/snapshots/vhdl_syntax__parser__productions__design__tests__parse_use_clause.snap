@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+assertion_line: 149
+expression: output
+---
+UseClause
+  Keyword(Use)
+  NameList
+    Name
+      Identifier 'lib1'
+      SelectedName
+        Dot
+        Identifier 'lib2'
+      SelectedName
+        Dot
+        Identifier 'lib3'
+      SelectedName
+        Dot
+        Keyword(All)
+  SemiColon

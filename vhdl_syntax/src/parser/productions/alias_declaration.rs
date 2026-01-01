@@ -40,85 +40,38 @@ mod tests {
 
     #[test]
     fn parse_simple_alias() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::alias_declaration,
             "alias foo is name;",
-            "\
-AliasDeclaration
-  Keyword(Alias)
-  Identifier 'foo'
-  Keyword(Is)
-  Name
-    Identifier 'name'
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
-    #[ignore]
     fn parse_alias_with_subtype_indication() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::alias_declaration,
             "alias foo : vector(0 to 1) is name;",
-            todo!(),
-        );
+        ));
     }
 
     #[test]
     fn parse_alias_with_signature() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::alias_declaration,
             "alias foo is name [return natural];",
-            "\
-AliasDeclaration
-  Keyword(Alias)
-  Identifier 'foo'
-  Keyword(Is)
-  Name
-    Identifier 'name'
-  Signature
-    LeftSquare
-    Keyword(Return)
-    Name
-      Identifier 'natural'
-    RightSquare
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn parse_alias_with_operator_symbol() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::alias_declaration,
             "alias \"and\" is name;",
-            "\
-AliasDeclaration
-  Keyword(Alias)
-  StringLiteral '\"and\"'
-  Keyword(Is)
-  Name
-    Identifier 'name'
-  SemiColon
-        ",
-        );
+        ));
     }
 
     #[test]
     fn parse_alias_with_character() {
-        check(
-            Parser::alias_declaration,
-            "alias 'c' is 'b';",
-            "\
-AliasDeclaration
-  Keyword(Alias)
-  CharacterLiteral ''c''
-  Keyword(Is)
-  Name
-    CharacterLiteral ''b''
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::alias_declaration, "alias 'c' is 'b';",));
     }
 }

@@ -1,0 +1,8 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"?? 9\")"
+---
+UnaryExpression
+  QueQue
+  LiteralExpression
+    AbstractLiteral '9'

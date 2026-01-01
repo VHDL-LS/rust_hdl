@@ -1,0 +1,33 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"<< signal dut.foo : std_logic >> <= bar(2 to 3);\",)"
+---
+ConcurrentSimpleSignalAssignment
+  NameTarget
+    Name
+      ExternalSignalName
+        LtLt
+        Keyword(Signal)
+        RelativePathname
+          PartialPathname
+            Identifier 'dut'
+            Dot
+            Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'std_logic'
+        GtGt
+  LTE
+  WaveformElements
+    WaveformElement
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '2'
+            Keyword(To)
+            AbstractLiteral '3'
+            RightPar
+  SemiColon

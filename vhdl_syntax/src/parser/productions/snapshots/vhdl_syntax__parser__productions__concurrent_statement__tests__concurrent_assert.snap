@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"assert cond = true;\",)"
+---
+ConcurrentAssertionStatement
+  Assertion
+    Keyword(Assert)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+  SemiColon

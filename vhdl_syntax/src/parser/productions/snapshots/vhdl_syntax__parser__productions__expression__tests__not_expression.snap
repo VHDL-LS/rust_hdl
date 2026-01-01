@@ -1,0 +1,9 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"not false\")"
+---
+UnaryExpression
+  Keyword(Not)
+  NameExpression
+    Name
+      Identifier 'false'

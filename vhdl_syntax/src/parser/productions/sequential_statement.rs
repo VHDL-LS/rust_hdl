@@ -434,592 +434,187 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::check;
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
     fn simple_wait_statement() {
-        check(
-            Parser::wait_statement,
-            "wait;",
-            "\
-WaitStatement
-  Keyword(Wait)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::wait_statement, "wait;"));
     }
 
     #[test]
     fn simple_wait_statement_with_label() {
-        check(
-            Parser::wait_statement,
-            "foo: wait;",
-            "\
-WaitStatement
-  Label
-    Identifier 'foo'
-    Colon
-  Keyword(Wait)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::wait_statement, "foo: wait;"));
     }
 
     #[test]
     fn wait_statement_with_sensitivity_list() {
-        check(
-            Parser::wait_statement,
-            "wait on foo, bar;",
-            "\
-WaitStatement
-  Keyword(Wait)
-  SensitivityClause
-    Keyword(On)
-    NameList
-      Name
-        Identifier 'foo'
-      Comma
-      Name
-        Identifier 'bar'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::wait_statement, "wait on foo, bar;"));
     }
 
     #[test]
     fn wait_statement_with_condition() {
-        check(
-            Parser::wait_statement,
-            "wait until a = b;",
-            "\
-WaitStatement
-  Keyword(Wait)
-  ConditionClause
-    Keyword(Until)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'a'
-      EQ
-      NameExpression
-        Name
-          Identifier 'b'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::wait_statement, "wait until a = b;"));
     }
 
     #[test]
     fn wait_statement_with_timeout() {
-        check(
-            Parser::wait_statement,
-            "wait for 2 ns;",
-            "\
-WaitStatement
-  Keyword(Wait)
-  TimeoutClause
-    Keyword(For)
-    PhysicalLiteral
-      AbstractLiteral '2'
-      Name
-        Identifier 'ns'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::wait_statement, "wait for 2 ns;"));
     }
 
     #[test]
     fn wait_statement_with_all_parts() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::wait_statement,
-            "wait on foo until bar for 2 ns;",
-            "\
-WaitStatement
-  Keyword(Wait)
-  SensitivityClause
-    Keyword(On)
-    NameList
-      Name
-        Identifier 'foo'
-  ConditionClause
-    Keyword(Until)
-    NameExpression
-      Name
-        Identifier 'bar'
-  TimeoutClause
-    Keyword(For)
-    PhysicalLiteral
-      AbstractLiteral '2'
-      Name
-        Identifier 'ns'
-  SemiColon
-        ",
-        );
+            "wait on foo until bar for 2 ns;"
+        ));
     }
 
     #[test]
     fn simple_assert() {
-        check(
-            Parser::assert_statement,
-            "assert false;",
-            "\
-AssertionStatement
-  Keyword(Assert)
-  NameExpression
-    Name
-      Identifier 'false'
-  SemiColon",
-        )
+        insta::assert_snapshot!(to_test_text(Parser::assert_statement, "assert false;"))
     }
 
     #[test]
     fn full_assert() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::assert_statement,
-            "assert false report \"message\" severity error;",
-            "\
-AssertionStatement
-  Keyword(Assert)
-  NameExpression
-    Name
-      Identifier 'false'
-  Keyword(Report)
-  LiteralExpression
-    StringLiteral '\"message\"'
-  Keyword(Severity)
-  NameExpression
-    Name
-      Identifier 'error'
-  SemiColon",
-        )
+            "assert false report \"message\" severity error;"
+        ))
     }
 
     #[test]
     fn report_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::report_statement,
-            "report \"message\" severity error;",
-            "\
-ReportStatement
-  Keyword(Report)
-  LiteralExpression
-    StringLiteral '\"message\"'
-  Keyword(Severity)
-  NameExpression
-    Name
-      Identifier 'error'
-  SemiColon",
-        )
+            "report \"message\" severity error;"
+        ))
     }
 
     #[test]
     fn next_statement() {
-        check(
-            Parser::next_statement,
-            "next;",
-            "\
-NextStatement
-  Keyword(Next)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::next_statement, "next;"));
     }
 
     #[test]
     fn next_statement_loop_label() {
-        check(
-            Parser::next_statement,
-            "next foo;",
-            "\
-NextStatement
-  Keyword(Next)
-  Identifier 'foo'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::next_statement, "next foo;"));
     }
 
     #[test]
     fn next_statement_condition() {
-        check(
-            Parser::next_statement,
-            "next when condition;",
-            "\
-NextStatement
-  Keyword(Next)
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'condition'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::next_statement, "next when condition;"));
     }
 
     #[test]
     fn next_statement_loop_label_condition() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::next_statement,
-            "next foo when condition;",
-            "\
-NextStatement
-  Keyword(Next)
-  Identifier 'foo'
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'condition'
-  SemiColon
-        ",
-        );
+            "next foo when condition;"
+        ));
     }
 
     #[test]
     fn exit_statement() {
-        check(
-            Parser::exit_statement,
-            "exit;",
-            "\
-ExitStatement
-  Keyword(Exit)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::exit_statement, "exit;"));
     }
 
     #[test]
     fn exit_statement_loop_label() {
-        check(
-            Parser::exit_statement,
-            "exit foo;",
-            "\
-ExitStatement
-  Keyword(Exit)
-  Identifier 'foo'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::exit_statement, "exit foo;"));
     }
 
     #[test]
     fn exit_statement_condition() {
-        check(
-            Parser::exit_statement,
-            "exit when condition;",
-            "\
-ExitStatement
-  Keyword(Exit)
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'condition'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::exit_statement, "exit when condition;"));
     }
 
     #[test]
     fn exit_statement_loop_label_condition() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::exit_statement,
-            "exit foo when condition;",
-            "\
-ExitStatement
-  Keyword(Exit)
-  Identifier 'foo'
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'condition'
-  SemiColon
-        ",
-        );
+            "exit foo when condition;"
+        ));
     }
 
     #[test]
     fn return_statement() {
-        check(
-            Parser::return_statement,
-            "return;",
-            "\
-ReturnStatement
-  Keyword(Return)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::return_statement, "return;"));
     }
 
     #[test]
     fn return_statement_expression() {
-        check(
-            Parser::return_statement,
-            "return 1 + 2;",
-            "\
-ReturnStatement
-  Keyword(Return)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '1'
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::return_statement, "return 1 + 2;"));
     }
 
     #[test]
     fn null_statement() {
-        check(
-            Parser::null_statement,
-            "null;",
-            "\
-NullStatement
-  Keyword(Null)
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::null_statement, "null;"));
     }
 
     #[test]
     fn empty_if_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 if cond = true then
-end if;",
-            "\
-IfStatement
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-  Keyword(End)
-  Keyword(If)
-  SemiColon
-        ",
-        );
+end if;"
+        ));
     }
 
     #[test]
     fn simple_if_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 if cond = true then
    foo(1,2);
    x := 1;
-end if;",
-            "\
-IfStatement
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-    SimpleVariableAssignment
-      NameTarget
-        Name
-          Identifier 'x'
-      ColonEq
-      LiteralExpression
-        AbstractLiteral '1'
-      SemiColon
-  Keyword(End)
-  Keyword(If)
-  SemiColon
-        ",
-        );
+end if;"
+        ));
     }
 
     #[test]
     fn labeled_if_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 mylabel: if cond = true then
    foo(1,2);
    x := 1;
-end if mylabel;",
-            "\
-IfStatement
-  Label
-    Identifier 'mylabel'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-    SimpleVariableAssignment
-      NameTarget
-        Name
-          Identifier 'x'
-      ColonEq
-      LiteralExpression
-        AbstractLiteral '1'
-      SemiColon
-  Keyword(End)
-  Keyword(If)
-  Identifier 'mylabel'
-  SemiColon
-        ",
-        );
+end if mylabel;"
+        ));
     }
 
     #[test]
     fn if_else_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 if cond = true then
    foo(1,2);
 else
    x := 1;
-end if;",
-            "\
-IfStatement
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-  IfStatementElse
-    Keyword(Else)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'x'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '1'
-        SemiColon
-  Keyword(End)
-  Keyword(If)
-  SemiColon
-        ",
-        );
+end if;"
+        ));
     }
 
     #[test]
     fn labeled_if_else_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 mylabel: if cond = true then
    foo(1,2);
 else
    x := 1;
-end if mylabel;",
-            "\
-IfStatement
-  Label
-    Identifier 'mylabel'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-  IfStatementElse
-    Keyword(Else)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'x'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '1'
-        SemiColon
-  Keyword(End)
-  Keyword(If)
-  Identifier 'mylabel'
-  SemiColon
-        ",
-        );
+end if mylabel;"
+        ));
     }
 
     #[test]
     fn if_elsif_else_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 if cond = true then
@@ -1028,72 +623,13 @@ elsif cond2 = false then
    y := 2;
 else
    x := 1;
-end if;",
-            "\
-IfStatement
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-  IfStatementElsif
-    Keyword(Elsif)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond2'
-      EQ
-      NameExpression
-        Name
-          Identifier 'false'
-    Keyword(Then)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'y'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '2'
-        SemiColon
-  IfStatementElse
-    Keyword(Else)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'x'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '1'
-        SemiColon
-  Keyword(End)
-  Keyword(If)
-  SemiColon
-        ",
-        );
+end if;"
+        ));
     }
 
     #[test]
     fn labeled_if_elsif_else_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::if_statement,
             "\
 mylabel: if cond = true then
@@ -1102,76 +638,13 @@ elsif cond2 = false then
    y := 2;
 else
    x := 1;
-end if mylabel;",
-            "\
-IfStatement
-  Label
-    Identifier 'mylabel'
-    Colon
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      SemiColon
-  IfStatementElsif
-    Keyword(Elsif)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'cond2'
-      EQ
-      NameExpression
-        Name
-          Identifier 'false'
-    Keyword(Then)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'y'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '2'
-        SemiColon
-  IfStatementElse
-    Keyword(Else)
-    SequentialStatements
-      SimpleVariableAssignment
-        NameTarget
-          Name
-            Identifier 'x'
-        ColonEq
-        LiteralExpression
-          AbstractLiteral '1'
-        SemiColon
-  Keyword(End)
-  Keyword(If)
-  Identifier 'mylabel'
-  SemiColon
-        ",
-        );
+end if mylabel;"
+        ));
     }
 
     #[test]
     fn case_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::case_statement,
             "\
 case foo(1) is
@@ -1181,966 +654,229 @@ case foo(1) is
   when others =>
     stmt3;
     stmt4;
-end case;",
-            "\
-CaseStatement
-  Keyword(Case)
-  NameExpression
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        RightPar
-  Keyword(Is)
-  CaseStatementAlternative
-    Keyword(When)
-    Choices
-      LiteralExpression
-        AbstractLiteral '1'
-      Bar
-      LiteralExpression
-        AbstractLiteral '2'
-    RightArrow
-    SequentialStatements
-      ProcedureCallStatement
-        NameTarget
-          Name
-            Identifier 'stmt1'
-        SemiColon
-      ProcedureCallStatement
-        NameTarget
-          Name
-            Identifier 'stmt2'
-        SemiColon
-  CaseStatementAlternative
-    Keyword(When)
-    Choices
-      Keyword(Others)
-    RightArrow
-    SequentialStatements
-      ProcedureCallStatement
-        NameTarget
-          Name
-            Identifier 'stmt3'
-        SemiColon
-      ProcedureCallStatement
-        NameTarget
-          Name
-            Identifier 'stmt4'
-        SemiColon
-  Keyword(End)
-  Keyword(Case)
-  SemiColon
-            ",
-        );
+end case;"
+        ));
     }
 
     #[test]
     fn matching_case_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::case_statement,
             "\
 case? foo(1) is
   when others => null;
-end case?;",
-            "\
-CaseStatement
-  Keyword(Case)
-  Que
-  NameExpression
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        RightPar
-  Keyword(Is)
-  CaseStatementAlternative
-    Keyword(When)
-    Choices
-      Keyword(Others)
-    RightArrow
-    SequentialStatements
-      NullStatement
-        Keyword(Null)
-        SemiColon
-  Keyword(End)
-  Keyword(Case)
-  Que
-  SemiColon
-            ",
-        );
+end case?;"
+        ));
     }
 
     #[test]
     fn loop_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::loop_statement,
             "\
 lbl: loop
   stmt1;
   stmt2;
-end loop lbl;",
-            "\
-LoopStatement
-  Label
-    Identifier 'lbl'
-    Colon
-  Keyword(Loop)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt1'
-      SemiColon
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt2'
-      SemiColon
-  Keyword(End)
-  Keyword(Loop)
-  Identifier 'lbl'
-  SemiColon
-            ",
-        );
+end loop lbl;"
+        ));
     }
 
     #[test]
     fn while_loop_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::loop_statement,
             "\
 while foo = true loop
   stmt1;
   stmt2;
-end loop;",
-            "\
-LoopStatement
-  WhileIterationScheme
-    Keyword(While)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'foo'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-  Keyword(Loop)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt1'
-      SemiColon
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt2'
-      SemiColon
-  Keyword(End)
-  Keyword(Loop)
-  SemiColon
-            ",
-        );
+end loop;"
+        ));
     }
 
     #[test]
     fn for_loop_statement() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::loop_statement,
             "\
 for idx in 0 to 3 loop
   stmt1;
   stmt2;
-end loop;",
-            "\
-LoopStatement
-  ForIterationScheme
-    Keyword(For)
-    ParameterSpecification
-      Identifier 'idx'
-      Keyword(In)
-      RangeExpression
-        LiteralExpression
-          AbstractLiteral '0'
-        Keyword(To)
-        LiteralExpression
-          AbstractLiteral '3'
-  Keyword(Loop)
-  SequentialStatements
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt1'
-      SemiColon
-    ProcedureCallStatement
-      NameTarget
-        Name
-          Identifier 'stmt2'
-      SemiColon
-  Keyword(End)
-  Keyword(Loop)
-  SemiColon
-            ",
-        );
+end loop;"
+        ));
     }
 
     #[test]
     fn simple_signal_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "foo(0) <= bar(1,2) after 2 ns;",
-            "\
-SimpleWaveformAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      Keyword(After)
-      PhysicalLiteral
-        AbstractLiteral '2'
-        Name
-          Identifier 'ns'
-  SemiColon
-            ",
-        );
+            "foo(0) <= bar(1,2) after 2 ns;"
+        ));
     }
 
     #[test]
     fn simple_signal_force_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "foo(0) <= force bar(1,2);",
-            "\
-SimpleForceAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  Keyword(Force)
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  SemiColon",
-        );
+            "foo(0) <= force bar(1,2);"
+        ));
     }
 
     #[test]
     fn simple_signal_release_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "foo(0) <= release;",
-            "\
-SimpleReleaseAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  Keyword(Release)
-  SemiColon",
-        );
+            "foo(0) <= release;"
+        ));
     }
 
     #[test]
     fn signal_assignment_external_name() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "<< signal dut.foo : boolean  >> <= bar(1,2);",
-            "\
-SimpleWaveformAssignment
-  NameTarget
-    Name
-      ExternalSignalName
-        LtLt
-        Keyword(Signal)
-        RelativePathname
-          PartialPathname
-            Identifier 'dut'
-            Dot
-            Identifier 'foo'
-        Colon
-        Identifier 'boolean'
-        GtGt
-  LTE
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-  SemiColon",
-        );
+            "<< signal dut.foo : boolean  >> <= bar(1,2);"
+        ));
     }
 
     #[test]
     fn simple_signal_assignment_delay_mechanism() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "foo(0) <= transport bar(1,2);",
-            "\
-SimpleWaveformAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  TransportDelayMechanism
-    Keyword(Transport)
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-  SemiColon",
-        );
+            "foo(0) <= transport bar(1,2);"
+        ));
     }
 
     #[test]
     fn simple_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "foo(0) := bar(1,2);",
-            "\
-SimpleVariableAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  SemiColon",
-        );
+            "foo(0) := bar(1,2);"
+        ));
     }
 
     #[test]
     fn variable_assignment_external_name() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "<< variable dut.foo : boolean >> := bar(1,2);",
-            "\
-SimpleVariableAssignment
-  NameTarget
-    Name
-      ExternalVariableName
-        LtLt
-        Keyword(Variable)
-        RelativePathname
-          PartialPathname
-            Identifier 'dut'
-            Dot
-            Identifier 'foo'
-        Colon
-        Identifier 'boolean'
-        GtGt
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  SemiColon
-            ",
-        );
+            "<< variable dut.foo : boolean >> := bar(1,2);"
+        ));
     }
 
     #[test]
     fn simple_aggregate_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "(foo, 1 => bar) := bar;",
-            "\
-SimpleVariableAssignment
-  AggregateTarget
-    Aggregate
-      LeftPar
-      NameExpression
-        Name
-          Identifier 'foo'
-      Comma
-      ElementAssociation
-        Choices
-          LiteralExpression
-            AbstractLiteral '1'
-        RightArrow
-        NameExpression
-          Name
-            Identifier 'bar'
-      RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-  SemiColon",
-        );
+            "(foo, 1 => bar) := bar;"
+        ));
     }
 
     #[test]
     fn labeled_aggregate_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "name: (foo, 1 => bar) := bar;",
-            "\
-SimpleVariableAssignment
-  Label
-    Identifier 'name'
-    Colon
-  AggregateTarget
-    Aggregate
-      LeftPar
-      NameExpression
-        Name
-          Identifier 'foo'
-      Comma
-      ElementAssociation
-        Choices
-          LiteralExpression
-            AbstractLiteral '1'
-        RightArrow
-        NameExpression
-          Name
-            Identifier 'bar'
-      RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-  SemiColon",
-        );
+            "name: (foo, 1 => bar) := bar;"
+        ));
     }
 
     #[test]
     fn labeled_simple_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
-            "name: foo(0) := bar(1,2);",
-            "\
-SimpleVariableAssignment
-  Label
-    Identifier 'name'
-    Colon
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  SemiColon
-            ",
-        );
+            "name: foo(0) := bar(1,2);"
+        ));
     }
 
     #[test]
     fn selected_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 with x(0) + 1 select
    foo(0) := bar(1,2) when 0|1,
              def when others;
-        ",
-            "\
-SelectedVariableAssignment
-  Keyword(With)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'x'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  Keyword(Select)
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  SelectedExpressions
-    SelectedExpressionItem
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      Keyword(When)
-      Choices
-        LiteralExpression
-          AbstractLiteral '0'
-        Bar
-        LiteralExpression
-          AbstractLiteral '1'
-    Comma
-    SelectedExpressionItem
-      NameExpression
-        Name
-          Identifier 'def'
-      Keyword(When)
-      Choices
-        Keyword(Others)
-  SemiColon
-            ",
-        );
+        "
+        ));
     }
 
     #[test]
     fn conditional_variable_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 foo(0) := bar(1,2) when cond = true;
-        ",
-            "\
-ConditionalVariableAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  SemiColon",
-        );
+        "
+        ));
     }
 
     #[test]
     fn conditional_signal_force_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 foo(0) <= force bar(1,2) when cond;
-        ",
-            "\
-ConditionalForceAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  Keyword(Force)
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'cond'
-  SemiColon",
-        );
+        "
+        ));
     }
 
     #[test]
     fn conditional_variable_assignment_several() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 foo(0) := bar(1,2) when cond = true else expr2 when cond2;
-        ",
-            "\
-ConditionalVariableAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  ConditionalElseWhenExpression
-    Keyword(Else)
-    NameExpression
-      Name
-        Identifier 'expr2'
-    Keyword(When)
-    NameExpression
-      Name
-        Identifier 'cond2'
-  SemiColon",
-        );
+        "
+        ));
     }
 
     #[test]
     fn conditional_variable_assignment_else() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 foo(0) := bar(1,2) when cond = true else expr2;
-        ",
-            "\
-ConditionalVariableAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  ConditionalElseItem
-    Keyword(Else)
-    NameExpression
-      Name
-        Identifier 'expr2'
-  SemiColon",
-        );
+        "
+        ));
     }
 
     #[test]
     fn conditional_signal_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 foo(0) <= bar(1,2) after 2 ns when cond;
-        ",
-            "\
-ConditionalWaveformAssignment
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  WaveformElements
-    WaveformElement
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      Keyword(After)
-      PhysicalLiteral
-        AbstractLiteral '2'
-        Name
-          Identifier 'ns'
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'cond'
-  SemiColon",
-        );
+        "
+        ));
     }
 
     #[test]
     fn selected_signal_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 with x(0) + 1 select
    foo(0) <= transport bar(1,2) after 2 ns when 0|1,
                        def when others;
-        ",
-            "\
-SelectedWaveformAssignment
-  Keyword(With)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'x'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  Keyword(Select)
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  TransportDelayMechanism
-    Keyword(Transport)
-  SelectedWaveforms
-    SelectedWaveformItem
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'bar'
-              RawTokens
-                LeftPar
-                AbstractLiteral '1'
-                Comma
-                AbstractLiteral '2'
-                RightPar
-          Keyword(After)
-          PhysicalLiteral
-            AbstractLiteral '2'
-            Name
-              Identifier 'ns'
-      Keyword(When)
-      Choices
-        LiteralExpression
-          AbstractLiteral '0'
-        Bar
-        LiteralExpression
-          AbstractLiteral '1'
-    Comma
-    SelectedWaveformItem
-      WaveformElements
-        WaveformElement
-          NameExpression
-            Name
-              Identifier 'def'
-      Keyword(When)
-      Choices
-        Keyword(Others)
-  SemiColon
-            ",
-        );
+        "
+        ));
     }
 
     #[test]
     fn selected_signal_force_assignment() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::sequential_statement,
             "\
 with x(0) + 1 select
    foo(0) <= force bar(1,2) when 0|1,
-                       def when others;",
-            "\
-SelectedForceAssignment
-  Keyword(With)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'x'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  Keyword(Select)
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
-  LTE
-  Keyword(Force)
-  SelectedExpressions
-    SelectedExpressionItem
-      NameExpression
-        Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      Keyword(When)
-      Choices
-        LiteralExpression
-          AbstractLiteral '0'
-        Bar
-        LiteralExpression
-          AbstractLiteral '1'
-    Comma
-    SelectedExpressionItem
-      NameExpression
-        Name
-          Identifier 'def'
-      Keyword(When)
-      Choices
-        Keyword(Others)
-  SemiColon
-            ",
-        );
+                       def when others;"
+        ));
     }
 
     #[test]
     fn procedure_call_statement() {
-        check(
-            Parser::sequential_statement,
-            "foo(1, 2);",
-            "\
-ProcedureCallStatement
-  NameTarget
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo(1, 2);"));
     }
 
     #[test]
     fn procedure_call_statement_no_args() {
-        check(
-            Parser::sequential_statement,
-            "foo;",
-            "\
-ProcedureCallStatement
-  NameTarget
-    Name
-      Identifier 'foo'
-  SemiColon
-        ",
-        );
+        insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo;"));
     }
 }

@@ -1,0 +1,9 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::port_clause, \"port();\",)"
+---
+PortClause
+  Keyword(Port)
+  LeftPar
+  RightPar
+  SemiColon

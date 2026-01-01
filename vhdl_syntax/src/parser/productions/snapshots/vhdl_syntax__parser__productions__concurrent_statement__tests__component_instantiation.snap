@@ -1,0 +1,19 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"inst: component lib.foo.bar;\",)"
+---
+ComponentInstantiationStatement
+  Label
+    Identifier 'inst'
+    Colon
+  ComponentInstantiatedUnit
+    Keyword(Component)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
+  SemiColon

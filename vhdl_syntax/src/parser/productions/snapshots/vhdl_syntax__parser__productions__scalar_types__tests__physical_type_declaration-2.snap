@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"\\\ntype distance_t is range 0 to 10 units\n    m;\nend units;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'distance_t'
+  Keyword(Is)
+  PhysicalTypeDefinition
+    Keyword(Range)
+    RangeExpression
+      LiteralExpression
+        AbstractLiteral '0'
+      Keyword(To)
+      LiteralExpression
+        AbstractLiteral '10'
+    Keyword(Units)
+    PrimaryUnitDeclaration
+      Identifier 'm'
+      SemiColon
+    Keyword(End)
+    Keyword(Units)
+  SemiColon

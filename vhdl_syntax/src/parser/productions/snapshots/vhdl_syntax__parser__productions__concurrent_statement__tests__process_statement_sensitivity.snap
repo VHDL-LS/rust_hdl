@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\nprocess (clk, vec(1)) is\nbegin\nend process;\",)"
+---
+ProcessStatement
+  Keyword(Process)
+  ParenthesizedProcessSensitivityList
+    LeftPar
+    NameList
+      Name
+        Identifier 'clk'
+      Comma
+      Name
+        Identifier 'vec'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          RightPar
+    RightPar
+  Keyword(Is)
+  Keyword(Begin)
+  SequentialStatements
+  Keyword(End)
+  Keyword(Process)
+  SemiColon

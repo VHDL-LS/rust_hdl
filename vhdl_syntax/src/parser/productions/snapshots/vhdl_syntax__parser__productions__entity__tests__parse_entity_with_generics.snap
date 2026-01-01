@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/entity.rs
+expression: "to_test_text(Parser::entity,\n\"\\\nentity my_ent is\n    generic();\nbegin\nend my_ent;\n\",)"
+---
+EntityDeclaration
+  Keyword(Entity)
+  Identifier 'my_ent'
+  Keyword(Is)
+  EntityHeader
+    GenericClause
+      Keyword(Generic)
+      LeftPar
+      RightPar
+      SemiColon
+  Keyword(Begin)
+  Keyword(End)
+  Identifier 'my_ent'
+  SemiColon

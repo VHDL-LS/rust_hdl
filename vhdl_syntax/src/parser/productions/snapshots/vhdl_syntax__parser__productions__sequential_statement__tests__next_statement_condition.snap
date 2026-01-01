@@ -1,0 +1,11 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::next_statement, \"next when condition;\")"
+---
+NextStatement
+  Keyword(Next)
+  Keyword(When)
+  NameExpression
+    Name
+      Identifier 'condition'
+  SemiColon

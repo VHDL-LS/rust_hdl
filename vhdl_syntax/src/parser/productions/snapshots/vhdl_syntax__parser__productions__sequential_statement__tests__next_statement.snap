@@ -1,0 +1,7 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::next_statement, \"next;\")"
+---
+NextStatement
+  Keyword(Next)
+  SemiColon

@@ -82,11 +82,11 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub(crate) fn attribute_declaration_or_specification(&mut self) {
-      if self.next_nth_is(Keyword(Kw::Of), 2) {
-        self.attribute_specification();
-      } else {
-        self.attribute_declaration();
-      }
+        if self.next_nth_is(Keyword(Kw::Of), 2) {
+            self.attribute_specification();
+        } else {
+            self.attribute_declaration();
+        }
     }
 
     pub(crate) fn attribute_declaration(&mut self) {
@@ -102,200 +102,61 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::*;
-    use crate::parser::Parser;
+    use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
     fn parse_simple_attribute_declaration() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_declaration,
-            "attribute foo : lib.name;",
-            "\
-AttributeDeclaration
-  Keyword(Attribute)
-  Identifier 'foo'
-  Colon
-  Name
-    Identifier 'lib'
-    SelectedName
-      Dot
-      Identifier 'name'
-  SemiColon",
-        );
+            "attribute foo : lib.name;"
+        ));
     }
 
     #[test]
     fn parse_simple_attribute_specification() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of foo : signal is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityDesignatorList
-      EntityDesignator
-        Identifier 'foo'
-    Colon
-    Keyword(Signal)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn simple_attribute_specification_operator_symbol() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of \"**\" : function is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityDesignatorList
-      EntityDesignator
-        StringLiteral '\"**\"'
-    Colon
-    Keyword(Function)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn attribute_specification_list() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of foo, bar : signal is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityDesignatorList
-      EntityDesignator
-        Identifier 'foo'
-      Comma
-      EntityDesignator
-        Identifier 'bar'
-    Colon
-    Keyword(Signal)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn attribute_specification_all() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of all : signal is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityNameListAll
-      Keyword(All)
-    Colon
-    Keyword(Signal)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn attribute_specification_others() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of others : signal is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityNameListOthers
-      Keyword(Others)
-    Colon
-    Keyword(Signal)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 
     #[test]
     fn attribute_specification_with_signature() {
-        check(
+        insta::assert_snapshot!(to_test_text(
             Parser::attribute_specification,
             "attribute attr_name of foo[return natural] : function is 0+1;",
-            "\
-AttributeSpecification
-  Keyword(Attribute)
-  Identifier 'attr_name'
-  Keyword(Of)
-  EntitySpecification
-    EntityDesignatorList
-      EntityDesignator
-        Identifier 'foo'
-        Signature
-          LeftSquare
-          Keyword(Return)
-          Name
-            Identifier 'natural'
-          RightSquare
-    Colon
-    Keyword(Function)
-  Keyword(Is)
-  BinaryExpression
-    LiteralExpression
-      AbstractLiteral '0'
-    Plus
-    LiteralExpression
-      AbstractLiteral '1'
-  SemiColon
-",
-        );
+        ));
     }
 }

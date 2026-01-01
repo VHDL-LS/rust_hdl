@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::range, \"slv32_t'range\")"
+---
+AttributeRange
+  Name
+    Identifier 'slv32_t'
+    AttributeName
+      Tick
+      Keyword(Range)

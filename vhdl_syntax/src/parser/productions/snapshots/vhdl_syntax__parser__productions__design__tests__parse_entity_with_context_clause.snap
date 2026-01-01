@@ -1,0 +1,34 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+assertion_line: 143
+expression: output
+---
+DesignFile
+  DesignUnit
+    ContextClause
+      LibraryClause
+        Keyword(Library)
+        IdentifierList
+          Identifier 'ieee'
+        SemiColon
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            Identifier 'ieee'
+            SelectedName
+              Dot
+              Identifier 'std_logic_1164'
+            SelectedName
+              Dot
+              Keyword(All)
+        SemiColon
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'my_ent'
+      Keyword(Is)
+      EntityHeader
+      Keyword(Begin)
+      Keyword(End)
+      Identifier 'my_ent'
+      SemiColon
