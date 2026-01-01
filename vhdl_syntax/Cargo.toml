@@ -5,7 +5,12 @@ edition = "2021"
 
 [dependencies]
 nonzero_ext = "0.3.0"
+serde = { version = "1.0.228", optional = true, features = ["derive"]}
 
 [dev-dependencies]
 assert_matches = "1.5.0"
 pretty_assertions = "1.4.1"
+
+[features]
+serde = ["dep:serde"]
+default = ["serde"]

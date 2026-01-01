@@ -19,7 +19,7 @@ mod list;
 mod productions;
 
 /// The parser turns a token stream, produced by a [TokenStream] into
-/// [Syntax Nodes](crate::node::SyntaxNode) that form a Concrete Syntax Tree.
+/// [Syntax Nodes](crate::syntax::node::SyntaxNode) that form a Concrete Syntax Tree.
 /// These syntax nodes can be converted to [AST Nodes](crate::syntax::AstNode)
 /// to manipulate and traverse the syntax tree.
 pub struct Parser<T: TokenStream> {

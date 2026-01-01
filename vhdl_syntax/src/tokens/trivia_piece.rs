@@ -8,6 +8,7 @@ use std::fmt::{Display, Formatter};
 
 /// Single trivia pieces that can be combined to form [Trivia](crate::tokens::Trivia) tokens.
 #[derive(Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TriviaPiece {
     /// Horizontal tabs '\t' (a.k.a regular tabs) characters
     HorizontalTabs(usize),

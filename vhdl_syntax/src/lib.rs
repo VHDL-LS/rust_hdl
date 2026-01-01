@@ -10,3 +10,5 @@ pub mod parser;
 pub mod syntax;
 mod token_interning;
 pub mod tokens;
+#[cfg(feature = "serde")]
+pub mod serde;

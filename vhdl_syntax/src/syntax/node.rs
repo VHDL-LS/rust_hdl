@@ -1,7 +1,7 @@
 //! Public API for abstract and untyped nodes.
 //!
 //! Every language element is either represented by a [SyntaxToken] or a [SyntaxNode].
-//! The SyntaxToken wraps a [Token](crate::tokens::Token) and therefore allows access
+//! The SyntaxToken wraps a [Token] and therefore allows access
 //! to the original source text and the kind of token. A SyntaxNode simply groups these tokens
 //! and other sub-nodes to generate a tree - the abstract syntax tree.
 //! For example, for the following design-file, the syntax tree might look like the following:

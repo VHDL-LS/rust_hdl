@@ -664,6 +664,7 @@ impl Model {
         choices.sort();
         quote! {
             #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             pub enum NodeKind {
                 #(#choices),*
             }

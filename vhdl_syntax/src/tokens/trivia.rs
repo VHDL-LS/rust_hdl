@@ -10,6 +10,7 @@ use std::ops::Deref;
 /// Trivia elements that are attached to tokens but do not influence the analysis of the text.
 /// Such trivia elements may contain comments, whitespaces or other format effectors.
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Trivia {
     // The single pieces of this trivia.
     // The fact that this is a vector is only an implementation detail.

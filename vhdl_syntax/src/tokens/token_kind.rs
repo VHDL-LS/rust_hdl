@@ -5,6 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TokenKind {
     /// A keyword, such as `entity`, `architecture` or `abs`.
     Keyword(Keyword),
@@ -70,6 +71,7 @@ pub enum TokenKind {
 
 /// All available keywords in the latest (VHDL 2019) edition of VHDL
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Keyword {
     Abs,
     Access,

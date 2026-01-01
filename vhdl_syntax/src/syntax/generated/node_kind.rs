@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NodeKind {
     AbsolutePathname,
     AccessTypeDefinition,

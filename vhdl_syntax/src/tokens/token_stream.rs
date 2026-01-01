@@ -84,7 +84,7 @@ impl TokenStream for VecTokenStream {
 }
 
 /// Syntactic sugar to transform tokenizers (i.e., producers of tokens such as the
-/// struct [Tokenizer], but also plain iterables of tokens) into token streams.
+/// struct [Tokenizer](crate::tokens::tokenizer::Tokenizer), but also plain iterables of tokens) into token streams.
 /// # Examples
 /// ```
 /// use vhdl_syntax::tokens::{IntoTokenStream, Keyword, TokenKind, TokenStream};
