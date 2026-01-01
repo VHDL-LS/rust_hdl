@@ -1,7 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/design.rs
-assertion_line: 149
-expression: output
+expression: "to_test_text(Parser::use_clause, \"use lib1.lib2.lib3.all;\")"
 ---
 UseClause
   Keyword(Use)

@@ -1,5 +1,5 @@
 ---
-source: vhdl_syntax/src/parser/productions/entity.rs
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
 expression: "to_test_text(Parser::entity,\n\"\\\nentity my_ent is\n    generic(constant a: in bit);\n    port(\n        b, c : out std_logic;\n        signal d : linkage boolean\n    );\nbegin\nend my_ent;\n\",)"
 ---
 EntityDeclaration

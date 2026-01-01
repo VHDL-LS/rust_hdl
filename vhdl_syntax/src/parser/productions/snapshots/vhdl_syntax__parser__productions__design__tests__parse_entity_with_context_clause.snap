@@ -1,7 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/design.rs
-assertion_line: 143
-expression: output
+expression: "to_test_text(Parser::design_file,\n\"\\\nlibrary ieee;\nuse ieee.std_logic_1164.all;\n\nentity my_ent is\nbegin\nend my_ent;\",)"
 ---
 DesignFile
   DesignUnit

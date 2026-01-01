@@ -1,7 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/design.rs
-assertion_line: 127
-expression: output
+expression: "to_test_text(Parser::design_file,\n\"\\\nentity my_ent is\nbegin\nend my_ent;\n\nentity my_ent2 is\nbegin\nend entity;\n\",)"
 ---
 DesignFile
   DesignUnit

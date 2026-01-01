@@ -1,5 +1,5 @@
 ---
-source: vhdl_syntax/src/parser/productions/entity.rs
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
 expression: "to_test_text(Parser::entity, \"\\\nentity my_ent is\nbegin\nend my_ent;\n\",)"
 ---
 EntityDeclaration

@@ -63,7 +63,6 @@ impl<T: TokenStream> Parser<T> {
                 Keyword(Kw::Attribute) => self.attribute_declaration_or_specification(),
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
-                Keyword(Kw::View) => self.view_declaration(),
                 _ => {
                     self.skip();
                     self.expect_tokens_err([Keyword(Kw::Type)])
@@ -132,9 +131,5 @@ impl<T: TokenStream> Parser<T> {
         self.expect_token(Colon);
         self.name();
         self.end_node();
-    }
-
-    pub fn view_declaration(&mut self) {
-        todo!()
     }
 }
