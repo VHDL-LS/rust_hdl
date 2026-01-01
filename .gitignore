@@ -1,3 +1,5 @@
 target/
 .vscode/
 **/*.rs.bk
+
+__pycache__/
