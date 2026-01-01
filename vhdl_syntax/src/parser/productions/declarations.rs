@@ -88,9 +88,14 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::For);
         self.component_specifiaction();
         self.binding_indication();
-        if self.next_is(Keyword(Kw::Vunit)) {
+        if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.start_node_at(checkpoint, NodeKind::CompoundConfigurationSpecification);
-            todo!("VUnit");
+            while self.next_is(Keyword(Kw::Use)) {
+                self.start_node(SemiColonTerminatedVerificationUnitBindingIndication);
+                self.verification_unit_binding_indication();
+                self.expect_token(SemiColon);
+                self.end_node();
+            }
             self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
         } else {
             self.start_node_at(checkpoint, NodeKind::SimpleConfigurationSpecification);
@@ -120,13 +125,7 @@ impl<T: TokenStream> Parser<T> {
                 }
                 self.end_node();
             }
-            None => {
-                self.eof_err();
-                return;
-            }
-            _ => {
-                todo!("Error handling")
-            }
+            _ => self.expect_tokens_err([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
         }
         self.expect_token(Colon);
         self.name();

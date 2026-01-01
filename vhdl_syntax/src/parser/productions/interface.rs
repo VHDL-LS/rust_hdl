@@ -62,7 +62,18 @@ impl<T: TokenStream> Parser<T> {
                 self.interface_subprogram_declaration()
             }
             Some(Keyword(Kw::Package)) => self.interface_package_declaration(),
-            _ => todo!(),
+            _ => self.expect_tokens_err([
+                Keyword(Kw::Signal),
+                Keyword(Kw::Constant),
+                Keyword(Kw::Variable),
+                Identifier,
+                Keyword(Kw::File),
+                Keyword(Kw::Type),
+                Keyword(Kw::Function),
+                Keyword(Kw::Procedure),
+                Keyword(Kw::Impure),
+                Keyword(Kw::Pure),
+            ]),
         }
     }
 

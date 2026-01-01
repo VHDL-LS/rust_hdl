@@ -25,8 +25,8 @@ impl<T: TokenStream> Parser<T> {
         if !self.next_is(Keyword(Kw::For)) {
             self.opt_declarative_part();
         }
-        if self.next_is(Keyword(Kw::Vunit)) {
-            todo!("VUnit")
+        if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
+            self.verification_unit_binding_indication();
         }
         self.block_configuration();
         self.expect_kw(Kw::End);
@@ -115,25 +115,21 @@ impl<T: TokenStream> Parser<T> {
                     }
                 }
             }
-            None => {
-                self.eof_err();
-                return;
-            }
-            _ => {
-                todo!("Error handling")
-            }
+            _ => self.expect_tokens_err([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
         }
     }
 
     fn component_configuration_known_spec(&mut self) {
-        if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)]) {
+        if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
+            && !self.next_nth_is(Keyword(Kw::Vunit), 1)
+        {
             self.start_node(NodeKind::SemiColonTerminatedBindingIndication);
             self.binding_indication();
             self.expect_token(TokenKind::SemiColon);
             self.end_node();
         }
-        if self.next_is(Keyword(Kw::Vunit)) {
-            todo!("VUnit")
+        if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
+            self.verification_unit_binding_indication();
         }
         if self.next_is(Keyword(Kw::For)) {
             self.block_configuration();

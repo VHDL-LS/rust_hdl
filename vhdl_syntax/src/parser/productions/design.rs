@@ -44,8 +44,13 @@ impl<T: TokenStream> Parser<T> {
             Some(Keyword(Kw::Entity)) => self.entity(),
             Some(Keyword(Kw::Configuration)) => self.configuration_declaration(),
             Some(Keyword(Kw::Context)) => self.context_declaration(),
-            Some(_) => todo!("token: {:?}", self.tokenizer.peek(0).unwrap()),
-            None => {}
+            _ => self.expect_tokens_err([
+                Keyword(Kw::Architecture),
+                Keyword(Kw::Package),
+                Keyword(Kw::Entity),
+                Keyword(Kw::Configuration),
+                Keyword(Kw::Context),
+            ]),
         }
         self.end_node();
     }

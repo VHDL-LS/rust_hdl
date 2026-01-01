@@ -333,9 +333,7 @@ impl<T: TokenStream> Parser<T> {
                         self.skip();
                         self.selected_expressions();
                     }
-                    _ => {
-                        todo!()
-                    }
+                    _ => self.expect_tokens_err([LTE, ColonEq]),
                 }
             }
             Some(Identifier | LeftPar | LtLt) => {
@@ -399,10 +397,27 @@ impl<T: TokenStream> Parser<T> {
                     Some(SemiColon) => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
                     }
-                    _ => todo!("token = {}", self.tokenizer.peek_next().unwrap()),
+                    _ => self.expect_tokens_err([LTE, ColonEq, SemiColon]),
                 }
             }
-            _ => todo!("token = {}", self.tokenizer.peek_next().unwrap()),
+            _ => self.expect_tokens_err([
+                Keyword(Kw::Wait),
+                Keyword(Kw::Assert),
+                Keyword(Kw::Report),
+                Keyword(Kw::If),
+                Keyword(Kw::Case),
+                Keyword(Kw::For),
+                Keyword(Kw::Loop),
+                Keyword(Kw::While),
+                Keyword(Kw::Next),
+                Keyword(Kw::Exit),
+                Keyword(Kw::Return),
+                Keyword(Kw::Null),
+                Keyword(Kw::With),
+                Identifier,
+                LeftPar,
+                LtLt,
+            ]),
         }
         self.expect_token(SemiColon);
         self.end_node();

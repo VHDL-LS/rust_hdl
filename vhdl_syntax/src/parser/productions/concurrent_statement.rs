@@ -167,7 +167,7 @@ impl<T: TokenStream> Parser<T> {
                     ),
                 }
             }
-            tok => todo!("token_kind={tok:?}"),
+            _ => self.expect_tokens_err([Keyword(Kw::Block)]),
         }
         self.expect_token(SemiColon);
         self.end_node();
@@ -177,18 +177,18 @@ impl<T: TokenStream> Parser<T> {
     fn conditional_waveforms_after_first_when(&mut self) {
         self.expression();
         while self.next_is(Keyword(Kw::Else)) {
-          let checkpoint = self.checkpoint();
-          self.expect_kw(Kw::Else);
-          self.waveform();
-          if self.opt_token(Keyword(Kw::When)) {
-            self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
-            self.expression();
-            self.end_node();
-          } else {
-            self.start_node_at(checkpoint, ConditionalWaveformElseItem);
-            self.end_node();
-            break;
-          }
+            let checkpoint = self.checkpoint();
+            self.expect_kw(Kw::Else);
+            self.waveform();
+            if self.opt_token(Keyword(Kw::When)) {
+                self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
+                self.expression();
+                self.end_node();
+            } else {
+                self.start_node_at(checkpoint, ConditionalWaveformElseItem);
+                self.end_node();
+                break;
+            }
         }
     }
 
