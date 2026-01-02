@@ -4,8 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-#[allow(unused)]
-pub(crate) mod latin_1;
+pub mod latin_1;
 pub mod parser;
 pub mod syntax;
 mod token_interning;
