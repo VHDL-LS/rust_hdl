@@ -68,49 +68,6 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 
-    pub fn context_clause(&mut self) {
-        self.start_node(NodeKind::ContextClause);
-        loop {
-            match self.peek_token() {
-                Some(Keyword(Kw::Use)) => self.use_clause(),
-                Some(Keyword(Kw::Library)) => self.library_clause(),
-                Some(Keyword(Kw::Context)) => {
-                    if !self.next_nth_is(Keyword(Kw::Is), 2) {
-                        self.context_reference()
-                    } else {
-                        break;
-                    }
-                }
-                _ => break,
-            }
-        }
-        self.end_node();
-    }
-
-    pub fn library_clause(&mut self) {
-        self.start_node(NodeKind::LibraryClause);
-        self.expect_kw(Kw::Library);
-        self.identifier_list();
-        self.expect_token(SemiColon);
-        self.end_node();
-    }
-
-    pub fn use_clause(&mut self) {
-        self.start_node(NodeKind::UseClause);
-        self.expect_kw(Kw::Use);
-        self.name_list();
-        self.expect_token(SemiColon);
-        self.end_node();
-    }
-
-    pub fn context_reference(&mut self) {
-        self.start_node(NodeKind::ContextReference);
-        self.expect_kw(Kw::Context);
-        self.name_list();
-        self.expect_token(SemiColon);
-        self.end_node();
-    }
-
     pub fn binding_indication(&mut self) {
         self.start_node(NodeKind::BindingIndication);
         if self.next_is(Keyword(Kw::Use)) {
@@ -180,5 +137,46 @@ end my_ent;",
     #[test]
     fn parse_use_clause() {
         insta::assert_snapshot!(to_test_text(Parser::use_clause, "use lib1.lib2.lib3.all;"));
+    }
+
+    #[test]
+    fn test_context_clause() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::context_declaration,
+            "\
+context ident is
+end;"
+        ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::context_declaration,
+            "\
+context ident is
+end context;"
+        ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::context_declaration,
+            "\
+context ident is
+end ident;"
+        ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::context_declaration,
+            "\
+context ident is
+end context ident;"
+        ));
+    }
+
+    #[test]
+    fn test_context_clause_items() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::context_declaration,
+            "\
+context ident is
+  library foo;
+  use foo.bar;
+  context foo.ctx;
+end context;"
+        ));
     }
 }

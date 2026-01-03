@@ -9,6 +9,7 @@ mod association_lists;
 mod attributes;
 mod component_declaration;
 mod composite_types;
+mod context;
 mod concurrent_statement;
 mod configuration_declarations;
 mod declarations;

@@ -1,0 +1,11 @@
+---
+source: vhdl_syntax/src/parser/productions/context.rs
+expression: "to_test_text(Parser::library_clause, \"library foo, bar;\",)"
+---
+LibraryClause
+  Keyword(Library)
+  IdentifierList
+    Identifier 'foo'
+    Comma
+    Identifier 'bar'
+  SemiColon

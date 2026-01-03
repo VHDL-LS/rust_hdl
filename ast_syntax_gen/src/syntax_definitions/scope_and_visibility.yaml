@@ -2,8 +2,5 @@
 
 UseClause: !Sequence
   - keyword: Use
-  - node: Name
-    repeated: true
-  - token: Comma
-    repeated: true
+  - node: NameList
   - token: SemiColon

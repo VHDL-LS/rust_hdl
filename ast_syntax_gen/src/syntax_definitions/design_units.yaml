@@ -24,10 +24,7 @@ UseClauseContextItem: !Sequence
 
 ContextReference: !Sequence
   - keyword: Context
-  - node: Name
-    repeated: true
-  - token: Comma
-    repeated: true
+  - node: NameList
   - token: SemiColon
 
 ContextItem: !Choice
@@ -45,18 +42,12 @@ DesignUnit: !Sequence
 
 LibraryClause: !Sequence
   - keyword: Library
-  - node: LogicalNameList
+  - node: IdentifierList
   - token: SemiColon
 
 LibraryUnit: !Choice
   - node: PrimaryUnit
   - node: SecondaryUnit
-
-LogicalNameList: !Sequence
-  - token: Identifier
-    repeated: true
-  - token: Comma
-    repeated: true
 
 PrimaryUnitPackageDeclaration: !Sequence
   - node: Package

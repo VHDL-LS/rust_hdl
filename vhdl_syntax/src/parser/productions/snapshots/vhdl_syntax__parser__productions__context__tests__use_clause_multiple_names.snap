@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/context.rs
+expression: "to_test_text(Parser::use_clause, \"use foo.'a', lib.bar.all;\",)"
+---
+UseClause
+  Keyword(Use)
+  NameList
+    Name
+      Identifier 'foo'
+      SelectedName
+        Dot
+        CharacterLiteral ''a''
+    Comma
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'bar'
+      SelectedName
+        Dot
+        Keyword(All)
+  SemiColon

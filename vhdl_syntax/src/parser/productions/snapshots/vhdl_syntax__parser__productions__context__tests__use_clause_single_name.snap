@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/context.rs
+expression: "to_test_text(Parser::use_clause, \"use lib.foo;\",)"
+---
+UseClause
+  Keyword(Use)
+  NameList
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+  SemiColon
