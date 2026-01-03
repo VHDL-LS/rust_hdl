@@ -48,12 +48,13 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::latin_1::{Latin1Str, Latin1String, Utf8ToLatin1Error};
 use crate::syntax::child::Child;
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
 use crate::tokens::{Token, TokenKind, Trivia};
-use std::fmt::{Display, Formatter};
+use std::io::{self, Write};
 use std::iter;
 use std::sync::Arc;
 
@@ -128,7 +129,7 @@ impl SyntaxToken {
         trivia
     }
 
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> &Latin1Str {
         self.green().text()
     }
 
@@ -176,7 +177,7 @@ impl SyntaxToken {
         }
     }
 
-    pub fn clone_with_text(&self, text: impl Into<String>) -> SyntaxToken {
+    pub fn clone_with_text(&self, text: impl Into<Box<Latin1Str>>) -> SyntaxToken {
         let token = Token::new(
             self.kind(),
             text,
@@ -184,6 +185,16 @@ impl SyntaxToken {
             self.green().trailing_trivia().clone(),
         );
         self.clone_with_token(token)
+    }
+
+    /// Clones all content (trivia, kind) of this token but changes the textual representation.
+    ///
+    /// If the text is not valid `Latin1`, a `Utf8ToLatin1Error` will be returned.
+    pub fn clone_with_utf8_text(
+        &self,
+        text: impl AsRef<str>,
+    ) -> Result<SyntaxToken, Utf8ToLatin1Error> {
+        Ok(self.clone_with_text(Latin1String::from_utf8(text.as_ref())?))
     }
 
     pub fn clone_with_token(&self, token: Token) -> SyntaxToken {
@@ -198,11 +209,9 @@ impl SyntaxToken {
     fn index(&self) -> usize {
         self.0.index
     }
-}
 
-impl Display for SyntaxToken {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.green())
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.green().write_to(writer)
     }
 }
 
@@ -377,11 +386,9 @@ impl SyntaxNode {
     pub(crate) fn test_text(&self) -> String {
         self.green().test_text(0)
     }
-}
 
-impl Display for SyntaxNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.green())
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.green().write_to(writer)
     }
 }
 
@@ -423,12 +430,12 @@ mod tests {
     use crate::syntax::rewrite::RewriteAction;
     use crate::tokens::Tokenize;
     use crate::tokens::{Keyword, Token, TokenKind, Trivia, TriviaPiece};
-    use std::collections::VecDeque;
     use pretty_assertions::assert_eq;
+    use std::collections::VecDeque;
 
     #[test]
     fn no_leading_trivia() {
-        let token = Token::simple(TokenKind::Keyword(Keyword::Entity), "entity".to_string());
+        let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_token(0, token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
@@ -442,7 +449,7 @@ mod tests {
     fn leading_trivia_no_previous_token() {
         let token = Token::new(
             TokenKind::Keyword(Keyword::Entity),
-            "entity",
+            b"entity",
             Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             Default::default(),
         );
@@ -460,13 +467,13 @@ mod tests {
         let tokens = [
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
-                "entity",
+                b"entity",
                 Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
                 Trivia::new([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
-                "foo",
+                b"foo",
                 Trivia::new([TriviaPiece::LineFeeds(1)]),
                 Trivia::new([TriviaPiece::FormFeeds(2)]),
             ),
@@ -482,7 +489,7 @@ mod tests {
 
     #[test]
     fn no_trailing_trivia() {
-        let token = Token::simple(TokenKind::Keyword(Keyword::Entity), "entity");
+        let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_token(0, token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
@@ -496,7 +503,7 @@ mod tests {
     fn trailing_trivia_no_next_token() {
         let token = Token::new(
             TokenKind::Keyword(Keyword::Entity),
-            "entity",
+            b"entity",
             Trivia::default(),
             Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
         );
@@ -514,13 +521,13 @@ mod tests {
         let tokens = [
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
-                "entity",
+                b"entity",
                 Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
                 Trivia::new([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
-                "foo",
+                b"foo",
                 Trivia::new([TriviaPiece::LineFeeds(1)]),
                 Trivia::new([TriviaPiece::FormFeeds(2)]),
             ),
@@ -555,7 +562,7 @@ mod tests {
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite_tokens(|tok| {
             if tok.text() == "foo" {
-                RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text("bar")))
+                RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"bar")))
             } else {
                 RewriteAction::Leave
             }

@@ -45,7 +45,7 @@ impl FromStr for DesignFileSyntax {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parser = Parser::new(s.tokenize().into_token_stream());
-        let (node, diagnostics) = parser.parse();
+        let (node, diagnostics) = parser.parse_design_file();
         if diagnostics.is_empty() {
             Ok(DesignFileSyntax(node))
         } else {

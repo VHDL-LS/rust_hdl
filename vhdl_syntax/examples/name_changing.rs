@@ -25,7 +25,11 @@ end foo;
             && token.parent().kind() == NodeKind::EntityDeclaration
         {
             let new_name = format!("tb_{}", token.text());
-            RewriteAction::Change(SyntaxElement::Token(token.clone_with_text(new_name)))
+            RewriteAction::Change(SyntaxElement::Token(
+                token
+                    .clone_with_utf8_text(new_name)
+                    .expect("Name was not Latin1"),
+            ))
         } else {
             RewriteAction::Leave
         }

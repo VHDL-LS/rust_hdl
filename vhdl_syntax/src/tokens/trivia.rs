@@ -5,12 +5,14 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::tokens::TriviaPiece;
-use std::ops::Deref;
+use std::{
+    io::{self, Write},
+    ops::Deref,
+};
 
 /// Trivia elements that are attached to tokens but do not influence the analysis of the text.
 /// Such trivia elements may contain comments, whitespaces or other format effectors.
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Trivia {
     // The single pieces of this trivia.
     // The fact that this is a vector is only an implementation detail.
@@ -47,6 +49,13 @@ impl Trivia {
 
     pub fn append(&mut self, other: &mut Trivia) {
         self.pieces.append(&mut other.pieces);
+    }
+
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        for trivia in self.iter() {
+            trivia.write_to(writer)?;
+        }
+        Ok(())
     }
 }
 

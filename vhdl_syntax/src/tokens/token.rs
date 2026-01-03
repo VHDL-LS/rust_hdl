@@ -4,9 +4,10 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+use crate::latin_1::Latin1Str;
 use crate::token_interning::Symbol;
 use crate::tokens::{TokenKind, Trivia};
-use std::fmt::{Display, Formatter};
+use std::io::{self, Write};
 
 /// A source-code token.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -20,7 +21,7 @@ pub struct Token {
 impl Token {
     pub fn new(
         kind: TokenKind,
-        text: impl Into<String>,
+        text: impl Into<Box<Latin1Str>>,
         leading_trivia: Trivia,
         trailing_trivia: Trivia,
     ) -> Token {
@@ -31,7 +32,7 @@ impl Token {
         }
     }
 
-    pub fn simple(kind: TokenKind, text: impl Into<String>) -> Token {
+    pub fn simple(kind: TokenKind, text: impl Into<Box<Latin1Str>>) -> Token {
         Token::new(kind, text, Trivia::default(), Trivia::default())
     }
 
@@ -47,7 +48,7 @@ impl Token {
         &self.trailing_trivia
     }
 
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> &Latin1Str {
         self.symbol.text()
     }
 
@@ -60,17 +61,11 @@ impl Token {
     pub fn byte_len(&self) -> usize {
         self.leading_trivia.byte_len() + self.text_len() + self.trailing_trivia.byte_len()
     }
-}
 
-impl Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for trivia in self.leading_trivia.iter() {
-            write!(f, "{trivia}")?;
-        }
-        write!(f, "{}", self.text())?;
-        for trivia in self.trailing_trivia.iter() {
-            write!(f, "{trivia}")?;
-        }
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.leading_trivia().write_to(writer)?;
+        writer.write_all(self.text().as_bytes())?;
+        self.trailing_trivia().write_to(writer)?;
         Ok(())
     }
 }

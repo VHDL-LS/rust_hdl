@@ -1,4 +1,9 @@
-use vhdl_syntax::syntax::{AstNode, DesignFileSyntax};
+use std::{fs::File, io::Read};
+
+use vhdl_syntax::{
+    parser::Parser,
+    tokens::{IntoTokenStream, Tokenize},
+};
 
 fn main() {
     /* let args: Vec<String> = std::env::args().collect();
@@ -6,10 +11,7 @@ fn main() {
         eprintln!("Usage: {} <directory>", args[0]);
         std::process::exit(1);
     } */
-    let args = vec![
-        "",
-        "/Users/lukasscheller/rust_hdl/example_project/",
-    ];
+    let args = vec!["", "/Users/lukasscheller/rust_hdl/example_project/"];
 
     check_parsing_and_reemitting(args);
 }
@@ -36,13 +38,31 @@ fn check_parsing_and_reemitting(args: Vec<&'static str>) {
 fn check_file(path: impl Into<std::path::PathBuf>) {
     let path = path.into();
     println!("looking at file {}", path.display());
-    let text = std::fs::read_to_string(&path).expect("Failed to read file");
-    let file = text.parse::<DesignFileSyntax>().expect("Found diagnostics");
-    let raw = file.raw();
-    assert_eq!(
-        raw.to_string(),
-        text,
-        "File content mismatch for {:?}",
-        path
+    let mut buf = Vec::new();
+    File::open(&path)
+        .expect("Failed to open file")
+        .read_to_end(&mut buf)
+        .expect("Failed to read file");
+    let parser = Parser::new(buf.tokenize().into_token_stream());
+    let (file, diagnostics) = parser.parse_design_file();
+    assert!(
+        diagnostics.is_empty(),
+        "Found diagnostics for file {}",
+        path.display()
     );
+    let mut expected_buf = Vec::new();
+    file.write_to(&mut expected_buf)
+        .expect("Cannot write to vec");
+    if buf != expected_buf {
+        println!("File content mismatch for {}", path.display());
+        println!("========= Original =========");
+        println!();
+        println!("{:?}", buf);
+        println!();
+        println!("========= Reconstructed =========");
+        println!();
+        println!("{:?}", expected_buf);
+        println!();
+        panic!()
+    }
 }

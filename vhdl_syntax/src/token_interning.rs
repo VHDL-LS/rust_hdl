@@ -8,14 +8,14 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::tokens::TokenKind;
+use crate::{latin_1::Latin1Str, tokens::TokenKind};
 use std::sync::{Arc, LazyLock, RwLock};
 
 /// An Arena that can allocate in some global context.
 pub(crate) trait Arena {
     type Id;
 
-    fn alloc(kind: TokenKind, value: Box<str>) -> Symbol;
+    fn alloc(kind: TokenKind, value: Box<Latin1Str>) -> Symbol;
 }
 
 /// The global Arena allocates symbols using a vector and the static [GLOBAL_ARENA] value.
@@ -34,7 +34,7 @@ static GLOBAL_ARENA: LazyLock<GlobalArena> = LazyLock::new(|| GlobalArena {
 impl Arena for GlobalArena {
     type Id = usize;
 
-    fn alloc(kind: TokenKind, value: Box<str>) -> Symbol {
+    fn alloc(kind: TokenKind, value: Box<Latin1Str>) -> Symbol {
         if let Ok(mut lock) = GLOBAL_ARENA.elements.write() {
             if let Some(existing_symbol) =
                 lock.iter().find(|el| el.kind == kind && el.value == value)
@@ -66,7 +66,7 @@ impl Symbol {
         self.0.kind
     }
 
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> &Latin1Str {
         &self.0.value
     }
 }
@@ -83,7 +83,7 @@ struct SymbolInner {
     // The `SymbolInner` could store a `str` and the `TokenKind`
     // instead of boxing, since it's only usable behind a pointer.
     // Having the `value` boxed means double de-reference
-    value: Box<str>,
+    value: Box<Latin1Str>,
     /// A unique ID per symbol to enable efficient comparison.
     // TODO: This must be extended for case-insensitive comparison.
     id: usize,
@@ -102,11 +102,11 @@ impl Symbol {
         Symbol(inner)
     }
 
-    pub fn allocate(kind: TokenKind, text: impl Into<Box<str>>) -> Symbol {
+    pub fn allocate(kind: TokenKind, text: impl Into<Box<Latin1Str>>) -> Symbol {
         Self::allocate_in_arena::<GlobalArena>(kind, text)
     }
 
-    pub fn allocate_in_arena<A: Arena>(kind: TokenKind, text: impl Into<Box<str>>) -> Symbol {
+    pub fn allocate_in_arena<A: Arena>(kind: TokenKind, text: impl Into<Box<Latin1Str>>) -> Symbol {
         A::alloc(kind, text.into())
     }
 }

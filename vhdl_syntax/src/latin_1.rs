@@ -1,10 +1,10 @@
 //! # Latin-1 String Types
-//! 
+//!
 //! As opposed to the Rust default, in VHDL, text is [ISO-8859-1](https://de.wikipedia.org/wiki/ISO_8859-1)
 //! ("Latin-1") encoded.
 //! This module provides string types for working with Latin-1 encoded text
 //! that behave closely to [`String`] and [`prim@str`].
-//! 
+//!
 //! ## Differences to `String` and `str`
 //!
 //! In Rust's `String` and `str`, a character is a Unicode scalar value (represented as `char`),
@@ -57,7 +57,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2025, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use std::borrow::Borrow;
 use std::hash::{Hash, Hasher};
@@ -78,7 +78,7 @@ impl Latin1String {
     }
 
     /// Create a Latin1-string with allocated capacity.
-    /// 
+    ///
     /// The `capacity` argument is passed to the backing `Vec`.
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Latin1String {
@@ -109,7 +109,7 @@ impl Latin1String {
     /// ```
     /// # use vhdl_syntax::latin_1::{Latin1String, Latin1Str};
     /// let mut s = Latin1String::from(b"foo");
-    /// 
+    ///
     /// let slice = s.as_latin1_str_mut();
     /// slice[0] = b'o';
     ///
@@ -185,6 +185,13 @@ impl Latin1String {
     pub fn append(&mut self, other: &mut Latin1String) {
         self.bytes.append(&mut other.bytes);
     }
+
+    /// Converts this `Latin1String` into a [boxed](Box) [`Latin1Str`].
+    #[must_use = "`self` will be dropped if the result is not used"]
+    pub fn into_boxed_latin1_str(self) -> Box<Latin1Str> {
+        let rw = Box::into_raw(self.bytes.into_boxed_slice()) as *mut Latin1Str;
+        unsafe { Box::from_raw(rw) }
+    }
 }
 
 impl Clone for Latin1String {
@@ -199,6 +206,62 @@ impl Clone for Latin1String {
     }
 }
 
+impl From<&Latin1Str> for Box<Latin1Str> {
+    /// Creates a boxed [`Latin1Str`] from a reference.
+    ///
+    /// This will allocate and clone `value` to it.
+    fn from(value: &Latin1Str) -> Self {
+        let boxed: Box<[u8]> = value.inner.into();
+        let rw = Box::into_raw(boxed) as *mut Latin1Str;
+        unsafe { Box::from_raw(rw) }
+    }
+}
+
+impl From<&mut Latin1Str> for Box<Latin1Str> {
+    /// Creates a boxed [`Latin1Str`] from a reference.
+    ///
+    /// This will allocate and clone `value` to it.
+    fn from(value: &mut Latin1Str) -> Self {
+        Self::from(&*value)
+    }
+}
+
+impl From<Box<Latin1Str>> for Latin1String {
+    /// Converts a `[Box]&lt;[Latin1Str]&gt;</code> into a [`Latin1String`].
+    ///
+    /// This conversion does not allocate or copy memory.
+    fn from(value: Box<Latin1Str>) -> Self {
+        value.into_latin1_string()
+    }
+}
+
+impl From<Latin1String> for Box<Latin1Str> {
+    /// Converts a [`Latin1String`] into a <code>[Box]&lt;[Latin1Str]&gt;</code>.
+    ///
+    /// This conversion does not allocate memory.
+    fn from(value: Latin1String) -> Self {
+        value.into_boxed_latin1_str()
+    }
+}
+
+impl From<&[u8]> for Box<Latin1Str> {
+    fn from(value: &[u8]) -> Self {
+        Latin1String::from(value).into_boxed_latin1_str()
+    }
+}
+
+impl<const N: usize> From<&[u8; N]> for Box<Latin1Str> {
+    fn from(value: &[u8; N]) -> Self {
+        Latin1String::from(value).into_boxed_latin1_str()
+    }
+}
+
+impl Clone for Box<Latin1Str> {
+    fn clone(&self) -> Self {
+        self.to_latin1_string().into_boxed_latin1_str()
+    }
+}
+
 impl<T: ?Sized + AsRef<[u8]>> From<&T> for Latin1String {
     fn from(s: &T) -> Latin1String {
         Latin1String::from(s.as_ref().to_vec())
@@ -208,6 +271,12 @@ impl<T: ?Sized + AsRef<[u8]>> From<&T> for Latin1String {
 impl From<Vec<u8>> for Latin1String {
     fn from(value: Vec<u8>) -> Self {
         Latin1String { bytes: value }
+    }
+}
+
+impl From<u8> for Latin1String {
+    fn from(value: u8) -> Self {
+        Latin1String { bytes: vec![value] }
     }
 }
 
@@ -358,7 +427,14 @@ pub struct Latin1Str {
 
 fn iso_8859_1_lowercase(chr: u8) -> u8 {
     match chr {
-        b'A'..=b'Z' | 192..=214 | 216..=222 => chr + 32,
+        b'A'..=b'Z' | 0xC0..=0xD6 | 0xD8..=0xDE => chr + 32,
+        _ => chr,
+    }
+}
+
+fn iso_8859_1_uppercase(chr: u8) -> u8 {
+    match chr {
+        b'a'..=b'z' | 0xE0..=0xF6 | 0xF8..=0xFE => chr - 32,
         _ => chr,
     }
 }
@@ -406,9 +482,21 @@ impl Latin1Str {
         }
     }
 
+    pub fn make_uppercase(&mut self) {
+        for i in 0..self.inner.len() {
+            self.inner[i] = iso_8859_1_uppercase(self.inner[i]);
+        }
+    }
+
     pub fn to_lowercase(&self) -> Latin1String {
         let mut latin1 = self.to_owned();
         latin1.make_lowercase();
+        latin1
+    }
+
+    pub fn to_uppercase(&self) -> Latin1String {
+        let mut latin1 = self.to_owned();
+        latin1.make_uppercase();
         latin1
     }
 
@@ -417,6 +505,17 @@ impl Latin1Str {
             self.inner[0..other.len()] == other.bytes
         } else {
             false
+        }
+    }
+
+    /// Converts a [`Box<Latin1Str>`](Box) into a [`Latin1String`] without copying or
+    /// allocating.
+    #[must_use = "`self` will be dropped if the result is not used"]
+    pub fn into_latin1_string(self: Box<Self>) -> Latin1String {
+        let rw = Box::into_raw(self) as *mut [u8];
+        let inner = unsafe { Box::from_raw(rw) };
+        Latin1String {
+            bytes: Vec::from(inner),
         }
     }
 }

@@ -4,7 +4,8 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::latin_1::Latin1String;
+use crate::latin_1::{Latin1Str, Latin1String};
+use crate::tokens::trivia_piece::Comment;
 use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, Trivia, TriviaPiece};
 use crate::tokens::{Token, TokenKind};
@@ -24,6 +25,30 @@ impl Tokenize for &str {
 impl Tokenize for String {
     fn tokenize(&self) -> impl Iterator<Item = Token> {
         Tokenizer::from(self.bytes())
+    }
+}
+
+impl Tokenize for &Latin1Str {
+    fn tokenize(&self) -> impl Iterator<Item = Token> {
+        Tokenizer::from(self.as_bytes().iter().copied())
+    }
+}
+
+impl Tokenize for Latin1String {
+    fn tokenize(&self) -> impl Iterator<Item = Token> {
+        Tokenizer::from(self.as_bytes().iter().copied())
+    }
+}
+
+impl Tokenize for &[u8] {
+    fn tokenize(&self) -> impl Iterator<Item = Token> {
+        Tokenizer::from(self.iter().copied())
+    }
+}
+
+impl Tokenize for Vec<u8> {
+    fn tokenize(&self) -> impl Iterator<Item = Token> {
+        Tokenizer::from(self.iter().copied())
     }
 }
 
@@ -257,6 +282,10 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Consume a trivia piece (i.e., whitespace, newline, comments, ...)
+    // TODO: Currently, comment encoding is UTF-8 (and will panic if this is not the case)
+    // Instead, the comment encoding should be user-configurable to avoid
+    // panicking and support different use-cases.
+    // VHDL allows comments to have a different encoding (NOTE 2 in 15.9) and we should respect that.
     fn consume_trivia_piece(&mut self) -> Option<TriviaPiece> {
         macro_rules! count_chars {
             ($ch:literal) => {{
@@ -291,11 +320,11 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 if self.peek() == Some(b'-') {
                     self.skip();
                     self.skip();
-                    let mut comment = Vec::default();
+                    let mut bytes = Vec::default();
                     while let Some(ch) = self.skip_if(|ch| !matches!(ch, b'\r' | b'\n')) {
-                        comment.push(ch);
+                        bytes.push(ch);
                     }
-                    TriviaPiece::LineComment(String::from_utf8(comment).expect("Invalid utf-8 in comments"))
+                    TriviaPiece::LineComment(Comment::new(bytes))
                 } else {
                     return None;
                 }
@@ -304,7 +333,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 if self.peek() == Some(b'*') {
                     self.skip();
                     self.skip();
-                    let mut comment = Vec::default();
+                    let mut bytes = Vec::default();
                     loop {
                         if self.current == Some(b'*') && self.peek() == Some(b'/') {
                             self.skip();
@@ -312,9 +341,9 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                             break;
                         }
                         let Some(ch) = self.skip() else { break };
-                        comment.push(ch)
+                        bytes.push(ch)
                     }
-                    TriviaPiece::BlockComment(String::from_utf8(comment).expect("Invalid utf-8 in comments"))
+                    TriviaPiece::BlockComment(Comment::new(bytes))
                 } else {
                     return None;
                 }
@@ -349,9 +378,8 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
         };
         let (kind, text) = match current {
             b'a'..=b'z' | b'A'..=b'Z' => {
-                let mut buf = Latin1String::default();
-                let kind = self.identifier_keyword_or_bistring_literal(&mut buf);
-                let ident_str = buf.to_string();
+                let mut ident_str = Latin1String::new();
+                let kind = self.identifier_keyword_or_bistring_literal(&mut ident_str);
                 if let Some(kind) = kind {
                     (kind, ident_str)
                 } else if let Some(kw) = str_to_keyword(&ident_str) {
@@ -361,80 +389,81 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 }
             }
             b'0'..=b'9' => {
-                let mut buf = Latin1String::default();
+                let mut buf = Latin1String::new();
                 let kind = self.abstract_literal(&mut buf);
-                (kind, buf.to_string())
+                (kind, buf)
             }
             b':' => {
                 self.skip();
                 if self.current == Some(b'=') {
                     self.skip();
-                    (ColonEq, ":=".to_string())
+                    (ColonEq, Latin1String::from(b":="))
                 } else {
-                    (Colon, ":".to_string())
+                    (Colon, Latin1String::from(":"))
                 }
             }
             b'\'' => {
                 self.skip();
                 if can_be_char(self.last_token_kind) {
                     if self.peek() == Some(b'\'') {
-                        let ret = (
-                            CharacterLiteral,
-                            format!("'{}'", self.skip().unwrap() as char),
-                        );
+                        let mut ret = Latin1String::new();
+                        ret.push(b'\'');
+                        ret.push(self.skip().unwrap());
+                        ret.push(b'\'');
+                        let ret = (CharacterLiteral, ret);
                         self.skip();
                         ret
                     } else {
-                        (Tick, "'".to_string())
+                        (Tick, Latin1String::from(b"'"))
                     }
                 } else {
-                    (Tick, "'".to_string())
+                    (Tick, Latin1String::from(b"'"))
                 }
             }
             b'-' => {
                 self.skip();
-                (Minus, "-".to_string())
+                (Minus, Latin1String::from(b"-"))
             }
             b'"' => {
-                let mut buf = Latin1String::default();
+                let mut buf = Latin1String::new();
                 let kind = self.quoted(&mut buf);
-                (kind, buf.to_string())
+                (kind, buf)
             }
             b';' => {
                 self.skip();
-                (SemiColon, ";".to_string())
+                (SemiColon, Latin1String::from(b";"))
             }
             b'(' => {
                 self.skip();
-                (LeftPar, "(".to_string())
+                (LeftPar, Latin1String::from(b"("))
             }
             b')' => {
                 self.skip();
-                (RightPar, ")".to_string())
+                (RightPar, Latin1String::from(b")"))
             }
             b'+' => {
                 self.skip();
-                (Plus, "+".to_string())
+                (Plus, Latin1String::from(b"+"))
             }
             b'.' => {
                 self.skip();
-                (Dot, ".".to_string())
+                (Dot, Latin1String::from(b"."))
             }
             b'&' => {
                 self.skip();
-                (Concat, "&".to_string())
+                (Concat, Latin1String::from(b"&"))
             }
             b',' => {
                 self.skip();
-                (Comma, ",".to_string())
+                (Comma, Latin1String::from(b","))
             }
             b'=' => {
                 self.skip();
                 if self.current == Some(b'>') {
                     self.skip();
-                    (RightArrow, "=>".to_string())
+                    (RightArrow, Latin1String::from(b"=>"))
                 } else {
-                    (EQ, "=".to_string())
+                    (EQ, Latin1String::from(b"="))
                 }
             }
             b'<' => {
@@ -442,17 +471,17 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 match self.current {
                     Some(b'=') => {
                         self.skip();
-                        (LTE, "<=".to_string())
+                        (LTE, Latin1String::from(b"<="))
                     }
                     Some(b'>') => {
                         self.skip();
-                        (BOX, "<>".to_string())
+                        (BOX, Latin1String::from(b"<>"))
                     }
                     Some(b'<') => {
                         self.skip();
-                        (LtLt, "<<".to_string())
+                        (LtLt, Latin1String::from(b"<<"))
                     }
-                    _ => (LT, "<".to_string()),
+                    _ => (LT, Latin1String::from(b"<")),
                 }
             }
             b'>' => {
@@ -460,31 +489,31 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 match self.current {
                     Some(b'=') => {
                         self.skip();
-                        (GTE, ">=".to_string())
+                        (GTE, Latin1String::from(b">="))
                     }
                     Some(b'>') => {
                         self.skip();
-                        (GtGt, ">>".to_string())
+                        (GtGt, Latin1String::from(b">>"))
                     }
-                    _ => (GT, ">".to_string()),
+                    _ => (GT, Latin1String::from(b">")),
                 }
             }
             b'/' => {
                 self.skip();
                 if self.current == Some(b'=') {
                     self.skip();
-                    (NE, "/=".to_string())
+                    (NE, Latin1String::from(b"/="))
                 } else {
-                    (Div, "/".to_string())
+                    (Div, Latin1String::from(b"/"))
                 }
             }
             b'*' => {
                 self.skip();
                 if self.current == Some(b'*') {
                     self.skip();
-                    (Pow, "**".to_string())
+                    (Pow, Latin1String::from(b"**"))
                 } else {
-                    (Times, "*".to_string())
+                    (Times, Latin1String::from(b"*"))
                 }
             }
             b'?' => {
@@ -492,75 +521,75 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 match self.current {
                     Some(b'?') => {
                         self.skip();
-                        (QueQue, "??".to_string())
+                        (QueQue, Latin1String::from(b"??"))
                     }
                     Some(b'=') => {
                         self.skip();
-                        (QueEQ, "?=".to_string())
+                        (QueEQ, Latin1String::from(b"?="))
                     }
                     Some(b'/') => {
                         if self.peek() == Some(b'=') {
                             self.skip();
                             self.skip();
-                            (QueNE, "?/=".to_string())
+                            (QueNE, Latin1String::from(b"?/="))
                         } else {
-                            (Que, "?".to_string())
+                            (Que, Latin1String::from(b"?"))
                         }
                     }
                     Some(b'<') => {
                         self.skip();
                         if self.current == Some(b'=') {
                             self.skip();
-                            (QueLTE, "?<=".to_string())
+                            (QueLTE, Latin1String::from(b"?<="))
                         } else {
-                            (QueLT, "?<".to_string())
+                            (QueLT, Latin1String::from(b"?<"))
                         }
                     }
                     Some(b'>') => {
                         self.skip();
                         if self.current == Some(b'=') {
                             self.skip();
-                            (QueGTE, "?>=".to_string())
+                            (QueGTE, Latin1String::from(b"?>="))
                         } else {
-                            (QueGT, "?>".to_string())
+                            (QueGT, Latin1String::from(b"?>"))
                         }
                     }
-                    _ => (Que, "?".to_string()),
+                    _ => (Que, Latin1String::from(b"?>")),
                 }
             }
             b'^' => {
                 self.skip();
-                (Circ, "^".to_string())
+                (Circ, Latin1String::from(b"^"))
             }
             b'@' => {
                 self.skip();
-                (CommAt, "@".to_string())
+                (CommAt, Latin1String::from(b"@"))
             }
             b'|' => {
                 self.skip();
-                (Bar, "|".to_string())
+                (Bar, Latin1String::from(b"|"))
             }
             b'[' => {
                 self.skip();
-                (LeftSquare, "[".to_string())
+                (LeftSquare, Latin1String::from(b"["))
             }
             b']' => {
                 self.skip();
-                (RightSquare, "]".to_string())
+                (RightSquare, Latin1String::from(b"]"))
             }
             b'\\' => {
-                let mut buf = Latin1String::default();
+                let mut buf = Latin1String::new();
                 let kind = self.quoted(&mut buf);
-                (kind, buf.to_string())
+                (kind, buf)
             }
             b'`' => {
-                let mut buf = Latin1String::default();
+                let mut buf = Latin1String::new();
                 self.tool_directive(&mut buf);
-                (ToolDirective, buf.to_string())
+                (ToolDirective, buf)
             }
             ch => {
                 self.skip();
-                (Unknown, ch.to_string())
+                (Unknown, Latin1String::from(ch))
             }
         };
         self.last_token_kind = Some(kind);
@@ -580,124 +609,124 @@ fn can_be_char(last_token_kind: Option<TokenKind>) -> bool {
     }
 }
 
-fn str_to_keyword(inp: &str) -> Option<Kw> {
-    Some(match inp.to_ascii_lowercase().as_str() {
-        "abs" => Kw::Abs,
-        "access" => Kw::Access,
-        "after" => Kw::After,
-        "alias" => Kw::Alias,
-        "all" => Kw::All,
-        "and" => Kw::And,
-        "architecture" => Kw::Architecture,
-        "array" => Kw::Array,
-        "assert" => Kw::Assert,
-        "assume" => Kw::Assume,
-        "attribute" => Kw::Attribute,
-        "begin" => Kw::Begin,
-        "block" => Kw::Block,
-        "body" => Kw::Body,
-        "buffer" => Kw::Buffer,
-        "bus" => Kw::Bus,
-        "case" => Kw::Case,
-        "component" => Kw::Component,
-        "configuration" => Kw::Configuration,
-        "constant" => Kw::Constant,
-        "context" => Kw::Context,
-        "cover" => Kw::Cover,
-        "default" => Kw::Default,
-        "disconnect" => Kw::Disconnect,
-        "downto" => Kw::Downto,
-        "else" => Kw::Else,
-        "elsif" => Kw::Elsif,
-        "end" => Kw::End,
-        "entity" => Kw::Entity,
-        "exit" => Kw::Exit,
-        "fairness" => Kw::Fairness,
-        "file" => Kw::File,
-        "for" => Kw::For,
-        "force" => Kw::Force,
-        "function" => Kw::Function,
-        "generate" => Kw::Generate,
-        "generic" => Kw::Generic,
-        "group" => Kw::Group,
-        "guarded" => Kw::Guarded,
-        "if" => Kw::If,
-        "impure" => Kw::Impure,
-        "in" => Kw::In,
-        "inertial" => Kw::Inertial,
-        "inout" => Kw::Inout,
-        "is" => Kw::Is,
-        "label" => Kw::Label,
-        "library" => Kw::Library,
-        "linkage" => Kw::Linkage,
-        "literal" => Kw::Literal,
-        "loop" => Kw::Loop,
-        "map" => Kw::Map,
-        "mod" => Kw::Mod,
-        "nand" => Kw::Nand,
-        "new" => Kw::New,
-        "next" => Kw::Next,
-        "nor" => Kw::Nor,
-        "not" => Kw::Not,
-        "null" => Kw::Null,
-        "of" => Kw::Of,
-        "on" => Kw::On,
-        "open" => Kw::Open,
-        "or" => Kw::Or,
-        "others" => Kw::Others,
-        "out" => Kw::Out,
-        "package" => Kw::Package,
-        "parameter" => Kw::Parameter,
-        "port" => Kw::Port,
-        "postponed" => Kw::Postponed,
-        "procedure" => Kw::Procedure,
-        "process" => Kw::Process,
-        "property" => Kw::Property,
-        "protected" => Kw::Protected,
-        "private" => Kw::Private,
-        "pure" => Kw::Pure,
-        "range" => Kw::Range,
-        "record" => Kw::Record,
-        "register" => Kw::Register,
-        "reject" => Kw::Reject,
-        "release" => Kw::Release,
-        "rem" => Kw::Rem,
-        "report" => Kw::Report,
-        "restrict" => Kw::Restrict,
-        "return" => Kw::Return,
-        "rol" => Kw::Rol,
-        "ror" => Kw::Ror,
-        "select" => Kw::Select,
-        "sequence" => Kw::Sequence,
-        "severity" => Kw::Severity,
-        "signal" => Kw::Signal,
-        "shared" => Kw::Shared,
-        "sla" => Kw::Sla,
-        "sll" => Kw::Sll,
-        "sra" => Kw::Sra,
-        "srl" => Kw::Srl,
-        "strong" => Kw::Strong,
-        "subtype" => Kw::Subtype,
-        "then" => Kw::Then,
-        "to" => Kw::To,
-        "transport" => Kw::Transport,
-        "type" => Kw::Type,
-        "unaffected" => Kw::Unaffected,
-        "units" => Kw::Units,
-        "until" => Kw::Until,
-        "use" => Kw::Use,
-        "variable" => Kw::Variable,
-        "view" => Kw::View,
-        "vpgk" => Kw::Vpgk,
-        "vmode" => Kw::Vmode,
-        "vprop" => Kw::Vprop,
-        "vunit" => Kw::Vunit,
-        "wait" => Kw::Wait,
-        "when" => Kw::When,
-        "while" => Kw::While,
-        "with" => Kw::With,
-        "xnor" => Kw::Xnor,
-        "xor" => Kw::Xor,
+fn str_to_keyword(inp: &Latin1Str) -> Option<Kw> {
+    Some(match inp.to_lowercase().as_bytes() {
+        b"abs" => Kw::Abs,
+        b"access" => Kw::Access,
+        b"after" => Kw::After,
+        b"alias" => Kw::Alias,
+        b"all" => Kw::All,
+        b"and" => Kw::And,
+        b"architecture" => Kw::Architecture,
+        b"array" => Kw::Array,
+        b"assert" => Kw::Assert,
+        b"assume" => Kw::Assume,
+        b"attribute" => Kw::Attribute,
+        b"begin" => Kw::Begin,
+        b"block" => Kw::Block,
+        b"body" => Kw::Body,
+        b"buffer" => Kw::Buffer,
+        b"bus" => Kw::Bus,
+        b"case" => Kw::Case,
+        b"component" => Kw::Component,
+        b"configuration" => Kw::Configuration,
+        b"constant" => Kw::Constant,
+        b"context" => Kw::Context,
+        b"cover" => Kw::Cover,
+        b"default" => Kw::Default,
+        b"disconnect" => Kw::Disconnect,
+        b"downto" => Kw::Downto,
+        b"else" => Kw::Else,
+        b"elsif" => Kw::Elsif,
+        b"end" => Kw::End,
+        b"entity" => Kw::Entity,
+        b"exit" => Kw::Exit,
+        b"fairness" => Kw::Fairness,
+        b"file" => Kw::File,
+        b"for" => Kw::For,
+        b"force" => Kw::Force,
+        b"function" => Kw::Function,
+        b"generate" => Kw::Generate,
+        b"generic" => Kw::Generic,
+        b"group" => Kw::Group,
+        b"guarded" => Kw::Guarded,
+        b"if" => Kw::If,
+        b"impure" => Kw::Impure,
+        b"in" => Kw::In,
+        b"inertial" => Kw::Inertial,
+        b"inout" => Kw::Inout,
+        b"is" => Kw::Is,
+        b"label" => Kw::Label,
+        b"library" => Kw::Library,
+        b"linkage" => Kw::Linkage,
+        b"literal" => Kw::Literal,
+        b"loop" => Kw::Loop,
+        b"map" => Kw::Map,
+        b"mod" => Kw::Mod,
+        b"nand" => Kw::Nand,
+        b"new" => Kw::New,
+        b"next" => Kw::Next,
+        b"nor" => Kw::Nor,
+        b"not" => Kw::Not,
+        b"null" => Kw::Null,
+        b"of" => Kw::Of,
+        b"on" => Kw::On,
+        b"open" => Kw::Open,
+        b"or" => Kw::Or,
+        b"others" => Kw::Others,
+        b"out" => Kw::Out,
+        b"package" => Kw::Package,
+        b"parameter" => Kw::Parameter,
+        b"port" => Kw::Port,
+        b"postponed" => Kw::Postponed,
+        b"procedure" => Kw::Procedure,
+        b"process" => Kw::Process,
+        b"property" => Kw::Property,
+        b"protected" => Kw::Protected,
+        b"private" => Kw::Private,
+        b"pure" => Kw::Pure,
+        b"range" => Kw::Range,
+        b"record" => Kw::Record,
+        b"register" => Kw::Register,
+        b"reject" => Kw::Reject,
+        b"release" => Kw::Release,
+        b"rem" => Kw::Rem,
+        b"report" => Kw::Report,
+        b"restrict" => Kw::Restrict,
+        b"return" => Kw::Return,
+        b"rol" => Kw::Rol,
+        b"ror" => Kw::Ror,
+        b"select" => Kw::Select,
+        b"sequence" => Kw::Sequence,
+        b"severity" => Kw::Severity,
+        b"signal" => Kw::Signal,
+        b"shared" => Kw::Shared,
+        b"sla" => Kw::Sla,
+        b"sll" => Kw::Sll,
+        b"sra" => Kw::Sra,
+        b"srl" => Kw::Srl,
+        b"strong" => Kw::Strong,
+        b"subtype" => Kw::Subtype,
+        b"then" => Kw::Then,
+        b"to" => Kw::To,
+        b"transport" => Kw::Transport,
+        b"type" => Kw::Type,
+        b"unaffected" => Kw::Unaffected,
+        b"units" => Kw::Units,
+        b"until" => Kw::Until,
+        b"use" => Kw::Use,
+        b"variable" => Kw::Variable,
+        b"view" => Kw::View,
+        b"vpgk" => Kw::Vpgk,
+        b"vmode" => Kw::Vmode,
+        b"vprop" => Kw::Vprop,
+        b"vunit" => Kw::Vunit,
+        b"wait" => Kw::Wait,
+        b"when" => Kw::When,
+        b"while" => Kw::While,
+        b"with" => Kw::With,
+        b"xnor" => Kw::Xnor,
+        b"xor" => Kw::Xor,
         _ => return None,
     })
 }
@@ -705,9 +734,11 @@ fn str_to_keyword(inp: &str) -> Option<Kw> {
 #[cfg(test)]
 mod tests {
 
+    use crate::latin_1::Latin1String;
     use crate::tokens::tokenizer::Tokenize;
     use crate::tokens::TokenKind;
     use crate::tokens::TokenKind::*;
+    use crate::tokens::trivia_piece::Comment;
     use crate::tokens::{Keyword as Kw, Token, Trivia, TriviaPiece};
     use pretty_assertions::assert_eq;
 
@@ -785,11 +816,11 @@ entity foo"
             vec![
                 Token::new(
                     Keyword(Kw::Entity),
-                    "entity",
+                    b"entity",
                     Trivia::new([TriviaPiece::LineFeeds(2)]),
                     Trivia::new([TriviaPiece::Spaces(1)]),
                 ),
-                Token::new(Identifier, "foo", Trivia::new([]), Trivia::new([]),)
+                Token::new(Identifier, b"foo", Trivia::new([]), Trivia::new([]),)
             ]
         );
     }
@@ -808,7 +839,7 @@ entity foo"
     fn tokenize_identifier() {
         assert_eq!(
             "my_ident".tokenize_vec(),
-            vec![Token::simple(Identifier, "my_ident",)]
+            vec![Token::simple(Identifier, b"my_ident",)]
         );
     }
 
@@ -816,11 +847,11 @@ entity foo"
     fn tokenize_extended_identifier() {
         assert_eq!(
             "\\1$my_ident\\".tokenize_vec(),
-            vec![Token::simple(Identifier, "\\1$my_ident\\",)]
+            vec![Token::simple(Identifier, b"\\1$my_ident\\")]
         );
         assert_eq!(
             "\\my\\\\_ident\\".tokenize_vec(),
-            vec![Token::simple(Identifier, "\\my\\\\_ident\\".to_string(),)]
+            vec![Token::simple(Identifier, b"\\my\\\\_ident\\")]
         );
     }
 
@@ -834,13 +865,13 @@ my_other_ident"
             vec![
                 Token::new(
                     Identifier,
-                    "my_ident".to_string(),
+                    b"my_ident",
                     Trivia::default(),
                     Trivia::new([TriviaPiece::LineFeeds(2)]),
                 ),
                 Token::new(
                     Identifier,
-                    "my_other_ident".to_string(),
+                    b"my_other_ident",
                     Trivia::default(),
                     Trivia::default(),
                 )
@@ -910,7 +941,7 @@ my_other_ident"
     fn tokenize_string_literal() {
         assert_eq!(
             "\"string\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, "\"string\"".to_string())]
+            vec![Token::simple(StringLiteral, b"\"string\"")]
         );
     }
 
@@ -918,7 +949,7 @@ my_other_ident"
     fn tokenize_string_literal_quote() {
         assert_eq!(
             "\"str\"\"ing\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, "\"str\"\"ing\"".to_string(),)]
+            vec![Token::simple(StringLiteral, b"\"str\"\"ing\"")]
         );
     }
 
@@ -929,13 +960,13 @@ my_other_ident"
             vec![
                 Token::new(
                     StringLiteral,
-                    "\"str\"",
+                    b"\"str\"",
                     Trivia::default(),
                     Trivia::new([TriviaPiece::Spaces(1)])
                 ),
                 Token::new(
                     StringLiteral,
-                    "\"ing\"",
+                    b"\"ing\"",
                     Trivia::default(),
                     Trivia::default()
                 ),
@@ -947,7 +978,7 @@ my_other_ident"
     fn tokenize_string_literal_multiline() {
         assert_eq!(
             "\"str\ning\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, "\"str\ning\"".to_string(),)]
+            vec![Token::simple(StringLiteral, b"\"str\ning\"")]
         );
     }
 
@@ -955,7 +986,7 @@ my_other_ident"
     fn tokenize_string_literal_error_on_early_eof() {
         assert_eq!(
             "\"string".tokenize_vec(),
-            vec![Token::simple(Unterminated, "\"string".to_string(),)]
+            vec![Token::simple(Unterminated, b"\"string")]
         );
     }
 
@@ -987,14 +1018,16 @@ my_other_ident"
                         "".to_owned()
                     };
 
-                    let mut code = format!("{length_str}{base_spec}\"{value}\"");
+                    let mut code =
+                        Latin1String::from_utf8(&format!("{length_str}{base_spec}\"{value}\""))
+                            .unwrap();
 
                     if upper_case {
-                        code.make_ascii_uppercase()
+                        code.make_uppercase()
                     }
 
                     let tokens = code.tokenize_vec();
-                    assert_eq!(tokens, vec![Token::simple(BitStringLiteral, code,)]);
+                    assert_eq!(tokens, vec![Token::simple(BitStringLiteral, code)]);
                 }
             }
         }
@@ -1002,11 +1035,8 @@ my_other_ident"
 
     #[test]
     fn tokenize_illegal_bit_string() {
-        assert_eq!("10x".tokenize_vec(), vec![Token::simple(Unknown, "10x",)]);
-        assert_eq!(
-            "10ux".tokenize_vec(),
-            vec![Token::simple(Unknown, "10ux".to_string(),)]
-        );
+        assert_eq!("10x".tokenize_vec(), vec![Token::simple(Unknown, b"10x",)]);
+        assert_eq!("10ux".tokenize_vec(), vec![Token::simple(Unknown, b"10ux")]);
     }
 
     #[test]
@@ -1178,18 +1208,18 @@ my_other_ident"
             vec![
                 Token::new(
                     AbstractLiteral,
-                    "1",
+                    b"1",
                     Trivia::new([TriviaPiece::LineFeeds(1)]),
                     Trivia::new([
                         TriviaPiece::LineFeeds(1),
-                        TriviaPiece::LineComment("comment".to_string()),
+                        TriviaPiece::LineComment(Comment::new(b"comment")),
                         TriviaPiece::LineFeeds(1)
                     ]),
                 ),
-                Token::new(Minus, "-".to_string(), Trivia::default(), Trivia::default(),),
+                Token::new(Minus, b"-", Trivia::default(), Trivia::default(),),
                 Token::new(
                     AbstractLiteral,
-                    "2",
+                    b"2",
                     Trivia::default(),
                     Trivia::new([TriviaPiece::LineFeeds(1)]),
                 )
@@ -1216,22 +1246,22 @@ comment
             vec![
                 Token::new(
                     AbstractLiteral,
-                    "1",
+                    b"1",
                     Trivia::new([TriviaPiece::LineFeeds(1)]),
                     Trivia::new([
                         TriviaPiece::LineFeeds(2),
-                        TriviaPiece::BlockComment("\ncomment\n".to_string()),
+                        TriviaPiece::BlockComment(Comment::new(b"\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
                     ]),
                 ),
-                Token::new(Minus, "-".to_string(), Trivia::default(), Trivia::default(),),
+                Token::new(Minus, b"-", Trivia::default(), Trivia::default(),),
                 Token::new(
                     AbstractLiteral,
-                    "2",
+                    b"2",
                     Trivia::default(),
                     Trivia::new([
                         TriviaPiece::Spaces(1),
-                        TriviaPiece::BlockComment("\ncomment\n".to_string()),
+                        TriviaPiece::BlockComment(Comment::new("\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
                     ]),
                 ),

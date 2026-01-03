@@ -4,11 +4,47 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use std::fmt::{Display, Formatter};
+use std::io::{self, Write};
+
+use crate::latin_1::Latin1Str;
+
+/// A comment
+///
+/// Because VHDL allows comments to have any encoding,
+/// this implementation makes no assumption as to that and is simply
+/// backed by bytes. Utility methods exist to get the value with different
+/// encodings.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Comment {
+    inner: Vec<u8>,
+}
+
+impl Comment {
+    pub fn new(bytes: impl Into<Vec<u8>>) -> Comment {
+        Comment {
+            inner: bytes.into(),
+        }
+    }
+
+    pub fn as_latin1(&self) -> &Latin1Str {
+        Latin1Str::new(&self.inner)
+    }
+
+    pub fn as_utf8(&self) -> Result<&str, std::str::Utf8Error> {
+        str::from_utf8(&self.inner)
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.inner
+    }
+
+    pub fn byte_len(&self) -> usize {
+        self.inner.len()
+    }
+}
 
 /// Single trivia pieces that can be combined to form [Trivia](crate::tokens::Trivia) tokens.
 #[derive(Clone, Eq, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TriviaPiece {
     /// Horizontal tabs '\t' (a.k.a regular tabs) characters
     HorizontalTabs(usize),
@@ -23,40 +59,15 @@ pub enum TriviaPiece {
     /// form feed '\f' characters
     FormFeeds(usize),
     /// A line comment starting with a '--'
-    LineComment(String),
+    LineComment(Comment),
     /// A block comment starting with a '/*' and ending with a '*/'
-    BlockComment(String),
+    BlockComment(Comment),
     /// Space ' ' characters
     Spaces(usize),
     /// Non breaking space characters
     NonBreakingSpaces(usize),
     /// Any trivia not covered by the other branches
-    Unexpected(String),
-}
-
-impl Display for TriviaPiece {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        fn fmt_repeated(f: &mut Formatter<'_>, el: impl Display, count: usize) -> std::fmt::Result {
-            for _ in 0..count {
-                write!(f, "{el}")?
-            }
-            Ok(())
-        }
-        use TriviaPiece::*;
-        match self {
-            HorizontalTabs(n) => fmt_repeated(f, '\t', *n),
-            VerticalTabs(n) => fmt_repeated(f, '\u{b}', *n),
-            CarriageReturns(n) => fmt_repeated(f, '\r', *n),
-            CarriageReturnLineFeeds(n) => fmt_repeated(f, "\r\n", *n),
-            LineFeeds(n) => fmt_repeated(f, '\n', *n),
-            FormFeeds(n) => fmt_repeated(f, '\u{c}', *n),
-            LineComment(str) => write!(f, "--{str}"),
-            BlockComment(str) => write!(f, "/*{str}*/"),
-            Spaces(n) => fmt_repeated(f, ' ', *n),
-            NonBreakingSpaces(n) => fmt_repeated(f, '\u{a0}', *n),
-            Unexpected(str) => write!(f, "{str}"),
-        }
-    }
+    Unexpected(Vec<u8>),
 }
 
 impl TriviaPiece {
@@ -67,9 +78,9 @@ impl TriviaPiece {
             HorizontalTabs(n) | VerticalTabs(n) | CarriageReturns(n) | LineFeeds(n)
             | FormFeeds(n) | Spaces(n) | NonBreakingSpaces(n) => *n,
             CarriageReturnLineFeeds(n) => *n * 2,
-            LineComment(str) => 2 + str.len(),
-            BlockComment(str) => 4 + str.len(),
-            Unexpected(str) => str.len(),
+            LineComment(str) => 2 + str.byte_len(),
+            BlockComment(str) => 4 + str.byte_len(),
+            Unexpected(unexpected) => unexpected.len(),
         }
     }
 
@@ -101,5 +112,35 @@ impl TriviaPiece {
     pub fn is_comment(&self) -> bool {
         use TriviaPiece::*;
         matches!(self, BlockComment(_) | LineComment(_))
+    }
+
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        fn write_repeated(writer: &mut impl Write, el: &[u8], count: usize) -> io::Result<()> {
+            for _ in 0..count {
+                writer.write_all(el)?;
+            }
+            Ok(())
+        }
+        use TriviaPiece::*;
+        match self {
+            HorizontalTabs(n) => write_repeated(writer, b"\t", *n),
+            VerticalTabs(n) => write_repeated(writer, &[0x0Bu8], *n),
+            CarriageReturns(n) => write_repeated(writer, b"\r", *n),
+            CarriageReturnLineFeeds(n) => write_repeated(writer, b"\r\n", *n),
+            LineFeeds(n) => write_repeated(writer, b"\n", *n),
+            FormFeeds(n) => write_repeated(writer, &[0x0Cu8], *n),
+            LineComment(comment) => {
+                writer.write_all(b"--")?;
+                writer.write_all(comment.as_bytes())
+            }
+            BlockComment(comment) => {
+                writer.write_all(b"/*")?;
+                writer.write_all(comment.as_bytes())?;
+                writer.write_all(b"*/")
+            }
+            Spaces(n) => write_repeated(writer, b" ", *n),
+            NonBreakingSpaces(n) => write_repeated(writer, &[0xA0u8], *n),
+            Unexpected(unexpected) => writer.write_all(unexpected),
+        }
     }
 }

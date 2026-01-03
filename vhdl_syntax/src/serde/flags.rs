@@ -18,11 +18,20 @@
 //! assert!(flags.includes_loc());
 //! ```
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub enum CommentEncoding {
+    #[default]
+    Utf8,
+    Latin1,
+    None
+}
+
 /// Controls how the syntax nodes are being serialized.
 #[derive(Debug, Copy, Clone)]
 pub struct SerdeFlags {
     include_trivia: bool,
     include_loc: bool,
+    comment_encoding: CommentEncoding,
 }
 
 impl Default for SerdeFlags {
@@ -30,6 +39,7 @@ impl Default for SerdeFlags {
         Self {
             include_trivia: true,
             include_loc: true,
+            comment_encoding: CommentEncoding::default()
         }
     }
 }
@@ -54,6 +64,16 @@ impl SerdeFlags {
     /// Specifies whether location information should be included in the serialized output
     pub fn include_loc(mut self, include: bool) -> Self {
         self.include_loc = include;
+        self
+    }
+
+    pub fn comment_encoding(&self) -> CommentEncoding {
+        self.comment_encoding
+    }
+
+    /// Specifies the encoding to use when serializing comments.
+    pub fn with_comment_encoding(mut self, encoding: CommentEncoding) -> Self {
+        self.comment_encoding = encoding;
         self
     }
 }

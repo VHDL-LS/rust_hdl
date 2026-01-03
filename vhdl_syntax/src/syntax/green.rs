@@ -1,4 +1,5 @@
 //! Private API for the underlying Green Tree
+use crate::latin_1::Latin1Str;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -7,7 +8,7 @@
 use crate::syntax::child::Child;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};
-use std::fmt::{Display, Formatter};
+use std::io::{self, Write};
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,7 +31,7 @@ impl GreenToken {
         &self.0.trailing_trivia
     }
 
-    pub fn text(&self) -> &str {
+    pub fn text(&self) -> &Latin1Str {
         self.0.text()
     }
 
@@ -41,11 +42,9 @@ impl GreenToken {
     pub(crate) fn token(&self) -> &Token {
         self.0.as_ref()
     }
-}
 
-impl Display for GreenToken {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.0.write_to(writer)
     }
 }
 
@@ -137,6 +136,16 @@ impl GreenNode {
         self.0.byte_len()
     }
 
+    pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
+        for child in self.children() {
+            match child {
+                Child::Node((_, node)) => node.write_to(writer)?,
+                Child::Token((_, token)) => token.write_to(writer)?,
+            }
+        }
+        Ok(())
+    }
+
     #[cfg(test)]
     pub fn test_text(&self, indent: usize) -> String {
         use std::fmt::Write;
@@ -170,18 +179,6 @@ impl GreenNode {
                 Ok(w)
             };
         fail_fn(self, indent).unwrap()
-    }
-}
-
-impl Display for GreenNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for child in self.children() {
-            match child {
-                Child::Node((_, node)) => write!(f, "{node}")?,
-                Child::Token((_, token)) => write!(f, "{token}")?,
-            }
-        }
-        Ok(())
     }
 }
 
