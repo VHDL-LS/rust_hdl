@@ -55,7 +55,7 @@ impl<T> WithToken<T> {
 }
 
 /// A struct that associates some generic item to a contiguous span of tokens.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct WithTokenSpan<T> {
     pub item: T,
     pub span: TokenSpan,

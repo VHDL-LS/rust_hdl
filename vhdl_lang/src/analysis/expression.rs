@@ -939,7 +939,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                         simple_name.set_unique_reference(&elem);
                                         associated.associate(
                                             self.ctx,
-                                            &elem,
+                                            elem,
                                             choice.span,
                                             diagnostics,
                                         );
@@ -977,7 +977,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 let remaining_types: FnvHashSet<BaseType<'_>> = elems
                                     .iter()
                                     .filter_map(|elem| {
-                                        if !associated.is_associated(&elem) {
+                                        if !associated.is_associated(elem) {
                                             Some(elem.type_mark().base())
                                         } else {
                                             None
@@ -988,7 +988,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 if remaining_types.len() > 1 {
                                     let mut diag = Diagnostic::new(choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
                                     for elem in elems.iter() {
-                                        if !associated.is_associated(&elem) {
+                                        if !associated.is_associated(elem) {
                                             if let Some(decl_pos) = elem.decl_pos() {
                                                 diag.add_related(
                                                     decl_pos,
@@ -1023,10 +1023,10 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                                 }
 
                                 for elem in elems.iter() {
-                                    if !associated.is_associated(&elem) {
+                                    if !associated.is_associated(elem) {
                                         associated.associate(
                                             self.ctx,
-                                            &elem,
+                                            elem,
                                             choice.span,
                                             diagnostics,
                                         );
@@ -1068,7 +1068,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 ElementAssociation::Positional(ref mut expr) => {
                     if let Some(elem) = elems.nth(idx) {
                         self.expr_with_ttyp(scope, elem.type_mark(), expr, diagnostics)?;
-                        associated.associate(self.ctx, elem, expr.span, diagnostics);
+                        associated.associate(self.ctx, *elem, expr.span, diagnostics);
                     } else {
                         self.expr_unknown_ttyp(scope, expr, diagnostics)?;
 
@@ -1094,7 +1094,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         if is_ok_so_far {
             // Do not complain about these when there are worse problems
             for elem in elems.iter() {
-                if !associated.is_associated(&elem) {
+                if !associated.is_associated(elem) {
                     diagnostics.push(
                         Diagnostic::new(
                             span.pos(self.ctx),
@@ -1257,7 +1257,7 @@ impl RecordAssociations {
     fn associate(
         &mut self,
         ctx: &dyn TokenAccess,
-        elem: &RecordElement<'_>,
+        elem: RecordElement<'_>,
         pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -1276,7 +1276,7 @@ impl RecordAssociations {
         }
     }
 
-    fn is_associated(&self, elem: &RecordElement<'_>) -> bool {
+    fn is_associated(&self, elem: RecordElement<'_>) -> bool {
         self.0.contains_key(&elem.id())
     }
 }
@@ -1543,7 +1543,7 @@ function \"-\"(arg : string) return integer;
         let test = TestSetup::new();
         let decls = test.declarative_part(
             "
-        
+
 function \"-\"(arg : bit_vector) return integer;
 function \"-\"(arg : string) return integer;
         ",

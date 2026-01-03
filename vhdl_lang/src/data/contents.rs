@@ -41,11 +41,10 @@ impl Contents {
 
     pub fn end(&self) -> Position {
         let line = self.num_lines().saturating_sub(1) as u32;
-        let character = self
-            .lines
-            .last()
-            .map(|line| line.chars().map(|chr| chr.len_utf16()).sum())
-            .unwrap_or(0) as u32;
+        let character =
+            self.lines
+                .last()
+                .map_or(0, |line| line.chars().map(|chr| chr.len_utf16()).sum()) as u32;
         Position { line, character }
     }
 

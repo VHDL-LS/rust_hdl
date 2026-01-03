@@ -100,7 +100,7 @@ impl Name {
 impl WithTokenSpan<Name> {
     pub fn expect_selected(&self, ctx: &dyn TokenAccess) -> Result<(), Diagnostic> {
         match self.item.expect_selected() {
-            Ok(_) => Ok(()),
+            Ok(()) => Ok(()),
             Err(msg) => Err(Diagnostic::syntax_error(self.pos(ctx), msg)),
         }
     }

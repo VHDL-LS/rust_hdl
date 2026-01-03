@@ -432,30 +432,22 @@ impl<'a> AnalyzeContext<'a, '_> {
         let (generic_region, port_region) = ent_region.to_entity_formal();
 
         let mut mapping = FnvHashMap::default();
-        as_fatal(
-            self.check_association(
-                &entity_name.pos(self.ctx),
-                &generic_region,
-                &mut mapping,
-                scope,
-                generic_map_aspect
-                    .map(|it| it.list.items.as_mut_slice())
-                    .unwrap_or(&mut []),
-                diagnostics,
-            ),
-        )?;
-        as_fatal(
-            self.check_association(
-                &entity_name.pos(self.ctx),
-                &port_region,
-                &mut mapping,
-                scope,
-                port_map_aspect
-                    .map(|it| it.list.items.as_mut_slice())
-                    .unwrap_or(&mut []),
-                diagnostics,
-            ),
-        )?;
+        as_fatal(self.check_association(
+            &entity_name.pos(self.ctx),
+            &generic_region,
+            &mut mapping,
+            scope,
+            generic_map_aspect.map_or(&mut [], |it| it.list.items.as_mut_slice()),
+            diagnostics,
+        ))?;
+        as_fatal(self.check_association(
+            &entity_name.pos(self.ctx),
+            &port_region,
+            &mut mapping,
+            scope,
+            port_map_aspect.map_or(&mut [], |it| it.list.items.as_mut_slice()),
+            diagnostics,
+        ))?;
         Ok(())
     }
 

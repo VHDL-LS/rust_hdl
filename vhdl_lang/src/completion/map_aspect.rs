@@ -290,7 +290,7 @@ mod tests {
     );
     end my_pkg;
 
-    use work.my_pkg.all ; 
+    use work.my_pkg.all ;
     package my_pkg_inst is new work.my_pkg
     generic map (
          foo => foo

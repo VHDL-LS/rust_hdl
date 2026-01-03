@@ -605,8 +605,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                     let signature = target.subprogram_key().map(|base_type| {
                                         mapping
                                             .get(&base_type.id())
-                                            .map(|ent| ent.base())
-                                            .unwrap_or(base_type)
+                                            .map_or(base_type, |ent| ent.base())
                                     });
                                     if let Some(ent) = overloaded.get(&signature) {
                                         name.set_unique_reference(&ent);
