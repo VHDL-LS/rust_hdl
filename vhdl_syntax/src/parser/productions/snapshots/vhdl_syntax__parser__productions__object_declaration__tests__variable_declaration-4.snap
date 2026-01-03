@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::variable_declaration,\n\"shared variable shared_v, shared_vv: natural;\")"
+---
+VariableDeclaration
+  Keyword(Shared)
+  Keyword(Variable)
+  IdentifierList
+    Identifier 'shared_v'
+    Comma
+    Identifier 'shared_vv'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'
+  SemiColon

@@ -127,6 +127,10 @@ mod tests {
             Parser::variable_declaration,
             "shared variable shared_v: natural;"
         ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::variable_declaration,
+            "shared variable shared_v, shared_vv: natural;"
+        ));
     }
 
     #[test]
@@ -143,6 +147,14 @@ mod tests {
         insta::assert_snapshot!(to_test_text(
             Parser::file_declaration,
             "file f_path: bit open WRITE_MODE is \"./path_to_file.txt\";"
+        ));
+    }
+
+    #[test]
+    fn parses_optional_expression() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::constant_declaration,
+            "constant foo : natural := 0;"
         ));
     }
 }

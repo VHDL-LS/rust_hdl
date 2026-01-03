@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::constant_declaration, \"constant foo : natural := 0;\")"
+---
+ConstantDeclaration
+  Keyword(Constant)
+  IdentifierList
+    Identifier 'foo'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'
+  ColonEq
+  LiteralExpression
+    AbstractLiteral '0'
+  SemiColon

@@ -231,7 +231,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn qualified_aggregate() {
         insta::assert_snapshot!(expr_to_test_text("foo'(others => '1')"))
     }
@@ -256,10 +255,10 @@ mod tests {
         insta::assert_snapshot!(expr_to_test_text("(others => 1)"))
     }
 
-    #[ignore]
     #[test]
     fn aggregate_range() {
-        todo!()
+        insta::assert_snapshot!(expr_to_test_text("(1 downto 0 => 2)"));
+        insta::assert_snapshot!(expr_to_test_text("(1 to 0 => 2)"));
     }
 
     #[test]

@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration, \"constant foo, bar : natural\",)"
+---
+InterfaceConstantDeclaration
+  Keyword(Constant)
+  IdentifierList
+    Identifier 'foo'
+    Comma
+    Identifier 'bar'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'

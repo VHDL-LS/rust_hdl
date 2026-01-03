@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration, \"file foo : text open read_mode\",)"
+---
+InterfaceFileDeclaration
+  Keyword(File)
+  IdentifierList
+    Identifier 'foo'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'text'

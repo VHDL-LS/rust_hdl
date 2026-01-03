@@ -131,6 +131,8 @@ impl<T: TokenStream> Parser<T> {
         self.expect_kw(Kw::Function);
         self.designator();
         self.opt_parameter_list();
+        self.expect_kw(Kw::Return);
+        self.name();
         self.end_node();
     }
 
@@ -167,6 +169,7 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn interface_package_generic_map_aspect(&mut self) {
+        self.start_node(InterfacePackageGenericMapAspect);
         self.expect_kw(Kw::Generic);
         self.expect_kw(Kw::Map);
         self.expect_token(LeftPar);
@@ -180,6 +183,7 @@ impl<T: TokenStream> Parser<T> {
             self.end_node();
         }
         self.expect_token(RightPar);
+        self.end_node();
     }
 
     pub fn interface_object_declaration(&mut self) {
@@ -284,6 +288,29 @@ mod tests {
     }
 
     #[test]
+    fn interface_lists() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_list,
+            "\
+constant foo : std_logic;
+bar : natural"
+        ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_list,
+            "\
+signal foo : in std_logic;
+bar : natural"
+        ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_list,
+            "\
+signal foo : in std_logic;
+constant bar : natural;
+variable xyz : var"
+        ));
+    }
+
+    #[test]
     fn empty_generic_clause() {
         insta::assert_snapshot!(to_test_text(Parser::generic_clause, "generic();",));
     }
@@ -334,6 +361,86 @@ mod tests {
         insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
             "a : std_ulogic_vector(31 downto 0)",
+        ));
+    }
+
+    #[test]
+    fn parses_interface_type() {
+        insta::assert_snapshot!(to_test_text(Parser::interface_declaration, "type name"));
+    }
+
+    #[test]
+    fn parses_interface_identifier_list() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "constant foo, bar : natural",
+        ));
+    }
+
+    #[test]
+    fn parses_interface_file_declaration() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "file foo : text open read_mode",
+        ));
+    }
+
+    #[test]
+    fn parses_interface_file_declaration_no_file_name() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "file foo : text is \"file_name\"",
+        ));
+    }
+
+    #[test]
+    fn parses_interface_subprogram() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "function foo return bar"
+        ));
+    }
+
+    #[test]
+    fn parses_interface_subprogram_default() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "function foo return bar is lib.name"
+        ));
+
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "function foo return bar is <>"
+        ));
+    }
+
+    #[test]
+    fn interface_package_generic_map_aspect() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "\
+package foo is new lib.pkg
+    generic map (foo => bar)"
+        ));
+    }
+
+    #[test]
+    fn interface_package_generic_map_box() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "\
+package foo is new lib.pkg
+     generic map (<>)"
+        ));
+    }
+
+    #[test]
+    fn interface_package_generic_map_default() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "\
+package foo is new lib.pkg
+     generic map (default)"
         ));
     }
 }

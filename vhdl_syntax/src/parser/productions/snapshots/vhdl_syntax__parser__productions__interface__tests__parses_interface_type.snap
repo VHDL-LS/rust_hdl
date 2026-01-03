@@ -1,0 +1,7 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration, \"type name\")"
+---
+InterfaceIncompleteTypeDeclaration
+  Keyword(Type)
+  Identifier 'name'

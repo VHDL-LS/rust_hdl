@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration,\n\"file foo : text is \\\"file_name\\\"\",)"
+---
+InterfaceFileDeclaration
+  Keyword(File)
+  IdentifierList
+    Identifier 'foo'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'text'
