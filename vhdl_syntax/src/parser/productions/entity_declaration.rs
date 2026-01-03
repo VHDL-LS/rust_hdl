@@ -17,6 +17,7 @@ impl<T: TokenStream> Parser<T> {
         self.identifier();
         self.expect_token(Keyword(Kw::Is));
         self.entity_header();
+        self.opt_declarative_part();
         if self.opt_token(Keyword(Kw::Begin)) {
             self.concurrent_statements();
         }
@@ -39,6 +40,23 @@ impl<T: TokenStream> Parser<T> {
 mod tests {
     use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
+
+    #[test]
+    fn parse_entity_declaration() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::entity,
+            "\
+entity myent is
+end entity;",
+        ));
+
+        insta::assert_snapshot!(to_test_text(
+            Parser::entity,
+            "\
+entity myent is
+end entity myent;",
+        ));
+    }
 
     #[test]
     fn parse_simple_entity() {
@@ -91,6 +109,7 @@ end my_ent;
 ",
         ));
     }
+
     #[test]
     fn parse_entity_with_filled_generics_and_ports() {
         insta::assert_snapshot!(to_test_text(
@@ -105,6 +124,29 @@ entity my_ent is
 begin
 end my_ent;
 ",
+        ));
+    }
+
+    #[test]
+    fn parse_entity_with_declarations() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::entity,
+            "\
+entity myent is
+  constant foo : natural := 0;
+end entity;",
+        ));
+    }
+
+    #[test]
+    fn parse_entity_with_statements() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::entity,
+            "\
+entity myent is
+begin
+  check(clk, valid);
+end entity;",
         ));
     }
 }

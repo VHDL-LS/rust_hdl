@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/package.rs
+expression: "to_test_text(Parser::package,\n\"\\\npackage pkg_name is\n  generic (\n    type foo;\n    type bar\n  );\nend package;\")"
+---
+Package
+  Keyword(Package)
+  Identifier 'pkg_name'
+  Keyword(Is)
+  PackageHeader
+    GenericClause
+      Keyword(Generic)
+      LeftPar
+      InterfaceList
+        InterfaceIncompleteTypeDeclaration
+          Keyword(Type)
+          Identifier 'foo'
+        SemiColon
+        InterfaceIncompleteTypeDeclaration
+          Keyword(Type)
+          Identifier 'bar'
+      RightPar
+      SemiColon
+  Keyword(End)
+  Keyword(Package)
+  SemiColon

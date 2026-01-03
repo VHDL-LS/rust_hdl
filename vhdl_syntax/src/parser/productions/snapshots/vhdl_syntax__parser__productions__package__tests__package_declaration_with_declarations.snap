@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/package.rs
+expression: "to_test_text(Parser::package,\n\"\\\npackage pkg_name is\n  type foo;\n  constant bar : natural := 0;\nend package;\")"
+---
+Package
+  Keyword(Package)
+  Identifier 'pkg_name'
+  Keyword(Is)
+  PackageHeader
+  IncompleteTypeDeclaration
+    Keyword(Type)
+    Identifier 'foo'
+    SemiColon
+  ConstantDeclaration
+    Keyword(Constant)
+    IdentifierList
+      Identifier 'bar'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'natural'
+    ColonEq
+    LiteralExpression
+      AbstractLiteral '0'
+    SemiColon
+  Keyword(End)
+  Keyword(Package)
+  SemiColon

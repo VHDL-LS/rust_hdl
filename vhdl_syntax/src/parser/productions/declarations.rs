@@ -132,3 +132,28 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{test_utils::to_test_text, Parser};
+
+    #[test]
+    fn package_instantiation() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package_instantiation_declaration,
+            "package ident is new lib.foo.bar;",
+        ));
+    }
+
+    #[test]
+    fn package_instantiation_generic_map() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package_instantiation_declaration,
+            "\
+package ident is new lib.foo.bar
+  generic map (
+    foo => bar
+  );",
+        ));
+    }
+}

@@ -1,0 +1,45 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "to_test_text(Parser::design_file,\n\"\\\nentity myent is\nend entity;\n\nentity myent2 is\nend entity myent2;\n\nentity myent3 is\nend myent3;\n\nentity myent4 is\nend;\",)"
+---
+DesignFile
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'myent'
+      Keyword(Is)
+      EntityHeader
+      Keyword(End)
+      Keyword(Entity)
+      SemiColon
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'myent2'
+      Keyword(Is)
+      EntityHeader
+      Keyword(End)
+      Keyword(Entity)
+      Identifier 'myent2'
+      SemiColon
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'myent3'
+      Keyword(Is)
+      EntityHeader
+      Keyword(End)
+      Identifier 'myent3'
+      SemiColon
+  DesignUnit
+    ContextClause
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'myent4'
+      Keyword(Is)
+      EntityHeader
+      Keyword(End)
+      SemiColon

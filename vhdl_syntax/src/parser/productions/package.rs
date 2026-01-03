@@ -1,9 +1,8 @@
-use crate::tokens::TokenStream;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
-
+use crate::tokens::TokenStream;
 
 impl<T: TokenStream> Parser<T> {
     pub fn package(&mut self) {
@@ -41,5 +40,46 @@ impl<T: TokenStream> Parser<T> {
         self.opt_identifier();
         self.expect_token(SemiColon);
         self.end_node();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{test_utils::to_test_text, Parser};
+
+    #[test]
+    fn test_package_declaration() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package,
+            "\
+package pkg_name is
+end package;"
+        ));
+    }
+
+    #[test]
+    fn test_package_declaration_with_declarations() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package,
+            "\
+package pkg_name is
+  type foo;
+  constant bar : natural := 0;
+end package;"
+        ));
+    }
+
+    #[test]
+    fn test_package_declaration_generics_clause() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package,
+            "\
+package pkg_name is
+  generic (
+    type foo;
+    type bar
+  );
+end package;"
+        ));
     }
 }

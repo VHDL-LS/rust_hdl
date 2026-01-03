@@ -15,11 +15,8 @@ use crate::tokens::TokenStream;
 impl<T: TokenStream> Parser<T> {
     pub fn design_file(&mut self) {
         self.start_node(NodeKind::DesignFile);
-        loop {
+        while self.tokenizer.has_next() {
             self.design_unit();
-            if !self.tokenizer.has_next() {
-                break;
-            }
         }
         self.end_node();
     }
@@ -105,6 +102,30 @@ mod tests {
     use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
+    fn parse_empty() {
+        insta::assert_snapshot!(to_test_text(Parser::design_file, ""));
+    }
+
+    #[test]
+    fn parse_multiple_entity_declarations() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::design_file,
+            "\
+entity myent is
+end entity;
+
+entity myent2 is
+end entity myent2;
+
+entity myent3 is
+end myent3;
+
+entity myent4 is
+end;",
+        ));
+    }
+
+    #[test]
     fn parse_simple_entity() {
         insta::assert_snapshot!(to_test_text(
             Parser::design_file,
@@ -177,6 +198,19 @@ context ident is
   use foo.bar;
   context foo.ctx;
 end context;"
+        ));
+    }
+
+    #[test]
+    fn context_clause_associated_with_design_units() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::design_file,
+            "\
+library lib;
+use lib.foo;
+
+entity myent is
+end entity;"
         ));
     }
 }

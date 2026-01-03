@@ -22,3 +22,41 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{test_utils::to_test_text, Parser};
+
+    #[test]
+    fn parse_architecture_body() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::architecture,
+            "\
+architecture arch_name of myent is
+begin
+end architecture;"
+        ));
+    }
+
+    #[test]
+    fn parse_architecture_body_end_identifier() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::architecture,
+            "\
+architecture arch_name of myent is
+begin
+end architecture arch_name;"
+        ));
+    }
+
+    #[test]
+    fn parse_architecture_body_end() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::architecture,
+            "\
+architecture arch_name of myent is
+begin
+end;"
+        ));
+    }
+}

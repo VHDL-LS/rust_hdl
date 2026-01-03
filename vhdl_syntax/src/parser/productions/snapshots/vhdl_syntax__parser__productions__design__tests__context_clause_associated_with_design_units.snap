@@ -1,0 +1,29 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "to_test_text(Parser::design_file,\n\"\\\nlibrary lib;\nuse lib.foo;\n\nentity myent is\nend entity;\")"
+---
+DesignFile
+  DesignUnit
+    ContextClause
+      LibraryClause
+        Keyword(Library)
+        IdentifierList
+          Identifier 'lib'
+        SemiColon
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'foo'
+        SemiColon
+    EntityDeclaration
+      Keyword(Entity)
+      Identifier 'myent'
+      Keyword(Is)
+      EntityHeader
+      Keyword(End)
+      Keyword(Entity)
+      SemiColon
