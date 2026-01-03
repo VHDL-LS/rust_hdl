@@ -981,8 +981,7 @@ impl HasTokenSpan for WaveformElement {
     fn get_end_token(&self) -> TokenId {
         self.after
             .as_ref()
-            .map(|expr| expr.get_end_token())
-            .unwrap_or(self.value.get_end_token())
+            .map_or_else(|| self.value.get_end_token(), |expr| expr.get_end_token())
     }
 }
 

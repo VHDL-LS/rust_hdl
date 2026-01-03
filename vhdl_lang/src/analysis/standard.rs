@@ -318,7 +318,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             ))),
         );
 
-        for (name, kind) in formals.into_iter() {
+        for (name, kind) in formals {
             region.add(self.arena.explicit(
                 name,
                 subpgm_ent,
@@ -552,7 +552,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     iface: Some(ObjectInterface::Parameter(InterfaceMode::Simple(
                         Mode::InOut,
                     ))),
-                    subtype: Subtype::new(type_ent.to_owned()),
+                    subtype: Subtype::new(type_ent),
                     has_default: false,
                 }),
             )],

@@ -159,7 +159,7 @@ impl VHDLServer {
             Some(root_uri) => root_uri
                 .to_file_path()
                 .map(|root_path| root_path.join("vhdl_ls.toml"))
-                .map_err(|_| {
+                .map_err(|()| {
                     self.message(Message::error(format!(
                         "{} {} {:?} ",
                         "Cannot load workspace:",
@@ -255,7 +255,9 @@ impl VHDLServer {
                 // Use the declaration position, if it exists,
                 // else the position of the first source range token.
                 // The latter is applicable for unnamed elements, e.g., processes or loops.
-                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
+                let selection_pos = ent
+                    .decl_pos()
+                    .unwrap_or_else(|| ent.src_span.start_token.pos(ctx));
                 let src_range = ent.src_span.pos(ctx).range();
                 #[allow(deprecated)]
                 DocumentSymbol {
@@ -289,7 +291,9 @@ impl VHDLServer {
         } else {
             #[allow(clippy::ptr_arg)]
             fn to_symbol_information(ent: EntRef, ctx: &Vec<Token>) -> SymbolInformation {
-                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
+                let selection_pos = ent
+                    .decl_pos()
+                    .unwrap_or_else(|| ent.src_span.start_token.pos(ctx));
                 #[allow(deprecated)]
                 SymbolInformation {
                     name: ent.describe(),

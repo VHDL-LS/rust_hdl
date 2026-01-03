@@ -233,7 +233,7 @@ impl<'a> OverloadedName<'a> {
     pub fn new(entities: Vec<OverloadedEnt<'_>>) -> OverloadedName<'_> {
         debug_assert!(!entities.is_empty());
         let mut map = FnvHashMap::default();
-        for ent in entities.into_iter() {
+        for ent in entities {
             map.insert(ent.subprogram_key(), ent);
         }
         OverloadedName { entities: map }
@@ -322,7 +322,7 @@ impl<'a> OverloadedName<'a> {
     // Merge overloaded names where self is overloaded names from an
     // immediate/enclosing region and visible are overloaded names that have been made visible
     pub(crate) fn with_visible(mut self, visible: Self) -> Self {
-        for (signature, visible_entity) in visible.entities.into_iter() {
+        for (signature, visible_entity) in visible.entities {
             // Ignore visible entites that conflict with those in the enclosing region
             if let Entry::Vacant(entry) = self.entities.entry(signature) {
                 entry.insert(visible_entity);

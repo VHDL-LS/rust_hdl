@@ -40,7 +40,7 @@ pub fn parse_use_clause(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSp
     let use_token = ctx.stream.expect_kind(Use)?;
 
     let name_list = parse_name_list(ctx)?;
-    let token_id = recover::expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id());
+    let token_id = recover::expect_semicolon(ctx).unwrap_or_else(|| ctx.stream.get_last_token_id());
     Ok(WithTokenSpan::new(
         UseClause {
             span: TokenSpan::new(use_token, token_id),

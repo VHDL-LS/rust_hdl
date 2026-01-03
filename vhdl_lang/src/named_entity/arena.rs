@@ -59,9 +59,7 @@ impl LocalArena {
     unsafe fn alloc(&mut self, mut ent: AnyEnt<'_>) -> *const AnyEnt<'static> {
         let idx = self.items.len();
 
-        if idx > u32::MAX as usize {
-            panic!("Entity index overflow");
-        }
+        assert!((idx <= u32::MAX as usize), "Entity index overflow");
 
         let ent_id = EntityId::new_arena(self.id, LocalId(idx as u32));
         ent.id = ent_id;

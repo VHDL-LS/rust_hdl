@@ -1309,7 +1309,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 }
                 return Ok(ResolvedName::ObjectName(ObjectName {
                     base: ObjectBase::ExternalName(*class),
-                    type_mark: Some(subtype.type_mark().to_owned()),
+                    type_mark: Some(subtype.type_mark()),
                 }));
             }
             SplitName::Suffix(p, s) => {

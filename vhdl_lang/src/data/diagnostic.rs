@@ -125,7 +125,7 @@ impl dyn DiagnosticHandler + '_ {
     }
 
     pub fn append(&mut self, diagnostics: impl IntoIterator<Item = Diagnostic>) {
-        for diagnostic in diagnostics.into_iter() {
+        for diagnostic in diagnostics {
             self.push(diagnostic);
         }
     }
