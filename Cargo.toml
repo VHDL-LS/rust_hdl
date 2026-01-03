@@ -16,3 +16,37 @@ edition = "2021"
 rust-version = "1.82"
 repository = "https://github.com/VHDL-LS/rust_hdl"
 readme = "README.md"
+
+[workspace.dependencies]
+clap = { version = "4", features = ["derive"] }
+dirs = "6.0.0"
+dunce = "1"
+enum-map = "2.7.3"
+env_logger = "0.11.8"
+fnv = "1"
+fuzzy-matcher = "0.3.7"
+glob = "0.3.2"
+itertools = "0.14.0"
+log = "0.4.27"
+lsp-types = "^0.95.1"
+lsp-server = "0.7.8"
+pad = "0.1.6"
+parking_lot = "0.12.3"
+pinned_vec = "0.1.1"
+quote = "1"
+rayon = "1"
+serde = "1"
+serde_json = "1"
+strum = { version = "0.27.1", features = ["derive"] }
+subst = "0.3.8"
+syn = { version = "2", features = ["full"] }
+toml = "0.8.23"
+
+# Dev dependencies
+assert_cmd = "2.0.14"
+assert_matches = "1"
+brunch = "0.11"
+predicates = "3.1.0"
+pretty_assertions = "1"
+regex = "1.10.5"
+tempfile = "3"
