@@ -1,0 +1,6 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::entity_aspect, \"open\",)"
+---
+EntityOpenAspect
+  Keyword(Open)

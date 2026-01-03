@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::configuration_specification,\n\"for all : lib.pkg.comp use entity work.foo(rtl); use vunit bar, baz; end for;\",)"
+---
+SimpleConfigurationSpecification
+  Keyword(For)
+  ComponentSpecification
+    InstantiationListAll
+      Keyword(All)
+    Colon
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'pkg'
+      SelectedName
+        Dot
+        Identifier 'comp'
+  BindingIndication
+    Keyword(Use)
+    EntityEntityAspect
+      Keyword(Entity)
+      Name
+        Identifier 'work'
+        SelectedName
+          Dot
+          Identifier 'foo'
+        RawTokens
+          LeftPar
+          Identifier 'rtl'
+          RightPar
+  SemiColon

@@ -134,7 +134,7 @@ impl<T: TokenStream> Parser<T> {
             self.skip();
             self.name();
             self.end_node();
-        } else if self.next_is(Keyword(Kw::Component)) {
+        } else if self.next_is(Keyword(Kw::Configuration)) {
             self.start_node(NodeKind::EntityConfigurationAspect);
             self.skip();
             self.name();
