@@ -132,7 +132,7 @@ impl<T: TokenStream> Parser<T> {
         self.designator();
         self.opt_parameter_list();
         self.expect_kw(Kw::Return);
-        self.name();
+        self.type_mark();
         self.end_node();
     }
 
@@ -148,8 +148,6 @@ impl<T: TokenStream> Parser<T> {
         self.expect_token(LeftPar);
         self.interface_list();
         self.expect_token(RightPar);
-        self.expect_kw(Kw::Return);
-        self.type_mark();
         self.end_node();
     }
 
@@ -398,6 +396,14 @@ variable xyz : var"
         insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
             "function foo return bar"
+        ));
+    }
+
+    #[test]
+    fn parses_interface_subprogram_with_parameters() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::interface_declaration,
+            "function Match(Actual : ActualType) return boolean"
         ));
     }
 
