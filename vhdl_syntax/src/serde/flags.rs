@@ -18,20 +18,12 @@
 //! assert!(flags.includes_loc());
 //! ```
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
-pub enum CommentEncoding {
-    #[default]
-    Utf8,
-    Latin1,
-    None
-}
-
 /// Controls how the syntax nodes are being serialized.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct SerdeFlags {
     include_trivia: bool,
     include_loc: bool,
-    comment_encoding: CommentEncoding,
+    comment_encoding: String,
 }
 
 impl Default for SerdeFlags {
@@ -39,7 +31,7 @@ impl Default for SerdeFlags {
         Self {
             include_trivia: true,
             include_loc: true,
-            comment_encoding: CommentEncoding::default()
+            comment_encoding: "utf-8".into()
         }
     }
 }
@@ -67,13 +59,19 @@ impl SerdeFlags {
         self
     }
 
-    pub fn comment_encoding(&self) -> CommentEncoding {
-        self.comment_encoding
+    /// Comments in VHDL can have arbitrary encoding. This flag allows serializers to specify an
+    /// encoding that is attached to individual comments in the serialized AST.
+    /// 
+    /// Currently, this encoding serves merely as an information to consumers.
+    /// It is not enforced nor is the string actually encoded using the specified value.
+    /// This may change in the future.
+    pub fn comment_encoding(&self) -> &str {
+        &self.comment_encoding
     }
 
     /// Specifies the encoding to use when serializing comments.
-    pub fn with_comment_encoding(mut self, encoding: CommentEncoding) -> Self {
-        self.comment_encoding = encoding;
+    pub fn with_comment_encoding(mut self, encoding: impl Into<String>) -> Self {
+        self.comment_encoding = encoding.into();
         self
     }
 }

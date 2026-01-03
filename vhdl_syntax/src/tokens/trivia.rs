@@ -24,7 +24,7 @@ pub struct Trivia {
 }
 
 impl Trivia {
-    /// Constructs a new trivia by its pieces
+    /// Constructs a new and empty Trivia.
     pub fn new() -> Trivia {
         Trivia { pieces: Vec::new() }
     }

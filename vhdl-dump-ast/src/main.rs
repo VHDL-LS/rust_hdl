@@ -29,6 +29,10 @@ struct Args {
     /// Include source-code location into the dumped AST
     #[arg(short, long, default_value = "false")]
     loc: bool,
+
+    /// Specify the encoding to use for comments
+    #[arg(short, long, default_value = "None")]
+    comment_encoding: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -44,8 +48,10 @@ fn serialize(
     pretty: bool,
     trivia: bool,
     loc: bool,
+    comment_encoding: String,
 ) -> Result<String, Box<dyn Error>> {
     let serde_flags = SerdeFlags::default()
+        .with_comment_encoding(comment_encoding)
         .include_trivia(trivia)
         .include_loc(loc);
     let serializable_node = node.serialize_with(serde_flags);
@@ -55,6 +61,8 @@ fn serialize(
         (OutputFormat::Yaml, _) => serde_yaml_bw::to_string(&serializable_node)?,
     })
 }
+
+const DEFAULT_COMMENT_ENCODING: &str = "utf-8";
 
 fn main() {
     let args = Args::parse();
@@ -71,7 +79,15 @@ fn main() {
         .tokenize()
         .into_token_stream()
         .parse_syntax(vhdl_syntax::parser::Parser::design_file);
-    let text = match serialize(&node, args.format, !args.no_pretty, args.trivia, args.loc) {
+    let text = match serialize(
+        &node,
+        args.format,
+        !args.no_pretty,
+        args.trivia,
+        args.loc,
+        args.comment_encoding
+            .unwrap_or(DEFAULT_COMMENT_ENCODING.to_string()),
+    ) {
         Ok(text) => text,
         Err(e) => {
             println!("Cannot serialize AST: {e}");

@@ -1,15 +1,15 @@
 //! Serialization implementations for syntax tree types.
 
-use serde::ser::{self, Serialize, SerializeSeq, SerializeStruct};
+use serde::ser::{Serialize, SerializeSeq, SerializeStruct};
 
 use crate::{
-    serde::{flags::CommentEncoding, serializable::Serializable},
+    serde::serializable::Serializable,
     syntax::{
         child::Child,
         green::{GreenChild, GreenNode, GreenToken},
         node::SyntaxNode,
     },
-    tokens::{Token, Trivia, TriviaPiece, trivia_piece::Comment},
+    tokens::{trivia_piece::Comment, Token, Trivia, TriviaPiece},
 };
 
 impl<'a> Serialize for Serializable<'a, GreenChild> {
@@ -87,8 +87,14 @@ impl<'a> Serialize for Serializable<'a, Token> {
         token.serialize_field("text", &self.inner.text().to_string())?;
 
         if self.flags.includes_trivia() {
-            token.serialize_field("leading_trivia", &self.new_with_same_flags(self.inner.leading_trivia()))?;
-            token.serialize_field("trailing_trivia", &self.new_with_same_flags(self.inner.trailing_trivia()))?;
+            token.serialize_field(
+                "leading_trivia",
+                &self.new_with_same_flags(self.inner.leading_trivia()),
+            )?;
+            token.serialize_field(
+                "trailing_trivia",
+                &self.new_with_same_flags(self.inner.trailing_trivia()),
+            )?;
         }
 
         token.end()
@@ -130,24 +136,15 @@ impl<'a> Serialize for Serializable<'a, TriviaPiece> {
             TriviaPiece::CarriageReturns(n) => {
                 serializer.serialize_newtype_variant("TriviaPiece", 2, "CarriageReturns", n)
             }
-            TriviaPiece::CarriageReturnLineFeeds(n) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                3,
-                "CarriageReturnLineFeeds",
-                n,
-            ),
-            TriviaPiece::LineFeeds(n) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                4,
-                "LineFeeds",
-                n,
-            ),
-            TriviaPiece::FormFeeds(n) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                5,
-                "FormFeeds",
-                n,
-            ),
+            TriviaPiece::CarriageReturnLineFeeds(n) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 3, "CarriageReturnLineFeeds", n)
+            }
+            TriviaPiece::LineFeeds(n) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 4, "LineFeeds", n)
+            }
+            TriviaPiece::FormFeeds(n) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 5, "FormFeeds", n)
+            }
             TriviaPiece::LineComment(comment) => serializer.serialize_newtype_variant(
                 "TriviaPiece",
                 6,
@@ -160,24 +157,15 @@ impl<'a> Serialize for Serializable<'a, TriviaPiece> {
                 "BlockComment",
                 &self.new_with_same_flags(comment),
             ),
-            TriviaPiece::Spaces(n) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                8,
-                "Spaces",
-                n,
-            ),
-            TriviaPiece::NonBreakingSpaces(n) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                9,
-                "NonBreakingSpaces",
-                n,
-            ),
-            TriviaPiece::Unexpected(items) => serializer.serialize_newtype_variant(
-                "TriviaPiece",
-                10,
-                "Unexpected",
-                items,
-            ),
+            TriviaPiece::Spaces(n) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 8, "Spaces", n)
+            }
+            TriviaPiece::NonBreakingSpaces(n) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 9, "NonBreakingSpaces", n)
+            }
+            TriviaPiece::Unexpected(items) => {
+                serializer.serialize_newtype_variant("TriviaPiece", 10, "Unexpected", items)
+            }
         }
     }
 }
@@ -200,17 +188,9 @@ impl<'a> Serialize for Serializable<'a, Comment> {
     where
         S: serde::Serializer,
     {
-        match self.flags.comment_encoding() {
-            CommentEncoding::Utf8 => serializer.serialize_str(
-                self.inner
-                    .as_utf8()
-                    .map_err(|e| ser::Error::custom(format!("Invalid UTF-8 in comments: {}", e)))?,
-            ),
-            // TODO: This is still UTF-8 (with the special characters being mapped). There may be a better solution...
-            CommentEncoding::Latin1 => {
-                serializer.serialize_str(&self.inner.as_latin1().to_string())
-            }
-            CommentEncoding::None => serializer.serialize_bytes(self.inner.as_bytes()),
-        }
+        let mut s = serializer.serialize_struct("Comment", 2)?;
+        s.serialize_field("encoding", self.flags.comment_encoding())?;
+        s.serialize_field("value", self.inner.as_bytes())?;
+        s.end()
     }
 }

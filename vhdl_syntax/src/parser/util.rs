@@ -14,7 +14,7 @@ use crate::tokens::TokenStream;
 use crate::tokens::{Keyword, TokenKind};
 
 /// Allows match-style syntax for tokens.
-/// This functino does not consume the next token.
+/// This function does not consume the next token.
 /// If the token was not seen, or the parser is at EOF, this function pushes an error.
 ///
 /// Note: It is possible to simulate 'Or' branches, i.e.,
