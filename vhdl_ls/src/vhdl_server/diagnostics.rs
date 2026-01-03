@@ -62,7 +62,7 @@ impl VHDLServer {
         }
 
         // These are new diagnostics that weren't in the cache before.
-        for (file_uri, diagnostics) in by_uri.into_iter() {
+        for (file_uri, diagnostics) in by_uri {
             let lsp_diagnostics = diagnostics
                 .iter()
                 .filter_map(|diag| to_lsp_diagnostic(diag.clone(), &self.severity_map))
@@ -122,7 +122,7 @@ fn to_lsp_diagnostic(
             let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
-                    uri: uri.to_owned(),
+                    uri: uri.clone(),
                     range: to_lsp_range(pos.range()),
                 },
                 message: msg,

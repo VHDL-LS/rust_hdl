@@ -115,7 +115,6 @@ fn parse_if_statement(
             token_id,
             Elsif => {
                 conditionals.push(conditional);
-                continue;
             },
 
             Else => {
@@ -182,7 +181,6 @@ fn parse_case_statement(
             end_token_id,
             When => {
                 alternatives.push(alternative);
-                continue;
             },
             End => {
                 ctx.stream.expect_kind(Case)?;

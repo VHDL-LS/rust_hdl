@@ -65,9 +65,10 @@ impl<T, R> AnalysisLock<T, R> {
     pub fn expect_analyzed(&self) -> ReadGuard<'_, T, R> {
         let guard = self.state.read();
 
-        if guard.result.is_none() {
-            panic!("Expected analysis to have already been done");
-        }
+        assert!(
+            guard.result.is_some(),
+            "Expected analysis to have already been done"
+        );
 
         ReadGuard { guard }
     }
@@ -139,9 +140,10 @@ impl<'a, T, R> WriteGuard<'a, T, R> {
         self.guard.result = Some(result);
     }
     pub fn downgrade(self) -> ReadGuard<'a, T, R> {
-        if self.guard.result.is_none() {
-            panic!("Cannot downgrade unit without result");
-        }
+        assert!(
+            self.guard.result.is_some(),
+            "Cannot downgrade unit without result"
+        );
         ReadGuard {
             guard: RwLockWriteGuard::downgrade(self.guard),
         }

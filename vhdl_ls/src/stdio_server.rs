@@ -103,7 +103,7 @@ impl ConnectionRpcChannel {
                     self.handle_notification(&mut server, notification);
                 }
                 lsp_server::Message::Response(response) => {
-                    self.handle_response(&mut server, response)
+                    self.handle_response(&mut server, &response)
                 }
             };
         }
@@ -280,7 +280,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Handle incoming responses (to requests sent by us) from the client.
-    fn handle_response(&self, _server: &mut VHDLServer, response: lsp_server::Response) {
+    fn handle_response(&self, _server: &mut VHDLServer, response: &lsp_server::Response) {
         trace!("Handling response: {response:?}");
         // We currently can ignore incoming responses as the implemented
         // outgoing requests do not require confirmation by the client.

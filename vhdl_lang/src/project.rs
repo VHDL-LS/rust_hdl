@@ -160,7 +160,7 @@ impl Project {
             )
             .collect();
 
-        for (file_name, library_names, parser_diagnostics, result) in parsed.into_iter() {
+        for (file_name, library_names, parser_diagnostics, result) in parsed {
             let (source, design_file) = match result {
                 Ok(result) => result,
                 Err(err) => {

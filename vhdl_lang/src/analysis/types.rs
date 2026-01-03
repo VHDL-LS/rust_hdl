@@ -318,7 +318,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     subtype_indication,
                     diagnostics,
                 ))? {
-                    Some(subtype) => subtype.type_mark().to_owned(),
+                    Some(subtype) => subtype.type_mark(),
                     None => return Ok(()),
                 };
 

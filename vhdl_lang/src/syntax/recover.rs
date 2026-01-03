@@ -47,7 +47,7 @@ pub fn expect_semicolon(ctx: &mut ParsingContext<'_>) -> Option<TokenId> {
 /// The behavior is the same as [expect_semicolon].
 #[must_use]
 pub fn expect_semicolon_or_last(ctx: &mut ParsingContext<'_>) -> TokenId {
-    expect_semicolon(ctx).unwrap_or(ctx.stream.get_last_token_id())
+    expect_semicolon(ctx).unwrap_or_else(|| ctx.stream.get_last_token_id())
 }
 
 #[cfg(test)]

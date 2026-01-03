@@ -511,9 +511,7 @@ fn parse_if_generate_statement(
                 else_branch = None;
                 break;
             },
-            Elsif => {
-                continue;
-            },
+            Elsif => {},
             Else => {
                 let alternative_label = expect_token!(
                     ctx.stream,
@@ -586,7 +584,7 @@ fn parse_case_generate_statement(
         expect_token!(
             ctx.stream, end_token, end_token_id,
             End => break end_token_id,
-            When => continue
+            When => {}
         );
     };
 

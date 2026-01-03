@@ -228,7 +228,7 @@ impl Library {
         let num_duplicates = self.duplicates.len();
         let duplicates =
             std::mem::replace(&mut self.duplicates, Vec::with_capacity(num_duplicates));
-        for (prev_pos, design_unit) in duplicates.into_iter() {
+        for (prev_pos, design_unit) in duplicates {
             if prev_pos.source() == source {
                 self.add_design_unit(design_unit);
             } else {

@@ -48,7 +48,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
     if let Some(config_path) = args.group.config {
-        parse_and_analyze_project(config_path, args.num_threads, args.libraries);
+        parse_and_analyze_project(&config_path, args.num_threads, args.libraries.as_ref());
     } else if let Some(format) = args.group.format {
         format_file(format);
     }
@@ -67,7 +67,7 @@ fn format_file(format: String) {
             }
             let result = VHDLFormatter::format_design_file(&design_file);
             println!("{result}");
-            check_formatted_file(&path, parser, design_file, &result);
+            check_formatted_file(&path, &parser, design_file, &result);
             std::process::exit(0);
         }
         Err(err) => {
@@ -77,7 +77,7 @@ fn format_file(format: String) {
     }
 }
 
-fn check_formatted_file(path: &Path, parser: VHDLParser, design_file: DesignFile, result: &str) {
+fn check_formatted_file(path: &Path, parser: &VHDLParser, design_file: DesignFile, result: &str) {
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
     let new_file = parser.parse_design_source(&Source::inline(path, result), &mut diagnostics);
     if !diagnostics.is_empty() {
@@ -103,9 +103,9 @@ fn check_formatted_file(path: &Path, parser: VHDLParser, design_file: DesignFile
 }
 
 fn parse_and_analyze_project(
-    config_path: String,
+    config_path: &str,
     num_threads: Option<usize>,
-    libraries: Option<String>,
+    libraries: Option<&String>,
 ) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads.unwrap_or(0))
@@ -114,7 +114,7 @@ fn parse_and_analyze_project(
 
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer, libraries.clone());
+    config.load_external_config(&mut msg_printer, libraries.cloned());
     config.append(
         &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
         &mut msg_printer,

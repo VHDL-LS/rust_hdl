@@ -31,21 +31,18 @@ enum NameOrRange {
 fn parse_name_or_range(ctx: &mut ParsingContext<'_>) -> ParseResult<NameOrRange> {
     let expr = parse_expression(ctx)?;
 
-    match ctx.stream.peek_kind() {
-        Some(To) | Some(Downto) => {
-            let direction = parse_direction(ctx)?;
-            let right_expr = parse_expression(ctx)?;
+    if let Some(To | Downto) = ctx.stream.peek_kind() {
+        let direction = parse_direction(ctx)?;
+        let right_expr = parse_expression(ctx)?;
 
-            let span = expr.span.combine(right_expr.span);
-            let range = ast::Range::Range(RangeConstraint {
-                direction,
-                left_expr: Box::new(expr),
-                right_expr: Box::new(right_expr),
-            });
+        let span = expr.span.combine(right_expr.span);
+        let range = ast::Range::Range(RangeConstraint {
+            direction,
+            left_expr: Box::new(expr),
+            right_expr: Box::new(right_expr),
+        });
 
-            return Ok(NameOrRange::Range(WithTokenSpan::from(range, span)));
-        }
-        _ => {}
+        return Ok(NameOrRange::Range(WithTokenSpan::from(range, span)));
     }
 
     if let WithTokenSpan {

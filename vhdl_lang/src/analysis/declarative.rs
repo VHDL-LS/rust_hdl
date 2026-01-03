@@ -917,7 +917,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         self.define(
                             ident,
                             parent,
-                            AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
+                            AnyEntKind::InterfaceFile(file_type.type_mark()),
                             span,
                         )
                     })

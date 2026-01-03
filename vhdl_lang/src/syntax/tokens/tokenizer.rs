@@ -1188,7 +1188,7 @@ fn parse_quoted(
     };
 
     match quoted_inner() {
-        Ok(_) => {}
+        Ok(()) => {}
         // When we discover a token error, consume all remaining
         // characters respecting quote rules.
         Err(token_err) => {
@@ -1308,7 +1308,6 @@ fn parse_real_literal(
             b'_' => {
                 text.push(b);
                 reader.skip();
-                continue;
             }
             _ => {
                 break;
@@ -1347,7 +1346,7 @@ fn parse_abstract_literal(
 
             match reader.peek()? {
                 // Exponent
-                Some(b'e') | Some(b'E') => {
+                Some(b'e' | b'E') => {
                     text.push(reader.peek().unwrap().unwrap());
                     reader.skip();
                     let (exp, mut exp_text) = parse_exponent(reader)?;
@@ -1432,7 +1431,7 @@ fn parse_abstract_literal(
         }
 
         // Bit string literal
-        Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
+        Some(b's' | b'u' | b'b' | b'o' | b'x' | b'd') => {
             let (integer, _) = initial?;
 
             if let Some(base_spec) = parse_base_specifier(reader)? {

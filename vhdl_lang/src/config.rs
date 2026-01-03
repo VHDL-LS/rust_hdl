@@ -176,7 +176,7 @@ impl Config {
         let standard = if let Some(std) = config.get("standard") {
             let std_str = std.as_str().ok_or("standard must be a string")?;
             VHDLStandard::try_from(std_str)
-                .map_err(|_| format!("Unsupported standard '{std_str}'"))?
+                .map_err(|()| format!("Unsupported standard '{std_str}'"))?
         } else {
             VHDLStandard::default()
         };
@@ -339,7 +339,7 @@ impl Config {
             "../share/vhdl_libraries",
         ];
 
-        for dir in search_paths.into_iter() {
+        for dir in search_paths {
             let mut file_name = PathBuf::from(dir);
             // Expand a relative path
             if !file_name.is_absolute() {
