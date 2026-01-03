@@ -360,7 +360,6 @@ impl SrcPos {
         context_lines: u32,
     ) -> (usize, String) {
         let lines = self.get_line_context(context_lines, contents);
-        use pad::{Alignment, PadStr};
         // +1 since lines are shown with 1-index
         let lineno_len = (self.range.start.line + context_lines + 1)
             .to_string()
@@ -371,9 +370,7 @@ impl SrcPos {
         for (lineno, line) in lines.iter() {
             let line = line.to_string();
             let line = line.trim_matches('\n');
-            let lineno_str = (lineno + 1)
-                .to_string()
-                .pad_to_width_with_alignment(lineno_len, Alignment::Right);
+            let lineno_str = format!("{:>lineno_len$}", lineno + 1);
             let overlaps = self.range.start.line <= *lineno && *lineno <= self.range.end.line;
 
             if overlaps {
