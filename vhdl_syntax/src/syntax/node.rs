@@ -450,7 +450,7 @@ mod tests {
         let token = Token::new(
             TokenKind::Keyword(Keyword::Entity),
             b"entity",
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             Default::default(),
         );
         let mut green_node = GreenNodeData::new(EntityDeclaration);
@@ -458,7 +458,7 @@ mod tests {
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().leading_trivia(),
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -468,14 +468,14 @@ mod tests {
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-                Trivia::new([TriviaPiece::Spaces(2)]),
+                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                Trivia::from([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::new([TriviaPiece::LineFeeds(1)]),
-                Trivia::new([TriviaPiece::FormFeeds(2)]),
+                Trivia::from([TriviaPiece::LineFeeds(1)]),
+                Trivia::from([TriviaPiece::FormFeeds(2)]),
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
@@ -483,7 +483,7 @@ mod tests {
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.tokens().nth(1).unwrap().leading_trivia(),
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -504,15 +504,15 @@ mod tests {
         let token = Token::new(
             TokenKind::Keyword(Keyword::Entity),
             b"entity",
-            Trivia::default(),
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+            Trivia::new(),
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
         );
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_token(0, token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().trailing_trivia(),
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -522,14 +522,14 @@ mod tests {
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-                Trivia::new([TriviaPiece::Spaces(2)]),
+                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                Trivia::from([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::new([TriviaPiece::LineFeeds(1)]),
-                Trivia::new([TriviaPiece::FormFeeds(2)]),
+                Trivia::from([TriviaPiece::LineFeeds(1)]),
+                Trivia::from([TriviaPiece::FormFeeds(2)]),
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
@@ -537,7 +537,7 @@ mod tests {
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().trailing_trivia(),
-            Trivia::new([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 

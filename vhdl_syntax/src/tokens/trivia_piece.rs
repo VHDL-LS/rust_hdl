@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use std::io::{self, Write};
+use std::{borrow::Cow, io::{self, Write}};
 
 use crate::latin_1::Latin1Str;
 
@@ -32,6 +32,10 @@ impl Comment {
 
     pub fn as_utf8(&self) -> Result<&str, std::str::Utf8Error> {
         str::from_utf8(&self.inner)
+    }
+
+    pub fn to_utf8_lossy(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.inner)
     }
 
     pub fn as_bytes(&self) -> &[u8] {

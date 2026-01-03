@@ -60,7 +60,7 @@ fn extract_doc_from_trivia(trivia: Trivia) -> String {
     trivia
         .iter()
         .filter_map(|piece| match piece {
-            TriviaPiece::LineComment(comment) => comment.strip_prefix("-"),
+            TriviaPiece::LineComment(comment) => comment.as_utf8().expect("Comment should be UTF-8").strip_prefix("-"),
             _ => None,
         })
         .map(|str| str.trim())

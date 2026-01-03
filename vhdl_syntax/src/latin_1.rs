@@ -312,6 +312,12 @@ impl Extend<u8> for Latin1String {
     }
 }
 
+impl<'a> Extend<&'a u8> for Latin1String {
+    fn extend<T: IntoIterator<Item = &'a u8>>(&mut self, iter: T) {
+        self.bytes.extend(iter);
+    }
+}
+
 impl fmt::Debug for Latin1String {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
@@ -619,6 +625,16 @@ impl cmp::PartialEq<Latin1Str> for String {
     }
 }
 
+impl<'a> IntoIterator for &'a Latin1Str {
+    type Item = &'a u8;
+
+    type IntoIter = slice::Iter<'a, u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub struct Utf8ToLatin1Error {
     pub pos: usize,
@@ -636,6 +652,10 @@ impl fmt::Display for Utf8ToLatin1Error {
 }
 
 impl std::error::Error for Utf8ToLatin1Error {}
+
+pub trait ToLatin1 {
+    fn to_latin1(&self) -> Latin1String;
+}
 
 #[cfg(test)]
 mod tests {

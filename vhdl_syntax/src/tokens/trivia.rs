@@ -5,9 +5,11 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::tokens::TriviaPiece;
+use core::slice;
 use std::{
     io::{self, Write},
     ops::Deref,
+    vec,
 };
 
 /// Trivia elements that are attached to tokens but do not influence the analysis of the text.
@@ -23,14 +25,29 @@ pub struct Trivia {
 
 impl Trivia {
     /// Constructs a new trivia by its pieces
-    pub fn new(pieces: impl Into<Vec<TriviaPiece>>) -> Trivia {
-        Trivia::from_vec(pieces.into())
-    }
-
-    fn from_vec(vec: Vec<TriviaPiece>) -> Trivia {
-        Trivia { pieces: vec }
+    pub fn new() -> Trivia {
+        Trivia { pieces: Vec::new() }
     }
 }
+
+impl From<Vec<TriviaPiece>> for Trivia {
+    fn from(value: Vec<TriviaPiece>) -> Self {
+        Trivia { pieces: value }
+    }
+}
+
+impl<const N: usize> From<[TriviaPiece; N]> for Trivia {
+    fn from(value: [TriviaPiece; N]) -> Self {
+        Self::from(value.to_vec())
+    }
+}
+
+impl<T: ?Sized + AsRef<[TriviaPiece]>> From<&T> for Trivia {
+    fn from(s: &T) -> Trivia {
+        Trivia::from(s.as_ref().to_vec())
+    }
+}
+
 
 impl Trivia {
     pub fn byte_len(&self) -> usize {
@@ -69,7 +86,41 @@ impl Deref for Trivia {
 
 impl FromIterator<TriviaPiece> for Trivia {
     fn from_iter<T: IntoIterator<Item = TriviaPiece>>(iter: T) -> Self {
-        let vec = iter.into_iter().collect::<Vec<_>>();
-        Trivia::from_vec(vec)
+        Trivia {
+            pieces: iter.into_iter().collect(),
+        }
+    }
+}
+
+pub type Iter<'a> = slice::Iter<'a, TriviaPiece>;
+
+impl<'a> IntoIterator for &'a Trivia {
+    type Item = &'a TriviaPiece;
+
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.pieces).into_iter()
+    }
+}
+
+// Wrapped as newtype in order not to expose the underlying `vec`.
+pub struct IntoIter(vec::IntoIter<TriviaPiece>);
+
+impl Iterator for IntoIter {
+    type Item = TriviaPiece;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl IntoIterator for Trivia {
+    type Item = TriviaPiece;
+
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self.pieces.into_iter())
     }
 }

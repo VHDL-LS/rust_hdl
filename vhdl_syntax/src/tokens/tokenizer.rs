@@ -554,7 +554,7 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                             (QueGT, Latin1String::from(b"?>"))
                         }
                     }
-                    _ => (Que, Latin1String::from(b"?>")),
+                    _ => (Que, Latin1String::from(b"?")),
                 }
             }
             b'^' => {
@@ -817,10 +817,10 @@ entity foo"
                 Token::new(
                     Keyword(Kw::Entity),
                     b"entity",
-                    Trivia::new([TriviaPiece::LineFeeds(2)]),
-                    Trivia::new([TriviaPiece::Spaces(1)]),
+                    Trivia::from([TriviaPiece::LineFeeds(2)]),
+                    Trivia::from([TriviaPiece::Spaces(1)]),
                 ),
-                Token::new(Identifier, b"foo", Trivia::new([]), Trivia::new([]),)
+                Token::new(Identifier, b"foo", Trivia::new(), Trivia::new(),)
             ]
         );
     }
@@ -867,7 +867,7 @@ my_other_ident"
                     Identifier,
                     b"my_ident",
                     Trivia::default(),
-                    Trivia::new([TriviaPiece::LineFeeds(2)]),
+                    Trivia::from([TriviaPiece::LineFeeds(2)]),
                 ),
                 Token::new(
                     Identifier,
@@ -962,7 +962,7 @@ my_other_ident"
                     StringLiteral,
                     b"\"str\"",
                     Trivia::default(),
-                    Trivia::new([TriviaPiece::Spaces(1)])
+                    Trivia::from([TriviaPiece::Spaces(1)])
                 ),
                 Token::new(
                     StringLiteral,
@@ -1209,8 +1209,8 @@ my_other_ident"
                 Token::new(
                     AbstractLiteral,
                     b"1",
-                    Trivia::new([TriviaPiece::LineFeeds(1)]),
-                    Trivia::new([
+                    Trivia::from([TriviaPiece::LineFeeds(1)]),
+                    Trivia::from([
                         TriviaPiece::LineFeeds(1),
                         TriviaPiece::LineComment(Comment::new(b"comment")),
                         TriviaPiece::LineFeeds(1)
@@ -1221,7 +1221,7 @@ my_other_ident"
                     AbstractLiteral,
                     b"2",
                     Trivia::default(),
-                    Trivia::new([TriviaPiece::LineFeeds(1)]),
+                    Trivia::from([TriviaPiece::LineFeeds(1)]),
                 )
             ]
         )
@@ -1247,8 +1247,8 @@ comment
                 Token::new(
                     AbstractLiteral,
                     b"1",
-                    Trivia::new([TriviaPiece::LineFeeds(1)]),
-                    Trivia::new([
+                    Trivia::from([TriviaPiece::LineFeeds(1)]),
+                    Trivia::from([
                         TriviaPiece::LineFeeds(2),
                         TriviaPiece::BlockComment(Comment::new(b"\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
@@ -1259,7 +1259,7 @@ comment
                     AbstractLiteral,
                     b"2",
                     Trivia::default(),
-                    Trivia::new([
+                    Trivia::from([
                         TriviaPiece::Spaces(1),
                         TriviaPiece::BlockComment(Comment::new("\ncomment\n")),
                         TriviaPiece::LineFeeds(2),

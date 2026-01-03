@@ -4,10 +4,11 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+pub mod fmt;
 pub mod latin_1;
 pub mod parser;
+#[cfg(feature = "serde")]
+pub mod serde;
 pub mod syntax;
 mod token_interning;
 pub mod tokens;
-#[cfg(feature = "serde")]
-pub mod serde;
