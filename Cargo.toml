@@ -6,4 +6,15 @@
 
 [workspace]
 resolver = "2"
-members = ["vhdl_lang_macros", "vhdl_lang", "vhdl_ls", "vhdl_syntax", "ast_syntax_gen", "vhdl-dump-ast"]
+members = [
+    "vhdl_lang_macros",
+    "vhdl_lang",
+    "vhdl_ls",
+    "vhdl_syntax",
+    "ast_syntax_gen",
+    "vhdl-dump-ast",
+]
+
+# By default, do not include members that are only needed at build-time
+# e.g., (vhdl_lang_macros, ast_syntax_gen)
+default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast"]
