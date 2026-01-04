@@ -9,13 +9,12 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     fn any_sequential_statement(
         &mut self,
         kind: NodeKind,
-        statement_inner: impl FnOnce(&mut Parser<T>),
+        statement_inner: impl FnOnce(&mut Parser),
     ) {
         self.start_node(kind);
         self.opt_label();
@@ -425,7 +424,7 @@ impl<T: TokenStream> Parser<T> {
 
     fn conditional_else(
         &mut self,
-        item: impl Fn(&mut Parser<T>),
+        item: impl Fn(&mut Parser),
         else_when_node: NodeKind,
         else_node: NodeKind,
     ) {

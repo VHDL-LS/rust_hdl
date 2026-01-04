@@ -15,7 +15,7 @@ pub mod trivia_piece;
 
 pub use token::Token;
 pub use token_kind::{Keyword, TokenKind};
-pub use token_stream::{IntoTokenStream, TokenStream, VecTokenStream};
+pub use token_stream::TokenStream;
 pub use tokenizer::{Tokenize, Tokenizer};
 pub use trivia::Trivia;
 pub use trivia_piece::TriviaPiece;

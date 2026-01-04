@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn type_declaration(&mut self) {
         let checkpoint = self.checkpoint();
         self.expect_kw(Kw::Type);

@@ -10,12 +10,11 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn design_file(&mut self) {
         self.start_node(NodeKind::DesignFile);
-        while self.tokenizer.has_next() {
+        while self.token_stream.has_next() {
             self.design_unit();
         }
         self.end_node();

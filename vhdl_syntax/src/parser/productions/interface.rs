@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub(crate) fn opt_generic_clause(&mut self) {
         if self.next_is(Keyword(Kw::Generic)) {
             self.generic_clause();

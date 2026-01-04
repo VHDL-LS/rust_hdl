@@ -13,10 +13,12 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+use vhdl_syntax::parser;
+use vhdl_syntax::parser::Parser;
 use vhdl_syntax::syntax::node::SyntaxElement;
 use vhdl_syntax::syntax::rewrite::RewriteAction;
 use vhdl_syntax::syntax::AstNode;
-use vhdl_syntax::syntax::{DesignFileSyntax, EntityDeclarationSyntax};
+use vhdl_syntax::syntax::EntityDeclarationSyntax;
 
 fn main() {
     // The file to change
@@ -30,17 +32,28 @@ end bar1;
 entity foobar is
 end foobar;
     ";
-    let file = vhdl.parse::<DesignFileSyntax>().expect("erroneous input");
+    let (file, diagnostics) = parser::parse(vhdl);
+    assert!(
+        diagnostics.is_empty(),
+        "Did not expect diagnostics for correct VHDL"
+    );
 
     // The target
-    let replacement_entity = "\
+    // NOTE: Usage of the parser API will be significantly changed or removed in favor of a better alternative in a future version.
+    let mut parser = Parser::new(
+        "\
 entity no_longer_foo is
 end no_longer_foo;
 
 "
-    .parse::<EntityDeclarationSyntax>()
-    .expect("erroneous input")
-    .raw();
+        .into(),
+    );
+    parser.entity();
+    let (replacement_entity, diagnostics) = parser.into_root();
+    assert!(
+        diagnostics.is_empty(),
+        "Did not expect diagnostics for correct VHDL"
+    );
 
     let new_file = file.raw().rewrite(|node| match node {
         SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {

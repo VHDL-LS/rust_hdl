@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::{GenericMapAspect, PortMapAspect};
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     fn map_aspect(&mut self, kind: Kw) {
         match kind {
             Kw::Generic => self.start_node(GenericMapAspect),

@@ -2,10 +2,9 @@ use std::{error::Error, fs, path::PathBuf, process::exit};
 
 use clap::{Parser, ValueEnum};
 use vhdl_syntax::{
-    parser::CanParse,
+    parser::{self},
     serde::{SerdeFlags, ToSerializable},
-    syntax::node::SyntaxNode,
-    tokens::{IntoTokenStream, Tokenize},
+    syntax::{AstNode, node::SyntaxNode},
 };
 
 #[derive(Parser, Debug)]
@@ -75,12 +74,9 @@ fn main() {
         }
     };
     // TODO: Do not ignore errors
-    let (node, _) = vhdl
-        .tokenize()
-        .into_token_stream()
-        .parse_syntax(vhdl_syntax::parser::Parser::design_file);
+    let (node, _) = parser::parse(vhdl);
     let text = match serialize(
-        &node,
+        &node.raw(),
         args.format,
         !args.no_pretty,
         args.trivia,

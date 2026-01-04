@@ -9,9 +9,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-fn is_start_of_attribute_name<T: TokenStream>(parser: &mut Parser<T>) -> bool {
+fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
     // Checking for `LeftSquare || Tick` will result in ambiguities with other grammar rules where a signature is possible right after a name.
     // Those rules can be `alias_declaration` (LRM §6.6.1) and `subprogram_instantiation_declaration` (LRM §4.4).
     // By checking whether the closing square bracket is followed by a `Tick` this ambiguity is resolved
@@ -40,7 +39,7 @@ fn is_start_of_attribute_name<T: TokenStream>(parser: &mut Parser<T>) -> bool {
     }
 }
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn name(&mut self) {
         self.name_bounded(usize::MAX);
     }

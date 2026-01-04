@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn signature(&mut self) {
         // LRM §4.5.3
         // signature ::= `[` [ name { `,` name } ] [ `return` name ] `]`;

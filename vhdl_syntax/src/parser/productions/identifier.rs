@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::IdentifierList;
 use crate::tokens::TokenKind;
 use crate::tokens::TokenKind::Comma;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn identifier(&mut self) {
         self.expect_token(TokenKind::Identifier)
     }

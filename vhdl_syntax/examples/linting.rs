@@ -4,23 +4,27 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use vhdl_syntax::parser;
 use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::AstNode;
+use vhdl_syntax::syntax::EntityDeclarationSyntax;
+
 /// Showcases how one could write a simple linter that checks that the declared name and final name
 /// of an entity match.
-use vhdl_syntax::syntax::{DesignFileSyntax, EntityDeclarationSyntax};
 
 fn main() {
-    let design = "\
+    let vhdl = "\
 entity baz is
 end entity baz;
 
 entity foo is
 end entity bar;
-    "
-    .parse::<DesignFileSyntax>()
-    .expect("erroneous input");
-
+    ";
+    let (design, diagnostics) = parser::parse(vhdl);
+    assert!(
+        diagnostics.is_empty(),
+        "Did not expect diagnostics for correct VHDL"
+    );
     for entity_declaration in design.walk().filter_map(|event| match event {
         WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
         WalkEvent::Leave(_) => None,

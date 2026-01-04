@@ -7,9 +7,8 @@
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::PackageInstantiationDeclaration;
 use crate::tokens::TokenKind::{Keyword, SemiColon};
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn package_instantiation_declaration(&mut self) {
         self.start_node(PackageInstantiationDeclaration);
         self.start_node(crate::syntax::node_kind::NodeKind::PackageInstantiation);

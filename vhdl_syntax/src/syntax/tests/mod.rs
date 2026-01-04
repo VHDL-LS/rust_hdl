@@ -6,17 +6,15 @@
 
 #![cfg(test)]
 
-use crate::parser::{CanParse, Parser};
+use crate::parser::{self, Parser};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::AstNode;
-use crate::tokens::Token;
-use std::collections::VecDeque;
 
 mod concurrent_statements;
 mod declarations;
 
-fn node<T: AstNode>(func: impl FnOnce(&mut Parser<VecDeque<Token>>), input: &str) -> T {
-    let (entity, diagnostics) = input.parse_syntax(func);
+fn node<T: AstNode>(func: impl FnOnce(&mut Parser), input: &str) -> T {
+    let (entity, diagnostics) = parser::parse_syntax(input, func);
     assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
     T::cast(entity).unwrap()
 }

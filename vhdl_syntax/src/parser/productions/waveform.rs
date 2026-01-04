@@ -8,9 +8,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::{Comma, Keyword};
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub(crate) fn opt_delay_mechanism(&mut self) {
         if self.next_is_one_of([
             Keyword(Kw::Transport),

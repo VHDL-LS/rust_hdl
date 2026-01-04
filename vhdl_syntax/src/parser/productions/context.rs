@@ -2,9 +2,8 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn library_clause(&mut self) {
         self.start_node(NodeKind::LibraryClause);
         self.expect_kw(Kw::Library);

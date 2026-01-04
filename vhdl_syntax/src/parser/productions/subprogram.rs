@@ -9,9 +9,8 @@ use crate::syntax::node_kind::NodeKind::*;
 use crate::syntax::NodeKind;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn subprogram_declaration(&mut self) {
         self.start_node(SubprogramDeclaration);
         self.subprogram_specification();

@@ -13,13 +13,9 @@ pub mod rewrite;
 mod tests;
 pub mod visitor;
 
-use crate::parser::diagnostics::ParserDiagnostic;
-use crate::parser::Parser;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::visitor::Preorder;
-use crate::tokens::{IntoTokenStream, Tokenize};
 pub use generated::*;
-use std::str::FromStr;
 
 pub trait AstNode
 where
@@ -37,34 +33,5 @@ where
     /// Walk the tree according to the textual order.
     fn walk(&self) -> Preorder {
         Preorder::new(self.raw())
-    }
-}
-
-impl FromStr for DesignFileSyntax {
-    type Err = Vec<ParserDiagnostic>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parser = Parser::new(s.tokenize().into_token_stream());
-        let (node, diagnostics) = parser.parse_design_file();
-        if diagnostics.is_empty() {
-            Ok(DesignFileSyntax(node))
-        } else {
-            Err(diagnostics)
-        }
-    }
-}
-
-impl FromStr for EntityDeclarationSyntax {
-    type Err = Vec<ParserDiagnostic>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parser = Parser::new(s.tokenize().into_token_stream());
-        parser.entity();
-        let (node, diagnostics) = parser.end();
-        if diagnostics.is_empty() {
-            Ok(EntityDeclarationSyntax(SyntaxNode::new_root(node)))
-        } else {
-            Err(diagnostics)
-        }
     }
 }

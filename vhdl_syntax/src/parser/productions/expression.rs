@@ -7,8 +7,8 @@
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
+use crate::tokens::TokenKind;
 use crate::tokens::TokenKind::*;
-use crate::tokens::{TokenKind, TokenStream};
 use nonzero_ext::nonzero;
 use std::num::NonZeroU8;
 
@@ -35,7 +35,7 @@ fn unary_precedence(token: TokenKind) -> Option<NonZeroU8> {
     })
 }
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn primary(&mut self) {
         match_next_token!(self,
             Identifier, LtLt => {
@@ -67,10 +67,10 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub fn allocator(&mut self) {
-      self.start_node(ExpressionAllocator);
-      self.expect_kw(Kw::New);
-      self.subtype_indication();
-      self.end_node();
+        self.start_node(ExpressionAllocator);
+        self.expect_kw(Kw::New);
+        self.subtype_indication();
+        self.end_node();
     }
 
     fn unary_expression(&mut self) {

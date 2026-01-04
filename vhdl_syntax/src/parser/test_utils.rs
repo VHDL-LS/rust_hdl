@@ -4,13 +4,11 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::{CanParse, Parser};
-use crate::tokens::Token;
-use std::collections::VecDeque;
+use crate::parser::{parse_syntax, Parser};
 
 /// Returns the AST text for snapshot assertions.
-pub fn to_test_text(func: impl FnOnce(&mut Parser<VecDeque<Token>>), input: &str) -> String {
-    let (entity, diagnostics) = input.parse_syntax(func);
+pub fn to_test_text(func: impl FnOnce(&mut Parser), input: &str) -> String {
+    let (entity, diagnostics) = parse_syntax(input, func);
     assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
     entity.test_text()
 }

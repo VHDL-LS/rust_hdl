@@ -10,7 +10,6 @@ use crate::parser::diagnostics::ParserError::*;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
-use crate::tokens::TokenStream;
 use crate::tokens::{Keyword, TokenKind};
 
 /// Allows match-style syntax for tokens.
@@ -73,9 +72,9 @@ pub enum LookaheadError {
     TokenKindNotFound,
 }
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub(crate) fn skip(&mut self) {
-        if let Some(token) = self.tokenizer.next() {
+        if let Some(token) = self.token_stream.next() {
             self.builder.push(token);
         }
     }
@@ -89,13 +88,17 @@ impl<T: TokenStream> Parser<T> {
         }
     }
 
+    fn token_index(&self) -> usize {
+        self.builder.current_token_index()
+    }
+
     pub(crate) fn skip_to(&mut self, token_index: usize) {
         assert!(token_index >= self.token_index());
         self.skip_n(token_index - self.token_index());
     }
 
     pub(crate) fn expect_token(&mut self, kind: TokenKind) {
-        if let Some(token) = self.tokenizer.next_if(|token| token.kind() == kind) {
+        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
             self.builder.push(token);
             return;
         }
@@ -123,11 +126,11 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub(crate) fn peek_token(&self) -> Option<TokenKind> {
-        Some(self.tokenizer.peek(0)?.kind())
+        Some(self.token_stream.peek(0)?.kind())
     }
 
     pub(crate) fn peek_nth_token(&self, n: usize) -> Option<TokenKind> {
-        Some(self.tokenizer.peek(n)?.kind())
+        Some(self.token_stream.peek(n)?.kind())
     }
 
     pub(crate) fn next_is(&self, kind: TokenKind) -> bool {
@@ -150,7 +153,7 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub(crate) fn opt_token(&mut self, kind: TokenKind) -> bool {
-        if let Some(token) = self.tokenizer.next_if(|token| token.kind() == kind) {
+        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
             self.builder.push(token);
             true
         } else {
@@ -163,7 +166,7 @@ impl<T: TokenStream> Parser<T> {
         kinds: [TokenKind; N],
     ) -> Option<TokenKind> {
         if let Some(token) = self
-            .tokenizer
+            .token_stream
             .next_if(|token| kinds.contains(&token.kind()))
         {
             let kind = token.kind();

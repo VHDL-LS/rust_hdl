@@ -7,7 +7,6 @@
 use crate::parser::Parser;
 use crate::syntax::NodeKind::{self, *};
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
 fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
@@ -37,7 +36,7 @@ fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
     )
 }
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub(crate) fn opt_declarative_part(&mut self) {
         if self.peek_token().is_some_and(is_start_of_declarative_part) {
             self.declarative_part();

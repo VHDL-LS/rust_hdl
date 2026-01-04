@@ -4,11 +4,11 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::{parser::Parser, syntax::NodeKind, tokens::{TokenStream}};
-use crate::tokens::TokenKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
+use crate::tokens::TokenKind::*;
+use crate::{parser::Parser, syntax::NodeKind};
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn verification_unit_binding_indication(&mut self) {
         self.start_node(NodeKind::VerificationUnitBindingIndication);
         self.expect_tokens([Keyword(Kw::Use), Keyword(Kw::Vunit)]);

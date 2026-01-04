@@ -5,13 +5,11 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::parser::Parser;
-use crate::tokens::TokenStream;
-
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     pub fn alias_declaration(&mut self) {
         self.start_node(AliasDeclaration);
         self.expect_kw(Kw::Alias);

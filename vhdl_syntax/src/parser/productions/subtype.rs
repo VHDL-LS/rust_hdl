@@ -8,13 +8,12 @@ use crate::parser::Parser;
 use crate::syntax::NodeKind::*;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-use crate::tokens::TokenStream;
 
-fn is_start_of_name<T: TokenStream>(parser: &Parser<T>) -> bool {
+fn is_start_of_name(parser: &Parser) -> bool {
     parser.next_is_one_of([LtLt, Identifier, StringLiteral, CharacterLiteral])
 }
 
-impl<T: TokenStream> Parser<T> {
+impl Parser {
     fn resolution_indication(&mut self) {
         if self.next_is(LeftPar) {
             self.start_node(ParenthesizedElementResolutionResolutionIndication);

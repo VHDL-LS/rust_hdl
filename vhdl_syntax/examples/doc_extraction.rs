@@ -6,11 +6,13 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 use std::collections::HashMap;
+use vhdl_syntax::parser;
 use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::AstNode;
-use vhdl_syntax::syntax::{DesignFileSyntax, EntityDeclarationSyntax};
+use vhdl_syntax::syntax::EntityDeclarationSyntax;
 use vhdl_syntax::tokens::{Trivia, TriviaPiece};
 
+// TODO: Example is currently broken
 fn main() {
     let vhdl = "\
 --- This is the foo entity
@@ -22,7 +24,11 @@ end foo;
 entity bar is
 end bar;
     ";
-    let file = vhdl.parse::<DesignFileSyntax>().expect("Erroneous input");
+    let (file, diagnostics) = parser::parse(vhdl);
+    assert!(
+        diagnostics.is_empty(),
+        "Did not expect diagnostics for correct VHDL"
+    );
     // HashMap containing the entity-names as keys and the associated doc-comment as values
     let mut comments = HashMap::new();
     // Walk the file filtering all entities.
@@ -54,13 +60,16 @@ end bar;
 
 /// Extract documentation comments from one or more token's trivia.
 /// Note that this is a toy example that simply checks for line comments that with a `-` (i.e.,
-/// a doc comment is written using the `--- doc comment` syntax. A real-world example would probably
+/// a doc comment is written using the `--- doc comment` syntax. A real-world example needs to
 /// include more sophisticated processing.
 fn extract_doc_from_trivia(trivia: Trivia) -> String {
     trivia
         .iter()
         .filter_map(|piece| match piece {
-            TriviaPiece::LineComment(comment) => comment.as_utf8().expect("Comment should be UTF-8").strip_prefix("-"),
+            TriviaPiece::LineComment(comment) => comment
+                .as_utf8()
+                .expect("Comment should be UTF-8")
+                .strip_prefix("-"),
             _ => None,
         })
         .map(|str| str.trim())

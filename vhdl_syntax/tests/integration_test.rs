@@ -1,11 +1,6 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
-use vhdl_syntax::{
-    self,
-    latin_1::Latin1String,
-    parser::Parser,
-    tokens::{IntoTokenStream, Tokenize},
-};
+use vhdl_syntax::{self, latin_1::Latin1String, parser, syntax::AstNode};
 
 // PSL is not supported yet by vhdl_syntax
 const EXCLUDED_FILES: [&str; 1] =
@@ -21,15 +16,15 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
         .expect("Failed to open file")
         .read_to_end(&mut buf)
         .expect("Failed to read file");
-    let parser = Parser::new(buf.tokenize().into_token_stream());
-    let (file, diagnostics) = parser.parse_design_file();
+
+    let (file, diagnostics) = parser::parse(buf.as_slice());
     assert!(
         diagnostics.is_empty(),
         "Found diagnostics for file {}",
         path.display()
     );
     let mut expected_buf = Vec::new();
-    file.write_to(&mut expected_buf)
+    file.raw().write_to(&mut expected_buf)
         .expect("Cannot write to vec");
     if buf != expected_buf {
         println!("File content mismatch for {}", path.display());
