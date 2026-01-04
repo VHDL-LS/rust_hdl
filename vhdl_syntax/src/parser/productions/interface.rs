@@ -136,21 +136,6 @@ impl<T: TokenStream> Parser<T> {
         self.end_node();
     }
 
-    fn opt_parameter_list(&mut self) {
-        if self.next_is_one_of([Keyword(Kw::Parameter), LeftPar]) {
-            self.parameter_list();
-        }
-    }
-
-    pub fn parameter_list(&mut self) {
-        self.start_node(ParameterList);
-        self.opt_token(Keyword(Kw::Parameter));
-        self.expect_token(LeftPar);
-        self.interface_list();
-        self.expect_token(RightPar);
-        self.end_node();
-    }
-
     pub fn opt_function_purity(&mut self) {
         self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);
     }

@@ -7,16 +7,17 @@ InterfaceSubprogramDeclaration
     Keyword(Function)
     Identifier 'Match'
     ParameterList
-      LeftPar
-      InterfaceList
-        InterfaceConstantDeclaration
-          IdentifierList
-            Identifier 'Actual'
-          Colon
-          SubtypeIndication
-            Name
-              Identifier 'ActualType'
-      RightPar
+      ParenthesizedInterfaceList
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'Actual'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'ActualType'
+        RightPar
     Keyword(Return)
     Name
       Identifier 'boolean'

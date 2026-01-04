@@ -116,6 +116,7 @@ Constraint: !Choice
   - node: ArrayConstraint
   - node: RecordConstraint
 
+# TODO: Rename to something with ArrayResolution
 ResolutionIndicationElementResolution: !Sequence
   - node: ResolutionIndication
 
@@ -377,6 +378,7 @@ RecordResolution: !Sequence
 NameResolutionIndication: !Sequence
   - node: Name
 
+# TODO: Is this required? (Could potentially be replaced by ELement Resolution)
 ElementResolutionResolutionIndication: !Sequence
   - node: ElementResolution
 

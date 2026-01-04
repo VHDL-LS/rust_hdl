@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"<< constant dut.foo : std_logic >>\")"
+---
+Name
+  ExternalConstantName
+    LtLt
+    Keyword(Constant)
+    RelativePathname
+      PartialPathname
+        Identifier 'dut'
+        Dot
+        Identifier 'foo'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'std_logic'
+    GtGt

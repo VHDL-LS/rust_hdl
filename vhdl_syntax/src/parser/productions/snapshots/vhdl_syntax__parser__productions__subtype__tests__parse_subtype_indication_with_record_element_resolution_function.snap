@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"(elem resolve) rec_t\")"
+---
+SubtypeIndication
+  ParenthesizedElementResolutionResolutionIndication
+    LeftPar
+    ElementResolutionResolutionIndication
+      RecordResolutionElementResolution
+        RecordResolution
+          RecordElementResolution
+            Identifier 'elem'
+            NameResolutionIndication
+              Name
+                Identifier 'resolve'
+    RightPar
+  Name
+    Identifier 'rec_t'

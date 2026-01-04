@@ -1,0 +1,44 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_declaration,\n\"function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo.natural;\")"
+---
+SubprogramDeclaration
+  FunctionSpecification
+    Keyword(Function)
+    Identifier 'foo'
+    SubprogramHeader
+      SubprogramHeaderGenericClause
+        Keyword(Generic)
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'abc_def'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'natural'
+        RightPar
+    ParameterList
+      Keyword(Parameter)
+      ParenthesizedInterfaceList
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'foo'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'natural'
+        RightPar
+    Keyword(Return)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'natural'
+  SemiColon

@@ -340,7 +340,7 @@ impl ops::DerefMut for Latin1String {
 
 impl Borrow<Latin1Str> for Latin1String {
     fn borrow(&self) -> &Latin1Str {
-        &self
+        self
     }
 }
 
@@ -362,7 +362,7 @@ impl ToOwned for Latin1Str {
     }
 }
 
-impl PartialEq for Latin1String {
+impl cmp::PartialEq for Latin1String {
     fn eq(&self, other: &Self) -> bool {
         self.as_latin1_str() == other.as_latin1_str()
     }
@@ -402,7 +402,7 @@ impl cmp::PartialEq<Latin1String> for String {
 
 impl PartialOrd for Latin1String {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.inner.partial_cmp(&other.inner)
+        Some(self.cmp(other))
     }
 }
 
@@ -577,7 +577,7 @@ impl std::ops::Index<Range<usize>> for Latin1String {
     type Output = Latin1Str;
 
     fn index(&self, index: Range<usize>) -> &Self::Output {
-        Latin1Str::new(&self.bytes.index(index))
+        Latin1Str::new(self.bytes.index(index))
     }
 }
 
@@ -595,9 +595,12 @@ impl std::ops::IndexMut<usize> for Latin1Str {
     }
 }
 
+// We cannot use `latin1 == str` since this is the code used to implement
+// this comparison, effectively creating an infinite recursion.
+// OPTIMIZATION: This is for simplicity only.
+// There is no need to allocate a string just for comparison.
+#[allow(clippy::cmp_owned)]
 fn cmp_latin1_to_str(latin1: &Latin1Str, str: &str) -> bool {
-    // OPTIMIZATION: This is for simplicity only.
-    // There is no need to allocate a string just for comparison.
     latin1.to_string() == str
 }
 
@@ -631,7 +634,7 @@ impl<'a> IntoIterator for &'a Latin1Str {
     type IntoIter = slice::Iter<'a, u8>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
+        self.inner.iter()
     }
 }
 
@@ -705,5 +708,15 @@ mod tests {
             assert_eq!(err.value, '€');
             assert_eq!(format!("{}", err), "Invalid latin-1 character '€' at position 5");
         });
+    }
+
+    #[test]
+    fn compare_latin1_to_utf8() {
+        let utf8 = "café";
+        let latin1 = Latin1String::from_utf8("café").unwrap();
+        // bytes are not equal due to the different encoding
+        assert!(utf8.as_bytes() != latin1.as_bytes());
+        // The string-value is still the same though
+        assert!(latin1.as_latin1_str() == utf8);
     }
 }

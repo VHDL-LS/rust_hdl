@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"prefix(0 to 3)\")"
+---
+Name
+  Identifier 'prefix'
+  RawTokens
+    LeftPar
+    AbstractLiteral '0'
+    Keyword(To)
+    AbstractLiteral '3'
+    RightPar

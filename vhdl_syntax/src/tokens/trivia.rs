@@ -100,7 +100,7 @@ impl<'a> IntoIterator for &'a Trivia {
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.pieces).into_iter()
+        self.pieces.iter()
     }
 }
 

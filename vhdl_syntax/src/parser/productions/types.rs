@@ -132,8 +132,14 @@ mod tests {
             Parser::type_declaration,
             "type p_t is protected end protected p_t;"
         ));
-
-        // TODO: Test protected types with content
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "\
+type foo is protected
+  procedure proc;
+  function fun return ret;
+end protected;"
+        ));
     }
 
     #[test]
@@ -146,7 +152,23 @@ mod tests {
             Parser::type_declaration,
             "type p_t is protected body end protected body p_t;"
         ));
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "\
+type foo is protected body
+  variable foo : natural;
+  procedure proc is
+  begin
+  end;
+end protected body;"
+        ));
+    }
 
-        // TODO: Test protected types with content
+    #[test]
+    fn test_parse_subtype_declaration() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::subtype_declaration,
+            "subtype vec_t is integer_vector(2-1 downto 0);"
+        ));
     }
 }

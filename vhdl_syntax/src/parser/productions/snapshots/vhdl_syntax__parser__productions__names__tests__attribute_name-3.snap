@@ -1,0 +1,9 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"prefix'subtype\")"
+---
+Name
+  Identifier 'prefix'
+  AttributeName
+    Tick
+    Keyword(Subtype)

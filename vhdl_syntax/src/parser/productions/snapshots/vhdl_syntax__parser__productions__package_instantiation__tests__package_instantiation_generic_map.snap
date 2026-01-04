@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/package_instantiation.rs
+expression: "to_test_text(Parser::package_instantiation_declaration,\n\"\\\npackage ident is new lib.foo.bar\n  generic map (\n    foo => bar\n  );\")"
+---
+PackageInstantiationDeclaration
+  PackageInstantiation
+    Keyword(Package)
+    Identifier 'ident'
+    Keyword(Is)
+    Keyword(New)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
+    GenericMapAspect
+      Keyword(Generic)
+      Keyword(Map)
+      LeftPar
+      AssociationList
+        AssociationElement
+          FormalPart
+            Name
+              Identifier 'foo'
+          RightArrow
+          ActualPart
+            Identifier 'bar'
+      RightPar
+  SemiColon

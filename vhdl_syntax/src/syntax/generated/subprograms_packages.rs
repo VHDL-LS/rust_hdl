@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
@@ -267,16 +267,60 @@ impl AstNode for SubprogramHeaderSyntax {
     }
 }
 impl SubprogramHeaderSyntax {
-    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
+    pub fn subprogram_header_generic_clause(&self) -> Option<SubprogramHeaderGenericClauseSyntax> {
         self.0
             .children()
-            .filter_map(GenericClauseSyntax::cast)
+            .filter_map(SubprogramHeaderGenericClauseSyntax::cast)
             .nth(0)
     }
     pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
         self.0
             .children()
             .filter_map(GenericMapAspectSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SubprogramHeaderGenericClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubprogramHeaderGenericClauseSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SubprogramHeaderGenericClause => {
+                Some(SubprogramHeaderGenericClauseSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramHeaderGenericClause)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SubprogramHeaderGenericClauseSyntax {
+    pub fn generic_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Generic))
+            .nth(0)
+    }
+    pub fn left_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == LeftPar)
+            .nth(0)
+    }
+    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceListSyntax::cast)
+            .nth(0)
+    }
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == RightPar)
             .nth(0)
     }
 }

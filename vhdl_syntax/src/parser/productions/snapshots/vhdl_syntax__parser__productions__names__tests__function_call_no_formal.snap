@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"foo(0)\")"
+---
+Name
+  Identifier 'foo'
+  RawTokens
+    LeftPar
+    AbstractLiteral '0'
+    RightPar

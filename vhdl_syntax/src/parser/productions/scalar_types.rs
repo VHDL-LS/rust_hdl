@@ -132,6 +132,18 @@ end units;"
     }
 
     #[test]
+    fn test_physical_type_declaration_implicit_secondary_units() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "\
+type phys is range 0 to 15 units
+   primary_unit;
+   secondary_unit = primary_unit;
+end units;"
+        ));
+    }
+
+    #[test]
     fn enumeration_type_declaration() {
         insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
@@ -146,6 +158,11 @@ end units;"
         insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type chars_t is ('A', 'B');"
+        ));
+
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "type chars_t is ('A', B);"
         ));
     }
 

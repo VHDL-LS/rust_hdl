@@ -90,7 +90,7 @@ impl<T: TokenStream> Parser<T> {
     }
 
     pub(crate) fn skip_to(&mut self, token_index: usize) {
-        assert!(token_index > self.token_index());
+        assert!(token_index >= self.token_index());
         self.skip_n(token_index - self.token_index());
     }
 

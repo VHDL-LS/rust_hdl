@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_header, \"generic (x: natural := 1; y: real)\")"
+---
+SubprogramHeader
+  SubprogramHeaderGenericClause
+    Keyword(Generic)
+    LeftPar
+    InterfaceList
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'x'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+        ColonEq
+        LiteralExpression
+          AbstractLiteral '1'
+      SemiColon
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'y'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'real'
+    RightPar

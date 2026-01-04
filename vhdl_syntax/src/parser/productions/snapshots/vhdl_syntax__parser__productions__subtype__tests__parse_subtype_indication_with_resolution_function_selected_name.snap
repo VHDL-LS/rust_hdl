@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"lib.foo.resolve std_logic\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'foo'
+    SelectedName
+      Dot
+      Identifier 'resolve'
+  Name
+    Identifier 'std_logic'

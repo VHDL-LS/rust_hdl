@@ -65,11 +65,10 @@ RelativePathname: !Sequence
   - node: PartialPathname
 
 PartialPathname: !Sequence
-  - node: Name
+  - token: Identifier
     repeated: true
   - token: Dot
     repeated: true
-  - token: Identifier
 
 NameList: !Sequence
   - node: Name
@@ -117,4 +116,4 @@ NameTail: !Choice
   - node: RawTokens
   - node: AttributeName
 
-RawTokens: !Sequence [ ]
+RawTokens: !Sequence []

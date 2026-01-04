@@ -1,6 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/composite_types.rs
-expression: "to_test_text(Parser::type_declaration,\n\"type rec_t is record s1: bit; s2, s3: std_ulogic; end record;\",)"
+expression: "to_test_text(Parser::type_declaration,\n\"type rec_t is record state: enum_t; end record;\",)"
 ---
 FullTypeDeclaration
   Keyword(Type)
@@ -10,21 +10,11 @@ FullTypeDeclaration
     Keyword(Record)
     ElementDeclaration
       IdentifierList
-        Identifier 's1'
+        Identifier 'state'
       Colon
       SubtypeIndication
         Name
-          Identifier 'bit'
-      SemiColon
-    ElementDeclaration
-      IdentifierList
-        Identifier 's2'
-        Comma
-        Identifier 's3'
-      Colon
-      SubtypeIndication
-        Name
-          Identifier 'std_ulogic'
+          Identifier 'enum_t'
       SemiColon
     Keyword(End)
     Keyword(Record)

@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "to_test_text(Parser::identifier_list, \"foo, bar, baz\")"
+---
+IdentifierList
+  Identifier 'foo'
+  Comma
+  Identifier 'bar'
+  Comma
+  Identifier 'baz'

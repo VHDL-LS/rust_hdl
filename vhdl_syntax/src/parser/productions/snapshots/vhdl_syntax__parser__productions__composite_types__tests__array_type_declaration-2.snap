@@ -9,17 +9,18 @@ FullTypeDeclaration
   UnboundedArrayDefinition
     Keyword(Array)
     LeftPar
-    IndexSubtypeDefinition
-      Name
-        Identifier 'natural'
-      Keyword(Range)
-      BOX
-    Comma
-    IndexSubtypeDefinition
-      Name
-        Identifier 'integer'
-      Keyword(Range)
-      BOX
+    IndexSubtypeDefinitionList
+      IndexSubtypeDefinition
+        Name
+          Identifier 'natural'
+        Keyword(Range)
+        BOX
+      Comma
+      IndexSubtypeDefinition
+        Name
+          Identifier 'integer'
+        Keyword(Range)
+        BOX
     RightPar
     Keyword(Of)
     SubtypeIndication

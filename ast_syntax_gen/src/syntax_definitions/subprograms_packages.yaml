@@ -36,10 +36,16 @@ FunctionPurity: !Choice
   - keyword: Impure
 
 SubprogramHeader: !Sequence
-  - node: GenericClause
+  - node: SubprogramHeaderGenericClause
     optional: true
   - node: GenericMapAspect
     optional: true
+
+SubprogramHeaderGenericClause: !Sequence
+  - keyword: Generic
+  - token: LeftPar
+  - node: InterfaceList
+  - token: RightPar
 
 SubprogramBody: !Sequence
   - node: SubprogramSpecification

@@ -81,8 +81,7 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::to_test_text;
-    use crate::parser::Parser;
+    use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
     fn constant_declaration() {

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
@@ -317,24 +317,6 @@ impl EntityEntityAspectSyntax {
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == LeftPar)
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Identifier)
-            .nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == RightPar)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

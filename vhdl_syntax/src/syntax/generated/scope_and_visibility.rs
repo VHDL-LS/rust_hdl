@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
@@ -33,11 +33,8 @@ impl UseClauseSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Use))
             .nth(0)
     }
-    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
-        self.0.children().filter_map(NameSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+    pub fn name_list(&self) -> Option<NameListSyntax> {
+        self.0.children().filter_map(NameListSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0

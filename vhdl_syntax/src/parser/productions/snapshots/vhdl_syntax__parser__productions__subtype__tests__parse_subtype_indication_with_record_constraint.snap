@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication,\n\"axi_m2s_t(tdata(2-1 downto 0), tuser(3 to 5))\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'axi_m2s_t'
+    RawTokens
+      LeftPar
+      Identifier 'tdata'
+      LeftPar
+      AbstractLiteral '2'
+      Minus
+      AbstractLiteral '1'
+      Keyword(Downto)
+      AbstractLiteral '0'
+      RightPar
+      Comma
+      Identifier 'tuser'
+      LeftPar
+      AbstractLiteral '3'
+      Keyword(To)
+      AbstractLiteral '5'
+      RightPar
+      RightPar

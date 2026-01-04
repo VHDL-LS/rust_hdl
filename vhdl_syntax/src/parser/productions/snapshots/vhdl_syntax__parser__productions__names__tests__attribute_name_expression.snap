@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"prefix'foo(expr+1)\")"
+---
+Name
+  Identifier 'prefix'
+  AttributeName
+    Tick
+    Identifier 'foo'
+  RawTokens
+    LeftPar
+    Identifier 'expr'
+    Plus
+    AbstractLiteral '1'
+    RightPar

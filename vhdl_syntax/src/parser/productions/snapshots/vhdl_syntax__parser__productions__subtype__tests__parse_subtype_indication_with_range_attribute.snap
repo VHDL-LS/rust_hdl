@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"integer range lib.foo.bar'range\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'integer'
+  RangeConstraint
+    Keyword(Range)
+    AttributeRange
+      Name
+        Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'foo'
+        SelectedName
+          Dot
+          Identifier 'bar'
+        AttributeName
+          Tick
+          Keyword(Range)

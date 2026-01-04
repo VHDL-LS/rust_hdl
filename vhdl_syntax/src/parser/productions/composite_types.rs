@@ -19,7 +19,9 @@ impl<T: TokenStream> Parser<T> {
         if box_found {
             self.start_node_at(checkpoint, UnboundedArrayDefinition);
             self.expect_token(LeftPar);
+            self.start_node(IndexSubtypeDefinitionList);
             self.separated_list(Parser::index_subtype_definition, Comma);
+            self.end_node();
             self.expect_token(RightPar);
         } else {
             self.start_node_at(checkpoint, ConstrainedArrayDefinition);
@@ -77,7 +79,7 @@ impl<T: TokenStream> Parser<T> {
             Bar,
             Keyword(Kw::Generate),
             Keyword(Kw::Loop),
-            SemiColon
+            SemiColon,
         ]) {
             Ok((tok, end_index)) => Some((tok, end_index)),
             // If EOF is reached, the range cannot be parsed correctly
@@ -102,7 +104,7 @@ impl<T: TokenStream> Parser<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::test_utils::{to_test_text};
+    use crate::parser::test_utils::to_test_text;
     use crate::parser::Parser;
 
     #[test]
@@ -135,12 +137,41 @@ mod tests {
     fn record_type_declaration() {
         insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
+            "type rec_t is record end record;",
+        ));
+
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
             "type rec_t is record state: enum_t; end record;",
         ));
 
         insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type rec_t is record s1: bit; s2, s3: std_ulogic; end record;",
+        ));
+    }
+
+    #[test]
+    fn parse_array_type_definition_with_discrete_subtype_definition() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "type foo is array (natural) of boolean;"
+        ));
+    }
+
+    #[test]
+    fn parse_array_type_definition_with_selected_name() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "type foo is array (lib.pkg.foo) of boolean;"
+        ));
+    }
+
+    #[test]
+    fn parse_array_type_definition_with_range_attribute_name() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::type_declaration,
+            "type foo is array (arr_t'range) of boolean;"
         ));
     }
 }

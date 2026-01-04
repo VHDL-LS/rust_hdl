@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NodeKind {
@@ -28,7 +28,6 @@ pub enum NodeKind {
     BlockConfiguration,
     BlockConfigurationItem,
     BlockHeader,
-    BlockSpecification,
     BlockStatement,
     CaseGenerateAlternative,
     CaseGenerateStatement,
@@ -67,7 +66,6 @@ pub enum NodeKind {
     DesignUnit,
     DisconnectionSpecification,
     DiscreteRangeChoice,
-    DiscreteRangeGenerateSpecification,
     ElementAssociation,
     ElementDeclaration,
     ElementResolutionResolutionIndication,
@@ -140,12 +138,10 @@ pub enum NodeKind {
     Label,
     LibraryClause,
     LiteralExpression,
-    LogicalNameList,
     LoopStatement,
     Name,
     NameDesignatorPrefix,
     NameExpression,
-    NameGenerateSpecification,
     NameList,
     NameResolutionIndication,
     NameTarget,
@@ -168,7 +164,6 @@ pub enum NodeKind {
     ParenthesizedElementResolutionResolutionIndication,
     ParenthesizedExpression,
     ParenthesizedExpressionOrAggregate,
-    ParenthesizedGenerateSpecification,
     ParenthesizedInterfaceList,
     ParenthesizedName,
     ParenthesizedProcessSensitivityList,
@@ -237,6 +232,7 @@ pub enum NodeKind {
     SubprogramBody,
     SubprogramDeclaration,
     SubprogramHeader,
+    SubprogramHeaderGenericClause,
     SubprogramInstantiationDeclaration,
     SubtypeDeclaration,
     SubtypeIndication,

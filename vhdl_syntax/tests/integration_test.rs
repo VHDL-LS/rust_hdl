@@ -8,7 +8,8 @@ use vhdl_syntax::{
 };
 
 // PSL is not supported yet by vhdl_syntax
-const EXCLUDED_FILES: [&str; 1] = ["example_project/vunit/examples/vhdl/array_axis_vcs/src/fifo.vhd"];
+const EXCLUDED_FILES: [&str; 1] =
+    ["example_project/vunit/examples/vhdl/array_axis_vcs/src/fifo.vhd"];
 
 fn check_file(path: impl Into<std::path::PathBuf>) {
     let path = path.into();
@@ -50,6 +51,7 @@ fn parse_and_re_emit_example_project_files() {
     path = path.parent().unwrap().to_path_buf();
     path.push("example_project");
 
+    // TODO: This is likely IO-bound, so should be parallelized to speed up tests.
     fn visit_dirs(dir: &std::path::Path) {
         for entry in std::fs::read_dir(dir).expect("Failed to read directory") {
             let entry = entry.expect("Failed to read directory entry");

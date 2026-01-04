@@ -1,0 +1,7 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"std_logic\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'std_logic'

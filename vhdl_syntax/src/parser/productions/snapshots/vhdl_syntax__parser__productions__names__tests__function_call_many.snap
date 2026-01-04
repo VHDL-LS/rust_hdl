@@ -1,0 +1,19 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"prefix(0, 1)(3).suffix\")"
+---
+Name
+  Identifier 'prefix'
+  RawTokens
+    LeftPar
+    AbstractLiteral '0'
+    Comma
+    AbstractLiteral '1'
+    RightPar
+  RawTokens
+    LeftPar
+    AbstractLiteral '3'
+    RightPar
+  SelectedName
+    Dot
+    Identifier 'suffix'

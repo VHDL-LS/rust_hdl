@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"integer_vector(lib.foo.bar)\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'integer_vector'
+    RawTokens
+      LeftPar
+      Identifier 'lib'
+      Dot
+      Identifier 'foo'
+      Dot
+      Identifier 'bar'
+      RightPar

@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"\\\ntype foo is protected\n  procedure proc;\n  function fun return ret;\nend protected;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'foo'
+  Keyword(Is)
+  ProtectedTypeDeclaration
+    Keyword(Protected)
+    SubprogramDeclaration
+      Keyword(Procedure)
+      ProcedureSpecification
+        Identifier 'proc'
+        SubprogramHeader
+      SemiColon
+    SubprogramDeclaration
+      FunctionSpecification
+        Keyword(Function)
+        Identifier 'fun'
+        SubprogramHeader
+        Keyword(Return)
+        Name
+          Identifier 'ret'
+      SemiColon
+    Keyword(End)
+    Keyword(Protected)
+  SemiColon

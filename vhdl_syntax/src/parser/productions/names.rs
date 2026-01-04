@@ -150,9 +150,9 @@ impl<T: TokenStream> Parser<T> {
 
             // Enable qualified expressions
             if !self.next_is(LeftPar) {
-                // `range` is a keyword, but may appear as an `attribute_name`
-                if !self.opt_identifier() {
-                    self.expect_kw(Kw::Range);
+                // Either an identifier or a keyword (e.g., `range`, `subtype`, e.t.c.)
+                if matches!(self.peek_token(), Some(Keyword(_) | Identifier)) {
+                    self.skip();
                 }
             }
 
@@ -210,11 +210,7 @@ impl<T: TokenStream> Parser<T> {
         match_next_token!(self,
         CommAt => {
             self.start_node(PackagePathname);
-            self.expect_token(CommAt);
-            self.identifier();
-            self.expect_token(Dot);
-            self.identifier();
-            self.expect_token(Dot);
+            self.skip();
             self.identifier();
             while self.opt_token(Dot) {
                 self.identifier();
@@ -222,7 +218,7 @@ impl<T: TokenStream> Parser<T> {
         },
         Dot => {
             self.start_node(AbsolutePathname);
-            self.expect_token(Dot);
+            self.skip();
             self.partial_pathname();
         },
         Circ, Identifier => {
@@ -274,5 +270,134 @@ impl<T: TokenStream> Parser<T> {
             self.expression();
             self.end_node();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{test_utils::to_test_text, Parser};
+
+    fn name_to_test_text(code: &str) -> String {
+        to_test_text(Parser::name, code)
+    }
+
+    #[test]
+    fn test_identifier_list() {
+        insta::assert_snapshot!(to_test_text(Parser::identifier_list, "foo, bar, baz"));
+    }
+
+    #[test]
+    fn test_simple_name() {
+        insta::assert_snapshot!(name_to_test_text("foo"));
+    }
+
+    #[test]
+    fn test_characer_name() {
+        insta::assert_snapshot!(name_to_test_text("'a'"));
+    }
+
+    #[test]
+    fn test_operator_symbol() {
+        insta::assert_snapshot!(name_to_test_text("\"+\""));
+        insta::assert_snapshot!(name_to_test_text("\"AND\""));
+        insta::assert_snapshot!(name_to_test_text("\"and\""));
+    }
+
+    #[test]
+    fn test_parse_selected_name_multiple() {
+        insta::assert_snapshot!(name_to_test_text("foo.bar.baz"));
+    }
+
+    #[test]
+    fn test_parse_selected_name_all() {
+        insta::assert_snapshot!(name_to_test_text("foo.all"));
+    }
+
+    #[test]
+    fn test_slice_name_range() {
+        insta::assert_snapshot!(name_to_test_text("prefix(0 to 3)"));
+        insta::assert_snapshot!(name_to_test_text("prefix(3 downto 0)"));
+    }
+
+    #[test]
+    fn test_slice_range_attribute() {
+        insta::assert_snapshot!(name_to_test_text("prefix(foo(0)'range)"));
+    }
+
+    #[test]
+    fn test_attribute_name() {
+        insta::assert_snapshot!(name_to_test_text("prefix'foo"));
+        insta::assert_snapshot!(name_to_test_text("prefix'range"));
+        insta::assert_snapshot!(name_to_test_text("prefix'subtype"));
+        insta::assert_snapshot!(name_to_test_text("prefix'element"));
+    }
+
+    #[test]
+    fn test_attribute_name_expression() {
+        insta::assert_snapshot!(name_to_test_text("prefix'foo(expr+1)"));
+    }
+
+    #[test]
+    fn test_attribute_name_signature_expression() {
+        insta::assert_snapshot!(name_to_test_text("prefix[return natural]'foo(expr+1)"));
+    }
+
+    #[test]
+    fn test_function_call_no_formal() {
+        insta::assert_snapshot!(name_to_test_text("foo(0)"));
+    }
+
+    #[test]
+    fn test_function_call_many() {
+        insta::assert_snapshot!(name_to_test_text("prefix(0, 1)(3).suffix"));
+    }
+
+    #[test]
+    fn test_function_call() {
+        insta::assert_snapshot!(name_to_test_text("foo(arg => 0)"));
+    }
+
+    #[test]
+    fn test_association_list_actual_part_open() {
+        insta::assert_snapshot!(name_to_test_text("foo(open, arg => open)"));
+    }
+
+    #[test]
+    fn test_external_name_implicit_relative() {
+        insta::assert_snapshot!(name_to_test_text("<< signal dut.foo : std_logic >>"));
+    }
+
+    #[test]
+    fn test_external_name_explicit_relative() {
+        insta::assert_snapshot!(name_to_test_text("<< signal ^.dut.gen : std_logic >>"));
+    }
+
+    #[test]
+    fn test_external_name_explicit_relative_multiple_levels() {
+        insta::assert_snapshot!(name_to_test_text(
+            "<< signal ^.^.^.dut.gen : std_logic >>"
+        ));
+    }
+
+    #[test]
+    fn test_external_name_absolute() {
+        insta::assert_snapshot!(name_to_test_text("<< signal .dut.gen : std_logic >>"));
+    }
+
+    #[test]
+    fn test_external_name_package() {
+        insta::assert_snapshot!(name_to_test_text("<< signal @lib.pkg : std_logic >>"));
+    }
+
+    #[test]
+    fn test_external_name_object_classes() {
+        insta::assert_snapshot!(name_to_test_text("<< constant dut.foo : std_logic >>"));
+        insta::assert_snapshot!(name_to_test_text("<< signal dut.foo : std_logic >>"));
+        insta::assert_snapshot!(name_to_test_text("<< variable dut.foo : std_logic >>"));
+    }
+
+    #[test]
+    fn empty_association_list() {
+        insta::assert_snapshot!(name_to_test_text("foo()"));
     }
 }
