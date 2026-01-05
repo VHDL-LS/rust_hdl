@@ -551,7 +551,7 @@ mod tests {
         let new_tokens = new_node
             .tokens()
             .map(|syntax_token| syntax_token.token().clone())
-            .collect::<VecDeque<_>>();
+            .collect::<Vec<_>>();
         assert_eq!(new_tokens, orig_tokens);
     }
 
