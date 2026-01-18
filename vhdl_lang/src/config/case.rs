@@ -267,11 +267,11 @@ mod tests {
     }
 
     #[test]
-    fn enabled_by_default_only() {
+    fn default_preset_no_overrides() {
         let cfg = parse(
             r#"
             [casing]
-            preset = "default"
+            preset = "vhdl_common"
             "#,
         )
         .unwrap()
@@ -285,7 +285,7 @@ mod tests {
         let cfg = parse(
             r#"
             [casing]
-            default = "lower"
+            preset = "vhdl_common"
 
             [casing.overrides]
             constant = "upper"
@@ -304,7 +304,7 @@ mod tests {
         let err = parse(
             r#"
             [casing]
-            default = "lower"
+            preset = "vhdl_common"
 
             [casing.overrides]
             foo_bar = "upper"
@@ -320,11 +320,11 @@ mod tests {
         let err = parse(
             r#"
             [casing]
-            default = "snakeish"
+            preset = "dne"
             "#,
         )
         .unwrap_err();
 
-        assert!(err.contains("Unknown case"));
+        assert!(err.contains("Unknown casing preset"));
     }
 }
