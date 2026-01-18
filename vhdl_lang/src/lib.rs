@@ -16,7 +16,7 @@ extern crate self as vhdl_lang;
 pub mod ast;
 #[macro_use]
 mod analysis;
-mod config;
+pub mod config;
 mod data;
 mod lint;
 mod named_entity;
@@ -27,7 +27,7 @@ mod completion;
 mod formatting;
 mod standard;
 
-pub use crate::config::{Case, Config};
+pub use crate::config::Config;
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
     NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source, SrcPos,
