@@ -171,7 +171,7 @@ pub fn all_same_case_category_to_case_map(case: Case) -> CategoryToCaseMap {
 pub enum Preset {
     #[default]
     VhdlCommon,
-    Minimal,
+    Keep,
 }
 
 impl Preset {
@@ -190,19 +190,7 @@ impl Preset {
                 Category::Type => Case::Lower,
                 Category::Alias => Case::Lower,
             },
-            Preset::Minimal => enum_map! {
-                Category::Constant => Case::Upper,
-                Category::Attribute => Case::Keep,
-                Category::DesignUnit => Case::Keep,
-                Category::EnumLiteral => Case::Upper,
-                Category::Keyword => Case::Keep,
-                Category::Label => Case::Keep,
-                Category::Library => Case::Keep,
-                Category::Object => Case::Keep,
-                Category::Subprogram => Case::Keep,
-                Category::Type => Case::Keep,
-                Category::Alias => Case::Keep,
-            },
+            Preset::Keep => CategoryToCaseMap::from_fn(|_| Case::Keep),
         }
     }
 }
