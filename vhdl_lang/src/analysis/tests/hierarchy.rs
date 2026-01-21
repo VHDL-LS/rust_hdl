@@ -327,6 +327,42 @@ end architecture;
 }
 
 #[test]
+fn test_find_type_definition() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pack is
+    type test_type is (idle);
+end package pack;
+
+use work.pack.all;
+
+entity e is
+end entity e;
+
+architecture a of e is
+    signal test_signal : test_type;
+begin
+
+end architecture a;
+      ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let t = root
+        .search_reference(code.source(), code.s1("test_type ").start())
+        .unwrap();
+    let signal = root
+        .search_reference(code.source(), code.s1("test_signal ").start())
+        .unwrap();
+
+    assert_eq!(root.find_type_definition_of(signal), Some(t));
+}
+
+#[test]
 fn exit_and_next_outside_of_loop() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

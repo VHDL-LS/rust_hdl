@@ -65,6 +65,7 @@ impl VHDLServer {
             )),
             declaration_provider: Some(DeclarationCapability::Simple(true)),
             definition_provider: Some(OneOf::Left(true)),
+            type_definition_provider: Some(TypeDefinitionProviderCapability::Simple(true)),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             references_provider: Some(OneOf::Left(true)),
             implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
