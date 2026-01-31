@@ -27,7 +27,8 @@ end foo;
 
     let new_file = file.raw().rewrite_tokens(|token| {
         if token.kind() == TokenKind::Identifier
-            && token.parent().kind() == NodeKind::EntityDeclaration
+            && (token.parent().kind() == NodeKind::EntityDeclarationPreamble
+                || token.parent().kind() == NodeKind::EntityDeclarationEpilogue)
         {
             let new_name = format!("tb_{}", token.text());
             RewriteAction::Change(SyntaxElement::Token(

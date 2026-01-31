@@ -1,3 +1,7 @@
+"""
+General-purpose tool to read the `productions.txt` file
+found in the `ast_syntax_gen/doc` folder.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
