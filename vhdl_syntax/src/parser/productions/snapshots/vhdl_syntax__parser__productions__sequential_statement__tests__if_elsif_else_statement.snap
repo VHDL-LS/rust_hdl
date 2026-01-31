@@ -3,16 +3,17 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "to_test_text(Parser::if_statement,\n\"\\\nif cond = true then\n   foo(1,2);\nelsif cond2 = false then\n   y := 2;\nelse\n   x := 1;\nend if;\")"
 ---
 IfStatement
-  Keyword(If)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Then)
+  IfStatementPreamble
+    Keyword(If)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
       NameTarget
@@ -56,6 +57,7 @@ IfStatement
         LiteralExpression
           AbstractLiteral '1'
         SemiColon
-  Keyword(End)
-  Keyword(If)
-  SemiColon
+  IfStatementEpilogue
+    Keyword(End)
+    Keyword(If)
+    SemiColon

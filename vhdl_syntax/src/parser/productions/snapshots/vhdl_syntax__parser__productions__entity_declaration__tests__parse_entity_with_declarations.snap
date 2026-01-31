@@ -1,24 +1,26 @@
 ---
 source: vhdl_syntax/src/parser/productions/entity_declaration.rs
-expression: "to_test_text(Parser::entity,\n\"\\\nentity myent is\n  constant foo : natural := 0;\nend entity;\",)"
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity myent is\n  constant foo : natural := 0;\nend entity;\",)"
 ---
 EntityDeclaration
-  Keyword(Entity)
-  Identifier 'myent'
-  Keyword(Is)
-  EntityHeader
-  ConstantDeclaration
-    Keyword(Constant)
-    IdentifierList
-      Identifier 'foo'
-    Colon
-    SubtypeIndication
-      Name
-        Identifier 'natural'
-    ColonEq
-    LiteralExpression
-      AbstractLiteral '0'
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'myent'
+    Keyword(Is)
+  Declarations
+    ConstantDeclaration
+      Keyword(Constant)
+      IdentifierList
+        Identifier 'foo'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'natural'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '0'
+      SemiColon
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Keyword(Entity)
     SemiColon
-  Keyword(End)
-  Keyword(Entity)
-  SemiColon

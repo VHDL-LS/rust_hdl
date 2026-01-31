@@ -525,6 +525,71 @@ impl AstNode for ComponentDeclarationSyntax {
     }
 }
 impl ComponentDeclarationSyntax {
+    pub fn component_declaration_preamble(&self) -> Option<ComponentDeclarationPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentDeclarationPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn component_declaration_items(&self) -> Option<ComponentDeclarationItemsSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentDeclarationItemsSyntax::cast)
+            .nth(0)
+    }
+    pub fn component_declaration_epilogue(&self) -> Option<ComponentDeclarationEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentDeclarationEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ComponentDeclarationItemsSyntax(pub(crate) SyntaxNode);
+impl AstNode for ComponentDeclarationItemsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ComponentDeclarationItems => Some(ComponentDeclarationItemsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentDeclarationItems)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ComponentDeclarationItemsSyntax {
+    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericClauseSyntax::cast)
+            .nth(0)
+    }
+    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
+        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ComponentDeclarationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ComponentDeclarationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ComponentDeclarationPreamble => {
+                Some(ComponentDeclarationPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentDeclarationPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ComponentDeclarationPreambleSyntax {
     pub fn component_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -543,32 +608,43 @@ impl ComponentDeclarationSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericClauseSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct ComponentDeclarationEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ComponentDeclarationEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ComponentDeclarationEpilogue => {
+                Some(ComponentDeclarationEpilogueSyntax(node))
+            }
+            _ => None,
+        }
     }
-    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
-        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentDeclarationEpilogue)
     }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ComponentDeclarationEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_component_token(&self) -> Option<SyntaxToken> {
+    pub fn component_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Component))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1039,6 +1115,42 @@ impl AstNode for GenericClauseSyntax {
     }
 }
 impl GenericClauseSyntax {
+    pub fn generic_clause_preamble(&self) -> Option<GenericClausePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericClausePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceListSyntax::cast)
+            .nth(0)
+    }
+    pub fn generic_clause_epilogue(&self) -> Option<GenericClauseEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericClauseEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GenericClausePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenericClausePreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::GenericClausePreamble => Some(GenericClausePreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenericClausePreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenericClausePreambleSyntax {
     pub fn generic_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -1051,12 +1163,24 @@ impl GenericClauseSyntax {
             .filter(|token| token.kind() == LeftPar)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
-        self.0
-            .children()
-            .filter_map(InterfaceListSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct GenericClauseEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenericClauseEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::GenericClauseEpilogue => Some(GenericClauseEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenericClauseEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenericClauseEpilogueSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -1592,22 +1716,12 @@ impl AstNode for InterfacePackageDeclarationSyntax {
     }
 }
 impl InterfacePackageDeclarationSyntax {
-    pub fn package_token(&self) -> Option<SyntaxToken> {
+    pub fn interface_package_declaration_preamble(
+        &self,
+    ) -> Option<InterfacePackageDeclarationPreambleSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Package))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Identifier)
-            .nth(0)
-    }
-    pub fn is_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .children()
+            .filter_map(InterfacePackageDeclarationPreambleSyntax::cast)
             .nth(0)
     }
     pub fn new_token(&self) -> Option<SyntaxToken> {
@@ -1631,6 +1745,44 @@ impl InterfacePackageDeclarationSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InterfacePackageDeclarationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for InterfacePackageDeclarationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::InterfacePackageDeclarationPreamble => {
+                Some(InterfacePackageDeclarationPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::InterfacePackageDeclarationPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InterfacePackageDeclarationPreambleSyntax {
+    pub fn package_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Package))
+            .nth(0)
+    }
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Identifier)
+            .nth(0)
+    }
+    pub fn is_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
 }
@@ -2190,6 +2342,42 @@ impl AstNode for PortClauseSyntax {
     }
 }
 impl PortClauseSyntax {
+    pub fn port_clause_preamble(&self) -> Option<PortClausePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(PortClausePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceListSyntax::cast)
+            .nth(0)
+    }
+    pub fn port_clause_epilogue(&self) -> Option<PortClauseEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(PortClauseEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PortClausePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for PortClausePreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PortClausePreamble => Some(PortClausePreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PortClausePreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PortClausePreambleSyntax {
     pub fn port_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -2202,12 +2390,24 @@ impl PortClauseSyntax {
             .filter(|token| token.kind() == LeftPar)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
-        self.0
-            .children()
-            .filter_map(InterfaceListSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct PortClauseEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for PortClauseEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PortClauseEpilogue => Some(PortClauseEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PortClauseEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PortClauseEpilogueSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -2804,5 +3004,26 @@ impl SharedVariableDeclarationSyntax {
             .tokens()
             .filter(|token| token.kind() == SemiColon)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct DeclarationsSyntax(pub(crate) SyntaxNode);
+impl AstNode for DeclarationsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Declarations => Some(DeclarationsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::Declarations)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl DeclarationsSyntax {
+    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
+        self.0.children().filter_map(DeclarationSyntax::cast)
     }
 }

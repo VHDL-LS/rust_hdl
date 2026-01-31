@@ -26,19 +26,17 @@ ComponentSpecification: !Sequence
   - node: Name
 
 CompoundConfigurationSpecification: !Sequence
-  - keyword: For
-  - node: ComponentSpecification
+  - node: ComponentConfigurationPreamble
+  - node: CompoundConfigurationSpecificationItems
+  - node: ComponentConfigurationEpilogue  
+
+CompoundConfigurationSpecificationItems: !Sequence
   - node: BindingIndication
-  - token: SemiColon
+    terminated: SemiColon
   - node: VerificationUnitBindingIndication
     trailing: SemiColon
     repeated: true
     optional: true
-  - keyword: End
-  - keyword: For
-    name: trailing_for
-  - token: SemiColon
-    name: trailing_semi_colon
 
 ConfigurationSpecification: !Choice
   - node: SimpleConfigurationSpecification
@@ -159,18 +157,12 @@ SignalList: !Choice
   - node: SignalListOthers
 
 SimpleConfigurationSpecification: !Sequence
-  - keyword: For
-  - node: ComponentSpecification
+  - node: ComponentConfigurationPreamble
   - node: BindingIndication
+    terminated: SemiColon
   - token: SemiColon
-  - keyword: End
+  - node: ComponentConfigurationEpilogue
     optional: true
-  - keyword: For
-    name: trailing_for
-    optional: true
-  - token: SemiColon
-    optional: true
-    name: trailing_semi_colon
 
 VerificationUnitBindingIndication: !Sequence
   - keyword: Use

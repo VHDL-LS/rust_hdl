@@ -9,8 +9,9 @@ FullTypeDeclaration
   ProtectedTypeBody
     Keyword(Protected)
     Keyword(Body)
-    Keyword(End)
-    Keyword(Protected)
-    Keyword(Body)
-    Identifier 'p_t'
+    ProtectedTypeDeclarationEpilogue
+      Keyword(End)
+      Keyword(Protected)
+      Keyword(Body)
+      Identifier 'p_t'
   SemiColon

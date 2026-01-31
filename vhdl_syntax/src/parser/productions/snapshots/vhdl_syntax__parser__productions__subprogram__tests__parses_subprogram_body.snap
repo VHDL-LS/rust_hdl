@@ -3,39 +3,41 @@ source: vhdl_syntax/src/parser/productions/subprogram.rs
 expression: "to_test_text(Parser::subprogram_body,\n\"\\\nfunction foo(arg : natural) return natural is\n  constant foo : natural := 0;\nbegin\n  return foo + arg;\nend function;\")"
 ---
 SubprogramBody
-  FunctionSpecification
-    Keyword(Function)
-    Identifier 'foo'
-    SubprogramHeader
-    ParameterList
-      ParenthesizedInterfaceList
-        LeftPar
-        InterfaceList
-          InterfaceConstantDeclaration
-            IdentifierList
-              Identifier 'arg'
-            Colon
-            SubtypeIndication
-              Name
-                Identifier 'natural'
-        RightPar
-    Keyword(Return)
-    Name
-      Identifier 'natural'
-  Keyword(Is)
-  ConstantDeclaration
-    Keyword(Constant)
-    IdentifierList
+  SubprogramBodyPreamble
+    FunctionSpecification
+      Keyword(Function)
       Identifier 'foo'
-    Colon
-    SubtypeIndication
+      ParameterList
+        ParenthesizedInterfaceList
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'arg'
+              Colon
+              SubtypeIndication
+                Name
+                  Identifier 'natural'
+          RightPar
+      Keyword(Return)
       Name
         Identifier 'natural'
-    ColonEq
-    LiteralExpression
-      AbstractLiteral '0'
-    SemiColon
-  Keyword(Begin)
+    Keyword(Is)
+  Declarations
+    ConstantDeclaration
+      Keyword(Constant)
+      IdentifierList
+        Identifier 'foo'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'natural'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '0'
+      SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
   SequentialStatements
     ReturnStatement
       Keyword(Return)
@@ -48,6 +50,7 @@ SubprogramBody
           Name
             Identifier 'arg'
       SemiColon
-  Keyword(End)
-  Keyword(Function)
-  SemiColon
+  SubprogramBodyEpilogue
+    Keyword(End)
+    Keyword(Function)
+    SemiColon

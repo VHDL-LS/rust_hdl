@@ -37,7 +37,7 @@ impl Parser {
                     self.package_declaration();
                 }
             }
-            Some(Keyword(Kw::Entity)) => self.entity(),
+            Some(Keyword(Kw::Entity)) => self.entity_declaration(),
             Some(Keyword(Kw::Configuration)) => self.configuration_declaration(),
             Some(Keyword(Kw::Context)) => self.context_declaration(),
             _ => self.expect_tokens_err([
@@ -53,10 +53,22 @@ impl Parser {
 
     pub fn context_declaration(&mut self) {
         self.start_node(NodeKind::ContextDeclaration);
+        self.context_declaration_preamble();
+        self.context_clause();
+        self.context_declaration_epilogue();
+        self.end_node();
+    }
+
+    pub fn context_declaration_preamble(&mut self) {
+        self.start_node(NodeKind::ContextDeclarationPreamble);
         self.expect_kw(Kw::Context);
         self.identifier();
         self.expect_kw(Kw::Is);
-        self.context_clause();
+        self.end_node();
+    }
+
+    pub fn context_declaration_epilogue(&mut self) {
+        self.start_node(NodeKind::ContextDeclarationEpilogue);
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Context));
         self.opt_identifier();

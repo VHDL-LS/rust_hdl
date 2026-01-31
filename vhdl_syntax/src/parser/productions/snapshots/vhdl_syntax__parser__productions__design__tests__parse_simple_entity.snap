@@ -4,24 +4,26 @@ expression: "to_test_text(Parser::design_file,\n\"\\\nentity my_ent is\nbegin\ne
 ---
 DesignFile
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'my_ent'
-      Keyword(Is)
-      EntityHeader
-      Keyword(Begin)
-      Keyword(End)
-      Identifier 'my_ent'
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'my_ent'
+        Keyword(Is)
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Identifier 'my_ent'
+        SemiColon
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'my_ent2'
-      Keyword(Is)
-      EntityHeader
-      Keyword(Begin)
-      Keyword(End)
-      Keyword(Entity)
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'my_ent2'
+        Keyword(Is)
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Keyword(Entity)
+        SemiColon

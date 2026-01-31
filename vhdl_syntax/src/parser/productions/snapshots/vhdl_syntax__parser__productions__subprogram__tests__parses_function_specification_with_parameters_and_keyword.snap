@@ -6,7 +6,6 @@ SubprogramDeclaration
   FunctionSpecification
     Keyword(Function)
     Identifier 'foo'
-    SubprogramHeader
     ParameterList
       Keyword(Parameter)
       ParenthesizedInterfaceList

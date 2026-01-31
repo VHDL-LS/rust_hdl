@@ -6,14 +6,28 @@ use crate::tokens::token_kind::TokenKind::*;
 impl Parser {
     pub fn architecture(&mut self) {
         self.start_node(ArchitectureBody);
+        self.architecture_preamble();
+        self.declarations();
+        self.start_node(DeclarationStatementSeparator);
+        self.expect_kw(Kw::Begin);
+        self.end_node();
+        self.concurrent_statements();
+        self.architecture_epilogue();
+        self.end_node();
+    }
+
+    pub fn architecture_preamble(&mut self) {
+        self.start_node(ArchitecturePreamble);
         self.expect_kw(Kw::Architecture);
         self.identifier();
         self.expect_kw(Kw::Of);
         self.name();
         self.expect_kw(Kw::Is);
-        self.declarative_part();
-        self.expect_kw(Kw::Begin);
-        self.concurrent_statements();
+        self.end_node();
+    }
+
+    pub fn architecture_epilogue(&mut self) {
+        self.start_node(ArchitectureEpilogue);
         self.opt_token(Keyword(Kw::End));
         self.opt_token(Keyword(Kw::Architecture));
         self.opt_identifier();

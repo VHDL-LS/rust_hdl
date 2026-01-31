@@ -11,6 +11,32 @@ use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 #[derive(Debug, Clone)]
+pub struct DeclarationStatementSeparatorSyntax(pub(crate) SyntaxNode);
+impl AstNode for DeclarationStatementSeparatorSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::DeclarationStatementSeparator => {
+                Some(DeclarationStatementSeparatorSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::DeclarationStatementSeparator)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl DeclarationStatementSeparatorSyntax {
+    pub fn begin_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Begin))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct SemiColonTerminatedGenericMapAspectSyntax(pub(crate) SyntaxNode);
 impl AstNode for SemiColonTerminatedGenericMapAspectSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -97,7 +123,9 @@ impl BlockHeaderSyntax {
             .filter_map(GenericClauseSyntax::cast)
             .nth(0)
     }
-    pub fn generic_map_aspect(&self) -> Option<SemiColonTerminatedGenericMapAspectSyntax> {
+    pub fn semi_colon_terminated_generic_map_aspect(
+        &self,
+    ) -> Option<SemiColonTerminatedGenericMapAspectSyntax> {
         self.0
             .children()
             .filter_map(SemiColonTerminatedGenericMapAspectSyntax::cast)
@@ -106,10 +134,63 @@ impl BlockHeaderSyntax {
     pub fn port_clause(&self) -> Option<PortClauseSyntax> {
         self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
     }
-    pub fn port_map_aspect(&self) -> Option<SemiColonTerminatedPortMapAspectSyntax> {
+    pub fn semi_colon_terminated_port_map_aspect(
+        &self,
+    ) -> Option<SemiColonTerminatedPortMapAspectSyntax> {
         self.0
             .children()
             .filter_map(SemiColonTerminatedPortMapAspectSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct BlockStatementSyntax(pub(crate) SyntaxNode);
+impl AstNode for BlockStatementSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::BlockStatement => Some(BlockStatementSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockStatement)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl BlockStatementSyntax {
+    pub fn block_preamble(&self) -> Option<BlockPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(BlockPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn block_header(&self) -> Option<BlockHeaderSyntax> {
+        self.0.children().filter_map(BlockHeaderSyntax::cast).nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationStatementSeparatorSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn block_epilogue(&self) -> Option<BlockEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(BlockEpilogueSyntax::cast)
             .nth(0)
     }
 }
@@ -147,22 +228,22 @@ impl ParenthesizedExpressionSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct BlockStatementSyntax(pub(crate) SyntaxNode);
-impl AstNode for BlockStatementSyntax {
+pub struct BlockPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for BlockPreambleSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::BlockStatement => Some(BlockStatementSyntax(node)),
+            NodeKind::BlockPreamble => Some(BlockPreambleSyntax(node)),
             _ => None,
         }
     }
     fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::BlockStatement)
+        matches!(node.kind(), NodeKind::BlockPreamble)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl BlockStatementSyntax {
+impl BlockPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -184,38 +265,37 @@ impl BlockStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn block_header(&self) -> Option<BlockHeaderSyntax> {
-        self.0.children().filter_map(BlockHeaderSyntax::cast).nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct BlockEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for BlockEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::BlockEpilogue => Some(BlockEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::BlockEpilogue)
     }
-    pub fn begin_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Begin))
-            .nth(0)
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
     }
-    pub fn concurrent_statements(
-        &self,
-    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementSyntax::cast)
-    }
+}
+impl BlockEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_block_token(&self) -> Option<SyntaxToken> {
+    pub fn block_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Block))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -287,6 +367,45 @@ impl AstNode for CaseGenerateStatementSyntax {
     }
 }
 impl CaseGenerateStatementSyntax {
+    pub fn case_generate_statement_preamble(&self) -> Option<CaseGenerateStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseGenerateStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn case_generate_alternatives(
+        &self,
+    ) -> impl Iterator<Item = CaseGenerateAlternativeSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(CaseGenerateAlternativeSyntax::cast)
+    }
+    pub fn case_generate_statement_epilogue(&self) -> Option<CaseGenerateStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseGenerateStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct CaseGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseGenerateStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CaseGenerateStatementPreamble => {
+                Some(CaseGenerateStatementPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseGenerateStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseGenerateStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -305,26 +424,39 @@ impl CaseGenerateStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Generate))
             .nth(0)
     }
-    pub fn case_generate_alternatives(
-        &self,
-    ) -> impl Iterator<Item = CaseGenerateAlternativeSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(CaseGenerateAlternativeSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct CaseGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseGenerateStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CaseGenerateStatementEpilogue => {
+                Some(CaseGenerateStatementEpilogueSyntax(node))
+            }
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseGenerateStatementEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseGenerateStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_generate_token(&self) -> Option<SyntaxToken> {
+    pub fn generate_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Generate))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_generate_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -365,6 +497,36 @@ impl ComponentInstantiationStatementSyntax {
             .filter_map(InstantiatedUnitSyntax::cast)
             .nth(0)
     }
+    pub fn component_instantiation_items(&self) -> Option<ComponentInstantiationItemsSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentInstantiationItemsSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ComponentInstantiationItemsSyntax(pub(crate) SyntaxNode);
+impl AstNode for ComponentInstantiationItemsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ComponentInstantiationItems => Some(ComponentInstantiationItemsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ComponentInstantiationItems)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ComponentInstantiationItemsSyntax {
     pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
         self.0
             .children()
@@ -375,12 +537,6 @@ impl ComponentInstantiationStatementSyntax {
         self.0
             .children()
             .filter_map(PortMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
             .nth(0)
     }
 }
@@ -597,32 +753,13 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
     }
 }
 impl ConcurrentSelectedSignalAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn postponed_token(&self) -> Option<SyntaxToken> {
+    pub fn concurrent_selected_signal_assignment_preamble(
+        &self,
+    ) -> Option<ConcurrentSelectedSignalAssignmentPreambleSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Postponed))
+            .children()
+            .filter_map(ConcurrentSelectedSignalAssignmentPreambleSyntax::cast)
             .nth(0)
-    }
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::With))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Select))
-            .nth(0)
-    }
-    pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -653,6 +790,56 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
             .tokens()
             .filter(|token| token.kind() == SemiColon)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ConcurrentSelectedSignalAssignmentPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ConcurrentSelectedSignalAssignmentPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ConcurrentSelectedSignalAssignmentPreamble => {
+                Some(ConcurrentSelectedSignalAssignmentPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::ConcurrentSelectedSignalAssignmentPreamble
+        )
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ConcurrentSelectedSignalAssignmentPreambleSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn postponed_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Postponed))
+            .nth(0)
+    }
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::With))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn select_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Select))
+            .nth(0)
+    }
+    pub fn que_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -778,6 +965,31 @@ impl AstNode for ConcurrentStatementSyntax {
 }
 
 #[derive(Debug, Clone)]
+pub struct ConcurrentStatementsSyntax(pub(crate) SyntaxNode);
+impl AstNode for ConcurrentStatementsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ConcurrentStatements => Some(ConcurrentStatementsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConcurrentStatements)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ConcurrentStatementsSyntax {
+    pub fn concurrent_statements(
+        &self,
+    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementSyntax::cast)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ForGenerateStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ForGenerateStatementSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -794,6 +1006,44 @@ impl AstNode for ForGenerateStatementSyntax {
     }
 }
 impl ForGenerateStatementSyntax {
+    pub fn for_generate_statement_preamble(&self) -> Option<ForGenerateStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ForGenerateStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateStatementBodySyntax::cast)
+            .nth(0)
+    }
+    pub fn for_generate_statement_epilogue(&self) -> Option<ForGenerateStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ForGenerateStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ForGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ForGenerateStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ForGenerateStatementPreamble => {
+                Some(ForGenerateStatementPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ForGenerateStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ForGenerateStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -815,25 +1065,39 @@ impl ForGenerateStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Generate))
             .nth(0)
     }
-    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
-        self.0
-            .children()
-            .filter_map(GenerateStatementBodySyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct ForGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ForGenerateStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ForGenerateStatementEpilogue => {
+                Some(ForGenerateStatementEpilogueSyntax(node))
+            }
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ForGenerateStatementEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ForGenerateStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_generate_token_token(&self) -> Option<SyntaxToken> {
+    pub fn generate_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Generate))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_generate_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -863,29 +1127,57 @@ impl AstNode for GenerateStatementBodySyntax {
     }
 }
 impl GenerateStatementBodySyntax {
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
-    }
-    pub fn begin_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Begin))
-            .nth(0)
-    }
-    pub fn concurrent_statements(
-        &self,
-    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementSyntax::cast)
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
     }
+    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationStatementSeparatorSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_statement_body_epilogue(&self) -> Option<GenerateStatementBodyEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateStatementBodyEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GenerateStatementBodyEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenerateStatementBodyEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::GenerateStatementBodyEpilogue => {
+                Some(GenerateStatementBodyEpilogueSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::GenerateStatementBodyEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenerateStatementBodyEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn alternative_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -996,6 +1288,51 @@ impl AstNode for IfGenerateStatementSyntax {
     }
 }
 impl IfGenerateStatementSyntax {
+    pub fn if_generate_statement_preamble(&self) -> Option<IfGenerateStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(IfGenerateStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateStatementBodySyntax::cast)
+            .nth(0)
+    }
+    pub fn if_generate_elsifs(&self) -> impl Iterator<Item = IfGenerateElsifSyntax> + use<'_> {
+        self.0.children().filter_map(IfGenerateElsifSyntax::cast)
+    }
+    pub fn if_generate_else(&self) -> Option<IfGenerateElseSyntax> {
+        self.0
+            .children()
+            .filter_map(IfGenerateElseSyntax::cast)
+            .nth(0)
+    }
+    pub fn if_generate_statement_epilogue(&self) -> Option<IfGenerateStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(IfGenerateStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct IfGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for IfGenerateStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::IfGenerateStatementPreamble => Some(IfGenerateStatementPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfGenerateStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl IfGenerateStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -1017,34 +1354,37 @@ impl IfGenerateStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Generate))
             .nth(0)
     }
-    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
-        self.0
-            .children()
-            .filter_map(GenerateStatementBodySyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct IfGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for IfGenerateStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::IfGenerateStatementEpilogue => Some(IfGenerateStatementEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn if_generate_elsifs(&self) -> impl Iterator<Item = IfGenerateElsifSyntax> + use<'_> {
-        self.0.children().filter_map(IfGenerateElsifSyntax::cast)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfGenerateStatementEpilogue)
     }
-    pub fn if_generate_else(&self) -> Option<IfGenerateElseSyntax> {
-        self.0
-            .children()
-            .filter_map(IfGenerateElseSyntax::cast)
-            .nth(0)
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
     }
+}
+impl IfGenerateStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_generate_token(&self) -> Option<SyntaxToken> {
+    pub fn generate_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Generate))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_generate_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -1276,6 +1616,54 @@ impl AstNode for ProcessSensitivityListSyntax {
 }
 
 #[derive(Debug, Clone)]
+pub struct ProcessStatementSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProcessStatementSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProcessStatement => Some(ProcessStatementSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProcessStatement)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProcessStatementSyntax {
+    pub fn process_statement_preamble(&self) -> Option<ProcessStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ProcessStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationStatementSeparatorSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn process_statement_epilogue(&self) -> Option<ProcessStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ProcessStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ParenthesizedProcessSensitivityListSyntax(pub(crate) SyntaxNode);
 impl AstNode for ParenthesizedProcessSensitivityListSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -1314,22 +1702,22 @@ impl ParenthesizedProcessSensitivityListSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ProcessStatementSyntax(pub(crate) SyntaxNode);
-impl AstNode for ProcessStatementSyntax {
+pub struct ProcessStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProcessStatementPreambleSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::ProcessStatement => Some(ProcessStatementSyntax(node)),
+            NodeKind::ProcessStatementPreamble => Some(ProcessStatementPreambleSyntax(node)),
             _ => None,
         }
     }
     fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProcessStatement)
+        matches!(node.kind(), NodeKind::ProcessStatementPreamble)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ProcessStatementSyntax {
+impl ProcessStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -1359,41 +1747,43 @@ impl ProcessStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct ProcessStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProcessStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProcessStatementEpilogue => Some(ProcessStatementEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn begin_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Begin))
-            .nth(0)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProcessStatementEpilogue)
     }
-    pub fn concurrent_statements(
-        &self,
-    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementSyntax::cast)
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
     }
+}
+impl ProcessStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_postponed_token(&self) -> Option<SyntaxToken> {
+    pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Postponed))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_process_token(&self) -> Option<SyntaxToken> {
+    pub fn process_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Process))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_process_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)

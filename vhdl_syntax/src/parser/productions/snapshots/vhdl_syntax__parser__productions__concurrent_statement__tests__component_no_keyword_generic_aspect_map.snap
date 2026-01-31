@@ -15,17 +15,18 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-  GenericMapAspect
-    Keyword(Generic)
-    Keyword(Map)
-    LeftPar
-    AssociationList
-      AssociationElement
-        FormalPart
-          Name
-            Identifier 'const'
-        RightArrow
-        ActualPart
-          AbstractLiteral '1'
-    RightPar
+  ComponentInstantiationItems
+    GenericMapAspect
+      Keyword(Generic)
+      Keyword(Map)
+      LeftPar
+      AssociationList
+        AssociationElement
+          FormalPart
+            Name
+              Identifier 'const'
+          RightArrow
+          ActualPart
+            AbstractLiteral '1'
+      RightPar
   SemiColon

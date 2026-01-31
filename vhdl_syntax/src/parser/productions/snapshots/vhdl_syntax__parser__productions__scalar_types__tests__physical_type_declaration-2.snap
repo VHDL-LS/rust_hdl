@@ -15,9 +15,11 @@ FullTypeDeclaration
       LiteralExpression
         AbstractLiteral '10'
     Keyword(Units)
-    PrimaryUnitDeclaration
-      Identifier 'm'
-      SemiColon
-    Keyword(End)
-    Keyword(Units)
+    UnitDeclarations
+      PrimaryUnitDeclaration
+        Identifier 'm'
+        SemiColon
+    PhysicalTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Units)
   SemiColon

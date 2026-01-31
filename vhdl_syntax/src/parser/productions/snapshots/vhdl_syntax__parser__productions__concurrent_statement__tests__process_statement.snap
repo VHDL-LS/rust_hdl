@@ -3,9 +3,11 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nprocess\nbegin\nend process;\",)"
 ---
 ProcessStatement
-  Keyword(Process)
-  Keyword(Begin)
-  SequentialStatements
-  Keyword(End)
-  Keyword(Process)
-  SemiColon
+  ProcessStatementPreamble
+    Keyword(Process)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ProcessStatementEpilogue
+    Keyword(End)
+    Keyword(Process)
+    SemiColon

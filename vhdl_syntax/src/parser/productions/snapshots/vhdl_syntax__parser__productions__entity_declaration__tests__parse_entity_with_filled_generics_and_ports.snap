@@ -1,15 +1,17 @@
 ---
 source: vhdl_syntax/src/parser/productions/entity_declaration.rs
-expression: "to_test_text(Parser::entity,\n\"\\\nentity my_ent is\n    generic(constant a: in bit);\n    port(\n        b, c : out std_logic;\n        signal d : linkage boolean\n    );\nbegin\nend my_ent;\n\",)"
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity my_ent is\n    generic(constant a: in bit);\n    port(\n        b, c : out std_logic;\n        signal d : linkage boolean\n    );\nbegin\nend my_ent;\n\",)"
 ---
 EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'my_ent'
+    Keyword(Is)
   EntityHeader
     GenericClause
-      Keyword(Generic)
-      LeftPar
+      GenericClausePreamble
+        Keyword(Generic)
+        LeftPar
       InterfaceList
         InterfaceConstantDeclaration
           Keyword(Constant)
@@ -20,11 +22,13 @@ EntityDeclaration
           SubtypeIndication
             Name
               Identifier 'bit'
-      RightPar
-      SemiColon
+      GenericClauseEpilogue
+        RightPar
+        SemiColon
     PortClause
-      Keyword(Port)
-      LeftPar
+      PortClausePreamble
+        Keyword(Port)
+        LeftPar
       InterfaceList
         InterfaceConstantDeclaration
           IdentifierList
@@ -46,9 +50,12 @@ EntityDeclaration
           SubtypeIndication
             Name
               Identifier 'boolean'
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
+      PortClauseEpilogue
+        RightPar
+        SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Identifier 'my_ent'
+    SemiColon

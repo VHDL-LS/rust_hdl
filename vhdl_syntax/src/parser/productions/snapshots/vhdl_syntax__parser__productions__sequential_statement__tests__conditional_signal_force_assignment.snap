@@ -12,17 +12,19 @@ ConditionalForceAssignment
         RightPar
   LTE
   Keyword(Force)
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'cond'
+  ConditionalWaveforms
+    ConditionalWaveform
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+      Keyword(When)
+      NameExpression
+        Name
+          Identifier 'cond'
   SemiColon

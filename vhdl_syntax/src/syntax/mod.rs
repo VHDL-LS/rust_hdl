@@ -10,10 +10,10 @@ mod generated;
 pub(crate) mod green;
 pub mod node;
 pub mod rewrite;
-mod tests;
 pub mod visitor;
 
-use crate::syntax::node::SyntaxNode;
+use crate::syntax::node::{SyntaxElement, SyntaxNode};
+use crate::syntax::rewrite::RewriteAction;
 use crate::syntax::visitor::Preorder;
 pub use generated::*;
 
@@ -33,5 +33,10 @@ where
     /// Walk the tree according to the textual order.
     fn walk(&self) -> Preorder {
         Preorder::new(self.raw())
+    }
+
+    fn rewrite(&self, rewrite: impl Fn(&SyntaxElement) -> RewriteAction) -> Self {
+        let result = self.raw().rewrite(rewrite);
+        Self::cast(result).expect("Invariant: rewrite cannot change type of self")
     }
 }

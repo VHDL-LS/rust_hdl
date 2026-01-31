@@ -1,20 +1,29 @@
 # § 11: Concurrent Statements
 
+DeclarationStatementSeparator: !Sequence
+  - keyword: Begin
+
 BlockHeader: !Sequence
   - node: GenericClause
     optional: true
   - node: GenericMapAspect
     optional: true
     terminated: SemiColon
-    name: generic_map_aspect
   - node: PortClause
     optional: true
   - node: PortMapAspect
     optional: true
     terminated: SemiColon
-    name: port_map_aspect
 
 BlockStatement: !Sequence
+  - node: BlockPreamble
+  - node: BlockHeader
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: BlockEpilogue
+
+BlockPreamble: !Sequence
   - node: Label
   - keyword: Block
   - node: Expression
@@ -23,17 +32,11 @@ BlockStatement: !Sequence
     name: condition
   - keyword: Is
     optional: true
-  - node: BlockHeader
-  - node: Declaration
-    repeated: true
-  - keyword: Begin
-  - node: ConcurrentStatement
-    repeated: true
+
+BlockEpilogue: !Sequence
   - keyword: End
   - keyword: Block
-    name: trailing_block
   - token: Identifier
-    name: trailing_label
     optional: true
   - token: SemiColon
 
@@ -46,28 +49,35 @@ CaseGenerateAlternative: !Sequence
   - node: GenerateStatementBody
 
 CaseGenerateStatement: !Sequence
+  - node: CaseGenerateStatementPreamble
+  - node: CaseGenerateAlternative
+    repeated: true
+  - node: CaseGenerateStatementEpilogue
+
+CaseGenerateStatementPreamble: !Sequence
   - node: Label
   - keyword: Case
   - node: Expression
   - keyword: Generate
-  - node: CaseGenerateAlternative
-    repeated: true
+
+CaseGenerateStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Generate
-    name: trailing_generate
   - token: Identifier
-    name: trailing_generate_label
     optional: true
   - token: SemiColon
 
 ComponentInstantiationStatement: !Sequence
   - node: Label
   - node: InstantiatedUnit
+  - node: ComponentInstantiationItems
+  - token: SemiColon
+
+ComponentInstantiationItems: !Sequence
   - node: GenericMapAspect
     optional: true
   - node: PortMapAspect
     optional: true
-  - token: SemiColon
 
 ConcurrentProcedureCallOrComponentInstantiationStatement: !Sequence
   - node: Label
@@ -114,6 +124,17 @@ ConcurrentConditionalSignalAssignment: !Sequence
   - token: SemiColon
 
 ConcurrentSelectedSignalAssignment: !Sequence
+  - node: ConcurrentSelectedSignalAssignmentPreamble
+  - node: Target
+  - token: LTE
+  - keyword: Guarded
+    optional: true
+  - node: DelayMechanism
+    optional: true
+  - node: SelectedWaveforms
+  - token: SemiColon
+
+ConcurrentSelectedSignalAssignmentPreamble: !Sequence
   - node: Label
     optional: true
   - keyword: Postponed
@@ -123,14 +144,6 @@ ConcurrentSelectedSignalAssignment: !Sequence
   - keyword: Select
   - token: Que
     optional: true
-  - node: Target
-  - token: LTE
-  - keyword: Guarded
-    optional: true
-  - node: DelayMechanism
-    optional: true
-  - node: SelectedWaveforms
-  - token: SemiColon
 
 ConcurrentStatement: !Choice
   - node: BlockStatement
@@ -146,36 +159,42 @@ ConcurrentStatement: !Choice
   - node: CaseGenerateStatement
   - node: PslDirective
 
+ConcurrentStatements: !Sequence
+  - node: ConcurrentStatement
+    repeated: true
+
 ForGenerateStatement: !Sequence
+  - node: ForGenerateStatementPreamble
+  - node: GenerateStatementBody
+  - node: ForGenerateStatementEpilogue
+
+ForGenerateStatementPreamble: !Sequence
   - node: Label
     optional: true
   - keyword: For
   - node: ParameterSpecification
   - keyword: Generate
-  - node: GenerateStatementBody
+
+ForGenerateStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Generate
-    name: trailing_generate_token
   - token: Identifier
-    name: trailing_generate_label
     optional: true
   - token: SemiColon
-
 
 GenerateStatementBody: !Sequence
-  - node: Declaration
-    repeated: true
-  - keyword: Begin
+  - node: Declarations
+  - node: DeclarationStatementSeparator
     optional: true
-  - node: ConcurrentStatement
-    repeated: true
+  - node: ConcurrentStatements
+  - node: GenerateStatementBodyEpilogue
+    optional: true
+
+GenerateStatementBodyEpilogue: !Sequence
   - keyword: End
-    optional: true
   - token: Identifier
-    name: alternative_label
     optional: true
   - token: SemiColon
-    optional: true
 
 IfGenerateElsif: !Sequence
   - keyword: Elsif
@@ -193,6 +212,15 @@ IfGenerateElse: !Sequence
   - node: GenerateStatementBody
 
 IfGenerateStatement: !Sequence
+  - node: IfGenerateStatementPreamble
+  - node: GenerateStatementBody
+  - node: IfGenerateElsif
+    repeated: true
+  - node: IfGenerateElse
+    optional: true
+  - node: IfGenerateStatementEpilogue
+
+IfGenerateStatementPreamble: !Sequence
   - node: Label
     optional: true
   - keyword: If
@@ -202,16 +230,11 @@ IfGenerateStatement: !Sequence
   - node: Expression
     name: condition
   - keyword: Generate
-  - node: GenerateStatementBody
-  - node: IfGenerateElsif
-    repeated: true
-  - node: IfGenerateElse
-    optional: true
+
+IfGenerateStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Generate
-    name: trailing_generate
   - token: Identifier
-    name: trailing_generate_label
     optional: true
   - token: SemiColon
 
@@ -253,6 +276,13 @@ ProcessSensitivityList: !Choice
   - node: SensitivityList
 
 ProcessStatement: !Sequence
+  - node: ProcessStatementPreamble
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: ProcessStatementEpilogue
+
+ProcessStatementPreamble: !Sequence
   - node: Label
   - keyword: Postponed
     optional: true
@@ -262,18 +292,12 @@ ProcessStatement: !Sequence
     optional: true
   - keyword: Is
     optional: true
-  - node: Declaration
-    repeated: true
-  - keyword: Begin
-  - node: ConcurrentStatement
-    repeated: true
+
+ProcessStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Postponed
     optional: true
-    name: trailing_postponed
   - keyword: Process
-    name: trailing_process
   - token: Identifier
-    name: trailing_process_label
     optional: true
   - token: SemiColon

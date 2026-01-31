@@ -3,14 +3,16 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : block is\nbegin\nend block name;\",)"
 ---
 BlockStatement
-  Label
+  BlockPreamble
+    Label
+      Identifier 'name'
+      Colon
+    Keyword(Block)
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  BlockEpilogue
+    Keyword(End)
+    Keyword(Block)
     Identifier 'name'
-    Colon
-  Keyword(Block)
-  Keyword(Is)
-  BlockHeader
-  Keyword(Begin)
-  Keyword(End)
-  Keyword(Block)
-  Identifier 'name'
-  SemiColon
+    SemiColon

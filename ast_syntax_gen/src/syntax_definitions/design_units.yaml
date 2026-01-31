@@ -5,17 +5,21 @@ ContextClause: !Sequence
     repeated: true
 
 ContextDeclaration: !Sequence
+  - node: ContextDeclarationPreamble
+  - node: ContextClause
+  - node: ContextDeclarationEpilogue
+
+ContextDeclarationPreamble: !Sequence
   - keyword: Context
   - token: Identifier
     name: name
   - keyword: Is
-  - node: ContextClause
+
+ContextDeclarationEpilogue: !Sequence
   - keyword: End
   - keyword: Context
     optional: true
-    name: trailing_context
   - token: Identifier
-    name: trailing_name
     optional: true
   - token: SemiColon
 
@@ -54,7 +58,6 @@ PrimaryUnitPackageDeclaration: !Sequence
 
 PackageInstantiationDeclarationPrimaryUnit: !Sequence
   - node: PackageInstantiation
-
 
 PrimaryUnit: !Choice
   - node: EntityDeclaration

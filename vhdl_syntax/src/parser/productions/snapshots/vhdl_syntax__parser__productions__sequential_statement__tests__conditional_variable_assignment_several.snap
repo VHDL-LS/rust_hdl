@@ -11,31 +11,33 @@ ConditionalVariableAssignment
         AbstractLiteral '0'
         RightPar
   ColonEq
-  NameExpression
-    Name
-      Identifier 'bar'
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
-        RightPar
-  Keyword(When)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  ConditionalElseWhenExpression
-    Keyword(Else)
-    NameExpression
-      Name
-        Identifier 'expr2'
-    Keyword(When)
-    NameExpression
-      Name
-        Identifier 'cond2'
+  ConditionalExpressions
+    ConditionalExpression
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+      Keyword(When)
+      BinaryExpression
+        NameExpression
+          Name
+            Identifier 'cond'
+        EQ
+        NameExpression
+          Name
+            Identifier 'true'
+    ConditionalElseWhenExpression
+      Keyword(Else)
+      NameExpression
+        Name
+          Identifier 'expr2'
+      Keyword(When)
+      NameExpression
+        Name
+          Identifier 'cond2'
   SemiColon

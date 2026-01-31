@@ -158,18 +158,46 @@ impl AstNode for CompoundConfigurationSpecificationSyntax {
     }
 }
 impl CompoundConfigurationSpecificationSyntax {
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
-            .nth(0)
-    }
-    pub fn component_specification(&self) -> Option<ComponentSpecificationSyntax> {
+    pub fn component_configuration_preamble(&self) -> Option<ComponentConfigurationPreambleSyntax> {
         self.0
             .children()
-            .filter_map(ComponentSpecificationSyntax::cast)
+            .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
+    pub fn compound_configuration_specification_items(
+        &self,
+    ) -> Option<CompoundConfigurationSpecificationItemsSyntax> {
+        self.0
+            .children()
+            .filter_map(CompoundConfigurationSpecificationItemsSyntax::cast)
+            .nth(0)
+    }
+    pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentConfigurationEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SemiColonTerminatedBindingIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for SemiColonTerminatedBindingIndicationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SemiColonTerminatedBindingIndication => {
+                Some(SemiColonTerminatedBindingIndicationSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SemiColonTerminatedBindingIndication)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SemiColonTerminatedBindingIndicationSyntax {
     pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
         self.0
             .children()
@@ -182,30 +210,43 @@ impl CompoundConfigurationSpecificationSyntax {
             .filter(|token| token.kind() == SemiColon)
             .nth(0)
     }
+}
+#[derive(Debug, Clone)]
+pub struct CompoundConfigurationSpecificationItemsSyntax(pub(crate) SyntaxNode);
+impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CompoundConfigurationSpecificationItems => {
+                Some(CompoundConfigurationSpecificationItemsSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::CompoundConfigurationSpecificationItems
+        )
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CompoundConfigurationSpecificationItemsSyntax {
+    pub fn semi_colon_terminated_binding_indication(
+        &self,
+    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
+            .nth(0)
+    }
     pub fn verification_unit_binding_indications(
         &self,
     ) -> impl Iterator<Item = VerificationUnitBindingIndicationSyntax> + use<'_> {
         self.0
             .children()
             .filter_map(VerificationUnitBindingIndicationSyntax::cast)
-    }
-    pub fn end_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
-            .nth(0)
-    }
-    pub fn trailing_for_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
-            .nth(1)
-    }
-    pub fn trailing_semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(1)
     }
 }
 #[derive(Debug, Clone)]
@@ -938,22 +979,18 @@ impl AstNode for SimpleConfigurationSpecificationSyntax {
     }
 }
 impl SimpleConfigurationSpecificationSyntax {
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
-            .nth(0)
-    }
-    pub fn component_specification(&self) -> Option<ComponentSpecificationSyntax> {
+    pub fn component_configuration_preamble(&self) -> Option<ComponentConfigurationPreambleSyntax> {
         self.0
             .children()
-            .filter_map(ComponentSpecificationSyntax::cast)
+            .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
+    pub fn semi_colon_terminated_binding_indication(
+        &self,
+    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
         self.0
             .children()
-            .filter_map(BindingIndicationSyntax::cast)
+            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
@@ -962,23 +999,11 @@ impl SimpleConfigurationSpecificationSyntax {
             .filter(|token| token.kind() == SemiColon)
             .nth(0)
     }
-    pub fn end_token(&self) -> Option<SyntaxToken> {
+    pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .children()
+            .filter_map(ComponentConfigurationEpilogueSyntax::cast)
             .nth(0)
-    }
-    pub fn trailing_for_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
-            .nth(1)
-    }
-    pub fn trailing_semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(1)
     }
 }
 #[derive(Debug, Clone)]

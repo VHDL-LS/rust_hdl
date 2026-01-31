@@ -10,16 +10,29 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn entity(&mut self) {
+    pub fn entity_declaration(&mut self) {
         self.start_node(EntityDeclaration);
+        self.entity_declaration_preamble();
+        self.entity_header();
+        self.opt_declarative_part();
+        if self.next_is(Keyword(Kw::Begin)) {
+            self.skip_into_node(DeclarationStatementSeparator);
+            self.concurrent_statements();
+        }
+        self.entity_declaration_epilogue();
+        self.end_node();
+    }
+
+    pub fn entity_declaration_preamble(&mut self) {
+        self.start_node(EntityDeclarationPreamble);
         self.expect_token(Keyword(Kw::Entity));
         self.identifier();
         self.expect_token(Keyword(Kw::Is));
-        self.entity_header();
-        self.opt_declarative_part();
-        if self.opt_token(Keyword(Kw::Begin)) {
-            self.concurrent_statements();
-        }
+        self.end_node();
+    }
+
+    pub fn entity_declaration_epilogue(&mut self) {
+        self.start_node(EntityDeclarationEpilogue);
         self.expect_token(Keyword(Kw::End));
         self.opt_token(Keyword(Kw::Entity));
         self.opt_identifier();
@@ -43,14 +56,14 @@ mod tests {
     #[test]
     fn parse_entity_declaration() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity myent is
 end entity;",
         ));
 
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity myent is
 end entity myent;",
@@ -60,7 +73,7 @@ end entity myent;",
     #[test]
     fn parse_simple_entity() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity my_ent is
 begin
@@ -72,7 +85,7 @@ end my_ent;
     #[test]
     fn parse_entity_with_generics() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity my_ent is
     generic();
@@ -85,7 +98,7 @@ end my_ent;
     #[test]
     fn parse_entity_with_ports() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity my_ent is
     port();
@@ -98,7 +111,7 @@ end my_ent;
     #[test]
     fn parse_entity_with_generics_and_ports() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity my_ent is
     generic();
@@ -112,7 +125,7 @@ end my_ent;
     #[test]
     fn parse_entity_with_filled_generics_and_ports() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity my_ent is
     generic(constant a: in bit);
@@ -129,7 +142,7 @@ end my_ent;
     #[test]
     fn parse_entity_with_declarations() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity myent is
   constant foo : natural := 0;
@@ -140,7 +153,7 @@ end entity;",
     #[test]
     fn parse_entity_with_statements() {
         insta::assert_snapshot!(to_test_text(
-            Parser::entity,
+            Parser::entity_declaration,
             "\
 entity myent is
 begin

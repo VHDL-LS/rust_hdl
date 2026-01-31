@@ -79,13 +79,18 @@ PhysicalLiteral: !Sequence
 
 PhysicalTypeDefinition: !Sequence
   - node: RangeConstraint
+  - node: UnitDeclarations
+  - node: PhysicalTypeDefinitionEpilogue
+
+UnitDeclarations: !Sequence
   - keyword: Units
   - node: PrimaryUnitDeclaration
   - node: SecondaryUnitDeclaration
     repeated: true
+
+PhysicalTypeDefinitionEpilogue: !Sequence
   - keyword: End
   - keyword: Units
-    name: trailing_units
   - token: Identifier
     name: name
 
@@ -94,25 +99,32 @@ PrimaryUnitDeclaration: !Sequence
   - token: SemiColon
 
 ProtectedTypeBody: !Sequence
+  - node: ProtectedTypeBodyPreamble
+  - node: Declarations
+  - node: ProtectedTypeBodyEpilogue
+
+ProtectedTypeBodyPreamble: !Sequence
   - keyword: Protected
   - keyword: Body
-  - node: Declaration
-    repeated: true
+
+ProtectedTypeBodyEpilogue: !Sequence
   - keyword: End
   - keyword: Protected
-    name: trailing_protected
   - keyword: Body
-    name: trailing_body
   - token: Identifier
     name: name
 
 ProtectedTypeDeclaration: !Sequence
+  - node: ProtectedTypeDeclarationPreamble
+  - node: Declarations
+  - node: ProtectedTypeDeclarationEpilogue
+
+ProtectedTypeDeclarationPreamble: !Sequence
   - keyword: Protected
-  - node: Declaration
-    repeated: true
+
+ProtectedTypeDeclarationEpilogue: !Sequence
   - keyword: End
   - keyword: Protected
-    name: trailing_protected
   - token: Identifier
     name: name
 
@@ -151,14 +163,21 @@ RecordElementConstraint: !Sequence
   - node: Constraint
 
 RecordTypeDefinition: !Sequence
-  - keyword: Record
+  - node: RecordTypeDefinitionPreamble
+  - node: RecordElementDeclarations
+  - node: RecordTypeDefinitionEpilogue
+
+RecordElementDeclarations: !Sequence
   - node: ElementDeclaration
     repeated: true
+
+RecordTypeDefinitionPreamble: !Sequence
+  - keyword: Record
+
+RecordTypeDefinitionEpilogue: !Sequence
   - keyword: End
   - keyword: Record
-    name: trailing_record
   - token: Identifier
-    name: trailing_name
 
 NumericTypeDefinition: !Sequence
   - node: RangeConstraint

@@ -50,8 +50,7 @@ pub fn parse(
 ) -> (DesignFileSyntax, Vec<diagnostics::ParserDiagnostic>) {
     let mut parser: Parser = Parser::new(token_stream.into());
     parser.design_file();
-    let (green, diagnostics) = parser.end();
-    let syntax_node = SyntaxNode::new_root(green);
+    let (syntax_node, diagnostics) = parser.into_root();
     debug_assert!(syntax_node.kind() == NodeKind::DesignFile);
     (DesignFileSyntax(syntax_node), diagnostics)
 }

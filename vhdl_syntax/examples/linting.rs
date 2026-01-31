@@ -29,8 +29,14 @@ end entity bar;
         WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
         WalkEvent::Leave(_) => None,
     }) {
-        if let Some(first_ident) = entity_declaration.name_token() {
-            if let Some(second_ident) = entity_declaration.trailing_name_token() {
+        if let Some(first_ident) = entity_declaration
+            .entity_declaration_preamble()
+            .and_then(|preamble| preamble.name_token())
+        {
+            if let Some(second_ident) = entity_declaration
+                .entity_declaration_epilogue()
+                .and_then(|epilogue| epilogue.identifier_token())
+            {
                 // print, if the identifiers mismatch.
                 // Note that the text position is the number of chars.
                 if first_ident.text() != second_ident.text() {

@@ -3,26 +3,28 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: if alt1: cond = true generate\nend alt1;\nelsif alt2: cond2 = true generate\nend alt2;\nelse alt3: generate\nend alt3;\nend generate;\",)"
 ---
 IfGenerateStatement
-  Label
-    Identifier 'gen'
-    Colon
-  Keyword(If)
-  Label
-    Identifier 'alt1'
-    Colon
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'cond'
-    EQ
-    NameExpression
-      Name
-        Identifier 'true'
-  Keyword(Generate)
+  IfGenerateStatementPreamble
+    Label
+      Identifier 'gen'
+      Colon
+    Keyword(If)
+    Label
+      Identifier 'alt1'
+      Colon
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Generate)
   GenerateStatementBody
-    Keyword(End)
-    Identifier 'alt1'
-    SemiColon
+    GenerateStatementBodyEpilogue
+      Keyword(End)
+      Identifier 'alt1'
+      SemiColon
   IfGenerateElsif
     Keyword(Elsif)
     Label
@@ -38,9 +40,10 @@ IfGenerateStatement
           Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt2'
-      SemiColon
+      GenerateStatementBodyEpilogue
+        Keyword(End)
+        Identifier 'alt2'
+        SemiColon
   IfGenerateElse
     Keyword(Else)
     Label
@@ -48,9 +51,11 @@ IfGenerateStatement
       Colon
     Keyword(Generate)
     GenerateStatementBody
-      Keyword(End)
-      Identifier 'alt3'
-      SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  SemiColon
+      GenerateStatementBodyEpilogue
+        Keyword(End)
+        Identifier 'alt3'
+        SemiColon
+  IfGenerateStatementEpilogue
+    Keyword(End)
+    Keyword(Generate)
+    SemiColon

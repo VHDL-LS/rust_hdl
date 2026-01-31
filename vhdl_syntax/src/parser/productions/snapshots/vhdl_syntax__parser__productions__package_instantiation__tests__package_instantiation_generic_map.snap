@@ -4,18 +4,19 @@ expression: "to_test_text(Parser::package_instantiation_declaration,\n\"\\\npack
 ---
 PackageInstantiationDeclaration
   PackageInstantiation
-    Keyword(Package)
-    Identifier 'ident'
-    Keyword(Is)
-    Keyword(New)
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'foo'
-      SelectedName
-        Dot
-        Identifier 'bar'
+    PackageInstantiationPreamble
+      Keyword(Package)
+      Identifier 'ident'
+      Keyword(Is)
+      Keyword(New)
+      Name
+        Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'foo'
+        SelectedName
+          Dot
+          Identifier 'bar'
     GenericMapAspect
       Keyword(Generic)
       Keyword(Map)

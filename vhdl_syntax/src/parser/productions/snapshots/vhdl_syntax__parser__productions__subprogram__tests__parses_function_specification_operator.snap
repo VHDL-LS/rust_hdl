@@ -6,7 +6,6 @@ SubprogramDeclaration
   FunctionSpecification
     Keyword(Function)
     StringLiteral '"+"'
-    SubprogramHeader
     Keyword(Return)
     Name
       Identifier 'lib'

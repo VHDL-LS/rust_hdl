@@ -7,15 +7,18 @@ FullTypeDeclaration
   Identifier 'rec_t'
   Keyword(Is)
   RecordTypeDefinition
-    Keyword(Record)
-    ElementDeclaration
-      IdentifierList
-        Identifier 'state'
-      Colon
-      SubtypeIndication
-        Name
-          Identifier 'enum_t'
-      SemiColon
-    Keyword(End)
-    Keyword(Record)
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordElementDeclarations
+      ElementDeclaration
+        IdentifierList
+          Identifier 'state'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'enum_t'
+        SemiColon
+    RecordTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Record)
   SemiColon

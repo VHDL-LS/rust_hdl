@@ -13,11 +13,8 @@ use crate::tokens::{Keyword as Kw, TokenKind};
 impl Parser {
     pub fn configuration_declaration(&mut self) {
         self.start_node(NodeKind::ConfigurationDeclaration);
-        self.expect_kw(Kw::Configuration);
-        self.identifier();
-        self.expect_kw(Kw::Of);
-        self.name();
-        self.expect_kw(Kw::Is);
+        self.configuration_declaration_preamble();
+        self.start_node(NodeKind::ConfigurationDeclarationItems);
         self.configuration_declarative_part();
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
@@ -26,6 +23,23 @@ impl Parser {
             self.end_node();
         }
         self.block_configuration();
+        self.end_node();
+        self.configuration_declaration_epilogue();
+        self.end_node();
+    }
+
+    pub fn configuration_declaration_preamble(&mut self) {
+        self.start_node(NodeKind::ConfigurationDeclarationPreamble);
+        self.expect_kw(Kw::Configuration);
+        self.identifier();
+        self.expect_kw(Kw::Of);
+        self.name();
+        self.expect_kw(Kw::Is);
+        self.end_node();
+    }
+
+    pub fn configuration_declaration_epilogue(&mut self) {
+        self.start_node(NodeKind::ConfigurationDeclarationEpilogue);
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Configuration));
         self.opt_identifier();
@@ -55,26 +69,41 @@ impl Parser {
 
     pub fn block_configuration(&mut self) {
         self.start_node(NodeKind::BlockConfiguration);
-        self.expect_kw(Kw::For);
-        self.name();
+        self.block_configuration_preamble();
         self.block_configuration_known_spec();
         self.end_node();
     }
 
+    pub fn block_configuration_preamble(&mut self) {
+        self.start_node(NodeKind::BlockConfigurationPreamble);
+        self.expect_kw(Kw::For);
+        self.name();
+        self.end_node();
+    }
+
     fn block_configuration_known_spec(&mut self) {
+        self.start_node(NodeKind::BlockConfigurationItems);
         while self.next_is(Keyword(Kw::Use)) {
             self.use_clause();
         }
         while self.next_is(Keyword(Kw::For)) {
             self.configuration_item();
         }
+        self.end_node();
+        self.block_configuration_epilogue();
+    }
+
+    pub fn block_configuration_epilogue(&mut self) {
+        self.start_node(NodeKind::BlockConfigurationEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+        self.end_node();
     }
 
     fn configuration_item_known_keyword(&mut self, item_checkpoint: Checkpoint) {
         match self.peek_token() {
             Some(tok @ Keyword(Kw::All | Kw::Others)) => {
-                self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationItem);
+                self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
+                self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
                 self.start_node(NodeKind::ComponentSpecification);
                 if tok == Keyword(Kw::All) {
                     self.start_node(NodeKind::InstantiationListAll);
@@ -86,18 +115,21 @@ impl Parser {
                 self.expect_token(Colon);
                 self.name();
                 self.end_node();
+                self.end_node();
                 self.component_configuration_known_spec();
                 self.end_node();
             }
             Some(Identifier) => {
                 if self.next_nth_is(Comma, 1) {
-                    self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationItem);
+                    self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
+                    self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
                     self.start_node(NodeKind::ComponentSpecification);
                     self.start_node(NodeKind::InstantiationListList);
                     self.separated_list(Parser::identifier, Comma);
                     self.end_node();
                     self.expect_token(Colon);
                     self.name();
+                    self.end_node();
                     self.end_node();
                     self.component_configuration_known_spec();
                     self.end_node();
@@ -106,15 +138,17 @@ impl Parser {
                     self.name();
                     match self.peek_token() {
                         Some(Colon) => {
+                            self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                             self.start_node_at(
                                 item_checkpoint,
-                                NodeKind::ComponentConfigurationItem,
+                                NodeKind::ComponentConfigurationPreamble,
                             );
                             self.start_node_at(checkpoint, NodeKind::ComponentSpecification);
                             self.start_node_at(checkpoint, NodeKind::InstantiationListList);
                             self.end_node();
                             self.skip();
                             self.name();
+                            self.end_node();
                             self.end_node();
                             self.component_configuration_known_spec();
                             self.end_node();
@@ -131,7 +165,14 @@ impl Parser {
         }
     }
 
+    pub fn component_configuration_epilogue(&mut self) {
+        self.start_node(NodeKind::ComponentConfigurationEpilogue);
+        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+        self.end_node();
+    }
+
     fn component_configuration_known_spec(&mut self) {
+        self.start_node(NodeKind::ComponentConfigurationItems);
         if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
             && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
@@ -149,7 +190,8 @@ impl Parser {
         if self.next_is(Keyword(Kw::For)) {
             self.block_configuration();
         }
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+        self.end_node();
+        self.component_configuration_epilogue();
     }
 }
 

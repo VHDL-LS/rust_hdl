@@ -6,7 +6,6 @@ SubprogramDeclaration
   Keyword(Procedure)
   ProcedureSpecification
     Identifier 'foo'
-    SubprogramHeader
     ParameterList
       ParenthesizedInterfaceList
         LeftPar

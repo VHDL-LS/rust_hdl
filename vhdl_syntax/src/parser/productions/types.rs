@@ -47,17 +47,26 @@ impl Parser {
         let checkpoint = self.checkpoint();
         self.expect_kw(Kw::Protected);
         let is_body = self.opt_token(Keyword(Kw::Body));
-        self.declarative_part();
+        if is_body {
+            self.start_node_at(checkpoint, ProtectedTypeBody);
+            self.start_node(ProtectedTypeBodyPreamble);
+        } else {
+            self.start_node_at(checkpoint, ProtectedTypeDeclaration);
+            self.start_node(ProtectedTypeDeclarationPreamble);
+        }
+        self.end_node();
+        self.declarations();
+        if is_body {
+            self.start_node(ProtectedTypeDeclarationEpilogue);
+        } else {
+            self.start_node(ProtectedTypeBodyEpilogue);
+        }
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Protected)]);
         if is_body {
             self.expect_token(Keyword(Kw::Body));
         }
         self.opt_identifier();
-        if is_body {
-            self.start_node_at(checkpoint, ProtectedTypeBody);
-        } else {
-            self.start_node_at(checkpoint, ProtectedTypeDeclaration);
-        }
+        self.end_node();
         self.end_node();
     }
 

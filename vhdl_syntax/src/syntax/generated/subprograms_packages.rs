@@ -341,6 +341,54 @@ impl AstNode for SubprogramBodySyntax {
     }
 }
 impl SubprogramBodySyntax {
+    pub fn subprogram_body_preamble(&self) -> Option<SubprogramBodyPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(SubprogramBodyPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationStatementSeparatorSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn subprogram_body_epilogue(&self) -> Option<SubprogramBodyEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(SubprogramBodyEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SubprogramBodyPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubprogramBodyPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SubprogramBodyPreamble => Some(SubprogramBodyPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramBodyPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SubprogramBodyPreambleSyntax {
     pub fn subprogram_specification(&self) -> Option<SubprogramSpecificationSyntax> {
         self.0
             .children()
@@ -353,22 +401,24 @@ impl SubprogramBodySyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct SubprogramBodyEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubprogramBodyEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SubprogramBodyEpilogue => Some(SubprogramBodyEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn begin_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Begin))
-            .nth(0)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SubprogramBodyEpilogue)
     }
-    pub fn concurrent_statements(
-        &self,
-    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementSyntax::cast)
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
     }
+}
+impl SubprogramBodyEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -431,6 +481,49 @@ impl AstNode for SubprogramInstantiationDeclarationSyntax {
     }
 }
 impl SubprogramInstantiationDeclarationSyntax {
+    pub fn subprogram_instantiation_declaration_preamble(
+        &self,
+    ) -> Option<SubprogramInstantiationDeclarationPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(SubprogramInstantiationDeclarationPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericMapAspectSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SubprogramInstantiationDeclarationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubprogramInstantiationDeclarationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SubprogramInstantiationDeclarationPreamble => {
+                Some(SubprogramInstantiationDeclarationPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(
+            node.kind(),
+            NodeKind::SubprogramInstantiationDeclarationPreamble
+        )
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SubprogramInstantiationDeclarationPreambleSyntax {
     pub fn subprogram_kind(&self) -> Option<SubprogramKindSyntax> {
         self.0
             .tokens()
@@ -461,18 +554,6 @@ impl SubprogramInstantiationDeclarationSyntax {
     pub fn signature(&self) -> Option<SignatureSyntax> {
         self.0.children().filter_map(SignatureSyntax::cast).nth(0)
     }
-    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(0)
-    }
 }
 #[derive(Debug, Clone)]
 pub struct PackageSyntax(pub(crate) SyntaxNode);
@@ -491,6 +572,48 @@ impl AstNode for PackageSyntax {
     }
 }
 impl PackageSyntax {
+    pub fn package_preamble(&self) -> Option<PackagePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(PackagePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn package_header(&self) -> Option<PackageHeaderSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageHeaderSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn package_epilogue(&self) -> Option<PackageEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PackagePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackagePreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackagePreamble => Some(PackagePreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackagePreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackagePreambleSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -509,32 +632,41 @@ impl PackageSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn package_header(&self) -> Option<PackageHeaderSyntax> {
-        self.0
-            .children()
-            .filter_map(PackageHeaderSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct PackageEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackageEpilogue => Some(PackageEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageEpilogue)
     }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackageEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_package_token(&self) -> Option<SyntaxToken> {
+    pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Package))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -596,6 +728,42 @@ impl AstNode for PackageBodySyntax {
     }
 }
 impl PackageBodySyntax {
+    pub fn package_body_preamble(&self) -> Option<PackageBodyPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageBodyPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn package_body_epilogue(&self) -> Option<PackageBodyEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageBodyEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PackageBodyPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageBodyPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackageBodyPreamble => Some(PackageBodyPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageBodyPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackageBodyPreambleSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -620,32 +788,47 @@ impl PackageBodySyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct PackageBodyEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageBodyEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackageBodyEpilogue => Some(PackageBodyEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageBodyEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackageBodyEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_package_token(&self) -> Option<SyntaxToken> {
+    pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Package))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_body_token(&self) -> Option<SyntaxToken> {
+    pub fn body_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Body))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -671,6 +854,44 @@ impl AstNode for PackageInstantiationSyntax {
     }
 }
 impl PackageInstantiationSyntax {
+    pub fn package_instantiation_preamble(&self) -> Option<PackageInstantiationPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageInstantiationPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericMapAspectSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PackageInstantiationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageInstantiationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PackageInstantiationPreamble => {
+                Some(PackageInstantiationPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PackageInstantiationPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackageInstantiationPreambleSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -697,18 +918,6 @@ impl PackageInstantiationSyntax {
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

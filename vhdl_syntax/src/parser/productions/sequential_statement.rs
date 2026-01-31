@@ -8,26 +8,12 @@ use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind::{self, *};
 
 impl Parser {
-    fn any_sequential_statement(
-        &mut self,
-        kind: NodeKind,
-        statement_inner: impl FnOnce(&mut Parser),
-    ) {
-        self.start_node(kind);
-        self.opt_label();
-        statement_inner(self);
-        self.expect_token(SemiColon);
-        self.end_node();
-    }
-
     pub fn wait_statement(&mut self) {
-        self.any_sequential_statement(WaitStatement, Parser::wait_statement_inner);
-    }
-
-    fn wait_statement_inner(&mut self) {
+        self.start_node(WaitStatement);
+        self.opt_label();
         self.expect_kw(Kw::Wait);
         if self.next_is(Keyword(Kw::On)) {
             self.start_node(SensitivityClause);
@@ -47,13 +33,13 @@ impl Parser {
             self.expression();
             self.end_node();
         }
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn assert_statement(&mut self) {
-        self.any_sequential_statement(AssertionStatement, Parser::assert_statement_inner);
-    }
-
-    fn assert_statement_inner(&mut self) {
+        self.start_node(AssertionStatement);
+        self.opt_label();
         self.expect_kw(Kw::Assert);
         self.condition();
         if self.next_is(Keyword(Kw::Report)) {
@@ -64,111 +50,147 @@ impl Parser {
             self.skip();
             self.expression();
         }
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn report_statement(&mut self) {
-        self.any_sequential_statement(ReportStatement, Parser::report_statement_inner);
-    }
-
-    fn report_statement_inner(&mut self) {
+        self.start_node(ReportStatement);
+        self.opt_label();
         self.expect_kw(Kw::Report);
         self.expression();
         if self.next_is(Keyword(Kw::Severity)) {
             self.skip();
             self.expression();
         }
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
-    fn next_or_exit_statement(&mut self, kw: crate::tokens::token_kind::Keyword, kind: NodeKind) {
-        self.any_sequential_statement(kind, |parser| parser.next_or_exit_statement_inner(kw));
-    }
-
-    fn next_or_exit_statement_inner(&mut self, kw: crate::tokens::token_kind::Keyword) {
-        self.expect_kw(kw);
+    pub fn next_statement(&mut self) {
+        self.start_node(NextStatement);
+        self.opt_label();
+        self.expect_kw(Kw::Next);
         self.opt_identifier();
         if self.next_is(Keyword(Kw::When)) {
             self.skip();
             self.expression();
         }
-    }
-
-    pub fn next_statement(&mut self) {
-        self.next_or_exit_statement(Kw::Next, NextStatement);
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn exit_statement(&mut self) {
-        self.next_or_exit_statement(Kw::Exit, ExitStatement);
+        self.start_node(ExitStatement);
+        self.opt_label();
+        self.expect_kw(Kw::Exit);
+        self.opt_identifier();
+        if self.next_is(Keyword(Kw::When)) {
+            self.skip();
+            self.expression();
+        }
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn return_statement(&mut self) {
-        self.any_sequential_statement(ReturnStatement, Parser::return_statement_inner);
-    }
-
-    fn return_statement_inner(&mut self) {
+        self.start_node(ReturnStatement);
+        self.opt_label();
         self.expect_kw(Kw::Return);
         if !self.next_is(SemiColon) {
             self.expression();
         }
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn null_statement(&mut self) {
-        self.any_sequential_statement(NullStatement, Parser::null_statement_inner);
-    }
-
-    fn null_statement_inner(&mut self) {
+        self.start_node(NullStatement);
+        self.opt_label();
         self.expect_kw(Kw::Null);
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
-    fn if_statement_inner(&mut self) {
-        self.expect_kw(Kw::If);
-        self.condition();
-        self.expect_kw(Kw::Then);
-        self.sequence_of_statements();
+    pub fn if_statement(&mut self) {
+        self.start_node(IfStatement);
+        self.if_statement_preamble();
+        self.sequential_statements();
         while self.next_is(Keyword(Kw::Elsif)) {
             self.start_node(IfStatementElsif);
             self.skip();
             self.condition();
             self.expect_kw(Kw::Then);
-            self.sequence_of_statements();
+            self.sequential_statements();
             self.end_node();
         }
         if self.next_is(Keyword(Kw::Else)) {
             self.start_node(IfStatementElse);
             self.skip();
-            self.sequence_of_statements();
+            self.sequential_statements();
             self.end_node();
         }
+        self.if_statement_epilogue();
+        self.end_node();
+    }
+
+    pub fn if_statement_preamble(&mut self) {
+        self.start_node(IfStatementPreamble);
+        self.opt_label();
+        self.expect_kw(Kw::If);
+        self.condition();
+        self.expect_kw(Kw::Then);
+        self.end_node();
+    }
+
+    pub fn if_statement_epilogue(&mut self) {
+        self.start_node(IfStatementEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::If)]);
         self.opt_identifier();
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
-    pub fn if_statement(&mut self) {
-        self.any_sequential_statement(IfStatement, Parser::if_statement_inner);
+    pub fn case_statement(&mut self) {
+        self.start_node(CaseStatement);
+        self.case_statement_preamble();
+        while self.next_is(Keyword(Kw::When)) {
+            self.case_statement_alternative();
+        }
+        self.case_statement_epilogue();
+        self.end_node();
     }
 
-    fn case_statement_inner(&mut self) {
+    pub fn case_statement_preamble(&mut self) {
+        self.start_node(CaseStatementPreamble);
         self.expect_kw(Kw::Case);
         self.opt_token(Que);
         self.expression();
         self.expect_kw(Kw::Is);
-        while self.next_is(Keyword(Kw::When)) {
-            self.case_statement_alternative();
-        }
+        self.end_node();
+    }
+
+    pub fn case_statement_epilogue(&mut self) {
+        self.start_node(CaseStatementEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Case)]);
         self.opt_token(Que);
         self.opt_label();
-    }
-
-    pub fn case_statement(&mut self) {
-        self.any_sequential_statement(CaseStatement, Parser::case_statement_inner);
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     pub fn case_statement_alternative(&mut self) {
         self.start_node(CaseStatementAlternative);
+        self.case_statement_alternative_preamble();
+        self.sequential_statements();
+        self.end_node();
+    }
+
+    pub fn case_statement_alternative_preamble(&mut self) {
+        self.start_node(CaseStatementAlternativePreamble);
         self.expect_kw(Kw::When);
         self.choices();
         self.expect_token(RightArrow);
-        self.sequence_of_statements();
         self.end_node();
     }
 
@@ -200,16 +222,28 @@ impl Parser {
         }
     }
 
-    fn loop_statement_inner(&mut self) {
-        self.opt_iteration_scheme();
-        self.expect_kw(Kw::Loop);
-        self.sequence_of_statements();
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Loop)]);
-        self.opt_identifier();
+    pub fn loop_statement(&mut self) {
+        self.start_node(LoopStatement);
+        self.loop_statement_preamble();
+        self.sequential_statements();
+        self.loop_statement_epilogue();
+        self.end_node();
     }
 
-    pub fn loop_statement(&mut self) {
-        self.any_sequential_statement(LoopStatement, Parser::loop_statement_inner)
+    pub fn loop_statement_preamble(&mut self) {
+        self.start_node(LoopStatementPreamble);
+        self.opt_label();
+        self.opt_iteration_scheme();
+        self.expect_kw(Kw::Loop);
+        self.end_node();
+    }
+
+    pub fn loop_statement_epilogue(&mut self) {
+        self.start_node(LoopStatementEpilogue);
+        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Loop)]);
+        self.opt_identifier();
+        self.expect_token(SemiColon);
+        self.end_node();
     }
 
     fn opt_iteration_scheme(&mut self) {
@@ -234,7 +268,7 @@ impl Parser {
         self.opt_iteration_scheme();
     }
 
-    pub fn sequence_of_statements(&mut self) {
+    pub fn sequential_statements(&mut self) {
         self.start_node(SequentialStatements);
         loop {
             match self.peek_token() {
@@ -263,55 +297,35 @@ impl Parser {
         self.end_node();
     }
 
+    fn sequential_statement_start(&mut self) -> Option<TokenKind> {
+        if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
+            self.peek_nth_token(2)
+        } else {
+            self.peek_token()
+        }
+    }
+
     pub fn sequential_statement(&mut self) {
-        let checkpoint = self.checkpoint();
-        self.opt_label();
-        match self.peek_token() {
-            Some(Keyword(Kw::Wait)) => {
-                self.start_node_at(checkpoint, WaitStatement);
-                self.wait_statement_inner()
-            }
-            Some(Keyword(Kw::Assert)) => {
-                self.start_node_at(checkpoint, AssertionStatement);
-                self.assert_statement_inner()
-            }
-            Some(Keyword(Kw::Report)) => {
-                self.start_node_at(checkpoint, ReportStatement);
-                self.report_statement_inner()
-            }
-            Some(Keyword(Kw::If)) => {
-                self.start_node_at(checkpoint, IfStatement);
-                self.if_statement_inner()
-            }
-            Some(Keyword(Kw::Case)) => {
-                self.start_node_at(checkpoint, CaseStatement);
-                self.case_statement_inner()
-            }
-            Some(Keyword(Kw::For | Kw::Loop | Kw::While)) => {
-                self.start_node_at(checkpoint, LoopStatement);
-                self.loop_statement_inner()
-            }
-            Some(Keyword(Kw::Next)) => {
-                self.start_node_at(checkpoint, NextStatement);
-                self.next_or_exit_statement_inner(Kw::Next);
-            }
-            Some(Keyword(Kw::Exit)) => {
-                self.start_node_at(checkpoint, ExitStatement);
-                self.next_or_exit_statement_inner(Kw::Exit);
-            }
-            Some(Keyword(Kw::Return)) => {
-                self.start_node_at(checkpoint, ReturnStatement);
-                self.return_statement_inner();
-            }
-            Some(Keyword(Kw::Null)) => {
-                self.start_node_at(checkpoint, NullStatement);
-                self.null_statement_inner()
-            }
+        match self.sequential_statement_start() {
+            Some(Keyword(Kw::Wait)) => self.wait_statement(),
+            Some(Keyword(Kw::Assert)) => self.assert_statement(),
+            Some(Keyword(Kw::Report)) => self.report_statement(),
+            Some(Keyword(Kw::If)) => self.if_statement(),
+            Some(Keyword(Kw::Case)) => self.case_statement(),
+            Some(Keyword(Kw::For | Kw::Loop | Kw::While)) => self.loop_statement(),
+            Some(Keyword(Kw::Next)) => self.next_statement(),
+            Some(Keyword(Kw::Exit)) => self.exit_statement(),
+            Some(Keyword(Kw::Return)) => self.return_statement(),
+            Some(Keyword(Kw::Null)) => self.null_statement(),
             Some(Keyword(Kw::With)) => {
+                let checkpoint = self.checkpoint();
+                self.start_node(SelectedAssignmentPreamble);
+                self.opt_label();
                 self.skip();
                 self.expression();
                 self.expect_kw(Kw::Select);
                 self.opt_token(Que);
+                self.end_node();
                 self.target();
                 match self.peek_token() {
                     Some(LTE) => {
@@ -334,22 +348,31 @@ impl Parser {
                     }
                     _ => self.expect_tokens_err([LTE, ColonEq]),
                 }
+                self.expect_token(SemiColon);
+                self.end_node();
             }
             Some(Identifier | LeftPar | LtLt) => {
+                let checkpoint = self.checkpoint();
+                self.opt_label();
                 self.target();
                 match self.peek_token() {
                     Some(ColonEq) => {
                         self.skip();
+                        let cond_expr_checkpoint = self.checkpoint();
                         self.expression();
                         if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConditionalVariableAssignment);
+                            self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
+                            self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
                             self.skip();
-                            self.condition();
+                            self.expression();
+                            self.end_node();
                             self.conditional_else(
                                 Parser::expression,
                                 ConditionalElseWhenExpression,
                                 ConditionalElseItem,
                             );
+                            self.end_node();
                         } else {
                             self.start_node_at(checkpoint, SimpleVariableAssignment);
                         }
@@ -358,16 +381,21 @@ impl Parser {
                         if self.next_nth_is(Keyword(Kw::Force), 1) {
                             self.skip_n(2);
                             self.opt_force_mode();
+                            let cond_expr_checkpoint = self.checkpoint();
                             self.expression();
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalForceAssignment);
+                                self.start_node_at(cond_expr_checkpoint, ConditionalWaveforms);
+                                self.start_node_at(cond_expr_checkpoint, ConditionalWaveform);
                                 self.skip();
-                                self.condition();
+                                self.expression();
+                                self.end_node();
                                 self.conditional_else(
                                     Parser::waveform,
                                     ConditionalElseWhenExpression,
                                     ConditionalElseItem,
                                 );
+                                self.end_node();
                             } else {
                                 self.start_node_at(checkpoint, SimpleForceAssignment);
                             }
@@ -378,16 +406,21 @@ impl Parser {
                         } else {
                             self.skip();
                             self.opt_delay_mechanism();
+                            let wvfm_checkpoint = self.checkpoint();
                             self.waveform();
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalWaveformAssignment);
+                                self.start_node_at(wvfm_checkpoint, ConditionalWaveforms);
+                                self.start_node_at(wvfm_checkpoint, ConditionalWaveform);
                                 self.skip();
-                                self.condition();
+                                self.expression();
+                                self.end_node();
                                 self.conditional_else(
                                     Parser::waveform,
                                     ConditionalWaveformElseWhenExpression,
                                     ConditionalWaveformElseItem,
                                 );
+                                self.end_node();
                             } else {
                                 self.start_node_at(checkpoint, SimpleWaveformAssignment);
                             }
@@ -398,6 +431,8 @@ impl Parser {
                     }
                     _ => self.expect_tokens_err([LTE, ColonEq, SemiColon]),
                 }
+                self.expect_token(SemiColon);
+                self.end_node();
             }
             _ => self.expect_tokens_err([
                 Keyword(Kw::Wait),
@@ -418,8 +453,6 @@ impl Parser {
                 LtLt,
             ]),
         }
-        self.expect_token(SemiColon);
-        self.end_node();
     }
 
     fn conditional_else(
@@ -858,6 +891,15 @@ foo(0) := bar(1,2) when cond = true else expr2;
             "\
 foo(0) <= bar(1,2) after 2 ns when cond;
         "
+        ));
+    }
+
+    #[test]
+    fn conditional_waveform_assignment_else() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::sequential_statement,
+            "\
+data_processing_state <= processing when processing_data else idle;"
         ));
     }
 

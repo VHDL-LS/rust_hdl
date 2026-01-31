@@ -3,29 +3,30 @@ source: vhdl_syntax/src/parser/productions/subprogram.rs
 expression: "to_test_text(Parser::subprogram_body,\n\"\\\nfunction \\\"+\\\"(arg : natural) return natural is\nbegin\nend function \\\"+\\\";\")"
 ---
 SubprogramBody
-  FunctionSpecification
+  SubprogramBodyPreamble
+    FunctionSpecification
+      Keyword(Function)
+      StringLiteral '"+"'
+      ParameterList
+        ParenthesizedInterfaceList
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'arg'
+              Colon
+              SubtypeIndication
+                Name
+                  Identifier 'natural'
+          RightPar
+      Keyword(Return)
+      Name
+        Identifier 'natural'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SubprogramBodyEpilogue
+    Keyword(End)
     Keyword(Function)
     StringLiteral '"+"'
-    SubprogramHeader
-    ParameterList
-      ParenthesizedInterfaceList
-        LeftPar
-        InterfaceList
-          InterfaceConstantDeclaration
-            IdentifierList
-              Identifier 'arg'
-            Colon
-            SubtypeIndication
-              Name
-                Identifier 'natural'
-        RightPar
-    Keyword(Return)
-    Name
-      Identifier 'natural'
-  Keyword(Is)
-  Keyword(Begin)
-  SequentialStatements
-  Keyword(End)
-  Keyword(Function)
-  StringLiteral '"+"'
-  SemiColon
+    SemiColon

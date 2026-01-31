@@ -7,7 +7,6 @@ SubprogramDeclaration
     Keyword(Impure)
     Keyword(Function)
     Identifier 'foo'
-    SubprogramHeader
     Keyword(Return)
     Name
       Identifier 'lib'

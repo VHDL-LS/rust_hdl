@@ -9,26 +9,29 @@ FullTypeDeclaration
   ProtectedTypeBody
     Keyword(Protected)
     Keyword(Body)
-    VariableDeclaration
-      Keyword(Variable)
-      IdentifierList
-        Identifier 'foo'
-      Colon
-      SubtypeIndication
-        Name
-          Identifier 'natural'
-      SemiColon
-    SubprogramBody
-      Keyword(Procedure)
-      ProcedureSpecification
-        Identifier 'proc'
-        SubprogramHeader
-      Keyword(Is)
-      Keyword(Begin)
-      SequentialStatements
+    Declarations
+      VariableDeclaration
+        Keyword(Variable)
+        IdentifierList
+          Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+        SemiColon
+      SubprogramBody
+        SubprogramBodyPreamble
+          Keyword(Procedure)
+          ProcedureSpecification
+            Identifier 'proc'
+          Keyword(Is)
+        DeclarationStatementSeparator
+          Keyword(Begin)
+        SubprogramBodyEpilogue
+          Keyword(End)
+          SemiColon
+    ProtectedTypeDeclarationEpilogue
       Keyword(End)
-      SemiColon
-    Keyword(End)
-    Keyword(Protected)
-    Keyword(Body)
+      Keyword(Protected)
+      Keyword(Body)
   SemiColon

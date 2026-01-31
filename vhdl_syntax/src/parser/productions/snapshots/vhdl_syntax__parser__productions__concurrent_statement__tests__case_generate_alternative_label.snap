@@ -3,22 +3,23 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen1: case expr(0) + 2 generate\n  when alt1: 1 | 2 =>\n    sig <= value;\n  when alt2: others =>\n    foo(clk);\nend generate gen1;\",)"
 ---
 CaseGenerateStatement
-  Label
-    Identifier 'gen1'
-    Colon
-  Keyword(Case)
-  BinaryExpression
-    NameExpression
-      Name
-        Identifier 'expr'
-        RawTokens
-          LeftPar
-          AbstractLiteral '0'
-          RightPar
-    Plus
-    LiteralExpression
-      AbstractLiteral '2'
-  Keyword(Generate)
+  CaseGenerateStatementPreamble
+    Label
+      Identifier 'gen1'
+      Colon
+    Keyword(Case)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'expr'
+          RawTokens
+            LeftPar
+            AbstractLiteral '0'
+            RightPar
+      Plus
+      LiteralExpression
+        AbstractLiteral '2'
+    Keyword(Generate)
   CaseGenerateAlternative
     Keyword(When)
     Label
@@ -32,17 +33,18 @@ CaseGenerateStatement
         AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
-      ConcurrentSimpleSignalAssignment
-        NameTarget
-          Name
-            Identifier 'sig'
-        LTE
-        WaveformElements
-          WaveformElement
-            NameExpression
-              Name
-                Identifier 'value'
-        SemiColon
+      ConcurrentStatements
+        ConcurrentSimpleSignalAssignment
+          NameTarget
+            Name
+              Identifier 'sig'
+          LTE
+          WaveformElements
+            WaveformElement
+              NameExpression
+                Name
+                  Identifier 'value'
+          SemiColon
   CaseGenerateAlternative
     Keyword(When)
     Label
@@ -52,15 +54,17 @@ CaseGenerateStatement
       Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ConcurrentProcedureCallOrComponentInstantiationStatement
-        Name
-          Identifier 'foo'
-          RawTokens
-            LeftPar
-            Identifier 'clk'
-            RightPar
-        SemiColon
-  Keyword(End)
-  Keyword(Generate)
-  Identifier 'gen1'
-  SemiColon
+      ConcurrentStatements
+        ConcurrentProcedureCallOrComponentInstantiationStatement
+          Name
+            Identifier 'foo'
+            RawTokens
+              LeftPar
+              Identifier 'clk'
+              RightPar
+          SemiColon
+  CaseGenerateStatementEpilogue
+    Keyword(End)
+    Keyword(Generate)
+    Identifier 'gen1'
+    SemiColon

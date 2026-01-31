@@ -48,7 +48,7 @@ end no_longer_foo;
 "
         .into(),
     );
-    parser.entity();
+    parser.entity_declaration();
     let (replacement_entity, diagnostics) = parser.into_root();
     assert!(
         diagnostics.is_empty(),
@@ -58,7 +58,12 @@ end no_longer_foo;
     let new_file = file.raw().rewrite(|node| match node {
         SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {
             // If the syntax node is an entity and is named 'foo', replace it with the replacement entity.
-            Some(ent) if ent.name_token().is_some_and(|tok| tok.text() == "foo") => {
+            Some(ent)
+                if ent
+                    .entity_declaration_preamble()
+                    .and_then(|preamble| preamble.name_token())
+                    .is_some_and(|tok| tok.text() == "foo") =>
+            {
                 RewriteAction::Change(SyntaxElement::Node(replacement_entity.clone()))
             }
             // If the syntax node is not an entity, or the name of the entity is not 'foo', leave the node as-is

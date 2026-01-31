@@ -39,11 +39,12 @@ fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
 impl Parser {
     pub(crate) fn opt_declarative_part(&mut self) {
         if self.peek_token().is_some_and(is_start_of_declarative_part) {
-            self.declarative_part();
+            self.declarations();
         }
     }
 
-    pub(crate) fn declarative_part(&mut self) {
+    pub(crate) fn declarations(&mut self) {
+        self.start_node(Declarations);
         while let Some(token) = self.peek_token() {
             match token {
                 Keyword(Kw::Begin | Kw::End) => break,
@@ -51,7 +52,12 @@ impl Parser {
                 Keyword(Kw::Subtype) => self.subtype_declaration(),
                 Keyword(Kw::Component) => self.component_declaration(),
                 Keyword(Kw::Impure | Kw::Pure | Kw::Function | Kw::Procedure) => {
-                    self.subprogram_declaration_or_body()
+                    // TODO: Brittle
+                    if self.next_nth_is(Keyword(Kw::New), 3) {
+                        self.subprogram_instantiation_declaration();
+                    } else {
+                        self.subprogram_declaration_or_body()
+                    }
                 }
                 Keyword(Kw::Package) => self.package_instantiation_declaration(),
                 Keyword(Kw::For) => self.configuration_specification(),
@@ -68,6 +74,7 @@ impl Parser {
                 }
             }
         }
+        self.end_node();
     }
 
     pub fn use_clause_declaration(&mut self) {
@@ -84,29 +91,37 @@ impl Parser {
 
     pub fn configuration_specification(&mut self) {
         let checkpoint = self.checkpoint();
+        self.start_node(ComponentConfigurationPreamble);
         self.expect_kw(Kw::For);
-        self.component_specifiaction();
+        self.component_specification();
+        self.end_node();
         self.binding_indication();
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.start_node_at(checkpoint, NodeKind::CompoundConfigurationSpecification);
+            self.start_node(CompoundConfigurationSpecificationItems);
             while self.next_is(Keyword(Kw::Use)) {
                 self.start_node(SemiColonTerminatedVerificationUnitBindingIndication);
                 self.verification_unit_binding_indication();
                 self.expect_token(SemiColon);
                 self.end_node();
             }
+            self.end_node();
+            self.start_node(ComponentConfigurationEpilogue);
             self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+            self.end_node();
         } else {
             self.start_node_at(checkpoint, NodeKind::SimpleConfigurationSpecification);
             self.expect_token(SemiColon);
             if self.next_is(Keyword(Kw::End)) {
+                self.start_node(ComponentConfigurationEpilogue);
                 self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+                self.end_node();
             }
             self.end_node();
         }
     }
 
-    pub fn component_specifiaction(&mut self) {
+    pub fn component_specification(&mut self) {
         self.start_node(NodeKind::ComponentSpecification);
         match self.peek_token() {
             Some(Keyword(Kw::All)) => {

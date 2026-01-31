@@ -15,29 +15,31 @@ FullTypeDeclaration
       LiteralExpression
         AbstractLiteral '1e10'
     Keyword(Units)
-    PrimaryUnitDeclaration
-      Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'sec'
-      EQ
-      AbstractLiteral '2'
-      Name
+    UnitDeclarations
+      PrimaryUnitDeclaration
         Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'ter'
-      EQ
-      AbstractLiteral '3'
-      Name
-        Identifier 'prim'
-      SemiColon
-    SecondaryUnitDeclaration
-      Identifier 'alias_prim'
-      EQ
-      Name
-        Identifier 'prim'
-      SemiColon
-    Keyword(End)
-    Keyword(Units)
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'sec'
+        EQ
+        AbstractLiteral '2'
+        Name
+          Identifier 'prim'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'ter'
+        EQ
+        AbstractLiteral '3'
+        Name
+          Identifier 'prim'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'alias_prim'
+        EQ
+        Name
+          Identifier 'prim'
+        SemiColon
+    PhysicalTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Units)
   SemiColon

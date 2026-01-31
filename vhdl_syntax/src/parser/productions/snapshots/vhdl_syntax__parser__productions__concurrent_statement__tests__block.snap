@@ -3,35 +3,39 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : block\n  constant const : natural := 0;\nbegin\n  name2: foo(clk);\nend block;\",)"
 ---
 BlockStatement
-  Label
-    Identifier 'name'
-    Colon
-  Keyword(Block)
-  BlockHeader
-  ConstantDeclaration
-    Keyword(Constant)
-    IdentifierList
-      Identifier 'const'
-    Colon
-    SubtypeIndication
-      Name
-        Identifier 'natural'
-    ColonEq
-    LiteralExpression
-      AbstractLiteral '0'
-    SemiColon
-  Keyword(Begin)
-  ConcurrentProcedureCallOrComponentInstantiationStatement
+  BlockPreamble
     Label
-      Identifier 'name2'
+      Identifier 'name'
       Colon
-    Name
-      Identifier 'foo'
-      RawTokens
-        LeftPar
-        Identifier 'clk'
-        RightPar
+    Keyword(Block)
+  Declarations
+    ConstantDeclaration
+      Keyword(Constant)
+      IdentifierList
+        Identifier 'const'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'natural'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '0'
+      SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ConcurrentStatements
+    ConcurrentProcedureCallOrComponentInstantiationStatement
+      Label
+        Identifier 'name2'
+        Colon
+      Name
+        Identifier 'foo'
+        RawTokens
+          LeftPar
+          Identifier 'clk'
+          RightPar
+      SemiColon
+  BlockEpilogue
+    Keyword(End)
+    Keyword(Block)
     SemiColon
-  Keyword(End)
-  Keyword(Block)
-  SemiColon

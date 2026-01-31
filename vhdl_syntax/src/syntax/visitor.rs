@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::syntax::node::SyntaxNode;
+use crate::syntax::node::{SyntaxElement, SyntaxNode};
 
 pub enum WalkEvent<T> {
     Enter(T),
@@ -66,6 +66,49 @@ impl Iterator for Preorder {
                         None => WalkEvent::Leave(node.parent()?),
                     }
                 }
+            })
+        });
+        next
+    }
+}
+
+// TODO: potentially rework this so it only visits tokens once (curently, one enter and exit event is produced per token)
+pub struct PreorderWithTokens {
+    start: SyntaxElement,
+    next: Option<WalkEvent<SyntaxElement>>,
+}
+
+impl PreorderWithTokens {
+    pub fn new(start: SyntaxNode) -> PreorderWithTokens {
+        let next = Some(WalkEvent::Enter(start.clone().into()));
+        PreorderWithTokens {
+            start: start.into(),
+            next,
+        }
+    }
+}
+
+impl Iterator for PreorderWithTokens {
+    type Item = WalkEvent<SyntaxElement>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.next.take();
+        self.next = next.as_ref().and_then(|next| {
+            Some(match next {
+                WalkEvent::Enter(el) => match el {
+                    crate::syntax::child::Child::Node(node) => match node.first_child_or_token() {
+                        Some(child) => WalkEvent::Enter(child),
+                        None => WalkEvent::Leave(node.clone().into()),
+                    },
+                    crate::syntax::child::Child::Token(token) => {
+                        WalkEvent::Leave(token.clone().into())
+                    }
+                },
+                WalkEvent::Leave(el) if el == &self.start => return None,
+                WalkEvent::Leave(el) => match el.next_sibling_or_token() {
+                    Some(sibling) => WalkEvent::Enter(sibling),
+                    None => WalkEvent::Leave(el.parent()?.into()),
+                },
             })
         });
         next

@@ -80,20 +80,27 @@ AttributeDeclaration: !Sequence
   - token: SemiColon
 
 ComponentDeclaration: !Sequence
+  - node: ComponentDeclarationPreamble
+  - node: ComponentDeclarationItems
+  - node: ComponentDeclarationEpilogue
+
+ComponentDeclarationItems: !Sequence
+  - node: GenericClause
+    optional: true
+  - node: PortClause
+    optional: true
+
+ComponentDeclarationPreamble: !Sequence
   - keyword: Component
   - token: Identifier
     name: name
   - keyword: Is
     optional: true
-  - node: GenericClause
-    optional: true
-  - node: PortClause
-    optional: true
+
+ComponentDeclarationEpilogue: !Sequence
   - keyword: End
   - keyword: Component
-    name: trailing_component
   - token: Identifier
-    name: trailing_name
     optional: true
   - token: SemiColon
 
@@ -167,9 +174,15 @@ FullTypeDeclaration: !Sequence
   - token: SemiColon
 
 GenericClause: !Sequence
+  - node: GenericClausePreamble
+  - node: InterfaceList
+  - node: GenericClauseEpilogue
+
+GenericClausePreamble: !Sequence
   - keyword: Generic
   - token: LeftPar
-  - node: InterfaceList
+
+GenericClauseEpilogue: !Sequence
   - token: RightPar
   - token: SemiColon
 
@@ -254,13 +267,16 @@ InterfaceObjectDeclaration: !Choice
   - node: InterfaceFileDeclaration
 
 InterfacePackageDeclaration: !Sequence
-  - keyword: Package
-  - token: Identifier
-  - keyword: Is
+  - node: InterfacePackageDeclarationPreamble
   - keyword: New
   - node: Name
   - node: InterfacePackageGenericMapAspect
   - token: SemiColon
+
+InterfacePackageDeclarationPreamble: !Sequence
+  - keyword: Package
+  - token: Identifier
+  - keyword: Is
 
 InterfacePackageGenericMapAspect: !Sequence
   - keyword: Generic
@@ -351,9 +367,15 @@ Mode: !Choice
   - keyword: Linkage
 
 PortClause: !Sequence
+  - node: PortClausePreamble
+  - node: InterfaceList
+  - node: PortClauseEpilogue
+
+PortClausePreamble: !Sequence
   - keyword: Port
   - token: LeftPar
-  - node: InterfaceList
+
+PortClauseEpilogue: !Sequence
   - token: RightPar
   - token: SemiColon
 
@@ -448,3 +470,7 @@ SharedVariableDeclaration: !Sequence
   - node: Expression
     optional: true
   - token: SemiColon
+
+Declarations: !Sequence
+  - node: Declaration
+    repeated: true

@@ -8,6 +8,7 @@ const EXCLUDED_FILES: [&str; 1] =
 
 fn check_file(path: impl Into<std::path::PathBuf>) {
     let path = path.into();
+    println!("Visiting file {}", path.display());
     if EXCLUDED_FILES.iter().any(|f| path.ends_with(f)) {
         return;
     }
@@ -20,8 +21,8 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
     let (file, diagnostics) = parser::parse(buf.as_slice());
     assert!(
         diagnostics.is_empty(),
-        "Found diagnostics for file {}",
-        path.display()
+        "Found diagnostics for file {}: {:?}",
+        path.display(), diagnostics
     );
     let mut expected_buf = Vec::new();
     file.raw().write_to(&mut expected_buf)

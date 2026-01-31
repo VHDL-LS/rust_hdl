@@ -48,6 +48,42 @@ impl AstNode for ContextDeclarationSyntax {
     }
 }
 impl ContextDeclarationSyntax {
+    pub fn context_declaration_preamble(&self) -> Option<ContextDeclarationPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ContextDeclarationPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn context_clause(&self) -> Option<ContextClauseSyntax> {
+        self.0
+            .children()
+            .filter_map(ContextClauseSyntax::cast)
+            .nth(0)
+    }
+    pub fn context_declaration_epilogue(&self) -> Option<ContextDeclarationEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ContextDeclarationEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ContextDeclarationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ContextDeclarationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ContextDeclarationPreamble => Some(ContextDeclarationPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ContextDeclarationPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ContextDeclarationPreambleSyntax {
     pub fn context_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -66,29 +102,41 @@ impl ContextDeclarationSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn context_clause(&self) -> Option<ContextClauseSyntax> {
-        self.0
-            .children()
-            .filter_map(ContextClauseSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct ContextDeclarationEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ContextDeclarationEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ContextDeclarationEpilogue => Some(ContextDeclarationEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ContextDeclarationEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ContextDeclarationEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_context_token(&self) -> Option<SyntaxToken> {
+    pub fn context_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Context))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0

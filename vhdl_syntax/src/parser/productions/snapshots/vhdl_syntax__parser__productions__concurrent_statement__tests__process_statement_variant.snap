@@ -3,14 +3,16 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : process is\nbegin\nend process name;\",)"
 ---
 ProcessStatement
-  Label
+  ProcessStatementPreamble
+    Label
+      Identifier 'name'
+      Colon
+    Keyword(Process)
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ProcessStatementEpilogue
+    Keyword(End)
+    Keyword(Process)
     Identifier 'name'
-    Colon
-  Keyword(Process)
-  Keyword(Is)
-  Keyword(Begin)
-  SequentialStatements
-  Keyword(End)
-  Keyword(Process)
-  Identifier 'name'
-  SemiColon
+    SemiColon

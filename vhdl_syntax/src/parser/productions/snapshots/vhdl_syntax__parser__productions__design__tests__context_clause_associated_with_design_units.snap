@@ -20,10 +20,11 @@ DesignFile
               Identifier 'foo'
         SemiColon
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'myent'
-      Keyword(Is)
-      EntityHeader
-      Keyword(End)
-      Keyword(Entity)
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'myent'
+        Keyword(Is)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Keyword(Entity)
+        SemiColon

@@ -49,11 +49,27 @@ impl NodeBuilder {
         let (kind, first_child) = self.parents.pop().unwrap();
         let mut data = GreenNodeData::new(kind);
         data.push_children(self.children.drain(first_child..));
-        self.children
-            .push(GreenChild::Node((0, GreenNode::new(data))));
+        // Do not push empty children
+        // TODO: This is a required invariant, but enforcing it here is brittle.
+        // Instead, we should move to a event-based API for parser <-> builder
+        if !data.is_empty() {
+            self.children
+                .push(GreenChild::Node((0, GreenNode::new(data))));
+        }
     }
 
     pub fn end(mut self) -> GreenNode {
+        // TODO: This is a dirty hack to enable empty files.
+        // We do not allow empty nodes in the parser (invariant, enables tree traversal and other things)
+        // but this deals with the special case that the entire file is empty.
+        // The fix is (likely) to introduce an EOF token.
+        // This fixes also the case of having an empty file with only trivia.
+        if self.children.len() == 0 {
+            self.children.push(GreenChild::Node((
+                0,
+                GreenNode::new(GreenNodeData::new(NodeKind::DesignFile)),
+            )));
+        }
         assert_eq!(self.children.len(), 1);
         match self.children.pop().unwrap() {
             GreenChild::Node((_, node)) => node,

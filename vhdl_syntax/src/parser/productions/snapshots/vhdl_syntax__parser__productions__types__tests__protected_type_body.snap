@@ -9,7 +9,8 @@ FullTypeDeclaration
   ProtectedTypeBody
     Keyword(Protected)
     Keyword(Body)
-    Keyword(End)
-    Keyword(Protected)
-    Keyword(Body)
+    ProtectedTypeDeclarationEpilogue
+      Keyword(End)
+      Keyword(Protected)
+      Keyword(Body)
   SemiColon

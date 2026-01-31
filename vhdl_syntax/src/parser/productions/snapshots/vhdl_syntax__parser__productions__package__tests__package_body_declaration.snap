@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/package.rs
+expression: "to_test_text(Parser::package_body,\n\"\\\npackage body pkg_name is\nend package body;\")"
+---
+PackageBody
+  PackageBodyPreamble
+    Keyword(Package)
+    Keyword(Body)
+    Identifier 'pkg_name'
+    Keyword(Is)
+  PackageBodyEpilogue
+    Keyword(End)
+    Keyword(Package)
+    Keyword(Body)
+    SemiColon

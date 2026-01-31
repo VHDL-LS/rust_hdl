@@ -12,11 +12,25 @@ use crate::tokens::TokenKind::*;
 impl Parser {
     pub fn component_declaration(&mut self) {
         self.start_node(ComponentDeclaration);
+        self.component_declaration_preamble();
+        self.start_node(ComponentDeclarationItems);
+        self.opt_generic_clause();
+        self.opt_port_clause();
+        self.end_node();
+        self.component_declaration_epilogue();
+        self.end_node();
+    }
+
+    pub fn component_declaration_preamble(&mut self) {
+        self.start_node(ComponentDeclarationPreamble);
         self.expect_token(Keyword(Kw::Component));
         self.identifier();
         self.opt_token(Keyword(Kw::Is));
-        self.opt_generic_clause();
-        self.opt_port_clause();
+        self.end_node();
+    }
+
+    pub fn component_declaration_epilogue(&mut self) {
+        self.start_node(ComponentDeclarationEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Component)]);
         self.opt_identifier();
         self.expect_token(SemiColon);

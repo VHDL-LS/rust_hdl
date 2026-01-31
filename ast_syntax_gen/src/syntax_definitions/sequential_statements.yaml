@@ -25,12 +25,21 @@ AssertionStatement: !Sequence
   - token: SemiColon
 
 CaseStatementAlternative: !Sequence
+  - node: CaseStatementAlternativePreamble
+  - node: SequentialStatements
+
+CaseStatementAlternativePreamble: !Sequence
   - keyword: When
   - node: Choices
   - token: RightArrow
-  - node: SequentialStatements
 
 CaseStatement: !Sequence
+  - node: CaseStatementPreamble
+  - node: CaseStatementAlternative
+    repeated: true
+  - node: CaseStatementEpilogue
+
+CaseStatementPreamble: !Sequence
   - node: Label
   - keyword: Case
   - token: Que
@@ -38,16 +47,13 @@ CaseStatement: !Sequence
   - node: Expression
     optional: true
   - keyword: Is
-  - node: CaseStatementAlternative
-    repeated: true
+
+CaseStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Case
-    name: trailing_case_token
   - token: Que
     optional: true
-    name: trailing_que_token
   - token: Identifier
-    name: trailing_case_label
     optional: true
   - token: SemiColon
 
@@ -67,13 +73,17 @@ ConditionalElseItem: !Sequence
   - node: Expression
 
 ConditionalExpressions: !Sequence
+  - node: ConditionalExpression
+  - node: ConditionalElseWhenExpression
+    repeated: true
+  - node: ConditionalElseItem
+    optional: true
+
+ConditionalExpression: !Sequence
   - node: Expression
   - keyword: When
   - node: Expression
     name: condition
-  - node: ConditionalElseWhenExpression
-    repeated: true
-  - node: ConditionalElseItem
 
 ConditionalForceAssignment: !Sequence
   - node: Target
@@ -114,14 +124,16 @@ ConditionalWaveformElseItem: !Sequence
   - node: Waveform
 
 ConditionalWaveforms: !Sequence
-  - node: Waveform
-  - keyword: When
-  - node: Expression
-    name: condition
+  - node: ConditionalWaveform
   - node: ConditionalWaveformElseWhenExpression
     repeated: true
   - node: ConditionalWaveformElseItem
     optional: true
+
+ConditionalWaveform: !Sequence
+  - node: Waveform
+  - keyword: When
+  - node: Expression
 
 TransportDelayMechanism: !Sequence
   - keyword: Transport
@@ -168,6 +180,15 @@ IfStatementElse: !Sequence
   - node: SequentialStatements
 
 IfStatement: !Sequence
+  - node: IfStatementPreamble
+  - node: SequentialStatements
+  - node: IfStatementElsif
+    repeated: true
+  - node: IfStatementElse
+    optional: true
+  - node: IfStatementEpilogue
+
+IfStatementPreamble: !Sequence
   - token: Identifier
     name: if_label
     optional: true
@@ -176,16 +197,11 @@ IfStatement: !Sequence
   - keyword: If
   - node: Expression
   - keyword: Then
-  - node: SequentialStatements
-  - node: IfStatementElsif
-    repeated: true
-  - node: IfStatementElse
-    optional: true
+
+IfStatementEpilogue: !Sequence
   - keyword: End
   - keyword: If
-    name: trailing_if_token
   - token: Identifier
-    name: trailing_if_label
     optional: true
   - token: SemiColon
 
@@ -202,16 +218,20 @@ IterationScheme: !Choice
   - node: ForIterationScheme
 
 LoopStatement: !Sequence
+  - node: LoopStatementPreamble
+  - node: SequentialStatements
+  - node: LoopStatementEpilogue
+
+LoopStatementPreamble: !Sequence
   - node: Label
   - node: IterationScheme
     optional: true
   - keyword: Loop
-  - node: SequentialStatements
+
+LoopStatementEpilogue: !Sequence
   - keyword: End
   - keyword: Loop
-    name: trailing_loop_token
   - token: Identifier
-    name: trailing_loop_label
     optional: true
   - token: SemiColon
 
@@ -271,11 +291,7 @@ SelectedExpressions: !Sequence
     repeated: true
 
 SelectedForceAssignment: !Sequence
-  - keyword: With
-  - node: Expression
-  - keyword: Select
-  - token: Que
-    optional: true
+  - node: SelectedAssignmentPreamble
   - node: Target
   - token: LTE
   - keyword: Force
@@ -300,22 +316,14 @@ SelectedSignalAssignment: !Choice
   - node: SelectedForceAssignment
 
 SelectedVariableAssignment: !Sequence
-  - keyword: With
-  - node: Expression
-  - keyword: Select
-  - token: Que
-    optional: true
+  - node: SelectedAssignmentPreamble
   - node: Target
   - token: ColonEq
   - node: SelectedExpressions
   - token: SemiColon
 
 SelectedWaveformAssignment: !Sequence
-  - keyword: With
-  - node: Expression
-  - keyword: Select
-  - token: Que
-    optional: true
+  - node: SelectedAssignmentPreamble
   - node: Target
   - token: LTE
   - node: DelayMechanism
@@ -323,13 +331,16 @@ SelectedWaveformAssignment: !Sequence
   - node: SelectedWaveforms
   - token: SemiColon
 
+SelectedAssignmentPreamble: !Sequence
+  - keyword: With
+  - node: Expression
+  - keyword: Select
+  - token: Que
+    optional: true
+
 SensitivityClause: !Sequence
   - keyword: On
   - node: NameList
-
-SequentialStatements: !Sequence
-  - node: SequentialStatement
-    repeated: true
 
 SequentialStatement: !Choice
   - node: WaitStatement
@@ -346,16 +357,14 @@ SequentialStatement: !Choice
   - node: ReturnStatement
   - node: NullStatement
 
-SignalAssignmentStatement: !Sequence
-  - node: Label
+SignalAssignmentStatement: !Choice
   - node: SimpleSignalAssignment
-    optional: true
   - node: ConditionalSignalAssignment
-    optional: true
   - node: SelectedSignalAssignment
-    optional: true
 
 SimpleForceAssignment: !Sequence
+  - node: Label
+    optional: true
   - node: Target
   - token: LTE
   - keyword: Force
@@ -365,6 +374,8 @@ SimpleForceAssignment: !Sequence
   - token: SemiColon
 
 SimpleReleaseAssignment: !Sequence
+  - node: Label
+    optional: true
   - node: Target
   - token: LTE
   - keyword: Release
@@ -373,6 +384,8 @@ SimpleReleaseAssignment: !Sequence
   - token: SemiColon
 
 SimpleWaveformAssignment: !Sequence
+  - node: Label
+    optional: true
   - node: Target
   - token: LTE
   - node: DelayMechanism
@@ -439,3 +452,7 @@ UnaffectedWaveform: !Sequence
 Waveform: !Choice
   - node: WaveformElements
   - node: UnaffectedWaveform
+
+SequentialStatements: !Sequence
+  - node: SequentialStatement
+    repeated: true

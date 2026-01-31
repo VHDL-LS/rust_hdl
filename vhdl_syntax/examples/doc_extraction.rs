@@ -12,7 +12,6 @@ use vhdl_syntax::syntax::AstNode;
 use vhdl_syntax::syntax::EntityDeclarationSyntax;
 use vhdl_syntax::tokens::{Trivia, TriviaPiece};
 
-// TODO: Example is currently broken
 fn main() {
     let vhdl = "\
 --- This is the foo entity
@@ -38,15 +37,16 @@ end bar;
         WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
         WalkEvent::Leave(_) => None,
     }) {
-        // we check that there is an `entity` token.
-        // Since the AST is capable of producing any input, no matter how erroneous,
-        // all nodes and tokens are optional.
-        if let Some(token) = entity.entity_token() {
+        // We check the first token of the entity declaration
+        if let Some(token) = entity.raw().first_token() {
             // The trivia is where all auxiliary information concerning a token is stored,
             // for example, comments, whitespaces or newlines.
-            let comment = extract_doc_from_trivia(token.leading_trivia());
+            let comment = extract_doc_from_trivia(token.all_leading_trivia());
             // If the entity has a name token, add the extracted documentation to the map
-            if let Some(ident) = entity.name_token() {
+            if let Some(ident) = entity
+                .entity_declaration_preamble()
+                .and_then(|preamble| preamble.name_token())
+            {
                 if !comment.is_empty() {
                     comments.insert(ident.text().to_string(), comment);
                 }

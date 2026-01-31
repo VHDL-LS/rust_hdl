@@ -3,12 +3,15 @@ source: vhdl_syntax/src/parser/productions/architecture.rs
 expression: "to_test_text(Parser::architecture,\n\"\\\narchitecture arch_name of myent is\nbegin\nend;\")"
 ---
 ArchitectureBody
-  Keyword(Architecture)
-  Identifier 'arch_name'
-  Keyword(Of)
-  Name
-    Identifier 'myent'
-  Keyword(Is)
-  Keyword(Begin)
-  Keyword(End)
-  SemiColon
+  ArchitecturePreamble
+    Keyword(Architecture)
+    Identifier 'arch_name'
+    Keyword(Of)
+    Name
+      Identifier 'myent'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ArchitectureEpilogue
+    Keyword(End)
+    SemiColon

@@ -11,24 +11,26 @@ ConditionalWaveformAssignment
         AbstractLiteral '0'
         RightPar
   LTE
-  WaveformElements
-    WaveformElement
+  ConditionalWaveforms
+    ConditionalWaveform
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              Identifier 'bar'
+              RawTokens
+                LeftPar
+                AbstractLiteral '1'
+                Comma
+                AbstractLiteral '2'
+                RightPar
+          Keyword(After)
+          PhysicalLiteral
+            AbstractLiteral '2'
+            Name
+              Identifier 'ns'
+      Keyword(When)
       NameExpression
         Name
-          Identifier 'bar'
-          RawTokens
-            LeftPar
-            AbstractLiteral '1'
-            Comma
-            AbstractLiteral '2'
-            RightPar
-      Keyword(After)
-      PhysicalLiteral
-        AbstractLiteral '2'
-        Name
-          Identifier 'ns'
-  Keyword(When)
-  NameExpression
-    Name
-      Identifier 'cond'
+          Identifier 'cond'
   SemiColon

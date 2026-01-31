@@ -3,19 +3,20 @@ source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
 expression: "to_test_text(Parser::configuration_specification,\n\"for all : lib.pkg.comp use entity work.foo(rtl);\",)"
 ---
 SimpleConfigurationSpecification
-  Keyword(For)
-  ComponentSpecification
-    InstantiationListAll
-      Keyword(All)
-    Colon
-    Name
-      Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'pkg'
-      SelectedName
-        Dot
-        Identifier 'comp'
+  ComponentConfigurationPreamble
+    Keyword(For)
+    ComponentSpecification
+      InstantiationListAll
+        Keyword(All)
+      Colon
+      Name
+        Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'pkg'
+        SelectedName
+          Dot
+          Identifier 'comp'
   BindingIndication
     Keyword(Use)
     EntityEntityAspect

@@ -3,9 +3,11 @@ source: vhdl_syntax/src/parser/productions/component_declaration.rs
 expression: "to_test_text(Parser::component_declaration,\n\"\\\ncomponent foo is\nend component;\n\")"
 ---
 ComponentDeclaration
-  Keyword(Component)
-  Identifier 'foo'
-  Keyword(Is)
-  Keyword(End)
-  Keyword(Component)
-  SemiColon
+  ComponentDeclarationPreamble
+    Keyword(Component)
+    Identifier 'foo'
+    Keyword(Is)
+  ComponentDeclarationEpilogue
+    Keyword(End)
+    Keyword(Component)
+    SemiColon

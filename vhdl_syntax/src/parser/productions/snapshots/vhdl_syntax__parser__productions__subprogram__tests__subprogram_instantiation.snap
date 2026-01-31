@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_instantiation_declaration,\n\"procedure my_proc is new proc;\")"
+---
+SubprogramInstantiationDeclaration
+  SubprogramInstantiationDeclarationPreamble
+    Keyword(Procedure)
+    Identifier 'my_proc'
+    Keyword(Is)
+    Keyword(New)
+    Name
+      Identifier 'proc'
+  SemiColon

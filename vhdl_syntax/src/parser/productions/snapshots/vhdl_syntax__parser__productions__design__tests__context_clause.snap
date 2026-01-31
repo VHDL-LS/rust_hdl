@@ -3,9 +3,10 @@ source: vhdl_syntax/src/parser/productions/design.rs
 expression: "to_test_text(Parser::context_declaration, \"\\\ncontext ident is\nend;\")"
 ---
 ContextDeclaration
-  Keyword(Context)
-  Identifier 'ident'
-  Keyword(Is)
-  ContextClause
-  Keyword(End)
-  SemiColon
+  ContextDeclarationPreamble
+    Keyword(Context)
+    Identifier 'ident'
+    Keyword(Is)
+  ContextDeclarationEpilogue
+    Keyword(End)
+    SemiColon

@@ -6,7 +6,7 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::syntax::green::{GreenChild, GreenNode};
-use crate::syntax::node::{SyntaxElement, SyntaxNode};
+use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 
 // TODO: should also support delete and add
 pub enum RewriteAction {
@@ -59,6 +59,59 @@ impl<R: Fn(&SyntaxElement) -> RewriteAction> Rewriter<R> {
                 }
             }
         }
+        GreenNode::new(new_green_node)
+    }
+}
+
+pub struct TokenRewriter<R: TokenRewrite> {
+    rewrite: R,
+}
+
+pub enum TokenRewriteAction {
+    Keep,
+    Replace(SyntaxToken),
+}
+
+pub trait TokenRewrite {
+    /// Called when traversal enters a node.
+    fn enter(&mut self, _node: &SyntaxNode) {}
+
+    /// Called for each token in traversal order.
+    fn token(&mut self, token: &SyntaxToken) -> TokenRewriteAction;
+
+    /// Called when traversal exits a node.
+    fn exit(&mut self, _node: &SyntaxNode) {}
+}
+
+impl<R: TokenRewrite> TokenRewriter<R> {
+    pub fn new(rewrite: R) -> Self {
+        TokenRewriter { rewrite }
+    }
+
+    pub fn rewrite(&mut self, syntax_node: SyntaxNode) -> SyntaxNode {
+        SyntaxNode::new_root(self.rewrite_node_to_green(syntax_node))
+    }
+
+    fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> GreenNode {
+        self.rewrite.enter(&syntax_node);
+        let mut new_green_node = syntax_node.green().data().clone();
+        for (i, child) in syntax_node.children_with_tokens().enumerate() {
+            match child {
+                SyntaxElement::Node(node) => {
+                    new_green_node.replace_child(
+                        i,
+                        GreenChild::Node((node.offset(), self.rewrite_node_to_green(node))),
+                    );
+                }
+                SyntaxElement::Token(tok) => match self.rewrite.token(&tok) {
+                    TokenRewriteAction::Keep => {}
+                    TokenRewriteAction::Replace(syntax_token) => {
+                        new_green_node.replace_child(i, SyntaxElement::Token(syntax_token).green());
+                    }
+                },
+            }
+        }
+        self.rewrite.exit(&syntax_node);
         GreenNode::new(new_green_node)
     }
 }

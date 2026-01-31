@@ -8,7 +8,8 @@ FullTypeDeclaration
   Keyword(Is)
   ProtectedTypeDeclaration
     Keyword(Protected)
-    Keyword(End)
-    Keyword(Protected)
-    Identifier 'p_t'
+    ProtectedTypeBodyEpilogue
+      Keyword(End)
+      Keyword(Protected)
+      Identifier 'p_t'
   SemiColon

@@ -6,5 +6,4 @@ SubprogramDeclaration
   Keyword(Procedure)
   ProcedureSpecification
     Identifier 'foo'
-    SubprogramHeader
   SemiColon

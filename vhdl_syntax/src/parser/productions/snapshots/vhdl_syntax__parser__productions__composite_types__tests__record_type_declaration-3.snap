@@ -7,25 +7,28 @@ FullTypeDeclaration
   Identifier 'rec_t'
   Keyword(Is)
   RecordTypeDefinition
-    Keyword(Record)
-    ElementDeclaration
-      IdentifierList
-        Identifier 's1'
-      Colon
-      SubtypeIndication
-        Name
-          Identifier 'bit'
-      SemiColon
-    ElementDeclaration
-      IdentifierList
-        Identifier 's2'
-        Comma
-        Identifier 's3'
-      Colon
-      SubtypeIndication
-        Name
-          Identifier 'std_ulogic'
-      SemiColon
-    Keyword(End)
-    Keyword(Record)
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordElementDeclarations
+      ElementDeclaration
+        IdentifierList
+          Identifier 's1'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'bit'
+        SemiColon
+      ElementDeclaration
+        IdentifierList
+          Identifier 's2'
+          Comma
+          Identifier 's3'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'std_ulogic'
+        SemiColon
+    RecordTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Record)
   SemiColon

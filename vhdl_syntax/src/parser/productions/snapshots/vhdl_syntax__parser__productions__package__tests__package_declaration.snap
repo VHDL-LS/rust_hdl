@@ -3,10 +3,11 @@ source: vhdl_syntax/src/parser/productions/package.rs
 expression: "to_test_text(Parser::package, \"\\\npackage pkg_name is\nend package;\")"
 ---
 Package
-  Keyword(Package)
-  Identifier 'pkg_name'
-  Keyword(Is)
-  PackageHeader
-  Keyword(End)
-  Keyword(Package)
-  SemiColon
+  PackagePreamble
+    Keyword(Package)
+    Identifier 'pkg_name'
+    Keyword(Is)
+  PackageEpilogue
+    Keyword(End)
+    Keyword(Package)
+    SemiColon

@@ -3,9 +3,10 @@ source: vhdl_syntax/src/parser/productions/design.rs
 expression: "to_test_text(Parser::context_declaration,\n\"\\\ncontext ident is\n  library foo;\n  use foo.bar;\n  context foo.ctx;\nend context;\")"
 ---
 ContextDeclaration
-  Keyword(Context)
-  Identifier 'ident'
-  Keyword(Is)
+  ContextDeclarationPreamble
+    Keyword(Context)
+    Identifier 'ident'
+    Keyword(Is)
   ContextClause
     LibraryClause
       Keyword(Library)
@@ -30,6 +31,7 @@ ContextDeclaration
             Dot
             Identifier 'ctx'
       SemiColon
-  Keyword(End)
-  Keyword(Context)
-  SemiColon
+  ContextDeclarationEpilogue
+    Keyword(End)
+    Keyword(Context)
+    SemiColon

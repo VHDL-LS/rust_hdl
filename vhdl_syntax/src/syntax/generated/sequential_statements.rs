@@ -108,6 +108,40 @@ impl AstNode for CaseStatementAlternativeSyntax {
     }
 }
 impl CaseStatementAlternativeSyntax {
+    pub fn case_statement_alternative_preamble(
+        &self,
+    ) -> Option<CaseStatementAlternativePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseStatementAlternativePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(SequentialStatementsSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct CaseStatementAlternativePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseStatementAlternativePreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CaseStatementAlternativePreamble => {
+                Some(CaseStatementAlternativePreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseStatementAlternativePreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseStatementAlternativePreambleSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -121,12 +155,6 @@ impl CaseStatementAlternativeSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == RightArrow)
-            .nth(0)
-    }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
-        self.0
-            .children()
-            .filter_map(SequentialStatementsSyntax::cast)
             .nth(0)
     }
 }
@@ -147,6 +175,43 @@ impl AstNode for CaseStatementSyntax {
     }
 }
 impl CaseStatementSyntax {
+    pub fn case_statement_preamble(&self) -> Option<CaseStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn case_statement_alternatives(
+        &self,
+    ) -> impl Iterator<Item = CaseStatementAlternativeSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(CaseStatementAlternativeSyntax::cast)
+    }
+    pub fn case_statement_epilogue(&self) -> Option<CaseStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct CaseStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CaseStatementPreamble => Some(CaseStatementPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -168,29 +233,40 @@ impl CaseStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn case_statement_alternatives(
-        &self,
-    ) -> impl Iterator<Item = CaseStatementAlternativeSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(CaseStatementAlternativeSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct CaseStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::CaseStatementEpilogue => Some(CaseStatementEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::CaseStatementEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_case_token_token(&self) -> Option<SyntaxToken> {
+    pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Case))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_que_token_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(1)
+    pub fn que_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
-    pub fn trailing_case_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -312,17 +388,11 @@ impl AstNode for ConditionalExpressionsSyntax {
     }
 }
 impl ConditionalExpressionsSyntax {
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
+    pub fn conditional_expression(&self) -> Option<ConditionalExpressionSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .children()
+            .filter_map(ConditionalExpressionSyntax::cast)
             .nth(0)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
     }
     pub fn conditional_else_when_expressions(
         &self,
@@ -336,6 +406,36 @@ impl ConditionalExpressionsSyntax {
             .children()
             .filter_map(ConditionalElseItemSyntax::cast)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ConditionalExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ConditionalExpressionSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ConditionalExpression => Some(ConditionalExpressionSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalExpression)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ConditionalExpressionSyntax {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
     }
 }
 #[derive(Debug, Clone)]
@@ -585,17 +685,11 @@ impl AstNode for ConditionalWaveformsSyntax {
     }
 }
 impl ConditionalWaveformsSyntax {
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
+    pub fn conditional_waveform(&self) -> Option<ConditionalWaveformSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .children()
+            .filter_map(ConditionalWaveformSyntax::cast)
             .nth(0)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn conditional_waveform_else_when_expressions(
         &self,
@@ -609,6 +703,36 @@ impl ConditionalWaveformsSyntax {
             .children()
             .filter_map(ConditionalWaveformElseItemSyntax::cast)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ConditionalWaveformSyntax(pub(crate) SyntaxNode);
+impl AstNode for ConditionalWaveformSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ConditionalWaveform => Some(ConditionalWaveformSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ConditionalWaveform)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ConditionalWaveformSyntax {
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -860,6 +984,51 @@ impl AstNode for IfStatementSyntax {
     }
 }
 impl IfStatementSyntax {
+    pub fn if_statement_preamble(&self) -> Option<IfStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(IfStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(SequentialStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn if_statement_elsifs(&self) -> impl Iterator<Item = IfStatementElsifSyntax> + use<'_> {
+        self.0.children().filter_map(IfStatementElsifSyntax::cast)
+    }
+    pub fn if_statement_else(&self) -> Option<IfStatementElseSyntax> {
+        self.0
+            .children()
+            .filter_map(IfStatementElseSyntax::cast)
+            .nth(0)
+    }
+    pub fn if_statement_epilogue(&self) -> Option<IfStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(IfStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct IfStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for IfStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::IfStatementPreamble => Some(IfStatementPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl IfStatementPreambleSyntax {
     pub fn if_label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -884,38 +1053,41 @@ impl IfStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Then))
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
-        self.0
-            .children()
-            .filter_map(SequentialStatementsSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct IfStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for IfStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::IfStatementEpilogue => Some(IfStatementEpilogueSyntax(node)),
+            _ => None,
+        }
     }
-    pub fn if_statement_elsifs(&self) -> impl Iterator<Item = IfStatementElsifSyntax> + use<'_> {
-        self.0.children().filter_map(IfStatementElsifSyntax::cast)
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::IfStatementEpilogue)
     }
-    pub fn if_statement_else(&self) -> Option<IfStatementElseSyntax> {
-        self.0
-            .children()
-            .filter_map(IfStatementElseSyntax::cast)
-            .nth(0)
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
     }
+}
+impl IfStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_if_token_token(&self) -> Option<SyntaxToken> {
+    pub fn if_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::If))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_if_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1028,6 +1200,42 @@ impl AstNode for LoopStatementSyntax {
     }
 }
 impl LoopStatementSyntax {
+    pub fn loop_statement_preamble(&self) -> Option<LoopStatementPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(LoopStatementPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(SequentialStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn loop_statement_epilogue(&self) -> Option<LoopStatementEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(LoopStatementEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct LoopStatementPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for LoopStatementPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::LoopStatementPreamble => Some(LoopStatementPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::LoopStatementPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl LoopStatementPreambleSyntax {
     pub fn label(&self) -> Option<LabelSyntax> {
         self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
@@ -1043,25 +1251,37 @@ impl LoopStatementSyntax {
             .filter(|token| token.kind() == Keyword(Kw::Loop))
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
-        self.0
-            .children()
-            .filter_map(SequentialStatementsSyntax::cast)
-            .nth(0)
+}
+#[derive(Debug, Clone)]
+pub struct LoopStatementEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for LoopStatementEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::LoopStatementEpilogue => Some(LoopStatementEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::LoopStatementEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl LoopStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_loop_token_token(&self) -> Option<SyntaxToken> {
+    pub fn loop_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Loop))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_loop_label_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)
@@ -1365,23 +1585,11 @@ impl AstNode for SelectedForceAssignmentSyntax {
     }
 }
 impl SelectedForceAssignmentSyntax {
-    pub fn with_token(&self) -> Option<SyntaxToken> {
+    pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::With))
+            .children()
+            .filter_map(SelectedAssignmentPreambleSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Select))
-            .nth(0)
-    }
-    pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -1517,23 +1725,11 @@ impl AstNode for SelectedVariableAssignmentSyntax {
     }
 }
 impl SelectedVariableAssignmentSyntax {
-    pub fn with_token(&self) -> Option<SyntaxToken> {
+    pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::With))
+            .children()
+            .filter_map(SelectedAssignmentPreambleSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Select))
-            .nth(0)
-    }
-    pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -1574,23 +1770,11 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
     }
 }
 impl SelectedWaveformAssignmentSyntax {
-    pub fn with_token(&self) -> Option<SyntaxToken> {
+    pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::With))
+            .children()
+            .filter_map(SelectedAssignmentPreambleSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Select))
-            .nth(0)
-    }
-    pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -1618,6 +1802,42 @@ impl SelectedWaveformAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SelectedAssignmentPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for SelectedAssignmentPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SelectedAssignmentPreamble => Some(SelectedAssignmentPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SelectedAssignmentPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SelectedAssignmentPreambleSyntax {
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::With))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn select_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == Keyword(Kw::Select))
+            .nth(0)
+    }
+    pub fn que_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct SensitivityClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for SensitivityClauseSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -1642,31 +1862,6 @@ impl SensitivityClauseSyntax {
     }
     pub fn name_list(&self) -> Option<NameListSyntax> {
         self.0.children().filter_map(NameListSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct SequentialStatementsSyntax(pub(crate) SyntaxNode);
-impl AstNode for SequentialStatementsSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SequentialStatements => Some(SequentialStatementsSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SequentialStatements)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SequentialStatementsSyntax {
-    pub fn sequential_statements(
-        &self,
-    ) -> impl Iterator<Item = SequentialStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(SequentialStatementSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -1789,44 +1984,46 @@ impl AstNode for SequentialStatementSyntax {
 }
 
 #[derive(Debug, Clone)]
-pub struct SignalAssignmentStatementSyntax(pub(crate) SyntaxNode);
+pub enum SignalAssignmentStatementSyntax {
+    SimpleSignalAssignment(SimpleSignalAssignmentSyntax),
+    ConditionalSignalAssignment(ConditionalSignalAssignmentSyntax),
+    SelectedSignalAssignment(SelectedSignalAssignmentSyntax),
+}
 impl AstNode for SignalAssignmentStatementSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SignalAssignmentStatement => Some(SignalAssignmentStatementSyntax(node)),
-            _ => None,
-        }
+        if SimpleSignalAssignmentSyntax::can_cast(&node) {
+            return Some(SignalAssignmentStatementSyntax::SimpleSignalAssignment(
+                SimpleSignalAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        if ConditionalSignalAssignmentSyntax::can_cast(&node) {
+            return Some(
+                SignalAssignmentStatementSyntax::ConditionalSignalAssignment(
+                    ConditionalSignalAssignmentSyntax::cast(node).unwrap(),
+                ),
+            );
+        };
+        if SelectedSignalAssignmentSyntax::can_cast(&node) {
+            return Some(SignalAssignmentStatementSyntax::SelectedSignalAssignment(
+                SelectedSignalAssignmentSyntax::cast(node).unwrap(),
+            ));
+        };
+        None
     }
     fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SignalAssignmentStatement)
+        SimpleSignalAssignmentSyntax::can_cast(node)
+            || ConditionalSignalAssignmentSyntax::can_cast(node)
+            || SelectedSignalAssignmentSyntax::can_cast(node)
     }
     fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+        match self {
+            SignalAssignmentStatementSyntax::SimpleSignalAssignment(inner) => inner.raw(),
+            SignalAssignmentStatementSyntax::ConditionalSignalAssignment(inner) => inner.raw(),
+            SignalAssignmentStatementSyntax::SelectedSignalAssignment(inner) => inner.raw(),
+        }
     }
 }
-impl SignalAssignmentStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn simple_signal_assignment(&self) -> Option<SimpleSignalAssignmentSyntax> {
-        self.0
-            .children()
-            .filter_map(SimpleSignalAssignmentSyntax::cast)
-            .nth(0)
-    }
-    pub fn conditional_signal_assignment(&self) -> Option<ConditionalSignalAssignmentSyntax> {
-        self.0
-            .children()
-            .filter_map(ConditionalSignalAssignmentSyntax::cast)
-            .nth(0)
-    }
-    pub fn selected_signal_assignment(&self) -> Option<SelectedSignalAssignmentSyntax> {
-        self.0
-            .children()
-            .filter_map(SelectedSignalAssignmentSyntax::cast)
-            .nth(0)
-    }
-}
+
 #[derive(Debug, Clone)]
 pub struct SimpleForceAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SimpleForceAssignmentSyntax {
@@ -1844,6 +2041,9 @@ impl AstNode for SimpleForceAssignmentSyntax {
     }
 }
 impl SimpleForceAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
@@ -1886,6 +2086,9 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
     }
 }
 impl SimpleReleaseAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
@@ -1925,6 +2128,9 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
     }
 }
 impl SimpleWaveformAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
@@ -2320,5 +2526,31 @@ impl AstNode for WaveformSyntax {
             WaveformSyntax::WaveformElements(inner) => inner.raw(),
             WaveformSyntax::UnaffectedWaveform(inner) => inner.raw(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SequentialStatementsSyntax(pub(crate) SyntaxNode);
+impl AstNode for SequentialStatementsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SequentialStatements => Some(SequentialStatementsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SequentialStatements)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SequentialStatementsSyntax {
+    pub fn sequential_statements(
+        &self,
+    ) -> impl Iterator<Item = SequentialStatementSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(SequentialStatementSyntax::cast)
     }
 }

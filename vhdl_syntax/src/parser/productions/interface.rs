@@ -18,12 +18,16 @@ impl Parser {
 
     pub fn generic_clause(&mut self) {
         self.start_node(GenericClause);
+        self.start_node(GenericClausePreamble);
         self.expect_kw(Kw::Generic);
         self.expect_token(LeftPar);
+        self.end_node();
         if !(self.next_is(RightPar)) {
             self.interface_list();
         }
+        self.start_node(GenericClauseEpilogue);
         self.expect_tokens([RightPar, SemiColon]);
+        self.end_node();
         self.end_node();
     }
 
@@ -35,12 +39,16 @@ impl Parser {
 
     pub fn port_clause(&mut self) {
         self.start_node(PortClause);
+        self.start_node(PortClausePreamble);
         self.expect_kw(Kw::Port);
         self.expect_token(LeftPar);
+        self.end_node();
         if !(self.next_is(RightPar)) {
             self.interface_list();
         }
+        self.start_node(PortClauseEpilogue);
         self.expect_tokens([RightPar, SemiColon]);
+        self.end_node();
         self.end_node();
     }
 
@@ -141,12 +149,18 @@ impl Parser {
 
     pub fn interface_package_declaration(&mut self) {
         self.start_node(InterfacePackageDeclaration);
-        self.expect_kw(Kw::Package);
-        self.identifier();
-        self.expect_kw(Kw::Is);
+        self.interface_package_declaration_preamble();
         self.expect_kw(Kw::New);
         self.name();
         self.interface_package_generic_map_aspect();
+        self.end_node();
+    }
+
+    pub fn interface_package_declaration_preamble(&mut self) {
+        self.start_node(InterfacePackageDeclarationPreamble);
+        self.expect_kw(Kw::Package);
+        self.identifier();
+        self.expect_kw(Kw::Is);
         self.end_node();
     }
 

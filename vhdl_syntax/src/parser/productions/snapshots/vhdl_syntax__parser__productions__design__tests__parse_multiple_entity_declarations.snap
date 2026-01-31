@@ -4,42 +4,42 @@ expression: "to_test_text(Parser::design_file,\n\"\\\nentity myent is\nend entit
 ---
 DesignFile
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'myent'
-      Keyword(Is)
-      EntityHeader
-      Keyword(End)
-      Keyword(Entity)
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'myent'
+        Keyword(Is)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Keyword(Entity)
+        SemiColon
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'myent2'
-      Keyword(Is)
-      EntityHeader
-      Keyword(End)
-      Keyword(Entity)
-      Identifier 'myent2'
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'myent2'
+        Keyword(Is)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Keyword(Entity)
+        Identifier 'myent2'
+        SemiColon
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'myent3'
-      Keyword(Is)
-      EntityHeader
-      Keyword(End)
-      Identifier 'myent3'
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'myent3'
+        Keyword(Is)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Identifier 'myent3'
+        SemiColon
   DesignUnit
-    ContextClause
     EntityDeclaration
-      Keyword(Entity)
-      Identifier 'myent4'
-      Keyword(Is)
-      EntityHeader
-      Keyword(End)
-      SemiColon
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'myent4'
+        Keyword(Is)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        SemiColon

@@ -557,6 +557,38 @@ impl PhysicalTypeDefinitionSyntax {
             .filter_map(RangeConstraintSyntax::cast)
             .nth(0)
     }
+    pub fn unit_declarations(&self) -> Option<UnitDeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(UnitDeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn physical_type_definition_epilogue(
+        &self,
+    ) -> Option<PhysicalTypeDefinitionEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(PhysicalTypeDefinitionEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct UnitDeclarationsSyntax(pub(crate) SyntaxNode);
+impl AstNode for UnitDeclarationsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::UnitDeclarations => Some(UnitDeclarationsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::UnitDeclarations)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl UnitDeclarationsSyntax {
     pub fn units_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -576,17 +608,37 @@ impl PhysicalTypeDefinitionSyntax {
             .children()
             .filter_map(SecondaryUnitDeclarationSyntax::cast)
     }
+}
+#[derive(Debug, Clone)]
+pub struct PhysicalTypeDefinitionEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::PhysicalTypeDefinitionEpilogue => {
+                Some(PhysicalTypeDefinitionEpilogueSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::PhysicalTypeDefinitionEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PhysicalTypeDefinitionEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_units_token(&self) -> Option<SyntaxToken> {
+    pub fn units_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Units))
-            .nth(1)
+            .nth(0)
     }
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -642,6 +694,42 @@ impl AstNode for ProtectedTypeBodySyntax {
     }
 }
 impl ProtectedTypeBodySyntax {
+    pub fn protected_type_body_preamble(&self) -> Option<ProtectedTypeBodyPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ProtectedTypeBodyPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn protected_type_body_epilogue(&self) -> Option<ProtectedTypeBodyEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ProtectedTypeBodyEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ProtectedTypeBodyPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProtectedTypeBodyPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProtectedTypeBodyPreamble => Some(ProtectedTypeBodyPreambleSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeBodyPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProtectedTypeBodyPreambleSyntax {
     pub fn protected_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -654,26 +742,41 @@ impl ProtectedTypeBodySyntax {
             .filter(|token| token.kind() == Keyword(Kw::Body))
             .nth(0)
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct ProtectedTypeBodyEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProtectedTypeBodyEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProtectedTypeBodyEpilogue => Some(ProtectedTypeBodyEpilogueSyntax(node)),
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeBodyEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProtectedTypeBodyEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_protected_token(&self) -> Option<SyntaxToken> {
+    pub fn protected_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Protected))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_body_token(&self) -> Option<SyntaxToken> {
+    pub fn body_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Body))
-            .nth(1)
+            .nth(0)
     }
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -699,26 +802,85 @@ impl AstNode for ProtectedTypeDeclarationSyntax {
     }
 }
 impl ProtectedTypeDeclarationSyntax {
+    pub fn protected_type_declaration_preamble(
+        &self,
+    ) -> Option<ProtectedTypeDeclarationPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ProtectedTypeDeclarationPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn protected_type_declaration_epilogue(
+        &self,
+    ) -> Option<ProtectedTypeDeclarationEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ProtectedTypeDeclarationEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ProtectedTypeDeclarationPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProtectedTypeDeclarationPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProtectedTypeDeclarationPreamble => {
+                Some(ProtectedTypeDeclarationPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeDeclarationPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProtectedTypeDeclarationPreambleSyntax {
     pub fn protected_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Protected))
             .nth(0)
     }
-    pub fn declarations(&self) -> impl Iterator<Item = DeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(DeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct ProtectedTypeDeclarationEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::ProtectedTypeDeclarationEpilogue => {
+                Some(ProtectedTypeDeclarationEpilogueSyntax(node))
+            }
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::ProtectedTypeDeclarationEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProtectedTypeDeclarationEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_protected_token(&self) -> Option<SyntaxToken> {
+    pub fn protected_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Protected))
-            .nth(1)
+            .nth(0)
     }
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -943,28 +1105,104 @@ impl AstNode for RecordTypeDefinitionSyntax {
     }
 }
 impl RecordTypeDefinitionSyntax {
+    pub fn record_type_definition_preamble(&self) -> Option<RecordTypeDefinitionPreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(RecordTypeDefinitionPreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn record_element_declarations(&self) -> Option<RecordElementDeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(RecordElementDeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn record_type_definition_epilogue(&self) -> Option<RecordTypeDefinitionEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(RecordTypeDefinitionEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct RecordElementDeclarationsSyntax(pub(crate) SyntaxNode);
+impl AstNode for RecordElementDeclarationsSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::RecordElementDeclarations => Some(RecordElementDeclarationsSyntax(node)),
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordElementDeclarations)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RecordElementDeclarationsSyntax {
+    pub fn element_declarations(&self) -> impl Iterator<Item = ElementDeclarationSyntax> + use<'_> {
+        self.0.children().filter_map(ElementDeclarationSyntax::cast)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct RecordTypeDefinitionPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for RecordTypeDefinitionPreambleSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::RecordTypeDefinitionPreamble => {
+                Some(RecordTypeDefinitionPreambleSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordTypeDefinitionPreamble)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RecordTypeDefinitionPreambleSyntax {
     pub fn record_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Record))
             .nth(0)
     }
-    pub fn element_declarations(&self) -> impl Iterator<Item = ElementDeclarationSyntax> + use<'_> {
-        self.0.children().filter_map(ElementDeclarationSyntax::cast)
+}
+#[derive(Debug, Clone)]
+pub struct RecordTypeDefinitionEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for RecordTypeDefinitionEpilogueSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::RecordTypeDefinitionEpilogue => {
+                Some(RecordTypeDefinitionEpilogueSyntax(node))
+            }
+            _ => None,
+        }
     }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::RecordTypeDefinitionEpilogue)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RecordTypeDefinitionEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::End))
             .nth(0)
     }
-    pub fn trailing_record_token(&self) -> Option<SyntaxToken> {
+    pub fn record_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Keyword(Kw::Record))
-            .nth(1)
+            .nth(0)
     }
-    pub fn trailing_name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == Identifier)

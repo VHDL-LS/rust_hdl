@@ -1,18 +1,23 @@
 ---
 source: vhdl_syntax/src/parser/productions/entity_declaration.rs
-expression: "to_test_text(Parser::entity,\n\"\\\nentity my_ent is\n    port();\nbegin\nend my_ent;\n\",)"
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity my_ent is\n    port();\nbegin\nend my_ent;\n\",)"
 ---
 EntityDeclaration
-  Keyword(Entity)
-  Identifier 'my_ent'
-  Keyword(Is)
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'my_ent'
+    Keyword(Is)
   EntityHeader
     PortClause
-      Keyword(Port)
-      LeftPar
-      RightPar
-      SemiColon
-  Keyword(Begin)
-  Keyword(End)
-  Identifier 'my_ent'
-  SemiColon
+      PortClausePreamble
+        Keyword(Port)
+        LeftPar
+      PortClauseEpilogue
+        RightPar
+        SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Identifier 'my_ent'
+    SemiColon

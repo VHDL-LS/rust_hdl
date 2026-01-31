@@ -1,0 +1,28 @@
+---
+source: vhdl_syntax/src/parser/productions/package.rs
+expression: "to_test_text(Parser::package_body,\n\"\\\npackage body pkg_name is\n    procedure foo is\n    begin\n    end foo;\nend package body;\")"
+---
+PackageBody
+  PackageBodyPreamble
+    Keyword(Package)
+    Keyword(Body)
+    Identifier 'pkg_name'
+    Keyword(Is)
+  Declarations
+    SubprogramBody
+      SubprogramBodyPreamble
+        Keyword(Procedure)
+        ProcedureSpecification
+          Identifier 'foo'
+        Keyword(Is)
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      SubprogramBodyEpilogue
+        Keyword(End)
+        Identifier 'foo'
+        SemiColon
+  PackageBodyEpilogue
+    Keyword(End)
+    Keyword(Package)
+    Keyword(Body)
+    SemiColon

@@ -16,14 +16,22 @@ impl Parser {
         self.range();
         if self.opt_token(Keyword(Kw::Units)) {
             self.start_node_at(checkpoint, PhysicalTypeDefinition);
+            self.start_node(UnitDeclarations);
             self.primary_unit_declaration();
             while self.peek_token().is_some_and(|tok| tok != Keyword(Kw::End)) {
                 self.secondary_unit_declaration()
             }
-            self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Units)]);
-            self.opt_identifier();
+            self.end_node();
+            self.physical_type_definition_epilogue();
             self.end_node();
         }
+    }
+
+    pub fn physical_type_definition_epilogue(&mut self) {
+        self.start_node(PhysicalTypeDefinitionEpilogue);
+        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Units)]);
+        self.opt_identifier();
+        self.end_node();
     }
 
     pub fn enumeration_type_definition(&mut self) {

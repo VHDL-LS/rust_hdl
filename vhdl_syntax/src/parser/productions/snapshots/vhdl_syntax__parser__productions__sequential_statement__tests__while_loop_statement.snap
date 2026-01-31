@@ -3,17 +3,18 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "to_test_text(Parser::loop_statement,\n\"\\\nwhile foo = true loop\n  stmt1;\n  stmt2;\nend loop;\")"
 ---
 LoopStatement
-  WhileIterationScheme
-    Keyword(While)
-    BinaryExpression
-      NameExpression
-        Name
-          Identifier 'foo'
-      EQ
-      NameExpression
-        Name
-          Identifier 'true'
-  Keyword(Loop)
+  LoopStatementPreamble
+    WhileIterationScheme
+      Keyword(While)
+      BinaryExpression
+        NameExpression
+          Name
+            Identifier 'foo'
+        EQ
+        NameExpression
+          Name
+            Identifier 'true'
+    Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
       NameTarget
@@ -25,6 +26,7 @@ LoopStatement
         Name
           Identifier 'stmt2'
       SemiColon
-  Keyword(End)
-  Keyword(Loop)
-  SemiColon
+  LoopStatementEpilogue
+    Keyword(End)
+    Keyword(Loop)
+    SemiColon

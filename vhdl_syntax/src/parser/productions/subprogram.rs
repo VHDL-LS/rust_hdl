@@ -19,7 +19,23 @@ impl Parser {
     }
 
     pub fn subprogram_instantiation_declaration(&mut self) {
-        unimplemented!()
+        self.start_node(SubprogramInstantiationDeclaration);
+        self.subprogram_instantiation_declaration_preamble();
+        self.opt_generic_map_aspect();
+        self.expect_token(SemiColon);
+        self.end_node();
+    }
+
+    pub fn subprogram_instantiation_declaration_preamble(&mut self) {
+        self.start_node(SubprogramInstantiationDeclarationPreamble);
+        self.expect_one_of_tokens([Keyword(Kw::Function), Keyword(Kw::Procedure)]);
+        self.identifier();
+        self.expect_tokens([Keyword(Kw::Is), Keyword(Kw::New)]);
+        self.name();
+        if self.next_is(LeftSquare) {
+            self.signature();
+        }
+        self.end_node();
     }
 
     pub fn subprogram_specification(&mut self) {
@@ -107,10 +123,20 @@ impl Parser {
             return;
         }
         self.start_node_at(checkpoint, SubprogramBody);
+        self.start_node_at(checkpoint, SubprogramBodyPreamble);
         self.expect_kw(Kw::Is);
-        self.declarative_part();
+        self.end_node();
+        self.declarations();
+        self.start_node(DeclarationStatementSeparator);
         self.expect_kw(Kw::Begin);
-        self.sequence_of_statements();
+        self.end_node();
+        self.sequential_statements();
+        self.subprogram_body_epilogue();
+        self.end_node();
+    }
+
+    pub fn subprogram_body_epilogue(&mut self) {
+        self.start_node(SubprogramBodyEpilogue);
         self.expect_kw(Kw::End);
         self.subprogram_kind();
         self.opt_designator();
@@ -300,7 +326,6 @@ end procedure swap;"
     }
 
     #[test]
-    #[ignore]
     pub fn subprogram_instantiation() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_instantiation_declaration,

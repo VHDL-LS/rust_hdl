@@ -7,7 +7,9 @@ FullTypeDeclaration
   Identifier 'rec_t'
   Keyword(Is)
   RecordTypeDefinition
-    Keyword(Record)
-    Keyword(End)
-    Keyword(Record)
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Record)
   SemiColon
