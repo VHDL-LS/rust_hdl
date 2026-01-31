@@ -563,7 +563,7 @@ impl Display for TokenSpan {
 
 impl Debug for TokenSpan {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -758,7 +758,18 @@ pub struct Comment {
     pub multi_line: bool,
 }
 
+impl Comment {
+    pub(crate) fn is_start_of_ignored_region(&self) -> bool {
+        self.value.trim() == "vhdl_ls off"
+    }
+
+    pub(crate) fn is_end_of_ignored_region(&self) -> bool {
+        self.value.trim() == "vhdl_ls on"
+    }
+}
+
 use crate::standard::VHDLStandard;
+use itertools::Itertools;
 use std::convert::AsRef;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Sub};
@@ -888,6 +899,45 @@ impl Token {
     /// and all changes that only affect comments.
     pub fn equal_format(&self, other: &Token) -> bool {
         self.kind == other.kind && self.value == other.value
+    }
+
+    pub(crate) fn leading_is_start_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        if let Some((index, _)) = comments
+            .leading
+            .iter()
+            .find_position(|comment| comment.is_start_of_ignored_region())
+        {
+            // This construct guards against the case where we have a `vhdl_ls on` in the same
+            // comment block after a a `vhdl_ls off`
+            !comments.leading[index..]
+                .iter()
+                .any(Comment::is_end_of_ignored_region)
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn leading_is_end_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        comments
+            .leading
+            .iter()
+            .any(Comment::is_end_of_ignored_region)
+    }
+
+    pub(crate) fn trailing_is_end_of_ignored_region(&self) -> bool {
+        let Some(comments) = &self.comments else {
+            return false;
+        };
+        comments
+            .trailing
+            .as_ref()
+            .is_some_and(Comment::is_end_of_ignored_region)
     }
 }
 
@@ -1120,17 +1170,39 @@ fn parse_quoted(
         buffer.bytes.push(quote)
     }
 
-    while let Some(chr) = reader.pop()? {
-        is_multiline |= chr == b'\n';
-        if chr == quote {
-            if reader.peek()? == Some(quote) {
-                reader.skip();
-            } else {
-                found_end = true;
-                break;
+    // Closure that allows usage of the `?` operator
+    let mut quoted_inner = || {
+        while let Some(chr) = reader.pop()? {
+            is_multiline |= chr == b'\n';
+            if chr == quote {
+                if reader.peek()? == Some(quote) {
+                    reader.skip();
+                } else {
+                    found_end = true;
+                    break;
+                }
             }
+            buffer.bytes.push(chr);
         }
-        buffer.bytes.push(chr);
+        Ok(())
+    };
+
+    match quoted_inner() {
+        Ok(()) => {}
+        // When we discover a token error, consume all remaining
+        // characters respecting quote rules.
+        Err(token_err) => {
+            while let Some(char) = reader.pop_char() {
+                if char == quote as char {
+                    if reader.peek_char() == Some(quote as char) {
+                        reader.skip();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            return Err(token_err);
+        }
     }
 
     if include_quote {
@@ -1236,7 +1308,6 @@ fn parse_real_literal(
             b'_' => {
                 text.push(b);
                 reader.skip();
-                continue;
             }
             _ => {
                 break;
@@ -1275,7 +1346,7 @@ fn parse_abstract_literal(
 
             match reader.peek()? {
                 // Exponent
-                Some(b'e') | Some(b'E') => {
+                Some(b'e' | b'E') => {
                     text.push(reader.peek().unwrap().unwrap());
                     reader.skip();
                     let (exp, mut exp_text) = parse_exponent(reader)?;
@@ -1360,7 +1431,7 @@ fn parse_abstract_literal(
         }
 
         // Bit string literal
-        Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
+        Some(b's' | b'u' | b'b' | b'o' | b'x' | b'd') => {
             let (integer, _) = initial?;
 
             if let Some(base_spec) = parse_base_specifier(reader)? {
@@ -1443,13 +1514,7 @@ fn parse_bit_string(
     bit_string_length: Option<u32>,
     start: usize,
 ) -> Result<(Kind, Value), TokenError> {
-    let value = match parse_string(buffer, reader) {
-        Ok(value) => value,
-        Err(mut err) => {
-            err.message = "Invalid bit string literal".to_string();
-            return Err(err);
-        }
-    };
+    let value = parse_string(buffer, reader)?;
 
     let end_pos = reader.state().pos();
     let actual_value = reader
@@ -1973,7 +2038,38 @@ impl<'a> Tokenizer<'a> {
 
     pub fn pop(&mut self) -> DiagnosticResult<Option<Token>> {
         match self.pop_raw() {
-            Ok(token) => Ok(token),
+            Ok(None) => Ok(None),
+            Ok(Some(token)) => {
+                if token.leading_is_start_of_ignored_region() {
+                    if !token.trailing_is_end_of_ignored_region() {
+                        loop {
+                            match self.pop_raw() {
+                                Ok(None) => {
+                                    // Note: we should probably emit an unterminated error here
+                                    // instead of silently failing.
+                                    return Ok(None);
+                                }
+                                Ok(Some(tok)) => {
+                                    if tok.trailing_is_end_of_ignored_region() {
+                                        break;
+                                    } else if tok.leading_is_end_of_ignored_region() {
+                                        // Note: to be pedantic, the 'vhdl_ls on' should be
+                                        // removed from the comments. However, because we have
+                                        // no public API and the comments don't really play
+                                        // a crucial role in the language server or binary,
+                                        // we just emit the token for simplicity.
+                                        return Ok(Some(tok));
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    self.pop()
+                } else {
+                    Ok(Some(token))
+                }
+            }
             Err(err) => {
                 self.state.start = self.reader.state();
                 Err(Diagnostic::syntax_error(
@@ -2532,6 +2628,57 @@ my_other_ident",
     }
 
     #[test]
+    fn non_ascii_in_bit_string() {
+        let code = Code::new("X\"Ä087€\"");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                code.s1("€"),
+                "Found invalid latin-1 character '€'",
+            ))]
+        );
+
+        let code = Code::new("X\"Ä087€\"\"A\"");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                code.s1("€"),
+                "Found invalid latin-1 character '€'",
+            ))]
+        );
+    }
+
+    #[test]
+    fn non_ascii_before_bit_string() {
+        let code = Code::new("€X\"ABC\"");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![
+                Err(Diagnostic::syntax_error(
+                    code.s1("€"),
+                    "Found invalid latin-1 character '€'",
+                )),
+                Ok(Token {
+                    kind: BitString,
+                    value: Value::BitString(
+                        Latin1String::from_utf8_unchecked("X\"ABC\""),
+                        ast::BitString {
+                            length: None,
+                            base: BaseSpecifier::X,
+                            value: Latin1String::from_utf8_unchecked("ABC"),
+                        }
+                    ),
+                    pos: code.s1("X\"ABC\"").pos(),
+                    comments: None,
+                })
+            ],
+        );
+    }
+
+    #[test]
     fn tokenize_based_integer() {
         assert_eq!(
             kind_value_tokenize("2#101#"),
@@ -2584,7 +2731,7 @@ my_other_ident",
         // May not use digit larger than or equal base
         let code = Code::new("3#3#");
         let (tokens, _) = code.tokenize_result();
-        println!("{:?}", tokens);
+        println!("{tokens:?}");
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::syntax_error(
@@ -3105,5 +3252,64 @@ entity -- €
                 .collect_vec(),
             vec![View, Default]
         );
+    }
+
+    #[test]
+    fn ignore_code_in_between_explicitly_ignored_regions() {
+        let tokens = kinds_tokenize(
+            "\
+entity foo is
+--vhdl_ls off
+I am ignored cod€
+--vhdl_ls on
+end foo;
+        ",
+        );
+        assert_eq!(
+            &tokens,
+            &[Entity, Identifier, Is, End, Identifier, SemiColon]
+        );
+
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+single_token
+--vhdl_ls on
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is, End, After]);
+    }
+
+    #[test]
+    fn ignore_code_without_on() {
+        // This should potentially emit a warning, but for now we just silently
+        // ignore that there should be a `vhdl_ls on` at some point.
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+single_token
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is]);
+    }
+
+    #[test]
+    fn on_directly_after_off() {
+        // This should potentially emit a warning, but for now we just silently
+        // ignore that there should be a `vhdl_ls on` at some point.
+        let tokens = kinds_tokenize(
+            "\
+before Is
+--vhdl_ls off
+--vhdl_ls on
+single_token
+End after
+        ",
+        );
+        assert_eq!(&tokens, &[Identifier, Is, Identifier, End, After]);
     }
 }

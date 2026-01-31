@@ -6,16 +6,17 @@
 
 [package]
 name = "vhdl_lang_macros"
-version = "0.83.1"
-authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
-license = "MPL-2.0"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "VHDL Language Frontend - Macros"
-repository = "https://github.com/kraigher/rust_hdl"
-edition = "2021"
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-syn = { version = "2", features = ["full"] }
-quote = "1"
+syn.workspace = true
+quote.workspace = true

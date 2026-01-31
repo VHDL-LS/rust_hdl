@@ -160,20 +160,13 @@ impl<'a> AnalyzeContext<'a, '_> {
             ResolvedName::Final(ent) => {
                 if let AnyEntKind::Component(region) = ent.kind() {
                     name.set_unique_reference(ent);
-                    let (generic_region, port_region) = region.to_entity_formal();
-                    self.check_association(
-                        &fcall.item.name.pos(self.ctx),
-                        &generic_region,
+                    self.analyze_generics_and_ports(
                         scope,
-                        &mut [],
+                        None,
+                        None,
                         diagnostics,
-                    )?;
-                    self.check_association(
-                        &fcall.item.name.pos(self.ctx),
-                        &port_region,
-                        scope,
-                        &mut [],
-                        diagnostics,
+                        &mut fcall.item.name,
+                        region,
                     )?;
                 } else {
                     diagnostics.add(
@@ -251,7 +244,7 @@ impl Diagnostic {
     ) -> Diagnostic {
         Diagnostic::new(
             pos,
-            format!("{} does not match {}", desc, expected_type.describe(),),
+            format!("{} does not match {}", desc, expected_type.describe()),
             ErrorCode::TypeMismatch,
         )
     }

@@ -1,0 +1,14 @@
+preferred_case = "lower"
+standard = "2008"
+
+[libraries.ieee2008]
+files = ["std_logic.vhd", "types.vhd"]
+exclude = ["legacy/*"]
+is_third_party = false
+
+[libraries.my_lib]
+files = ["core.vhd", "utils.vhd"]
+
+[lint]
+some-rule = false
+another-rule = "warning"

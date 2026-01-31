@@ -102,8 +102,10 @@ impl Buffer {
     }
 
     fn indent(&mut self) {
-        self.inner
-            .extend(iter::repeat(self.indent_char).take(self.indent_width * self.indentation));
+        self.inner.extend(iter::repeat_n(
+            self.indent_char,
+            self.indent_width * self.indentation,
+        ));
     }
 
     /// Push a token to this buffer.

@@ -31,12 +31,15 @@ pub use visibility::{Visibility, Visible};
 mod region;
 pub(crate) use region::RegionKind;
 pub use region::{AsUnique, NamedEntities, OverloadedName, Region, SetReference};
+mod file;
+pub use file::FileEnt;
 mod formal_region;
+
 use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::data::error_codes::ErrorCode;
 use crate::{TokenAccess, TokenSpan};
 pub use formal_region::{
-    FormalRegion, GpkgInterfaceEnt, GpkgRegion, InterfaceClass, InterfaceEnt, RecordElement,
+    FormalRegion, GpkgInterfaceEnt, InterfaceEnt, ParameterEnt, ParameterRegion, RecordElement,
     RecordRegion,
 };
 
@@ -91,7 +94,7 @@ pub enum AnyEntKind<'a> {
     /// to the exact statement (i.e., block process or generate).
     /// Not all statements are handled at the moment, therefore the associated
     /// data is optional.
-    Concurrent(Option<Concurrent>),
+    Concurrent(Option<Concurrent>, Region<'a>),
     /// A sequential statement. The associated [Sequential] data is a reference
     /// to the exact statement (i.e., loop, if or else statement).
     /// Not all statements are handled at the moment, therefore the associated
@@ -132,7 +135,7 @@ impl<'a> AnyEntKind<'a> {
     /// * `formals` - The formal arguments of the function
     /// * `return_type` - The return type of the function
     pub(crate) fn new_function_decl(
-        formals: FormalRegion<'a>,
+        formals: ParameterRegion<'a>,
         return_type: TypeEnt<'a>,
     ) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
@@ -146,7 +149,7 @@ impl<'a> AnyEntKind<'a> {
     ///
     /// # Arguments
     /// * `formals` - The formal arguments of the procedure
-    pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
+    pub(crate) fn new_procedure_decl(formals: ParameterRegion<'a>) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 
@@ -188,8 +191,8 @@ impl<'a> AnyEntKind<'a> {
             Component(..) => "component",
             Attribute(..) => "attribute",
             Overloaded(overloaded) => overloaded.describe(),
-            Concurrent(Some(c)) => c.describe(),
-            Concurrent(None) => "label",
+            Concurrent(Some(c), _) => c.describe(),
+            Concurrent(None, _) => "label",
             Sequential(Some(s)) => s.describe(),
             Sequential(None) => "label",
             LoopParameter(_) => "loop parameter",
@@ -414,6 +417,26 @@ impl<'a> AnyEnt<'a> {
         matches!(
             self.kind,
             AnyEntKind::Type(Type::Protected(_, is_body)) if is_body
+        )
+    }
+
+    pub fn is_signal(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Signal,
+                ..
+            })
+        )
+    }
+
+    pub fn is_constant(&self) -> bool {
+        matches!(
+            self.kind(),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                ..
+            })
         )
     }
 

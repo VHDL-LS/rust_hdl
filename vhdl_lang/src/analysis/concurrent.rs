@@ -13,6 +13,7 @@ use crate::data::*;
 use crate::named_entity::*;
 use crate::{HasTokenSpan, TokenSpan};
 use analyze::*;
+use fnv::FnvHashMap;
 
 impl<'a> AnalyzeContext<'a, '_> {
     pub fn analyze_concurrent_part(
@@ -48,7 +49,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
-                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ(), Region::default()),
                     Some(label.pos(self.ctx)),
                     span,
                     Some(self.source()),
@@ -61,7 +62,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     scope.anonymous_designator(),
                     Some(parent),
                     Related::None,
-                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ(), Region::default()),
                     None,
                     span,
                     Some(self.source()),
@@ -108,6 +109,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 )?;
                 self.analyze_declarative_part(&nested, parent, &mut block.decl, diagnostics)?;
                 self.analyze_concurrent_part(&nested, parent, &mut block.statements, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Block),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
@@ -130,6 +138,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.define_labels_for_sequential_part(&nested, parent, statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
                 self.analyze_sequential_part(&nested, parent, statements, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Process),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let ForGenerateStatement {
@@ -153,6 +168,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                     diagnostics,
                 );
                 self.analyze_generate_body(&nested, parent, body, src_span, diagnostics)?;
+                let ent = self.arena.get(statement.label.decl.get().unwrap());
+                unsafe {
+                    ent.set_kind(AnyEntKind::Concurrent(
+                        Some(Concurrent::Generate),
+                        nested.into_region(),
+                    ));
+                }
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 let Conditionals {
@@ -175,6 +197,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     sels:
                         Selection {
                             ref mut expression,
+                            is_matching: _,
                             ref mut alternatives,
                         },
                     end_label_pos: _,
@@ -248,7 +271,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.ctx,
                 self.arena,
                 parent,
-                AnyEntKind::Concurrent(Some(Concurrent::Generate)),
+                AnyEntKind::Concurrent(Some(Concurrent::Generate), Region::default()),
                 span,
                 Some(self.source()),
             );
@@ -303,29 +326,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 }
                             }
 
-                            let (generic_region, port_region) = ent_region.to_entity_formal();
-
-                            self.check_association(
-                                &entity_name.pos(self.ctx),
-                                &generic_region,
+                            self.analyze_generics_and_ports(
                                 scope,
-                                instance
-                                    .generic_map
-                                    .as_mut()
-                                    .map(|it| it.list.items.as_mut_slice())
-                                    .unwrap_or(&mut []),
+                                instance.generic_map.as_mut(),
+                                instance.port_map.as_mut(),
                                 diagnostics,
-                            )?;
-                            self.check_association(
-                                &entity_name.pos(self.ctx),
-                                &port_region,
-                                scope,
-                                instance
-                                    .port_map
-                                    .as_mut()
-                                    .map(|it| it.list.items.as_mut_slice())
-                                    .unwrap_or(&mut []),
-                                diagnostics,
+                                entity_name,
+                                ent_region,
                             )?;
                             Ok(())
                         }
@@ -368,28 +375,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                 };
 
                 if let AnyEntKind::Component(ent_region) = ent.kind() {
-                    let (generic_region, port_region) = ent_region.to_entity_formal();
-                    self.check_association(
-                        &component_name.pos(self.ctx),
-                        &generic_region,
+                    self.analyze_generics_and_ports(
                         scope,
-                        instance
-                            .generic_map
-                            .as_mut()
-                            .map(|it| it.list.items.as_mut_slice())
-                            .unwrap_or(&mut []),
+                        instance.generic_map.as_mut(),
+                        instance.port_map.as_mut(),
                         diagnostics,
-                    )?;
-                    self.check_association(
-                        &component_name.pos(self.ctx),
-                        &port_region,
-                        scope,
-                        instance
-                            .port_map
-                            .as_mut()
-                            .map(|it| it.list.items.as_mut_slice())
-                            .unwrap_or(&mut []),
-                        diagnostics,
+                        component_name,
+                        ent_region,
                     )?;
                     Ok(())
                 } else {
@@ -426,6 +418,37 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)
             }
         }
+    }
+
+    pub fn analyze_generics_and_ports(
+        &self,
+        scope: &Scope<'a>,
+        generic_map_aspect: Option<&mut MapAspect>,
+        port_map_aspect: Option<&mut MapAspect>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        entity_name: &mut WithTokenSpan<Name>,
+        ent_region: &Region<'a>,
+    ) -> FatalResult {
+        let (generic_region, port_region) = ent_region.to_entity_formal();
+
+        let mut mapping = FnvHashMap::default();
+        as_fatal(self.check_association(
+            &entity_name.pos(self.ctx),
+            &generic_region,
+            &mut mapping,
+            scope,
+            generic_map_aspect.map_or(&mut [], |it| it.list.items.as_mut_slice()),
+            diagnostics,
+        ))?;
+        as_fatal(self.check_association(
+            &entity_name.pos(self.ctx),
+            &port_region,
+            &mut mapping,
+            scope,
+            port_map_aspect.map_or(&mut [], |it| it.list.items.as_mut_slice()),
+            diagnostics,
+        ))?;
+        Ok(())
     }
 
     pub fn analyze_map_aspect(

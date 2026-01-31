@@ -277,7 +277,7 @@ end arch;
                 _ => None,
             })
             .collect_vec();
-        println!("{:?}", applicable_options);
+        println!("{applicable_options:?}");
         match &applicable_options[..] {
             [(got_ent, architectures)] => {
                 pretty_assertions::assert_eq!(*got_ent, ent);

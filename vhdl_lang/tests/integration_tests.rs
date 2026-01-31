@@ -1,4 +1,4 @@
-use assert_cmd::prelude::*;
+use assert_cmd::{cargo, prelude::*};
 use itertools::Itertools;
 use predicates::prelude::*;
 use std::error::Error;
@@ -29,7 +29,7 @@ pub fn parses_example_project_without_errors() {
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
-    project.enable_unused_declaration_detection();
+    project.enable_all_linters();
 
     let diagnostics = project.analyse();
     let diagnostics_with_errors = diagnostics
@@ -46,7 +46,7 @@ pub fn parses_example_project_without_errors() {
 
 #[test]
 fn unused_function_gets_detected() -> Result<(), Box<dyn Error>> {
-    let mut cmd = Command::cargo_bin("vhdl_lang")?;
+    let mut cmd = Command::new(cargo::cargo_bin!("vhdl_lang"));
 
     cmd.arg("--config")
         .arg("tests/unused_declarations/vhdl_ls.toml")

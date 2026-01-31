@@ -6,20 +6,131 @@
 
 //! Configuration of the design hierarchy and other settings
 
+use std::collections::BTreeSet;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
+use std::str::FromStr;
 
 use fnv::FnvHashMap;
-use itertools::Itertools;
 use subst::VariableMap;
 use toml::{Table, Value};
 
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
 use crate::standard::VHDLStandard;
+
+/// Defines standard VHDL case conventions.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Case {
+    /// All lower case, i.e., `std_logic_vector`
+    Lower,
+    /// All upper-case, i.e., `STD_LOGIC_VECTOR`
+    Upper,
+    /// Pascal case, i.e., `Std_Logic_Vector`
+    Pascal,
+}
+
+impl FromStr for Case {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "lower" | "snake" => Case::Lower,
+            "upper" | "upper_snake" => Case::Upper,
+            "pascal" | "upper_camel" => Case::Pascal,
+            other => return Err(other.to_string()),
+        })
+    }
+}
+
+impl Case {
+    /// Converts the case in place, modifying the passed string.
+    pub fn convert(&self, val: &mut str) {
+        match self {
+            Case::Lower => val.make_ascii_lowercase(),
+            Case::Upper => val.make_ascii_uppercase(),
+            Case::Pascal => {
+                // SAFETY: changing ASCII letters only does not invalidate UTF-8.
+                let bytes = unsafe { val.as_bytes_mut() };
+                // First letter should be uppercased
+                let mut next_uppercase = true;
+                for byte in bytes {
+                    if byte == &b'_' {
+                        next_uppercase = true;
+                        continue;
+                    }
+                    if next_uppercase {
+                        byte.make_ascii_uppercase();
+                    } else {
+                        byte.make_ascii_lowercase();
+                    }
+                    next_uppercase = false;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod case_tests {
+    use super::*;
+
+    #[test]
+    fn test_case_lower() {
+        let mut test = String::from("STD_LOGIC_VECTOR");
+        Case::Lower.convert(&mut test);
+        assert_eq!(test, "std_logic_vector");
+    }
+
+    #[test]
+    fn test_case_upper() {
+        let mut test = String::from("std_logic_vector");
+        Case::Upper.convert(&mut test);
+        assert_eq!(test, "STD_LOGIC_VECTOR");
+    }
+
+    #[test]
+    fn test_case_pascal() {
+        let mut test = String::from("std_logic_vector");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std_Logic_Vector");
+    }
+
+    #[test]
+    fn test_case_empty() {
+        for case in &[Case::Lower, Case::Upper, Case::Pascal] {
+            let mut test = String::new();
+            case.convert(&mut test);
+            assert_eq!(test, "");
+        }
+    }
+
+    #[test]
+    fn test_case_underscore_only() {
+        for case in &[Case::Lower, Case::Upper, Case::Pascal] {
+            let mut test = String::from("___");
+            case.convert(&mut test);
+            assert_eq!(test, "___");
+        }
+    }
+
+    #[test]
+    fn test_case_consecutive_underscore() {
+        let mut test = String::from("std__logic___vector");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std__Logic___Vector");
+    }
+
+    #[test]
+    fn test_case_mixed() {
+        let mut test = String::from("StD_LoGiC_VeCToR");
+        Case::Pascal.convert(&mut test);
+        assert_eq!(test, "Std_Logic_Vector");
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
@@ -28,12 +139,14 @@ pub struct Config {
     standard: VHDLStandard,
     // Defines the severity that diagnostics are displayed with
     severities: SeverityMap,
+    preferred_case: Option<Case>,
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
     patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
     pub(crate) is_third_party: bool,
 }
 
@@ -42,53 +155,11 @@ impl LibraryConfig {
     /// Only include files that exists
     /// Files that do not exist produce a warning message
     pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
-        let mut result = Vec::new();
-        for pattern in self.patterns.iter() {
-            let stripped_pattern = if cfg!(windows) {
-                pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
-            } else {
-                pattern.as_str()
-            };
-
-            if is_literal(stripped_pattern) {
-                let file_path = PathBuf::from(pattern);
-
-                if file_path.exists() {
-                    result.push(file_path);
-                } else {
-                    messages.push(Message::warning(format! {"File {pattern} does not exist"}));
-                }
-            } else {
-                match glob::glob(stripped_pattern) {
-                    Ok(paths) => {
-                        let mut empty_pattern = true;
-
-                        for file_path_or_error in paths {
-                            empty_pattern = false;
-                            match file_path_or_error {
-                                Ok(file_path) => {
-                                    result.push(file_path);
-                                }
-                                Err(err) => {
-                                    messages.push(Message::error(err.to_string()));
-                                }
-                            }
-                        }
-
-                        if empty_pattern {
-                            messages.push(Message::warning(format!(
-                                "Pattern '{stripped_pattern}' did not match any file"
-                            )));
-                        }
-                    }
-                    Err(err) => {
-                        messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
-                    }
-                }
-            }
-        }
-        // Remove duplicate file names from the result
-        result.into_iter().unique().collect()
+        let mut result = match_file_patterns(&self.patterns, messages);
+        let exclude = match_file_patterns(&self.exclude_patterns, messages);
+        // Remove excluded files from result
+        result.retain(|e| !exclude.contains(e));
+        Vec::from_iter(result)
     }
 
     /// Returns the name of the library
@@ -105,7 +176,7 @@ impl Config {
         let standard = if let Some(std) = config.get("standard") {
             let std_str = std.as_str().ok_or("standard must be a string")?;
             VHDLStandard::try_from(std_str)
-                .map_err(|_| format!("Unsupported standard '{std_str}'"))?
+                .map_err(|()| format!("Unsupported standard '{std_str}'"))?
         } else {
             VHDLStandard::default()
         };
@@ -119,8 +190,7 @@ impl Config {
         for (name, lib) in libs.iter() {
             if name.to_lowercase() == "work" {
                 return Err(format!(
-                    "The '{}' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'",
-                    name
+                    "The '{name}' library is not a valid library.\nHint: To use a library that contains all files, use a common name for all libraries, i.e., 'defaultlib'"
                 ));
             }
 
@@ -129,21 +199,15 @@ impl Config {
                 .ok_or_else(|| format!("missing field files for library {name}"))?
                 .as_array()
                 .ok_or_else(|| format!("files for library {name} is not array"))?;
+            let patterns = check_file_patterns(file_arr, parent)?;
 
-            let mut patterns = Vec::new();
-            for file in file_arr.iter() {
-                let file = file
-                    .as_str()
-                    .ok_or_else(|| format!("not a string {file}"))?;
-
-                let file = substitute_environment_variables(file, &subst::Env)?;
-
-                let path = parent.join(file);
-                let path = path
-                    .to_str()
-                    .ok_or_else(|| format!("Could not convert {path:?} to string"))?
-                    .to_owned();
-                patterns.push(path);
+            let mut exclude_patterns = Vec::new();
+            if let Some(opt) = lib.get("exclude") {
+                if let Some(opt) = opt.as_array() {
+                    exclude_patterns = check_file_patterns(opt, parent)?;
+                } else {
+                    return Err(format!("excludes for library {name} is not array"));
+                }
             }
 
             let mut is_third_party = false;
@@ -162,6 +226,7 @@ impl Config {
                 LibraryConfig {
                     name: name.to_owned(),
                     patterns,
+                    exclude_patterns,
                     is_third_party,
                 },
             );
@@ -173,10 +238,22 @@ impl Config {
             SeverityMap::default()
         };
 
+        let case = if let Some(case) = config.get("preferred_case") {
+            Some(
+                case.as_str()
+                    .ok_or("preferred_case must be a string")?
+                    .parse()
+                    .map_err(|other| format!("Case '{other}' not valid"))?,
+            )
+        } else {
+            None
+        };
+
         Ok(Config {
             libraries,
             severities,
             standard,
+            preferred_case: case,
         })
     }
 
@@ -210,7 +287,7 @@ impl Config {
 
         let parent = file_name.parent().unwrap();
 
-        Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
+        Config::from_str(&contents, parent).map_err(io::Error::other)
     }
 
     pub fn get_library(&self, name: &str) -> Option<&LibraryConfig> {
@@ -239,6 +316,7 @@ impl Config {
             }
         }
         self.severities = config.severities;
+        self.preferred_case = config.preferred_case;
     }
 
     /// Load configuration file from installation folder
@@ -261,7 +339,7 @@ impl Config {
             "../share/vhdl_libraries",
         ];
 
-        for dir in search_paths.into_iter() {
+        for dir in search_paths {
             let mut file_name = PathBuf::from(dir);
             // Expand a relative path
             if !file_name.is_absolute() {
@@ -348,6 +426,82 @@ impl Config {
     pub fn standard(&self) -> VHDLStandard {
         self.standard
     }
+
+    /// Returns the casing that is preferred by the user for linting or completions.
+    pub fn preferred_case(&self) -> Option<Case> {
+        self.preferred_case
+    }
+}
+
+fn match_file_patterns(
+    patterns: &[String],
+    messages: &mut dyn MessageHandler,
+) -> BTreeSet<PathBuf> {
+    let mut result = BTreeSet::new();
+    for pattern in patterns.iter() {
+        let stripped_pattern = if cfg!(windows) {
+            pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
+        } else {
+            pattern.as_str()
+        };
+
+        if is_literal(stripped_pattern) {
+            let file_path = PathBuf::from(pattern);
+
+            if file_path.exists() {
+                result.insert(file_path);
+            } else {
+                messages.push(Message::warning(format! {"File {pattern} does not exist"}));
+            }
+        } else {
+            match glob::glob(stripped_pattern) {
+                Ok(paths) => {
+                    let mut empty_pattern = true;
+
+                    for file_path_or_error in paths {
+                        empty_pattern = false;
+                        match file_path_or_error {
+                            Ok(file_path) => {
+                                result.insert(file_path);
+                            }
+                            Err(err) => {
+                                messages.push(Message::error(err.to_string()));
+                            }
+                        }
+                    }
+
+                    if empty_pattern {
+                        messages.push(Message::warning(format!(
+                            "Pattern '{stripped_pattern}' did not match any file"
+                        )));
+                    }
+                }
+                Err(err) => {
+                    messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
+                }
+            }
+        }
+    }
+    result
+}
+
+fn check_file_patterns(file_arr: &[Value], parent: &Path) -> Result<Vec<String>, String> {
+    let mut patterns = Vec::new();
+    for file in file_arr.iter() {
+        let file = file
+            .as_str()
+            .ok_or_else(|| format!("not a string {file}"))?;
+
+        let file = substitute_environment_variables(file, &subst::Env)?;
+
+        let path = parent.join(file);
+        let path = path
+            .to_str()
+            .ok_or_else(|| format!("Could not convert {path:?} to string"))?
+            .to_owned();
+        patterns.push(path);
+    }
+    Ok(patterns)
 }
 
 fn substitute_environment_variables<'a, M>(s: &str, map: &'a M) -> Result<String, String>
@@ -429,8 +583,13 @@ mod tests {
         paths.iter().map(|path| abspath(path)).collect()
     }
 
+    // Check that two PathBuf slices are the same, ignoring order
     fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
-        assert_eq!(abspaths(got), abspaths(expected));
+        assert_eq!(got.len(), expected.len());
+        assert_eq!(
+            BTreeSet::from_iter(abspaths(got)),
+            BTreeSet::from_iter(abspaths(expected))
+        );
     }
 
     #[test]
@@ -630,7 +789,7 @@ lib.files = [
     }
 
     #[test]
-    fn test_warning_on_emtpy_glob_pattern() {
+    fn test_warning_on_emtpy_file_glob_pattern() {
         let parent = Path::new("parent_folder");
         let config = Config::from_str(
             "
@@ -653,6 +812,62 @@ lib.files = [
                 parent.join("missing*.vhd").to_str().unwrap()
             ))]
         );
+    }
+
+    #[test]
+    fn test_exclude_file_is_excluded() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+lib.exclude = [
+  'file2.vhd'
+]
+",
+            parent,
+        )
+        .unwrap();
+
+        let file1 = touch(parent, "file1.vhd");
+        let _file2 = touch(parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        assert_files_eq(&file_names, &[file1]);
+        assert_eq!(messages, vec![]);
+    }
+
+    #[test]
+    fn test_exclude_pattern_is_excluded() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+lib.exclude = [
+  'b*.vhd'
+]
+",
+            parent,
+        )
+        .unwrap();
+
+        let a1 = touch(parent, "a1.vhd");
+        let a2 = touch(parent, "a2.vhd");
+        let _b1 = touch(parent, "b1.vhd");
+        let _b2 = touch(parent, "b2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        assert_files_eq(&file_names, &[a1, a2]);
+        assert_eq!(messages, vec![]);
     }
 
     #[test]

@@ -55,7 +55,7 @@ impl<'a> Region<'a> {
         let mut ports = Vec::with_capacity(self.entities.len());
 
         for ent in self.entities.values() {
-            if let NamedEntities::Single(ent) = ent {
+            if let Some(ent) = ent.as_unique() {
                 if let Some(ent) = InterfaceEnt::from_any(ent) {
                     if ent.is_signal() {
                         ports.push(ent);
@@ -71,16 +71,16 @@ impl<'a> Region<'a> {
         (ports, generics)
     }
 
-    pub(crate) fn to_package_generic(&self) -> (GpkgRegion<'a>, Vec<EntRef<'a>>) {
+    pub(crate) fn to_package_generic(&self) -> (FormalRegion<'a>, Vec<EntRef<'a>>) {
         // @TODO separate generics and ports
-        let mut generics = Vec::with_capacity(self.entities.len());
+        let mut generics: Vec<InterfaceEnt<'a>> = Vec::with_capacity(self.entities.len());
         let mut other = Vec::with_capacity(self.entities.len());
 
         for ent in self.entities.values() {
             match ent {
                 NamedEntities::Single(ent) => {
                     if let Some(ent) = GpkgInterfaceEnt::from_any(ent) {
-                        generics.push(ent);
+                        generics.push(ent.into());
                         continue;
                     }
                     other.push(*ent);
@@ -88,7 +88,7 @@ impl<'a> Region<'a> {
                 NamedEntities::Overloaded(overloaded) => {
                     if overloaded.len() == 1 {
                         if let Some(ent) = GpkgInterfaceEnt::from_any(overloaded.first().into()) {
-                            generics.push(ent);
+                            generics.push(ent.into());
                             continue;
                         }
                     }
@@ -100,7 +100,10 @@ impl<'a> Region<'a> {
         // Sorting by source file position gives declaration order
         generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         other.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
-        (GpkgRegion::new(generics), other)
+        (
+            FormalRegion::new_with(InterfaceType::Generic, generics),
+            other,
+        )
     }
 
     fn check_deferred_constant_pairs(&self, diagnostics: &mut dyn DiagnosticHandler) {
@@ -230,7 +233,7 @@ impl<'a> OverloadedName<'a> {
     pub fn new(entities: Vec<OverloadedEnt<'_>>) -> OverloadedName<'_> {
         debug_assert!(!entities.is_empty());
         let mut map = FnvHashMap::default();
-        for ent in entities.into_iter() {
+        for ent in entities {
             map.insert(ent.subprogram_key(), ent);
         }
         OverloadedName { entities: map }
@@ -319,7 +322,7 @@ impl<'a> OverloadedName<'a> {
     // Merge overloaded names where self is overloaded names from an
     // immediate/enclosing region and visible are overloaded names that have been made visible
     pub(crate) fn with_visible(mut self, visible: Self) -> Self {
-        for (signature, visible_entity) in visible.entities.into_iter() {
+        for (signature, visible_entity) in visible.entities {
             // Ignore visible entites that conflict with those in the enclosing region
             if let Entry::Vacant(entry) = self.entities.entry(signature) {
                 entry.insert(visible_entity);

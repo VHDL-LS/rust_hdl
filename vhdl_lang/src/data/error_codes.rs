@@ -180,6 +180,16 @@ pub enum ErrorCode {
     /// ```
     MismatchedEntityClass,
 
+    /// The object class of an external name does not match the declared
+    ///
+    /// # Example
+    /// ```vhdl
+    /// signal foo : bit;
+    /// -- ...
+    /// << constant from.somewhere.foo : bit >>
+    /// ```
+    MismatchedObjectClass,
+
     /// The attribute specification is not in the immediate declarative part
     ///
     /// # Example
@@ -410,6 +420,33 @@ pub enum ErrorCode {
     /// ```
     UnassociatedContext,
 
+    /// A signal is missing in the sensitivity list
+    ///
+    /// # Example
+    /// ```vhdl
+    /// foo: process(y) is
+    /// begin
+    ///     bar <= x;
+    /// end;
+    /// ```
+    ///
+    /// The signal `x` is read by the process `foo`, but it is not part
+    /// of the sensitivity list.
+    MissingInSensitivityList,
+
+    /// A signal is present in a sensitivity list, but never used
+    ///
+    /// # Example
+    /// ```vhdl
+    /// foo: process(x, y) is
+    /// begin
+    ///     bar <= x;
+    /// end;
+    /// ```
+    ///
+    /// Both signals `x` and `y` are specified in the process, but only x is read.
+    SuperfluousInSensitivityList,
+
     // Misc
     /// An internal error that signifies that some precondition within vhdl_lang wasn't met.
     /// If an error with this error code occurs,
@@ -467,6 +504,7 @@ impl Default for SeverityMap {
             | SignatureMismatch
             | AmbiguousInstantiation
             | MismatchedSubprogramInstantiation
+            | MismatchedObjectClass
             | VoidReturn
             | NonVoidReturn
             | IllegalReturn
@@ -494,7 +532,9 @@ impl Default for SeverityMap {
             | InvalidCall => Some(Error),
             Unused
             | UnnecessaryWorkLibrary
-            | UnassociatedContext => Some(Warning),
+            | UnassociatedContext
+            | MissingInSensitivityList
+            | SuperfluousInSensitivityList => Some(Warning),
             Internal => Some(Error),
             Related => Some(Hint)
         };

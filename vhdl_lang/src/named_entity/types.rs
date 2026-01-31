@@ -104,6 +104,10 @@ impl UniversalType {
 pub struct TypeEnt<'a>(EntRef<'a>);
 
 impl<'a> TypeEnt<'a> {
+    pub fn inner(&self) -> EntRef<'a> {
+        self.0
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn define_with_opt_id(
         ctx: &dyn TokenAccess,

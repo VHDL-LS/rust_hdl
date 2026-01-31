@@ -55,9 +55,18 @@ will need to be copied into the parent directory of the VHDL_LS binary manually.
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I
 know about are listed here.
 
-## Use in VSCode
+## Use in VS Code
 
-https://github.com/Bochlin/rust_hdl_vscode
+### VHDL-LS
+Official client from [VHDL-LS](https://github.com/VHDL-LS):
+- Github: [rust_hdl_vscode](https://github.com/Bochlin/rust_hdl_vscode)
+- Visual Studio Marketplace: [VHDL LS](https://marketplace.visualstudio.com/items?itemName=hbohlin.vhdl-ls)
+
+### VHDL by HGB
+Client from the University of Applied Sciences Upper Austria - [Campus Hagenberg](https://fh-ooe.at/en/campus-hagenberg):
+- Github: [VHDL-by-HGB](https://github.com/HSD-ESD/VHDL-by-HGB)
+- Visual Studio Marketplace: [VHDL by HGB](https://marketplace.visualstudio.com/items?itemName=P2L2.vhdl-by-hgb)
+- Open VSX: [VHDL by HGB](https://open-vsx.org/extension/p2l2/vhdl-by-hgb)
 
 ## Use in emacs
 
@@ -121,32 +130,18 @@ opening a certain file type, see the [Neovim LSP documentation](https://neovim.i
 
 ## Configuration
 
-The language server needs to know your library mapping to perform full analysis of the code. For this it uses a
-configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
-
-`vhdl_ls` will load configuration files in the following order of priority (first to last):
-
-1. A file named `.vhdl_ls.toml` in the user home folder.
-2. A file name from the `VHDL_LS_CONFIG` environment variable.
-3. A file named `vhdl_ls.toml` in the workspace root.
-
-Settings in a later files overwrites those from previously loaded files.
-
-Define the VHDL revision to use for parsing and analysis with the `standard` key.
-The expected value is the year associated the VHDL standard.
-Supported standards are 1993, 2008 and 2019 where both the long version ("2008") and the short version ("08") can be
-used.
-If nothing is specified, 2008 is used.
+The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 
 > [!NOTE]
-> Defining the standard feature is a relatively new feature (since april 2024).
-> Anything but the 2008 standard will not change much at the moment.
+> Read the full documentation in [the wiki](https://github.com/VHDL-LS/rust_hdl/wiki/VHDL%E2%80%90LS-Configuration)
 
-**Example vhdl_ls.toml**
+### Example vhdl_ls.toml / Quickstart
 
 ```toml
-# What standard to use. This is optional and defaults to VHDL2008.
+# What standard to use. This is optional and defaults to VHDL 2008.
 standard = "2008"
+# The preferred case for completions.
+preferred_case = "lower"
 # File names are either absolute or relative to the parent folder of the vhdl_ls.toml file
 [libraries]
 lib2.files = [
@@ -157,11 +152,14 @@ lib1.files = [
     'tb_ent.vhd'
 ]
 
-# Wildcards are supported
+# Wildcards and exclude patterns are supported
 lib3.files = [
     'test/*.vhd',
     'src/*.vhd',
     'src/*/*.vhd',
+]
+lib3.exclude = [
+    'test/*_old.vhd',
 ]
 
 # Libraries can be marked as third-party to disable some analysis warnings, such as unused declarations
@@ -175,16 +173,29 @@ unused = 'error' # Upgrade the 'unused' diagnostic to the 'error' severity
 unnecessary_work_library = false # Disable linting for the 'library work;' statement
 ```
 
-Using the `lint` table, you can configure the severity of diagnostics or turn of diagnostics altogether.
+## Ignoring errors
 
-> [!WARNING]
-> You can overwrite every diagnostic error code including syntax or analysis errors using the lint table.
-> However, the intended use-case is for lints only.
-> Overwriting syntax or analysis errors (e.g., error codes `unused` or `syntax`) can cause unwanted side effects
+You can use the comment-pair `-- vhdl_ls off` and `-- vhdl_ls on` to conditionally disable and re-enable parsing of
+source code. This can be helpful to ignore errors from correct code that vhdl_ls does not yet support, i.e., PSL
+statements or certain VHDL-2019 constructs.
 
-Paths in the `vhdl_ls.toml` can contain glob patterns (i.e., `.../*/`).
-On Unix machines, they can contain environment variables using the `$NAME` or `${NAME}` syntax.
-On Windows machines, use the `%NAME%` syntax to substitute environment variables.
+```vhdl
+library ieee;
+    use ieee.std_logic_1164.all;
+
+entity ent is
+    port (
+       clk : in std_logic
+    );
+end entity;
+
+architecture arch of ent is
+begin
+    -- vhdl_ls off
+    default clock is rising_edge(clk);
+    -- vhdl_ls on
+end architecture;
+```
 
 ## As an LSP-client developer how should I integrate VHDL-LS?
 

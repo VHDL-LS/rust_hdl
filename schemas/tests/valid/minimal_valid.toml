@@ -1,0 +1,3 @@
+[libraries.ieee2008]
+files = ["std_logic.vhd"]
+

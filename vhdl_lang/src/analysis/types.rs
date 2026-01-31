@@ -71,8 +71,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     self.source(),
                 );
 
-                let signature =
-                    Signature::new(FormalRegion::new(InterfaceType::Parameter), Some(enum_type));
+                let signature = Signature::new(ParameterRegion::default(), Some(enum_type));
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
@@ -319,7 +318,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     subtype_indication,
                     diagnostics,
                 ))? {
-                    Some(subtype) => subtype.type_mark().to_owned(),
+                    Some(subtype) => subtype.type_mark(),
                     None => return Ok(()),
                 };
 

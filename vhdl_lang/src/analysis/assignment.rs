@@ -45,6 +45,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             AssignmentRightHand::Selected(selection) => {
                 let Selection {
                     expression,
+                    is_matching: _,
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
@@ -95,6 +96,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             AssignmentRightHand::Selected(selection) => {
                 let Selection {
                     expression,
+                    is_matching: _,
                     alternatives,
                 } = selection;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;

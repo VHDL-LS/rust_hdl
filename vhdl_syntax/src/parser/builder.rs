@@ -64,7 +64,7 @@ impl NodeBuilder {
         // but this deals with the special case that the entire file is empty.
         // The fix is (likely) to introduce an EOF token.
         // This fixes also the case of having an empty file with only trivia.
-        if self.children.len() == 0 {
+        if self.children.is_empty() {
             self.children.push(GreenChild::Node((
                 0,
                 GreenNode::new(GreenNodeData::new(NodeKind::DesignFile)),

@@ -136,7 +136,6 @@ pub fn parse_declarative_part(
                     Ok(ref mut decls) => declarations.append(decls),
                     Err(err) => {
                         ctx.diagnostics.push(err);
-                        continue;
                     }
                 }
             }
@@ -153,7 +152,6 @@ pub fn parse_declarative_part(
                     Ok(decl) => declarations.push(decl),
                     Err(err) => {
                         ctx.diagnostics.push(err);
-                        continue;
                     }
                 }
             }
@@ -163,7 +161,6 @@ pub fn parse_declarative_part(
                     Ok(decl) => declarations.push(decl.map_into(Declaration::View)),
                     Err(err) => {
                         ctx.diagnostics.push(err);
-                        continue;
                     }
                 }
             }
@@ -182,7 +179,6 @@ pub fn parse_declarative_part(
                 };
                 ctx.diagnostics.push(token.kinds_error(expected));
                 ctx.stream.skip_until(is_recover_token)?;
-                continue;
             }
         }
     }

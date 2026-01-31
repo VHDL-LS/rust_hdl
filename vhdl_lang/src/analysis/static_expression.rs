@@ -219,7 +219,7 @@ pub(crate) fn bit_string_to_string(
                     Err(EmptySignedExpansion)
                 } else {
                     Ok(Latin1String::from_vec(
-                        iter::repeat(b'0').take(value as usize).collect_vec(),
+                        iter::repeat_n(b'0', value as usize).collect_vec(),
                     ))
                 }
             }
@@ -279,8 +279,7 @@ pub(crate) fn bit_string_to_string(
                     } else {
                         b'0'
                     };
-                    let pad_vector = iter::repeat(pad_char)
-                        .take(length - extended_value.len())
+                    let pad_vector = iter::repeat_n(pad_char, length - extended_value.len())
                         .chain(extended_value)
                         .collect_vec();
                     Ok(Latin1String::from_vec(pad_vector))

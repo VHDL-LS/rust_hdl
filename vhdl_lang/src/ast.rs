@@ -164,6 +164,16 @@ impl From<ExternalObjectClass> for ObjectClass {
     }
 }
 
+impl From<ObjectClass> for ExternalObjectClass {
+    fn from(object: ObjectClass) -> ExternalObjectClass {
+        match object {
+            ObjectClass::Constant => ExternalObjectClass::Constant,
+            ObjectClass::Variable | ObjectClass::SharedVariable => ExternalObjectClass::Variable,
+            ObjectClass::Signal => ExternalObjectClass::Signal,
+        }
+    }
+}
+
 /// LRM 8.7 External names
 #[derive(PartialEq, Debug, Clone)]
 pub enum ExternalPath {
@@ -971,8 +981,7 @@ impl HasTokenSpan for WaveformElement {
     fn get_end_token(&self) -> TokenId {
         self.after
             .as_ref()
-            .map(|expr| expr.get_end_token())
-            .unwrap_or(self.value.get_end_token())
+            .map_or_else(|| self.value.get_end_token(), |expr| expr.get_end_token())
     }
 }
 
@@ -1065,6 +1074,7 @@ pub struct Alternative<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Selection<T> {
     pub expression: WithTokenSpan<Expression>,
+    pub is_matching: bool,
     pub alternatives: Vec<Alternative<T>>,
 }
 

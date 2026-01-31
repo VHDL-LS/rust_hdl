@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-//! Contains the RpcChannel Traid and associated convenience functions
+//! Contains the RpcChannel Trait and associated convenience functions
 
 use serde_json::Value;
 use std::rc::Rc;

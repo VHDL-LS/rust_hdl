@@ -4,6 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 #![allow(clippy::upper_case_acronyms)]
+#![allow(clippy::large_enum_variant)]
+#![allow(clippy::result_large_err)]
 #![warn(rust_2018_idioms, future_incompatible)]
 
 #[macro_use]
@@ -25,7 +27,7 @@ mod completion;
 mod formatting;
 mod standard;
 
-pub use crate::config::Config;
+pub use crate::config::{Case, Config};
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType,
     NullDiagnostics, NullMessages, Position, Range, Severity, SeverityMap, Source, SrcPos,

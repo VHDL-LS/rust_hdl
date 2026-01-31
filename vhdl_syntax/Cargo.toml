@@ -1,7 +1,13 @@
 [package]
 name = "vhdl_syntax"
 version = "0.1.0"
-edition = "2021"
+authors = ["Lukas Scheller"]
+readme = "README.md"
+description = "Library to work with VHDL files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 nonzero_ext = "0.3.0"

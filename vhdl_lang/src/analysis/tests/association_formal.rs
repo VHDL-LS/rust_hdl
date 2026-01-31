@@ -744,3 +744,81 @@ end entity;
         )],
     );
 }
+
+#[test]
+fn generic_function_in_entity_instantiation() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity generic_signal_entity is
+    generic (
+        function active_edge(signal s: bit) return boolean
+    );
+end entity;
+
+architecture behavioural of generic_signal_entity is
+begin
+end architecture;
+
+entity test is
+end entity;
+
+architecture behavioural of test is
+    component generic_signal_component is
+    generic (
+        function active_edge(signal s: bit) return boolean
+    );
+    end component;
+begin
+    generic_signal_entity_inst: entity work.generic_signal_entity
+        generic map (
+            active_edge => rising_edge
+        );
+
+    generic_signal_component_inst: generic_signal_component
+        generic map (
+            active_edge => rising_edge
+        );
+end architecture;
+        ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn generic_type_from_port_in_map() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity foo is
+    generic (
+        type t
+    );
+    port (
+        clk: in t
+    );
+end entity foo;
+
+architecture rtl of foo is
+begin
+end architecture;
+
+entity test is
+end entity test;
+
+architecture rtl of test is
+begin
+    foo_inst: entity work.foo
+    generic map(
+        t => bit
+    )
+    port map(
+        clk => '1'
+    );
+end architecture;
+        ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}

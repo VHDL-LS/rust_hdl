@@ -35,6 +35,10 @@ impl<'a> ObjectEnt<'a> {
         }
     }
 
+    pub fn inner(&self) -> EntRef<'a> {
+        self.ent
+    }
+
     pub fn type_mark(&self) -> TypeEnt<'a> {
         self.kind().subtype.type_mark()
     }
@@ -150,6 +154,14 @@ impl<'a> Object<'a> {
     pub(crate) fn with_default(mut self) -> Self {
         self.has_default = true;
         self
+    }
+
+    pub fn is_signal(&self) -> bool {
+        self.class == ObjectClass::Signal
+    }
+
+    pub fn is_constant(&self) -> bool {
+        self.class == ObjectClass::Constant
     }
 
     pub fn is_port(&self) -> bool {

@@ -403,8 +403,7 @@ impl VHDLFormatter<'_> {
         let last_token = declaration
             .decl
             .last()
-            .map(|last| last.span.end_token)
-            .unwrap_or(span.start_token + 1);
+            .map_or_else(|| span.start_token + 1, |last| last.span.end_token);
         // end protected body
         self.format_token_span(TokenSpan::new(last_token + 1, span.end_token), buffer)
     }

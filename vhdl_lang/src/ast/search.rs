@@ -215,6 +215,7 @@ fn search_selection<T: Search>(
 ) -> SearchResult {
     let Selection {
         expression,
+        is_matching: _,
         alternatives,
     } = selection;
     return_if_found!(expression.search(ctx, searcher));
@@ -246,6 +247,7 @@ fn search_assignment<T: Search>(
         AssignmentRightHand::Selected(selection) => {
             let Selection {
                 expression,
+                is_matching: _,
                 alternatives,
             } = selection;
             // expression comes before target
@@ -508,6 +510,24 @@ impl Search for SensitivityList {
     }
 }
 
+impl Search for ProcessStatement {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        let ProcessStatement {
+            postponed: _,
+            sensitivity_list,
+            decl,
+            statements,
+            end_label_pos: _,
+            ..
+        } = self;
+        if let Some(sensitivity_list) = sensitivity_list {
+            return_if_found!(sensitivity_list.item.search(ctx, searcher));
+        }
+        return_if_found!(decl.search(ctx, searcher));
+        statements.search(ctx, searcher)
+    }
+}
+
 impl Search for LabeledConcurrentStatement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
@@ -523,19 +543,7 @@ impl Search for LabeledConcurrentStatement {
                 return_if_found!(block.statements.search(ctx, searcher));
             }
             ConcurrentStatement::Process(ref process) => {
-                let ProcessStatement {
-                    postponed: _,
-                    sensitivity_list,
-                    decl,
-                    statements,
-                    end_label_pos: _,
-                    ..
-                } = process;
-                if let Some(sensitivity_list) = sensitivity_list {
-                    return_if_found!(sensitivity_list.item.search(ctx, searcher));
-                }
-                return_if_found!(decl.search(ctx, searcher));
-                return_if_found!(statements.search(ctx, searcher));
+                return_if_found!(process.search(ctx, searcher));
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
                 return_if_found!(searcher

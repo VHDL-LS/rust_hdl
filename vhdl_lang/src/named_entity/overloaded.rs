@@ -5,6 +5,7 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::*;
 use crate::ast::Designator;
+use crate::named_entity::formal_region::{ParameterEnt, ParameterRegion};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Clone)]
@@ -78,12 +79,12 @@ impl<'a> Overloaded<'a> {
 #[derive(Clone)]
 pub struct Signature<'a> {
     /// Vector of InterfaceObject or InterfaceFile
-    pub(crate) formals: FormalRegion<'a>,
+    pub(crate) formals: ParameterRegion<'a>,
     pub(crate) return_type: Option<TypeEnt<'a>>,
 }
 
 impl<'a> Signature<'a> {
-    pub fn new(formals: FormalRegion<'a>, return_type: Option<TypeEnt<'a>>) -> Signature<'a> {
+    pub fn new(formals: ParameterRegion<'a>, return_type: Option<TypeEnt<'a>>) -> Signature<'a> {
         Signature {
             formals,
             return_type: return_type.as_ref().map(TypeEnt::to_owned),
@@ -115,7 +116,7 @@ impl<'a> Signature<'a> {
         self.formals.iter().all(|formal| formal.has_default())
     }
 
-    pub fn formals_without_defaults(&self) -> impl Iterator<Item = InterfaceEnt<'a>> + '_ {
+    pub fn formals_without_defaults(&self) -> impl Iterator<Item = ParameterEnt<'a>> + '_ {
         self.formals.iter().filter(|formal| !formal.has_default())
     }
 
@@ -242,6 +243,10 @@ impl<'a> OverloadedEnt<'a> {
         }
     }
 
+    pub fn inner(&self) -> EntRef<'a> {
+        self.ent
+    }
+
     pub fn subprogram_key(&self) -> SubprogramKey<'a> {
         let key = self.signature().key();
         if self.is_uninst_subprogram() {
@@ -279,7 +284,7 @@ impl<'a> OverloadedEnt<'a> {
         self.return_type().is_some()
     }
 
-    pub fn formals(&self) -> &'a FormalRegion<'a> {
+    pub fn formals(&self) -> &'a ParameterRegion<'a> {
         &self.signature().formals
     }
 

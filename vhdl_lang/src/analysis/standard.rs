@@ -307,18 +307,18 @@ impl<'a> AnalyzeContext<'a, '_> {
         formals: impl IntoIterator<Item = (Designator, AnyEntKind<'a>)>,
         return_type: Option<TypeEnt<'a>>,
     ) -> OverloadedEnt<'a> {
-        let mut region = FormalRegion::new_params();
+        let mut region = ParameterRegion::default();
 
         let subpgm_ent = self.arena.implicit(
             implicit_of.into(),
             des,
             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
-                FormalRegion::new_params(),
+                ParameterRegion::default(),
                 return_type,
             ))),
         );
 
-        for (name, kind) in formals.into_iter() {
+        for (name, kind) in formals {
             region.add(self.arena.explicit(
                 name,
                 subpgm_ent,
@@ -552,7 +552,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     iface: Some(ObjectInterface::Parameter(InterfaceMode::Simple(
                         Mode::InOut,
                     ))),
-                    subtype: Subtype::new(type_ent.to_owned()),
+                    subtype: Subtype::new(type_ent),
                     has_default: false,
                 }),
             )],

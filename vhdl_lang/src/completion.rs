@@ -108,6 +108,7 @@ pub fn list_completion_options<'a>(
         [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {
             completions_for_map_aspect(root, cursor, source)
         }
+        [.., kind!(CommAt)] | [.., kind!(CommAt), kind!(Identifier)] => list_all_libraries(root),
         _ => generic_completions(root, cursor, source),
     }
 }

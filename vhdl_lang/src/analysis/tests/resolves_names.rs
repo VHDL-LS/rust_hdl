@@ -2200,3 +2200,33 @@ end package;
     );
     check_no_diagnostics(&builder.analyze())
 }
+
+#[test]
+fn does_not_confuse_identically_named_aliases() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+
+package pkg1 is
+  alias val_t is character;
+
+  procedure foo(value: val_t);
+end package;
+
+package pkg is
+  alias val_t is integer;
+
+  procedure bar(value: val_t);
+end package;
+
+package body pkg is
+  procedure bar(value: val_t) is begin
+    work.pkg1.foo(character'val(value));
+  end;
+end package body;
+",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}

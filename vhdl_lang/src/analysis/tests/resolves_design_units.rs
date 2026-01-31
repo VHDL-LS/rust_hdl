@@ -548,3 +548,27 @@ end architecture;
         Some(&code.s1("empty").pos())
     );
 }
+
+#[test]
+fn generic_type_inside_entities() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity foo is
+end entity;
+
+architecture Behavioral of foo is
+    component bar
+        generic (type DATA_TYPE);
+end component;
+
+begin
+    bar_inst : bar
+    generic map (DATA_TYPE => bit);
+end architecture;
+",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}

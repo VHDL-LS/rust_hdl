@@ -6,6 +6,7 @@
 
 use super::latin_1::{char_to_latin1, Latin1String, Utf8ToLatin1Error};
 use super::source::{Position, Range};
+use itertools::Itertools;
 use std::fs::File;
 use std::io;
 use std::io::prelude::Read;
@@ -40,11 +41,10 @@ impl Contents {
 
     pub fn end(&self) -> Position {
         let line = self.num_lines().saturating_sub(1) as u32;
-        let character = self
-            .lines
-            .last()
-            .map(|line| line.chars().map(|chr| chr.len_utf16()).sum())
-            .unwrap_or(0) as u32;
+        let character =
+            self.lines
+                .last()
+                .map_or(0, |line| line.chars().map(|chr| chr.len_utf16()).sum()) as u32;
         Position { line, character }
     }
 
@@ -353,10 +353,9 @@ impl<'a> ContentReader<'a> {
 
     pub fn value_at(&self, line: usize, start: usize, stop: usize) -> Option<Latin1String> {
         let line = self.contents.get_line(line)?;
-        if stop > line.len() {
-            return None;
-        }
-        Latin1String::from_utf8(&line[start..stop]).ok()
+        let utf16_view: Box<[u16]> = line.encode_utf16().get(start..stop).collect();
+        let str_view = String::from_utf16(&utf16_view).ok()?;
+        Latin1String::from_utf8(&str_view).ok()
     }
 }
 

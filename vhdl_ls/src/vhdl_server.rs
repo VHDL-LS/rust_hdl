@@ -22,7 +22,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
+    AnyEntKind, Case, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
     Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
@@ -66,6 +66,7 @@ pub struct VHDLServer {
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
+    case_transform: Option<Case>,
     string_matcher: SkimMatcherV2,
 }
 
@@ -81,6 +82,7 @@ impl VHDLServer {
             config_file: None,
             severity_map: SeverityMap::default(),
             string_matcher: SkimMatcherV2::default().use_cache(true).ignore_case(),
+            case_transform: None,
         }
     }
 
@@ -96,17 +98,16 @@ impl VHDLServer {
             config_file: None,
             severity_map: SeverityMap::default(),
             string_matcher: SkimMatcherV2::default(),
+            case_transform: None,
         }
     }
 
     /// Load the workspace root configuration file
     fn load_root_uri_config(&self) -> io::Result<Config> {
-        let config_file = self.config_file.as_ref().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "Workspace root configuration file not set",
-            )
-        })?;
+        let config_file = self
+            .config_file
+            .as_ref()
+            .ok_or_else(|| io::Error::other("Workspace root configuration file not set"))?;
         let config = Config::read_file_path(config_file)?;
 
         // Log which file was loaded
@@ -158,7 +159,7 @@ impl VHDLServer {
             Some(root_uri) => root_uri
                 .to_file_path()
                 .map(|root_path| root_path.join("vhdl_ls.toml"))
-                .map_err(|_| {
+                .map_err(|()| {
                     self.message(Message::error(format!(
                         "{} {} {:?} ",
                         "Cannot load workspace:",
@@ -254,7 +255,9 @@ impl VHDLServer {
                 // Use the declaration position, if it exists,
                 // else the position of the first source range token.
                 // The latter is applicable for unnamed elements, e.g., processes or loops.
-                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
+                let selection_pos = ent
+                    .decl_pos()
+                    .unwrap_or_else(|| ent.src_span.start_token.pos(ctx));
                 let src_range = ent.src_span.pos(ctx).range();
                 #[allow(deprecated)]
                 DocumentSymbol {
@@ -288,7 +291,9 @@ impl VHDLServer {
         } else {
             #[allow(clippy::ptr_arg)]
             fn to_symbol_information(ent: EntRef, ctx: &Vec<Token>) -> SymbolInformation {
-                let selection_pos = ent.decl_pos().unwrap_or(ent.src_span.start_token.pos(ctx));
+                let selection_pos = ent
+                    .decl_pos()
+                    .unwrap_or_else(|| ent.src_span.start_token.pos(ctx));
                 #[allow(deprecated)]
                 SymbolInformation {
                     name: ent.describe(),
@@ -479,8 +484,8 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::Type(t) => type_kind(t),
         AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
         AnyEntKind::Sequential(_) => SymbolKind::NAMESPACE,
-        AnyEntKind::Concurrent(Some(Concurrent::Instance)) => SymbolKind::MODULE,
-        AnyEntKind::Concurrent(_) => SymbolKind::NAMESPACE,
+        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => SymbolKind::MODULE,
+        AnyEntKind::Concurrent(..) => SymbolKind::NAMESPACE,
         AnyEntKind::Library => SymbolKind::NAMESPACE,
         AnyEntKind::View(_) => SymbolKind::INTERFACE,
         AnyEntKind::Design(d) => match d {

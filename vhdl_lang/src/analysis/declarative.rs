@@ -47,24 +47,26 @@ impl Declaration {
         match parent {
             // LRM: block_declarative_item
             AnyEntKind::Design(Design::Architecture(..))
-            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate)) => matches!(
-                self,
-                Object(ObjectDeclaration {
-                    class: Constant | Signal | SharedVariable,
-                    ..
-                }) | File(_)
-                    | Type(_)
-                    | Component(_)
-                    | Attribute(_)
-                    | Alias(_)
-                    | SubprogramDeclaration(_)
-                    | SubprogramInstantiation(_)
-                    | SubprogramBody(_)
-                    | Use(_)
-                    | Package(_)
-                    | Configuration(_)
-                    | View(_)
-            ),
+            | AnyEntKind::Concurrent(Some(Concurrent::Block | Concurrent::Generate), _) => {
+                matches!(
+                    self,
+                    Object(ObjectDeclaration {
+                        class: Constant | Signal | SharedVariable,
+                        ..
+                    }) | File(_)
+                        | Type(_)
+                        | Component(_)
+                        | Attribute(_)
+                        | Alias(_)
+                        | SubprogramDeclaration(_)
+                        | SubprogramInstantiation(_)
+                        | SubprogramBody(_)
+                        | Use(_)
+                        | Package(_)
+                        | Configuration(_)
+                        | View(_)
+                )
+            }
             // LRM: configuration_declarative_item
             AnyEntKind::Design(Design::Configuration) => {
                 matches!(self, Use(_) | Attribute(ast::Attribute::Specification(_)))
@@ -92,7 +94,7 @@ impl Declaration {
                 | Overloaded::UninstSubprogramDecl(..)
                 | Overloaded::UninstSubprogram(..),
             )
-            | AnyEntKind::Concurrent(Some(Concurrent::Process))
+            | AnyEntKind::Concurrent(Some(Concurrent::Process), _)
             | AnyEntKind::Type(named_entity::Type::Protected(..)) => matches!(
                 self,
                 Object(ObjectDeclaration {
@@ -564,7 +566,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut instance.ident,
                     parent,
                     AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
-                        FormalRegion::new_params(),
+                        ParameterRegion::default(),
                         None,
                     ))),
                     src_span,
@@ -675,6 +677,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 name.decl.set_unique_reference(&record_element);
                 unassociated.remove(&record_element);
             }
+            self.analyze_mode_view_element(&mut element.mode, scope, diagnostics)?;
         }
         if !unassociated.is_empty() {
             diagnostics.add(
@@ -684,6 +687,34 @@ impl<'a> AnalyzeContext<'a, '_> {
             );
         }
         Ok(self.define(&mut view.ident, parent, AnyEntKind::View(typ), src_span))
+    }
+
+    fn analyze_mode_view_element(
+        &self,
+        mode: &mut ElementMode,
+        scope: &Scope<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult {
+        match mode {
+            ElementMode::Simple(_) => {}
+            ElementMode::Record(name) | ElementMode::Array(name) => {
+                let Some(resolved_name) =
+                    as_fatal(self.name_resolve(scope, name.span, &mut name.item, diagnostics))?
+                else {
+                    return Ok(());
+                };
+                match resolved_name {
+                    ResolvedName::Final(ent) if matches!(ent.kind(), AnyEntKind::View(_)) => {}
+                    _ => {
+                        diagnostics.push(Diagnostic::mismatched_kinds(
+                            name.span.pos(self.ctx),
+                            "Expected view",
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     fn find_deferred_constant_declaration(
@@ -886,7 +917,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         self.define(
                             ident,
                             parent,
-                            AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
+                            AnyEntKind::InterfaceFile(file_type.type_mark()),
                             span,
                         )
                     })
@@ -1232,7 +1263,7 @@ fn get_entity_class(ent: EntRef<'_>) -> Option<EntityClass> {
         AnyEntKind::Type(Type::Subtype(_)) => Some(EntityClass::Subtype),
         AnyEntKind::Type(_) => Some(EntityClass::Type),
         AnyEntKind::ElementDeclaration(_) => None,
-        AnyEntKind::Concurrent(_) => Some(EntityClass::Label),
+        AnyEntKind::Concurrent(..) => Some(EntityClass::Label),
         AnyEntKind::Sequential(_) => Some(EntityClass::Label),
         AnyEntKind::Object(obj) => match obj.class {
             ObjectClass::Signal => Some(EntityClass::Signal),
@@ -1288,9 +1319,9 @@ const UNASSOCIATED_DISPLAY_THRESHOLD: usize = 3;
 /// The returned message has the format "Missing association of x".
 /// * If there is only one element, the message becomes "Missing association of element the_element"
 /// * If there are more elements, the message becomes
-///     "Missing association of element the_element1, the_element2 and the_element3"
+///   "Missing association of element the_element1, the_element2 and the_element3"
 /// * If there are more elements than [UNASSOCIATED_DISPLAY_THRESHOLD], the message will be truncated
-///     to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
+///   to "Missing association of element the_element1, the_element2, the_element3 and 17 more"
 fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement<'_>>) -> String {
     assert!(
         !unassociated.is_empty(),
@@ -1318,8 +1349,8 @@ fn pretty_format_unassociated_message(unassociated: &HashSet<&RecordElement<'_>>
         desc
     };
     if unassociated.len() == 1 {
-        format!("Missing association of element {}", description)
+        format!("Missing association of element {description}")
     } else {
-        format!("Missing association of elements {}", description)
+        format!("Missing association of elements {description}")
     }
 }
