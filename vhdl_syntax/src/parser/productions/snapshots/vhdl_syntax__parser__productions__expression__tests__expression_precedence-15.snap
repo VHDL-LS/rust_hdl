@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"and 1 + 2\")"
+---
+BinaryExpression
+  UnaryExpression
+    Keyword(And)
+    LiteralExpression
+      AbstractLiteral '1'
+  Plus
+  LiteralExpression
+    AbstractLiteral '2'

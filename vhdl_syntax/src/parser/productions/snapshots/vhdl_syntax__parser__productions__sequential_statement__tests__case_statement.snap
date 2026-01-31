@@ -1,0 +1,57 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::case_statement,\n\"\\\ncase foo(1) is\n  when 1 | 2 =>\n    stmt1;\n    stmt2;\n  when others =>\n    stmt3;\n    stmt4;\nend case;\")"
+---
+CaseStatement
+  CaseStatementPreamble
+    Keyword(Case)
+    NameExpression
+      Name
+        Identifier 'foo'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          RightPar
+    Keyword(Is)
+  CaseStatementAlternative
+    CaseStatementAlternativePreamble
+      Keyword(When)
+      Choices
+        LiteralExpression
+          AbstractLiteral '1'
+        Bar
+        LiteralExpression
+          AbstractLiteral '2'
+      RightArrow
+    SequentialStatements
+      ProcedureCallStatement
+        NameTarget
+          Name
+            Identifier 'stmt1'
+        SemiColon
+      ProcedureCallStatement
+        NameTarget
+          Name
+            Identifier 'stmt2'
+        SemiColon
+  CaseStatementAlternative
+    CaseStatementAlternativePreamble
+      Keyword(When)
+      Choices
+        Keyword(Others)
+      RightArrow
+    SequentialStatements
+      ProcedureCallStatement
+        NameTarget
+          Name
+            Identifier 'stmt3'
+        SemiColon
+      ProcedureCallStatement
+        NameTarget
+          Name
+            Identifier 'stmt4'
+        SemiColon
+  CaseStatementEpilogue
+    Keyword(End)
+    Keyword(Case)
+    SemiColon

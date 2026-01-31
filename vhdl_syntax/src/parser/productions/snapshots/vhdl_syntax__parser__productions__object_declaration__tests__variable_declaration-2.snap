@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::variable_declaration,\n\"variable v, vv, vvv : natural := 1;\")"
+---
+VariableDeclaration
+  Keyword(Variable)
+  IdentifierList
+    Identifier 'v'
+    Comma
+    Identifier 'vv'
+    Comma
+    Identifier 'vvv'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'
+  ColonEq
+  LiteralExpression
+    AbstractLiteral '1'
+  SemiColon

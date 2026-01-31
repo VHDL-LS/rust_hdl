@@ -1,0 +1,31 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::case_statement,\n\"\\\ncase? foo(1) is\n  when others => null;\nend case?;\")"
+---
+CaseStatement
+  CaseStatementPreamble
+    Keyword(Case)
+    Que
+    NameExpression
+      Name
+        Identifier 'foo'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          RightPar
+    Keyword(Is)
+  CaseStatementAlternative
+    CaseStatementAlternativePreamble
+      Keyword(When)
+      Choices
+        Keyword(Others)
+      RightArrow
+    SequentialStatements
+      NullStatement
+        Keyword(Null)
+        SemiColon
+  CaseStatementEpilogue
+    Keyword(End)
+    Keyword(Case)
+    Que
+    SemiColon

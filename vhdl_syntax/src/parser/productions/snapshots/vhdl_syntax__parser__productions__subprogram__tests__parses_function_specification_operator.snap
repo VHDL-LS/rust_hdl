@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_declaration,\n\"function \\\"+\\\" return lib.foo.natural;\")"
+---
+SubprogramDeclaration
+  FunctionSpecification
+    Keyword(Function)
+    StringLiteral '"+"'
+    Keyword(Return)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'natural'
+  SemiColon

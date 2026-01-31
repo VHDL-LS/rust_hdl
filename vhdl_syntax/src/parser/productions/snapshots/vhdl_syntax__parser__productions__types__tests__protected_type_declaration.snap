@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type p_t is protected end protected;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'p_t'
+  Keyword(Is)
+  ProtectedTypeDeclaration
+    Keyword(Protected)
+    ProtectedTypeBodyEpilogue
+      Keyword(End)
+      Keyword(Protected)
+  SemiColon

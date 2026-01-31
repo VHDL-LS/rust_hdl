@@ -1,0 +1,80 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_body,\n\"\\\nprocedure swap\n  generic ( type T )\n  parameter (a, b : inout T) is\n  variable temp : T;\nbegin\n  temp := a; a := b; b := temp;\nend procedure swap;\")"
+---
+SubprogramBody
+  SubprogramBodyPreamble
+    Keyword(Procedure)
+    ProcedureSpecification
+      Identifier 'swap'
+      SubprogramHeader
+        SubprogramHeaderGenericClause
+          Keyword(Generic)
+          LeftPar
+          InterfaceList
+            InterfaceIncompleteTypeDeclaration
+              Keyword(Type)
+              Identifier 'T'
+          RightPar
+      ParameterList
+        Keyword(Parameter)
+        ParenthesizedInterfaceList
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'a'
+                Comma
+                Identifier 'b'
+              Colon
+              Keyword(Inout)
+              SubtypeIndication
+                Name
+                  Identifier 'T'
+          RightPar
+    Keyword(Is)
+  Declarations
+    VariableDeclaration
+      Keyword(Variable)
+      IdentifierList
+        Identifier 'temp'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'T'
+      SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SequentialStatements
+    SimpleVariableAssignment
+      NameTarget
+        Name
+          Identifier 'temp'
+      ColonEq
+      NameExpression
+        Name
+          Identifier 'a'
+      SemiColon
+    SimpleVariableAssignment
+      NameTarget
+        Name
+          Identifier 'a'
+      ColonEq
+      NameExpression
+        Name
+          Identifier 'b'
+      SemiColon
+    SimpleVariableAssignment
+      NameTarget
+        Name
+          Identifier 'b'
+      ColonEq
+      NameExpression
+        Name
+          Identifier 'temp'
+      SemiColon
+  SubprogramBodyEpilogue
+    Keyword(End)
+    Keyword(Procedure)
+    Identifier 'swap'
+    SemiColon

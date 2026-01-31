@@ -1,0 +1,75 @@
+# §13: Design Units
+
+ContextClause: !Sequence
+  - node: ContextItem
+    repeated: true
+
+ContextDeclaration: !Sequence
+  - node: ContextDeclarationPreamble
+  - node: ContextClause
+  - node: ContextDeclarationEpilogue
+
+ContextDeclarationPreamble: !Sequence
+  - keyword: Context
+  - token: Identifier
+    name: name
+  - keyword: Is
+
+ContextDeclarationEpilogue: !Sequence
+  - keyword: End
+  - keyword: Context
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+UseClauseContextItem: !Sequence
+  - node: UseClause
+
+ContextReference: !Sequence
+  - keyword: Context
+  - node: NameList
+  - token: SemiColon
+
+ContextItem: !Choice
+  - node: LibraryClause
+  - node: UseClauseContextItem
+  - node: ContextReference
+
+DesignFile: !Sequence
+  - node: DesignUnit
+    repeated: true
+
+DesignUnit: !Sequence
+  - node: ContextClause
+  - node: LibraryUnit
+
+LibraryClause: !Sequence
+  - keyword: Library
+  - node: IdentifierList
+  - token: SemiColon
+
+LibraryUnit: !Choice
+  - node: PrimaryUnit
+  - node: SecondaryUnit
+
+PrimaryUnitPackageDeclaration: !Sequence
+  - node: Package
+
+PackageInstantiationDeclarationPrimaryUnit: !Sequence
+  - node: PackageInstantiation
+
+PrimaryUnit: !Choice
+  - node: EntityDeclaration
+  - node: ConfigurationDeclaration
+  - node: PrimaryUnitPackageDeclaration
+  - node: PackageInstantiationDeclarationPrimaryUnit
+  - node: ContextDeclaration
+  - node: PslVerificationUnit
+
+SecondaryUnitPackageBody: !Sequence
+  - node: PackageBody
+
+SecondaryUnit: !Choice
+  - node: ArchitectureBody
+  - node: SecondaryUnitPackageBody

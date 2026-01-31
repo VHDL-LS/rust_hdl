@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::if_statement, \"\\\nif cond = true then\nend if;\")"
+---
+IfStatement
+  IfStatementPreamble
+    Keyword(If)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Then)
+  IfStatementEpilogue
+    Keyword(End)
+    Keyword(If)
+    SemiColon

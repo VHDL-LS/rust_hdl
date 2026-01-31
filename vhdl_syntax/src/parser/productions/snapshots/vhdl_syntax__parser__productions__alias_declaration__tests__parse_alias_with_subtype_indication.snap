@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/alias_declaration.rs
+expression: "to_test_text(Parser::alias_declaration,\n\"alias foo : vector(0 to 1) is name;\",)"
+---
+AliasDeclaration
+  Keyword(Alias)
+  Identifier 'foo'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'vector'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        Keyword(To)
+        AbstractLiteral '1'
+        RightPar
+  Keyword(Is)
+  Name
+    Identifier 'name'
+  SemiColon

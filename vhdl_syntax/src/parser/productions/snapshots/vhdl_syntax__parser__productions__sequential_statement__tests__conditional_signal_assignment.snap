@@ -1,0 +1,36 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement,\n\"\\\nfoo(0) <= bar(1,2) after 2 ns when cond;\n        \")"
+---
+ConditionalWaveformAssignment
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  LTE
+  ConditionalWaveforms
+    ConditionalWaveform
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              Identifier 'bar'
+              RawTokens
+                LeftPar
+                AbstractLiteral '1'
+                Comma
+                AbstractLiteral '2'
+                RightPar
+          Keyword(After)
+          PhysicalLiteral
+            AbstractLiteral '2'
+            Name
+              Identifier 'ns'
+      Keyword(When)
+      NameExpression
+        Name
+          Identifier 'cond'
+  SemiColon

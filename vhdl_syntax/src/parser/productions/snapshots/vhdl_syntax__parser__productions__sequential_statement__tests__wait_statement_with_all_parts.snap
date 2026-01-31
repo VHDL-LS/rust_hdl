@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::wait_statement, \"wait on foo until bar for 2 ns;\")"
+---
+WaitStatement
+  Keyword(Wait)
+  SensitivityClause
+    Keyword(On)
+    NameList
+      Name
+        Identifier 'foo'
+  ConditionClause
+    Keyword(Until)
+    NameExpression
+      Name
+        Identifier 'bar'
+  TimeoutClause
+    Keyword(For)
+    PhysicalLiteral
+      AbstractLiteral '2'
+      Name
+        Identifier 'ns'
+  SemiColon

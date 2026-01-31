@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::range, \"0 to 0\")"
+---
+RangeExpression
+  LiteralExpression
+    AbstractLiteral '0'
+  Keyword(To)
+  LiteralExpression
+    AbstractLiteral '0'

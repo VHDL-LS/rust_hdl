@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_body,\n\"\\\nfunction foo(arg : natural) return natural is\nbegin\nend function foo;\")"
+---
+SubprogramBody
+  SubprogramBodyPreamble
+    FunctionSpecification
+      Keyword(Function)
+      Identifier 'foo'
+      ParameterList
+        ParenthesizedInterfaceList
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'arg'
+              Colon
+              SubtypeIndication
+                Name
+                  Identifier 'natural'
+          RightPar
+      Keyword(Return)
+      Name
+        Identifier 'natural'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SubprogramBodyEpilogue
+    Keyword(End)
+    Keyword(Function)
+    Identifier 'foo'
+    SemiColon

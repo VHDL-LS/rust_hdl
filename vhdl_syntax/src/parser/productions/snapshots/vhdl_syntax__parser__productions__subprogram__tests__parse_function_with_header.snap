@@ -1,0 +1,72 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_body,\n\"\\\nfunction foo generic (x: natural := 4) (arg : natural) return natural is\n  constant foo : natural := 0;\nbegin\n  return foo + arg;\nend function;\")"
+---
+SubprogramBody
+  SubprogramBodyPreamble
+    FunctionSpecification
+      Keyword(Function)
+      Identifier 'foo'
+      SubprogramHeader
+        SubprogramHeaderGenericClause
+          Keyword(Generic)
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'x'
+              Colon
+              SubtypeIndication
+                Name
+                  Identifier 'natural'
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '4'
+          RightPar
+      ParameterList
+        ParenthesizedInterfaceList
+          LeftPar
+          InterfaceList
+            InterfaceConstantDeclaration
+              IdentifierList
+                Identifier 'arg'
+              Colon
+              SubtypeIndication
+                Name
+                  Identifier 'natural'
+          RightPar
+      Keyword(Return)
+      Name
+        Identifier 'natural'
+    Keyword(Is)
+  Declarations
+    ConstantDeclaration
+      Keyword(Constant)
+      IdentifierList
+        Identifier 'foo'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'natural'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '0'
+      SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SequentialStatements
+    ReturnStatement
+      Keyword(Return)
+      BinaryExpression
+        NameExpression
+          Name
+            Identifier 'foo'
+        Plus
+        NameExpression
+          Name
+            Identifier 'arg'
+      SemiColon
+  SubprogramBodyEpilogue
+    Keyword(End)
+    Keyword(Function)
+    SemiColon

@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::report_statement, \"report \\\"message\\\" severity error;\")"
+---
+ReportStatement
+  Keyword(Report)
+  LiteralExpression
+    StringLiteral '"message"'
+  Keyword(Severity)
+  NameExpression
+    Name
+      Identifier 'error'
+  SemiColon

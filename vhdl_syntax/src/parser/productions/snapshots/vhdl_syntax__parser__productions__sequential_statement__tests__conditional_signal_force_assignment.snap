@@ -1,0 +1,30 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement,\n\"\\\nfoo(0) <= force bar(1,2) when cond;\n        \")"
+---
+ConditionalForceAssignment
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  LTE
+  Keyword(Force)
+  ConditionalWaveforms
+    ConditionalWaveform
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+      Keyword(When)
+      NameExpression
+        Name
+          Identifier 'cond'
+  SemiColon

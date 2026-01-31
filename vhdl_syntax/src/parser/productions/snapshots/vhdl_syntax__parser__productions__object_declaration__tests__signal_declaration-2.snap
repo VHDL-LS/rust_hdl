@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::signal_declaration, \"signal s, ss, sss : natural := 1;\")"
+---
+SignalDeclaration
+  Keyword(Signal)
+  IdentifierList
+    Identifier 's'
+    Comma
+    Identifier 'ss'
+    Comma
+    Identifier 'sss'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'
+  ColonEq
+  LiteralExpression
+    AbstractLiteral '1'
+  SemiColon

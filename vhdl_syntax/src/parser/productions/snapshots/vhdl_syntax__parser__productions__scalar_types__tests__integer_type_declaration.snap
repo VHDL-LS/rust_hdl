@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration, \"type positive_t is range 0 to C_MAX;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'positive_t'
+  Keyword(Is)
+  Keyword(Range)
+  RangeExpression
+    LiteralExpression
+      AbstractLiteral '0'
+    Keyword(To)
+    NameExpression
+      Name
+        Identifier 'C_MAX'
+  SemiColon

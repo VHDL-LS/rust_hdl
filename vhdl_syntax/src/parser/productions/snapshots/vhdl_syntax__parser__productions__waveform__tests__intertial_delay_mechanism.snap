@@ -1,0 +1,6 @@
+---
+source: vhdl_syntax/src/parser/productions/waveform.rs
+expression: "to_test_text(Parser::delay_mechanism, \"inertial\")"
+---
+InertialDelayMechanism
+  Keyword(Inertial)

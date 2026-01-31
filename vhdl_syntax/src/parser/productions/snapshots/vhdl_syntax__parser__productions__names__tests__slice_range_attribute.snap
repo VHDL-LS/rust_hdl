@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"prefix(foo(0)'range)\")"
+---
+Name
+  Identifier 'prefix'
+  RawTokens
+    LeftPar
+    Identifier 'foo'
+    LeftPar
+    AbstractLiteral '0'
+    RightPar
+    Tick
+    Keyword(Range)
+    RightPar

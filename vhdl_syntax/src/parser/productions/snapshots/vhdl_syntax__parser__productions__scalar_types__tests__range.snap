@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::range, \"100 downto 10\")"
+---
+RangeExpression
+  LiteralExpression
+    AbstractLiteral '100'
+  Keyword(Downto)
+  LiteralExpression
+    AbstractLiteral '10'

@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"1-2-3\")"
+---
+BinaryExpression
+  BinaryExpression
+    LiteralExpression
+      AbstractLiteral '1'
+    Minus
+    LiteralExpression
+      AbstractLiteral '2'
+  Minus
+  LiteralExpression
+    AbstractLiteral '3'

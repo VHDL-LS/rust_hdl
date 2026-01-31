@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration,\n\"function Match(Actual : ActualType) return boolean\")"
+---
+InterfaceSubprogramDeclaration
+  InterfaceFunctionSpecification
+    Keyword(Function)
+    Identifier 'Match'
+    ParameterList
+      ParenthesizedInterfaceList
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'Actual'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'ActualType'
+        RightPar
+    Keyword(Return)
+    Name
+      Identifier 'boolean'

@@ -1,0 +1,34 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type rec_t is record s1: bit; s2, s3: std_ulogic; end record;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'rec_t'
+  Keyword(Is)
+  RecordTypeDefinition
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordElementDeclarations
+      ElementDeclaration
+        IdentifierList
+          Identifier 's1'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'bit'
+        SemiColon
+      ElementDeclaration
+        IdentifierList
+          Identifier 's2'
+          Comma
+          Identifier 's3'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'std_ulogic'
+        SemiColon
+    RecordTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Record)
+  SemiColon

@@ -1,0 +1,61 @@
+---
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity my_ent is\n    generic(constant a: in bit);\n    port(\n        b, c : out std_logic;\n        signal d : linkage boolean\n    );\nbegin\nend my_ent;\n\",)"
+---
+EntityDeclaration
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'my_ent'
+    Keyword(Is)
+  EntityHeader
+    GenericClause
+      GenericClausePreamble
+        Keyword(Generic)
+        LeftPar
+      InterfaceList
+        InterfaceConstantDeclaration
+          Keyword(Constant)
+          IdentifierList
+            Identifier 'a'
+          Colon
+          Keyword(In)
+          SubtypeIndication
+            Name
+              Identifier 'bit'
+      GenericClauseEpilogue
+        RightPar
+        SemiColon
+    PortClause
+      PortClausePreamble
+        Keyword(Port)
+        LeftPar
+      InterfaceList
+        InterfaceConstantDeclaration
+          IdentifierList
+            Identifier 'b'
+            Comma
+            Identifier 'c'
+          Colon
+          Keyword(Out)
+          SubtypeIndication
+            Name
+              Identifier 'std_logic'
+        SemiColon
+        InterfaceSignalDeclaration
+          Keyword(Signal)
+          IdentifierList
+            Identifier 'd'
+          Colon
+          Keyword(Linkage)
+          SubtypeIndication
+            Name
+              Identifier 'boolean'
+      PortClauseEpilogue
+        RightPar
+        SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Identifier 'my_ent'
+    SemiColon

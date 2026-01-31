@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"foo <= bar(2 to 3);\",)"
+---
+ConcurrentSimpleSignalAssignment
+  NameTarget
+    Name
+      Identifier 'foo'
+  LTE
+  WaveformElements
+    WaveformElement
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '2'
+            Keyword(To)
+            AbstractLiteral '3'
+            RightPar
+  SemiColon

@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::file_declaration,\n\"file f_path: bit is \\\"./path_to_file.txt\\\";\")"
+---
+FileDeclaration
+  Keyword(File)
+  IdentifierList
+    Identifier 'f_path'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'bit'
+  FileOpenInformation
+    Keyword(Is)
+    LiteralExpression
+      StringLiteral '"./path_to_file.txt"'
+  SemiColon

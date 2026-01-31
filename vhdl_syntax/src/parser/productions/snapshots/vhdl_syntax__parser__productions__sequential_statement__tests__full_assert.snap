@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::assert_statement,\n\"assert false report \\\"message\\\" severity error;\")"
+---
+AssertionStatement
+  Keyword(Assert)
+  NameExpression
+    Name
+      Identifier 'false'
+  Keyword(Report)
+  LiteralExpression
+    StringLiteral '"message"'
+  Keyword(Severity)
+  NameExpression
+    Name
+      Identifier 'error'
+  SemiColon

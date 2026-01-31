@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type constrained_int_arr is array (0 to 1) of positive;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'constrained_int_arr'
+  Keyword(Is)
+  ConstrainedArrayDefinition
+    Keyword(Array)
+    IndexConstraint
+      LeftPar
+      RawTokens
+        AbstractLiteral '0'
+        Keyword(To)
+        AbstractLiteral '1'
+      RightPar
+    Keyword(Of)
+    SubtypeIndication
+      Name
+        Identifier 'positive'
+  SemiColon

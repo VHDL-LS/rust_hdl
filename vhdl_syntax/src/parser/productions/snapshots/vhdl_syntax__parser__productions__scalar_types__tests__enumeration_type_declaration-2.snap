@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration, \"type enum_2_t is (S1, S2, S3);\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'enum_2_t'
+  Keyword(Is)
+  EnumerationTypeDefinition
+    LeftPar
+    Identifier 'S1'
+    Comma
+    Identifier 'S2'
+    Comma
+    Identifier 'S3'
+    RightPar
+  SemiColon

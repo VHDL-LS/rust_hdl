@@ -1,0 +1,103 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\ngen: if cond = true generate\n  variable v1 : boolean;\nbegin\n  foo1(clk);\nelsif cond2 = true generate\n  variable v2 : boolean;\nbegin\n  foo2(clk);\nelse generate\n  variable v3 : boolean;\nbegin\n  foo3(clk);\nend generate;\",)"
+---
+IfGenerateStatement
+  IfGenerateStatementPreamble
+    Label
+      Identifier 'gen'
+      Colon
+    Keyword(If)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Generate)
+  GenerateStatementBody
+    Declarations
+      VariableDeclaration
+        Keyword(Variable)
+        IdentifierList
+          Identifier 'v1'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'boolean'
+        SemiColon
+    DeclarationStatementSeparator
+      Keyword(Begin)
+    ConcurrentStatements
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          Identifier 'foo1'
+          RawTokens
+            LeftPar
+            Identifier 'clk'
+            RightPar
+        SemiColon
+  IfGenerateElsif
+    Keyword(Elsif)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'cond2'
+      EQ
+      NameExpression
+        Name
+          Identifier 'true'
+    Keyword(Generate)
+    GenerateStatementBody
+      Declarations
+        VariableDeclaration
+          Keyword(Variable)
+          IdentifierList
+            Identifier 'v2'
+          Colon
+          SubtypeIndication
+            Name
+              Identifier 'boolean'
+          SemiColon
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      ConcurrentStatements
+        ConcurrentProcedureCallOrComponentInstantiationStatement
+          Name
+            Identifier 'foo2'
+            RawTokens
+              LeftPar
+              Identifier 'clk'
+              RightPar
+          SemiColon
+  IfGenerateElse
+    Keyword(Else)
+    Keyword(Generate)
+    GenerateStatementBody
+      Declarations
+        VariableDeclaration
+          Keyword(Variable)
+          IdentifierList
+            Identifier 'v3'
+          Colon
+          SubtypeIndication
+            Name
+              Identifier 'boolean'
+          SemiColon
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      ConcurrentStatements
+        ConcurrentProcedureCallOrComponentInstantiationStatement
+          Name
+            Identifier 'foo3'
+            RawTokens
+              LeftPar
+              Identifier 'clk'
+              RightPar
+          SemiColon
+  IfGenerateStatementEpilogue
+    Keyword(End)
+    Keyword(Generate)
+    SemiColon

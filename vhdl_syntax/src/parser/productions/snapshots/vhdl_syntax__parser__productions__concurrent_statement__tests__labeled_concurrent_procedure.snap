@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"name: foo(clk);\",)"
+---
+ConcurrentProcedureCallOrComponentInstantiationStatement
+  Label
+    Identifier 'name'
+    Colon
+  Name
+    Identifier 'foo'
+    RawTokens
+      LeftPar
+      Identifier 'clk'
+      RightPar
+  SemiColon

@@ -1,0 +1,46 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\ninst: component lib.foo.bar\n  generic map (\n   const => 1\n  )\n  port map (\n   clk => clk_foo\n  );\",)"
+---
+ComponentInstantiationStatement
+  Label
+    Identifier 'inst'
+    Colon
+  ComponentInstantiatedUnit
+    Keyword(Component)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
+  ComponentInstantiationItems
+    GenericMapAspect
+      Keyword(Generic)
+      Keyword(Map)
+      LeftPar
+      AssociationList
+        AssociationElement
+          FormalPart
+            Name
+              Identifier 'const'
+          RightArrow
+          ActualPart
+            AbstractLiteral '1'
+      RightPar
+    PortMapAspect
+      Keyword(Port)
+      Keyword(Map)
+      LeftPar
+      AssociationList
+        AssociationElement
+          FormalPart
+            Name
+              Identifier 'clk'
+          RightArrow
+          ActualPart
+            Identifier 'clk_foo'
+      RightPar
+  SemiColon

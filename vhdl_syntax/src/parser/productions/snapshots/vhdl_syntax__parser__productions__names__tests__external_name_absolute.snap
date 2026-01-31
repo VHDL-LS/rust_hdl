@@ -1,0 +1,19 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"<< signal .dut.gen : std_logic >>\")"
+---
+Name
+  ExternalSignalName
+    LtLt
+    Keyword(Signal)
+    AbsolutePathname
+      Dot
+      PartialPathname
+        Identifier 'dut'
+        Dot
+        Identifier 'gen'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'std_logic'
+    GtGt

@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::subtype_declaration,\n\"subtype vec_t is integer_vector(2-1 downto 0);\")"
+---
+SubtypeDeclaration
+  Keyword(Subtype)
+  Identifier 'vec_t'
+  Keyword(Is)
+  SubtypeIndication
+    Name
+      Identifier 'integer_vector'
+      RawTokens
+        LeftPar
+        AbstractLiteral '2'
+        Minus
+        AbstractLiteral '1'
+        Keyword(Downto)
+        AbstractLiteral '0'
+        RightPar
+  SemiColon

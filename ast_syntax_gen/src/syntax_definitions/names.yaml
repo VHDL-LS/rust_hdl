@@ -1,0 +1,119 @@
+# §8: Names
+
+AbsolutePathname: !Sequence
+  - token: Dot
+  - node: PartialPathname
+
+AttributeName: !Sequence
+  - token: LeftSquare
+  - node: Signature
+  - token: RightSquare
+  - token: Tick
+  - token: Identifier
+    name: attribute_designator_token
+  - token: LeftPar
+  - node: Expression
+  - token: RightPar
+
+ExternalName: !Choice
+  - node: ExternalConstantName
+  - node: ExternalSignalName
+  - node: ExternalVariableName
+
+ExternalConstantName: !Sequence
+  - token: LtLt
+  - keyword: Constant
+  - node: ExternalPathName
+  - token: Colon
+  - node: SubtypeIndication
+  - token: GtGt
+
+ExternalSignalName: !Sequence
+  - token: LtLt
+  - keyword: Signal
+  - node: ExternalPathName
+  - token: Colon
+  - node: SubtypeIndication
+  - token: GtGt
+
+ExternalVariableName: !Sequence
+  - token: LtLt
+  - keyword: Variable
+  - node: ExternalPathName
+  - token: Colon
+  - node: SubtypeIndication
+  - token: GtGt
+
+ExternalPathName: !Choice
+  - node: PackagePathname
+  - node: AbsolutePathname
+  - node: RelativePathname
+
+PackagePathname: !Sequence
+  - token: CommAt
+  - token: Dot
+    repeated: true
+  - token: Identifier
+    name: simple_name
+    repeated: true
+
+RelativePathname: !Sequence
+  - token: Circ
+    repeated: true
+  - token: Dot
+    repeated: true
+  - node: PartialPathname
+
+PartialPathname: !Sequence
+  - token: Identifier
+    repeated: true
+  - token: Dot
+    repeated: true
+
+NameList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true
+
+Label: !Sequence
+  - token: Identifier
+  - token: Colon
+
+Designator: !Choice
+  - token: Identifier
+  - token: StringLiteral
+
+NameDesignator: !Choice
+  - token: Identifier
+  - token: StringLiteral
+  - token: CharacterLiteral
+
+Name: !Sequence
+  - node: NamePrefix
+  - node: NameTail
+    repeated: true
+
+NameDesignatorPrefix: !Sequence
+  - node: NameDesignator
+
+NamePrefix: !Choice
+  - node: ExternalName
+  - node: NameDesignatorPrefix
+
+Suffix: !Choice
+  - token: Identifier
+  - token: StringLiteral
+  - token: CharacterLiteral
+  - keyword: All
+
+SelectedName: !Sequence
+  - token: Dot
+  - node: Suffix
+
+NameTail: !Choice
+  - node: SelectedName
+  - node: RawTokens
+  - node: AttributeName
+
+RawTokens: !Sequence []

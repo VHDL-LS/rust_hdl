@@ -1,0 +1,37 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"\\\ntype foo is protected body\n  variable foo : natural;\n  procedure proc is\n  begin\n  end;\nend protected body;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'foo'
+  Keyword(Is)
+  ProtectedTypeBody
+    Keyword(Protected)
+    Keyword(Body)
+    Declarations
+      VariableDeclaration
+        Keyword(Variable)
+        IdentifierList
+          Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+        SemiColon
+      SubprogramBody
+        SubprogramBodyPreamble
+          Keyword(Procedure)
+          ProcedureSpecification
+            Identifier 'proc'
+          Keyword(Is)
+        DeclarationStatementSeparator
+          Keyword(Begin)
+        SubprogramBodyEpilogue
+          Keyword(End)
+          SemiColon
+    ProtectedTypeDeclarationEpilogue
+      Keyword(End)
+      Keyword(Protected)
+      Keyword(Body)
+  SemiColon

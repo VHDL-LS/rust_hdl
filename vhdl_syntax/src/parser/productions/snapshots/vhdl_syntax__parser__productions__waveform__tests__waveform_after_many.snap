@@ -1,0 +1,30 @@
+---
+source: vhdl_syntax/src/parser/productions/waveform.rs
+expression: "to_test_text(Parser::waveform, \"bar(1 to 3) after 2 ns, expr after 1 ns\")"
+---
+WaveformElements
+  WaveformElement
+    NameExpression
+      Name
+        Identifier 'bar'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          Keyword(To)
+          AbstractLiteral '3'
+          RightPar
+    Keyword(After)
+    PhysicalLiteral
+      AbstractLiteral '2'
+      Name
+        Identifier 'ns'
+  Comma
+  WaveformElement
+    NameExpression
+      Name
+        Identifier 'expr'
+    Keyword(After)
+    PhysicalLiteral
+      AbstractLiteral '1'
+      Name
+        Identifier 'ns'

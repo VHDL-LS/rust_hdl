@@ -1,0 +1,45 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"\\\ntype dec_t is range 0 to 1e10 units\n    prim;\n    sec        = 2 prim;\n    ter        = 3 prim;\n    alias_prim =   prim;\nend units;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'dec_t'
+  Keyword(Is)
+  PhysicalTypeDefinition
+    Keyword(Range)
+    RangeExpression
+      LiteralExpression
+        AbstractLiteral '0'
+      Keyword(To)
+      LiteralExpression
+        AbstractLiteral '1e10'
+    Keyword(Units)
+    UnitDeclarations
+      PrimaryUnitDeclaration
+        Identifier 'prim'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'sec'
+        EQ
+        AbstractLiteral '2'
+        Name
+          Identifier 'prim'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'ter'
+        EQ
+        AbstractLiteral '3'
+        Name
+          Identifier 'prim'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'alias_prim'
+        EQ
+        Name
+          Identifier 'prim'
+        SemiColon
+    PhysicalTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Units)
+  SemiColon

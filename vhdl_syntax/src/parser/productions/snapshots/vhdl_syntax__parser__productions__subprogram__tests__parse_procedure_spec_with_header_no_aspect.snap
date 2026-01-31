@@ -1,0 +1,36 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_declaration,\n\"\\\nprocedure my_proc\n    generic (x: natural := 4; y: real := 4);\")"
+---
+SubprogramDeclaration
+  Keyword(Procedure)
+  ProcedureSpecification
+    Identifier 'my_proc'
+    SubprogramHeader
+      SubprogramHeaderGenericClause
+        Keyword(Generic)
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'x'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'natural'
+            ColonEq
+            LiteralExpression
+              AbstractLiteral '4'
+          SemiColon
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'y'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'real'
+            ColonEq
+            LiteralExpression
+              AbstractLiteral '4'
+        RightPar
+  SemiColon

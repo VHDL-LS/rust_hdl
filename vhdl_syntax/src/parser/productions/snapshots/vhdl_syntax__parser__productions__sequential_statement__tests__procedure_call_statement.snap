@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement, \"foo(1, 2);\")"
+---
+ProcedureCallStatement
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
+  SemiColon

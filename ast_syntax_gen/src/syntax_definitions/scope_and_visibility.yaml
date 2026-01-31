@@ -1,0 +1,6 @@
+# §12 Scope and Visibility
+
+UseClause: !Sequence
+  - keyword: Use
+  - node: NameList
+  - token: SemiColon

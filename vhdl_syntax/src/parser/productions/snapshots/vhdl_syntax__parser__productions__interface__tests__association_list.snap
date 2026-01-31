@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::association_list, \"arg1, arg2\",)"
+---
+AssociationList
+  AssociationElement
+    ActualPart
+      Identifier 'arg1'
+  Comma
+  AssociationElement
+    ActualPart
+      Identifier 'arg2'

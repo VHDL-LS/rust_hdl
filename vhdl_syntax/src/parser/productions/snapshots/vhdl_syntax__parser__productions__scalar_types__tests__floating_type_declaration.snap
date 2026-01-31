@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type some_float_t is range C_MAX downto 3.141592654;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'some_float_t'
+  Keyword(Is)
+  Keyword(Range)
+  RangeExpression
+    NameExpression
+      Name
+        Identifier 'C_MAX'
+    Keyword(Downto)
+    LiteralExpression
+      AbstractLiteral '3.141592654'
+  SemiColon

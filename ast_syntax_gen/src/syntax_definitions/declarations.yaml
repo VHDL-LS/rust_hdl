@@ -1,0 +1,476 @@
+# §6: Declarations
+
+Declaration: !Choice
+  - node: SubprogramDeclaration
+  - node: SubprogramBody
+  - node: SubprogramInstantiationDeclaration
+  - node: PackageDeclaration
+  - node: PackageBodyDeclaration
+  - node: PackageInstantiationDeclaration
+  - node: TypeDeclaration
+  - node: SubtypeDeclaration
+  - node: FileDeclaration
+  - node: AliasDeclaration
+  - node: ComponentDeclaration
+  - node: AttributeDeclaration
+  - node: AttributeSpecification
+  - node: ConfigurationSpecification
+  - node: DisconnectionSpecification
+  - node: UseClauseDeclaration
+  - node: GroupTemplateDeclaration
+  - node: GroupDeclaration
+  - node: ConstantDeclaration
+  - node: SignalDeclaration
+  - node: VariableDeclaration
+  - node: SharedVariableDeclaration
+  - node: PslPropertyDeclaration
+  - node: PslSequenceDeclaration
+  - node: PslClockDeclaration
+
+PackageDeclaration: !Sequence
+  - node: Package
+
+PackageInstantiationDeclaration: !Sequence
+  - node: PackageInstantiation
+
+PackageBodyDeclaration: !Sequence
+  - node: PackageBody
+
+UseClauseDeclaration: !Sequence
+  - node: UseClause
+
+ActualPart: !Sequence []
+
+AliasDeclaration: !Sequence
+  - keyword: Alias
+  - node: AliasDesignator
+  - token: Colon
+    optional: true
+  - node: SubtypeIndication
+    optional: true
+  - keyword: Is
+  - node: Name
+  - node: Signature
+    optional: true
+  - token: SemiColon
+
+AliasDesignator: !Choice
+  - token: Identifier
+  - token: CharacterLiteral
+  - token: StringLiteral
+
+AssociationElement: !Sequence
+  - node: FormalPart
+    optional: true
+  - token: RightArrow
+    optional: true
+  - node: ActualPart
+
+AssociationList: !Sequence
+  - node: AssociationElement
+    repeated: true
+  - token: Comma
+    repeated: true
+
+AttributeDeclaration: !Sequence
+  - keyword: Attribute
+  - token: Identifier
+  - token: Colon
+  - node: Name
+  - token: SemiColon
+
+ComponentDeclaration: !Sequence
+  - node: ComponentDeclarationPreamble
+  - node: ComponentDeclarationItems
+  - node: ComponentDeclarationEpilogue
+
+ComponentDeclarationItems: !Sequence
+  - node: GenericClause
+    optional: true
+  - node: PortClause
+    optional: true
+
+ComponentDeclarationPreamble: !Sequence
+  - keyword: Component
+  - token: Identifier
+    name: name
+  - keyword: Is
+    optional: true
+
+ComponentDeclarationEpilogue: !Sequence
+  - keyword: End
+  - keyword: Component
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+ConstantDeclaration: !Sequence
+  - keyword: Constant
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+RangeConstraintConstraint: !Sequence
+  - node: RangeConstraint
+
+Constraint: !Choice
+  - node: RangeConstraintConstraint
+  - node: ArrayConstraint
+  - node: RecordConstraint
+
+# TODO: Rename to something with ArrayResolution
+ResolutionIndicationElementResolution: !Sequence
+  - node: ResolutionIndication
+
+RecordResolutionElementResolution: !Sequence
+  - node: RecordResolution
+
+ElementResolution: !Choice
+  - node: ResolutionIndicationElementResolution
+  - node: RecordResolutionElementResolution
+
+EntityClassEntry: !Sequence
+  - node: EntityClass
+  - token: BOX
+    optional: true
+
+EntityClassEntryList: !Sequence
+  - node: EntityClassEntry
+    repeated: true
+  - token: Comma
+    repeated: true
+
+FileDeclaration: !Sequence
+  - keyword: File
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+  - node: FileOpenInformation
+  - token: SemiColon
+
+FileOpenInformation: !Sequence
+  - keyword: Open
+  - node: Expression
+    name: file_open_kind
+  - keyword: Is
+  - node: Expression
+    name: file_logical_name
+
+FormalPart: !Sequence
+  - node: Name
+  - node: Name
+    parenthesized: true
+
+FullTypeDeclaration: !Sequence
+  - keyword: Type
+  - token: Identifier
+  - keyword: Is
+  - node: TypeDefinition
+  - token: SemiColon
+
+GenericClause: !Sequence
+  - node: GenericClausePreamble
+  - node: InterfaceList
+  - node: GenericClauseEpilogue
+
+GenericClausePreamble: !Sequence
+  - keyword: Generic
+  - token: LeftPar
+
+GenericClauseEpilogue: !Sequence
+  - token: RightPar
+  - token: SemiColon
+
+GenericMapAspect: !Sequence
+  - keyword: Generic
+  - keyword: Map
+  - token: LeftPar
+  - node: AssociationList
+  - token: RightPar
+
+GroupConstituentList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true
+
+GroupDeclaration: !Sequence
+  - keyword: Group
+  - token: Identifier
+  - token: Colon
+  - node: Name
+  - token: LeftPar
+  - node: GroupConstituentList
+  - token: RightPar
+  - token: SemiColon
+
+GroupTemplateDeclaration: !Sequence
+  - keyword: Group
+  - token: Identifier
+  - keyword: Is
+  - token: LeftPar
+  - node: EntityClassEntryList
+  - token: RightPar
+  - token: SemiColon
+
+InterfaceConstantDeclaration: !Sequence
+  - keyword: Constant
+  - node: IdentifierList
+  - token: Colon
+  - keyword: In
+  - node: SubtypeIndication
+  - token: ColonEq
+  - node: Expression
+
+InterfaceDeclaration: !Choice
+  - node: InterfaceObjectDeclaration
+  - node: InterfaceIncompleteTypeDeclaration
+  - node: InterfaceSubprogramDeclaration
+  - node: InterfacePackageDeclaration
+
+InterfaceFileDeclaration: !Sequence
+  - keyword: File
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+
+InterfaceFunctionSpecification: !Sequence
+  - node: FunctionPurity
+    optional: true
+  - keyword: Function
+  - node: Designator
+  - node: ParameterList
+    optional: true
+  - keyword: Return
+  - node: Name
+
+InterfaceIncompleteTypeDeclaration: !Sequence
+  - keyword: Type
+  - token: Identifier
+  - token: SemiColon
+
+InterfaceList: !Sequence
+  - node: InterfaceDeclaration
+    repeated: true
+  - token: SemiColon
+    repeated: true
+
+InterfaceObjectDeclaration: !Choice
+  - node: InterfaceConstantDeclaration
+  - node: InterfaceSignalDeclaration
+  - node: InterfaceVariableDeclaration
+  - node: InterfaceFileDeclaration
+
+InterfacePackageDeclaration: !Sequence
+  - node: InterfacePackageDeclarationPreamble
+  - keyword: New
+  - node: Name
+  - node: InterfacePackageGenericMapAspect
+  - token: SemiColon
+
+InterfacePackageDeclarationPreamble: !Sequence
+  - keyword: Package
+  - token: Identifier
+  - keyword: Is
+
+InterfacePackageGenericMapAspect: !Sequence
+  - keyword: Generic
+  - keyword: Map
+  - token: LeftPar
+  - node: InterfacePackageGenericMapAspectInner
+  - token: RightPar
+
+InterfacePackageGenericMapAspectBox: !Sequence
+  - token: BOX
+
+InterfacePackageGenericMapAspectDefault: !Sequence
+  - keyword: Default
+
+InterfacePackageGenericMapAspectAssociations: !Sequence
+  - node: AssociationList
+
+InterfacePackageGenericMapAspectInner: !Choice
+  - node: InterfacePackageGenericMapAspectBox
+  - node: InterfacePackageGenericMapAspectDefault
+  - node: InterfacePackageGenericMapAspectAssociations
+
+InterfaceProcedureSpecification: !Sequence
+  - keyword: Procedure
+  - node: Designator
+  - keyword: Parameter
+  - token: LeftPar
+  - node: InterfaceList
+  - token: RightPar
+
+InterfaceSignalDeclaration: !Sequence
+  - keyword: Signal
+    optional: true
+  - node: IdentifierList
+  - token: Colon
+  - node: Mode
+    optional: true
+  - node: SubtypeIndication
+  - keyword: Bus
+    optional: true
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+InterfaceSubprogramDeclaration: !Sequence
+  - node: InterfaceSubprogramSpecification
+  - keyword: Is
+    optional: true
+  - node: InterfaceSubprogramDefault
+    optional: true
+  - token: SemiColon
+
+InterfaceSubprogramDefaultName: !Sequence
+  - node: Name
+
+InterfaceSubprogramDefaultBox: !Sequence
+  - token: BOX
+
+InterfaceSubprogramDefault: !Choice
+  - node: InterfaceSubprogramDefaultName
+  - node: InterfaceSubprogramDefaultBox
+
+InterfaceSubprogramSpecification: !Choice
+  - node: InterfaceProcedureSpecification
+  - node: InterfaceFunctionSpecification
+
+InterfaceVariableDeclaration: !Sequence
+  - keyword: Variable
+    optional: true
+  - node: IdentifierList
+  - token: Colon
+  - node: Mode
+    optional: true
+  - node: SubtypeIndication
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+Mode: !Choice
+  - keyword: In
+  - keyword: Out
+  - keyword: Inout
+  - keyword: Buffer
+  - keyword: Linkage
+
+PortClause: !Sequence
+  - node: PortClausePreamble
+  - node: InterfaceList
+  - node: PortClauseEpilogue
+
+PortClausePreamble: !Sequence
+  - keyword: Port
+  - token: LeftPar
+
+PortClauseEpilogue: !Sequence
+  - token: RightPar
+  - token: SemiColon
+
+PortMapAspect: !Sequence
+  - keyword: Port
+  - keyword: Map
+  - token: LeftPar
+  - node: AssociationList
+  - token: RightPar
+
+RecordElementResolution: !Sequence
+  - token: Identifier
+    name: name
+  - node: ResolutionIndication
+
+RecordResolution: !Sequence
+  - node: RecordElementResolution
+    repeated: true
+  - token: Comma
+    repeated: true
+
+NameResolutionIndication: !Sequence
+  - node: Name
+
+# TODO: Is this required? (Could potentially be replaced by ELement Resolution)
+ElementResolutionResolutionIndication: !Sequence
+  - node: ElementResolution
+
+ResolutionIndication: !Choice
+  - node: NameResolutionIndication
+  - node: ElementResolutionResolutionIndication
+    parenthesized: true
+
+SignalDeclaration: !Sequence
+  - keyword: Signal
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+  - node: SignalKind
+    optional: true
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+SignalKind: !Choice
+  - keyword: Register
+  - keyword: Bus
+
+SubtypeDeclaration: !Sequence
+  - keyword: Subtype
+  - token: Identifier
+  - keyword: Is
+  - node: SubtypeIndication
+  - token: SemiColon
+
+SubtypeIndication: !Sequence
+  - node: ResolutionIndication
+  - node: Name
+
+TypeDeclaration: !Choice
+  - node: FullTypeDeclaration
+  - node: IncompleteTypeDeclaration
+
+TypeDefinition: !Choice
+  - node: ScalarTypeDefinition
+  - node: CompositeTypeDefinition
+  - node: AccessTypeDefinition
+  - node: FileTypeDefinition
+  - node: ProtectedTypeDefinition
+
+VariableDeclaration: !Sequence
+  - keyword: Variable
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+SharedVariableDeclaration: !Sequence
+  - keyword: Shared
+  - keyword: Variable
+  - node: IdentifierList
+  - token: Colon
+  - node: SubtypeIndication
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+Declarations: !Sequence
+  - node: Declaration
+    repeated: true

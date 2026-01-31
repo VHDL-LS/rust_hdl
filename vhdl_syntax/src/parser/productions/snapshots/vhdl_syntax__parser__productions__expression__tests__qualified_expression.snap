@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"foo'(1+2)\")"
+---
+NameExpression
+  Name
+    Identifier 'foo'
+    AttributeName
+      Tick
+    RawTokens
+      LeftPar
+      AbstractLiteral '1'
+      Plus
+      AbstractLiteral '2'
+      RightPar

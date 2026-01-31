@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/waveform.rs
+expression: "to_test_text(Parser::waveform, \"bar(1 to 3)\")"
+---
+WaveformElements
+  WaveformElement
+    NameExpression
+      Name
+        Identifier 'bar'
+        RawTokens
+          LeftPar
+          AbstractLiteral '1'
+          Keyword(To)
+          AbstractLiteral '3'
+          RightPar

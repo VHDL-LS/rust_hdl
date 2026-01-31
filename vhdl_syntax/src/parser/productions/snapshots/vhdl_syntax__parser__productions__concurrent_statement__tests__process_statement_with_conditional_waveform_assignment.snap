@@ -1,0 +1,43 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\nmain: process is\nbegin\n    data_processing_state <= processing when processing_data else idle;\nend process main;\",)"
+---
+ProcessStatement
+  ProcessStatementPreamble
+    Label
+      Identifier 'main'
+      Colon
+    Keyword(Process)
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SequentialStatements
+    ConditionalWaveformAssignment
+      NameTarget
+        Name
+          Identifier 'data_processing_state'
+      LTE
+      ConditionalWaveforms
+        ConditionalWaveform
+          WaveformElements
+            WaveformElement
+              NameExpression
+                Name
+                  Identifier 'processing'
+          Keyword(When)
+          NameExpression
+            Name
+              Identifier 'processing_data'
+        ConditionalWaveformElseItem
+          Keyword(Else)
+          WaveformElements
+            WaveformElement
+              NameExpression
+                Name
+                  Identifier 'idle'
+      SemiColon
+  ProcessStatementEpilogue
+    Keyword(End)
+    Keyword(Process)
+    Identifier 'main'
+    SemiColon

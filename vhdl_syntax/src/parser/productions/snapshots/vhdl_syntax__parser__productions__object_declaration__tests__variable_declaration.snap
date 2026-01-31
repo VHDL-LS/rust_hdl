@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::variable_declaration, \"variable v1: bit;\")"
+---
+VariableDeclaration
+  Keyword(Variable)
+  IdentifierList
+    Identifier 'v1'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'bit'
+  SemiColon

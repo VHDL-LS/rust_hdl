@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity my_ent is\nbegin\nend my_ent;\n\",)"
+---
+EntityDeclaration
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'my_ent'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Identifier 'my_ent'
+    SemiColon

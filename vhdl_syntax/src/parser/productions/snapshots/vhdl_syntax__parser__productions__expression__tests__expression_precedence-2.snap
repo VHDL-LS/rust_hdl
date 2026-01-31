@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"1 * 1 ns * 2\")"
+---
+BinaryExpression
+  BinaryExpression
+    LiteralExpression
+      AbstractLiteral '1'
+    Times
+    PhysicalLiteral
+      AbstractLiteral '1'
+      Name
+        Identifier 'ns'
+  Times
+  LiteralExpression
+    AbstractLiteral '2'

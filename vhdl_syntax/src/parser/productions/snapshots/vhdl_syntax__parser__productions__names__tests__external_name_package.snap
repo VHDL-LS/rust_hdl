@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"<< signal @lib.pkg : std_logic >>\")"
+---
+Name
+  ExternalSignalName
+    LtLt
+    Keyword(Signal)
+    PackagePathname
+      CommAt
+      Identifier 'lib'
+      Dot
+      Identifier 'pkg'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'std_logic'
+    GtGt

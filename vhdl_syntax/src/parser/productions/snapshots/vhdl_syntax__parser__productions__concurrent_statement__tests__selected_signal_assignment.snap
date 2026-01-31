@@ -1,0 +1,55 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"with x(0) + 1 select\n   foo(0) <= transport bar(1,2) after 2 ns when 0|1;\",)"
+---
+ConcurrentSelectedSignalAssignment
+  ConcurrentSelectedSignalAssignmentPreamble
+    Keyword(With)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'x'
+          RawTokens
+            LeftPar
+            AbstractLiteral '0'
+            RightPar
+      Plus
+      LiteralExpression
+        AbstractLiteral '1'
+    Keyword(Select)
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  LTE
+  TransportDelayMechanism
+    Keyword(Transport)
+  SelectedWaveforms
+    SelectedWaveformItem
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              Identifier 'bar'
+              RawTokens
+                LeftPar
+                AbstractLiteral '1'
+                Comma
+                AbstractLiteral '2'
+                RightPar
+          Keyword(After)
+          PhysicalLiteral
+            AbstractLiteral '2'
+            Name
+              Identifier 'ns'
+      Keyword(When)
+      Choices
+        LiteralExpression
+          AbstractLiteral '0'
+        Bar
+        LiteralExpression
+          AbstractLiteral '1'
+  SemiColon

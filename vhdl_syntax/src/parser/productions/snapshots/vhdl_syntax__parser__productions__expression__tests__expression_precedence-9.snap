@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"abs not 1 + 2\")"
+---
+BinaryExpression
+  UnaryExpression
+    Keyword(Abs)
+    UnaryExpression
+      Keyword(Not)
+      LiteralExpression
+        AbstractLiteral '1'
+  Plus
+  LiteralExpression
+    AbstractLiteral '2'

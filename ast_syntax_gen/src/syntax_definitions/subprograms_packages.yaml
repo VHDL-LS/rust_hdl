@@ -1,0 +1,161 @@
+# §4: Subprograms and packages
+
+SubprogramDeclaration: !Sequence
+  - node: SubprogramSpecification
+  - token: SemiColon
+
+SubprogramSpecification: !Choice
+  - node: ProcedureSpecification
+  - node: FunctionSpecification
+
+ProcedureSpecification: !Sequence
+  - keyword: Procedure
+  - node: Designator
+  - node: SubprogramHeader
+  - node: ParameterList
+    optional: true
+
+FunctionSpecification: !Sequence
+  - node: FunctionPurity
+    optional: true
+  - keyword: Function
+  - node: Designator
+  - node: SubprogramHeader
+  - node: ParameterList
+  - keyword: Return
+  - node: Name
+
+ParameterList: !Sequence
+  - keyword: Parameter
+    optional: true
+  - node: InterfaceList
+    parenthesized: true
+
+FunctionPurity: !Choice
+  - keyword: Pure
+  - keyword: Impure
+
+SubprogramHeader: !Sequence
+  - node: SubprogramHeaderGenericClause
+    optional: true
+  - node: GenericMapAspect
+    optional: true
+
+SubprogramHeaderGenericClause: !Sequence
+  - keyword: Generic
+  - token: LeftPar
+  - node: InterfaceList
+  - token: RightPar
+
+SubprogramBody: !Sequence
+  - node: SubprogramBodyPreamble
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: SubprogramBodyEpilogue
+
+SubprogramBodyPreamble: !Sequence
+  - node: SubprogramSpecification
+  - keyword: Is
+
+SubprogramBodyEpilogue: !Sequence
+  - keyword: End
+  - node: SubprogramKind
+    optional: true
+  - node: Designator
+    optional: true
+  - token: SemiColon
+
+SubprogramKind: !Choice
+  - keyword: Procedure
+  - keyword: Function
+
+SubprogramInstantiationDeclaration: !Sequence
+  - node: SubprogramInstantiationDeclarationPreamble
+  - node: GenericMapAspect
+    optional: true
+  - token: SemiColon
+
+SubprogramInstantiationDeclarationPreamble: !Sequence
+  - node: SubprogramKind
+  - token: Identifier
+    name: name
+  - keyword: Is
+  - keyword: New
+  - node: Name
+  - node: Signature
+    optional: true
+
+Package: !Sequence
+  - node: PackagePreamble
+  - node: PackageHeader
+  - node: Declarations
+  - node: PackageEpilogue
+
+PackagePreamble: !Sequence
+  - keyword: Package
+  - token: Identifier
+    name: name
+  - keyword: Is
+
+PackageEpilogue: !Sequence
+  - keyword: End
+  - keyword: Package
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+PackageHeader: !Sequence
+  - node: GenericClause
+    optional: true
+  - node: GenericMapAspect
+    optional: true
+  - token: SemiColon
+    optional: true
+
+PackageBody: !Sequence
+  - node: PackageBodyPreamble
+  - node: Declarations
+  - node: PackageBodyEpilogue
+
+PackageBodyPreamble: !Sequence
+  - keyword: Package
+  - keyword: Body
+  - token: Identifier
+    name: name
+  - keyword: Is
+
+PackageBodyEpilogue: !Sequence
+  - keyword: End
+  - keyword: Package
+    optional: true
+  - keyword: Body
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+PackageInstantiation: !Sequence
+  - node: PackageInstantiationPreamble
+  - node: GenericMapAspect
+    optional: true
+  - token: SemiColon
+
+PackageInstantiationPreamble: !Sequence
+  - keyword: Package
+  - token: Identifier
+    name: name
+  - keyword: Is
+  - keyword: New
+  - node: Name
+
+Signature: !Sequence
+  - token: LeftSquare
+  - node: Name
+    repeated: True
+    separator: Comma
+  - keyword: Return
+  - node: Name
+    name: return_type
+  - token: RightSquare

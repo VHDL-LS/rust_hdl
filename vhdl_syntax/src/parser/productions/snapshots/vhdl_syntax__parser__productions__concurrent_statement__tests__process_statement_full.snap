@@ -1,0 +1,44 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"\\\nprocess (all) is\n  variable foo : boolean;\nbegin\n  foo <= true;\n  wait;\nend process;\",)"
+---
+ProcessStatement
+  ProcessStatementPreamble
+    Keyword(Process)
+    ParenthesizedProcessSensitivityList
+      LeftPar
+      AllSensitivityList
+        Keyword(All)
+      RightPar
+    Keyword(Is)
+  Declarations
+    VariableDeclaration
+      Keyword(Variable)
+      IdentifierList
+        Identifier 'foo'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'boolean'
+      SemiColon
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  SequentialStatements
+    SimpleWaveformAssignment
+      NameTarget
+        Name
+          Identifier 'foo'
+      LTE
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              Identifier 'true'
+      SemiColon
+    WaitStatement
+      Keyword(Wait)
+      SemiColon
+  ProcessStatementEpilogue
+    Keyword(End)
+    Keyword(Process)
+    SemiColon

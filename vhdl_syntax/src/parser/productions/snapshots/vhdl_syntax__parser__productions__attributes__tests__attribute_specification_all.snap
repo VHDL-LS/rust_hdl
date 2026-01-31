@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/attributes.rs
+expression: "to_test_text(Parser::attribute_specification,\n\"attribute attr_name of all : signal is 0+1;\",)"
+---
+AttributeSpecification
+  Keyword(Attribute)
+  Identifier 'attr_name'
+  Keyword(Of)
+  EntitySpecification
+    EntityNameListAll
+      Keyword(All)
+    Colon
+    Keyword(Signal)
+  Keyword(Is)
+  BinaryExpression
+    LiteralExpression
+      AbstractLiteral '0'
+    Plus
+    LiteralExpression
+      AbstractLiteral '1'
+  SemiColon

@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::wait_statement, \"wait until a = b;\")"
+---
+WaitStatement
+  Keyword(Wait)
+  ConditionClause
+    Keyword(Until)
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'a'
+      EQ
+      NameExpression
+        Name
+          Identifier 'b'
+  SemiColon

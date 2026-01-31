@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"lib.foo.bar\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'foo'
+    SelectedName
+      Dot
+      Identifier 'bar'

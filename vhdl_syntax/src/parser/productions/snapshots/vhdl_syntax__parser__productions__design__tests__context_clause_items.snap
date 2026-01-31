@@ -1,0 +1,37 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "to_test_text(Parser::context_declaration,\n\"\\\ncontext ident is\n  library foo;\n  use foo.bar;\n  context foo.ctx;\nend context;\")"
+---
+ContextDeclaration
+  ContextDeclarationPreamble
+    Keyword(Context)
+    Identifier 'ident'
+    Keyword(Is)
+  ContextClause
+    LibraryClause
+      Keyword(Library)
+      IdentifierList
+        Identifier 'foo'
+      SemiColon
+    UseClause
+      Keyword(Use)
+      NameList
+        Name
+          Identifier 'foo'
+          SelectedName
+            Dot
+            Identifier 'bar'
+      SemiColon
+    ContextReference
+      Keyword(Context)
+      NameList
+        Name
+          Identifier 'foo'
+          SelectedName
+            Dot
+            Identifier 'ctx'
+      SemiColon
+  ContextDeclarationEpilogue
+    Keyword(End)
+    Keyword(Context)
+    SemiColon

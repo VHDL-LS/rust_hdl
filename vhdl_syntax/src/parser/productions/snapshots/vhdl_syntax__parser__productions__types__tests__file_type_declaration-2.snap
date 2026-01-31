@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type sl_file is file of ieee.std_logic_1164.std_ulogic;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'sl_file'
+  Keyword(Is)
+  FileTypeDefinition
+    Keyword(File)
+    Keyword(Of)
+    Name
+      Identifier 'ieee'
+      SelectedName
+        Dot
+        Identifier 'std_logic_1164'
+      SelectedName
+        Dot
+        Identifier 'std_ulogic'
+  SemiColon

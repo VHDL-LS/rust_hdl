@@ -1,0 +1,26 @@
+---
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
+expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity myent is\nbegin\n  check(clk, valid);\nend entity;\",)"
+---
+EntityDeclaration
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'myent'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ConcurrentStatements
+    ConcurrentProcedureCallOrComponentInstantiationStatement
+      Name
+        Identifier 'check'
+        RawTokens
+          LeftPar
+          Identifier 'clk'
+          Comma
+          Identifier 'valid'
+          RightPar
+      SemiColon
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Keyword(Entity)
+    SemiColon

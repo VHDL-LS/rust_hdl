@@ -1,0 +1,129 @@
+# §3: Design entities and configuration
+
+ArchitectureBody: !Sequence
+  - node: ArchitecturePreamble
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: ArchitectureEpilogue
+
+ArchitecturePreamble: !Sequence
+  - keyword: Architecture
+  - token: Identifier
+    name: name
+  - keyword: Of
+  - node: Name
+    name: entity_name
+  - keyword: Is
+
+ArchitectureEpilogue: !Sequence
+  - keyword: End
+  - keyword: Architecture
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+BlockConfigurationItem: !Sequence
+  - node: BlockConfiguration
+
+ConfigurationItem: !Choice
+  - node: BlockConfigurationItem
+  - node: ComponentConfiguration
+
+BlockConfiguration: !Sequence
+  - node: BlockConfigurationPreamble
+  - node: BlockConfigurationItems
+  - node: BlockConfigurationEpilogue
+
+BlockConfigurationItems: !Sequence
+  - node: UseClause
+    repeated: true
+  - node: ConfigurationItem
+    repeated: true
+
+BlockConfigurationPreamble: !Sequence
+  - keyword: For
+  - node: Name
+
+BlockConfigurationEpilogue: !Sequence
+  - keyword: End
+  - keyword: For
+  - token: SemiColon
+
+ComponentConfiguration: !Sequence
+  - node: ComponentConfigurationPreamble
+  - node: ComponentConfigurationItems
+  - node: ComponentConfigurationEpilogue
+
+ComponentConfigurationItems: !Sequence
+  - node: BindingIndication
+    terminated: SemiColon
+    optional: true
+  - node: VerificationUnitBindingIndication
+    terminated: SemiColon
+    repeated: true
+  - node: BlockConfiguration
+    optional: true
+
+ComponentConfigurationPreamble: !Sequence
+  - keyword: For
+  - node: ComponentSpecification
+
+ComponentConfigurationEpilogue: !Sequence
+  - keyword: End
+  - keyword: For
+  - token: SemiColon
+
+ConfigurationDeclaration: !Sequence
+  - node: ConfigurationDeclarationPreamble
+  - node: ConfigurationDeclarationItems
+  - node: ConfigurationDeclarationEpilogue
+
+ConfigurationDeclarationItems: !Sequence
+  - node: Declarations
+  - node: VerificationUnitBindingIndication
+    terminated: SemiColon
+    repeated: true
+  - node: BlockConfiguration
+
+ConfigurationDeclarationPreamble: !Sequence
+  - keyword: Configuration
+  - token: Identifier
+    name: name
+  - keyword: Of
+  - node: Name
+    name: entity_name
+  - keyword: Is
+
+ConfigurationDeclarationEpilogue: !Sequence
+  - keyword: End
+  - keyword: Configuration
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+EntityDeclaration: !Sequence
+  - node: EntityDeclarationPreamble
+  - node: EntityHeader
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: EntityDeclarationEpilogue
+
+EntityDeclarationPreamble: !Sequence
+  - keyword: Entity
+  - token: Identifier
+    name: name
+  - keyword: Is
+
+EntityDeclarationEpilogue: !Sequence
+  - keyword: End
+  - keyword: Entity
+  - token: Identifier
+  - token: SemiColon
+
+EntityHeader: !Sequence
+  - node: GenericClause
+  - node: PortClause

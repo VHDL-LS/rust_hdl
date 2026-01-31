@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::entity_aspect, \"entity lib.foo.name(arch)\",)"
+---
+EntityEntityAspect
+  Keyword(Entity)
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'foo'
+    SelectedName
+      Dot
+      Identifier 'name'
+    RawTokens
+      LeftPar
+      Identifier 'arch'
+      RightPar

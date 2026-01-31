@@ -1,0 +1,176 @@
+# §7: Specification
+
+AttributeSpecification: !Sequence
+  - keyword: Attribute
+  - token: Identifier
+    name: attribute_designator_token
+  - keyword: Of
+  - node: EntitySpecification
+  - keyword: Is
+  - node: Expression
+  - token: SemiColon
+
+BindingIndication: !Sequence
+  - keyword: Use
+    optional: true
+  - node: EntityAspect
+    optional: true
+  - node: GenericMapAspect
+    optional: true
+  - node: PortMapAspect
+    optional: true
+
+ComponentSpecification: !Sequence
+  - node: InstantiationList
+  - token: Colon
+  - node: Name
+
+CompoundConfigurationSpecification: !Sequence
+  - node: ComponentConfigurationPreamble
+  - node: CompoundConfigurationSpecificationItems
+  - node: ComponentConfigurationEpilogue  
+
+CompoundConfigurationSpecificationItems: !Sequence
+  - node: BindingIndication
+    terminated: SemiColon
+  - node: VerificationUnitBindingIndication
+    trailing: SemiColon
+    repeated: true
+    optional: true
+
+ConfigurationSpecification: !Choice
+  - node: SimpleConfigurationSpecification
+  - node: CompoundConfigurationSpecification
+
+DisconnectionSpecification: !Sequence
+  - keyword: Disconnect
+  - node: GuardedSignalSpecification
+  - keyword: After
+  - node: Expression
+  - token: SemiColon
+
+EntityEntityAspect: !Sequence
+  - keyword: Entity
+  - node: Name
+
+EntityConfigurationAspect: !Sequence
+  - keyword: Configuration
+  - node: Name
+
+EntityOpenAspect: !Sequence
+  - keyword: Open
+
+EntityAspect: !Choice
+  - node: EntityEntityAspect
+  - node: EntityConfigurationAspect
+  - node: EntityOpenAspect
+
+EntityClass: !Choice
+  - keyword: Entity
+  - keyword: Architecture
+  - keyword: Configuration
+  - keyword: Procedure
+  - keyword: Function
+  - keyword: Package
+  - keyword: Type
+  - keyword: Subtype
+  - keyword: Constant
+  - keyword: Signal
+  - keyword: Variable
+  - keyword: Component
+  - keyword: Label
+  - keyword: Literal
+  - keyword: Units
+  - keyword: Group
+  - keyword: File
+  - keyword: Property
+  - keyword: Sequence
+
+EntityDesignator: !Sequence
+  - node: EntityTag
+  - node: Signature
+
+EntityDesignatorList: !Sequence
+  - node: EntityDesignator
+    repeated: true
+  - token: Comma
+    repeated: true
+
+EntityNameListAll: !Sequence
+  - keyword: All
+
+EntityNameListOthers: !Sequence
+  - keyword: Others
+
+EntityNameList: !Choice
+  - node: EntityDesignatorList
+  - node: EntityNameListAll
+  - node: EntityNameListOthers
+
+EntitySpecification: !Sequence
+  - node: EntityNameList
+  - token: Colon
+  - node: EntityClass
+
+EntityTag: !Choice
+  - token: Identifier
+  - token: CharacterLiteral
+  - token: StringLiteral
+
+GuardedSignalSpecification: !Sequence
+  - node: SignalList
+  - token: Colon
+  - node: Name
+
+InstantiationListList: !Sequence
+  - token: Identifier
+    repeated: true
+  - token: Comma
+    repeated: true
+
+InstantiationListAll: !Sequence
+  - keyword: All
+
+InstantiationListOthers: !Sequence
+  - keyword: Others
+
+InstantiationList: !Choice
+  - node: InstantiationListList
+  - node: InstantiationListAll
+  - node: InstantiationListOthers
+
+SignalListList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true
+
+SignalListAll: !Sequence
+  - keyword: All
+
+SignalListOthers: !Sequence
+  - keyword: Others
+
+SignalList: !Choice
+  - node: SignalListList
+  - node: SignalListAll
+  - node: SignalListOthers
+
+SimpleConfigurationSpecification: !Sequence
+  - node: ComponentConfigurationPreamble
+  - node: BindingIndication
+    terminated: SemiColon
+  - token: SemiColon
+  - node: ComponentConfigurationEpilogue
+    optional: true
+
+VerificationUnitBindingIndication: !Sequence
+  - keyword: Use
+  - keyword: Vunit
+  - node: VerificationUnitList
+
+VerificationUnitList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true

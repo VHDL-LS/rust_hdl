@@ -1,0 +1,31 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement,\n\"<< variable dut.foo : boolean >> := bar(1,2);\")"
+---
+SimpleVariableAssignment
+  NameTarget
+    Name
+      ExternalVariableName
+        LtLt
+        Keyword(Variable)
+        RelativePathname
+          PartialPathname
+            Identifier 'dut'
+            Dot
+            Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'boolean'
+        GtGt
+  ColonEq
+  NameExpression
+    Name
+      Identifier 'bar'
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        Comma
+        AbstractLiteral '2'
+        RightPar
+  SemiColon

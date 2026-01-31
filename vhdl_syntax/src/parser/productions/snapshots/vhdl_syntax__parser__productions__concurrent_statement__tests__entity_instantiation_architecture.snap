@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"inst: entity lib.foo.bar(arch);\",)"
+---
+ComponentInstantiationStatement
+  Label
+    Identifier 'inst'
+    Colon
+  EntityInstantiatedUnit
+    Keyword(Entity)
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'foo'
+      SelectedName
+        Dot
+        Identifier 'bar'
+      RawTokens
+        LeftPar
+        Identifier 'arch'
+        RightPar
+  SemiColon

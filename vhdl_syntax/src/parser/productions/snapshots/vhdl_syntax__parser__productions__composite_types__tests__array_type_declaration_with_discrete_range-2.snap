@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type constrained_int_arr_2d is array (10 downto 5, 'A' to 'B', enum_t'range) of bit;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'constrained_int_arr_2d'
+  Keyword(Is)
+  ConstrainedArrayDefinition
+    Keyword(Array)
+    IndexConstraint
+      LeftPar
+      RawTokens
+        AbstractLiteral '10'
+        Keyword(Downto)
+        AbstractLiteral '5'
+      Comma
+      RawTokens
+        CharacterLiteral ''A''
+        Keyword(To)
+        CharacterLiteral ''B''
+      Comma
+      RawTokens
+        Identifier 'enum_t'
+        Tick
+        Keyword(Range)
+      RightPar
+    Keyword(Of)
+    SubtypeIndication
+      Name
+        Identifier 'bit'
+  SemiColon

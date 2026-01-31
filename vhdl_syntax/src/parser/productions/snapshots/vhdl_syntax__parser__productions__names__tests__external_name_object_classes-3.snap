@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"<< variable dut.foo : std_logic >>\")"
+---
+Name
+  ExternalVariableName
+    LtLt
+    Keyword(Variable)
+    RelativePathname
+      PartialPathname
+        Identifier 'dut'
+        Dot
+        Identifier 'foo'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'std_logic'
+    GtGt

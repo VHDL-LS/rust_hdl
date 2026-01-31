@@ -1,0 +1,9 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_declaration, \"procedure foo;\")"
+---
+SubprogramDeclaration
+  Keyword(Procedure)
+  ProcedureSpecification
+    Identifier 'foo'
+  SemiColon

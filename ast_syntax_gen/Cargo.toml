@@ -1,0 +1,17 @@
+[package]
+name = "syntax-gen"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+
+[dependencies]
+quote = "1.0.38"
+proc-macro2 = "1.0.86"
+convert_case = "0.6.0"
+serde_yml = "0.0.12"
+strum = { version = "0.27", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
+chrono = "0.4.41"

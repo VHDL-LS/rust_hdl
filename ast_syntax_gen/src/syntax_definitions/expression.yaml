@@ -1,0 +1,150 @@
+# §9: Expression
+
+Literal: !Choice
+  - token: BitStringLiteral
+  - token: CharacterLiteral
+  - token: StringLiteral
+  - keyword: "Null"
+
+ParenthesizedExpressionOrAggregate: !Sequence
+  - token: LeftPar
+  - node: ElementAssociation
+    repeated: true
+  - token: Comma
+    repeated: true
+  - token: RightPar
+
+UnaryOperator: !Choice
+  - token: QueQue
+  - token: Plus
+  - token: Minus
+  - keyword: Abs
+  - keyword: Not
+  - keyword: And
+  - keyword: Or
+  - keyword: Nand
+  - keyword: Nor
+  - keyword: Xor
+  - keyword: Xnor
+
+UnaryExpression: !Sequence
+  - node: UnaryOperator
+    name: op
+  - node: Expression
+
+BinaryOperator: !Choice
+  - keyword: And
+  - keyword: Or
+  - keyword: Nand
+  - keyword: Nor
+  - keyword: Xor
+  - keyword: Xnor
+  - token: EQ
+  - token: NE
+  - token: LT
+  - token: LTE
+  - token: GT
+  - token: GTE
+  - token: QueEQ
+  - token: QueNE
+  - token: QueLT
+  - token: QueGT
+  - token: QueGTE
+  - keyword: Sll
+  - keyword: Srl
+  - keyword: Sla
+  - keyword: Sra
+  - keyword: Rol
+  - keyword: Ror
+  - token: Plus
+  - token: Minus
+  - token: Concat
+  - token: Times
+  - token: Div
+  - keyword: Mod
+  - keyword: Rem
+  - token: Pow
+
+BinaryExpression: !Sequence
+  - node: Expression
+    name: lhs
+  - node: BinaryOperator
+    name: op
+  - node: Expression
+    name: rhs
+
+LiteralExpression: !Sequence
+  - node: Literal
+
+PhysicalLiteralExpression: !Sequence
+  - node: PhysicalLiteral
+
+NameExpression: !Sequence
+  - node: Name
+
+Expression: !Choice
+  - node: LiteralExpression
+  - node: PhysicalLiteralExpression
+  - node: UnaryExpression
+  - node: BinaryExpression
+  - node: ParenthesizedExpressionOrAggregate
+  - node: Allocator
+  - node: QualifiedExpression
+  - node: TypeConversion
+  - node: NameExpression
+
+Aggregate: !Sequence
+  - token: LeftPar
+  - node: ElementAssociation
+    repeated: true
+  - token: Comma
+    repeated: true
+  - token: RightPar
+
+SubtypeIndicationAllocator: !Sequence
+  - keyword: New
+  - node: SubtypeIndication
+
+ExpressionAllocator: !Sequence
+  - keyword: New
+  - node: Expression
+
+Allocator: !Choice
+  - node: SubtypeIndicationAllocator
+  - node: ExpressionAllocator
+
+OthersChoice: !Sequence
+  - keyword: Others
+
+ExpressionChoice: !Sequence
+  - node: Expression
+
+DiscreteRangeChoice: !Sequence
+  - node: DiscreteRange
+
+Choice: !Choice
+  - node: ExpressionChoice
+  - node: OthersChoice
+  - node: DiscreteRangeChoice
+
+Choices: !Sequence
+  - node: Choice
+    repeated: true
+  - token: Bar
+    repeated: true
+
+ElementAssociation: !Sequence
+  - node: Choice
+  - token: RightArrow
+  - node: Expression
+
+QualifiedExpression: !Sequence
+  - node: Name
+  - token: Tick
+  - node: Expression
+
+TypeConversion: !Sequence
+  - node: Name
+  - token: LeftPar
+  - node: Expression
+  - token: RightPar

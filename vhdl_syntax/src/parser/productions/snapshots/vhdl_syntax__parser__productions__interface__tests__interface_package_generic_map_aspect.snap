@@ -1,0 +1,29 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration,\n\"\\\npackage foo is new lib.pkg\n    generic map (foo => bar)\")"
+---
+InterfacePackageDeclaration
+  InterfacePackageDeclarationPreamble
+    Keyword(Package)
+    Identifier 'foo'
+    Keyword(Is)
+  Keyword(New)
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'pkg'
+  InterfacePackageGenericMapAspect
+    Keyword(Generic)
+    Keyword(Map)
+    LeftPar
+    InterfacePackageGenericMapAspectAssociations
+      AssociationList
+        AssociationElement
+          FormalPart
+            Name
+              Identifier 'foo'
+          RightArrow
+          ActualPart
+            Identifier 'bar'
+    RightPar

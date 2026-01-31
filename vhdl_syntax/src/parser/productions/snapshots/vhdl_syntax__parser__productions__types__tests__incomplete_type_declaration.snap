@@ -1,0 +1,8 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration, \"type incomplete_type;\")"
+---
+IncompleteTypeDeclaration
+  Keyword(Type)
+  Identifier 'incomplete_type'
+  SemiColon

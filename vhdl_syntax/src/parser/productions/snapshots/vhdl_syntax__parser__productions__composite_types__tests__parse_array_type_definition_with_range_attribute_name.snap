@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"type foo is array (arr_t'range) of boolean;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'foo'
+  Keyword(Is)
+  ConstrainedArrayDefinition
+    Keyword(Array)
+    IndexConstraint
+      LeftPar
+      RawTokens
+        Identifier 'arr_t'
+        Tick
+        Keyword(Range)
+      RightPar
+    Keyword(Of)
+    SubtypeIndication
+      Name
+        Identifier 'boolean'
+  SemiColon

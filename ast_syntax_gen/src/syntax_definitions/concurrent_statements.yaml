@@ -1,0 +1,303 @@
+# § 11: Concurrent Statements
+
+DeclarationStatementSeparator: !Sequence
+  - keyword: Begin
+
+BlockHeader: !Sequence
+  - node: GenericClause
+    optional: true
+  - node: GenericMapAspect
+    optional: true
+    terminated: SemiColon
+  - node: PortClause
+    optional: true
+  - node: PortMapAspect
+    optional: true
+    terminated: SemiColon
+
+BlockStatement: !Sequence
+  - node: BlockPreamble
+  - node: BlockHeader
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: BlockEpilogue
+
+BlockPreamble: !Sequence
+  - node: Label
+  - keyword: Block
+  - node: Expression
+    parenthesized: true
+    optional: true
+    name: condition
+  - keyword: Is
+    optional: true
+
+BlockEpilogue: !Sequence
+  - keyword: End
+  - keyword: Block
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+CaseGenerateAlternative: !Sequence
+  - keyword: When
+  - node: Label
+    optional: true
+  - node: Choices
+  - token: RightArrow
+  - node: GenerateStatementBody
+
+CaseGenerateStatement: !Sequence
+  - node: CaseGenerateStatementPreamble
+  - node: CaseGenerateAlternative
+    repeated: true
+  - node: CaseGenerateStatementEpilogue
+
+CaseGenerateStatementPreamble: !Sequence
+  - node: Label
+  - keyword: Case
+  - node: Expression
+  - keyword: Generate
+
+CaseGenerateStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Generate
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+ComponentInstantiationStatement: !Sequence
+  - node: Label
+  - node: InstantiatedUnit
+  - node: ComponentInstantiationItems
+  - token: SemiColon
+
+ComponentInstantiationItems: !Sequence
+  - node: GenericMapAspect
+    optional: true
+  - node: PortMapAspect
+    optional: true
+
+ConcurrentProcedureCallOrComponentInstantiationStatement: !Sequence
+  - node: Label
+    optional: true
+  - keyword: Postponed
+    optional: true
+  - node: Name
+  - token: SemiColon
+
+ConcurrentAssertionStatement: !Sequence
+  - node: Label
+    optional: true
+  - keyword: Postponed
+    optional: true
+  - node: Assertion
+  - token: SemiColon
+
+ConcurrentSimpleSignalAssignment: !Sequence
+  - node: Label
+    optional: true
+  - keyword: Postponed
+    optional: true
+  - node: Target
+  - token: LTE
+  - keyword: Guarded
+    optional: true
+  - node: DelayMechanism
+    optional: true
+  - node: Waveform
+  - token: SemiColon
+
+ConcurrentConditionalSignalAssignment: !Sequence
+  - node: Label
+    optional: true
+  - keyword: Postponed
+    optional: true
+  - node: Target
+  - token: LTE
+  - keyword: Guarded
+    optional: true
+  - node: DelayMechanism
+    optional: true
+  - node: ConditionalWaveforms
+  - token: SemiColon
+
+ConcurrentSelectedSignalAssignment: !Sequence
+  - node: ConcurrentSelectedSignalAssignmentPreamble
+  - node: Target
+  - token: LTE
+  - keyword: Guarded
+    optional: true
+  - node: DelayMechanism
+    optional: true
+  - node: SelectedWaveforms
+  - token: SemiColon
+
+ConcurrentSelectedSignalAssignmentPreamble: !Sequence
+  - node: Label
+    optional: true
+  - keyword: Postponed
+    optional: true
+  - keyword: With
+  - node: Expression
+  - keyword: Select
+  - token: Que
+    optional: true
+
+ConcurrentStatement: !Choice
+  - node: BlockStatement
+  - node: ProcessStatement
+  - node: ConcurrentAssertionStatement
+  - node: ComponentInstantiationStatement
+  - node: ConcurrentSelectedSignalAssignment
+  - node: ConcurrentConditionalSignalAssignment
+  - node: ConcurrentSimpleSignalAssignment
+  - node: ConcurrentProcedureCallOrComponentInstantiationStatement
+  - node: ForGenerateStatement
+  - node: IfGenerateStatement
+  - node: CaseGenerateStatement
+  - node: PslDirective
+
+ConcurrentStatements: !Sequence
+  - node: ConcurrentStatement
+    repeated: true
+
+ForGenerateStatement: !Sequence
+  - node: ForGenerateStatementPreamble
+  - node: GenerateStatementBody
+  - node: ForGenerateStatementEpilogue
+
+ForGenerateStatementPreamble: !Sequence
+  - node: Label
+    optional: true
+  - keyword: For
+  - node: ParameterSpecification
+  - keyword: Generate
+
+ForGenerateStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Generate
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+GenerateStatementBody: !Sequence
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+    optional: true
+  - node: ConcurrentStatements
+  - node: GenerateStatementBodyEpilogue
+    optional: true
+
+GenerateStatementBodyEpilogue: !Sequence
+  - keyword: End
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+IfGenerateElsif: !Sequence
+  - keyword: Elsif
+  - node: Label
+    optional: true
+  - node: Expression
+  - keyword: Generate
+  - node: GenerateStatementBody
+
+IfGenerateElse: !Sequence
+  - keyword: Else
+  - node: Label
+    optional: true
+  - keyword: Generate
+  - node: GenerateStatementBody
+
+IfGenerateStatement: !Sequence
+  - node: IfGenerateStatementPreamble
+  - node: GenerateStatementBody
+  - node: IfGenerateElsif
+    repeated: true
+  - node: IfGenerateElse
+    optional: true
+  - node: IfGenerateStatementEpilogue
+
+IfGenerateStatementPreamble: !Sequence
+  - node: Label
+    optional: true
+  - keyword: If
+  - node: Label
+    name: alternative_label
+    optional: true
+  - node: Expression
+    name: condition
+  - keyword: Generate
+
+IfGenerateStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Generate
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+InstantiatedUnit: !Choice
+  - node: ComponentInstantiatedUnit
+  - node: EntityInstantiatedUnit
+  - node: ConfigurationInstantiatedUnit
+
+ComponentInstantiatedUnit: !Sequence
+  - keyword: Component
+    optional: true
+  - node: Name
+
+EntityInstantiatedUnit: !Sequence
+  - keyword: Entity
+  - node: Name
+  - token: LeftPar
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: RightPar
+    optional: true
+
+ConfigurationInstantiatedUnit: !Sequence
+  - keyword: Configuration
+  - node: Name
+
+AllSensitivityList: !Sequence
+  - keyword: All
+
+SensitivityList: !Sequence
+  - node: Name
+    repeated: true
+  - token: Comma
+    repeated: true
+
+ProcessSensitivityList: !Choice
+  - node: AllSensitivityList
+  - node: SensitivityList
+
+ProcessStatement: !Sequence
+  - node: ProcessStatementPreamble
+  - node: Declarations
+  - node: DeclarationStatementSeparator
+  - node: ConcurrentStatements
+  - node: ProcessStatementEpilogue
+
+ProcessStatementPreamble: !Sequence
+  - node: Label
+  - keyword: Postponed
+    optional: true
+  - keyword: Process
+  - node: ProcessSensitivityList
+    parenthesized: true
+    optional: true
+  - keyword: Is
+    optional: true
+
+ProcessStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Postponed
+    optional: true
+  - keyword: Process
+  - token: Identifier
+    optional: true
+  - token: SemiColon

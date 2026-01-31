@@ -1,0 +1,458 @@
+# §10: Sequential Statements
+
+Assertion: !Sequence
+  - keyword: Assert
+  - node: Expression
+    name: condition
+  - keyword: Report
+    optional: true
+  - node: Expression
+    optional: true
+    name: report
+  - keyword: Severity
+    optional: true
+  - node: Expression
+    name: severity
+    optional: true
+
+AssertionStatement: !Sequence
+  - token: Identifier
+    name: label
+    optional: true
+  - token: Colon
+    optional: true
+  - node: Assertion
+  - token: SemiColon
+
+CaseStatementAlternative: !Sequence
+  - node: CaseStatementAlternativePreamble
+  - node: SequentialStatements
+
+CaseStatementAlternativePreamble: !Sequence
+  - keyword: When
+  - node: Choices
+  - token: RightArrow
+
+CaseStatement: !Sequence
+  - node: CaseStatementPreamble
+  - node: CaseStatementAlternative
+    repeated: true
+  - node: CaseStatementEpilogue
+
+CaseStatementPreamble: !Sequence
+  - node: Label
+  - keyword: Case
+  - token: Que
+    optional: true
+  - node: Expression
+    optional: true
+  - keyword: Is
+
+CaseStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Case
+  - token: Que
+    optional: true
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+ConditionClause: !Sequence
+  - keyword: Until
+  - node: Expression
+
+ConditionalElseWhenExpression: !Sequence
+  - keyword: Else
+  - node: Expression
+  - keyword: When
+  - node: Expression
+    name: condition
+
+ConditionalElseItem: !Sequence
+  - keyword: Else
+  - node: Expression
+
+ConditionalExpressions: !Sequence
+  - node: ConditionalExpression
+  - node: ConditionalElseWhenExpression
+    repeated: true
+  - node: ConditionalElseItem
+    optional: true
+
+ConditionalExpression: !Sequence
+  - node: Expression
+  - keyword: When
+  - node: Expression
+    name: condition
+
+ConditionalForceAssignment: !Sequence
+  - node: Target
+  - token: LTE
+  - keyword: Force
+  - node: ForceMode
+    optional: true
+  - node: ConditionalExpressions
+  - token: SemiColon
+
+ConditionalSignalAssignment: !Choice
+  - node: ConditionalWaveformAssignment
+  - node: ConditionalForceAssignment
+
+ConditionalVariableAssignment: !Sequence
+  - node: Target
+  - token: ColonEq
+  - node: ConditionalExpressions
+  - token: SemiColon
+
+ConditionalWaveformAssignment: !Sequence
+  - node: Target
+  - token: LTE
+  - node: DelayMechanism
+    optional: true
+  - node: ConditionalWaveforms
+  - token: SemiColon
+
+ConditionalWaveformElseWhenExpression: !Sequence
+  - keyword: Else
+  - node: Waveform
+  - keyword: When
+  - node: Expression
+    name: condition
+
+ConditionalWaveformElseItem: !Sequence
+  - keyword: Else
+  - node: Waveform
+
+ConditionalWaveforms: !Sequence
+  - node: ConditionalWaveform
+  - node: ConditionalWaveformElseWhenExpression
+    repeated: true
+  - node: ConditionalWaveformElseItem
+    optional: true
+
+ConditionalWaveform: !Sequence
+  - node: Waveform
+  - keyword: When
+  - node: Expression
+
+TransportDelayMechanism: !Sequence
+  - keyword: Transport
+
+InertialDelayMechanism: !Sequence
+  - keyword: Reject
+    optional: true
+  - node: Expression
+    optional: true
+  - keyword: Inertial
+
+DelayMechanism: !Choice
+  - node: TransportDelayMechanism
+  - node: InertialDelayMechanism
+
+ExitStatement: !Sequence
+  - token: Identifier
+    name: label
+    optional: true
+  - token: Colon
+    optional: true
+  - keyword: Exit
+  - token: Identifier
+    name: loop_label
+    optional: true
+  - keyword: When
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+ForceMode: !Choice
+  - keyword: In
+  - keyword: Out
+
+IfStatementElsif: !Sequence
+  - keyword: Elsif
+  - node: Expression
+  - keyword: Then
+  - node: SequentialStatements
+
+IfStatementElse: !Sequence
+  - keyword: Else
+  - node: SequentialStatements
+
+IfStatement: !Sequence
+  - node: IfStatementPreamble
+  - node: SequentialStatements
+  - node: IfStatementElsif
+    repeated: true
+  - node: IfStatementElse
+    optional: true
+  - node: IfStatementEpilogue
+
+IfStatementPreamble: !Sequence
+  - token: Identifier
+    name: if_label
+    optional: true
+  - token: Colon
+    optional: true
+  - keyword: If
+  - node: Expression
+  - keyword: Then
+
+IfStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: If
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+WhileIterationScheme: !Sequence
+  - keyword: While
+  - node: Expression
+
+ForIterationScheme: !Sequence
+  - keyword: For
+  - node: ParameterSpecification
+
+IterationScheme: !Choice
+  - node: WhileIterationScheme
+  - node: ForIterationScheme
+
+LoopStatement: !Sequence
+  - node: LoopStatementPreamble
+  - node: SequentialStatements
+  - node: LoopStatementEpilogue
+
+LoopStatementPreamble: !Sequence
+  - node: Label
+  - node: IterationScheme
+    optional: true
+  - keyword: Loop
+
+LoopStatementEpilogue: !Sequence
+  - keyword: End
+  - keyword: Loop
+  - token: Identifier
+    optional: true
+  - token: SemiColon
+
+NextStatement: !Sequence
+  - node: Label
+  - keyword: Next
+  - token: Identifier
+    name: loop_label
+    optional: true
+  - keyword: When
+    optional: true
+  - node: Expression
+    optional: true
+  - token: SemiColon
+
+NullStatement: !Sequence
+  - node: Label
+  - keyword: "Null"
+  - token: SemiColon
+
+ParameterSpecification: !Sequence
+  - token: Identifier
+  - keyword: In
+  - node: DiscreteRange
+
+ProcedureCallStatement: !Sequence
+  - node: Label
+  - node: Name
+  - token: SemiColon
+
+ReportStatement: !Sequence
+  - node: Label
+  - keyword: Report
+  - node: Expression
+    name: report
+  - keyword: Severity
+    optional: true
+  - node: Expression
+    name: severity
+    optional: true
+
+ReturnStatement: !Sequence
+  - node: Label
+  - keyword: Return
+  - node: Expression
+    optional: true
+
+SelectedExpressionItem: !Sequence
+  - node: Expression
+  - keyword: When
+  - node: Choices
+
+SelectedExpressions: !Sequence
+  - node: SelectedExpressionItem
+    repeated: true
+  - token: Comma
+    repeated: true
+
+SelectedForceAssignment: !Sequence
+  - node: SelectedAssignmentPreamble
+  - node: Target
+  - token: LTE
+  - keyword: Force
+  - node: ForceMode
+    optional: true
+  - node: SelectedExpressions
+  - token: SemiColon
+
+SelectedWaveformItem: !Sequence
+  - node: Waveform
+  - keyword: When
+  - node: Choices
+
+SelectedWaveforms: !Sequence
+  - node: SelectedWaveformItem
+    repeated: true
+  - token: Comma
+    repeated: true
+
+SelectedSignalAssignment: !Choice
+  - node: SelectedWaveformAssignment
+  - node: SelectedForceAssignment
+
+SelectedVariableAssignment: !Sequence
+  - node: SelectedAssignmentPreamble
+  - node: Target
+  - token: ColonEq
+  - node: SelectedExpressions
+  - token: SemiColon
+
+SelectedWaveformAssignment: !Sequence
+  - node: SelectedAssignmentPreamble
+  - node: Target
+  - token: LTE
+  - node: DelayMechanism
+    optional: true
+  - node: SelectedWaveforms
+  - token: SemiColon
+
+SelectedAssignmentPreamble: !Sequence
+  - keyword: With
+  - node: Expression
+  - keyword: Select
+  - token: Que
+    optional: true
+
+SensitivityClause: !Sequence
+  - keyword: On
+  - node: NameList
+
+SequentialStatement: !Choice
+  - node: WaitStatement
+  - node: AssertionStatement
+  - node: ReportStatement
+  - node: SignalAssignmentStatement
+  - node: VariableAssignmentStatement
+  - node: ProcedureCallStatement
+  - node: IfStatement
+  - node: CaseStatement
+  - node: LoopStatement
+  - node: NextStatement
+  - node: ExitStatement
+  - node: ReturnStatement
+  - node: NullStatement
+
+SignalAssignmentStatement: !Choice
+  - node: SimpleSignalAssignment
+  - node: ConditionalSignalAssignment
+  - node: SelectedSignalAssignment
+
+SimpleForceAssignment: !Sequence
+  - node: Label
+    optional: true
+  - node: Target
+  - token: LTE
+  - keyword: Force
+  - node: ForceMode
+    optional: true
+  - node: Expression
+  - token: SemiColon
+
+SimpleReleaseAssignment: !Sequence
+  - node: Label
+    optional: true
+  - node: Target
+  - token: LTE
+  - keyword: Release
+  - node: ForceMode
+    optional: true
+  - token: SemiColon
+
+SimpleWaveformAssignment: !Sequence
+  - node: Label
+    optional: true
+  - node: Target
+  - token: LTE
+  - node: DelayMechanism
+    optional: true
+  - node: Waveform
+  - token: SemiColon
+
+SimpleSignalAssignment: !Choice
+  - node: SimpleWaveformAssignment
+  - node: SimpleForceAssignment
+  - node: SimpleReleaseAssignment
+
+SimpleVariableAssignment: !Sequence
+  - node: Target
+  - token: ColonEq
+  - node: Expression
+  - token: SemiColon
+
+NameTarget: !Sequence
+  - node: Name
+
+AggregateTarget: !Sequence
+  - node: Aggregate
+
+Target: !Choice
+  - node: NameTarget
+  - node: AggregateTarget
+
+TimeoutClause: !Sequence
+  - keyword: For
+  - node: Expression
+
+VariableAssignmentStatement: !Choice
+  - node: SimpleVariableAssignment
+  - node: ConditionalVariableAssignment
+  - node: SelectedVariableAssignment
+
+WaitStatement: !Sequence
+  - node: Label
+  - keyword: Wait
+  - node: SensitivityClause
+    optional: true
+  - node: ConditionClause
+    optional: true
+  - node: TimeoutClause
+    optional: true
+  - token: SemiColon
+
+WaveformElement: !Sequence
+  - node: Expression
+  - keyword: After
+  - node: Expression
+    name: time_expression
+
+WaveformElements: !Sequence
+  - node: WaveformElement
+    repeated: true
+  - token: Comma
+    repeated: true
+
+UnaffectedWaveform: !Sequence
+  - keyword: Unaffected
+
+Waveform: !Choice
+  - node: WaveformElements
+  - node: UnaffectedWaveform
+
+SequentialStatements: !Sequence
+  - node: SequentialStatement
+    repeated: true

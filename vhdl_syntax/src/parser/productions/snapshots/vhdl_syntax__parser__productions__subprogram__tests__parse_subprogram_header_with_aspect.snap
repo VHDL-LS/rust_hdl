@@ -1,0 +1,49 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "to_test_text(Parser::subprogram_header,\n\"generic (x: natural := 1; y: real) generic map (x => 2, y => 0.4)\")"
+---
+SubprogramHeader
+  SubprogramHeaderGenericClause
+    Keyword(Generic)
+    LeftPar
+    InterfaceList
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'x'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'natural'
+        ColonEq
+        LiteralExpression
+          AbstractLiteral '1'
+      SemiColon
+      InterfaceConstantDeclaration
+        IdentifierList
+          Identifier 'y'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'real'
+    RightPar
+  GenericMapAspect
+    Keyword(Generic)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            Identifier 'x'
+        RightArrow
+        ActualPart
+          AbstractLiteral '2'
+      Comma
+      AssociationElement
+        FormalPart
+          Name
+            Identifier 'y'
+        RightArrow
+        ActualPart
+          AbstractLiteral '0.4'
+    RightPar

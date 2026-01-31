@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication, \"obj'subtype\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'obj'
+    AttributeName
+      Tick
+      Keyword(Subtype)

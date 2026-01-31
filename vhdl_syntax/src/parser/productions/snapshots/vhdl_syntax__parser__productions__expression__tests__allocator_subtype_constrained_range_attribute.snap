@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"new integer_vector(foo'range)\")"
+---
+ExpressionAllocator
+  Keyword(New)
+  SubtypeIndication
+    Name
+      Identifier 'integer_vector'
+      RawTokens
+        LeftPar
+        Identifier 'foo'
+        Tick
+        Keyword(Range)
+        RightPar

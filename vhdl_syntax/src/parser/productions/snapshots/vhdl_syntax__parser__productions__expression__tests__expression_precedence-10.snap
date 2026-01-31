@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"not - 1\")"
+---
+UnaryExpression
+  Keyword(Not)
+  UnaryExpression
+    Minus
+    LiteralExpression
+      AbstractLiteral '1'

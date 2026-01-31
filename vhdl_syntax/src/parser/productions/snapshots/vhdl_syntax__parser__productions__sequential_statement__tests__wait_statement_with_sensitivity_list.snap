@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::wait_statement, \"wait on foo, bar;\")"
+---
+WaitStatement
+  Keyword(Wait)
+  SensitivityClause
+    Keyword(On)
+    NameList
+      Name
+        Identifier 'foo'
+      Comma
+      Name
+        Identifier 'bar'
+  SemiColon

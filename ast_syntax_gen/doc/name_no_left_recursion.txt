@@ -1,0 +1,187 @@
+character_literal ::= ...;
+
+identifier ::= ...;
+
+string_literal ::= ...;
+
+bit_string_literal ::= ...;
+
+decimal_literal ::= ...;
+
+based_literal ::= ...;
+
+// MARK: Name
+
+name ::= prefix [ name_tail ] ;
+
+prefix ::= identifier | string_literal | character_literal | external_name ;
+
+name_tail ::= selected_name | attribute_name | indexed_name | slice_name | function_name;
+
+selected_name ::= `.` suffix [ name_tail ] ;
+
+suffix ::= identifier | string_literal | character_literal | `all` ;
+
+attribute_name ::= [ signature ] `'` identifier [ `(` expression `)` ] [ name_tail ] ;
+
+indexed_name ::= `(` expression { `,` expression } `)` [ name_tail ] ;
+
+slice_name ::= `(` discrete_range `)` [ name_tail ] ;
+
+function_name ::= `(` association_list `)` [ name_tail ] ;
+
+
+// MARK: External name
+
+external_name ::=
+      external_constant_name
+    | external_signal_name
+    | external_variable_name
+    ;
+
+external_constant_name ::= `<<` `constant` external_pathname `:` subtype_indication `>>` ;
+
+external_signal_name ::= `<<` `signal` external_pathname `:` subtype_indication `>>` ;
+
+external_variable_name ::= `<<` `variable` external_pathname `:` subtype_indication `>>` ;
+
+external_pathname ::=
+      package_pathname
+    | absolute_pathname
+    | relative_pathname ;
+
+package_pathname ::= `@` identifier . { identifier . } identifier ;
+
+absolute_pathname ::= `.` partial_pathname ;
+
+relative_pathname ::= { `^` `.` } partial_pathname ;
+
+partial_pathname ::= { identifier `.` } identifier ;
+
+// MARK: Expression
+
+expression ::= condition_operator primary | logical_expression ;
+
+condition_operator ::= `??` ;
+
+logical_expression ::=
+      relation { `and` relation }
+    | relation { `or` relation }
+    | relation { `xor` relation }
+    | relation [ `nand` relation ]
+    | relation [ `nor` relation ]
+    | relation { `xnor` relation }
+    ;
+
+relation ::= shift_expression [ relational_operator shift_expression ] ;
+
+relational_operator ::=  `=` | `/=` | `<` | `<=` | `>` | `>=` | `?=` | `?/=` | `?<` | `?<=` | `?>` | `?>=` ;
+
+shift_expression ::= simple_expression [ shift_operator simple_expression ] ;
+
+shift_operator ::= `sll` | `srl` | `sla` | `sra` | `rol` | `ror` ;
+
+simple_expression ::= [ sign ] term { adding_operator term } ;
+
+sign ::= `+` | `-` ;
+
+adding_operator ::= `+` | `-` | `&` ;
+
+term ::= factor { multiplying_operator factor } ;
+
+multiplying_operator ::= `*` | `/` | `mod` | `rem` ;
+
+factor ::=
+      primary [ `**` primary ]
+    | `abs` primary
+    | `not` primary
+    | logical_operator primary
+    ;
+
+logical_operator ::= `and` | `or` | `nand` | `nor` | `xor` | `xnor` ;
+
+primary ::=
+      name
+    | literal
+    | aggregate
+    | qualified_expression
+    | type_conversion
+    | allocator
+    | `(` expression `)`
+    ;
+
+qualified_expression ::= name `'` `(` expression `)` | name `'` aggregate ;
+
+// MARK: constraint
+
+constraint ::= range_constraint | array_constraint | record_constraint;
+
+range_constraint ::= `range` range;
+
+array_constraint ::= index_constraint [ array_element_constraint ] | `(` `open` `)` [ array_element_constraint ];
+
+record_constraint ::= `(` record_element_constraint { `,` record_element_constraint } `)`;
+
+index_constraint ::= `(` discrete_range { `,` discrete_range } `)`;
+
+array_element_constraint ::= element_constraint;
+
+record_element_constraint ::= identifier element_constraint;
+
+element_constraint ::= array_constraint | record_constraint;
+
+// MARK: Range
+
+range ::=
+      name [ `(` association_list `)` ] [ signature ] `'` identifier [ `(` expression `)` ]
+    | simple_expression direction simple_expression;
+
+discrete_range ::= subtype_indication | range;
+
+// MARK: Rest
+
+signature ::= `[` [ name { `,` name } ] [ `return` name ] `]`;
+
+subtype_indication ::= [ resolution_indication ] name [ constraint ];
+
+literal ::= numeric_literal | enumeration_literal | string_literal | bit_string_literal | `null`;
+
+aggregate ::= `(` element_association { `,` element_association } `)`;
+
+type_conversion ::= name `(` expression `)`;
+
+allocator ::= `new` subtype_indication | `new` qualified_expression;
+
+resolution_indication ::= name | `(` element_resolution `)`;
+
+direction ::= `to` | `downto`;
+
+association_list ::= association_element { `,` association_element };
+
+numeric_literal ::= abstract_literal | physical_literal;
+
+enumeration_literal ::= identifier | character_literal;
+
+element_association ::= [ choices `=>` ] expression;
+
+element_resolution ::= resolution_indication | record_resolution;
+
+association_element ::= [ formal_part `=>` ] actual_part;
+
+abstract_literal ::= decimal_literal | based_literal;
+
+physical_literal ::= [ abstract_literal ] name;
+
+choices ::= choice { `|` choice };
+
+record_resolution ::= record_element_resolution { `,` record_element_resolution };
+
+formal_part ::= name | name `(` name `)`;
+
+actual_part ::= actual_designator | name `(` actual_designator `)`;
+
+choice ::= simple_expression | discrete_range | identifier | `others`;
+
+record_element_resolution ::= identifier resolution_indication;
+
+actual_designator ::= [ `inertial` ] expression | name | subtype_indication | `open`;

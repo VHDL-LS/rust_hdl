@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "to_test_text(Parser::type_declaration, \"type rec_t is record end record;\",)"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'rec_t'
+  Keyword(Is)
+  RecordTypeDefinition
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Record)
+  SemiColon

@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::signal_declaration, \"signal reg_s: bit register;\")"
+---
+SignalDeclaration
+  Keyword(Signal)
+  IdentifierList
+    Identifier 'reg_s'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'bit'
+  Keyword(Register)
+  SemiColon

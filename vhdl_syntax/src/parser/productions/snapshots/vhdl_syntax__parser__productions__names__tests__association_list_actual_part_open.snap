@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "name_to_test_text(\"foo(open, arg => open)\")"
+---
+Name
+  Identifier 'foo'
+  RawTokens
+    LeftPar
+    Keyword(Open)
+    Comma
+    Identifier 'arg'
+    RightArrow
+    Keyword(Open)
+    RightPar

@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/subtype.rs
+expression: "to_test_text(Parser::subtype_indication,\n\"integer_vector(2-1 downto 0, 11 to 14)(foo to bar)\")"
+---
+SubtypeIndication
+  Name
+    Identifier 'integer_vector'
+    RawTokens
+      LeftPar
+      AbstractLiteral '2'
+      Minus
+      AbstractLiteral '1'
+      Keyword(Downto)
+      AbstractLiteral '0'
+      Comma
+      AbstractLiteral '11'
+      Keyword(To)
+      AbstractLiteral '14'
+      RightPar
+    RawTokens
+      LeftPar
+      Identifier 'foo'
+      Keyword(To)
+      Identifier 'bar'
+      RightPar

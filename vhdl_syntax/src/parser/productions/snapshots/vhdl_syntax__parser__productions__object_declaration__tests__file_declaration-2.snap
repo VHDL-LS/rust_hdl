@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "to_test_text(Parser::file_declaration, \"file f, ff, fff : natural;\")"
+---
+FileDeclaration
+  Keyword(File)
+  IdentifierList
+    Identifier 'f'
+    Comma
+    Identifier 'ff'
+    Comma
+    Identifier 'fff'
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'natural'
+  SemiColon

@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration, \"type chars_t is ('A', 'B');\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'chars_t'
+  Keyword(Is)
+  EnumerationTypeDefinition
+    LeftPar
+    CharacterLiteral ''A''
+    Comma
+    CharacterLiteral ''B''
+    RightPar
+  SemiColon

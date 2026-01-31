@@ -1,0 +1,35 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "to_test_text(Parser::design_file,\n\"\\\nlibrary ieee;\nuse ieee.std_logic_1164.all;\n\nentity my_ent is\nbegin\nend my_ent;\",)"
+---
+DesignFile
+  DesignUnit
+    ContextClause
+      LibraryClause
+        Keyword(Library)
+        IdentifierList
+          Identifier 'ieee'
+        SemiColon
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            Identifier 'ieee'
+            SelectedName
+              Dot
+              Identifier 'std_logic_1164'
+            SelectedName
+              Dot
+              Keyword(All)
+        SemiColon
+    EntityDeclaration
+      EntityDeclarationPreamble
+        Keyword(Entity)
+        Identifier 'my_ent'
+        Keyword(Is)
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      EntityDeclarationEpilogue
+        Keyword(End)
+        Identifier 'my_ent'
+        SemiColon

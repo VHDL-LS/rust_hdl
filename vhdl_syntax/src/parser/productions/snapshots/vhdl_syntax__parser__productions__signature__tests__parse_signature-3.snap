@@ -1,0 +1,10 @@
+---
+source: vhdl_syntax/src/parser/productions/signature.rs
+expression: "to_test_text(Parser::signature, \"[return ret_t]\")"
+---
+Signature
+  LeftSquare
+  Keyword(Return)
+  Name
+    Identifier 'ret_t'
+  RightSquare

@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::entity_aspect, \"configuration lib.foo.name\",)"
+---
+EntityConfigurationAspect
+  Keyword(Configuration)
+  Name
+    Identifier 'lib'
+    SelectedName
+      Dot
+      Identifier 'foo'
+    SelectedName
+      Dot
+      Identifier 'name'

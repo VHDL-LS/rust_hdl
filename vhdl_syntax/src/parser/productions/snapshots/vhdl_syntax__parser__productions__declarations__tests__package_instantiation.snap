@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/declarations.rs
+expression: "to_test_text(Parser::package_instantiation_declaration,\n\"package ident is new lib.foo.bar;\",)"
+---
+PackageInstantiationDeclaration
+  PackageInstantiation
+    PackageInstantiationPreamble
+      Keyword(Package)
+      Identifier 'ident'
+      Keyword(Is)
+      Keyword(New)
+      Name
+        Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'foo'
+        SelectedName
+          Dot
+          Identifier 'bar'
+  SemiColon

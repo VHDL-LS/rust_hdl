@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration,\n\"function foo return bar is lib.name\")"
+---
+InterfaceSubprogramDeclaration
+  InterfaceFunctionSpecification
+    Keyword(Function)
+    Identifier 'foo'
+    Keyword(Return)
+    Name
+      Identifier 'bar'
+  Keyword(Is)
+  InterfaceSubprogramDefaultName
+    Name
+      Identifier 'lib'
+      SelectedName
+        Dot
+        Identifier 'name'

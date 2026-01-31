@@ -1,0 +1,39 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement,\n\"\\\nfoo(0) := bar(1,2) when cond = true else expr2;\n        \")"
+---
+ConditionalVariableAssignment
+  NameTarget
+    Name
+      Identifier 'foo'
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  ColonEq
+  ConditionalExpressions
+    ConditionalExpression
+      NameExpression
+        Name
+          Identifier 'bar'
+          RawTokens
+            LeftPar
+            AbstractLiteral '1'
+            Comma
+            AbstractLiteral '2'
+            RightPar
+      Keyword(When)
+      BinaryExpression
+        NameExpression
+          Name
+            Identifier 'cond'
+        EQ
+        NameExpression
+          Name
+            Identifier 'true'
+    ConditionalElseItem
+      Keyword(Else)
+      NameExpression
+        Name
+          Identifier 'expr2'
+  SemiColon

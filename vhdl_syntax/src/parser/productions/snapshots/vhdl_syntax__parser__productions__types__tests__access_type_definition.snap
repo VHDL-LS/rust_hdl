@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "to_test_text(Parser::type_declaration, \"type str_ptr_t is access string;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'str_ptr_t'
+  Keyword(Is)
+  AccessTypeDefinition
+    Keyword(Access)
+    SubtypeIndication
+      Name
+        Identifier 'string'
+  SemiColon

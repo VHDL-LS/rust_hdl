@@ -1,0 +1,24 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"mark0'(0) < mark1'(1)\")"
+---
+BinaryExpression
+  NameExpression
+    Name
+      Identifier 'mark0'
+      AttributeName
+        Tick
+      RawTokens
+        LeftPar
+        AbstractLiteral '0'
+        RightPar
+  LT
+  NameExpression
+    Name
+      Identifier 'mark1'
+      AttributeName
+        Tick
+      RawTokens
+        LeftPar
+        AbstractLiteral '1'
+        RightPar

@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/signature.rs
+expression: "to_test_text(Parser::signature, \"[natural, bit return unsigned]\")"
+---
+Signature
+  LeftSquare
+  NameList
+    Name
+      Identifier 'natural'
+    Comma
+    Name
+      Identifier 'bit'
+  Keyword(Return)
+  Name
+    Identifier 'unsigned'
+  RightSquare

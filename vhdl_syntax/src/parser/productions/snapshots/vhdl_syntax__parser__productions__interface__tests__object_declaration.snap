@@ -1,0 +1,12 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_declaration, \"a : in std_logic\",)"
+---
+InterfaceConstantDeclaration
+  IdentifierList
+    Identifier 'a'
+  Colon
+  Keyword(In)
+  SubtypeIndication
+    Name
+      Identifier 'std_logic'

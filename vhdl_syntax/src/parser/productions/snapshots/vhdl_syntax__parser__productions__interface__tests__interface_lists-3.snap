@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::interface_list,\n\"\\\nsignal foo : in std_logic;\nconstant bar : natural;\nvariable xyz : var\")"
+---
+InterfaceList
+  InterfaceSignalDeclaration
+    Keyword(Signal)
+    IdentifierList
+      Identifier 'foo'
+    Colon
+    Keyword(In)
+    SubtypeIndication
+      Name
+        Identifier 'std_logic'
+  SemiColon
+  InterfaceConstantDeclaration
+    Keyword(Constant)
+    IdentifierList
+      Identifier 'bar'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'natural'
+  SemiColon
+  InterfaceVariableDeclaration
+    Keyword(Variable)
+    IdentifierList
+      Identifier 'xyz'
+    Colon
+    SubtypeIndication
+      Name
+        Identifier 'var'

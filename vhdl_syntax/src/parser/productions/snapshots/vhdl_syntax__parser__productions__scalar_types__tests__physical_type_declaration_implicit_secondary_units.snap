@@ -1,0 +1,31 @@
+---
+source: vhdl_syntax/src/parser/productions/scalar_types.rs
+expression: "to_test_text(Parser::type_declaration,\n\"\\\ntype phys is range 0 to 15 units\n   primary_unit;\n   secondary_unit = primary_unit;\nend units;\")"
+---
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'phys'
+  Keyword(Is)
+  PhysicalTypeDefinition
+    Keyword(Range)
+    RangeExpression
+      LiteralExpression
+        AbstractLiteral '0'
+      Keyword(To)
+      LiteralExpression
+        AbstractLiteral '15'
+    Keyword(Units)
+    UnitDeclarations
+      PrimaryUnitDeclaration
+        Identifier 'primary_unit'
+        SemiColon
+      SecondaryUnitDeclaration
+        Identifier 'secondary_unit'
+        EQ
+        Name
+          Identifier 'primary_unit'
+        SemiColon
+    PhysicalTypeDefinitionEpilogue
+      Keyword(End)
+      Keyword(Units)
+  SemiColon
