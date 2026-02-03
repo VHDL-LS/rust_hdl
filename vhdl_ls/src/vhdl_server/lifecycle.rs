@@ -59,6 +59,16 @@ impl VHDLServer {
         self.init_params = Some(init_params);
         let trigger_chars: Vec<String> = r"'.".chars().map(|ch| ch.to_string()).collect();
 
+        let file_ops = Some(FileOperationRegistrationOptions {
+            filters: vec![FileOperationFilter {
+                pattern: FileOperationPattern {
+                    glob: "**/*.{vhd,vhdl}".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+        });
+
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
@@ -92,6 +102,15 @@ impl VHDLServer {
                 trigger_characters: Some(trigger_chars),
                 completion_item: Some(CompletionOptionsCompletionItem {
                     label_details_support: Some(true),
+                }),
+                ..Default::default()
+            }),
+            workspace: Some(WorkspaceServerCapabilities {
+                file_operations: Some(WorkspaceFileOperationsServerCapabilities {
+                    did_create: file_ops.clone(),
+                    did_rename: file_ops.clone(),
+                    did_delete: file_ops.clone(),
+                    ..Default::default()
                 }),
                 ..Default::default()
             }),
