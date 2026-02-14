@@ -68,7 +68,6 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.leading_trivia())?;
         write!(f, "{}", self.text())?;
-        write!(f, "{}", self.trailing_trivia())?;
         Ok(())
     }
 }

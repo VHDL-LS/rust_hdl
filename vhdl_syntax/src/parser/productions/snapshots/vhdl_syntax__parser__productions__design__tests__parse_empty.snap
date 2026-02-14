@@ -3,3 +3,4 @@ source: vhdl_syntax/src/parser/productions/design.rs
 expression: "to_test_text(Parser::design_file, \"\")"
 ---
 DesignFile
+  Eof

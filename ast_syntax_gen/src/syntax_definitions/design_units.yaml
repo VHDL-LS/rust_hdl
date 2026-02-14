@@ -39,6 +39,7 @@ ContextItem: !Choice
 DesignFile: !Sequence
   - node: DesignUnit
     repeated: true
+  - token: Eof
 
 DesignUnit: !Sequence
   - node: ContextClause

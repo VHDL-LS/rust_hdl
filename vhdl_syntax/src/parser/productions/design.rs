@@ -14,9 +14,11 @@ use crate::tokens::token_kind::TokenKind::*;
 impl Parser {
     pub fn design_file(&mut self) {
         self.start_node(NodeKind::DesignFile);
-        while self.token_stream.has_next() {
+        while self.peek_token() != Eof {
             self.design_unit();
         }
+        assert!(self.next_is(Eof), "No EoF token in design file");
+        self.skip();
         self.end_node();
     }
 
@@ -25,8 +27,8 @@ impl Parser {
 
         self.context_clause();
         match self.peek_token() {
-            Some(Keyword(Kw::Architecture)) => self.architecture(),
-            Some(Keyword(Kw::Package)) => {
+            Keyword(Kw::Architecture) => self.architecture(),
+            Keyword(Kw::Package) => {
                 if self.next_nth_is(Keyword(Kw::Body), 1) {
                     self.start_node(NodeKind::SecondaryUnitPackageBody);
                     self.package_body();
@@ -37,9 +39,9 @@ impl Parser {
                     self.package_declaration();
                 }
             }
-            Some(Keyword(Kw::Entity)) => self.entity_declaration(),
-            Some(Keyword(Kw::Configuration)) => self.configuration_declaration(),
-            Some(Keyword(Kw::Context)) => self.context_declaration(),
+            Keyword(Kw::Entity) => self.entity_declaration(),
+            Keyword(Kw::Configuration) => self.configuration_declaration(),
+            Keyword(Kw::Context) => self.context_declaration(),
             _ => self.expect_tokens_err([
                 Keyword(Kw::Architecture),
                 Keyword(Kw::Package),

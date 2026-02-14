@@ -41,7 +41,7 @@ end bar;
         if let Some(token) = entity.raw().first_token() {
             // The trivia is where all auxiliary information concerning a token is stored,
             // for example, comments, whitespaces or newlines.
-            let comment = extract_doc_from_trivia(token.all_leading_trivia());
+            let comment = extract_doc_from_trivia(token.leading_trivia());
             // If the entity has a name token, add the extracted documentation to the map
             if let Some(ident) = entity
                 .entity_declaration_preamble()
@@ -62,7 +62,7 @@ end bar;
 /// Note that this is a toy example that simply checks for line comments that with a `-` (i.e.,
 /// a doc comment is written using the `--- doc comment` syntax. A real-world example needs to
 /// include more sophisticated processing.
-fn extract_doc_from_trivia(trivia: Trivia) -> String {
+fn extract_doc_from_trivia(trivia: &Trivia) -> String {
     trivia
         .iter()
         .filter_map(|piece| match piece {

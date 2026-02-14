@@ -36,8 +36,8 @@ macro_rules! match_next_token {
     };
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
-            $(Some($($pattern)|+) => $action),+,
-            None => $parser.eof_err(),
+            $($($pattern)|+ => $action),+,
+            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
             _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
         }
     };
@@ -53,11 +53,11 @@ macro_rules! match_next_token_consume {
     };
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ ]]) => {
         match $parser.peek_token() {
-            $(Some($($pattern)|+) => {
+            $($($pattern)|+ => {
                 $parser.skip();
                 $action
             }),+
-            None => $parser.eof_err(),
+            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
             _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
         }
     };
@@ -82,7 +82,7 @@ impl Parser {
     pub(crate) fn skip_n(&mut self, n: usize) {
         for _ in 0..n {
             self.skip();
-            if self.peek_token().is_none() {
+            if self.peek_token().is_eof() {
                 break;
             }
         }
@@ -125,27 +125,24 @@ impl Parser {
         None
     }
 
-    pub(crate) fn peek_token(&self) -> Option<TokenKind> {
-        Some(self.token_stream.peek(0)?.kind())
+    pub(crate) fn peek_token(&self) -> TokenKind {
+        self.token_stream.peek(0).map(|tok| tok.kind()).unwrap_or(TokenKind::Eof)
     }
 
-    pub(crate) fn peek_nth_token(&self, n: usize) -> Option<TokenKind> {
-        Some(self.token_stream.peek(n)?.kind())
+    pub(crate) fn peek_nth_token(&self, n: usize) -> TokenKind {
+        self.token_stream.peek(n).map(|tok| tok.kind()).unwrap_or(TokenKind::Eof)
     }
 
     pub(crate) fn next_is(&self, kind: TokenKind) -> bool {
-        self.peek_token() == Some(kind)
+        self.peek_token() == kind
     }
 
     pub(crate) fn next_is_one_of<const N: usize>(&self, kinds: [TokenKind; N]) -> bool {
-        match self.peek_token() {
-            Some(tok) => kinds.contains(&tok),
-            None => false,
-        }
+        kinds.contains(&self.peek_token())
     }
 
     pub(crate) fn next_nth_is(&self, kind: TokenKind, n: usize) -> bool {
-        self.peek_nth_token(n) == Some(kind)
+        self.peek_nth_token(n) == kind
     }
 
     pub(crate) fn expect_kw(&mut self, kind: Keyword) {
@@ -256,8 +253,8 @@ impl Parser {
 
         while curr_token_index <= maximum_index && paren_count >= 0 {
             match self.peek_nth_token(curr_token_index - self.token_index()) {
-                Some(TokenKind::LeftPar) => paren_count += 1,
-                Some(TokenKind::RightPar) => {
+                TokenKind::LeftPar => paren_count += 1,
+                TokenKind::RightPar => {
                     // Allow the closing parenthesis to match as well
                     if paren_count == 0 && kinds.contains(&TokenKind::RightPar) {
                         return Ok((TokenKind::RightPar, curr_token_index));
@@ -265,15 +262,14 @@ impl Parser {
 
                     paren_count -= 1;
                 }
-
-                Some(tok) => {
+                TokenKind::Eof => return Err((LookaheadError::Eof, curr_token_index)),
+                tok => {
                     // To avoid matching tokens in some (potentially recursive) sub expression of some sort,
                     // only check the current token if we at the outer most grouping layer (`paren_count == 0`).
                     if paren_count == 0 && kinds.contains(&tok) {
                         return Ok((tok, curr_token_index));
                     }
                 }
-                None => return Err((LookaheadError::Eof, curr_token_index)),
             }
             curr_token_index += 1;
         }

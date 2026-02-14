@@ -91,10 +91,6 @@ impl<'a> Serialize for Serializable<'a, Token> {
                 "leading_trivia",
                 &self.new_with_same_flags(self.inner.leading_trivia()),
             )?;
-            token.serialize_field(
-                "trailing_trivia",
-                &self.new_with_same_flags(self.inner.trailing_trivia()),
-            )?;
         }
 
         token.end()

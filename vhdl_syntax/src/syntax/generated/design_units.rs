@@ -258,6 +258,9 @@ impl DesignFileSyntax {
     pub fn design_units(&self) -> impl Iterator<Item = DesignUnitSyntax> + use<'_> {
         self.0.children().filter_map(DesignUnitSyntax::cast)
     }
+    pub fn eof_token(&self) -> Option<SyntaxToken> {
+        self.0.tokens().filter(|token| token.kind() == Eof).nth(0)
+    }
 }
 #[derive(Debug, Clone)]
 pub struct DesignUnitSyntax(pub(crate) SyntaxNode);

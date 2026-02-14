@@ -70,7 +70,7 @@ impl Parser {
     pub fn entity_designator(&mut self) {
         self.start_node(EntityDesignator);
         self.entity_tag();
-        if self.peek_token() == Some(LeftSquare) {
+        if self.peek_token() == LeftSquare {
             self.signature();
         }
         self.end_node();

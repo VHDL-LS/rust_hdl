@@ -27,3 +27,4 @@ DesignFile
         Keyword(End)
         Keyword(Entity)
         SemiColon
+  Eof

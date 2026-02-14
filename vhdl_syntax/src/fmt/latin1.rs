@@ -69,7 +69,6 @@ impl ToLatin1 for Token {
         let mut buf = Latin1String::new();
         buf.append(&mut self.leading_trivia().to_latin1());
         buf.extend(self.text());
-        buf.append(&mut self.trailing_trivia().to_latin1());
         buf
     }
 }

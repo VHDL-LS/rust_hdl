@@ -109,7 +109,6 @@ impl Debug for SyntaxToken {
             .field("kind", &self.green().kind())
             .field("leading_trivia", &self.green().leading_trivia())
             .field("text", &self.green().text())
-            .field("trailing_trivia", &self.green().trailing_trivia())
             .finish()
     }
 }
@@ -147,34 +146,15 @@ impl SyntaxToken {
 
     /// Returns all trivia between this token and the previous one, resp. only the leading trivia
     /// of this token, if there is no previous token.
-    pub fn all_leading_trivia(&self) -> Trivia {
-        let mut trivia = self
-            .prev_token()
-            .map(|trivia| trivia.green().trailing_trivia().clone())
-            .unwrap_or_default();
-        trivia.append(&mut self.green().leading_trivia().clone());
-        trivia
-    }
-
-    pub fn leading_trivia(&self) -> Trivia {
-        self.green().leading_trivia().clone()
+    pub fn leading_trivia(&self) -> &Trivia {
+        self.green().leading_trivia()
     }
 
     /// Returns all trailing trivia between this token and the next one, resp. only the trailing
     /// trivia of this token, if there is no next token.
-    pub fn all_trailing_trivia(&self) -> Trivia {
-        let mut trivia = self.green().trailing_trivia().clone();
-        trivia.append(
-            &mut self
-                .next_token()
-                .map(|trivia| trivia.green().leading_trivia().clone())
-                .unwrap_or_default(),
-        );
-        trivia
-    }
-
+    /// TODO: After trivia-interning, we should be able to return `&Trivia` here, similar to `leading_trivia`
     pub fn trailing_trivia(&self) -> Trivia {
-        self.green().trailing_trivia().clone()
+        self.next_token().map(|tok| tok.leading_trivia().to_owned()).unwrap_or_default()
     }
 
     pub fn text(&self) -> &Latin1Str {
@@ -230,17 +210,6 @@ impl SyntaxToken {
             self.kind(),
             text,
             self.green().leading_trivia().clone(),
-            self.green().trailing_trivia().clone(),
-        );
-        self.clone_with_token(token)
-    }
-
-    pub fn clone_with_trailing_trivia(&self, trivia: Trivia) -> SyntaxToken {
-        let token = Token::new(
-            self.kind(),
-            self.green().text(),
-            self.green().leading_trivia().clone(),
-            trivia,
         );
         self.clone_with_token(token)
     }
@@ -250,13 +219,7 @@ impl SyntaxToken {
             self.kind(),
             self.green().text(),
             trivia,
-            self.green().trailing_trivia().clone(),
         );
-        self.clone_with_token(token)
-    }
-
-    pub fn clone_with_trivia(&self, leading: Trivia, trailing: Trivia) -> SyntaxToken {
-        let token = Token::new(self.kind(), self.green().text(), leading, trailing);
         self.clone_with_token(token)
     }
 
@@ -540,7 +503,7 @@ mod tests {
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().leading_trivia(),
-            Trivia::default()
+            &Trivia::default()
         );
     }
 
@@ -550,14 +513,13 @@ mod tests {
             TokenKind::Keyword(Keyword::Entity),
             b"entity",
             Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-            Default::default(),
         );
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_token(0, token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().leading_trivia(),
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -568,21 +530,19 @@ mod tests {
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
                 Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-                Trivia::from([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::from([TriviaPiece::LineFeeds(1)]),
-                Trivia::from([TriviaPiece::FormFeeds(2)]),
+                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_tokens(0, tokens);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
-            node.tokens().nth(1).unwrap().all_leading_trivia(),
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            node.tokens().nth(1).unwrap().leading_trivia(),
+            &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -599,43 +559,24 @@ mod tests {
     }
 
     #[test]
-    fn trailing_trivia_no_next_token() {
-        let token = Token::new(
-            TokenKind::Keyword(Keyword::Entity),
-            b"entity",
-            Trivia::new(),
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-        );
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(0, token);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
-        assert_eq!(
-            node.first_token().unwrap().trailing_trivia(),
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
-        );
-    }
-
-    #[test]
     fn trailing_trivia_with_next_token() {
         let tokens = [
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
                 Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
-                Trivia::from([TriviaPiece::Spaces(2)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::from([TriviaPiece::LineFeeds(1)]),
-                Trivia::from([TriviaPiece::FormFeeds(2)]),
+                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
         green_node.push_tokens(0, tokens);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
-            node.first_token().unwrap().all_trailing_trivia(),
+            node.first_token().unwrap().trailing_trivia(),
             Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
@@ -697,10 +638,10 @@ mod tests {
     fn next_token() {
         let mut top = GreenNodeData::new(DesignFile);
         let mut n1 = GreenNodeData::new(EntityDeclaration);
-        n1.push_tokens(0, "entity foo".tokenize());
+        n1.push_tokens(0, [Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"), Token::simple(TokenKind::Identifier, b"foo")]);
         let n1 = GreenNode::new(n1);
         let mut n2 = GreenNodeData::new(ArchitectureBody);
-        n2.push_tokens(0, "architecture end;".tokenize());
+        n2.push_tokens(0, [Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"), Token::simple(TokenKind::Identifier, b"bar")]);
         let n2 = GreenNode::new(n2);
 
         top.push_children([GreenChild::Node((0, n1)), GreenChild::Node((0, n2))]);

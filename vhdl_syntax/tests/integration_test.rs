@@ -1,6 +1,7 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
-use vhdl_syntax::{self, latin_1::Latin1String, parser, syntax::AstNode};
+use similar::{ChangeTag, TextDiff};
+use vhdl_syntax::{self, parser, syntax::AstNode};
 
 // PSL is not supported yet by vhdl_syntax
 const EXCLUDED_FILES: [&str; 1] =
@@ -22,21 +23,27 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
     assert!(
         diagnostics.is_empty(),
         "Found diagnostics for file {}: {:?}",
-        path.display(), diagnostics
+        path.display(),
+        diagnostics
     );
     let mut expected_buf = Vec::new();
-    file.raw().write_to(&mut expected_buf)
+    file.raw()
+        .write_to(&mut expected_buf)
         .expect("Cannot write to vec");
     if buf != expected_buf {
-        println!("File content mismatch for {}", path.display());
-        println!("========= Original =========");
-        println!();
-        println!("{}", Latin1String::from(buf));
-        println!();
-        println!("========= Reconstructed =========");
-        println!();
-        println!("{}", Latin1String::from(expected_buf));
-        println!();
+        let diff = TextDiff::from_lines(&buf, &expected_buf);
+        for change in diff.iter_all_changes() {
+            let sign = match change.tag() {
+                ChangeTag::Delete => "-",
+                ChangeTag::Insert => "+",
+                ChangeTag::Equal => " ",
+            };
+            if change.tag() != ChangeTag::Equal {
+                println!("{}{:?}", sign, change.value());
+            } else {
+                print!("{}{}", sign, change);
+            }
+        }
         panic!()
     }
 }

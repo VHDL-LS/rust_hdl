@@ -272,7 +272,7 @@ impl Parser {
         self.start_node(SequentialStatements);
         loop {
             match self.peek_token() {
-                None | Some(Keyword(Kw::End | Kw::Else | Kw::Elsif | Kw::When)) => break,
+                Eof | Keyword(Kw::End | Kw::Else | Kw::Elsif | Kw::When) => break,
                 _ => self.sequential_statement(),
             }
         }
@@ -297,7 +297,7 @@ impl Parser {
         self.end_node();
     }
 
-    fn sequential_statement_start(&mut self) -> Option<TokenKind> {
+    fn sequential_statement_start(&mut self) -> TokenKind {
         if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
             self.peek_nth_token(2)
         } else {
@@ -307,17 +307,17 @@ impl Parser {
 
     pub fn sequential_statement(&mut self) {
         match self.sequential_statement_start() {
-            Some(Keyword(Kw::Wait)) => self.wait_statement(),
-            Some(Keyword(Kw::Assert)) => self.assert_statement(),
-            Some(Keyword(Kw::Report)) => self.report_statement(),
-            Some(Keyword(Kw::If)) => self.if_statement(),
-            Some(Keyword(Kw::Case)) => self.case_statement(),
-            Some(Keyword(Kw::For | Kw::Loop | Kw::While)) => self.loop_statement(),
-            Some(Keyword(Kw::Next)) => self.next_statement(),
-            Some(Keyword(Kw::Exit)) => self.exit_statement(),
-            Some(Keyword(Kw::Return)) => self.return_statement(),
-            Some(Keyword(Kw::Null)) => self.null_statement(),
-            Some(Keyword(Kw::With)) => {
+            Keyword(Kw::Wait) => self.wait_statement(),
+            Keyword(Kw::Assert) => self.assert_statement(),
+            Keyword(Kw::Report) => self.report_statement(),
+            Keyword(Kw::If) => self.if_statement(),
+            Keyword(Kw::Case) => self.case_statement(),
+            Keyword(Kw::For | Kw::Loop | Kw::While) => self.loop_statement(),
+            Keyword(Kw::Next) => self.next_statement(),
+            Keyword(Kw::Exit) => self.exit_statement(),
+            Keyword(Kw::Return) => self.return_statement(),
+            Keyword(Kw::Null) => self.null_statement(),
+            Keyword(Kw::With) => {
                 let checkpoint = self.checkpoint();
                 self.start_node(SelectedAssignmentPreamble);
                 self.opt_label();
@@ -328,7 +328,7 @@ impl Parser {
                 self.end_node();
                 self.target();
                 match self.peek_token() {
-                    Some(LTE) => {
+                    LTE => {
                         if self.next_nth_is(Keyword(Kw::Force), 1) {
                             self.start_node_at(checkpoint, SelectedForceAssignment);
                             self.skip_n(2);
@@ -341,7 +341,7 @@ impl Parser {
                             self.selected_waveforms();
                         }
                     }
-                    Some(ColonEq) => {
+                    ColonEq => {
                         self.start_node_at(checkpoint, SelectedVariableAssignment);
                         self.skip();
                         self.selected_expressions();
@@ -351,12 +351,12 @@ impl Parser {
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            Some(Identifier | LeftPar | LtLt) => {
+            Identifier | LeftPar | LtLt => {
                 let checkpoint = self.checkpoint();
                 self.opt_label();
                 self.target();
                 match self.peek_token() {
-                    Some(ColonEq) => {
+                    ColonEq => {
                         self.skip();
                         let cond_expr_checkpoint = self.checkpoint();
                         self.expression();
@@ -377,7 +377,7 @@ impl Parser {
                             self.start_node_at(checkpoint, SimpleVariableAssignment);
                         }
                     }
-                    Some(LTE) => {
+                    LTE => {
                         if self.next_nth_is(Keyword(Kw::Force), 1) {
                             self.skip_n(2);
                             self.opt_force_mode();
@@ -426,7 +426,7 @@ impl Parser {
                             }
                         }
                     }
-                    Some(SemiColon) => {
+                    SemiColon => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
                     }
                     _ => self.expect_tokens_err([LTE, ColonEq, SemiColon]),

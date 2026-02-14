@@ -38,16 +38,16 @@ fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
 
 impl Parser {
     pub(crate) fn opt_declarative_part(&mut self) {
-        if self.peek_token().is_some_and(is_start_of_declarative_part) {
+        if is_start_of_declarative_part(self.peek_token()) {
             self.declarations();
         }
     }
 
     pub(crate) fn declarations(&mut self) {
         self.start_node(Declarations);
-        while let Some(token) = self.peek_token() {
-            match token {
-                Keyword(Kw::Begin | Kw::End) => break,
+        loop {
+            match self.peek_token() {
+                Keyword(Kw::Begin | Kw::End) | Eof => break,
                 Keyword(Kw::Type) => self.type_declaration(),
                 Keyword(Kw::Subtype) => self.subtype_declaration(),
                 Keyword(Kw::Component) => self.component_declaration(),
@@ -124,13 +124,13 @@ impl Parser {
     pub fn component_specification(&mut self) {
         self.start_node(NodeKind::ComponentSpecification);
         match self.peek_token() {
-            Some(Keyword(Kw::All)) => {
+            Keyword(Kw::All) => {
                 self.skip_into_node(NodeKind::InstantiationListAll);
             }
-            Some(Keyword(Kw::Others)) => {
+            Keyword(Kw::Others) => {
                 self.skip_into_node(NodeKind::InstantiationListOthers);
             }
-            Some(Identifier) => {
+            Identifier => {
                 self.start_node(NodeKind::InstantiationListList);
                 self.skip();
                 while self.next_is(Comma) {

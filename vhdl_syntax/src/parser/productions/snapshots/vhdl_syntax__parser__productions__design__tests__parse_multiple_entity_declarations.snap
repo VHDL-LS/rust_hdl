@@ -43,3 +43,4 @@ DesignFile
       EntityDeclarationEpilogue
         Keyword(End)
         SemiColon
+  Eof
