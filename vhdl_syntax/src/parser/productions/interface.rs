@@ -60,15 +60,15 @@ impl Parser {
 
     pub fn interface_declaration(&mut self) {
         match self.peek_token() {
-            Some(Keyword(Kw::Signal | Kw::Constant | Kw::Variable) | Identifier) => {
+            Keyword(Kw::Signal | Kw::Constant | Kw::Variable) | Identifier => {
                 self.interface_object_declaration();
             }
-            Some(Keyword(Kw::File)) => self.interface_file_declaration(),
-            Some(Keyword(Kw::Type)) => self.interface_type_declaration(),
-            Some(Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure)) => {
+            Keyword(Kw::File) => self.interface_file_declaration(),
+            Keyword(Kw::Type) => self.interface_type_declaration(),
+            Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure) => {
                 self.interface_subprogram_declaration()
             }
-            Some(Keyword(Kw::Package)) => self.interface_package_declaration(),
+            Keyword(Kw::Package) => self.interface_package_declaration(),
             _ => self.expect_tokens_err([
                 Keyword(Kw::Signal),
                 Keyword(Kw::Constant),

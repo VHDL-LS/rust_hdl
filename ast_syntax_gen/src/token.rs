@@ -72,6 +72,8 @@ pub enum TokenKind {
     ///
     /// Produced, for example, when there is an unknown char or illegal bit string
     Unknown,
+
+    Eof
 }
 
 impl TokenKind {

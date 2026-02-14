@@ -101,7 +101,7 @@ impl Parser {
 
     fn configuration_item_known_keyword(&mut self, item_checkpoint: Checkpoint) {
         match self.peek_token() {
-            Some(tok @ Keyword(Kw::All | Kw::Others)) => {
+            tok @ Keyword(Kw::All | Kw::Others) => {
                 self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                 self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
                 self.start_node(NodeKind::ComponentSpecification);
@@ -119,7 +119,7 @@ impl Parser {
                 self.component_configuration_known_spec();
                 self.end_node();
             }
-            Some(Identifier) => {
+            Identifier => {
                 if self.next_nth_is(Comma, 1) {
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
@@ -137,7 +137,7 @@ impl Parser {
                     let checkpoint = self.checkpoint();
                     self.name();
                     match self.peek_token() {
-                        Some(Colon) => {
+                        Colon => {
                             self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                             self.start_node_at(
                                 item_checkpoint,

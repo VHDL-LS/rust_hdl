@@ -33,7 +33,7 @@ impl Parser {
         if self.next_is(Identifier)
             && (matches!(
                 self.peek_nth_token(1),
-                Some(LtLt | Identifier | StringLiteral | CharacterLiteral | LeftPar)
+                LtLt | Identifier | StringLiteral | CharacterLiteral | LeftPar
             ))
         {
             self.start_node(RecordResolutionElementResolution);

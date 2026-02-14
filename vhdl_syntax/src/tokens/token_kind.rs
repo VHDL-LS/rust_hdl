@@ -67,6 +67,18 @@ pub enum TokenKind {
     ///
     /// Produced, for example, when there is an unknown char or illegal bit string
     Unknown,
+
+    /// Special End of File token.
+    /// Has no source representation but may carry trivia
+    Eof,
+}
+
+impl TokenKind {
+    /// Checks whether this token is the special EoF (End of File) token.
+    // Note: This is commonly used in the parser and therefore defined here.
+    pub fn is_eof(&self) -> bool {
+        self == &TokenKind::Eof
+    }
 }
 
 /// All available keywords in the latest (VHDL 2019) edition of VHDL

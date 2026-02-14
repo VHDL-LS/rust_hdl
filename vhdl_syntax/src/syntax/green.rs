@@ -27,10 +27,6 @@ impl GreenToken {
         &self.0.leading_trivia
     }
 
-    pub fn trailing_trivia(&self) -> &Trivia {
-        &self.0.trailing_trivia
-    }
-
     pub fn text(&self) -> &Latin1Str {
         self.0.text()
     }

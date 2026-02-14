@@ -12,9 +12,7 @@ use std::io::{self, Write};
 /// A source-code token.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Token {
-    // TODO: Decide how to deal with trivia. Having two vectors is a bit wasted.
     pub(crate) leading_trivia: Trivia,
-    pub(crate) trailing_trivia: Trivia,
     symbol: Symbol,
 }
 
@@ -23,17 +21,20 @@ impl Token {
         kind: TokenKind,
         text: impl Into<Box<Latin1Str>>,
         leading_trivia: Trivia,
-        trailing_trivia: Trivia,
     ) -> Token {
         Token {
             leading_trivia,
-            trailing_trivia,
             symbol: Symbol::allocate(kind, text.into()),
         }
     }
 
+    pub(crate) fn eof(leading_trivia: Trivia) -> Token {
+        Token::new(TokenKind::Eof, b"", leading_trivia)
+    }
+
+    #[cfg(test)]
     pub fn simple(kind: TokenKind, text: impl Into<Box<Latin1Str>>) -> Token {
-        Token::new(kind, text, Trivia::default(), Trivia::default())
+        Token::new(kind, text, Trivia::default())
     }
 
     pub fn kind(&self) -> TokenKind {
@@ -42,10 +43,6 @@ impl Token {
 
     pub fn leading_trivia(&self) -> &Trivia {
         &self.leading_trivia
-    }
-
-    pub fn trailing_trivia(&self) -> &Trivia {
-        &self.trailing_trivia
     }
 
     pub fn text(&self) -> &Latin1Str {
@@ -59,13 +56,12 @@ impl Token {
 
     /// The length of this token including trivia
     pub fn byte_len(&self) -> usize {
-        self.leading_trivia.byte_len() + self.text_len() + self.trailing_trivia.byte_len()
+        self.leading_trivia.byte_len() + self.text_len()
     }
 
     pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         self.leading_trivia().write_to(writer)?;
         writer.write_all(self.text().as_bytes())?;
-        self.trailing_trivia().write_to(writer)?;
         Ok(())
     }
 }

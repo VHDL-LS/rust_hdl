@@ -41,7 +41,7 @@ impl Parser {
     pub fn subprogram_specification(&mut self) {
         let is_function = if matches!(
             self.peek_token(),
-            Some(Keyword(Kw::Pure | Kw::Impure | Kw::Function))
+            Keyword(Kw::Pure | Kw::Impure | Kw::Function)
         ) {
             self.start_node(FunctionSpecification);
             self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);

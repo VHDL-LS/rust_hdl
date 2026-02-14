@@ -43,7 +43,7 @@ impl<T: ?Sized + AsRef<[TriviaPiece]>> From<&T> for Trivia {
 
 impl Trivia {
     /// Constructs a new and empty Trivia.
-    pub fn new() -> Trivia {
+    pub const fn new() -> Trivia {
         Trivia { pieces: Vec::new() }
     }
 

@@ -15,19 +15,19 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
     // Those rules can be `alias_declaration` (LRM §6.6.1) and `subprogram_instantiation_declaration` (LRM §4.4).
     // By checking whether the closing square bracket is followed by a `Tick` this ambiguity is resolved
     match parser.peek_token() {
-        Some(Tick) => true,
-        Some(LeftSquare) => {
+        Tick => true,
+        LeftSquare => {
             let mut idx = 1;
             let mut bracket_count = 1;
 
             while bracket_count > 0 {
                 match parser.peek_nth_token(idx) {
-                    Some(LeftSquare) => bracket_count += 1,
-                    Some(RightSquare) => bracket_count -= 1,
-                    Some(_) => {}
-                    None => {
+                    LeftSquare => bracket_count += 1,
+                    RightSquare => bracket_count -= 1,
+                    Eof => {
                         return false;
                     }
+                    _ => {}
                 }
 
                 idx += 1;
@@ -35,7 +35,7 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
 
             parser.next_nth_is(Tick, idx)
         }
-        Some(_) | None => false,
+        _ => false,
     }
 }
 
@@ -150,7 +150,7 @@ impl Parser {
             // Enable qualified expressions
             if !self.next_is(LeftPar) {
                 // Either an identifier or a keyword (e.g., `range`, `subtype`, e.t.c.)
-                if matches!(self.peek_token(), Some(Keyword(_) | Identifier)) {
+                if matches!(self.peek_token(), Keyword(_) | Identifier) {
                     self.skip();
                 }
             }

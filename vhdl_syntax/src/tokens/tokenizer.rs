@@ -61,6 +61,7 @@ impl Tokenize for Vec<u8> {
 /// let mut tokenizer = Tokenizer::from("entity foo".bytes());
 /// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Keyword(Keyword::Entity));
 /// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Identifier);
+/// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Eof);
 /// assert_eq!(tokenizer.next(), None);
 /// ```
 ///
@@ -70,7 +71,7 @@ impl Tokenize for Vec<u8> {
 /// use vhdl_syntax::tokens::TokenKind;
 ///
 /// let tokens = "a ?> b".tokenize().map(|tok| tok.kind()).collect::<Vec<_>>();
-/// assert_eq!(tokens, vec![TokenKind::Identifier, TokenKind::QueGT, TokenKind::Identifier])
+/// assert_eq!(tokens, vec![TokenKind::Identifier, TokenKind::QueGT, TokenKind::Identifier, TokenKind::Eof])
 /// ```
 pub struct Tokenizer<I: Iterator<Item = u8>> {
     /// The text, i.e., an iterator over chars.
@@ -81,6 +82,8 @@ pub struct Tokenizer<I: Iterator<Item = u8>> {
     /// The last token kind observed, used to disambiguate ticks (i.e., whether ticks are
     /// used as attributes or character literals)
     last_token_kind: Option<TokenKind>,
+    /// flag indicating whether the `EOF` token was already emitted.
+    eof_emitted : bool,
 }
 
 impl<I: Iterator<Item = u8>> Tokenizer<I> {
@@ -91,6 +94,7 @@ impl<I: Iterator<Item = u8>> Tokenizer<I> {
             text: text.peekable(),
             current,
             last_token_kind: None,
+            eof_emitted: false,
         }
     }
 }
@@ -370,11 +374,11 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
     fn next(&mut self) -> Option<Self::Item> {
         let leading_trivia = self.consume_trivia();
         let Some(current) = self.current else {
-            assert!(
-                leading_trivia.is_empty(),
-                "Leading trivia is not empty at last token"
-            );
-            return None;
+            if self.eof_emitted {
+                return None
+            }
+            self.eof_emitted = true;
+            return Some(Token::eof(leading_trivia));
         };
         let (kind, text) = match current {
             b'a'..=b'z' | b'A'..=b'Z' => {
@@ -593,8 +597,7 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
             }
         };
         self.last_token_kind = Some(kind);
-        let trailing_trivia = self.consume_trivia();
-        Some(Token::new(kind, text, leading_trivia, trailing_trivia))
+        Some(Token::new(kind, text, leading_trivia))
     }
 }
 
@@ -742,8 +745,10 @@ mod tests {
     use crate::tokens::{Keyword as Kw, Token, Trivia, TriviaPiece};
     use pretty_assertions::assert_eq;
 
-    fn kinds_tokenize(code: &str) -> Vec<TokenKind> {
-        code.tokenize().map(|tok| tok.kind()).collect()
+    fn kinds_tokenize_remove_eof(code: &str) -> Vec<TokenKind> {
+        let mut val = code.tokenize().map(|tok| tok.kind()).collect::<Vec<_>>();
+        assert_eq!(val.pop(), Some(TokenKind::Eof));
+        val
     }
 
     trait TokenizeVec {
@@ -751,7 +756,15 @@ mod tests {
 
         fn tokenize_kind_value(&self) -> Vec<(TokenKind, String)>;
 
+        fn tokenize_kind_value_one(&self) -> (TokenKind, String) {
+            self.tokenize_kind_value().first().unwrap().clone()
+        }
+
         fn tokenize_kinds(&self) -> Vec<TokenKind>;
+
+        fn tokenize_one(&self) -> Token {
+            self.tokenize_vec().first().unwrap().clone()
+        }
     }
 
     impl<T> TokenizeVec for T
@@ -774,20 +787,30 @@ mod tests {
     }
 
     #[test]
+    fn tokenize_empty_input() {
+        assert_eq!("".tokenize_vec(), vec![Token::eof(Trivia::default())]);
+    }
+
+    #[test]
+    fn tokenize_input_only_trivia() {
+        assert_eq!("  ".tokenize_vec(), vec![Token::eof(Trivia::from([TriviaPiece::Spaces(2)]))]);
+    }
+
+    #[test]
     fn tokenize_keywords() {
         assert_eq!(
-            kinds_tokenize("architecture"),
+            kinds_tokenize_remove_eof("architecture"),
             vec![Keyword(Kw::Architecture)]
         );
-        assert_eq!(kinds_tokenize("entity"), vec![Keyword(Kw::Entity)]);
-        assert_eq!(kinds_tokenize("is"), vec![Keyword(Kw::Is)]);
-        assert_eq!(kinds_tokenize("generic"), vec![Keyword(Kw::Generic)]);
-        assert_eq!(kinds_tokenize("port"), vec![Keyword(Kw::Port)]);
-        assert_eq!(kinds_tokenize("begin"), vec![Keyword(Kw::Begin)]);
-        assert_eq!(kinds_tokenize("end"), vec![Keyword(Kw::End)]);
-        assert_eq!(kinds_tokenize("all"), vec![Keyword(Kw::All)]);
-        assert_eq!(kinds_tokenize("abs"), vec![Keyword(Kw::Abs)]);
-        assert_eq!(kinds_tokenize("not"), vec![Keyword(Kw::Not)]);
+        assert_eq!(kinds_tokenize_remove_eof("entity"), vec![Keyword(Kw::Entity)]);
+        assert_eq!(kinds_tokenize_remove_eof("is"), vec![Keyword(Kw::Is)]);
+        assert_eq!(kinds_tokenize_remove_eof("generic"), vec![Keyword(Kw::Generic)]);
+        assert_eq!(kinds_tokenize_remove_eof("port"), vec![Keyword(Kw::Port)]);
+        assert_eq!(kinds_tokenize_remove_eof("begin"), vec![Keyword(Kw::Begin)]);
+        assert_eq!(kinds_tokenize_remove_eof("end"), vec![Keyword(Kw::End)]);
+        assert_eq!(kinds_tokenize_remove_eof("all"), vec![Keyword(Kw::All)]);
+        assert_eq!(kinds_tokenize_remove_eof("abs"), vec![Keyword(Kw::Abs)]);
+        assert_eq!(kinds_tokenize_remove_eof("not"), vec![Keyword(Kw::Not)]);
     }
 
     #[test]
@@ -801,7 +824,8 @@ end entity"
                 Keyword(Kw::Entity),
                 Keyword(Kw::Is),
                 Keyword(Kw::End),
-                Keyword(Kw::Entity)
+                Keyword(Kw::Entity),
+                Eof
             ]
         );
     }
@@ -818,19 +842,20 @@ entity foo"
                     Keyword(Kw::Entity),
                     b"entity",
                     Trivia::from([TriviaPiece::LineFeeds(2)]),
-                    Trivia::from([TriviaPiece::Spaces(1)]),
                 ),
-                Token::new(Identifier, b"foo", Trivia::new(), Trivia::new(),)
+                Token::new(Identifier, b"foo", Trivia::from([TriviaPiece::Spaces(1)])),
+                Token::eof(Trivia::default())
+                
             ]
         );
     }
 
     #[test]
     fn tokenize_keywords_case_insensitive() {
-        assert_eq!(kinds_tokenize("entity"), vec![Keyword(Kw::Entity)]);
-        assert_eq!(kinds_tokenize("Entity"), vec![Keyword(Kw::Entity)]);
+        assert_eq!(kinds_tokenize_remove_eof("entity"), vec![Keyword(Kw::Entity)]);
+        assert_eq!(kinds_tokenize_remove_eof("Entity"), vec![Keyword(Kw::Entity)]);
         assert_eq!(
-            kinds_tokenize("arCHitecture"),
+            kinds_tokenize_remove_eof("arCHitecture"),
             vec![Keyword(Kw::Architecture)]
         );
     }
@@ -838,20 +863,20 @@ entity foo"
     #[test]
     fn tokenize_identifier() {
         assert_eq!(
-            "my_ident".tokenize_vec(),
-            vec![Token::simple(Identifier, b"my_ident",)]
+            "my_ident".tokenize_one(),
+            Token::simple(Identifier, b"my_ident")
         );
     }
 
     #[test]
     fn tokenize_extended_identifier() {
         assert_eq!(
-            "\\1$my_ident\\".tokenize_vec(),
-            vec![Token::simple(Identifier, b"\\1$my_ident\\")]
+            "\\1$my_ident\\".tokenize_one(),
+            Token::simple(Identifier, b"\\1$my_ident\\")
         );
         assert_eq!(
-            "\\my\\\\_ident\\".tokenize_vec(),
-            vec![Token::simple(Identifier, b"\\my\\\\_ident\\")]
+            "\\my\\\\_ident\\".tokenize_one(),
+            Token::simple(Identifier, b"\\my\\\\_ident\\")
         );
     }
 
@@ -867,14 +892,13 @@ my_other_ident"
                     Identifier,
                     b"my_ident",
                     Trivia::default(),
-                    Trivia::from([TriviaPiece::LineFeeds(2)]),
                 ),
                 Token::new(
                     Identifier,
                     b"my_other_ident",
-                    Trivia::default(),
-                    Trivia::default(),
-                )
+                    Trivia::from([TriviaPiece::LineFeeds(2)])
+                ),
+                Token::eof(Trivia::default())
             ]
         );
     }
@@ -891,6 +915,7 @@ my_other_ident"
                 (AbstractLiteral, "1e3".to_string()),
                 (AbstractLiteral, "2E4".to_string()),
                 (AbstractLiteral, "1e-1".to_string()),
+                (Eof, "".to_string())
             ]
         );
     }
@@ -911,6 +936,7 @@ my_other_ident"
                 (AbstractLiteral, "2.1e-2".to_string()),
                 (AbstractLiteral, "4.4e+1".to_string()),
                 (AbstractLiteral, "2.5E+3".to_string()),
+                (Eof, "".to_string())
             ]
         );
     }
@@ -918,38 +944,38 @@ my_other_ident"
     #[test]
     fn tokenize_real_many_fractional_digits() {
         assert_eq!(
-            "0.1000_0000_0000_0000_0000_0000_0000_0000".tokenize_kind_value(),
-            vec![(
+            "0.1000_0000_0000_0000_0000_0000_0000_0000".tokenize_kind_value_one(),
+            (
                 AbstractLiteral,
                 "0.1000_0000_0000_0000_0000_0000_0000_0000".to_string()
-            )]
+            )
         );
     }
 
     #[test]
     fn tokenize_real_many_integer_digits() {
         assert_eq!(
-            "1000_0000_0000_0000_0000_0000_0000_0000.0".tokenize_kind_value(),
-            vec![(
+            "1000_0000_0000_0000_0000_0000_0000_0000.0".tokenize_kind_value_one(),
+            (
                 AbstractLiteral,
                 "1000_0000_0000_0000_0000_0000_0000_0000.0".to_string()
-            )]
+            )
         );
     }
 
     #[test]
     fn tokenize_string_literal() {
         assert_eq!(
-            "\"string\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, b"\"string\"")]
+            "\"string\"".tokenize_one(),
+            Token::simple(StringLiteral, b"\"string\"")
         );
     }
 
     #[test]
     fn tokenize_string_literal_quote() {
         assert_eq!(
-            "\"str\"\"ing\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, b"\"str\"\"ing\"")]
+            "\"str\"\"ing\"".tokenize_one(),
+            Token::simple(StringLiteral, b"\"str\"\"ing\"")
         );
     }
 
@@ -962,14 +988,13 @@ my_other_ident"
                     StringLiteral,
                     b"\"str\"",
                     Trivia::default(),
-                    Trivia::from([TriviaPiece::Spaces(1)])
                 ),
                 Token::new(
                     StringLiteral,
                     b"\"ing\"",
-                    Trivia::default(),
-                    Trivia::default()
+                    Trivia::from([TriviaPiece::Spaces(1)]),
                 ),
+                Token::eof(Trivia::default())
             ]
         );
     }
@@ -977,16 +1002,16 @@ my_other_ident"
     #[test]
     fn tokenize_string_literal_multiline() {
         assert_eq!(
-            "\"str\ning\"".tokenize_vec(),
-            vec![Token::simple(StringLiteral, b"\"str\ning\"")]
+            "\"str\ning\"".tokenize_one(),
+            Token::simple(StringLiteral, b"\"str\ning\"")
         );
     }
 
     #[test]
     fn tokenize_string_literal_error_on_early_eof() {
         assert_eq!(
-            "\"string".tokenize_vec(),
-            vec![Token::simple(Unterminated, b"\"string")]
+            "\"string".tokenize_one(),
+            Token::simple(Unterminated, b"\"string")
         );
     }
 
@@ -1026,8 +1051,8 @@ my_other_ident"
                         code.make_uppercase()
                     }
 
-                    let tokens = code.tokenize_vec();
-                    assert_eq!(tokens, vec![Token::simple(BitStringLiteral, code)]);
+                    let token = code.tokenize_one();
+                    assert_eq!(token, Token::simple(BitStringLiteral, code));
                 }
             }
         }
@@ -1035,36 +1060,36 @@ my_other_ident"
 
     #[test]
     fn tokenize_illegal_bit_string() {
-        assert_eq!("10x".tokenize_vec(), vec![Token::simple(Unknown, b"10x",)]);
-        assert_eq!("10ux".tokenize_vec(), vec![Token::simple(Unknown, b"10ux")]);
+        assert_eq!("10x".tokenize_one(), Token::simple(Unknown, b"10x"));
+        assert_eq!("10ux".tokenize_one(), Token::simple(Unknown, b"10ux"));
     }
 
     #[test]
     fn tokenize_based_integer() {
         assert_eq!(
-            "2#101#".tokenize_kind_value(),
-            vec![(AbstractLiteral, "2#101#".to_string())]
+            "2#101#".tokenize_kind_value_one(),
+            (AbstractLiteral, "2#101#".to_string())
         );
         assert_eq!(
-            "8#321#".tokenize_kind_value(),
-            vec![(AbstractLiteral, "8#321#".to_string())]
+            "8#321#".tokenize_kind_value_one(),
+            (AbstractLiteral, "8#321#".to_string())
         );
         assert_eq!(
-            "16#eEFfa#".tokenize_kind_value(),
-            vec![(AbstractLiteral, "16#eEFfa#".to_string())]
+            "16#eEFfa#".tokenize_kind_value_one(),
+            (AbstractLiteral, "16#eEFfa#".to_string())
         );
         // This is illegal, but the checking happens at a later stage
         assert_eq!(
-            "3#3#".tokenize_kind_value(),
-            vec![(AbstractLiteral, "3#3#".to_string())]
+            "3#3#".tokenize_kind_value_one(),
+            (AbstractLiteral, "3#3#".to_string())
         );
     }
 
     macro_rules! check_tokenize {
         ($tokens:literal, $kind:expr) => {
             assert_eq!(
-                $tokens.tokenize_kind_value(),
-                vec![($kind, $tokens.to_string())]
+                $tokens.tokenize_kind_value_one(),
+                ($kind, $tokens.to_string())
             )
         };
     }
@@ -1210,18 +1235,19 @@ my_other_ident"
                     AbstractLiteral,
                     b"1",
                     Trivia::from([TriviaPiece::LineFeeds(1)]),
-                    Trivia::from([
+                ),
+                Token::new(Minus, b"-", Trivia::from([
                         TriviaPiece::LineFeeds(1),
                         TriviaPiece::LineComment(Comment::new(b"comment")),
                         TriviaPiece::LineFeeds(1)
-                    ]),
-                ),
-                Token::new(Minus, b"-", Trivia::default(), Trivia::default(),),
+                    ])),
                 Token::new(
                     AbstractLiteral,
                     b"2",
                     Trivia::default(),
-                    Trivia::from([TriviaPiece::LineFeeds(1)]),
+                ),
+                Token::eof(
+                    Trivia::from([TriviaPiece::LineFeeds(1)])
                 )
             ]
         )
@@ -1248,23 +1274,23 @@ comment
                     AbstractLiteral,
                     b"1",
                     Trivia::from([TriviaPiece::LineFeeds(1)]),
-                    Trivia::from([
+                ),
+                Token::new(Minus, b"-", Trivia::from([
                         TriviaPiece::LineFeeds(2),
                         TriviaPiece::BlockComment(Comment::new(b"\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
-                    ]),
-                ),
-                Token::new(Minus, b"-", Trivia::default(), Trivia::default(),),
+                    ])),
                 Token::new(
                     AbstractLiteral,
                     b"2",
                     Trivia::default(),
-                    Trivia::from([
+                    
+                ),
+                Token::eof(Trivia::from([
                         TriviaPiece::Spaces(1),
                         TriviaPiece::BlockComment(Comment::new("\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
-                    ]),
-                ),
+                    ]),)
             ]
         )
     }
@@ -1274,7 +1300,7 @@ comment
         // http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
         assert_eq!(
             "string'('a')".tokenize_kinds(),
-            vec![Identifier, Tick, LeftPar, CharacterLiteral, RightPar]
+            vec![Identifier, Tick, LeftPar, CharacterLiteral, RightPar, Eof]
         );
     }
 
@@ -1282,7 +1308,7 @@ comment
     fn tokenize_illegal() {
         assert_eq!(
             "begin!end".tokenize_kinds(),
-            vec![Keyword(Kw::Begin), Unknown, Keyword(Kw::End),]
+            vec![Keyword(Kw::Begin), Unknown, Keyword(Kw::End), Eof]
         );
     }
 }

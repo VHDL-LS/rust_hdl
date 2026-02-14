@@ -74,7 +74,7 @@ impl Parser {
     }
 
     fn unary_expression(&mut self) {
-        if let Some(precedence) = self.peek_token().and_then(unary_precedence) {
+        if let Some(precedence) = unary_precedence(self.peek_token()) {
             self.start_node(UnaryExpression);
             self.skip();
             self.expression_inner(precedence.into());
@@ -88,7 +88,7 @@ impl Parser {
         let checkpoint = self.checkpoint();
         self.unary_expression();
 
-        while let Some(precedence) = self.peek_token().and_then(binary_precedence) {
+        while let Some(precedence) = binary_precedence(self.peek_token()) {
             let precedence: u8 = precedence.into();
             if precedence > min_precedence {
                 self.start_node_at(checkpoint, BinaryExpression);

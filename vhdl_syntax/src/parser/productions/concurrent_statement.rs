@@ -69,7 +69,7 @@ impl Parser {
         self.start_node(ConcurrentStatements);
         loop {
             match self.peek_token() {
-                Some(Keyword(Kw::End | Kw::Elsif | Kw::Else | Kw::When)) | None => {
+                Keyword(Kw::End | Kw::Elsif | Kw::Else | Kw::When) | Eof => {
                     break;
                 }
                 _ => self.concurrent_statement(),
@@ -99,7 +99,7 @@ impl Parser {
         self.end_node();
     }
 
-    fn peek_concurrent_statement_kind(&mut self) -> Option<TokenKind> {
+    fn peek_concurrent_statement_kind(&mut self) -> TokenKind {
         // Has label?
         let mut peek_idx = 0usize;
         if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
@@ -114,8 +114,8 @@ impl Parser {
 
     pub fn instantiated_unit(&mut self) {
         match self.peek_token() {
-            Some(Keyword(Kw::Entity)) => self.entity_instantiated_unit(),
-            Some(Keyword(Kw::Configuration)) => self.configuration_instantiated_unit(),
+            Keyword(Kw::Entity) => self.entity_instantiated_unit(),
+            Keyword(Kw::Configuration) => self.configuration_instantiated_unit(),
             _ => self.component_instantiated_unit(),
         }
     }
@@ -140,24 +140,24 @@ impl Parser {
 
     pub(crate) fn concurrent_statement(&mut self) {
         match self.peek_concurrent_statement_kind() {
-            Some(Keyword(Kw::Block)) => self.block_statement(),
-            Some(Keyword(Kw::Process)) => self.process_statement(),
-            Some(Keyword(Kw::Component | Kw::Configuration | Kw::Entity)) => {
+            Keyword(Kw::Block) => self.block_statement(),
+            Keyword(Kw::Process) => self.process_statement(),
+            Keyword(Kw::Component | Kw::Configuration | Kw::Entity) => {
                 self.component_instantiation_statement()
             }
-            Some(Keyword(Kw::For)) => self.for_generate_statement(),
-            Some(Keyword(Kw::If)) => self.if_generate_statement(),
-            Some(Keyword(Kw::Case)) => self.case_generate_statement(),
-            Some(Keyword(Kw::Assert)) => self.concurrent_assertion_statement(),
-            Some(Keyword(Kw::With)) => self.concurrent_selected_signal_assignment(),
-            Some(Identifier | LtLt | StringLiteral | CharacterLiteral) => {
+            Keyword(Kw::For) => self.for_generate_statement(),
+            Keyword(Kw::If) => self.if_generate_statement(),
+            Keyword(Kw::Case) => self.case_generate_statement(),
+            Keyword(Kw::Assert) => self.concurrent_assertion_statement(),
+            Keyword(Kw::With) => self.concurrent_selected_signal_assignment(),
+            Identifier | LtLt | StringLiteral | CharacterLiteral => {
                 let checkpoint = self.checkpoint();
                 self.opt_label();
                 self.opt_token(Keyword(Kw::Postponed));
                 let checkpoint2 = self.checkpoint();
                 self.name();
                 match self.peek_token() {
-                    Some(LTE) => {
+                    LTE => {
                         self.start_node_at(checkpoint2, NameTarget);
                         self.end_node();
                         self.skip();
@@ -174,7 +174,7 @@ impl Parser {
                             self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
                         }
                     }
-                    Some(Keyword(Kw::Port | Kw::Generic)) => {
+                    Keyword(Kw::Port | Kw::Generic) => {
                         self.start_node_at(checkpoint2, ComponentInstantiatedUnit);
                         self.end_node();
                         self.start_node_at(checkpoint, ComponentInstantiationStatement);

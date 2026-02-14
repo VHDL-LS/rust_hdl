@@ -33,3 +33,4 @@ DesignFile
         Keyword(End)
         Identifier 'my_ent'
         SemiColon
+  Eof

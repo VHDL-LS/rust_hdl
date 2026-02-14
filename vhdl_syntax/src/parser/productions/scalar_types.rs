@@ -18,7 +18,7 @@ impl Parser {
             self.start_node_at(checkpoint, PhysicalTypeDefinition);
             self.start_node(UnitDeclarations);
             self.primary_unit_declaration();
-            while self.peek_token().is_some_and(|tok| tok != Keyword(Kw::End)) {
+            while self.peek_token() != Keyword(Kw::End) {
                 self.secondary_unit_declaration()
             }
             self.end_node();
