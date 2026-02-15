@@ -115,7 +115,10 @@ impl Parser {
         }
     }
 
-    pub(crate) fn expect_one_of_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) -> Option<TokenKind> {
+    pub(crate) fn expect_one_of_tokens<const N: usize>(
+        &mut self,
+        kinds: [TokenKind; N],
+    ) -> Option<TokenKind> {
         for kind in kinds {
             if self.opt_token(kind) {
                 return Some(kind);
@@ -126,11 +129,17 @@ impl Parser {
     }
 
     pub(crate) fn peek_token(&self) -> TokenKind {
-        self.token_stream.peek(0).map(|tok| tok.kind()).unwrap_or(TokenKind::Eof)
+        self.token_stream
+            .peek(0)
+            .map(|tok| tok.kind())
+            .unwrap_or(TokenKind::Eof)
     }
 
     pub(crate) fn peek_nth_token(&self, n: usize) -> TokenKind {
-        self.token_stream.peek(n).map(|tok| tok.kind()).unwrap_or(TokenKind::Eof)
+        self.token_stream
+            .peek(n)
+            .map(|tok| tok.kind())
+            .unwrap_or(TokenKind::Eof)
     }
 
     pub(crate) fn next_is(&self, kind: TokenKind) -> bool {

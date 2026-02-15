@@ -1,7 +1,7 @@
 //! Support for serializing and de-serializing syntax elements.
 
-pub mod serialize_impl;
 pub mod flags;
+pub mod serialize_impl;
 pub use flags::SerdeFlags;
 pub mod serializable;
 pub use serializable::Serializable;

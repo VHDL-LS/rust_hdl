@@ -1,5 +1,5 @@
 //! Provides facilities to format nodes and tokens to UTF-8 encoded strings.
-//! 
+//!
 //! # Important considerations
 //!
 //! ## Latin1 encoding
@@ -10,15 +10,15 @@
 //! the encoding is simply `[0xE9]`.
 //! As a consequence, the round-trip VHDL-file -> parse -> to string is not guaranteed to yield
 //! the same result.
-//! 
-//! If you want to format to Latin-1, consider using the [fmt::latin1](crate::fmt::latin1) module. 
+//!
+//! If you want to format to Latin-1, consider using the [fmt::latin1](crate::fmt::latin1) module.
 //!  
 //! ## Comment handling
-//! 
+//!
 //! VHDL allows comments to have a different encoding compared to the rest of the file.
 //! This implementation assumes `UTF-8` and will replace every invalid UTF-8 sequences
 //! with `U+FFFD REPLACEMENT CHARACTER`, which looks like this: �
-//! 
+//!
 //! To circumvent the issues from above, the byte-oriented facilities
 //! (e.g., [SyntaxNode::write_to], [Token::write_to]) can be used. These always guarantee that the round-trip
 //! VHDL-file -> parse -> write will yield the exact same result.

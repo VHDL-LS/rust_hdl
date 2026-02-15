@@ -4,7 +4,10 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use std::{borrow::Cow, io::{self, Write}};
+use std::{
+    borrow::Cow,
+    io::{self, Write},
+};
 
 use crate::latin_1::Latin1Str;
 

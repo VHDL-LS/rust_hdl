@@ -1,6 +1,9 @@
 //! Provides traits for converting nodes to serializable representations.
 
-use crate::{serde::{flags::SerdeFlags, serializable::Serializable}, syntax::node::SyntaxNode};
+use crate::{
+    serde::{flags::SerdeFlags, serializable::Serializable},
+    syntax::node::SyntaxNode,
+};
 
 /// Trait for types that can be converted to a serializable view.
 pub trait ToSerializable

@@ -154,7 +154,9 @@ impl SyntaxToken {
     /// trivia of this token, if there is no next token.
     /// TODO: After trivia-interning, we should be able to return `&Trivia` here, similar to `leading_trivia`
     pub fn trailing_trivia(&self) -> Trivia {
-        self.next_token().map(|tok| tok.leading_trivia().to_owned()).unwrap_or_default()
+        self.next_token()
+            .map(|tok| tok.leading_trivia().to_owned())
+            .unwrap_or_default()
     }
 
     pub fn text(&self) -> &Latin1Str {
@@ -206,20 +208,12 @@ impl SyntaxToken {
     }
 
     pub fn clone_with_text(&self, text: impl Into<Box<Latin1Str>>) -> SyntaxToken {
-        let token = Token::new(
-            self.kind(),
-            text,
-            self.green().leading_trivia().clone(),
-        );
+        let token = Token::new(self.kind(), text, self.green().leading_trivia().clone());
         self.clone_with_token(token)
     }
 
     pub fn clone_with_leading_trivia(&self, trivia: Trivia) -> SyntaxToken {
-        let token = Token::new(
-            self.kind(),
-            self.green().text(),
-            trivia,
-        );
+        let token = Token::new(self.kind(), self.green().text(), trivia);
         self.clone_with_token(token)
     }
 
@@ -638,10 +632,22 @@ mod tests {
     fn next_token() {
         let mut top = GreenNodeData::new(DesignFile);
         let mut n1 = GreenNodeData::new(EntityDeclaration);
-        n1.push_tokens(0, [Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"), Token::simple(TokenKind::Identifier, b"foo")]);
+        n1.push_tokens(
+            0,
+            [
+                Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+                Token::simple(TokenKind::Identifier, b"foo"),
+            ],
+        );
         let n1 = GreenNode::new(n1);
         let mut n2 = GreenNodeData::new(ArchitectureBody);
-        n2.push_tokens(0, [Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"), Token::simple(TokenKind::Identifier, b"bar")]);
+        n2.push_tokens(
+            0,
+            [
+                Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
+                Token::simple(TokenKind::Identifier, b"bar"),
+            ],
+        );
         let n2 = GreenNode::new(n2);
 
         top.push_children([GreenChild::Node((0, n1)), GreenChild::Node((0, n2))]);

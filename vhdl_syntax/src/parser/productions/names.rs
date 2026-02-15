@@ -373,9 +373,7 @@ mod tests {
 
     #[test]
     fn test_external_name_explicit_relative_multiple_levels() {
-        insta::assert_snapshot!(name_to_test_text(
-            "<< signal ^.^.^.dut.gen : std_logic >>"
-        ));
+        insta::assert_snapshot!(name_to_test_text("<< signal ^.^.^.dut.gen : std_logic >>"));
     }
 
     #[test]
