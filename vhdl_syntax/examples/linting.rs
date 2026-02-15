@@ -11,7 +11,6 @@ use vhdl_syntax::syntax::EntityDeclarationSyntax;
 
 /// Showcases how one could write a simple linter that checks that the declared name and final name
 /// of an entity match.
-
 fn main() {
     let vhdl = "\
 entity baz is

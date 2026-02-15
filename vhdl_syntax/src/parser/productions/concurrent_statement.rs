@@ -193,7 +193,7 @@ impl Parser {
             _ => {
                 self.skip();
                 self.expect_tokens_err([Keyword(Kw::Block)])
-            },
+            }
         }
     }
 

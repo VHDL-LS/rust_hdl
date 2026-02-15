@@ -16,8 +16,10 @@ jobs:
     strategy:
       matrix:
         crate:
-          - vhdl_lang
-          - vhdl_ls
+          - { name: "vhdl_lang", binary: true }
+          - { name: "vhdl_ls", binary: true }
+          - { name: "vhdl_syntax", binary: false }
+          - { name: "vhdl-dump-ast", binary: false }
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
@@ -49,11 +51,16 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          target: x86_64-unknown-linux-musl
+          target: ${{ matrix.target }}
           components: rustfmt, clippy
 
-      - name: Add Apple Silicon Dependencies
-        run: rustup target add aarch64-apple-darwin
+      - name: Cache cargo
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ matrix.target }}-${{ matrix.rust }}-${{ matrix.crate.name }}-${{ hashFiles('**/Cargo.lock') }}
 
       - uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40  # v1.5.0
         if: matrix.os == 'ubuntu-latest'
@@ -62,34 +69,34 @@ jobs:
           version: 1.0
 
       - name: Build
-        run: cargo build --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
+        run: cargo build --manifest-path ${{ matrix.crate.name }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: Test
         if: matrix.os != 'macos-latest' # There are no free runners for Apple Silicon available at the moment
-        run: cargo test --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
+        run: cargo test --manifest-path ${{ matrix.crate.name }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: rustfmt
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        run: cargo fmt --package ${{ matrix.crate }} -- --check
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == 'stable' }}
+        run: cargo fmt --manifest-path ${{ matrix.crate.name }}/Cargo.toml -- --check
 
       - name: clippy
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo clippy --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == 'stable' }}
+        run: cargo clippy --manifest-path ${{ matrix.crate.name }}/Cargo.toml --all-targets --all-features -- -D warnings
 
       - name: Assemble
-        if: matrix.rust == 'stable'
+        if: ${{ matrix.crate.binary == true && matrix.rust == 'stable' }}
         run: |
-          mkdir ${{ matrix.crate }}-${{ matrix.target }}
-          mkdir ${{ matrix.crate }}-${{ matrix.target }}/bin
-          cp -R vhdl_libraries ${{ matrix.crate }}-${{ matrix.target }}
-          cp target/${{ matrix.target }}/release/${{ matrix.crate }}${{ matrix.ext }} ${{ matrix.crate }}-${{ matrix.target }}/bin
+          mkdir ${{ matrix.crate.name }}-${{ matrix.target }}
+          mkdir ${{ matrix.crate.name }}-${{ matrix.target }}/bin
+          cp -R vhdl_libraries ${{ matrix.crate.name }}-${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/${{ matrix.crate.name }}${{ matrix.ext }} ${{ matrix.crate.name }}-${{ matrix.target }}/bin
 
       - name: Upload
-        if: matrix.rust == 'stable'
+        if: ${{ matrix.crate.binary == true && matrix.rust == 'stable' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
-          name: ${{ matrix.crate }}-${{ matrix.target }}
-          path: ${{ matrix.crate }}-${{ matrix.target }}
+          name: ${{ matrix.crate.name }}-${{ matrix.target }}
+          path: ${{ matrix.crate.name }}-${{ matrix.target }}
 
   release:
     name: Release
@@ -126,7 +133,7 @@ jobs:
           version_string=$(~/temp/vhdl_ls-x86_64-unknown-linux-musl/bin/vhdl_ls --version)
           if [ "$version_string" != "vhdl_ls $v" ]
           then
-            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang $v\""
+            echo "Version string mismatch (\"$version_string\" != \"vhdl_ls $v\""
             exit 1
           else
             echo "Version string matched"

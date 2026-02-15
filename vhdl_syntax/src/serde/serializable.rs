@@ -13,7 +13,10 @@ pub struct Serializable<'a, T> {
 
 impl<'a, T> Serializable<'a, T> {
     pub fn new(inner: &'a T, flags: impl Into<Rc<SerdeFlags>>) -> Serializable<'a, T> {
-        Serializable { inner, flags: flags.into() }
+        Serializable {
+            inner,
+            flags: flags.into(),
+        }
     }
 
     pub fn new_default(inner: &'a T) -> Serializable<'a, T> {

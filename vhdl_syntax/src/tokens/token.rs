@@ -17,11 +17,7 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(
-        kind: TokenKind,
-        text: impl Into<Box<Latin1Str>>,
-        leading_trivia: Trivia,
-    ) -> Token {
+    pub fn new(kind: TokenKind, text: impl Into<Box<Latin1Str>>, leading_trivia: Trivia) -> Token {
         Token {
             leading_trivia,
             symbol: Symbol::allocate(kind, text.into()),

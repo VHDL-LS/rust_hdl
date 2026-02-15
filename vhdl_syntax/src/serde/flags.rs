@@ -10,10 +10,10 @@
 //! let flags = SerdeFlags::default()
 //!     .include_trivia(false)
 //!     .include_loc(true);
-//! 
+//!
 //! // Serialized data will not include trivia information
 //! assert!(!flags.includes_trivia());
-//! 
+//!
 //! // Serialized data will include source location
 //! assert!(flags.includes_loc());
 //! ```
@@ -31,7 +31,7 @@ impl Default for SerdeFlags {
         Self {
             include_trivia: true,
             include_loc: true,
-            comment_encoding: "utf-8".into()
+            comment_encoding: "utf-8".into(),
         }
     }
 }
@@ -61,7 +61,7 @@ impl SerdeFlags {
 
     /// Comments in VHDL can have arbitrary encoding. This flag allows serializers to specify an
     /// encoding that is attached to individual comments in the serialized AST.
-    /// 
+    ///
     /// Currently, this encoding serves merely as an information to consumers.
     /// It is not enforced nor is the string actually encoded using the specified value.
     /// This may change in the future.

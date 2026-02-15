@@ -83,7 +83,7 @@ pub struct Tokenizer<I: Iterator<Item = u8>> {
     /// used as attributes or character literals)
     last_token_kind: Option<TokenKind>,
     /// flag indicating whether the `EOF` token was already emitted.
-    eof_emitted : bool,
+    eof_emitted: bool,
 }
 
 impl<I: Iterator<Item = u8>> Tokenizer<I> {
@@ -375,7 +375,7 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
         let leading_trivia = self.consume_trivia();
         let Some(current) = self.current else {
             if self.eof_emitted {
-                return None
+                return None;
             }
             self.eof_emitted = true;
             return Some(Token::eof(leading_trivia));
@@ -739,9 +739,9 @@ mod tests {
 
     use crate::latin_1::Latin1String;
     use crate::tokens::tokenizer::Tokenize;
+    use crate::tokens::trivia_piece::Comment;
     use crate::tokens::TokenKind;
     use crate::tokens::TokenKind::*;
-    use crate::tokens::trivia_piece::Comment;
     use crate::tokens::{Keyword as Kw, Token, Trivia, TriviaPiece};
     use pretty_assertions::assert_eq;
 
@@ -793,7 +793,10 @@ mod tests {
 
     #[test]
     fn tokenize_input_only_trivia() {
-        assert_eq!("  ".tokenize_vec(), vec![Token::eof(Trivia::from([TriviaPiece::Spaces(2)]))]);
+        assert_eq!(
+            "  ".tokenize_vec(),
+            vec![Token::eof(Trivia::from([TriviaPiece::Spaces(2)]))]
+        );
     }
 
     #[test]
@@ -802,9 +805,15 @@ mod tests {
             kinds_tokenize_remove_eof("architecture"),
             vec![Keyword(Kw::Architecture)]
         );
-        assert_eq!(kinds_tokenize_remove_eof("entity"), vec![Keyword(Kw::Entity)]);
+        assert_eq!(
+            kinds_tokenize_remove_eof("entity"),
+            vec![Keyword(Kw::Entity)]
+        );
         assert_eq!(kinds_tokenize_remove_eof("is"), vec![Keyword(Kw::Is)]);
-        assert_eq!(kinds_tokenize_remove_eof("generic"), vec![Keyword(Kw::Generic)]);
+        assert_eq!(
+            kinds_tokenize_remove_eof("generic"),
+            vec![Keyword(Kw::Generic)]
+        );
         assert_eq!(kinds_tokenize_remove_eof("port"), vec![Keyword(Kw::Port)]);
         assert_eq!(kinds_tokenize_remove_eof("begin"), vec![Keyword(Kw::Begin)]);
         assert_eq!(kinds_tokenize_remove_eof("end"), vec![Keyword(Kw::End)]);
@@ -845,15 +854,20 @@ entity foo"
                 ),
                 Token::new(Identifier, b"foo", Trivia::from([TriviaPiece::Spaces(1)])),
                 Token::eof(Trivia::default())
-                
             ]
         );
     }
 
     #[test]
     fn tokenize_keywords_case_insensitive() {
-        assert_eq!(kinds_tokenize_remove_eof("entity"), vec![Keyword(Kw::Entity)]);
-        assert_eq!(kinds_tokenize_remove_eof("Entity"), vec![Keyword(Kw::Entity)]);
+        assert_eq!(
+            kinds_tokenize_remove_eof("entity"),
+            vec![Keyword(Kw::Entity)]
+        );
+        assert_eq!(
+            kinds_tokenize_remove_eof("Entity"),
+            vec![Keyword(Kw::Entity)]
+        );
         assert_eq!(
             kinds_tokenize_remove_eof("arCHitecture"),
             vec![Keyword(Kw::Architecture)]
@@ -888,11 +902,7 @@ entity foo"
 my_other_ident"
                 .tokenize_vec(),
             vec![
-                Token::new(
-                    Identifier,
-                    b"my_ident",
-                    Trivia::default(),
-                ),
+                Token::new(Identifier, b"my_ident", Trivia::default(),),
                 Token::new(
                     Identifier,
                     b"my_other_ident",
@@ -984,11 +994,7 @@ my_other_ident"
         assert_eq!(
             "\"str\" \"ing\"".tokenize_vec(),
             vec![
-                Token::new(
-                    StringLiteral,
-                    b"\"str\"",
-                    Trivia::default(),
-                ),
+                Token::new(StringLiteral, b"\"str\"", Trivia::default(),),
                 Token::new(
                     StringLiteral,
                     b"\"ing\"",
@@ -1236,19 +1242,17 @@ my_other_ident"
                     b"1",
                     Trivia::from([TriviaPiece::LineFeeds(1)]),
                 ),
-                Token::new(Minus, b"-", Trivia::from([
+                Token::new(
+                    Minus,
+                    b"-",
+                    Trivia::from([
                         TriviaPiece::LineFeeds(1),
                         TriviaPiece::LineComment(Comment::new(b"comment")),
                         TriviaPiece::LineFeeds(1)
-                    ])),
-                Token::new(
-                    AbstractLiteral,
-                    b"2",
-                    Trivia::default(),
+                    ])
                 ),
-                Token::eof(
-                    Trivia::from([TriviaPiece::LineFeeds(1)])
-                )
+                Token::new(AbstractLiteral, b"2", Trivia::default(),),
+                Token::eof(Trivia::from([TriviaPiece::LineFeeds(1)]))
             ]
         )
     }
@@ -1275,22 +1279,21 @@ comment
                     b"1",
                     Trivia::from([TriviaPiece::LineFeeds(1)]),
                 ),
-                Token::new(Minus, b"-", Trivia::from([
+                Token::new(
+                    Minus,
+                    b"-",
+                    Trivia::from([
                         TriviaPiece::LineFeeds(2),
                         TriviaPiece::BlockComment(Comment::new(b"\ncomment\n")),
                         TriviaPiece::LineFeeds(2),
-                    ])),
-                Token::new(
-                    AbstractLiteral,
-                    b"2",
-                    Trivia::default(),
-                    
+                    ])
                 ),
+                Token::new(AbstractLiteral, b"2", Trivia::default(),),
                 Token::eof(Trivia::from([
-                        TriviaPiece::Spaces(1),
-                        TriviaPiece::BlockComment(Comment::new("\ncomment\n")),
-                        TriviaPiece::LineFeeds(2),
-                    ]),)
+                    TriviaPiece::Spaces(1),
+                    TriviaPiece::BlockComment(Comment::new("\ncomment\n")),
+                    TriviaPiece::LineFeeds(2),
+                ]),)
             ]
         )
     }
