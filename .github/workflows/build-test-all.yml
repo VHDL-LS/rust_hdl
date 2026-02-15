@@ -18,6 +18,8 @@ jobs:
         crate:
           - vhdl_lang
           - vhdl_ls
+          - vhdl_syntax
+          - vhdl-dump-ast
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
