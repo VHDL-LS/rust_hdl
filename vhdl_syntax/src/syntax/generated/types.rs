@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct AccessTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for AccessTypeDefinitionSyntax {
@@ -97,7 +96,6 @@ impl AstNode for ArrayTypeDefinitionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum CompositeTypeDefinitionSyntax {
     ArrayTypeDefinition(ArrayTypeDefinitionSyntax),
@@ -127,7 +125,6 @@ impl AstNode for CompositeTypeDefinitionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ConstrainedArrayDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConstrainedArrayDefinitionSyntax {
@@ -190,7 +187,6 @@ impl DirectionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SubtypeIndicationDiscreteDiscreteRangeSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubtypeIndicationDiscreteDiscreteRangeSyntax {
@@ -305,7 +301,6 @@ impl AstNode for DiscreteRangeSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ElementDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementDeclarationSyntax {
@@ -918,7 +913,6 @@ impl AstNode for ProtectedTypeDefinitionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct RangeExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for RangeExpressionSyntax {
@@ -996,7 +990,6 @@ impl AstNode for RangeSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct RangeConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for RangeConstraintSyntax {
@@ -1271,7 +1264,6 @@ impl AstNode for ScalarTypeDefinitionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SecondaryUnitDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SecondaryUnitDeclarationSyntax {

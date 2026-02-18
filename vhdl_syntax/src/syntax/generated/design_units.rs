@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct ContextClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextClauseSyntax {
@@ -237,7 +236,6 @@ impl AstNode for ContextItemSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct DesignFileSyntax(pub(crate) SyntaxNode);
 impl AstNode for DesignFileSyntax {
@@ -354,7 +352,6 @@ impl AstNode for LibraryUnitSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct PrimaryUnitPackageDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PrimaryUnitPackageDeclarationSyntax {
@@ -471,7 +468,6 @@ impl AstNode for PrimaryUnitSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SecondaryUnitPackageBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for SecondaryUnitPackageBodySyntax {

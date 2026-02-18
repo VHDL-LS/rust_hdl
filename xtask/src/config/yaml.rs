@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use convert_case::{Case, Casing};
 use serde::de::{MapAccess, Visitor};
@@ -45,10 +45,8 @@ impl IntoIterator for Nodes {
 struct NodesVisitor;
 
 impl<'de> Visitor<'de> for NodesVisitor {
-    // The type that our Visitor is going to produce.
     type Value = Nodes;
 
-    // Format a message stating what data this Visitor expects to receive.
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a node")
     }
@@ -97,12 +95,15 @@ pub struct NodeRef {
     pub node: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub terminated: Option<String>,
+    /// Custom name. If none, the node's name is taken.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not", default)]
     pub repeated: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not", default)]
     pub parenthesized: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub optional: bool,
 }
 
 impl NodeRef {
@@ -129,6 +130,7 @@ impl From<String> for NodeRef {
             terminated: None,
             parenthesized: false,
             repeated: false,
+            optional: false,
         }
     }
 }
@@ -140,10 +142,12 @@ pub struct TokenRef {
     pub name: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not", default)]
     pub repeated: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub optional: bool,
 }
 
 fn token_str_name(name: Option<String>, token: &str) -> String {
-    name.clone().unwrap_or_else(|| token.to_owned())
+    name.unwrap_or_else(|| token.to_owned())
 }
 
 impl TokenRef {
@@ -157,10 +161,90 @@ pub struct KeywordRef {
     pub keyword: String,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub optional: bool,
 }
 
 impl KeywordRef {
     pub fn name(&self) -> String {
         token_str_name(self.name.clone(), &self.keyword)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_node_with_optional_true() {
+        // The YAML format uses explicit tags like !Sequence / !Choice
+        let yaml = r#"
+TestNode: !Sequence
+  - node: ChildNode
+    optional: true
+"#;
+        let nodes: Nodes = serde_yml::from_str(yaml).expect("parse failed");
+        let nodes: Vec<Node> = nodes.into();
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].name, "TestNode");
+        let NodeContents::Sequence(ref items) = nodes[0].contents else {
+            panic!("expected Sequence");
+        };
+        assert_eq!(items.len(), 1);
+        let NodeOrToken::Node(ref node_ref) = items[0] else {
+            panic!("expected Node");
+        };
+        assert!(node_ref.optional);
+    }
+
+    #[test]
+    fn parse_node_without_optional_defaults_false() {
+        let yaml = r#"
+TestNode: !Sequence
+  - node: ChildNode
+"#;
+        let nodes: Nodes = serde_yml::from_str(yaml).expect("parse failed");
+        let nodes: Vec<Node> = nodes.into();
+        let NodeContents::Sequence(ref items) = nodes[0].contents else {
+            panic!("expected Sequence");
+        };
+        let NodeOrToken::Node(ref node_ref) = items[0] else {
+            panic!("expected Node");
+        };
+        assert!(!node_ref.optional);
+    }
+
+    #[test]
+    fn parse_token_with_optional_true() {
+        let yaml = r#"
+TestNode: !Sequence
+  - token: SemiColon
+    optional: true
+"#;
+        let nodes: Nodes = serde_yml::from_str(yaml).expect("parse failed");
+        let nodes: Vec<Node> = nodes.into();
+        let NodeContents::Sequence(ref items) = nodes[0].contents else {
+            panic!("expected Sequence");
+        };
+        let NodeOrToken::Token(ref token_ref) = items[0] else {
+            panic!("expected Token");
+        };
+        assert!(token_ref.optional);
+    }
+
+    #[test]
+    fn parse_keyword_with_optional_defaults_false() {
+        let yaml = r#"
+TestNode: !Sequence
+  - keyword: Entity"#;
+        let nodes: Nodes = serde_yml::from_str(yaml).expect("parse failed");
+        let nodes: Vec<Node> = nodes.into();
+        let NodeContents::Sequence(ref items) = nodes[0].contents else {
+            panic!("expected Sequence");
+        };
+        let NodeOrToken::Keyword(ref kw_ref) = items[0] else {
+            panic!("expected Keyword");
+        };
+        assert!(!kw_ref.optional);
     }
 }

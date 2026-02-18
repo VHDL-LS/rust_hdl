@@ -98,6 +98,17 @@ jobs:
           name: ${{ matrix.crate.name }}-${{ matrix.target }}
           path: ${{ matrix.crate.name }}-${{ matrix.target }}
 
+  codegen-check:
+    name: Check generated code for vhdl_syntax is up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check generated code is up-to-date
+        run: cargo xtask codegen --check
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')

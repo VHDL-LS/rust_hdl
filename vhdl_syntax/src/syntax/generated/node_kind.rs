@@ -287,7 +287,6 @@ pub enum NodeKind {
     SignalListOthers,
     Signature,
     SimpleConfigurationSpecification,
-
     SimpleForceAssignment,
     SimpleReleaseAssignment,
     SimpleVariableAssignment,

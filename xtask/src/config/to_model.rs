@@ -2,20 +2,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::node::{ChoiceNode, Model, Node, NodeRef, SequenceNode, TokenOrNode};
-use crate::serialize::{NodeContents, NodeOrToken};
-use crate::token::{Keyword, Token, TokenKind};
+use crate::config::yaml::{NodeContents, NodeOrToken};
+use crate::model::token::Keyword;
+use crate::model::{ChoiceNode, Model, Node, NodeRef, SequenceNode, Token, TokenKind, TokenOrNode};
 
 impl Model {
-    pub fn insert_ser_nodes(&mut self, category: &str, nodes: crate::serialize::Nodes) {
+    pub fn insert_ser_nodes(&mut self, category: &str, nodes: crate::config::yaml::Nodes) {
         for node in nodes {
             self.insert_ser_node(category, node)
         }
     }
 
-    pub fn insert_ser_node(&mut self, category: &str, node: crate::serialize::Node) {
+    pub fn insert_ser_node(&mut self, category: &str, node: crate::config::yaml::Node) {
         match node.contents {
             NodeContents::Sequence(seq) => {
                 self.insert_ser_seq(category, node.name, seq);
@@ -28,9 +28,8 @@ impl Model {
     pub fn node_to_parenthesized_node(
         &mut self,
         category: &str,
-        node: crate::serialize::NodeRef,
-    ) -> crate::serialize::NodeRef {
-        // e.g., `ParenthesizedSemicolonTerminatedVUnitBindingIndicationSyntax`
+        node: crate::config::yaml::NodeRef,
+    ) -> crate::config::yaml::NodeRef {
         let node_name = format!("Parenthesized{}", node.kind());
         self.push_node(
             category.to_owned(),
@@ -43,7 +42,7 @@ impl Model {
                 ],
             ),
         );
-        crate::serialize::NodeRef {
+        crate::config::yaml::NodeRef {
             node: node_name,
             parenthesized: false,
             ..node
@@ -53,10 +52,9 @@ impl Model {
     pub fn node_to_terminated_node(
         &mut self,
         category: &str,
-        node: crate::serialize::NodeRef,
-    ) -> crate::serialize::NodeRef {
+        node: crate::config::yaml::NodeRef,
+    ) -> crate::config::yaml::NodeRef {
         let terminator = node.terminated.clone().unwrap();
-        // e.g., `SemicolonTerminatedVUnitBindingIndicationSyntax`
         let node_name = format!("{}Terminated{}", terminator, node.kind());
         self.push_node(
             category.to_owned(),
@@ -68,7 +66,7 @@ impl Model {
                 ],
             ),
         );
-        crate::serialize::NodeRef {
+        crate::config::yaml::NodeRef {
             node: node_name,
             terminated: None,
             ..node
@@ -79,7 +77,7 @@ impl Model {
         &mut self,
         category: &str,
         items: &[TokenOrNode],
-        mut node: crate::serialize::NodeRef,
+        mut node: crate::config::yaml::NodeRef,
     ) -> NodeRef {
         // Terminated takes precedence over repeated
         if node.terminated.is_some() {
@@ -101,15 +99,14 @@ impl Model {
             repeated: node.repeated,
             nth,
             builtin: false,
-            // will be patched later
-            is_token_node: false,
+            optional: node.optional,
         }
     }
 
     fn ser_token_to_token(
         &mut self,
         items: &[TokenOrNode],
-        token: crate::serialize::TokenRef,
+        token: crate::config::yaml::TokenRef,
     ) -> Token {
         let kind = TokenKind::from_str_expect(&token.token);
         let nth = items
@@ -124,13 +121,14 @@ impl Model {
             repeated: token.repeated,
             nth,
             kind,
+            optional: token.optional,
         }
     }
 
     fn ser_keyword_to_token(
         &mut self,
         items: &[TokenOrNode],
-        token: crate::serialize::KeywordRef,
+        token: crate::config::yaml::KeywordRef,
     ) -> Token {
         let kind = TokenKind::Keyword(Keyword::from_str_expect(&token.keyword));
         let nth = items
@@ -145,6 +143,7 @@ impl Model {
             repeated: false,
             nth,
             kind,
+            optional: token.optional,
         }
     }
 

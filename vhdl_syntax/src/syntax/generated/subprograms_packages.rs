@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct SubprogramDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubprogramDeclarationSyntax {
@@ -69,7 +68,6 @@ impl AstNode for SubprogramSpecificationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ProcedureSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProcedureSpecificationSyntax {
@@ -249,7 +247,6 @@ impl FunctionPuritySyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SubprogramHeaderSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubprogramHeaderSyntax {
@@ -461,7 +458,6 @@ impl SubprogramKindSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SubprogramInstantiationDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubprogramInstantiationDeclarationSyntax {

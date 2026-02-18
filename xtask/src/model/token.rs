@@ -2,13 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+// Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
+
+// NOTE: TokenKind and Keyword are duplicated in vhdl_syntax/src/tokens/token_kind.rs.
+// Making xtask depend on vhdl_syntax would create a chicken-and-egg issue (generated files
+// may be absent or broken). Keep the two definitions in sync manually.
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Literal, TokenStream};
-use quote::{format_ident, quote, ToTokens};
 use std::str::FromStr;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, strum::Display, strum::EnumString)]
 pub enum TokenKind {
     /// A keyword, such as `entity`, `architecture` or `abs`.
@@ -73,7 +76,7 @@ pub enum TokenKind {
     /// Produced, for example, when there is an unknown char or illegal bit string
     Unknown,
 
-    Eof
+    Eof,
 }
 
 impl TokenKind {
@@ -209,20 +212,6 @@ impl Keyword {
     }
 }
 
-impl TokenKind {
-    pub fn build_expression(&self) -> proc_macro2::TokenStream {
-        match self {
-            TokenKind::Keyword(kw) => {
-                let kw_name = format_ident!("{}", kw.to_string());
-                quote! {
-                    Keyword(Kw::#kw_name)
-                }
-            }
-            _ => format_ident!("{}", self.to_string()).into_token_stream(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
@@ -233,6 +222,8 @@ pub struct Token {
     pub nth: usize,
     /// whether this token can occur repeatedly
     pub repeated: bool,
+    /// whether this token is optional in the grammar
+    pub optional: bool,
 }
 
 impl From<TokenKind> for Token {
@@ -242,41 +233,13 @@ impl From<TokenKind> for Token {
             kind,
             repeated: false,
             nth: 0,
+            optional: false,
         }
     }
 }
 
 impl Token {
-    pub fn getter_name(&self) -> Ident {
-        format_ident!("{}_token", self.name.to_case(Case::Snake))
-    }
-
-    pub fn enum_variant_ident(&self) -> Ident {
-        format_ident!("{}", self.name.to_case(Case::UpperCamel))
-    }
-
-    pub fn build_getter(&self) -> TokenStream {
-        let function_name = self.getter_name();
-        let kind_ident = self.kind.build_expression();
-        let nth = Literal::usize_unsuffixed(self.nth);
-        if self.repeated {
-            assert_eq!(self.nth, 0, "{} multiple", self.name);
-            quote! {
-                pub fn #function_name(&self) -> impl Iterator<Item = SyntaxToken>  + use<'_> {
-                    self.0
-                        .tokens()
-                        .filter(|token| token.kind() == #kind_ident)
-                }
-            }
-        } else {
-            quote! {
-                pub fn #function_name(&self) -> Option<SyntaxToken> {
-                    self.0
-                        .tokens()
-                        .filter(|token| token.kind() == #kind_ident)
-                        .nth(#nth)
-                }
-            }
-        }
+    pub fn getter_name(&self) -> String {
+        format!("{}_token", self.name.to_case(Case::Snake))
     }
 }

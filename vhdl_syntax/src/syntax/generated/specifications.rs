@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct AttributeSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for AttributeSpecificationSyntax {
@@ -180,38 +179,6 @@ impl CompoundConfigurationSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct SemiColonTerminatedBindingIndicationSyntax(pub(crate) SyntaxNode);
-impl AstNode for SemiColonTerminatedBindingIndicationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SemiColonTerminatedBindingIndication => {
-                Some(SemiColonTerminatedBindingIndicationSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SemiColonTerminatedBindingIndication)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SemiColonTerminatedBindingIndicationSyntax {
-    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(BindingIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct CompoundConfigurationSpecificationItemsSyntax(pub(crate) SyntaxNode);
 impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -287,7 +254,6 @@ impl AstNode for ConfigurationSpecificationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct DisconnectionSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for DisconnectionSpecificationSyntax {
@@ -449,7 +415,6 @@ impl AstNode for EntityAspectSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum EntityClassSyntax {
     Entity(SyntaxToken),
@@ -521,7 +486,6 @@ impl EntityClassSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct EntityDesignatorSyntax(pub(crate) SyntaxNode);
 impl AstNode for EntityDesignatorSyntax {
@@ -656,7 +620,6 @@ impl AstNode for EntityNameListSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct EntitySpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for EntitySpecificationSyntax {
@@ -710,7 +673,6 @@ impl EntityTagSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct GuardedSignalSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for GuardedSignalSpecificationSyntax {
@@ -848,7 +810,6 @@ impl AstNode for InstantiationListSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SignalListListSyntax(pub(crate) SyntaxNode);
 impl AstNode for SignalListListSyntax {
@@ -959,7 +920,6 @@ impl AstNode for SignalListSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SimpleConfigurationSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SimpleConfigurationSpecificationSyntax {
