@@ -7,7 +7,7 @@
 //! VHDL standard version identification and comparison.
 //!
 //! This module provides the [`VHDLStandard`] enum to represent all supported VHDL versions
-//! and methods to compare and convert between standards.
+//! and methods to work with standards.
 
 use std::fmt;
 

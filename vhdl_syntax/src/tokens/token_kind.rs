@@ -335,6 +335,31 @@ impl Keyword {
     pub fn introduced_in(self) -> VHDLStandard {
         use VHDLStandard::*;
         match self {
+            // VHDL 2019
+            Self::View | Self::Private | Self::Vpgk => VHDL2019,
+            // VHDL 2008
+            // Also introduces keywords "assume_guarantee" and "restrict_guarantee".
+            // However as they only appear in this specific standard and are revoked later,
+            // they are treated as identifiers unless there is a feature request to support this.
+            Self::Assume
+            | Self::Context
+            | Self::Cover
+            | Self::Default
+            | Self::Fairness
+            | Self::Force
+            | Self::Parameter
+            | Self::Property
+            | Self::Release
+            | Self::Restrict
+            | Self::Sequence
+            | Self::Strong
+            | Self::Vmode
+            | Self::Vprop
+            | Self::Vunit => VHDL2008,
+            // VHDL 2000
+            // Also introduces keywords "Procedural" and "Reference"
+            // Similar cases as for VHDL2000 (the keywords are only valid in 2008 and thus omitted).
+            Self::Protected => VHDL2000,
             // VHDL 1993
             Self::Group
             | Self::Impure
@@ -352,31 +377,6 @@ impl Keyword {
             | Self::Srl
             | Self::Unaffected
             | Self::Xnor => VHDL1993,
-            // VHDL 2000
-            // Also introduces keywords "Procedural" and "Reference"
-            // However as they only appear in this specific standard and are revoked
-            // later we will not treat them special unless there is a feature request to support this
-            Self::Protected => VHDL2000,
-            // VHDL 2008
-            // Similar cases as for VHDL2000 (the following keywords are only valid on 2008 and are thus omitted):
-            // "assume_guarantee", "restrict_guarantee"
-            Self::Assume
-            | Self::Context
-            | Self::Cover
-            | Self::Default
-            | Self::Fairness
-            | Self::Force
-            | Self::Parameter
-            | Self::Property
-            | Self::Release
-            | Self::Restrict
-            | Self::Sequence
-            | Self::Strong
-            | Self::Vmode
-            | Self::Vprop
-            | Self::Vunit => VHDL2008,
-            // VHDL 2019
-            Self::View | Self::Private | Self::Vpgk => VHDL2019,
             // Everything else: VHDL 1987
             _ => VHDL1987,
         }
