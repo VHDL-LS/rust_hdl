@@ -96,7 +96,7 @@ pub(crate) fn parse_syntax_with_standard(
     parser_fn: impl FnOnce(&mut Parser),
 ) -> (SyntaxNode, Vec<diagnostics::ParserDiagnostic>) {
     let token_stream: TokenStream = Tokenizer::with_standard(standard, input.into_iter()).collect();
-    let mut parser = Parser::new(token_stream.into(), standard);
+    let mut parser = Parser::new(token_stream, standard);
     parser_fn(&mut parser);
     let (green, diagnostics) = parser.end();
     (SyntaxNode::new_root(green), diagnostics)
