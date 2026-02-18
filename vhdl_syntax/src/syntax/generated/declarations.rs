@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub enum DeclarationSyntax {
     SubprogramDeclaration(SubprogramDeclarationSyntax),
@@ -224,7 +223,6 @@ impl AstNode for DeclarationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct PackageDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PackageDeclarationSyntax {
@@ -411,7 +409,6 @@ impl AliasDesignatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct AssociationElementSyntax(pub(crate) SyntaxNode);
 impl AstNode for AssociationElementSyntax {
@@ -769,7 +766,6 @@ impl AstNode for ConstraintSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ResolutionIndicationElementResolutionSyntax(pub(crate) SyntaxNode);
 impl AstNode for ResolutionIndicationElementResolutionSyntax {
@@ -854,7 +850,6 @@ impl AstNode for ElementResolutionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct EntityClassEntrySyntax(pub(crate) SyntaxNode);
 impl AstNode for EntityClassEntrySyntax {
@@ -1490,7 +1485,6 @@ impl AstNode for InterfaceDeclarationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct InterfaceFileDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceFileDeclarationSyntax {
@@ -1698,7 +1692,6 @@ impl AstNode for InterfaceObjectDeclarationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct InterfacePackageDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfacePackageDeclarationSyntax {
@@ -1953,7 +1946,6 @@ impl AstNode for InterfacePackageGenericMapAspectInnerSyntax {
         match self { InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectBox (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectDefault (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectAssociations (inner) => inner . raw () , }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct InterfaceProcedureSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceProcedureSpecificationSyntax {
@@ -2196,7 +2188,6 @@ impl AstNode for InterfaceSubprogramDefaultSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum InterfaceSubprogramSpecificationSyntax {
     InterfaceProcedureSpecification(InterfaceProcedureSpecificationSyntax),
@@ -2235,7 +2226,6 @@ impl AstNode for InterfaceSubprogramSpecificationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct InterfaceVariableDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceVariableDeclarationSyntax {
@@ -2324,7 +2314,6 @@ impl ModeSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct PortClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for PortClauseSyntax {
@@ -2653,7 +2642,6 @@ impl AstNode for ResolutionIndicationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SignalDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SignalDeclarationSyntax {
@@ -2731,7 +2719,6 @@ impl SignalKindSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SubtypeDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubtypeDeclarationSyntax {
@@ -2836,7 +2823,6 @@ impl AstNode for TypeDeclarationSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum TypeDefinitionSyntax {
     ScalarTypeDefinition(ScalarTypeDefinitionSyntax),
@@ -2891,7 +2877,6 @@ impl AstNode for TypeDefinitionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct VariableDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for VariableDeclarationSyntax {

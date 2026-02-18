@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct AbsolutePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for AbsolutePathnameSyntax {
@@ -132,7 +131,6 @@ impl AstNode for ExternalNameSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ExternalConstantNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExternalConstantNameSyntax {
@@ -306,7 +304,6 @@ impl AstNode for ExternalPathNameSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct PackagePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for PackagePathnameSyntax {
@@ -462,7 +459,6 @@ impl DesignatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum NameDesignatorSyntax {
     Identifier(SyntaxToken),
@@ -486,7 +482,6 @@ impl NameDesignatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct NameSyntax(pub(crate) SyntaxNode);
 impl AstNode for NameSyntax {
@@ -564,7 +559,6 @@ impl AstNode for NamePrefixSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum SuffixSyntax {
     Identifier(SyntaxToken),
@@ -591,7 +585,6 @@ impl SuffixSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SelectedNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedNameSyntax {
@@ -654,7 +647,6 @@ impl AstNode for NameTailSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct RawTokensSyntax(pub(crate) SyntaxNode);
 impl AstNode for RawTokensSyntax {

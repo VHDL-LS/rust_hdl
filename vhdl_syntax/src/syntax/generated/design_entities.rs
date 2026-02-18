@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct ArchitectureBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for ArchitectureBodySyntax {
@@ -198,7 +197,6 @@ impl AstNode for ConfigurationItemSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct BlockConfigurationSyntax(pub(crate) SyntaxNode);
 impl AstNode for BlockConfigurationSyntax {
@@ -355,6 +353,38 @@ impl ComponentConfigurationSyntax {
         self.0
             .children()
             .filter_map(ComponentConfigurationEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SemiColonTerminatedBindingIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for SemiColonTerminatedBindingIndicationSyntax {
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::SemiColonTerminatedBindingIndication => {
+                Some(SemiColonTerminatedBindingIndicationSyntax(node))
+            }
+            _ => None,
+        }
+    }
+    fn can_cast(node: &SyntaxNode) -> bool {
+        matches!(node.kind(), NodeKind::SemiColonTerminatedBindingIndication)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SemiColonTerminatedBindingIndicationSyntax {
+    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(BindingIndicationSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == SemiColon)
             .nth(0)
     }
 }

@@ -11,12 +11,12 @@ members = [
     "vhdl_lang",
     "vhdl_ls",
     "vhdl_syntax",
-    "ast_syntax_gen",
+    "xtask",
     "vhdl-dump-ast",
 ]
 
 # By default, do not include members that are only needed at build-time
-# e.g., (vhdl_lang_macros, ast_syntax_gen)
+# e.g., (vhdl_lang_macros, xtask)
 default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast"]
 
 [workspace.package]

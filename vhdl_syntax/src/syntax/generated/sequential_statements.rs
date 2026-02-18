@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct AssertionSyntax(pub(crate) SyntaxNode);
 impl AstNode for AssertionSyntax {
@@ -517,7 +516,6 @@ impl AstNode for ConditionalSignalAssignmentSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ConditionalVariableAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConditionalVariableAssignmentSyntax {
@@ -822,7 +820,6 @@ impl AstNode for DelayMechanismSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ExitStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExitStatementSyntax {
@@ -897,7 +894,6 @@ impl ForceModeSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct IfStatementElsifSyntax(pub(crate) SyntaxNode);
 impl AstNode for IfStatementElsifSyntax {
@@ -1182,7 +1178,6 @@ impl AstNode for IterationSchemeSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct LoopStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for LoopStatementSyntax {
@@ -1707,7 +1702,6 @@ impl AstNode for SelectedSignalAssignmentSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SelectedVariableAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedVariableAssignmentSyntax {
@@ -1982,7 +1976,6 @@ impl AstNode for SequentialStatementSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub enum SignalAssignmentStatementSyntax {
     SimpleSignalAssignment(SimpleSignalAssignmentSyntax),
@@ -2023,7 +2016,6 @@ impl AstNode for SignalAssignmentStatementSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SimpleForceAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SimpleForceAssignmentSyntax {
@@ -2191,7 +2183,6 @@ impl AstNode for SimpleSignalAssignmentSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SimpleVariableAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SimpleVariableAssignmentSyntax {
@@ -2299,7 +2290,6 @@ impl AstNode for TargetSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct TimeoutClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for TimeoutClauseSyntax {
@@ -2369,7 +2359,6 @@ impl AstNode for VariableAssignmentStatementSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct WaitStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for WaitStatementSyntax {
@@ -2528,7 +2517,6 @@ impl AstNode for WaveformSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SequentialStatementsSyntax(pub(crate) SyntaxNode);
 impl AstNode for SequentialStatementsSyntax {

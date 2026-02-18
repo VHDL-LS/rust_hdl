@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub enum LiteralSyntax {
     BitStringLiteral(SyntaxToken),
@@ -36,7 +35,6 @@ impl LiteralSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ParenthesizedExpressionOrAggregateSyntax(pub(crate) SyntaxNode);
 impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
@@ -122,7 +120,6 @@ impl UnaryOperatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct UnaryExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for UnaryExpressionSyntax {
@@ -254,7 +251,6 @@ impl BinaryOperatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct BinaryExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for BinaryExpressionSyntax {
@@ -437,7 +433,6 @@ impl AstNode for ExpressionSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct AggregateSyntax(pub(crate) SyntaxNode);
 impl AstNode for AggregateSyntax {
@@ -561,7 +556,6 @@ impl AstNode for AllocatorSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct OthersChoiceSyntax(pub(crate) SyntaxNode);
 impl AstNode for OthersChoiceSyntax {
@@ -669,7 +663,6 @@ impl AstNode for ChoiceSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ChoicesSyntax(pub(crate) SyntaxNode);
 impl AstNode for ChoicesSyntax {

@@ -9,7 +9,6 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
-
 #[derive(Debug, Clone)]
 pub struct DeclarationStatementSeparatorSyntax(pub(crate) SyntaxNode);
 impl AstNode for DeclarationStatementSeparatorSyntax {
@@ -963,7 +962,6 @@ impl AstNode for ConcurrentStatementSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ConcurrentStatementsSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConcurrentStatementsSyntax {
@@ -1435,7 +1433,6 @@ impl AstNode for InstantiatedUnitSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ComponentInstantiatedUnitSyntax(pub(crate) SyntaxNode);
 impl AstNode for ComponentInstantiatedUnitSyntax {
@@ -1614,7 +1611,6 @@ impl AstNode for ProcessSensitivityListSyntax {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ProcessStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProcessStatementSyntax {
