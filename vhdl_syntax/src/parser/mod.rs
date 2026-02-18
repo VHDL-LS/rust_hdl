@@ -7,8 +7,8 @@
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};
-use crate::tokens::Tokenizer;
 use crate::tokens::TokenStream;
+use crate::tokens::Tokenizer;
 
 mod builder;
 pub mod diagnostics;
