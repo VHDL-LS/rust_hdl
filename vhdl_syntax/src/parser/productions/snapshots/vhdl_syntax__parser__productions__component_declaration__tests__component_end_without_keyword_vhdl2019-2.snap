@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/component_declaration.rs
+expression: "to_test_text_with_standard(VHDLStandard::VHDL2019,\nParser::component_declaration, \"\\\ncomponent foo is\nend foo;\n\")"
+---
+ComponentDeclaration
+  ComponentDeclarationPreamble
+    Keyword(Component)
+    Identifier 'foo'
+    Keyword(Is)
+  ComponentDeclarationEpilogue
+    Keyword(End)
+    Identifier 'foo'
+    SemiColon
