@@ -5,6 +5,7 @@
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::latin_1::{Latin1Str, Latin1String};
+use crate::standard::VHDLStandard;
 use crate::tokens::trivia_piece::Comment;
 use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, Trivia, TriviaPiece};
@@ -84,17 +85,24 @@ pub struct Tokenizer<I: Iterator<Item = u8>> {
     last_token_kind: Option<TokenKind>,
     /// flag indicating whether the `EOF` token was already emitted.
     eof_emitted: bool,
+    /// Under what standard to tokenize this.
+    standard: VHDLStandard,
 }
 
 impl<I: Iterator<Item = u8>> Tokenizer<I> {
     /// Creates a new tokenizer from some iterator.
-    pub fn new(mut text: I) -> Self {
+    pub fn new(text: I) -> Self {
+        Self::with_standard(VHDLStandard::default(), text)
+    }
+
+    pub fn with_standard(standard: VHDLStandard, mut text: I) -> Self {
         let current = text.next();
         Tokenizer {
             text: text.peekable(),
             current,
             last_token_kind: None,
             eof_emitted: false,
+            standard,
         }
     }
 }
@@ -386,7 +394,9 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 let kind = self.identifier_keyword_or_bistring_literal(&mut ident_str);
                 if let Some(kind) = kind {
                     (kind, ident_str)
-                } else if let Some(kw) = str_to_keyword(&ident_str) {
+                } else if let Some(kw) =
+                    Kw::from_latin1(&ident_str).filter(|kw| kw.introduced_in() <= self.standard)
+                {
                     (Keyword(kw), ident_str)
                 } else {
                     (Identifier, ident_str)
@@ -610,128 +620,6 @@ fn can_be_char(last_token_kind: Option<TokenKind>) -> bool {
     } else {
         true
     }
-}
-
-fn str_to_keyword(inp: &Latin1Str) -> Option<Kw> {
-    Some(match inp.to_lowercase().as_bytes() {
-        b"abs" => Kw::Abs,
-        b"access" => Kw::Access,
-        b"after" => Kw::After,
-        b"alias" => Kw::Alias,
-        b"all" => Kw::All,
-        b"and" => Kw::And,
-        b"architecture" => Kw::Architecture,
-        b"array" => Kw::Array,
-        b"assert" => Kw::Assert,
-        b"assume" => Kw::Assume,
-        b"attribute" => Kw::Attribute,
-        b"begin" => Kw::Begin,
-        b"block" => Kw::Block,
-        b"body" => Kw::Body,
-        b"buffer" => Kw::Buffer,
-        b"bus" => Kw::Bus,
-        b"case" => Kw::Case,
-        b"component" => Kw::Component,
-        b"configuration" => Kw::Configuration,
-        b"constant" => Kw::Constant,
-        b"context" => Kw::Context,
-        b"cover" => Kw::Cover,
-        b"default" => Kw::Default,
-        b"disconnect" => Kw::Disconnect,
-        b"downto" => Kw::Downto,
-        b"else" => Kw::Else,
-        b"elsif" => Kw::Elsif,
-        b"end" => Kw::End,
-        b"entity" => Kw::Entity,
-        b"exit" => Kw::Exit,
-        b"fairness" => Kw::Fairness,
-        b"file" => Kw::File,
-        b"for" => Kw::For,
-        b"force" => Kw::Force,
-        b"function" => Kw::Function,
-        b"generate" => Kw::Generate,
-        b"generic" => Kw::Generic,
-        b"group" => Kw::Group,
-        b"guarded" => Kw::Guarded,
-        b"if" => Kw::If,
-        b"impure" => Kw::Impure,
-        b"in" => Kw::In,
-        b"inertial" => Kw::Inertial,
-        b"inout" => Kw::Inout,
-        b"is" => Kw::Is,
-        b"label" => Kw::Label,
-        b"library" => Kw::Library,
-        b"linkage" => Kw::Linkage,
-        b"literal" => Kw::Literal,
-        b"loop" => Kw::Loop,
-        b"map" => Kw::Map,
-        b"mod" => Kw::Mod,
-        b"nand" => Kw::Nand,
-        b"new" => Kw::New,
-        b"next" => Kw::Next,
-        b"nor" => Kw::Nor,
-        b"not" => Kw::Not,
-        b"null" => Kw::Null,
-        b"of" => Kw::Of,
-        b"on" => Kw::On,
-        b"open" => Kw::Open,
-        b"or" => Kw::Or,
-        b"others" => Kw::Others,
-        b"out" => Kw::Out,
-        b"package" => Kw::Package,
-        b"parameter" => Kw::Parameter,
-        b"port" => Kw::Port,
-        b"postponed" => Kw::Postponed,
-        b"procedure" => Kw::Procedure,
-        b"process" => Kw::Process,
-        b"property" => Kw::Property,
-        b"protected" => Kw::Protected,
-        b"private" => Kw::Private,
-        b"pure" => Kw::Pure,
-        b"range" => Kw::Range,
-        b"record" => Kw::Record,
-        b"register" => Kw::Register,
-        b"reject" => Kw::Reject,
-        b"release" => Kw::Release,
-        b"rem" => Kw::Rem,
-        b"report" => Kw::Report,
-        b"restrict" => Kw::Restrict,
-        b"return" => Kw::Return,
-        b"rol" => Kw::Rol,
-        b"ror" => Kw::Ror,
-        b"select" => Kw::Select,
-        b"sequence" => Kw::Sequence,
-        b"severity" => Kw::Severity,
-        b"signal" => Kw::Signal,
-        b"shared" => Kw::Shared,
-        b"sla" => Kw::Sla,
-        b"sll" => Kw::Sll,
-        b"sra" => Kw::Sra,
-        b"srl" => Kw::Srl,
-        b"strong" => Kw::Strong,
-        b"subtype" => Kw::Subtype,
-        b"then" => Kw::Then,
-        b"to" => Kw::To,
-        b"transport" => Kw::Transport,
-        b"type" => Kw::Type,
-        b"unaffected" => Kw::Unaffected,
-        b"units" => Kw::Units,
-        b"until" => Kw::Until,
-        b"use" => Kw::Use,
-        b"variable" => Kw::Variable,
-        b"view" => Kw::View,
-        b"vpgk" => Kw::Vpgk,
-        b"vmode" => Kw::Vmode,
-        b"vprop" => Kw::Vprop,
-        b"vunit" => Kw::Vunit,
-        b"wait" => Kw::Wait,
-        b"when" => Kw::When,
-        b"while" => Kw::While,
-        b"with" => Kw::With,
-        b"xnor" => Kw::Xnor,
-        b"xor" => Kw::Xor,
-        _ => return None,
-    })
 }
 
 #[cfg(test)]
@@ -1312,6 +1200,83 @@ comment
         assert_eq!(
             "begin!end".tokenize_kinds(),
             vec![Keyword(Kw::Begin), Unknown, Keyword(Kw::End), Eof]
+        );
+    }
+
+    // ---- standard-aware keyword tests ----
+
+    fn tokenize_first_kind_with_standard(
+        standard: crate::standard::VHDLStandard,
+        input: &str,
+    ) -> TokenKind {
+        use super::Tokenizer;
+        Tokenizer::with_standard(standard, input.bytes())
+            .next()
+            .unwrap()
+            .kind()
+    }
+
+    #[test]
+    fn xnor_is_identifier_before_vhdl1993() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL1987, "xnor"),
+            Identifier
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL1993, "xnor"),
+            Keyword(Kw::Xnor)
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2008, "xnor"),
+            Keyword(Kw::Xnor)
+        );
+    }
+
+    #[test]
+    fn protected_is_identifier_before_vhdl2000() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL1993, "protected"),
+            Identifier
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2000, "protected"),
+            Keyword(Kw::Protected)
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2008, "protected"),
+            Keyword(Kw::Protected)
+        );
+    }
+
+    #[test]
+    fn context_is_identifier_before_vhdl2008() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2002, "context"),
+            Identifier
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2008, "context"),
+            Keyword(Kw::Context)
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2019, "context"),
+            Keyword(Kw::Context)
+        );
+    }
+
+    #[test]
+    fn view_is_identifier_before_vhdl2019() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2008, "view"),
+            Identifier
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2019, "view"),
+            Keyword(Kw::View)
         );
     }
 }

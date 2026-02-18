@@ -14,7 +14,6 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 use vhdl_syntax::parser;
-use vhdl_syntax::parser::Parser;
 use vhdl_syntax::syntax::node::SyntaxElement;
 use vhdl_syntax::syntax::rewrite::RewriteAction;
 use vhdl_syntax::syntax::AstNode;
@@ -38,22 +37,22 @@ end foobar;
         "Did not expect diagnostics for correct VHDL"
     );
 
-    // The target
-    // NOTE: Usage of the parser API will be significantly changed or removed in favor of a better alternative in a future version.
-    let mut parser = Parser::new(
+    // The target: parse a full design file and take the entity declaration node.
+    let (replacement_file, diagnostics) = parser::parse(
         "\
 entity no_longer_foo is
 end no_longer_foo;
 
-"
-        .into(),
+",
     );
-    parser.entity_declaration();
-    let (replacement_entity, diagnostics) = parser.into_root();
     assert!(
         diagnostics.is_empty(),
         "Did not expect diagnostics for correct VHDL"
     );
+    let replacement_entity = replacement_file
+        .design_units()
+        .next()
+        .expect("expected entity declaration in replacement file");
 
     let new_file = file.raw().rewrite(|node| match node {
         SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {
@@ -64,7 +63,7 @@ end no_longer_foo;
                     .and_then(|preamble| preamble.name_token())
                     .is_some_and(|tok| tok.text() == "foo") =>
             {
-                RewriteAction::Change(SyntaxElement::Node(replacement_entity.clone()))
+                RewriteAction::Change(SyntaxElement::Node(replacement_entity.raw()))
             }
             // If the syntax node is not an entity, or the name of the entity is not 'foo', leave the node as-is
             _ => RewriteAction::Leave,
