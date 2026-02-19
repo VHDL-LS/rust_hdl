@@ -4,6 +4,8 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
+pub mod builders;
+pub use builders::BuilderGenerator;
 pub mod syntax_nodes;
 pub use syntax_nodes::SyntaxNodeGenerator;
 

@@ -5,7 +5,7 @@
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use clap::{Parser, Subcommand};
-use generate::{check_generators, run_generators, Generator, SyntaxNodeGenerator};
+use generate::{check_generators, run_generators, BuilderGenerator, Generator, SyntaxNodeGenerator};
 use model::load_model;
 use std::path::Path;
 use std::process;
@@ -42,7 +42,7 @@ fn main() {
             let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
             let definitions_dir = workspace_root.join("xtask/src/syntax_definitions");
             let model = load_model(&definitions_dir);
-            let generators: &[&dyn Generator] = &[&SyntaxNodeGenerator];
+            let generators: &[&dyn Generator] = &[&SyntaxNodeGenerator, &BuilderGenerator];
 
             if check {
                 let stale = check_generators(generators, &model, &output_dir)

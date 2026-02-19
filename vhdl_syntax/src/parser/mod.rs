@@ -10,7 +10,7 @@ use crate::syntax::{DesignFileSyntax, NodeKind};
 use crate::tokens::TokenStream;
 use crate::tokens::Tokenizer;
 
-mod builder;
+pub(crate) mod builder;
 pub mod diagnostics;
 #[cfg(test)]
 mod test_utils;

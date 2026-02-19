@@ -362,6 +362,9 @@ fn generate_mod(model: &Model) -> TokenStream {
         pub use node_kind::*;
 
         #sections
+
+        pub mod builders;
+        pub use builders::*;
     }
 }
 
