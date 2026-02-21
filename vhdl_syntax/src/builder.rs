@@ -6,7 +6,7 @@
 
 //! Domain types for the builder API. Each type has named constructors that accept
 //! Rust values and produces a VHDL token.
-//! 
+//!
 //! Use `.with_trivia(Trivia)` for full trivia control (default: one leading space).
 //!
 //! Each domain type implements `From<Token>` as an escape hatch for passing tokens from a parsed AST
@@ -307,7 +307,11 @@ impl BitStringLiteral {
         text.push(b'"');
         text.extend(digits);
         text.push(b'"');
-        BitStringLiteral(Token::new(TokenKind::BitStringLiteral, text, default_trivia()))
+        BitStringLiteral(Token::new(
+            TokenKind::BitStringLiteral,
+            text,
+            default_trivia(),
+        ))
     }
 
     /// Binary bit-string literal: `B"1010"`.

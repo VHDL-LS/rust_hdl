@@ -290,7 +290,7 @@ fn generate_builder(
                 let ty = syntax_type_ident(&node_ref.kind);
                 Some(quote! { #field: impl Into<#ty> })
             }
-            _ => None
+            _ => None,
         })
         .collect();
 

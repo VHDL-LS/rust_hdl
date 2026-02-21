@@ -11,35 +11,35 @@
 //! entirely from defaults is a space-separated sequence of the keyword/symbol texts.
 
 use vhdl_syntax::{
-    builder::{
-        AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral,
-    },
+    builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral},
     parser,
     syntax::{
-        ArchitectureEpilogueBuilder, AstNode, EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax, PrimaryUnitSyntax
+        ArchitectureEpilogueBuilder, AstNode, EntityDeclarationBuilder,
+        EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax,
+        PrimaryUnitSyntax,
     },
-    tokens::{Token, TokenKind, Trivia},
+    tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
 
-// ── ArchitectureEpilogue ─────────────────────────────────────────────────────
+// MARK: ArchitectureEpilogue
 
 /// A default-built epilogue has no optional tokens: just `end ;`.
 #[test]
 fn arch_epilogue_default_text() {
-    let node = ArchitectureEpilogueBuilder::default().build();
+    let node = ArchitectureEpilogueBuilder::new().build();
     assert_eq!(node.raw().to_string(), " end ;");
 }
 
 /// Optional tokens can be added with `with_*` setters.
 #[test]
 fn arch_epilogue_with_optional_tokens() {
-    use vhdl_syntax::tokens::Keyword;
+    use vhdl_syntax::tokens::Keyword as Kw;
     let arch_tok = Token::new(
-        TokenKind::Keyword(Keyword::Architecture),
-        Keyword::Architecture.canonical_text(),
-        Trivia::from([vhdl_syntax::tokens::TriviaPiece::Spaces(1)]),
+        TokenKind::Keyword(Kw::Architecture),
+        Kw::Architecture.canonical_text(),
+        Trivia::from([TriviaPiece::Spaces(1)]),
     );
-    let node = ArchitectureEpilogueBuilder::default()
+    let node = ArchitectureEpilogueBuilder::new()
         .with_architecture_token(arch_tok)
         .with_identifier_token(Identifier::from(b"my_arch"))
         .build();
@@ -54,14 +54,13 @@ fn entity_preamble_text() {
 }
 
 /// The auto-filled `entity` keyword can be overridden by passing a full `Token`.
-/// This demonstrates that `impl Into<Token>` still accepts raw tokens for canonical fields.
 #[test]
 fn entity_preamble_custom_entity_token() {
-    use vhdl_syntax::tokens::Keyword;
+    use vhdl_syntax::tokens::Keyword as Kw;
     // Provide the keyword with no leading trivia to verify the override is used.
     let kw = Token::new(
-        TokenKind::Keyword(Keyword::Entity),
-        Keyword::Entity.canonical_text(),
+        TokenKind::Keyword(Kw::Entity),
+        Kw::Entity.canonical_text(),
         Trivia::default(),
     );
     let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"e"))
@@ -116,8 +115,7 @@ fn roundtrip_entity_preamble_name_from_parsed_ast() {
 
     // Rebuild using the builder, passing the parsed Token directly.
     // Token implements Into<Identifier> via From<Token> for Identifier.
-    let rebuilt =
-        EntityDeclarationPreambleBuilder::new(name_tok.token().clone()).build();
+    let rebuilt = EntityDeclarationPreambleBuilder::new(name_tok.token().clone()).build();
     // The trivia of the original token is preserved; keywords use single-space trivia.
     assert_eq!(rebuilt.raw().to_string(), " entity work is");
 }
@@ -209,11 +207,7 @@ fn bit_string_literal_prefixes() {
 /// From<Token> for Identifier works for correctly-kinded tokens.
 #[test]
 fn identifier_from_token_escape_hatch() {
-    let tok = Token::new(
-        TokenKind::Identifier,
-        b"foo".as_slice(),
-        Trivia::default(),
-    );
+    let tok = Token::new(TokenKind::Identifier, b"foo".as_slice(), Trivia::default());
     let id = Identifier::from(tok);
     let out: Token = id.into();
     assert_eq!(out.text().to_string(), "foo");

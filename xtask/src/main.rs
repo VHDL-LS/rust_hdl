@@ -5,7 +5,9 @@
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use clap::{Parser, Subcommand};
-use generate::{check_generators, run_generators, BuilderGenerator, Generator, SyntaxNodeGenerator};
+use generate::{
+    check_generators, run_generators, BuilderGenerator, Generator, SyntaxNodeGenerator,
+};
 use model::load_model;
 use std::path::Path;
 use std::process;

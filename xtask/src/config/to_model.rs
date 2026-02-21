@@ -6,9 +6,7 @@
 
 use crate::config::yaml::{NodeContents, NodeOrToken};
 use crate::model::token::Keyword;
-use crate::model::{
-    ChoiceNode, Model, Node, NodeRef, SequenceNode, Token, TokenKind, TokenOrNode,
-};
+use crate::model::{ChoiceNode, Model, Node, NodeRef, SequenceNode, Token, TokenKind, TokenOrNode};
 
 impl Model {
     pub fn insert_ser_nodes(&mut self, category: &str, nodes: crate::config::yaml::Nodes) {

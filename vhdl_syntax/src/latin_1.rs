@@ -424,7 +424,7 @@ impl AsRef<Latin1Str> for [u8] {
     }
 }
 
-impl<const N: usize> AsRef<Latin1Str> for [u8;N] {
+impl<const N: usize> AsRef<Latin1Str> for [u8; N] {
     fn as_ref(&self) -> &Latin1Str {
         Latin1Str::new(self)
     }
