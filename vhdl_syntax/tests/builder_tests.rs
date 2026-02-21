@@ -12,11 +12,12 @@
 
 use vhdl_syntax::{
     builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral},
+    latin_1::Latin1Str,
     parser,
     syntax::{
-        ArchitectureEpilogueBuilder, AstNode, EntityDeclarationBuilder,
-        EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax,
-        PrimaryUnitSyntax,
+        ActualPartBuilder, ArchitectureEpilogueBuilder, AssociationElementBuilder, AstNode,
+        EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
+        EntityDeclarationPreambleBuilder, LibraryUnitSyntax, PrimaryUnitSyntax,
     },
     tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
@@ -223,4 +224,29 @@ fn identifier_from_token_wrong_kind_panics() {
         Trivia::default(),
     );
     let _ = Identifier::from(tok);
+}
+
+// MARK: ActualPartBuilder (RawTokens node)
+
+/// `from_vhdl` tokenizes the input and adds a leading space to the first token.
+#[test]
+fn actual_part_from_vhdl_adds_leading_space() {
+    let syntax = ActualPartBuilder::from_vhdl(Latin1Str::new(b"clk")).build();
+    assert_eq!(syntax.raw().to_string(), " clk");
+}
+
+/// A programmatically assembled `ActualPartBuilder` holds exactly the pushed tokens.
+#[test]
+fn actual_part_programmatic_token_chain() {
+    let tok = Token::new(TokenKind::Identifier, b"foo".as_slice(), Trivia::default());
+    let syntax = ActualPartBuilder::new().token(tok).build();
+    assert_eq!(syntax.raw().tokens().count(), 1);
+}
+
+/// `ActualPartBuilder` satisfies `impl Into<ActualPartSyntax>` required by `AssociationElementBuilder::new`.
+#[test]
+fn actual_part_satisfies_into_for_association_element() {
+    let _ = AssociationElementBuilder::new(ActualPartBuilder::from_vhdl(Latin1Str::new(
+        b"system_clock",
+    )));
 }

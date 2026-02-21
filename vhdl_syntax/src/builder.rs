@@ -23,7 +23,10 @@
 //! ```
 
 use crate::latin_1::{char_to_latin1, Latin1Str, Latin1String, NonLatin1CharError};
-use crate::tokens::{Token, TokenKind, Trivia, TriviaPiece};
+use crate::parser::builder::NodeBuilder;
+use crate::syntax::node::SyntaxNode;
+use crate::syntax::node_kind::NodeKind;
+use crate::tokens::{Token, TokenKind, Tokenize, Trivia, TriviaPiece};
 
 fn default_trivia() -> Trivia {
     Trivia::from([TriviaPiece::Spaces(1)])
@@ -362,5 +365,54 @@ impl BitStringLiteral {
     /// Decimal bit-string literal: `D"10"`.
     pub fn decimal(digits: impl AsRef<Latin1Str>) -> Self {
         Self::new(Latin1Str::new(b"D"), digits.as_ref())
+    }
+}
+
+// MARK: RawNodeBuilder
+
+/// Shared builder for `!RawTokens` AST nodes (e.g. `ActualPartSyntax`, `RawTokensSyntax`).
+/// Use the generated per-node wrappers rather than this type directly.
+pub(crate) struct RawNodeBuilder {
+    kind: NodeKind,
+    tokens: Vec<Token>,
+}
+
+impl RawNodeBuilder {
+    pub(crate) fn new(kind: NodeKind) -> Self {
+        Self {
+            kind,
+            tokens: vec![],
+        }
+    }
+
+    pub(crate) fn token(mut self, t: impl Into<Token>) -> Self {
+        self.tokens.push(t.into());
+        self
+    }
+
+    /// Tokenizes `vhdl` and stores the resulting tokens (EOF token excluded).
+    /// Adds one leading space to the first token when it carries no trivia,
+    /// matching the default-trivia convention of all other builders.
+    pub(crate) fn from_vhdl(kind: NodeKind, vhdl: impl Tokenize) -> Self {
+        let mut tokens: Vec<Token> = vhdl
+            .tokenize()
+            .filter(|t| t.kind() != TokenKind::Eof)
+            .collect();
+        if let Some(first) = tokens.first_mut() {
+            if first.leading_trivia().is_empty() {
+                first.set_leading_trivia(Trivia::from([TriviaPiece::Spaces(1)]));
+            }
+        }
+        Self { kind, tokens }
+    }
+
+    pub(crate) fn build(self) -> SyntaxNode {
+        let mut b = NodeBuilder::new();
+        b.start_node(self.kind);
+        for token in self.tokens {
+            b.push(token);
+        }
+        b.end_node();
+        SyntaxNode::new_root(b.end())
     }
 }

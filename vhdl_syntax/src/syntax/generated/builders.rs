@@ -4,7 +4,9 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
-use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
+use crate::builder::{
+    AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, RawNodeBuilder, StringLiteral,
+};
 use crate::parser::builder::NodeBuilder;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::node_kind::NodeKind;
@@ -19279,6 +19281,56 @@ impl WhileIterationSchemeBuilder {
 }
 impl From<WhileIterationSchemeBuilder> for WhileIterationSchemeSyntax {
     fn from(value: WhileIterationSchemeBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct RawTokensBuilder(RawNodeBuilder);
+impl Default for RawTokensBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl RawTokensBuilder {
+    pub fn new() -> Self {
+        Self(RawNodeBuilder::new(NodeKind::RawTokens))
+    }
+    pub fn from_vhdl(vhdl: impl crate::tokens::tokenizer::Tokenize) -> Self {
+        Self(RawNodeBuilder::from_vhdl(NodeKind::RawTokens, vhdl))
+    }
+    pub fn token(self, t: impl Into<Token>) -> Self {
+        Self(self.0.token(t))
+    }
+    pub fn build(self) -> RawTokensSyntax {
+        RawTokensSyntax::cast(self.0.build()).unwrap()
+    }
+}
+impl From<RawTokensBuilder> for RawTokensSyntax {
+    fn from(value: RawTokensBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ActualPartBuilder(RawNodeBuilder);
+impl Default for ActualPartBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ActualPartBuilder {
+    pub fn new() -> Self {
+        Self(RawNodeBuilder::new(NodeKind::ActualPart))
+    }
+    pub fn from_vhdl(vhdl: impl crate::tokens::tokenizer::Tokenize) -> Self {
+        Self(RawNodeBuilder::from_vhdl(NodeKind::ActualPart, vhdl))
+    }
+    pub fn token(self, t: impl Into<Token>) -> Self {
+        Self(self.0.token(t))
+    }
+    pub fn build(self) -> ActualPartSyntax {
+        ActualPartSyntax::cast(self.0.build()).unwrap()
+    }
+}
+impl From<ActualPartBuilder> for ActualPartSyntax {
+    fn from(value: ActualPartBuilder) -> Self {
         value.build()
     }
 }
