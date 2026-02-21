@@ -77,7 +77,6 @@ fn has_canonical_text(kind: &TokenKind) -> bool {
             | TokenKind::ToolDirective
             | TokenKind::Unterminated
             | TokenKind::Unknown
-            | TokenKind::Eof
     )
 }
 
@@ -411,8 +410,8 @@ fn generate_builder(
                 if node_ref.repeated {
                     let add = format_ident!("add_{}", node_ref.getter_name());
                     quote! {
-                        pub fn #add(mut self, n: #ty) -> Self {
-                            self.#field.push(n);
+                        pub fn #add(mut self, n: impl Into<#ty>) -> Self {
+                            self.#field.push(n.into());
                             self
                         }
                     }

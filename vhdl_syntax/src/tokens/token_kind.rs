@@ -125,6 +125,7 @@ impl TokenKind {
             Self::Comma => Some(Latin1Str::new(b",")),
             Self::ColonEq => Some(Latin1Str::new(b":=")),
             Self::RightArrow => Some(Latin1Str::new(b"=>")),
+            Self::Eof => Some(Latin1Str::new(b"")),
             _ => None,
         }
     }
