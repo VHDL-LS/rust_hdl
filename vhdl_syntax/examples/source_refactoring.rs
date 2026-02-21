@@ -56,7 +56,8 @@ end foobar;
         EntityDeclarationEpilogueBuilder::new()
             // Replace space between 'is' and 'and' with newline
             .with_end_token_trivia(Trivia::from([TriviaPiece::LineFeeds(1)]))
-            .with_semi_colon_token_trivia(Trivia::new()),
+            .with_identifier_token(b"no_longer_foo")
+            .with_semi_colon_token_trivia(Trivia::new())
     )
     .build();
 
@@ -81,7 +82,7 @@ end foobar;
         format!("{}", new_file),
         "\
 entity no_longer_foo is
-end;
+end no_longer_foo;
 
 entity bar1 is
 end bar1;
