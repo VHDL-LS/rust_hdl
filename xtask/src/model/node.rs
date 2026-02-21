@@ -88,6 +88,13 @@ impl Node {
             })
         )
     }
+
+    pub fn as_sequence(&self) -> Option<&SequenceNode> {
+        match self {
+            Node::Items(seq) => Some(seq),
+            Node::Choices(_) => None,
+        }
+    }
 }
 
 impl From<SequenceNode> for Node {

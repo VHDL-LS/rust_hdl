@@ -21,6 +21,7 @@ impl Generator for BuilderGenerator {
     fn generate_files(&self, model: &Model) -> Vec<(String, TokenStream)> {
         let imports = quote! {
             use super::*;
+            use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
             use crate::parser::builder::NodeBuilder;
             use crate::syntax::node::SyntaxNode;
             use crate::syntax::node_kind::NodeKind;
@@ -33,13 +34,8 @@ impl Generator for BuilderGenerator {
         let defaultable = compute_defaultable_nodes(model);
 
         // Collect all sequence nodes, sorted for deterministic output.
-        let mut sequence_nodes: Vec<&SequenceNode> = model
-            .all_nodes()
-            .filter_map(|node| match node {
-                Node::Items(seq) => Some(seq),
-                Node::Choices(_) => None,
-            })
-            .collect();
+        let mut sequence_nodes: Vec<&SequenceNode> =
+            model.all_nodes().filter_map(Node::as_sequence).collect();
         sequence_nodes.sort_by_key(|n| &n.name);
 
         let builders: TokenStream = sequence_nodes
@@ -75,13 +71,26 @@ fn has_canonical_text(kind: &TokenKind) -> bool {
     )
 }
 
+/// Maps a `TokenKind` to its domain type path for builder method signatures.
+///
+/// Returns `None` for canonical tokens (keywords, symbols), which keep `impl Into<Token>`.
+fn domain_type(kind: &TokenKind) -> Option<TokenStream> {
+    match kind {
+        TokenKind::Identifier => Some(quote! { crate::builder::Identifier }),
+        TokenKind::AbstractLiteral => Some(quote! { crate::builder::AbstractLiteral }),
+        TokenKind::StringLiteral => Some(quote! { crate::builder::StringLiteral }),
+        TokenKind::BitStringLiteral => Some(quote! { crate::builder::BitStringLiteral }),
+        TokenKind::CharacterLiteral => Some(quote! { crate::builder::CharLiteral }),
+        _ => None,
+    }
+}
+
+/// Returns true when a token must appear as a constructor argument.
 fn is_constructor_arg_token(token: &Token) -> bool {
     !token.optional && !token.repeated && !has_canonical_text(&token.kind)
 }
 
 /// Returns true when a node ref must appear as a constructor argument.
-/// A required node ref is *not* a constructor argument when its target node's
-/// builder implements `Default` (i.e., can be auto-initialized).
 fn is_constructor_arg_node(node_ref: &NodeRef, defaultable: &HashSet<String>) -> bool {
     !node_ref.optional && !node_ref.repeated && !defaultable.contains(&node_ref.kind)
 }
@@ -176,6 +185,54 @@ fn token_default_expr(token: &Token) -> TokenStream {
     }
 }
 
+// MARK: Trivia setter generation
+
+/// Generates a `with_*_trivia(Trivia) -> Self` setter for a token field.
+///
+/// - **Required tokens**: mutates the stored `Token` directly.
+/// - **Optional canonical tokens**: materialises the token from its canonical default when
+///   `None`, then sets trivia — so the caller does not need a separate `with_*_token()` call
+///   just to control spacing.
+/// - **Optional non-canonical tokens**: only mutates when already `Some`; the user chooses
+///   the value via the domain type's own `.with_trivia()` setter.
+/// - **Repeated tokens**: returns an empty stream — no unambiguous single target.
+fn generate_token_trivia_setter(token: &Token) -> TokenStream {
+    if token.repeated {
+        return quote! {};
+    }
+    let field = format_ident!("{}", token.getter_name());
+    let with_trivia = format_ident!("with_{}_trivia", token.getter_name());
+
+    if token.optional {
+        if has_canonical_text(&token.kind) {
+            let default_expr = token_default_expr(token);
+            quote! {
+                pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+                    let tok = self.#field.get_or_insert_with(|| #default_expr);
+                    tok.set_leading_trivia(trivia);
+                    self
+                }
+            }
+        } else {
+            quote! {
+                pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+                    if let Some(ref mut t) = self.#field {
+                        t.set_leading_trivia(trivia);
+                    }
+                    self
+                }
+            }
+        }
+    } else {
+        quote! {
+            pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+                self.#field.set_leading_trivia(trivia);
+                self
+            }
+        }
+    }
+}
+
 // MARK: Builder generation
 
 fn generate_builder(
@@ -216,36 +273,26 @@ fn generate_builder(
         })
         .collect();
 
-    // --- Constructor args ---
-    // Tokens without canonical text come first (YAML order), then required nodes
-    // that are not auto-defaultable (YAML order).
-    let token_args: Vec<TokenStream> = node
+    let constructor_args: Vec<TokenStream> = node
         .items
         .iter()
         .filter_map(|item| match item {
             TokenOrNode::Token(token) if is_constructor_arg_token(token) => {
                 let field = format_ident!("{}", token.getter_name());
-                Some(quote! { #field: Token })
+                if let Some(domain) = domain_type(&token.kind) {
+                    Some(quote! { #field: impl Into<#domain> })
+                } else {
+                    Some(quote! { #field: impl Into<Token> })
+                }
             }
-            _ => None,
-        })
-        .collect();
-
-    let node_args: Vec<TokenStream> = node
-        .items
-        .iter()
-        .filter_map(|item| match item {
             TokenOrNode::Node(node_ref) if is_constructor_arg_node(node_ref, defaultable) => {
                 let field = format_ident!("{}", node_ref.getter_name());
                 let ty = syntax_type_ident(&node_ref.kind);
-                Some(quote! { #field: #ty })
+                Some(quote! { #field: impl Into<#ty> })
             }
-            _ => None,
+            _ => None
         })
         .collect();
-
-    let constructor_args: Vec<TokenStream> =
-        token_args.into_iter().chain(node_args).collect();
 
     // --- Field initializers in new() ---
     let field_inits: Vec<TokenStream> = node
@@ -259,7 +306,11 @@ fn generate_builder(
                 } else if token.optional {
                     quote! { #field: None }
                 } else if is_constructor_arg_token(token) {
-                    quote! { #field }
+                    if domain_type(&token.kind).is_some() {
+                        quote! { #field: #field.into().into() }
+                    } else {
+                        quote! { #field: #field.into() }
+                    }
                 } else {
                     let default = token_default_expr(token);
                     quote! { #field: #default }
@@ -273,7 +324,7 @@ fn generate_builder(
                     quote! { #field: None }
                 } else if is_constructor_arg_node(node_ref, defaultable) {
                     // Not defaultable — caller must supply this node.
-                    quote! { #field }
+                    quote! { #field: #field.into() }
                 } else {
                     // Defaultable — auto-initialize via its builder's Default impl.
                     let node_builder = builder_ident(&node_ref.kind);
@@ -290,32 +341,59 @@ fn generate_builder(
         .map(|item| match item {
             TokenOrNode::Token(token) => {
                 let field = format_ident!("{}", token.getter_name());
-                if token.repeated {
+                let value_setter = if token.repeated {
                     let add = format_ident!("add_{}", token.getter_name());
-                    quote! {
-                        pub fn #add(mut self, t: Token) -> Self {
-                            self.#field.push(t);
-                            self
-                        }
-                    }
-                } else {
-                    let with = format_ident!("with_{}", token.getter_name());
-                    if token.optional {
+                    if let Some(domain) = domain_type(&token.kind) {
                         quote! {
-                            pub fn #with(mut self, t: Token) -> Self {
-                                self.#field = Some(t);
+                            pub fn #add(mut self, t: impl Into<#domain>) -> Self {
+                                self.#field.push(t.into().into());
                                 self
                             }
                         }
                     } else {
                         quote! {
-                            pub fn #with(mut self, t: Token) -> Self {
-                                self.#field = t;
+                            pub fn #add(mut self, t: impl Into<Token>) -> Self {
+                                self.#field.push(t.into());
                                 self
                             }
                         }
                     }
-                }
+                } else {
+                    let with = format_ident!("with_{}", token.getter_name());
+                    if token.optional {
+                        if let Some(domain) = domain_type(&token.kind) {
+                            quote! {
+                                pub fn #with(mut self, t: impl Into<#domain>) -> Self {
+                                    self.#field = Some(t.into().into());
+                                    self
+                                }
+                            }
+                        } else {
+                            quote! {
+                                pub fn #with(mut self, t: impl Into<Token>) -> Self {
+                                    self.#field = Some(t.into());
+                                    self
+                                }
+                            }
+                        }
+                    } else if let Some(domain) = domain_type(&token.kind) {
+                        quote! {
+                            pub fn #with(mut self, t: impl Into<#domain>) -> Self {
+                                self.#field = t.into().into();
+                                self
+                            }
+                        }
+                    } else {
+                        quote! {
+                            pub fn #with(mut self, t: impl Into<Token>) -> Self {
+                                self.#field = t.into();
+                                self
+                            }
+                        }
+                    }
+                };
+                let trivia_setter = generate_token_trivia_setter(token);
+                quote! { #value_setter #trivia_setter }
             }
             TokenOrNode::Node(node_ref) => {
                 let field = format_ident!("{}", node_ref.getter_name());
@@ -332,15 +410,15 @@ fn generate_builder(
                     let with = format_ident!("with_{}", node_ref.getter_name());
                     if node_ref.optional {
                         quote! {
-                            pub fn #with(mut self, n: #ty) -> Self {
-                                self.#field = Some(n);
+                            pub fn #with(mut self, n: impl Into<#ty>) -> Self {
+                                self.#field = Some(n.into());
                                 self
                             }
                         }
                     } else {
                         quote! {
-                            pub fn #with(mut self, n: #ty) -> Self {
-                                self.#field = n;
+                            pub fn #with(mut self, n: impl Into<#ty>) -> Self {
+                                self.#field = n.into();
                                 self
                             }
                         }
@@ -449,6 +527,12 @@ fn generate_builder(
                 let green = builder.end();
                 let node = SyntaxNode::new_root(green);
                 #syntax::cast(node).unwrap()
+            }
+        }
+
+        impl From<#builder> for #syntax {
+            fn from(value: #builder) -> Self {
+                value.build()
             }
         }
     }
@@ -590,6 +674,79 @@ mod tests {
         assert!(
             !defaultable.contains("ParentNode"),
             "ParentNode (has Identifier arg) should not be defaultable"
+        );
+    }
+
+    #[test]
+    fn trivia_setter_emitted_for_required_canonical_token() {
+        let mut model = Model::default();
+        let seq = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
+        );
+        model.push_node("test".to_string(), Node::Items(seq));
+        model.do_postprocessing();
+
+        let gen = BuilderGenerator;
+        let code = gen.generate_files(&model)[0].1.to_string();
+
+        assert!(
+            code.contains("with_semi_colon_token_trivia"),
+            "expected trivia setter for required canonical token:\n{code}"
+        );
+    }
+
+    #[test]
+    fn trivia_setter_emitted_for_optional_canonical_token() {
+        let mut model = Model::default();
+        let seq = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Token(Token {
+                kind: TokenKind::SemiColon,
+                name: "semicolon".to_string(),
+                nth: 0,
+                repeated: false,
+                optional: true,
+            })],
+        );
+        model.push_node("test".to_string(), Node::Items(seq));
+        model.do_postprocessing();
+
+        let gen = BuilderGenerator;
+        let code = gen.generate_files(&model)[0].1.to_string();
+
+        assert!(
+            code.contains("with_semicolon_token_trivia"),
+            "expected trivia setter for optional canonical token:\n{code}"
+        );
+        assert!(
+            code.contains("get_or_insert_with"),
+            "optional canonical trivia setter should auto-initialise:\n{code}"
+        );
+    }
+
+    #[test]
+    fn trivia_setter_not_emitted_for_repeated_token() {
+        let mut model = Model::default();
+        let seq = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Token(Token {
+                kind: TokenKind::SemiColon,
+                name: "semicolon".to_string(),
+                nth: 0,
+                repeated: true,
+                optional: false,
+            })],
+        );
+        model.push_node("test".to_string(), Node::Items(seq));
+        model.do_postprocessing();
+
+        let gen = BuilderGenerator;
+        let code = gen.generate_files(&model)[0].1.to_string();
+
+        assert!(
+            !code.contains("with_semicolon_token_trivia"),
+            "trivia setter should NOT be generated for repeated tokens:\n{code}"
         );
     }
 

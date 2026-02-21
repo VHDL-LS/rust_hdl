@@ -109,6 +109,7 @@ EntityDeclaration: !Sequence
   - node: EntityHeader
   - node: Declarations
   - node: DeclarationStatementSeparator
+    optional: true
   - node: ConcurrentStatements
   - node: EntityDeclarationEpilogue
 
@@ -121,9 +122,13 @@ EntityDeclarationPreamble: !Sequence
 EntityDeclarationEpilogue: !Sequence
   - keyword: End
   - keyword: Entity
+    optional: true
   - token: Identifier
+    optional: true
   - token: SemiColon
 
 EntityHeader: !Sequence
   - node: GenericClause
+    optional: true
   - node: PortClause
+    optional: true

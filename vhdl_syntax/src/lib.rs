@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+pub mod builder;
 pub mod fmt;
 pub mod latin_1;
 pub mod parser;
