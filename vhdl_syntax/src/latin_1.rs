@@ -418,6 +418,18 @@ impl AsRef<[u8]> for Latin1String {
     }
 }
 
+impl AsRef<Latin1Str> for [u8] {
+    fn as_ref(&self) -> &Latin1Str {
+        Latin1Str::new(self)
+    }
+}
+
+impl<const N: usize> AsRef<Latin1Str> for [u8;N] {
+    fn as_ref(&self) -> &Latin1Str {
+        Latin1Str::new(self)
+    }
+}
+
 impl fmt::Display for Latin1String {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
@@ -655,6 +667,49 @@ impl fmt::Display for Utf8ToLatin1Error {
 }
 
 impl std::error::Error for Utf8ToLatin1Error {}
+
+pub fn char_to_latin1(chr: char) -> Result<u8, NonLatin1CharError> {
+    let mut bytes = [0; 4];
+    chr.encode_utf8(&mut bytes);
+    let byte = bytes[0];
+    if byte < 128 {
+        Ok(byte)
+    } else if byte == 0xc2 {
+        let next_byte = bytes[1];
+        if (128..192).contains(&next_byte) {
+            Ok(next_byte)
+        } else {
+            Err(NonLatin1CharError { ch: chr })
+        }
+    } else if byte == 0xc3 {
+        let next_byte = bytes[1];
+        if (128..192).contains(&next_byte) {
+            Ok(next_byte + 64)
+        } else {
+            Err(NonLatin1CharError { ch: chr })
+        }
+    } else {
+        Err(NonLatin1CharError { ch: chr })
+    }
+}
+
+/// Error returned when a Rust `char` cannot be represented in Latin-1.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NonLatin1CharError {
+    pub ch: char,
+}
+
+impl fmt::Display for NonLatin1CharError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "character '{}' (U+{:04X}) cannot be represented in Latin-1",
+            self.ch, self.ch as u32
+        )
+    }
+}
+
+impl std::error::Error for NonLatin1CharError {}
 
 pub trait ToLatin1 {
     fn to_latin1(&self) -> Latin1String;
