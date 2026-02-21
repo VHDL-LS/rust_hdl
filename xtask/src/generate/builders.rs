@@ -5,9 +5,9 @@
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::generate::Generator;
-use crate::model::{Model, Node, NodeRef, SequenceNode, Token, TokenKind, TokenOrNode};
+use crate::model::{ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenKind, TokenOrNode};
 use convert_case::{Case, Casing};
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashSet;
 
@@ -52,10 +52,25 @@ impl Generator for BuilderGenerator {
             .map(generate_raw_tokens_builder)
             .collect();
 
+        let mut choice_nodes: Vec<&ChoiceNode> = model
+            .all_nodes()
+            .filter_map(|n| match n {
+                Node::Choices(c) if matches!(c.items, NodesOrTokens::Tokens(_)) => Some(c),
+                _ => None,
+            })
+            .collect();
+        choice_nodes.sort_by_key(|n| &n.name);
+
+        let token_choice_tokens: TokenStream = choice_nodes
+            .iter()
+            .map(|c| generate_token_choice_token(c))
+            .collect();
+
         let stream = quote! {
             #imports
             #builders
             #raw_token_builders
+            #token_choice_tokens
         };
 
         vec![("builders".to_string(), stream)]
@@ -166,6 +181,26 @@ fn node_kind_ident(name: &str) -> Ident {
     format_ident!("{}", name.to_case(Case::UpperCamel))
 }
 
+fn token_type_ident(name: &str) -> Ident {
+    format_ident!("{}Token", name.to_case(Case::UpperCamel))
+}
+
+/// Creates a snake_case method identifier, using a raw identifier (`r#name`) for any name
+/// that collides with a Rust reserved keyword (e.g. VHDL `mod` → `r#mod`).
+fn method_ident(name: &str) -> Ident {
+    let snake = name.to_case(Case::Snake);
+    // Strict and reserved keywords from the Rust reference that cannot appear as plain
+    // identifiers in function position.
+    match snake.as_str() {
+        "as" | "async" | "await" | "break" | "const" | "continue" | "crate" | "dyn"
+        | "else" | "enum" | "extern" | "false" | "fn" | "for" | "if" | "impl" | "in"
+        | "let" | "loop" | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return"
+        | "self" | "static" | "struct" | "super" | "trait" | "true" | "type" | "unsafe"
+        | "use" | "where" | "while" => Ident::new_raw(&snake, Span::call_site()),
+        _ => format_ident!("{}", snake),
+    }
+}
+
 // MARK: Token default expression (code emitted into builders.rs)
 
 /// Generates the `Token::new(...)` expression for a token that has canonical text.
@@ -270,7 +305,11 @@ fn generate_builder(
             }
             TokenOrNode::Node(node_ref) => {
                 let field = format_ident!("{}", node_ref.getter_name());
-                let ty = syntax_type_ident(&node_ref.kind);
+                let ty = if model.is_token_choice(&node_ref.kind) {
+                    token_type_ident(&node_ref.kind)
+                } else {
+                    syntax_type_ident(&node_ref.kind)
+                };
                 if node_ref.repeated {
                     quote! { #field: Vec<#ty> }
                 } else if node_ref.optional {
@@ -296,7 +335,11 @@ fn generate_builder(
             }
             TokenOrNode::Node(node_ref) if is_constructor_arg_node(node_ref, defaultable) => {
                 let field = format_ident!("{}", node_ref.getter_name());
-                let ty = syntax_type_ident(&node_ref.kind);
+                let ty = if model.is_token_choice(&node_ref.kind) {
+                    token_type_ident(&node_ref.kind)
+                } else {
+                    syntax_type_ident(&node_ref.kind)
+                };
                 Some(quote! { #field: impl Into<#ty> })
             }
             _ => None,
@@ -406,7 +449,11 @@ fn generate_builder(
             }
             TokenOrNode::Node(node_ref) => {
                 let field = format_ident!("{}", node_ref.getter_name());
-                let ty = syntax_type_ident(&node_ref.kind);
+                let ty = if model.is_token_choice(&node_ref.kind) {
+                    token_type_ident(&node_ref.kind)
+                } else {
+                    syntax_type_ident(&node_ref.kind)
+                };
                 if node_ref.repeated {
                     let add = format_ident!("add_{}", node_ref.getter_name());
                     quote! {
@@ -462,23 +509,23 @@ fn generate_builder(
             }
             TokenOrNode::Node(node_ref) => {
                 let field = format_ident!("{}", node_ref.getter_name());
-                // Token-choice nodes wrap a SyntaxToken, not a SyntaxNode.
-                // Their .raw() returns SyntaxToken; push the underlying Token.
+                // Token-choice nodes wrap a bare Token via XyzToken.
+                // Push the inner Token directly via the .0 field.
                 if model.is_token_choice(&node_ref.kind) {
                     if node_ref.repeated {
                         quote! {
                             for n in self.#field {
-                                builder.push(n.raw().token().clone());
+                                builder.push(n.0);
                             }
                         }
                     } else if node_ref.optional {
                         quote! {
                             if let Some(n) = self.#field {
-                                builder.push(n.raw().token().clone());
+                                builder.push(n.0);
                             }
                         }
                     } else {
-                        quote! { builder.push(self.#field.raw().token().clone()); }
+                        quote! { builder.push(self.#field.0); }
                     }
                 } else if node_ref.repeated {
                     quote! {
@@ -577,6 +624,71 @@ fn generate_raw_tokens_builder(name: &str) -> TokenStream {
                 value.build()
             }
         }
+    }
+}
+
+// MARK: Token-choice token wrapper generation
+
+/// Generates `pub struct XyzToken(pub(crate) Token)` with named constructors and
+/// `From` impls for each token-choice choice node.
+fn generate_token_choice_token(node: &ChoiceNode) -> TokenStream {
+    let NodesOrTokens::Tokens(tokens) = &node.items else {
+        return quote! {};
+    };
+    let token_name = token_type_ident(&node.name);
+    let syntax_name = syntax_type_ident(&node.name);
+
+    let constructors: Vec<TokenStream> = tokens
+        .iter()
+        .map(|token| {
+            let method = method_ident(&token.name);
+            if let Some(domain) = domain_type(&token.kind) {
+                quote! {
+                    pub fn #method(v: impl Into<#domain>) -> Self {
+                        Self(v.into().into())
+                    }
+                }
+            } else {
+                let expr = token_default_expr(token);
+                quote! {
+                    pub fn #method() -> Self {
+                        Self(#expr)
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let from_syntax = quote! {
+        impl From<#syntax_name> for #token_name {
+            fn from(s: #syntax_name) -> Self {
+                #token_name(s.raw().token().clone())
+            }
+        }
+    };
+
+    let from_domain_impls: Vec<TokenStream> = tokens
+        .iter()
+        .filter_map(|token| {
+            let domain = domain_type(&token.kind)?;
+            let method = method_ident(&token.name);
+            Some(quote! {
+                impl From<#domain> for #token_name {
+                    fn from(v: #domain) -> Self {
+                        #token_name::#method(v)
+                    }
+                }
+            })
+        })
+        .collect();
+
+    quote! {
+        pub struct #token_name(pub(crate) Token);
+        impl #token_name {
+            #(#constructors)*
+        }
+        #from_syntax
+        #(#from_domain_impls)*
     }
 }
 

@@ -16,8 +16,10 @@ use vhdl_syntax::{
     parser,
     syntax::{
         ActualPartBuilder, ArchitectureEpilogueBuilder, AssociationElementBuilder, AstNode,
-        EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
-        EntityDeclarationPreambleBuilder, LibraryUnitSyntax, PrimaryUnitSyntax,
+        BinaryOperatorToken, EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
+        EntityDeclarationPreambleBuilder, LibraryUnitSyntax, LiteralExpressionBuilder,
+        LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder, NameDesignatorToken,
+        PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
     },
     tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
@@ -249,4 +251,56 @@ fn actual_part_satisfies_into_for_association_element() {
     let _ = AssociationElementBuilder::new(ActualPartBuilder::from_vhdl(Latin1Str::new(
         b"system_clock",
     )));
+}
+
+// MARK: XyzToken builder wrappers (token-choice nodes)
+
+/// `NameDesignatorToken::identifier()` creates a token that can be used with `NameDesignatorPrefixBuilder`.
+#[test]
+fn name_designator_token_identifier_constructor() {
+    let node = NameDesignatorPrefixBuilder::new(NameDesignatorToken::identifier(b"my_signal"))
+        .build();
+    assert_eq!(node.raw().to_string(), " my_signal");
+}
+
+/// `From<Identifier> for NameDesignatorToken` lets an `Identifier` be passed directly
+/// to builders that accept `impl Into<NameDesignatorToken>`.
+#[test]
+fn name_designator_prefix_from_identifier_directly() {
+    let node = NameDesignatorPrefixBuilder::new(Identifier::from(b"clk")).build();
+    assert_eq!(node.raw().to_string(), " clk");
+}
+
+/// `SuffixToken::all()` produces the canonical `all` keyword token;
+/// a `SelectedName` built from it emits `. all`.
+#[test]
+fn suffix_token_canonical_all_constructor() {
+    let node = SelectedNameBuilder::new(SuffixToken::all()).build();
+    assert_eq!(node.raw().to_string(), " . all");
+}
+
+/// `LiteralToken::null()` produces the canonical `null` keyword;
+/// a `LiteralExpression` built from it emits ` null`.
+#[test]
+fn literal_expression_from_null_token() {
+    let node = LiteralExpressionBuilder::new(LiteralToken::null()).build();
+    assert_eq!(node.raw().to_string(), " null");
+}
+
+/// `From<LiteralSyntax> for LiteralToken` is implemented: verified by coercing the
+/// function as a value (compile-time check, no runtime assertion needed).
+#[test]
+fn literal_token_from_literal_syntax_type_check() {
+    let _: fn(LiteralSyntax) -> LiteralToken = LiteralToken::from;
+}
+
+/// All-canonical `BinaryOperatorToken` constructors compile and produce distinct values.
+/// This also tests the `r#mod()` raw-identifier constructor generated for the VHDL `mod`
+/// operator (a Rust reserved keyword).
+#[test]
+fn binary_operator_token_canonical_constructors_compile() {
+    let _ = BinaryOperatorToken::and();
+    let _ = BinaryOperatorToken::or();
+    let _ = BinaryOperatorToken::eq();
+    let _ = BinaryOperatorToken::r#mod();
 }
