@@ -12,6 +12,7 @@ ProcedureSpecification: !Sequence
   - keyword: Procedure
   - node: Designator
   - node: SubprogramHeader
+    optional: true
   - node: ParameterList
     optional: true
 
@@ -21,7 +22,9 @@ FunctionSpecification: !Sequence
   - keyword: Function
   - node: Designator
   - node: SubprogramHeader
+    optional: true
   - node: ParameterList
+    optional: true
   - keyword: Return
   - node: Name
 
@@ -30,6 +33,7 @@ ParameterList: !Sequence
     optional: true
   - node: InterfaceList
     parenthesized: true
+    optional: true
 
 FunctionPurity: !Choice
   - keyword: Pure
@@ -45,13 +49,16 @@ SubprogramHeaderGenericClause: !Sequence
   - keyword: Generic
   - token: LeftPar
   - node: InterfaceList
+    optional: true
   - token: RightPar
 
 SubprogramBody: !Sequence
   - node: SubprogramBodyPreamble
   - node: Declarations
+    optional: true
   - node: DeclarationStatementSeparator
   - node: ConcurrentStatements
+    optional: true
   - node: SubprogramBodyEpilogue
 
 SubprogramBodyPreamble: !Sequence
@@ -89,7 +96,9 @@ SubprogramInstantiationDeclarationPreamble: !Sequence
 Package: !Sequence
   - node: PackagePreamble
   - node: PackageHeader
+    optional: true
   - node: Declarations
+    optional: true
   - node: PackageEpilogue
 
 PackagePreamble: !Sequence
@@ -117,6 +126,7 @@ PackageHeader: !Sequence
 PackageBody: !Sequence
   - node: PackageBodyPreamble
   - node: Declarations
+    optional: true
   - node: PackageBodyEpilogue
 
 PackageBodyPreamble: !Sequence

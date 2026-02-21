@@ -7,6 +7,7 @@ ContextClause: !Sequence
 ContextDeclaration: !Sequence
   - node: ContextDeclarationPreamble
   - node: ContextClause
+    optional: true
   - node: ContextDeclarationEpilogue
 
 ContextDeclarationPreamble: !Sequence
@@ -29,6 +30,7 @@ UseClauseContextItem: !Sequence
 ContextReference: !Sequence
   - keyword: Context
   - node: NameList
+    optional: true
   - token: SemiColon
 
 ContextItem: !Choice
@@ -43,6 +45,7 @@ DesignFile: !Sequence
 
 DesignUnit: !Sequence
   - node: ContextClause
+    optional: true
   - node: LibraryUnit
 
 LibraryClause: !Sequence

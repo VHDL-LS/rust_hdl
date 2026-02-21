@@ -663,4 +663,3 @@ impl AstNode for RawTokensSyntax {
         self.0.clone()
     }
 }
-impl RawTokensSyntax {}

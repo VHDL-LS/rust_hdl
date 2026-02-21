@@ -168,6 +168,7 @@ VerificationUnitBindingIndication: !Sequence
   - keyword: Use
   - keyword: Vunit
   - node: VerificationUnitList
+    optional: true
 
 VerificationUnitList: !Sequence
   - node: Name

@@ -88,6 +88,15 @@ fn generate_rust_struct(node: &Node) -> TokenStream {
     match node {
         Node::Items(seq) => generate_sequence_struct(seq),
         Node::Choices(choice) => generate_choice_enum(choice),
+        Node::RawTokens(name) => generate_raw_tokens_struct(name),
+    }
+}
+
+fn generate_raw_tokens_struct(name: &str) -> TokenStream {
+    let struct_name = struct_name(name);
+    quote! {
+        #[derive(Debug, Clone)]
+        pub struct #struct_name(pub(crate) SyntaxNode);
     }
 }
 
@@ -136,6 +145,28 @@ fn generate_ast_node_rust_impl(node: &Node) -> TokenStream {
     match node {
         Node::Items(seq) => generate_sequence_ast_impl(seq),
         Node::Choices(choice) => generate_choice_ast_impl(choice),
+        Node::RawTokens(name) => generate_raw_tokens_ast_impl(name),
+    }
+}
+
+fn generate_raw_tokens_ast_impl(name: &str) -> TokenStream {
+    let struct_name = struct_name(name);
+    let node_kind = format_ident!("{}", name.to_case(Case::UpperCamel));
+    quote! {
+        impl AstNode for #struct_name {
+            fn cast(node: SyntaxNode) -> Option<Self> {
+                match node.kind() {
+                    NodeKind::#node_kind => Some(#struct_name(node)),
+                    _ => None,
+                }
+            }
+            fn can_cast(node: &SyntaxNode) -> bool {
+                matches!(node.kind(), NodeKind::#node_kind)
+            }
+            fn raw(&self) -> SyntaxNode {
+                self.0.clone()
+            }
+        }
     }
 }
 
@@ -248,7 +279,7 @@ fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
 fn generate_rust_impl_getters(node: &Node, model: &Model) -> TokenStream {
     match node {
         Node::Items(seq) => generate_sequence_getters(seq, model),
-        Node::Choices(_) => quote! {},
+        Node::Choices(_) | Node::RawTokens(_) => quote! {},
     }
 }
 

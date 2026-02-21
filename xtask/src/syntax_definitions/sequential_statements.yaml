@@ -27,10 +27,12 @@ AssertionStatement: !Sequence
 CaseStatementAlternative: !Sequence
   - node: CaseStatementAlternativePreamble
   - node: SequentialStatements
+    optional: true
 
 CaseStatementAlternativePreamble: !Sequence
   - keyword: When
   - node: Choices
+    optional: true
   - token: RightArrow
 
 CaseStatement: !Sequence
@@ -174,14 +176,17 @@ IfStatementElsif: !Sequence
   - node: Expression
   - keyword: Then
   - node: SequentialStatements
+    optional: true
 
 IfStatementElse: !Sequence
   - keyword: Else
   - node: SequentialStatements
+    optional: true
 
 IfStatement: !Sequence
   - node: IfStatementPreamble
   - node: SequentialStatements
+    optional: true
   - node: IfStatementElsif
     repeated: true
   - node: IfStatementElse
@@ -220,6 +225,7 @@ IterationScheme: !Choice
 LoopStatement: !Sequence
   - node: LoopStatementPreamble
   - node: SequentialStatements
+    optional: true
   - node: LoopStatementEpilogue
 
 LoopStatementPreamble: !Sequence
@@ -283,6 +289,7 @@ SelectedExpressionItem: !Sequence
   - node: Expression
   - keyword: When
   - node: Choices
+    optional: true
 
 SelectedExpressions: !Sequence
   - node: SelectedExpressionItem
@@ -298,12 +305,14 @@ SelectedForceAssignment: !Sequence
   - node: ForceMode
     optional: true
   - node: SelectedExpressions
+    optional: true
   - token: SemiColon
 
 SelectedWaveformItem: !Sequence
   - node: Waveform
   - keyword: When
   - node: Choices
+    optional: true
 
 SelectedWaveforms: !Sequence
   - node: SelectedWaveformItem
@@ -320,6 +329,7 @@ SelectedVariableAssignment: !Sequence
   - node: Target
   - token: ColonEq
   - node: SelectedExpressions
+    optional: true
   - token: SemiColon
 
 SelectedWaveformAssignment: !Sequence
@@ -329,6 +339,7 @@ SelectedWaveformAssignment: !Sequence
   - node: DelayMechanism
     optional: true
   - node: SelectedWaveforms
+    optional: true
   - token: SemiColon
 
 SelectedAssignmentPreamble: !Sequence
@@ -341,6 +352,7 @@ SelectedAssignmentPreamble: !Sequence
 SensitivityClause: !Sequence
   - keyword: On
   - node: NameList
+    optional: true
 
 SequentialStatement: !Choice
   - node: WaitStatement

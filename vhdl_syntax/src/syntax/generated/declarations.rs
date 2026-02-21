@@ -328,7 +328,6 @@ impl AstNode for ActualPartSyntax {
         self.0.clone()
     }
 }
-impl ActualPartSyntax {}
 #[derive(Debug, Clone)]
 pub struct AliasDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for AliasDeclarationSyntax {
