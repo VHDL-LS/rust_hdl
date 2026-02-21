@@ -141,8 +141,8 @@ impl AggregateBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_element_associations(mut self, n: ElementAssociationSyntax) -> Self {
-        self.element_associations.push(n);
+    pub fn add_element_associations(mut self, n: impl Into<ElementAssociationSyntax>) -> Self {
+        self.element_associations.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -903,8 +903,8 @@ impl AssociationListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_association_elements(mut self, n: AssociationElementSyntax) -> Self {
-        self.association_elements.push(n);
+    pub fn add_association_elements(mut self, n: impl Into<AssociationElementSyntax>) -> Self {
+        self.association_elements.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -1574,12 +1574,12 @@ impl BlockConfigurationItemsBuilder {
             configuration_items: Vec::new(),
         }
     }
-    pub fn add_use_clauses(mut self, n: UseClauseSyntax) -> Self {
-        self.use_clauses.push(n);
+    pub fn add_use_clauses(mut self, n: impl Into<UseClauseSyntax>) -> Self {
+        self.use_clauses.push(n.into());
         self
     }
-    pub fn add_configuration_items(mut self, n: ConfigurationItemSyntax) -> Self {
-        self.configuration_items.push(n);
+    pub fn add_configuration_items(mut self, n: impl Into<ConfigurationItemSyntax>) -> Self {
+        self.configuration_items.push(n.into());
         self
     }
     pub fn build(self) -> BlockConfigurationItemsSyntax {
@@ -2053,8 +2053,11 @@ impl CaseGenerateStatementBuilder {
         self.case_generate_statement_preamble = n.into();
         self
     }
-    pub fn add_case_generate_alternatives(mut self, n: CaseGenerateAlternativeSyntax) -> Self {
-        self.case_generate_alternatives.push(n);
+    pub fn add_case_generate_alternatives(
+        mut self,
+        n: impl Into<CaseGenerateAlternativeSyntax>,
+    ) -> Self {
+        self.case_generate_alternatives.push(n.into());
         self
     }
     pub fn with_case_generate_statement_epilogue(
@@ -2254,8 +2257,11 @@ impl CaseStatementBuilder {
         self.case_statement_preamble = n.into();
         self
     }
-    pub fn add_case_statement_alternatives(mut self, n: CaseStatementAlternativeSyntax) -> Self {
-        self.case_statement_alternatives.push(n);
+    pub fn add_case_statement_alternatives(
+        mut self,
+        n: impl Into<CaseStatementAlternativeSyntax>,
+    ) -> Self {
+        self.case_statement_alternatives.push(n.into());
         self
     }
     pub fn with_case_statement_epilogue(
@@ -2609,8 +2615,8 @@ impl ChoicesBuilder {
             bar_token: Vec::new(),
         }
     }
-    pub fn add_choices(mut self, n: ChoiceSyntax) -> Self {
-        self.choices.push(n);
+    pub fn add_choices(mut self, n: impl Into<ChoiceSyntax>) -> Self {
+        self.choices.push(n.into());
         self
     }
     pub fn add_bar_token(mut self, t: impl Into<Token>) -> Self {
@@ -2792,10 +2798,10 @@ impl ComponentConfigurationItemsBuilder {
     }
     pub fn add_semi_colon_terminated_verification_unit_binding_indications(
         mut self,
-        n: SemiColonTerminatedVerificationUnitBindingIndicationSyntax,
+        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
     ) -> Self {
         self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n);
+            .push(n.into());
         self
     }
     pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
@@ -3419,9 +3425,9 @@ impl CompoundConfigurationSpecificationItemsBuilder {
     }
     pub fn add_verification_unit_binding_indications(
         mut self,
-        n: VerificationUnitBindingIndicationSyntax,
+        n: impl Into<VerificationUnitBindingIndicationSyntax>,
     ) -> Self {
-        self.verification_unit_binding_indications.push(n);
+        self.verification_unit_binding_indications.push(n.into());
         self
     }
     pub fn build(self) -> CompoundConfigurationSpecificationItemsSyntax {
@@ -4087,8 +4093,8 @@ impl ConcurrentStatementsBuilder {
             concurrent_statements: Vec::new(),
         }
     }
-    pub fn add_concurrent_statements(mut self, n: ConcurrentStatementSyntax) -> Self {
-        self.concurrent_statements.push(n);
+    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
+        self.concurrent_statements.push(n.into());
         self
     }
     pub fn build(self) -> ConcurrentStatementsSyntax {
@@ -4337,9 +4343,9 @@ impl ConditionalExpressionsBuilder {
     }
     pub fn add_conditional_else_when_expressions(
         mut self,
-        n: ConditionalElseWhenExpressionSyntax,
+        n: impl Into<ConditionalElseWhenExpressionSyntax>,
     ) -> Self {
-        self.conditional_else_when_expressions.push(n);
+        self.conditional_else_when_expressions.push(n.into());
         self
     }
     pub fn with_conditional_else_item(mut self, n: impl Into<ConditionalElseItemSyntax>) -> Self {
@@ -4795,9 +4801,10 @@ impl ConditionalWaveformsBuilder {
     }
     pub fn add_conditional_waveform_else_when_expressions(
         mut self,
-        n: ConditionalWaveformElseWhenExpressionSyntax,
+        n: impl Into<ConditionalWaveformElseWhenExpressionSyntax>,
     ) -> Self {
-        self.conditional_waveform_else_when_expressions.push(n);
+        self.conditional_waveform_else_when_expressions
+            .push(n.into());
         self
     }
     pub fn with_conditional_waveform_else_item(
@@ -5004,10 +5011,10 @@ impl ConfigurationDeclarationItemsBuilder {
     }
     pub fn add_semi_colon_terminated_verification_unit_binding_indications(
         mut self,
-        n: SemiColonTerminatedVerificationUnitBindingIndicationSyntax,
+        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
     ) -> Self {
         self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n);
+            .push(n.into());
         self
     }
     pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
@@ -5356,8 +5363,8 @@ impl ContextClauseBuilder {
             context_items: Vec::new(),
         }
     }
-    pub fn add_context_items(mut self, n: ContextItemSyntax) -> Self {
-        self.context_items.push(n);
+    pub fn add_context_items(mut self, n: impl Into<ContextItemSyntax>) -> Self {
+        self.context_items.push(n.into());
         self
     }
     pub fn build(self) -> ContextClauseSyntax {
@@ -5700,8 +5707,8 @@ impl DeclarationsBuilder {
             declarations: Vec::new(),
         }
     }
-    pub fn add_declarations(mut self, n: DeclarationSyntax) -> Self {
-        self.declarations.push(n);
+    pub fn add_declarations(mut self, n: impl Into<DeclarationSyntax>) -> Self {
+        self.declarations.push(n.into());
         self
     }
     pub fn build(self) -> DeclarationsSyntax {
@@ -5725,15 +5732,24 @@ pub struct DesignFileBuilder {
     design_units: Vec<DesignUnitSyntax>,
     eof_token: Token,
 }
+impl Default for DesignFileBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl DesignFileBuilder {
-    pub fn new(eof_token: impl Into<Token>) -> Self {
+    pub fn new() -> Self {
         Self {
             design_units: Vec::new(),
-            eof_token: eof_token.into(),
+            eof_token: Token::new(
+                TokenKind::Eof,
+                TokenKind::Eof.canonical_text().unwrap(),
+                Trivia::from([TriviaPiece::Spaces(1)]),
+            ),
         }
     }
-    pub fn add_design_units(mut self, n: DesignUnitSyntax) -> Self {
-        self.design_units.push(n);
+    pub fn add_design_units(mut self, n: impl Into<DesignUnitSyntax>) -> Self {
+        self.design_units.push(n.into());
         self
     }
     pub fn with_eof_token(mut self, t: impl Into<Token>) -> Self {
@@ -6125,8 +6141,8 @@ impl EntityClassEntryListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_entity_class_entrys(mut self, n: EntityClassEntrySyntax) -> Self {
-        self.entity_class_entrys.push(n);
+    pub fn add_entity_class_entrys(mut self, n: impl Into<EntityClassEntrySyntax>) -> Self {
+        self.entity_class_entrys.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -6483,8 +6499,8 @@ impl EntityDesignatorListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_entity_designators(mut self, n: EntityDesignatorSyntax) -> Self {
-        self.entity_designators.push(n);
+    pub fn add_entity_designators(mut self, n: impl Into<EntityDesignatorSyntax>) -> Self {
+        self.entity_designators.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -6908,8 +6924,8 @@ impl EnumerationTypeDefinitionBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_discrete_ranges(mut self, n: DiscreteRangeSyntax) -> Self {
-        self.discrete_ranges.push(n);
+    pub fn add_discrete_ranges(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
+        self.discrete_ranges.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -8554,8 +8570,8 @@ impl GroupConstituentListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -9113,8 +9129,8 @@ impl IfGenerateStatementBuilder {
         self.generate_statement_body = Some(n.into());
         self
     }
-    pub fn add_if_generate_elsifs(mut self, n: IfGenerateElsifSyntax) -> Self {
-        self.if_generate_elsifs.push(n);
+    pub fn add_if_generate_elsifs(mut self, n: impl Into<IfGenerateElsifSyntax>) -> Self {
+        self.if_generate_elsifs.push(n.into());
         self
     }
     pub fn with_if_generate_else(mut self, n: impl Into<IfGenerateElseSyntax>) -> Self {
@@ -9340,8 +9356,8 @@ impl IfStatementBuilder {
         self.sequential_statements = Some(n.into());
         self
     }
-    pub fn add_if_statement_elsifs(mut self, n: IfStatementElsifSyntax) -> Self {
-        self.if_statement_elsifs.push(n);
+    pub fn add_if_statement_elsifs(mut self, n: impl Into<IfStatementElsifSyntax>) -> Self {
+        self.if_statement_elsifs.push(n.into());
         self
     }
     pub fn with_if_statement_else(mut self, n: impl Into<IfStatementElseSyntax>) -> Self {
@@ -9771,8 +9787,8 @@ impl IndexConstraintBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_discrete_ranges(mut self, n: DiscreteRangeSyntax) -> Self {
-        self.discrete_ranges.push(n);
+    pub fn add_discrete_ranges(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
+        self.discrete_ranges.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -9883,8 +9899,11 @@ impl IndexSubtypeDefinitionListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_index_subtype_definitions(mut self, n: IndexSubtypeDefinitionSyntax) -> Self {
-        self.index_subtype_definitions.push(n);
+    pub fn add_index_subtype_definitions(
+        mut self,
+        n: impl Into<IndexSubtypeDefinitionSyntax>,
+    ) -> Self {
+        self.index_subtype_definitions.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -10442,8 +10461,8 @@ impl InterfaceListBuilder {
             semi_colon_token: Vec::new(),
         }
     }
-    pub fn add_interface_declarations(mut self, n: InterfaceDeclarationSyntax) -> Self {
-        self.interface_declarations.push(n);
+    pub fn add_interface_declarations(mut self, n: impl Into<InterfaceDeclarationSyntax>) -> Self {
+        self.interface_declarations.push(n.into());
         self
     }
     pub fn add_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -11707,8 +11726,8 @@ impl NameBuilder {
         self.name_prefix = n.into();
         self
     }
-    pub fn add_name_tails(mut self, n: NameTailSyntax) -> Self {
-        self.name_tails.push(n);
+    pub fn add_name_tails(mut self, n: impl Into<NameTailSyntax>) -> Self {
+        self.name_tails.push(n.into());
         self
     }
     pub fn build(self) -> NameSyntax {
@@ -11799,8 +11818,8 @@ impl NameListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -13248,8 +13267,8 @@ impl ParenthesizedExpressionOrAggregateBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_element_associations(mut self, n: ElementAssociationSyntax) -> Self {
-        self.element_associations.push(n);
+    pub fn add_element_associations(mut self, n: impl Into<ElementAssociationSyntax>) -> Self {
+        self.element_associations.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -15085,8 +15104,11 @@ impl RecordConstraintBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_record_element_constraints(mut self, n: RecordElementConstraintSyntax) -> Self {
-        self.record_element_constraints.push(n);
+    pub fn add_record_element_constraints(
+        mut self,
+        n: impl Into<RecordElementConstraintSyntax>,
+    ) -> Self {
+        self.record_element_constraints.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -15172,8 +15194,8 @@ impl RecordElementDeclarationsBuilder {
             element_declarations: Vec::new(),
         }
     }
-    pub fn add_element_declarations(mut self, n: ElementDeclarationSyntax) -> Self {
-        self.element_declarations.push(n);
+    pub fn add_element_declarations(mut self, n: impl Into<ElementDeclarationSyntax>) -> Self {
+        self.element_declarations.push(n.into());
         self
     }
     pub fn build(self) -> RecordElementDeclarationsSyntax {
@@ -15251,8 +15273,11 @@ impl RecordResolutionBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_record_element_resolutions(mut self, n: RecordElementResolutionSyntax) -> Self {
-        self.record_element_resolutions.push(n);
+    pub fn add_record_element_resolutions(
+        mut self,
+        n: impl Into<RecordElementResolutionSyntax>,
+    ) -> Self {
+        self.record_element_resolutions.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -15932,8 +15957,11 @@ impl SelectedExpressionsBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_selected_expression_items(mut self, n: SelectedExpressionItemSyntax) -> Self {
-        self.selected_expression_items.push(n);
+    pub fn add_selected_expression_items(
+        mut self,
+        n: impl Into<SelectedExpressionItemSyntax>,
+    ) -> Self {
+        self.selected_expression_items.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -16344,8 +16372,8 @@ impl SelectedWaveformsBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_selected_waveform_items(mut self, n: SelectedWaveformItemSyntax) -> Self {
-        self.selected_waveform_items.push(n);
+    pub fn add_selected_waveform_items(mut self, n: impl Into<SelectedWaveformItemSyntax>) -> Self {
+        self.selected_waveform_items.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -16647,8 +16675,8 @@ impl SensitivityListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -16689,8 +16717,8 @@ impl SequentialStatementsBuilder {
             sequential_statements: Vec::new(),
         }
     }
-    pub fn add_sequential_statements(mut self, n: SequentialStatementSyntax) -> Self {
-        self.sequential_statements.push(n);
+    pub fn add_sequential_statements(mut self, n: impl Into<SequentialStatementSyntax>) -> Self {
+        self.sequential_statements.push(n.into());
         self
     }
     pub fn build(self) -> SequentialStatementsSyntax {
@@ -17015,8 +17043,8 @@ impl SignalListListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -17121,8 +17149,8 @@ impl SignatureBuilder {
         self.left_square_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn with_return_token(mut self, t: impl Into<Token>) -> Self {
@@ -18684,8 +18712,11 @@ impl UnitDeclarationsBuilder {
         self.primary_unit_declaration = n.into();
         self
     }
-    pub fn add_secondary_unit_declarations(mut self, n: SecondaryUnitDeclarationSyntax) -> Self {
-        self.secondary_unit_declarations.push(n);
+    pub fn add_secondary_unit_declarations(
+        mut self,
+        n: impl Into<SecondaryUnitDeclarationSyntax>,
+    ) -> Self {
+        self.secondary_unit_declarations.push(n.into());
         self
     }
     pub fn build(self) -> UnitDeclarationsSyntax {
@@ -19031,8 +19062,8 @@ impl VerificationUnitListBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_names(mut self, n: NameSyntax) -> Self {
-        self.names.push(n);
+    pub fn add_names(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.names.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -19213,8 +19244,8 @@ impl WaveformElementsBuilder {
             comma_token: Vec::new(),
         }
     }
-    pub fn add_waveform_elements(mut self, n: WaveformElementSyntax) -> Self {
-        self.waveform_elements.push(n);
+    pub fn add_waveform_elements(mut self, n: impl Into<WaveformElementSyntax>) -> Self {
+        self.waveform_elements.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
