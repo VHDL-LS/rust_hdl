@@ -54,7 +54,7 @@ end foobar;
     )
     .with_entity_declaration_epilogue(
         EntityDeclarationEpilogueBuilder::new()
-            // Replace space between 'is' and 'and' with newline
+            // Replace space between 'is' and 'end' with newline
             .with_end_token_trivia(Trivia::from([TriviaPiece::LineFeeds(1)]))
             .with_identifier_token(b"no_longer_foo")
             .with_semi_colon_token_trivia(Trivia::new()),
