@@ -38,8 +38,8 @@ impl ToLatin1 for Trivia {
 impl ToLatin1 for TriviaPiece {
     fn to_latin1(&self) -> Latin1String {
         match self {
-            TriviaPiece::HorizontalTabs(n) => Latin1String::from(b"\n".repeat(*n)),
-            TriviaPiece::VerticalTabs(n) => Latin1String::from(b"\t".repeat(*n)),
+            TriviaPiece::HorizontalTabs(n) => Latin1String::from(b"\t".repeat(*n)),
+            TriviaPiece::VerticalTabs(n) => Latin1String::from(b"\x0B".repeat(*n)),
             TriviaPiece::CarriageReturns(n) => Latin1String::from(b"\r".repeat(*n)),
             TriviaPiece::CarriageReturnLineFeeds(n) => Latin1String::from(b"\r\n".repeat(*n)),
             TriviaPiece::LineFeeds(n) => Latin1String::from(b"\n".repeat(*n)),
@@ -56,7 +56,7 @@ impl ToLatin1 for TriviaPiece {
                 buf
             }
             TriviaPiece::Spaces(n) => Latin1String::from(b" ".repeat(*n)),
-            TriviaPiece::NonBreakingSpaces(n) => Latin1String::from([0x0A].repeat(*n)),
+            TriviaPiece::NonBreakingSpaces(n) => Latin1String::from([0xA0].repeat(*n)),
             TriviaPiece::Unexpected(items) => Latin1String::from(items),
         }
     }

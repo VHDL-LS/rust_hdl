@@ -47,8 +47,8 @@ impl fmt::Display for Trivia {
 impl fmt::Display for TriviaPiece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TriviaPiece::HorizontalTabs(n) => write!(f, "{}", "\n".repeat(*n)),
-            TriviaPiece::VerticalTabs(n) => write!(f, "{}", "\t".repeat(*n)),
+            TriviaPiece::HorizontalTabs(n) => write!(f, "{}", "\t".repeat(*n)),
+            TriviaPiece::VerticalTabs(n) => write!(f, "{}", "\x0B".repeat(*n)),
             TriviaPiece::CarriageReturns(n) => write!(f, "{}", "\r".repeat(*n)),
             TriviaPiece::CarriageReturnLineFeeds(n) => write!(f, "{}", "\r\n".repeat(*n)),
             TriviaPiece::LineFeeds(n) => write!(f, "{}", "\n".repeat(*n)),
