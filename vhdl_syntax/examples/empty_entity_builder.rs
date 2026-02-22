@@ -8,10 +8,8 @@
 //! The builder-API is feature-complete, but may not be ergonomic for common cases such as
 //! testbench generation.
 use vhdl_syntax::syntax::{
-    ArchitectureBodyBuilder, ArchitecturePreambleBuilder, AstNode, DesignFileBuilder,
-    DesignUnitBuilder, EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
-    EntityDeclarationPreambleBuilder, LibraryUnitSyntax, NameBuilder, NameDesignatorPrefixBuilder,
-    NameDesignatorToken, NamePrefixSyntax, PrimaryUnitSyntax, SecondaryUnitSyntax,
+    builders::*, AstNode, LibraryUnitSyntax, NameDesignatorToken, NamePrefixSyntax,
+    PrimaryUnitSyntax, SecondaryUnitSyntax,
 };
 
 fn main() {
