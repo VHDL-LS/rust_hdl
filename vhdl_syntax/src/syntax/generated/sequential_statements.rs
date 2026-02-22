@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct AssertionSyntax(pub(crate) SyntaxNode);
 impl AstNode for AssertionSyntax {
@@ -29,7 +29,7 @@ impl AssertionSyntax {
     pub fn assert_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Assert))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Assert))
             .nth(0)
     }
     pub fn condition(&self) -> Option<ExpressionSyntax> {
@@ -38,7 +38,7 @@ impl AssertionSyntax {
     pub fn report_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Report))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Report))
             .nth(0)
     }
     pub fn report(&self) -> Option<ExpressionSyntax> {
@@ -47,7 +47,7 @@ impl AssertionSyntax {
     pub fn severity_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Severity))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Severity))
             .nth(0)
     }
     pub fn severity(&self) -> Option<ExpressionSyntax> {
@@ -74,11 +74,14 @@ impl AssertionStatementSyntax {
     pub fn label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn assertion(&self) -> Option<AssertionSyntax> {
         self.0.children().filter_map(AssertionSyntax::cast).nth(0)
@@ -86,7 +89,7 @@ impl AssertionStatementSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -144,7 +147,7 @@ impl CaseStatementAlternativePreambleSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn choices(&self) -> Option<ChoicesSyntax> {
@@ -153,7 +156,7 @@ impl CaseStatementAlternativePreambleSyntax {
     pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightArrow)
+            .filter(|token| token.kind() == TokenKind::RightArrow)
             .nth(0)
     }
 }
@@ -217,11 +220,14 @@ impl CaseStatementPreambleSyntax {
     pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Case))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Case))
             .nth(0)
     }
     pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Que)
+            .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
@@ -229,7 +235,7 @@ impl CaseStatementPreambleSyntax {
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
 }
@@ -253,28 +259,31 @@ impl CaseStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
     pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Case))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Case))
             .nth(0)
     }
     pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Que)
+            .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -298,7 +307,7 @@ impl ConditionClauseSyntax {
     pub fn until_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Until))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Until))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -327,7 +336,7 @@ impl ConditionalElseWhenExpressionSyntax {
     pub fn else_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Else))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -336,7 +345,7 @@ impl ConditionalElseWhenExpressionSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn condition(&self) -> Option<ExpressionSyntax> {
@@ -363,7 +372,7 @@ impl ConditionalElseItemSyntax {
     pub fn else_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Else))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -430,7 +439,7 @@ impl ConditionalExpressionSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn condition(&self) -> Option<ExpressionSyntax> {
@@ -458,12 +467,15 @@ impl ConditionalForceAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn force_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Force))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Force))
             .nth(0)
     }
     pub fn force_mode(&self) -> Option<ForceModeSyntax> {
@@ -478,7 +490,7 @@ impl ConditionalForceAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -541,7 +553,7 @@ impl ConditionalVariableAssignmentSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn conditional_expressions(&self) -> Option<ConditionalExpressionsSyntax> {
@@ -553,7 +565,7 @@ impl ConditionalVariableAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -580,7 +592,10 @@ impl ConditionalWaveformAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn delay_mechanism(&self) -> Option<DelayMechanismSyntax> {
         self.0
@@ -597,7 +612,7 @@ impl ConditionalWaveformAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -623,7 +638,7 @@ impl ConditionalWaveformElseWhenExpressionSyntax {
     pub fn else_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Else))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
     pub fn waveform(&self) -> Option<WaveformSyntax> {
@@ -632,7 +647,7 @@ impl ConditionalWaveformElseWhenExpressionSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn condition(&self) -> Option<ExpressionSyntax> {
@@ -659,7 +674,7 @@ impl ConditionalWaveformElseItemSyntax {
     pub fn else_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Else))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
     pub fn waveform(&self) -> Option<WaveformSyntax> {
@@ -726,7 +741,7 @@ impl ConditionalWaveformSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -753,7 +768,7 @@ impl TransportDelayMechanismSyntax {
     pub fn transport_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Transport))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Transport))
             .nth(0)
     }
 }
@@ -777,7 +792,7 @@ impl InertialDelayMechanismSyntax {
     pub fn reject_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Reject))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Reject))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -786,7 +801,7 @@ impl InertialDelayMechanismSyntax {
     pub fn inertial_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Inertial))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Inertial))
             .nth(0)
     }
 }
@@ -840,28 +855,31 @@ impl ExitStatementSyntax {
     pub fn label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn exit_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Exit))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Exit))
             .nth(0)
     }
     pub fn loop_label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(1)
     }
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -870,7 +888,7 @@ impl ExitStatementSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -882,8 +900,8 @@ pub enum ForceModeSyntax {
 impl ForceModeSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Keyword(Kw::In) => Some(ForceModeSyntax::In(token)),
-            Keyword(Kw::Out) => Some(ForceModeSyntax::Out(token)),
+            TokenKind::Keyword(Kw::In) => Some(ForceModeSyntax::In(token)),
+            TokenKind::Keyword(Kw::Out) => Some(ForceModeSyntax::Out(token)),
             _ => None,
         }
     }
@@ -914,7 +932,7 @@ impl IfStatementElsifSyntax {
     pub fn elsif_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Elsif))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Elsif))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -923,7 +941,7 @@ impl IfStatementElsifSyntax {
     pub fn then_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Then))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Then))
             .nth(0)
     }
     pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
@@ -953,7 +971,7 @@ impl IfStatementElseSyntax {
     pub fn else_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Else))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
     pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
@@ -1028,16 +1046,19 @@ impl IfStatementPreambleSyntax {
     pub fn if_label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn if_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::If))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1046,7 +1067,7 @@ impl IfStatementPreambleSyntax {
     pub fn then_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Then))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Then))
             .nth(0)
     }
 }
@@ -1070,25 +1091,25 @@ impl IfStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
     pub fn if_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::If))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1112,7 +1133,7 @@ impl WhileIterationSchemeSyntax {
     pub fn while_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::While))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::While))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1139,7 +1160,7 @@ impl ForIterationSchemeSyntax {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::For))
             .nth(0)
     }
     pub fn parameter_specification(&self) -> Option<ParameterSpecificationSyntax> {
@@ -1243,7 +1264,7 @@ impl LoopStatementPreambleSyntax {
     pub fn loop_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Loop))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Loop))
             .nth(0)
     }
 }
@@ -1267,25 +1288,25 @@ impl LoopStatementEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
     pub fn loop_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Loop))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Loop))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1312,19 +1333,19 @@ impl NextStatementSyntax {
     pub fn next_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Next))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Next))
             .nth(0)
     }
     pub fn loop_label_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1333,7 +1354,7 @@ impl NextStatementSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1360,13 +1381,13 @@ impl NullStatementSyntax {
     pub fn null_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Null))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Null))
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1390,13 +1411,13 @@ impl ParameterSpecificationSyntax {
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn in_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::In))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::In))
             .nth(0)
     }
     pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
@@ -1432,7 +1453,7 @@ impl ProcedureCallStatementSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1459,7 +1480,7 @@ impl ReportStatementSyntax {
     pub fn report_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Report))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Report))
             .nth(0)
     }
     pub fn report(&self) -> Option<ExpressionSyntax> {
@@ -1468,7 +1489,7 @@ impl ReportStatementSyntax {
     pub fn severity_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Severity))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Severity))
             .nth(0)
     }
     pub fn severity(&self) -> Option<ExpressionSyntax> {
@@ -1498,7 +1519,7 @@ impl ReturnStatementSyntax {
     pub fn return_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Return))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1528,7 +1549,7 @@ impl SelectedExpressionItemSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn choices(&self) -> Option<ChoicesSyntax> {
@@ -1560,7 +1581,9 @@ impl SelectedExpressionsSyntax {
             .filter_map(SelectedExpressionItemSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -1590,12 +1613,15 @@ impl SelectedForceAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn force_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Force))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Force))
             .nth(0)
     }
     pub fn force_mode(&self) -> Option<ForceModeSyntax> {
@@ -1610,7 +1636,7 @@ impl SelectedForceAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1637,7 +1663,7 @@ impl SelectedWaveformItemSyntax {
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::When))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
     pub fn choices(&self) -> Option<ChoicesSyntax> {
@@ -1669,7 +1695,9 @@ impl SelectedWaveformsSyntax {
             .filter_map(SelectedWaveformItemSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -1731,7 +1759,7 @@ impl SelectedVariableAssignmentSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn selected_expressions(&self) -> Option<SelectedExpressionsSyntax> {
@@ -1743,7 +1771,7 @@ impl SelectedVariableAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1774,7 +1802,10 @@ impl SelectedWaveformAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn delay_mechanism(&self) -> Option<DelayMechanismSyntax> {
         self.0
@@ -1791,7 +1822,7 @@ impl SelectedWaveformAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1815,7 +1846,7 @@ impl SelectedAssignmentPreambleSyntax {
     pub fn with_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::With))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::With))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1824,11 +1855,14 @@ impl SelectedAssignmentPreambleSyntax {
     pub fn select_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Select))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Select))
             .nth(0)
     }
     pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Que).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Que)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -1851,7 +1885,7 @@ impl SensitivityClauseSyntax {
     pub fn on_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::On))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::On))
             .nth(0)
     }
     pub fn name_list(&self) -> Option<NameListSyntax> {
@@ -2040,12 +2074,15 @@ impl SimpleForceAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn force_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Force))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Force))
             .nth(0)
     }
     pub fn force_mode(&self) -> Option<ForceModeSyntax> {
@@ -2057,7 +2094,7 @@ impl SimpleForceAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2085,12 +2122,15 @@ impl SimpleReleaseAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn release_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Release))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Release))
             .nth(0)
     }
     pub fn force_mode(&self) -> Option<ForceModeSyntax> {
@@ -2099,7 +2139,7 @@ impl SimpleReleaseAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2127,7 +2167,10 @@ impl SimpleWaveformAssignmentSyntax {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
     pub fn lte_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LTE).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LTE)
+            .nth(0)
     }
     pub fn delay_mechanism(&self) -> Option<DelayMechanismSyntax> {
         self.0
@@ -2141,7 +2184,7 @@ impl SimpleWaveformAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2206,7 +2249,7 @@ impl SimpleVariableAssignmentSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2215,7 +2258,7 @@ impl SimpleVariableAssignmentSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2310,7 +2353,7 @@ impl TimeoutClauseSyntax {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::For))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::For))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2382,7 +2425,7 @@ impl WaitStatementSyntax {
     pub fn wait_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Wait))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Wait))
             .nth(0)
     }
     pub fn sensitivity_clause(&self) -> Option<SensitivityClauseSyntax> {
@@ -2406,7 +2449,7 @@ impl WaitStatementSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2433,7 +2476,7 @@ impl WaveformElementSyntax {
     pub fn after_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::After))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::After))
             .nth(0)
     }
     pub fn time_expression(&self) -> Option<ExpressionSyntax> {
@@ -2461,7 +2504,9 @@ impl WaveformElementsSyntax {
         self.0.children().filter_map(WaveformElementSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -2484,7 +2529,7 @@ impl UnaffectedWaveformSyntax {
     pub fn unaffected_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Unaffected))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Unaffected))
             .nth(0)
     }
 }

@@ -41,6 +41,10 @@ impl Token {
         &self.leading_trivia
     }
 
+    pub fn set_leading_trivia(&mut self, trivia: Trivia) {
+        self.leading_trivia = trivia;
+    }
+
     pub fn text(&self) -> &Latin1Str {
         self.symbol.text()
     }

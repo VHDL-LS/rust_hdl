@@ -69,6 +69,10 @@ impl NodeRef {
 pub enum Node {
     Items(SequenceNode),
     Choices(ChoiceNode),
+    /// A node whose children are populated by the parser as raw tokens rather than
+    /// being composed from named sub-nodes. Such a node always has ≥1 token at
+    /// runtime; it is therefore never empty-capable and never gets a builder.
+    RawTokens(String),
 }
 
 impl Node {
@@ -76,6 +80,7 @@ impl Node {
         match self {
             Node::Items(items) => items.name.clone(),
             Node::Choices(choices) => choices.name.clone(),
+            Node::RawTokens(name) => name.clone(),
         }
     }
 
@@ -87,6 +92,13 @@ impl Node {
                 items: NodesOrTokens::Tokens(_)
             })
         )
+    }
+
+    pub fn as_sequence(&self) -> Option<&SequenceNode> {
+        match self {
+            Node::Items(seq) => Some(seq),
+            Node::Choices(_) | Node::RawTokens(_) => None,
+        }
     }
 }
 
@@ -182,6 +194,90 @@ impl Model {
         self.check_no_duplicates();
         self.check_all_nodes_exist();
         self.check_choices_are_unique();
+        self.check_empty_capable_nodes_marked_optional();
+    }
+
+    /// Computes the set of sequence nodes that can produce a completely empty green tree node.
+    ///
+    /// A node is empty-capable when every item in its sequence is either:
+    /// - an optional or repeated token/node, or
+    /// - a required node reference whose target is itself empty-capable.
+    ///
+    /// Nodes with canonical-text tokens (keywords, symbols) are **not** empty-capable because
+    /// those tokens are always emitted. The computation is a fixed-point iteration to handle
+    /// transitive cases.
+    pub fn compute_empty_capable_nodes(&self) -> HashSet<String> {
+        let mut empty_capable: HashSet<String> = HashSet::new();
+        loop {
+            let prev_size = empty_capable.len();
+            for node in self.all_nodes() {
+                // RawTokens nodes are populated by the parser and always contain ≥1 token;
+                // they are never empty-capable even though they have no declared children.
+                if let Node::Items(seq) = node {
+                    if empty_capable.contains(&seq.name) {
+                        continue;
+                    }
+                    let is_empty_capable = seq.items.iter().all(|item| match item {
+                        TokenOrNode::Token(token) => token.optional || token.repeated,
+                        TokenOrNode::Node(node_ref) => {
+                            node_ref.optional
+                                || node_ref.repeated
+                                || empty_capable.contains(&node_ref.kind)
+                            // Note: a required reference to a RawTokens node correctly
+                            // returns false here (raw token nodes never enter empty_capable),
+                            // so the parent is rightly considered non-empty-capable.
+                        }
+                    });
+                    if is_empty_capable {
+                        empty_capable.insert(seq.name.clone());
+                    }
+                }
+            }
+            if empty_capable.len() == prev_size {
+                break;
+            }
+        }
+        empty_capable
+    }
+
+    /// Checks that every sequence node that can produce empty output is marked `optional: true`
+    /// at every non-repeated use site.
+    ///
+    /// The syntax tree silently drops empty nodes, so a required reference to an empty-capable
+    /// node is a modelling error: the child will sometimes be absent but the parent doesn't
+    /// declare it as optional.
+    pub fn check_empty_capable_nodes_marked_optional(&self) {
+        // Known limitation: the model has no "one-or-more" (required-non-empty list) concept.
+        // A node whose items are all `repeated: true` (e.g. NameList, PartialPathname) is
+        // structurally empty-capable even when the VHDL grammar guarantees ≥1 element at that
+        // use site. Such nodes must still be marked `optional: true` in the YAML so that their
+        // accessor returns `Option<T>` rather than causing a model inconsistency. The semantic
+        // "must be present" constraint is enforced by the parser and the analysis layer.
+        let empty_capable = self.compute_empty_capable_nodes();
+        let mut violations: Vec<(String, String)> = vec![];
+        for node in self.all_nodes() {
+            if let Node::Items(seq) = node {
+                for item in &seq.items {
+                    if let TokenOrNode::Node(node_ref) = item {
+                        if !node_ref.optional
+                            && !node_ref.repeated
+                            && empty_capable.contains(&node_ref.kind)
+                        {
+                            violations.push((seq.name.clone(), node_ref.kind.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        if !violations.is_empty() {
+            println!(
+                "The following nodes can produce empty output but are used without `optional: true`:"
+            );
+            for (parent, child) in &violations {
+                println!("  {child} in {parent}");
+            }
+            panic!("fix the violations above by adding `optional: true` to each listed node reference in the YAML definitions");
+        }
     }
 
     pub fn check_no_duplicates(&self) {
@@ -189,6 +285,7 @@ impl Model {
             for node in nodes {
                 let mut seen = HashSet::new();
                 match node {
+                    Node::RawTokens(_) => {}
                     Node::Items(seq_node) => {
                         for item in &seq_node.items {
                             let name = item.getter_name();
@@ -262,7 +359,7 @@ impl Model {
         let mut found_nodes = HashSet::new();
         for node in self.all_nodes() {
             match node {
-                Node::Items(_) => {}
+                Node::Items(_) | Node::RawTokens(_) => {}
                 Node::Choices(choice) => match &choice.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for node in nodes {
@@ -283,6 +380,7 @@ impl Model {
         let mut referenced_nodes = vec![];
         for node in self.all_nodes() {
             match node {
+                Node::RawTokens(_) => {}
                 Node::Items(items) => {
                     for item in &items.items {
                         match item {
@@ -320,10 +418,39 @@ impl Model {
             .collect();
     }
 
+    /// Automatically marks required (non-optional, non-repeated) inner node references as
+    /// `optional` when the referenced node is empty-capable.
+    ///
+    /// This is needed for auto-generated wrapper nodes (e.g. `SemiColonTerminatedBindingIndication`
+    /// from `terminated: SemiColon`, or `ParenthesizedInterfaceList` from `parenthesized: true`)
+    /// that are created programmatically without knowledge of whether their inner node is
+    /// empty-capable. These wrappers always have a canonical delimiter token, so marking the inner
+    /// node as optional does not make the wrapper itself empty-capable.
+    pub fn fixup_empty_capable_optional_markers(&mut self) {
+        let empty_capable = self.compute_empty_capable_nodes();
+        for section in self.sections.values_mut() {
+            for node in section.iter_mut() {
+                if let Node::Items(seq) = node {
+                    for item in &mut seq.items {
+                        if let TokenOrNode::Node(node_ref) = item {
+                            if !node_ref.optional
+                                && !node_ref.repeated
+                                && empty_capable.contains(&node_ref.kind)
+                            {
+                                node_ref.optional = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn collect_referenced_nodes(&self) -> HashSet<String> {
         let mut referenced = HashSet::new();
         for node in self.sections.values().flatten() {
             match node {
+                Node::RawTokens(_) => {}
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
                         if let TokenOrNode::Node(node_ref) = item {
@@ -349,7 +476,7 @@ impl Model {
 
     pub fn collect_all_sequence_node_kinds(&self) -> HashSet<String> {
         self.all_nodes()
-            .filter(|node| matches!(node, Node::Items(_)))
+            .filter(|node| matches!(node, Node::Items(_) | Node::RawTokens(_)))
             .map(|node| node.name())
             .collect()
     }
@@ -407,6 +534,137 @@ mod tests {
     fn is_token_choice_false_for_unknown() {
         let model = make_simple_model();
         assert!(!model.is_token_choice("NonExistent"));
+    }
+
+    /// A node whose items are all repeated is empty-capable.
+    #[test]
+    fn compute_empty_capable_nodes_all_repeated() {
+        let mut model = Model::default();
+        // InterfaceList: only repeated items → empty-capable
+        let list = SequenceNode::new(
+            "InterfaceList",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "DesignFile".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: true,
+                name: "items".to_string(),
+                optional: false,
+            })],
+        );
+        // DesignFile: required non-canonical token → NOT empty-capable
+        let root = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "InterfaceList".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: false,
+                name: "interface_list".to_string(),
+                optional: false,
+            })],
+        );
+        model.push_node("test".to_string(), Node::Items(list));
+        model.push_node("test".to_string(), Node::Items(root));
+        model.do_postprocessing();
+
+        let empty_capable = model.compute_empty_capable_nodes();
+        assert!(
+            empty_capable.contains("InterfaceList"),
+            "InterfaceList (all repeated) must be empty-capable"
+        );
+        // DesignFile contains a required reference to InterfaceList, which is empty-capable,
+        // so DesignFile is itself empty-capable too.
+        assert!(
+            empty_capable.contains("DesignFile"),
+            "DesignFile (required ref to empty-capable child) must be empty-capable"
+        );
+    }
+
+    /// A node with a required canonical-text token is NOT empty-capable.
+    #[test]
+    fn compute_empty_capable_nodes_canonical_token_not_empty() {
+        use crate::model::token::TokenKind;
+        let mut model = Model::default();
+        let seq = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
+        );
+        model.push_node("test".to_string(), Node::Items(seq));
+        model.do_postprocessing();
+
+        let empty_capable = model.compute_empty_capable_nodes();
+        assert!(
+            !empty_capable.contains("DesignFile"),
+            "DesignFile with required canonical token must NOT be empty-capable"
+        );
+    }
+
+    /// A required use of an empty-capable node must trigger the check.
+    #[test]
+    #[should_panic(expected = "optional: true")]
+    fn check_empty_capable_required_use_panics() {
+        let mut model = Model::default();
+        // Leaf: all-optional → empty-capable
+        let leaf = SequenceNode::new(
+            "Leaf",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "DesignFile".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: true,
+                name: "items".to_string(),
+                optional: false,
+            })],
+        );
+        // Root: required (non-optional, non-repeated) reference to empty-capable Leaf → violation
+        let root = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "Leaf".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: false,
+                name: "leaf".to_string(),
+                optional: false, // ← violation
+            })],
+        );
+        model.push_node("test".to_string(), Node::Items(leaf));
+        model.push_node("test".to_string(), Node::Items(root));
+        model.do_postprocessing();
+        model.check_empty_capable_nodes_marked_optional();
+    }
+
+    /// A repeated use of an empty-capable node is fine (no panic).
+    #[test]
+    fn check_empty_capable_repeated_use_is_ok() {
+        let mut model = Model::default();
+        let leaf = SequenceNode::new(
+            "Leaf",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "DesignFile".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: true,
+                name: "items".to_string(),
+                optional: false,
+            })],
+        );
+        let root = SequenceNode::new(
+            "DesignFile",
+            vec![TokenOrNode::Node(NodeRef {
+                kind: "Leaf".to_string(),
+                nth: 0,
+                builtin: false,
+                repeated: true, // repeated → fine
+                name: "leaf".to_string(),
+                optional: false,
+            })],
+        );
+        model.push_node("test".to_string(), Node::Items(leaf));
+        model.push_node("test".to_string(), Node::Items(root));
+        model.do_postprocessing();
+        model.check_empty_capable_nodes_marked_optional(); // must not panic
     }
 
     #[test]

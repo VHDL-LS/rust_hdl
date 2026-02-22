@@ -80,6 +80,9 @@ pub enum NodeContents {
     Sequence(Vec<NodeOrToken>),
     Choice(Vec<NodeOrToken>),
     Builtin,
+    /// A node whose children are captured by the parser as raw tokens rather than
+    /// being composed from sub-nodes. Never produces an empty green node at runtime.
+    RawTokens,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

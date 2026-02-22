@@ -39,7 +39,7 @@ PackageBodyDeclaration: !Sequence
 UseClauseDeclaration: !Sequence
   - node: UseClause
 
-ActualPart: !Sequence []
+ActualPart: !RawTokens
 
 AliasDeclaration: !Sequence
   - keyword: Alias
@@ -82,6 +82,7 @@ AttributeDeclaration: !Sequence
 ComponentDeclaration: !Sequence
   - node: ComponentDeclarationPreamble
   - node: ComponentDeclarationItems
+    optional: true
   - node: ComponentDeclarationEpilogue
 
 ComponentDeclarationItems: !Sequence
@@ -129,6 +130,7 @@ ResolutionIndicationElementResolution: !Sequence
 
 RecordResolutionElementResolution: !Sequence
   - node: RecordResolution
+    optional: true
 
 ElementResolution: !Choice
   - node: ResolutionIndicationElementResolution
@@ -176,6 +178,7 @@ FullTypeDeclaration: !Sequence
 GenericClause: !Sequence
   - node: GenericClausePreamble
   - node: InterfaceList
+    optional: true
   - node: GenericClauseEpilogue
 
 GenericClausePreamble: !Sequence
@@ -191,6 +194,7 @@ GenericMapAspect: !Sequence
   - keyword: Map
   - token: LeftPar
   - node: AssociationList
+    optional: true
   - token: RightPar
 
 GroupConstituentList: !Sequence
@@ -206,6 +210,7 @@ GroupDeclaration: !Sequence
   - node: Name
   - token: LeftPar
   - node: GroupConstituentList
+    optional: true
   - token: RightPar
   - token: SemiColon
 
@@ -215,6 +220,7 @@ GroupTemplateDeclaration: !Sequence
   - keyword: Is
   - token: LeftPar
   - node: EntityClassEntryList
+    optional: true
   - token: RightPar
   - token: SemiColon
 
@@ -293,6 +299,7 @@ InterfacePackageGenericMapAspectDefault: !Sequence
 
 InterfacePackageGenericMapAspectAssociations: !Sequence
   - node: AssociationList
+    optional: true
 
 InterfacePackageGenericMapAspectInner: !Choice
   - node: InterfacePackageGenericMapAspectBox
@@ -305,6 +312,7 @@ InterfaceProcedureSpecification: !Sequence
   - keyword: Parameter
   - token: LeftPar
   - node: InterfaceList
+    optional: true
   - token: RightPar
 
 InterfaceSignalDeclaration: !Sequence
@@ -369,6 +377,7 @@ Mode: !Choice
 PortClause: !Sequence
   - node: PortClausePreamble
   - node: InterfaceList
+    optional: true
   - node: PortClauseEpilogue
 
 PortClausePreamble: !Sequence
@@ -384,6 +393,7 @@ PortMapAspect: !Sequence
   - keyword: Map
   - token: LeftPar
   - node: AssociationList
+    optional: true
   - token: RightPar
 
 RecordElementResolution: !Sequence

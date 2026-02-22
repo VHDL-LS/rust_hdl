@@ -22,6 +22,9 @@ impl Model {
             }
             NodeContents::Choice(choice) => self.insert_ser_choice(category, node.name, choice),
             NodeContents::Builtin => self.push_builtin(node.name),
+            NodeContents::RawTokens => {
+                self.push_node(category.to_owned(), Node::RawTokens(node.name));
+            }
         }
     }
 

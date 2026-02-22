@@ -48,6 +48,7 @@ pub fn load_model(definitions_dir: &Path) -> Model {
         model.insert_ser_nodes(&section, nodes);
     }
 
+    model.fixup_empty_capable_optional_markers();
     model.do_checks();
     model.do_postprocessing();
     model

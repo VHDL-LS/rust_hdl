@@ -3,6 +3,7 @@
 AbsolutePathname: !Sequence
   - token: Dot
   - node: PartialPathname
+    optional: true
 
 AttributeName: !Sequence
   - token: LeftSquare
@@ -63,6 +64,7 @@ RelativePathname: !Sequence
   - token: Dot
     repeated: true
   - node: PartialPathname
+    optional: true
 
 PartialPathname: !Sequence
   - token: Identifier
@@ -116,4 +118,4 @@ NameTail: !Choice
   - node: RawTokens
   - node: AttributeName
 
-RawTokens: !Sequence []
+RawTokens: !RawTokens

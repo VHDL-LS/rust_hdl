@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct UseClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for UseClauseSyntax {
@@ -29,7 +29,7 @@ impl UseClauseSyntax {
     pub fn use_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Use))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Use))
             .nth(0)
     }
     pub fn name_list(&self) -> Option<NameListSyntax> {
@@ -38,7 +38,7 @@ impl UseClauseSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }

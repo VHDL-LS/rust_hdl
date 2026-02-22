@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct ContextClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextClauseSyntax {
@@ -86,19 +86,19 @@ impl ContextDeclarationPreambleSyntax {
     pub fn context_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Context))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Context))
             .nth(0)
     }
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
 }
@@ -122,25 +122,25 @@ impl ContextDeclarationEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
     pub fn context_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Context))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Context))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -185,7 +185,7 @@ impl ContextReferenceSyntax {
     pub fn context_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Context))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Context))
             .nth(0)
     }
     pub fn name_list(&self) -> Option<NameListSyntax> {
@@ -194,7 +194,7 @@ impl ContextReferenceSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -257,7 +257,10 @@ impl DesignFileSyntax {
         self.0.children().filter_map(DesignUnitSyntax::cast)
     }
     pub fn eof_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Eof).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Eof)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -307,7 +310,7 @@ impl LibraryClauseSyntax {
     pub fn library_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Library))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Library))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -319,7 +322,7 @@ impl LibraryClauseSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }

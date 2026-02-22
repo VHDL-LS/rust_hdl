@@ -101,6 +101,7 @@ PrimaryUnitDeclaration: !Sequence
 ProtectedTypeBody: !Sequence
   - node: ProtectedTypeBodyPreamble
   - node: Declarations
+    optional: true
   - node: ProtectedTypeBodyEpilogue
 
 ProtectedTypeBodyPreamble: !Sequence
@@ -117,6 +118,7 @@ ProtectedTypeBodyEpilogue: !Sequence
 ProtectedTypeDeclaration: !Sequence
   - node: ProtectedTypeDeclarationPreamble
   - node: Declarations
+    optional: true
   - node: ProtectedTypeDeclarationEpilogue
 
 ProtectedTypeDeclarationPreamble: !Sequence
@@ -165,6 +167,7 @@ RecordElementConstraint: !Sequence
 RecordTypeDefinition: !Sequence
   - node: RecordTypeDefinitionPreamble
   - node: RecordElementDeclarations
+    optional: true
   - node: RecordTypeDefinitionEpilogue
 
 RecordElementDeclarations: !Sequence
@@ -211,6 +214,7 @@ UnboundedArrayDefinition: !Sequence
   - keyword: Array
   - token: LeftPar
   - node: IndexSubtypeDefinitionList
+    optional: true
   - token: RightPar
   - keyword: Of
   - node: SubtypeIndication

@@ -18,9 +18,12 @@ BlockHeader: !Sequence
 BlockStatement: !Sequence
   - node: BlockPreamble
   - node: BlockHeader
+    optional: true
   - node: Declarations
+    optional: true
   - node: DeclarationStatementSeparator
   - node: ConcurrentStatements
+    optional: true
   - node: BlockEpilogue
 
 BlockPreamble: !Sequence
@@ -45,8 +48,10 @@ CaseGenerateAlternative: !Sequence
   - node: Label
     optional: true
   - node: Choices
+    optional: true
   - token: RightArrow
   - node: GenerateStatementBody
+    optional: true
 
 CaseGenerateStatement: !Sequence
   - node: CaseGenerateStatementPreamble
@@ -71,6 +76,7 @@ ComponentInstantiationStatement: !Sequence
   - node: Label
   - node: InstantiatedUnit
   - node: ComponentInstantiationItems
+    optional: true
   - token: SemiColon
 
 ComponentInstantiationItems: !Sequence
@@ -132,6 +138,7 @@ ConcurrentSelectedSignalAssignment: !Sequence
   - node: DelayMechanism
     optional: true
   - node: SelectedWaveforms
+    optional: true
   - token: SemiColon
 
 ConcurrentSelectedSignalAssignmentPreamble: !Sequence
@@ -166,6 +173,7 @@ ConcurrentStatements: !Sequence
 ForGenerateStatement: !Sequence
   - node: ForGenerateStatementPreamble
   - node: GenerateStatementBody
+    optional: true
   - node: ForGenerateStatementEpilogue
 
 ForGenerateStatementPreamble: !Sequence
@@ -184,9 +192,11 @@ ForGenerateStatementEpilogue: !Sequence
 
 GenerateStatementBody: !Sequence
   - node: Declarations
+    optional: true
   - node: DeclarationStatementSeparator
     optional: true
   - node: ConcurrentStatements
+    optional: true
   - node: GenerateStatementBodyEpilogue
     optional: true
 
@@ -203,6 +213,7 @@ IfGenerateElsif: !Sequence
   - node: Expression
   - keyword: Generate
   - node: GenerateStatementBody
+    optional: true
 
 IfGenerateElse: !Sequence
   - keyword: Else
@@ -210,10 +221,12 @@ IfGenerateElse: !Sequence
     optional: true
   - keyword: Generate
   - node: GenerateStatementBody
+    optional: true
 
 IfGenerateStatement: !Sequence
   - node: IfGenerateStatementPreamble
   - node: GenerateStatementBody
+    optional: true
   - node: IfGenerateElsif
     repeated: true
   - node: IfGenerateElse
@@ -278,8 +291,10 @@ ProcessSensitivityList: !Choice
 ProcessStatement: !Sequence
   - node: ProcessStatementPreamble
   - node: Declarations
+    optional: true
   - node: DeclarationStatementSeparator
   - node: ConcurrentStatements
+    optional: true
   - node: ProcessStatementEpilogue
 
 ProcessStatementPreamble: !Sequence
