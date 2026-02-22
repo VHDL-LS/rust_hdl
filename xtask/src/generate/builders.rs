@@ -473,7 +473,7 @@ fn generate_builder(
     let setters: Vec<_> = descriptors.iter().map(|d| &d.setter).collect();
     let build_stmts: Vec<_> = descriptors.iter().map(|d| &d.build_stmt).collect();
 
-    // --- Default impl (only when new() takes no args) ---
+    // Default impl (only when new() takes no args)
     let default_impl = if constructor_args.is_empty() {
         quote! {
             impl Default for #builder {
@@ -539,6 +539,11 @@ fn generate_raw_tokens_builder(name: &str) -> TokenStream {
             }
             pub fn build(self) -> #syntax_name {
                 #syntax_name::cast(self.0.build()).unwrap()
+            }
+        }
+        impl Default for #builder_name {
+            fn default() -> Self {
+                Self::new()
             }
         }
         impl From<#builder_name> for #syntax_name {

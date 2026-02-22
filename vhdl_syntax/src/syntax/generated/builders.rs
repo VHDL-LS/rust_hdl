@@ -17579,6 +17579,11 @@ impl ActualPartBuilder {
         ActualPartSyntax::cast(self.0.build()).unwrap()
     }
 }
+impl Default for ActualPartBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl From<ActualPartBuilder> for ActualPartSyntax {
     fn from(value: ActualPartBuilder) -> Self {
         value.build()
@@ -17597,6 +17602,11 @@ impl RawTokensBuilder {
     }
     pub fn build(self) -> RawTokensSyntax {
         RawTokensSyntax::cast(self.0.build()).unwrap()
+    }
+}
+impl Default for RawTokensBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 impl From<RawTokensBuilder> for RawTokensSyntax {
