@@ -24,11 +24,7 @@ impl Default for AbsolutePathnameBuilder {
 impl AbsolutePathnameBuilder {
     pub fn new() -> Self {
         Self {
-            dot_token: Token::new(
-                TokenKind::Dot,
-                TokenKind::Dot.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            dot_token: TokenKind::Dot.canonical_token().unwrap(),
             partial_pathname: None,
         }
     }
@@ -69,11 +65,7 @@ pub struct AccessTypeDefinitionBuilder {
 impl AccessTypeDefinitionBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            access_token: Token::new(
-                TokenKind::Keyword(Kw::Access),
-                Kw::Access.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            access_token: Kw::Access.canonical_token(),
             subtype_indication: subtype_indication.into(),
         }
     }
@@ -119,18 +111,10 @@ impl Default for AggregateBuilder {
 impl AggregateBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             element_associations: Vec::new(),
             comma_token: Vec::new(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -228,26 +212,14 @@ impl AliasDeclarationBuilder {
         name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            alias_token: Token::new(
-                TokenKind::Keyword(Kw::Alias),
-                Kw::Alias.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            alias_token: Kw::Alias.canonical_token(),
             alias_designator: alias_designator.into(),
             colon_token: None,
             subtype_indication: None,
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
             name: name.into(),
             signature: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_alias_token(mut self, t: impl Into<Token>) -> Self {
@@ -267,13 +239,9 @@ impl AliasDeclarationBuilder {
         self
     }
     pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_token
+            .get_or_insert_with(|| TokenKind::Colon.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -344,11 +312,7 @@ impl Default for AllSensitivityListBuilder {
 impl AllSensitivityListBuilder {
     pub fn new() -> Self {
         Self {
-            all_token: Token::new(
-                TokenKind::Keyword(Kw::All),
-                Kw::All.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            all_token: Kw::All.canonical_token(),
         }
     }
     pub fn with_all_token(mut self, t: impl Into<Token>) -> Self {
@@ -452,18 +416,10 @@ impl Default for ArchitectureEpilogueBuilder {
 impl ArchitectureEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             architecture_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -479,13 +435,9 @@ impl ArchitectureEpilogueBuilder {
         self
     }
     pub fn with_architecture_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.architecture_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Architecture),
-                Kw::Architecture.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .architecture_token
+            .get_or_insert_with(|| Kw::Architecture.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -542,23 +494,11 @@ impl ArchitecturePreambleBuilder {
         entity_name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            architecture_token: Token::new(
-                TokenKind::Keyword(Kw::Architecture),
-                Kw::Architecture.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            architecture_token: Kw::Architecture.canonical_token(),
             name_token: name_token.into().into(),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            of_token: Kw::Of.canonical_token(),
             entity_name: entity_name.into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_architecture_token(mut self, t: impl Into<Token>) -> Self {
@@ -662,11 +602,7 @@ pub struct AssertionBuilder {
 impl AssertionBuilder {
     pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            assert_token: Token::new(
-                TokenKind::Keyword(Kw::Assert),
-                Kw::Assert.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            assert_token: Kw::Assert.canonical_token(),
             condition: condition.into(),
             report_token: None,
             report: None,
@@ -691,13 +627,9 @@ impl AssertionBuilder {
         self
     }
     pub fn with_report_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.report_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Report),
-                Kw::Report.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .report_token
+            .get_or_insert_with(|| Kw::Report.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -710,13 +642,9 @@ impl AssertionBuilder {
         self
     }
     pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.severity_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Severity),
-                Kw::Severity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .severity_token
+            .get_or_insert_with(|| Kw::Severity.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -764,11 +692,7 @@ impl AssertionStatementBuilder {
             label_token: None,
             colon_token: None,
             assertion: assertion.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -786,13 +710,9 @@ impl AssertionStatementBuilder {
         self
     }
     pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_token
+            .get_or_insert_with(|| TokenKind::Colon.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -852,13 +772,9 @@ impl AssociationElementBuilder {
         self
     }
     pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.right_arrow_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::RightArrow,
-                TokenKind::RightArrow.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .right_arrow_token
+            .get_or_insert_with(|| TokenKind::RightArrow.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -944,23 +860,11 @@ impl AttributeDeclarationBuilder {
         name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            attribute_token: Token::new(
-                TokenKind::Keyword(Kw::Attribute),
-                Kw::Attribute.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            attribute_token: Kw::Attribute.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             name: name.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_attribute_token(mut self, t: impl Into<Token>) -> Self {
@@ -1035,34 +939,14 @@ impl AttributeNameBuilder {
         expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            left_square_token: Token::new(
-                TokenKind::LeftSquare,
-                TokenKind::LeftSquare.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_square_token: TokenKind::LeftSquare.canonical_token().unwrap(),
             signature: signature.into(),
-            right_square_token: Token::new(
-                TokenKind::RightSquare,
-                TokenKind::RightSquare.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            tick_token: Token::new(
-                TokenKind::Tick,
-                TokenKind::Tick.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_square_token: TokenKind::RightSquare.canonical_token().unwrap(),
+            tick_token: TokenKind::Tick.canonical_token().unwrap(),
             attribute_designator_token_token: attribute_designator_token_token.into().into(),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             expression: expression.into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_square_token(mut self, t: impl Into<Token>) -> Self {
@@ -1189,29 +1073,13 @@ impl AttributeSpecificationBuilder {
         expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            attribute_token: Token::new(
-                TokenKind::Keyword(Kw::Attribute),
-                Kw::Attribute.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            attribute_token: Kw::Attribute.canonical_token(),
             attribute_designator_token_token: attribute_designator_token_token.into().into(),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            of_token: Kw::Of.canonical_token(),
             entity_specification: entity_specification.into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
             expression: expression.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_attribute_token(mut self, t: impl Into<Token>) -> Self {
@@ -1358,13 +1226,9 @@ impl BindingIndicationBuilder {
         self
     }
     pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.use_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Use),
-                Kw::Use.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .use_token
+            .get_or_insert_with(|| Kw::Use.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -1472,21 +1336,9 @@ impl Default for BlockConfigurationEpilogueBuilder {
 impl BlockConfigurationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            for_token: Kw::For.canonical_token(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -1609,11 +1461,7 @@ pub struct BlockConfigurationPreambleBuilder {
 impl BlockConfigurationPreambleBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            for_token: Kw::For.canonical_token(),
             name: name.into(),
         }
     }
@@ -1659,22 +1507,10 @@ impl Default for BlockEpilogueBuilder {
 impl BlockEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            block_token: Token::new(
-                TokenKind::Keyword(Kw::Block),
-                Kw::Block.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            block_token: Kw::Block.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -1809,11 +1645,7 @@ impl BlockPreambleBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            block_token: Token::new(
-                TokenKind::Keyword(Kw::Block),
-                Kw::Block.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            block_token: Kw::Block.canonical_token(),
             condition: None,
             is_token: None,
         }
@@ -1839,13 +1671,9 @@ impl BlockPreambleBuilder {
         self
     }
     pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.is_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .is_token
+            .get_or_insert_with(|| Kw::Is.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -1959,18 +1787,10 @@ impl Default for CaseGenerateAlternativeBuilder {
 impl CaseGenerateAlternativeBuilder {
     pub fn new() -> Self {
         Self {
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             label: None,
             choices: None,
-            right_arrow_token: Token::new(
-                TokenKind::RightArrow,
-                TokenKind::RightArrow.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
             generate_statement_body: None,
         }
     }
@@ -2100,22 +1920,10 @@ impl Default for CaseGenerateStatementEpilogueBuilder {
 impl CaseGenerateStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            generate_token: Kw::Generate.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -2182,17 +1990,9 @@ impl CaseGenerateStatementPreambleBuilder {
     pub fn new(label: impl Into<LabelSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             label: label.into(),
-            case_token: Token::new(
-                TokenKind::Keyword(Kw::Case),
-                Kw::Case.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            case_token: Kw::Case.canonical_token(),
             expression: expression.into(),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generate_token: Kw::Generate.canonical_token(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -2354,17 +2154,9 @@ impl Default for CaseStatementAlternativePreambleBuilder {
 impl CaseStatementAlternativePreambleBuilder {
     pub fn new() -> Self {
         Self {
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             choices: None,
-            right_arrow_token: Token::new(
-                TokenKind::RightArrow,
-                TokenKind::RightArrow.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
         }
     }
     pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
@@ -2421,23 +2213,11 @@ impl Default for CaseStatementEpilogueBuilder {
 impl CaseStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            case_token: Token::new(
-                TokenKind::Keyword(Kw::Case),
-                Kw::Case.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            case_token: Kw::Case.canonical_token(),
             que_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -2461,13 +2241,9 @@ impl CaseStatementEpilogueBuilder {
         self
     }
     pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.que_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Que,
-                TokenKind::Que.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .que_token
+            .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -2523,18 +2299,10 @@ impl CaseStatementPreambleBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            case_token: Token::new(
-                TokenKind::Keyword(Kw::Case),
-                Kw::Case.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            case_token: Kw::Case.canonical_token(),
             que_token: None,
             expression: None,
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -2554,13 +2322,9 @@ impl CaseStatementPreambleBuilder {
         self
     }
     pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.que_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Que,
-                TokenKind::Que.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .que_token
+            .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -2712,21 +2476,9 @@ impl Default for ComponentConfigurationEpilogueBuilder {
 impl ComponentConfigurationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            for_token: Kw::For.canonical_token(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -2838,11 +2590,7 @@ pub struct ComponentConfigurationPreambleBuilder {
 impl ComponentConfigurationPreambleBuilder {
     pub fn new(component_specification: impl Into<ComponentSpecificationSyntax>) -> Self {
         Self {
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            for_token: Kw::For.canonical_token(),
             component_specification: component_specification.into(),
         }
     }
@@ -2946,22 +2694,10 @@ impl Default for ComponentDeclarationEpilogueBuilder {
 impl ComponentDeclarationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            component_token: Token::new(
-                TokenKind::Keyword(Kw::Component),
-                Kw::Component.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            component_token: Kw::Component.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -3070,11 +2806,7 @@ pub struct ComponentDeclarationPreambleBuilder {
 impl ComponentDeclarationPreambleBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            component_token: Token::new(
-                TokenKind::Keyword(Kw::Component),
-                Kw::Component.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            component_token: Kw::Component.canonical_token(),
             name_token: name_token.into().into(),
             is_token: None,
         }
@@ -3100,13 +2832,9 @@ impl ComponentDeclarationPreambleBuilder {
         self
     }
     pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.is_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .is_token
+            .get_or_insert_with(|| Kw::Is.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3145,13 +2873,9 @@ impl ComponentInstantiatedUnitBuilder {
         self
     }
     pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.component_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Component),
-                Kw::Component.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .component_token
+            .get_or_insert_with(|| Kw::Component.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3236,11 +2960,7 @@ impl ComponentInstantiationStatementBuilder {
             label: label.into(),
             instantiated_unit: instantiated_unit.into(),
             component_instantiation_items: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -3298,11 +3018,7 @@ impl ComponentSpecificationBuilder {
     ) -> Self {
         Self {
             instantiation_list: instantiation_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             name: name.into(),
         }
     }
@@ -3467,11 +3183,7 @@ impl ConcurrentAssertionStatementBuilder {
             label: None,
             postponed_token: None,
             assertion: assertion.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -3483,13 +3195,9 @@ impl ConcurrentAssertionStatementBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3546,19 +3254,11 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
             label: None,
             postponed_token: None,
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             guarded_token: None,
             delay_mechanism: None,
             conditional_waveforms: conditional_waveforms.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -3570,13 +3270,9 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3597,13 +3293,9 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self
     }
     pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.guarded_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Guarded),
-                Kw::Guarded.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .guarded_token
+            .get_or_insert_with(|| Kw::Guarded.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3667,11 +3359,7 @@ impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
             label: None,
             postponed_token: None,
             name: name.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -3683,13 +3371,9 @@ impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3750,19 +3434,11 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
             concurrent_selected_signal_assignment_preamble:
                 concurrent_selected_signal_assignment_preamble.into(),
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             guarded_token: None,
             delay_mechanism: None,
             selected_waveforms: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_concurrent_selected_signal_assignment_preamble(
@@ -3789,13 +3465,9 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         self
     }
     pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.guarded_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Guarded),
-                Kw::Guarded.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .guarded_token
+            .get_or_insert_with(|| Kw::Guarded.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3860,17 +3532,9 @@ impl ConcurrentSelectedSignalAssignmentPreambleBuilder {
         Self {
             label: None,
             postponed_token: None,
-            with_token: Token::new(
-                TokenKind::Keyword(Kw::With),
-                Kw::With.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            with_token: Kw::With.canonical_token(),
             expression: expression.into(),
-            select_token: Token::new(
-                TokenKind::Keyword(Kw::Select),
-                Kw::Select.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            select_token: Kw::Select.canonical_token(),
             que_token: None,
         }
     }
@@ -3883,13 +3547,9 @@ impl ConcurrentSelectedSignalAssignmentPreambleBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3918,13 +3578,9 @@ impl ConcurrentSelectedSignalAssignmentPreambleBuilder {
         self
     }
     pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.que_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Que,
-                TokenKind::Que.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .que_token
+            .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -3972,19 +3628,11 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
             label: None,
             postponed_token: None,
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             guarded_token: None,
             delay_mechanism: None,
             waveform: waveform.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -3996,13 +3644,9 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -4023,13 +3667,9 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self
     }
     pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.guarded_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Guarded),
-                Kw::Guarded.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .guarded_token
+            .get_or_insert_with(|| Kw::Guarded.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -4121,11 +3761,7 @@ pub struct ConditionClauseBuilder {
 impl ConditionClauseBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            until_token: Token::new(
-                TokenKind::Keyword(Kw::Until),
-                Kw::Until.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            until_token: Kw::Until.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -4164,11 +3800,7 @@ pub struct ConditionalElseItemBuilder {
 impl ConditionalElseItemBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -4212,17 +3844,9 @@ impl ConditionalElseWhenExpressionBuilder {
         condition: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             expression: expression.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             condition: condition.into(),
         }
     }
@@ -4280,11 +3904,7 @@ impl ConditionalExpressionBuilder {
     ) -> Self {
         Self {
             expression: expression.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             condition: condition.into(),
         }
     }
@@ -4388,23 +4008,11 @@ impl ConditionalForceAssignmentBuilder {
     ) -> Self {
         Self {
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            force_token: Token::new(
-                TokenKind::Keyword(Kw::Force),
-                Kw::Force.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
+            force_token: Kw::Force.canonical_token(),
             force_mode: None,
             conditional_expressions: conditional_expressions.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -4481,17 +4089,9 @@ impl ConditionalVariableAssignmentBuilder {
     ) -> Self {
         Self {
             target: target.into(),
-            colon_eq_token: Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             conditional_expressions: conditional_expressions.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -4551,11 +4151,7 @@ impl ConditionalWaveformBuilder {
     ) -> Self {
         Self {
             waveform: waveform.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -4606,18 +4202,10 @@ impl ConditionalWaveformAssignmentBuilder {
     ) -> Self {
         Self {
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             delay_mechanism: None,
             conditional_waveforms: conditional_waveforms.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -4676,11 +4264,7 @@ pub struct ConditionalWaveformElseItemBuilder {
 impl ConditionalWaveformElseItemBuilder {
     pub fn new(waveform: impl Into<WaveformSyntax>) -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             waveform: waveform.into(),
         }
     }
@@ -4724,17 +4308,9 @@ impl ConditionalWaveformElseWhenExpressionBuilder {
         condition: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             waveform: waveform.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             condition: condition.into(),
         }
     }
@@ -4914,18 +4490,10 @@ impl Default for ConfigurationDeclarationEpilogueBuilder {
 impl ConfigurationDeclarationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             configuration_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -4941,13 +4509,9 @@ impl ConfigurationDeclarationEpilogueBuilder {
         self
     }
     pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.configuration_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Configuration),
-                Kw::Configuration.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .configuration_token
+            .get_or_insert_with(|| Kw::Configuration.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -5055,23 +4619,11 @@ impl ConfigurationDeclarationPreambleBuilder {
         entity_name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            configuration_token: Token::new(
-                TokenKind::Keyword(Kw::Configuration),
-                Kw::Configuration.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            configuration_token: Kw::Configuration.canonical_token(),
             name_token: name_token.into().into(),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            of_token: Kw::Of.canonical_token(),
             entity_name: entity_name.into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_configuration_token(mut self, t: impl Into<Token>) -> Self {
@@ -5136,11 +4688,7 @@ pub struct ConfigurationInstantiatedUnitBuilder {
 impl ConfigurationInstantiatedUnitBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            configuration_token: Token::new(
-                TokenKind::Keyword(Kw::Configuration),
-                Kw::Configuration.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            configuration_token: Kw::Configuration.canonical_token(),
             name: name.into(),
         }
     }
@@ -5187,25 +4735,13 @@ impl ConstantDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            constant_token: Token::new(
-                TokenKind::Keyword(Kw::Constant),
-                Kw::Constant.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            constant_token: Kw::Constant.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_constant_token(mut self, t: impl Into<Token>) -> Self {
@@ -5237,13 +4773,9 @@ impl ConstantDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -5293,17 +4825,9 @@ pub struct ConstrainedArrayDefinitionBuilder {
 impl ConstrainedArrayDefinitionBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            array_token: Token::new(
-                TokenKind::Keyword(Kw::Array),
-                Kw::Array.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            array_token: Kw::Array.canonical_token(),
             index_constraint: IndexConstraintBuilder::default().build(),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            of_token: Kw::Of.canonical_token(),
             subtype_indication: subtype_indication.into(),
         }
     }
@@ -5448,18 +4972,10 @@ impl Default for ContextDeclarationEpilogueBuilder {
 impl ContextDeclarationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             context_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -5475,13 +4991,9 @@ impl ContextDeclarationEpilogueBuilder {
         self
     }
     pub fn with_context_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.context_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Context),
-                Kw::Context.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .context_token
+            .get_or_insert_with(|| Kw::Context.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -5533,17 +5045,9 @@ pub struct ContextDeclarationPreambleBuilder {
 impl ContextDeclarationPreambleBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            context_token: Token::new(
-                TokenKind::Keyword(Kw::Context),
-                Kw::Context.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            context_token: Kw::Context.canonical_token(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_context_token(mut self, t: impl Into<Token>) -> Self {
@@ -5600,17 +5104,9 @@ impl Default for ContextReferenceBuilder {
 impl ContextReferenceBuilder {
     pub fn new() -> Self {
         Self {
-            context_token: Token::new(
-                TokenKind::Keyword(Kw::Context),
-                Kw::Context.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            context_token: Kw::Context.canonical_token(),
             name_list: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_context_token(mut self, t: impl Into<Token>) -> Self {
@@ -5663,11 +5159,7 @@ impl Default for DeclarationStatementSeparatorBuilder {
 impl DeclarationStatementSeparatorBuilder {
     pub fn new() -> Self {
         Self {
-            begin_token: Token::new(
-                TokenKind::Keyword(Kw::Begin),
-                Kw::Begin.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            begin_token: Kw::Begin.canonical_token(),
         }
     }
     pub fn with_begin_token(mut self, t: impl Into<Token>) -> Self {
@@ -5741,11 +5233,7 @@ impl DesignFileBuilder {
     pub fn new() -> Self {
         Self {
             design_units: Vec::new(),
-            eof_token: Token::new(
-                TokenKind::Eof,
-                TokenKind::Eof.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            eof_token: TokenKind::Eof.canonical_token().unwrap(),
         }
     }
     pub fn add_design_units(mut self, n: impl Into<DesignUnitSyntax>) -> Self {
@@ -5828,23 +5316,11 @@ impl DisconnectionSpecificationBuilder {
         expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            disconnect_token: Token::new(
-                TokenKind::Keyword(Kw::Disconnect),
-                Kw::Disconnect.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            disconnect_token: Kw::Disconnect.canonical_token(),
             guarded_signal_specification: guarded_signal_specification.into(),
-            after_token: Token::new(
-                TokenKind::Keyword(Kw::After),
-                Kw::After.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            after_token: Kw::After.canonical_token(),
             expression: expression.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_disconnect_token(mut self, t: impl Into<Token>) -> Self {
@@ -5938,11 +5414,7 @@ impl ElementAssociationBuilder {
     pub fn new(choice: impl Into<ChoiceSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             choice: choice.into(),
-            right_arrow_token: Token::new(
-                TokenKind::RightArrow,
-                TokenKind::RightArrow.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
             expression: expression.into(),
         }
     }
@@ -5992,17 +5464,9 @@ impl ElementDeclarationBuilder {
     ) -> Self {
         Self {
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
@@ -6097,13 +5561,9 @@ impl EntityClassEntryBuilder {
         self
     }
     pub fn with_box_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.box_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::BOX,
-                TokenKind::BOX.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .box_token
+            .get_or_insert_with(|| TokenKind::BOX.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -6176,11 +5636,7 @@ pub struct EntityConfigurationAspectBuilder {
 impl EntityConfigurationAspectBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            configuration_token: Token::new(
-                TokenKind::Keyword(Kw::Configuration),
-                Kw::Configuration.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            configuration_token: Kw::Configuration.canonical_token(),
             name: name.into(),
         }
     }
@@ -6306,18 +5762,10 @@ impl Default for EntityDeclarationEpilogueBuilder {
 impl EntityDeclarationEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             entity_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -6333,13 +5781,9 @@ impl EntityDeclarationEpilogueBuilder {
         self
     }
     pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.entity_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Entity),
-                Kw::Entity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .entity_token
+            .get_or_insert_with(|| Kw::Entity.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -6391,17 +5835,9 @@ pub struct EntityDeclarationPreambleBuilder {
 impl EntityDeclarationPreambleBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            entity_token: Token::new(
-                TokenKind::Keyword(Kw::Entity),
-                Kw::Entity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            entity_token: Kw::Entity.canonical_token(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_entity_token(mut self, t: impl Into<Token>) -> Self {
@@ -6534,11 +5970,7 @@ pub struct EntityEntityAspectBuilder {
 impl EntityEntityAspectBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            entity_token: Token::new(
-                TokenKind::Keyword(Kw::Entity),
-                Kw::Entity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            entity_token: Kw::Entity.canonical_token(),
             name: name.into(),
         }
     }
@@ -6624,11 +6056,7 @@ pub struct EntityInstantiatedUnitBuilder {
 impl EntityInstantiatedUnitBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            entity_token: Token::new(
-                TokenKind::Keyword(Kw::Entity),
-                Kw::Entity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            entity_token: Kw::Entity.canonical_token(),
             name: name.into(),
             left_par_token: None,
             identifier_token: None,
@@ -6652,13 +6080,9 @@ impl EntityInstantiatedUnitBuilder {
         self
     }
     pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.left_par_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .left_par_token
+            .get_or_insert_with(|| TokenKind::LeftPar.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -6677,13 +6101,9 @@ impl EntityInstantiatedUnitBuilder {
         self
     }
     pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.right_par_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .right_par_token
+            .get_or_insert_with(|| TokenKind::RightPar.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -6723,11 +6143,7 @@ impl Default for EntityNameListAllBuilder {
 impl EntityNameListAllBuilder {
     pub fn new() -> Self {
         Self {
-            all_token: Token::new(
-                TokenKind::Keyword(Kw::All),
-                Kw::All.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            all_token: Kw::All.canonical_token(),
         }
     }
     pub fn with_all_token(mut self, t: impl Into<Token>) -> Self {
@@ -6764,11 +6180,7 @@ impl Default for EntityNameListOthersBuilder {
 impl EntityNameListOthersBuilder {
     pub fn new() -> Self {
         Self {
-            others_token: Token::new(
-                TokenKind::Keyword(Kw::Others),
-                Kw::Others.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            others_token: Kw::Others.canonical_token(),
         }
     }
     pub fn with_others_token(mut self, t: impl Into<Token>) -> Self {
@@ -6805,11 +6217,7 @@ impl Default for EntityOpenAspectBuilder {
 impl EntityOpenAspectBuilder {
     pub fn new() -> Self {
         Self {
-            open_token: Token::new(
-                TokenKind::Keyword(Kw::Open),
-                Kw::Open.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            open_token: Kw::Open.canonical_token(),
         }
     }
     pub fn with_open_token(mut self, t: impl Into<Token>) -> Self {
@@ -6847,11 +6255,7 @@ impl EntitySpecificationBuilder {
     ) -> Self {
         Self {
             entity_name_list: entity_name_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             entity_class: entity_class.into(),
         }
     }
@@ -6902,18 +6306,10 @@ impl Default for EnumerationTypeDefinitionBuilder {
 impl EnumerationTypeDefinitionBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             discrete_ranges: Vec::new(),
             comma_token: Vec::new(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -6981,19 +6377,11 @@ impl ExitStatementBuilder {
         Self {
             label_token: None,
             colon_token: None,
-            exit_token: Token::new(
-                TokenKind::Keyword(Kw::Exit),
-                Kw::Exit.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            exit_token: Kw::Exit.canonical_token(),
             loop_label_token: None,
             when_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -7011,13 +6399,9 @@ impl ExitStatementBuilder {
         self
     }
     pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_token
+            .get_or_insert_with(|| TokenKind::Colon.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -7044,13 +6428,9 @@ impl ExitStatementBuilder {
         self
     }
     pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.when_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .when_token
+            .get_or_insert_with(|| Kw::When.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -7104,11 +6484,7 @@ pub struct ExpressionAllocatorBuilder {
 impl ExpressionAllocatorBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            new_token: Token::new(
-                TokenKind::Keyword(Kw::New),
-                Kw::New.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            new_token: Kw::New.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -7182,28 +6558,12 @@ impl ExternalConstantNameBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            lt_lt_token: Token::new(
-                TokenKind::LtLt,
-                TokenKind::LtLt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            constant_token: Token::new(
-                TokenKind::Keyword(Kw::Constant),
-                Kw::Constant.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
+            constant_token: Kw::Constant.canonical_token(),
             external_path_name: external_path_name.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            gt_gt_token: Token::new(
-                TokenKind::GtGt,
-                TokenKind::GtGt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
         }
     }
     pub fn with_lt_lt_token(mut self, t: impl Into<Token>) -> Self {
@@ -7280,28 +6640,12 @@ impl ExternalSignalNameBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            lt_lt_token: Token::new(
-                TokenKind::LtLt,
-                TokenKind::LtLt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            signal_token: Token::new(
-                TokenKind::Keyword(Kw::Signal),
-                Kw::Signal.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
+            signal_token: Kw::Signal.canonical_token(),
             external_path_name: external_path_name.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            gt_gt_token: Token::new(
-                TokenKind::GtGt,
-                TokenKind::GtGt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
         }
     }
     pub fn with_lt_lt_token(mut self, t: impl Into<Token>) -> Self {
@@ -7378,28 +6722,12 @@ impl ExternalVariableNameBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            lt_lt_token: Token::new(
-                TokenKind::LtLt,
-                TokenKind::LtLt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            variable_token: Token::new(
-                TokenKind::Keyword(Kw::Variable),
-                Kw::Variable.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
+            variable_token: Kw::Variable.canonical_token(),
             external_path_name: external_path_name.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            gt_gt_token: Token::new(
-                TokenKind::GtGt,
-                TokenKind::GtGt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
         }
     }
     pub fn with_lt_lt_token(mut self, t: impl Into<Token>) -> Self {
@@ -7477,24 +6805,12 @@ impl FileDeclarationBuilder {
         file_open_information: impl Into<FileOpenInformationSyntax>,
     ) -> Self {
         Self {
-            file_token: Token::new(
-                TokenKind::Keyword(Kw::File),
-                Kw::File.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            file_token: Kw::File.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             file_open_information: file_open_information.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_file_token(mut self, t: impl Into<Token>) -> Self {
@@ -7565,17 +6881,9 @@ impl FileOpenInformationBuilder {
         file_logical_name: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            open_token: Token::new(
-                TokenKind::Keyword(Kw::Open),
-                Kw::Open.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            open_token: Kw::Open.canonical_token(),
             file_open_kind: file_open_kind.into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
             file_logical_name: file_logical_name.into(),
         }
     }
@@ -7629,16 +6937,8 @@ pub struct FileTypeDefinitionBuilder {
 impl FileTypeDefinitionBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            file_token: Token::new(
-                TokenKind::Keyword(Kw::File),
-                Kw::File.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            file_token: Kw::File.canonical_token(),
+            of_token: Kw::Of.canonical_token(),
             name: name.into(),
         }
     }
@@ -7748,22 +7048,10 @@ impl Default for ForGenerateStatementEpilogueBuilder {
 impl ForGenerateStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            generate_token: Kw::Generate.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -7830,17 +7118,9 @@ impl ForGenerateStatementPreambleBuilder {
     pub fn new(parameter_specification: impl Into<ParameterSpecificationSyntax>) -> Self {
         Self {
             label: None,
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            for_token: Kw::For.canonical_token(),
             parameter_specification: parameter_specification.into(),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generate_token: Kw::Generate.canonical_token(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -7897,11 +7177,7 @@ pub struct ForIterationSchemeBuilder {
 impl ForIterationSchemeBuilder {
     pub fn new(parameter_specification: impl Into<ParameterSpecificationSyntax>) -> Self {
         Self {
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            for_token: Kw::For.canonical_token(),
             parameter_specification: parameter_specification.into(),
         }
     }
@@ -7987,23 +7263,11 @@ impl FullTypeDeclarationBuilder {
         type_definition: impl Into<TypeDefinitionSyntax>,
     ) -> Self {
         Self {
-            type_token: Token::new(
-                TokenKind::Keyword(Kw::Type),
-                Kw::Type.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            type_token: Kw::Type.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
             type_definition: type_definition.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_type_token(mut self, t: impl Into<Token>) -> Self {
@@ -8074,19 +7338,11 @@ impl FunctionSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>, name: impl Into<NameSyntax>) -> Self {
         Self {
             function_purity: None,
-            function_token: Token::new(
-                TokenKind::Keyword(Kw::Function),
-                Kw::Function.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            function_token: Kw::Function.canonical_token(),
             designator: designator.into(),
             subprogram_header: None,
             parameter_list: None,
-            return_token: Token::new(
-                TokenKind::Keyword(Kw::Return),
-                Kw::Return.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            return_token: Kw::Return.canonical_token(),
             name: name.into(),
         }
     }
@@ -8234,17 +7490,9 @@ impl Default for GenerateStatementBodyEpilogueBuilder {
 impl GenerateStatementBodyEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -8359,16 +7607,8 @@ impl Default for GenericClauseEpilogueBuilder {
 impl GenericClauseEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -8415,16 +7655,8 @@ impl Default for GenericClausePreambleBuilder {
 impl GenericClausePreambleBuilder {
     pub fn new() -> Self {
         Self {
-            generic_token: Token::new(
-                TokenKind::Keyword(Kw::Generic),
-                Kw::Generic.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generic_token: Kw::Generic.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_token(mut self, t: impl Into<Token>) -> Self {
@@ -8474,27 +7706,11 @@ impl Default for GenericMapAspectBuilder {
 impl GenericMapAspectBuilder {
     pub fn new() -> Self {
         Self {
-            generic_token: Token::new(
-                TokenKind::Keyword(Kw::Generic),
-                Kw::Generic.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            map_token: Token::new(
-                TokenKind::Keyword(Kw::Map),
-                Kw::Map.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generic_token: Kw::Generic.canonical_token(),
+            map_token: Kw::Map.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             association_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_token(mut self, t: impl Into<Token>) -> Self {
@@ -8614,34 +7830,14 @@ impl GroupDeclarationBuilder {
         name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            group_token: Token::new(
-                TokenKind::Keyword(Kw::Group),
-                Kw::Group.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            group_token: Kw::Group.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             name: name.into(),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             group_constituent_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_group_token(mut self, t: impl Into<Token>) -> Self {
@@ -8736,33 +7932,13 @@ pub struct GroupTemplateDeclarationBuilder {
 impl GroupTemplateDeclarationBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            group_token: Token::new(
-                TokenKind::Keyword(Kw::Group),
-                Kw::Group.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            group_token: Kw::Group.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             entity_class_entry_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_group_token(mut self, t: impl Into<Token>) -> Self {
@@ -8852,11 +8028,7 @@ impl GuardedSignalSpecificationBuilder {
     pub fn new(signal_list: impl Into<SignalListSyntax>, name: impl Into<NameSyntax>) -> Self {
         Self {
             signal_list: signal_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             name: name.into(),
         }
     }
@@ -8901,11 +8073,7 @@ impl IdentifierListBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
-            comma_token: Token::new(
-                TokenKind::Comma,
-                TokenKind::Comma.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            comma_token: TokenKind::Comma.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -8954,17 +8122,9 @@ impl Default for IfGenerateElseBuilder {
 impl IfGenerateElseBuilder {
     pub fn new() -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             label: None,
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
         }
     }
@@ -9027,18 +8187,10 @@ pub struct IfGenerateElsifBuilder {
 impl IfGenerateElsifBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            elsif_token: Token::new(
-                TokenKind::Keyword(Kw::Elsif),
-                Kw::Elsif.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            elsif_token: Kw::Elsif.canonical_token(),
             label: None,
             expression: expression.into(),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
         }
     }
@@ -9183,22 +8335,10 @@ impl Default for IfGenerateStatementEpilogueBuilder {
 impl IfGenerateStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            generate_token: Kw::Generate.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -9266,18 +8406,10 @@ impl IfGenerateStatementPreambleBuilder {
     pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
         Self {
             label: None,
-            if_token: Token::new(
-                TokenKind::Keyword(Kw::If),
-                Kw::If.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            if_token: Kw::If.canonical_token(),
             alternative_label: None,
             condition: condition.into(),
-            generate_token: Token::new(
-                TokenKind::Keyword(Kw::Generate),
-                Kw::Generate.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generate_token: Kw::Generate.canonical_token(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -9405,11 +8537,7 @@ impl Default for IfStatementElseBuilder {
 impl IfStatementElseBuilder {
     pub fn new() -> Self {
         Self {
-            else_token: Token::new(
-                TokenKind::Keyword(Kw::Else),
-                Kw::Else.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            else_token: Kw::Else.canonical_token(),
             sequential_statements: None,
         }
     }
@@ -9452,17 +8580,9 @@ pub struct IfStatementElsifBuilder {
 impl IfStatementElsifBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            elsif_token: Token::new(
-                TokenKind::Keyword(Kw::Elsif),
-                Kw::Elsif.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            elsif_token: Kw::Elsif.canonical_token(),
             expression: expression.into(),
-            then_token: Token::new(
-                TokenKind::Keyword(Kw::Then),
-                Kw::Then.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            then_token: Kw::Then.canonical_token(),
             sequential_statements: None,
         }
     }
@@ -9524,22 +8644,10 @@ impl Default for IfStatementEpilogueBuilder {
 impl IfStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            if_token: Token::new(
-                TokenKind::Keyword(Kw::If),
-                Kw::If.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            if_token: Kw::If.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -9608,17 +8716,9 @@ impl IfStatementPreambleBuilder {
         Self {
             if_label_token: None,
             colon_token: None,
-            if_token: Token::new(
-                TokenKind::Keyword(Kw::If),
-                Kw::If.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            if_token: Kw::If.canonical_token(),
             expression: expression.into(),
-            then_token: Token::new(
-                TokenKind::Keyword(Kw::Then),
-                Kw::Then.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            then_token: Kw::Then.canonical_token(),
         }
     }
     pub fn with_if_label_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -9636,13 +8736,9 @@ impl IfStatementPreambleBuilder {
         self
     }
     pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_token
+            .get_or_insert_with(|| TokenKind::Colon.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -9697,17 +8793,9 @@ pub struct IncompleteTypeDeclarationBuilder {
 impl IncompleteTypeDeclarationBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            type_token: Token::new(
-                TokenKind::Keyword(Kw::Type),
-                Kw::Type.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            type_token: Kw::Type.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_type_token(mut self, t: impl Into<Token>) -> Self {
@@ -9765,18 +8853,10 @@ impl Default for IndexConstraintBuilder {
 impl IndexConstraintBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             discrete_ranges: Vec::new(),
             comma_token: Vec::new(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -9834,16 +8914,8 @@ impl IndexSubtypeDefinitionBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
             name: name.into(),
-            range_token: Token::new(
-                TokenKind::Keyword(Kw::Range),
-                Kw::Range.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            box_token: Token::new(
-                TokenKind::BOX,
-                TokenKind::BOX.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            range_token: Kw::Range.canonical_token(),
+            box_token: TokenKind::BOX.canonical_token().unwrap(),
         }
     }
     pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
@@ -9945,11 +9017,7 @@ impl InertialDelayMechanismBuilder {
         Self {
             reject_token: None,
             expression: None,
-            inertial_token: Token::new(
-                TokenKind::Keyword(Kw::Inertial),
-                Kw::Inertial.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            inertial_token: Kw::Inertial.canonical_token(),
         }
     }
     pub fn with_reject_token(mut self, t: impl Into<Token>) -> Self {
@@ -9957,13 +9025,9 @@ impl InertialDelayMechanismBuilder {
         self
     }
     pub fn with_reject_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.reject_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Reject),
-                Kw::Reject.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .reject_token
+            .get_or_insert_with(|| Kw::Reject.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -10011,11 +9075,7 @@ impl Default for InstantiationListAllBuilder {
 impl InstantiationListAllBuilder {
     pub fn new() -> Self {
         Self {
-            all_token: Token::new(
-                TokenKind::Keyword(Kw::All),
-                Kw::All.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            all_token: Kw::All.canonical_token(),
         }
     }
     pub fn with_all_token(mut self, t: impl Into<Token>) -> Self {
@@ -10096,11 +9156,7 @@ impl Default for InstantiationListOthersBuilder {
 impl InstantiationListOthersBuilder {
     pub fn new() -> Self {
         Self {
-            others_token: Token::new(
-                TokenKind::Keyword(Kw::Others),
-                Kw::Others.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            others_token: Kw::Others.canonical_token(),
         }
     }
     pub fn with_others_token(mut self, t: impl Into<Token>) -> Self {
@@ -10142,28 +9198,12 @@ impl InterfaceConstantDeclarationBuilder {
         expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
-            constant_token: Token::new(
-                TokenKind::Keyword(Kw::Constant),
-                Kw::Constant.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            constant_token: Kw::Constant.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            in_token: Token::new(
-                TokenKind::Keyword(Kw::In),
-                Kw::In.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
+            in_token: Kw::In.canonical_token(),
             subtype_indication: subtype_indication.into(),
-            colon_eq_token: Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             expression: expression.into(),
         }
     }
@@ -10244,17 +9284,9 @@ impl InterfaceFileDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            file_token: Token::new(
-                TokenKind::Keyword(Kw::File),
-                Kw::File.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            file_token: Kw::File.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
         }
     }
@@ -10312,18 +9344,10 @@ impl InterfaceFunctionSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>, name: impl Into<NameSyntax>) -> Self {
         Self {
             function_purity: None,
-            function_token: Token::new(
-                TokenKind::Keyword(Kw::Function),
-                Kw::Function.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            function_token: Kw::Function.canonical_token(),
             designator: designator.into(),
             parameter_list: None,
-            return_token: Token::new(
-                TokenKind::Keyword(Kw::Return),
-                Kw::Return.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            return_token: Kw::Return.canonical_token(),
             name: name.into(),
         }
     }
@@ -10391,17 +9415,9 @@ pub struct InterfaceIncompleteTypeDeclarationBuilder {
 impl InterfaceIncompleteTypeDeclarationBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            type_token: Token::new(
-                TokenKind::Keyword(Kw::Type),
-                Kw::Type.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            type_token: Kw::Type.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_type_token(mut self, t: impl Into<Token>) -> Self {
@@ -10504,18 +9520,10 @@ impl InterfacePackageDeclarationBuilder {
     ) -> Self {
         Self {
             interface_package_declaration_preamble: interface_package_declaration_preamble.into(),
-            new_token: Token::new(
-                TokenKind::Keyword(Kw::New),
-                Kw::New.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            new_token: Kw::New.canonical_token(),
             name: name.into(),
             interface_package_generic_map_aspect: interface_package_generic_map_aspect.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_interface_package_declaration_preamble(
@@ -10589,17 +9597,9 @@ pub struct InterfacePackageDeclarationPreambleBuilder {
 impl InterfacePackageDeclarationPreambleBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            package_token: Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            package_token: Kw::Package.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_package_token(mut self, t: impl Into<Token>) -> Self {
@@ -10659,28 +9659,12 @@ impl InterfacePackageGenericMapAspectBuilder {
         >,
     ) -> Self {
         Self {
-            generic_token: Token::new(
-                TokenKind::Keyword(Kw::Generic),
-                Kw::Generic.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            map_token: Token::new(
-                TokenKind::Keyword(Kw::Map),
-                Kw::Map.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generic_token: Kw::Generic.canonical_token(),
+            map_token: Kw::Map.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             interface_package_generic_map_aspect_inner: interface_package_generic_map_aspect_inner
                 .into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_token(mut self, t: impl Into<Token>) -> Self {
@@ -10794,11 +9778,7 @@ impl Default for InterfacePackageGenericMapAspectBoxBuilder {
 impl InterfacePackageGenericMapAspectBoxBuilder {
     pub fn new() -> Self {
         Self {
-            box_token: Token::new(
-                TokenKind::BOX,
-                TokenKind::BOX.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            box_token: TokenKind::BOX.canonical_token().unwrap(),
         }
     }
     pub fn with_box_token(mut self, t: impl Into<Token>) -> Self {
@@ -10837,11 +9817,7 @@ impl Default for InterfacePackageGenericMapAspectDefaultBuilder {
 impl InterfacePackageGenericMapAspectDefaultBuilder {
     pub fn new() -> Self {
         Self {
-            default_token: Token::new(
-                TokenKind::Keyword(Kw::Default),
-                Kw::Default.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            default_token: Kw::Default.canonical_token(),
         }
     }
     pub fn with_default_token(mut self, t: impl Into<Token>) -> Self {
@@ -10880,28 +9856,12 @@ pub struct InterfaceProcedureSpecificationBuilder {
 impl InterfaceProcedureSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>) -> Self {
         Self {
-            procedure_token: Token::new(
-                TokenKind::Keyword(Kw::Procedure),
-                Kw::Procedure.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            procedure_token: Kw::Procedure.canonical_token(),
             designator: designator.into(),
-            parameter_token: Token::new(
-                TokenKind::Keyword(Kw::Parameter),
-                Kw::Parameter.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            parameter_token: Kw::Parameter.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             interface_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_procedure_token(mut self, t: impl Into<Token>) -> Self {
@@ -10985,21 +9945,13 @@ impl InterfaceSignalDeclarationBuilder {
         Self {
             signal_token: None,
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             mode: None,
             subtype_indication: subtype_indication.into(),
             bus_token: None,
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_signal_token(mut self, t: impl Into<Token>) -> Self {
@@ -11007,13 +9959,9 @@ impl InterfaceSignalDeclarationBuilder {
         self
     }
     pub fn with_signal_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.signal_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Signal),
-                Kw::Signal.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .signal_token
+            .get_or_insert_with(|| Kw::Signal.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11042,13 +9990,9 @@ impl InterfaceSignalDeclarationBuilder {
         self
     }
     pub fn with_bus_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.bus_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Bus),
-                Kw::Bus.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .bus_token
+            .get_or_insert_with(|| Kw::Bus.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11057,13 +10001,9 @@ impl InterfaceSignalDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11126,11 +10066,7 @@ impl InterfaceSubprogramDeclarationBuilder {
             interface_subprogram_specification: interface_subprogram_specification.into(),
             is_token: None,
             interface_subprogram_default: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_interface_subprogram_specification(
@@ -11145,13 +10081,9 @@ impl InterfaceSubprogramDeclarationBuilder {
         self
     }
     pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.is_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .is_token
+            .get_or_insert_with(|| Kw::Is.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11208,11 +10140,7 @@ impl Default for InterfaceSubprogramDefaultBoxBuilder {
 impl InterfaceSubprogramDefaultBoxBuilder {
     pub fn new() -> Self {
         Self {
-            box_token: Token::new(
-                TokenKind::BOX,
-                TokenKind::BOX.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            box_token: TokenKind::BOX.canonical_token().unwrap(),
         }
     }
     pub fn with_box_token(mut self, t: impl Into<Token>) -> Self {
@@ -11282,20 +10210,12 @@ impl InterfaceVariableDeclarationBuilder {
         Self {
             variable_token: None,
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             mode: None,
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_variable_token(mut self, t: impl Into<Token>) -> Self {
@@ -11303,13 +10223,9 @@ impl InterfaceVariableDeclarationBuilder {
         self
     }
     pub fn with_variable_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.variable_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Variable),
-                Kw::Variable.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .variable_token
+            .get_or_insert_with(|| Kw::Variable.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11338,13 +10254,9 @@ impl InterfaceVariableDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -11398,11 +10310,7 @@ impl LabelBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -11445,17 +10353,9 @@ pub struct LibraryClauseBuilder {
 impl LibraryClauseBuilder {
     pub fn new(identifier_list: impl Into<IdentifierListSyntax>) -> Self {
         Self {
-            library_token: Token::new(
-                TokenKind::Keyword(Kw::Library),
-                Kw::Library.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            library_token: Kw::Library.canonical_token(),
             identifier_list: identifier_list.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_library_token(mut self, t: impl Into<Token>) -> Self {
@@ -11587,22 +10487,10 @@ impl Default for LoopStatementEpilogueBuilder {
 impl LoopStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            loop_token: Token::new(
-                TokenKind::Keyword(Kw::Loop),
-                Kw::Loop.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            loop_token: Kw::Loop.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -11669,11 +10557,7 @@ impl LoopStatementPreambleBuilder {
         Self {
             label: label.into(),
             iteration_scheme: None,
-            loop_token: Token::new(
-                TokenKind::Keyword(Kw::Loop),
-                Kw::Loop.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            loop_token: Kw::Loop.canonical_token(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -11910,19 +10794,11 @@ impl NextStatementBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            next_token: Token::new(
-                TokenKind::Keyword(Kw::Next),
-                Kw::Next.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            next_token: Kw::Next.canonical_token(),
             loop_label_token: None,
             when_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -11952,13 +10828,9 @@ impl NextStatementBuilder {
         self
     }
     pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.when_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .when_token
+            .get_or_insert_with(|| Kw::When.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -12009,16 +10881,8 @@ impl NullStatementBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            null_token: Token::new(
-                TokenKind::Keyword(Kw::Null),
-                Kw::Null.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            null_token: Kw::Null.canonical_token(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -12097,11 +10961,7 @@ impl Default for OpenDiscreteRangeBuilder {
 impl OpenDiscreteRangeBuilder {
     pub fn new() -> Self {
         Self {
-            open_token: Token::new(
-                TokenKind::Keyword(Kw::Open),
-                Kw::Open.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            open_token: Kw::Open.canonical_token(),
         }
     }
     pub fn with_open_token(mut self, t: impl Into<Token>) -> Self {
@@ -12138,11 +10998,7 @@ impl Default for OthersChoiceBuilder {
 impl OthersChoiceBuilder {
     pub fn new() -> Self {
         Self {
-            others_token: Token::new(
-                TokenKind::Keyword(Kw::Others),
-                Kw::Others.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            others_token: Kw::Others.canonical_token(),
         }
     }
     pub fn with_others_token(mut self, t: impl Into<Token>) -> Self {
@@ -12308,19 +11164,11 @@ impl Default for PackageBodyEpilogueBuilder {
 impl PackageBodyEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             package_token: None,
             body_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -12336,13 +11184,9 @@ impl PackageBodyEpilogueBuilder {
         self
     }
     pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.package_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .package_token
+            .get_or_insert_with(|| Kw::Package.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -12351,13 +11195,9 @@ impl PackageBodyEpilogueBuilder {
         self
     }
     pub fn with_body_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.body_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Body),
-                Kw::Body.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .body_token
+            .get_or_insert_with(|| Kw::Body.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -12413,22 +11253,10 @@ pub struct PackageBodyPreambleBuilder {
 impl PackageBodyPreambleBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            package_token: Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            body_token: Token::new(
-                TokenKind::Keyword(Kw::Body),
-                Kw::Body.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            package_token: Kw::Package.canonical_token(),
+            body_token: Kw::Body.canonical_token(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_package_token(mut self, t: impl Into<Token>) -> Self {
@@ -12523,18 +11351,10 @@ impl Default for PackageEpilogueBuilder {
 impl PackageEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             package_token: None,
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -12550,13 +11370,9 @@ impl PackageEpilogueBuilder {
         self
     }
     pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.package_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .package_token
+            .get_or_insert_with(|| Kw::Package.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -12631,13 +11447,9 @@ impl PackageHeaderBuilder {
         self
     }
     pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.semi_colon_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .semi_colon_token
+            .get_or_insert_with(|| TokenKind::SemiColon.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -12676,11 +11488,7 @@ impl PackageInstantiationBuilder {
         Self {
             package_instantiation_preamble: package_instantiation_preamble.into(),
             generic_map_aspect: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_package_instantiation_preamble(
@@ -12792,22 +11600,10 @@ impl PackageInstantiationPreambleBuilder {
         name: impl Into<NameSyntax>,
     ) -> Self {
         Self {
-            package_token: Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            package_token: Kw::Package.canonical_token(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            new_token: Token::new(
-                TokenKind::Keyword(Kw::New),
-                Kw::New.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
+            new_token: Kw::New.canonical_token(),
             name: name.into(),
         }
     }
@@ -12879,11 +11675,7 @@ impl Default for PackagePathnameBuilder {
 impl PackagePathnameBuilder {
     pub fn new() -> Self {
         Self {
-            comm_at_token: Token::new(
-                TokenKind::CommAt,
-                TokenKind::CommAt.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            comm_at_token: TokenKind::CommAt.canonical_token().unwrap(),
             dot_token: Vec::new(),
             simple_name_token: Vec::new(),
         }
@@ -12933,17 +11725,9 @@ pub struct PackagePreambleBuilder {
 impl PackagePreambleBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            package_token: Token::new(
-                TokenKind::Keyword(Kw::Package),
-                Kw::Package.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            package_token: Kw::Package.canonical_token(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_package_token(mut self, t: impl Into<Token>) -> Self {
@@ -13008,13 +11792,9 @@ impl ParameterListBuilder {
         self
     }
     pub fn with_parameter_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.parameter_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Parameter),
-                Kw::Parameter.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .parameter_token
+            .get_or_insert_with(|| Kw::Parameter.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -13057,11 +11837,7 @@ impl ParameterSpecificationBuilder {
     ) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
-            in_token: Token::new(
-                TokenKind::Keyword(Kw::In),
-                Kw::In.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            in_token: Kw::In.canonical_token(),
             discrete_range: discrete_range.into(),
         }
     }
@@ -13112,18 +11888,10 @@ impl ParenthesizedElementResolutionResolutionIndicationBuilder {
         element_resolution_resolution_indication: impl Into<ElementResolutionResolutionIndicationSyntax>,
     ) -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             element_resolution_resolution_indication: element_resolution_resolution_indication
                 .into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13181,17 +11949,9 @@ pub struct ParenthesizedExpressionBuilder {
 impl ParenthesizedExpressionBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             expression: expression.into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13245,18 +12005,10 @@ impl Default for ParenthesizedExpressionOrAggregateBuilder {
 impl ParenthesizedExpressionOrAggregateBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             element_associations: Vec::new(),
             comma_token: Vec::new(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13318,17 +12070,9 @@ impl Default for ParenthesizedInterfaceListBuilder {
 impl ParenthesizedInterfaceListBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             interface_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13378,17 +12122,9 @@ pub struct ParenthesizedNameBuilder {
 impl ParenthesizedNameBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             name: name.into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13436,17 +12172,9 @@ pub struct ParenthesizedProcessSensitivityListBuilder {
 impl ParenthesizedProcessSensitivityListBuilder {
     pub fn new(process_sensitivity_list: impl Into<ProcessSensitivityListSyntax>) -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             process_sensitivity_list: process_sensitivity_list.into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13665,16 +12393,8 @@ pub struct PhysicalTypeDefinitionEpilogueBuilder {
 impl PhysicalTypeDefinitionEpilogueBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            units_token: Token::new(
-                TokenKind::Keyword(Kw::Units),
-                Kw::Units.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            units_token: Kw::Units.canonical_token(),
             name_token: name_token.into().into(),
         }
     }
@@ -13780,16 +12500,8 @@ impl Default for PortClauseEpilogueBuilder {
 impl PortClauseEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -13836,16 +12548,8 @@ impl Default for PortClausePreambleBuilder {
 impl PortClausePreambleBuilder {
     pub fn new() -> Self {
         Self {
-            port_token: Token::new(
-                TokenKind::Keyword(Kw::Port),
-                Kw::Port.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            port_token: Kw::Port.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
         }
     }
     pub fn with_port_token(mut self, t: impl Into<Token>) -> Self {
@@ -13895,27 +12599,11 @@ impl Default for PortMapAspectBuilder {
 impl PortMapAspectBuilder {
     pub fn new() -> Self {
         Self {
-            port_token: Token::new(
-                TokenKind::Keyword(Kw::Port),
-                Kw::Port.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            map_token: Token::new(
-                TokenKind::Keyword(Kw::Map),
-                Kw::Map.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            port_token: Kw::Port.canonical_token(),
+            map_token: Kw::Map.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             association_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_port_token(mut self, t: impl Into<Token>) -> Self {
@@ -13983,11 +12671,7 @@ impl PrimaryUnitDeclarationBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -14060,11 +12744,7 @@ impl ProcedureCallStatementBuilder {
         Self {
             label: label.into(),
             name: name.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -14109,11 +12789,7 @@ pub struct ProcedureSpecificationBuilder {
 impl ProcedureSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>) -> Self {
         Self {
-            procedure_token: Token::new(
-                TokenKind::Keyword(Kw::Procedure),
-                Kw::Procedure.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            procedure_token: Kw::Procedure.canonical_token(),
             designator: designator.into(),
             subprogram_header: None,
             parameter_list: None,
@@ -14246,23 +12922,11 @@ impl Default for ProcessStatementEpilogueBuilder {
 impl ProcessStatementEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             postponed_token: None,
-            process_token: Token::new(
-                TokenKind::Keyword(Kw::Process),
-                Kw::Process.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            process_token: Kw::Process.canonical_token(),
             identifier_token: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -14278,13 +12942,9 @@ impl ProcessStatementEpilogueBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -14349,11 +13009,7 @@ impl ProcessStatementPreambleBuilder {
         Self {
             label: label.into(),
             postponed_token: None,
-            process_token: Token::new(
-                TokenKind::Keyword(Kw::Process),
-                Kw::Process.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            process_token: Kw::Process.canonical_token(),
             parenthesized_process_sensitivity_list: None,
             is_token: None,
         }
@@ -14367,13 +13023,9 @@ impl ProcessStatementPreambleBuilder {
         self
     }
     pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.postponed_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Postponed),
-                Kw::Postponed.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -14397,13 +13049,9 @@ impl ProcessStatementPreambleBuilder {
         self
     }
     pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.is_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .is_token
+            .get_or_insert_with(|| Kw::Is.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -14491,21 +13139,9 @@ pub struct ProtectedTypeBodyEpilogueBuilder {
 impl ProtectedTypeBodyEpilogueBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            protected_token: Token::new(
-                TokenKind::Keyword(Kw::Protected),
-                Kw::Protected.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            body_token: Token::new(
-                TokenKind::Keyword(Kw::Body),
-                Kw::Body.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            protected_token: Kw::Protected.canonical_token(),
+            body_token: Kw::Body.canonical_token(),
             name_token: name_token.into().into(),
         }
     }
@@ -14571,16 +13207,8 @@ impl Default for ProtectedTypeBodyPreambleBuilder {
 impl ProtectedTypeBodyPreambleBuilder {
     pub fn new() -> Self {
         Self {
-            protected_token: Token::new(
-                TokenKind::Keyword(Kw::Protected),
-                Kw::Protected.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            body_token: Token::new(
-                TokenKind::Keyword(Kw::Body),
-                Kw::Body.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            protected_token: Kw::Protected.canonical_token(),
+            body_token: Kw::Body.canonical_token(),
         }
     }
     pub fn with_protected_token(mut self, t: impl Into<Token>) -> Self {
@@ -14686,16 +13314,8 @@ pub struct ProtectedTypeDeclarationEpilogueBuilder {
 impl ProtectedTypeDeclarationEpilogueBuilder {
     pub fn new(name_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            protected_token: Token::new(
-                TokenKind::Keyword(Kw::Protected),
-                Kw::Protected.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            protected_token: Kw::Protected.canonical_token(),
             name_token: name_token.into().into(),
         }
     }
@@ -14751,11 +13371,7 @@ impl Default for ProtectedTypeDeclarationPreambleBuilder {
 impl ProtectedTypeDeclarationPreambleBuilder {
     pub fn new() -> Self {
         Self {
-            protected_token: Token::new(
-                TokenKind::Keyword(Kw::Protected),
-                Kw::Protected.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            protected_token: Kw::Protected.canonical_token(),
         }
     }
     pub fn with_protected_token(mut self, t: impl Into<Token>) -> Self {
@@ -14910,11 +13526,7 @@ impl QualifiedExpressionBuilder {
     pub fn new(name: impl Into<NameSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             name: name.into(),
-            tick_token: Token::new(
-                TokenKind::Tick,
-                TokenKind::Tick.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            tick_token: TokenKind::Tick.canonical_token().unwrap(),
             expression: expression.into(),
         }
     }
@@ -14958,11 +13570,7 @@ pub struct RangeConstraintBuilder {
 impl RangeConstraintBuilder {
     pub fn new(range: impl Into<RangeSyntax>) -> Self {
         Self {
-            range_token: Token::new(
-                TokenKind::Keyword(Kw::Range),
-                Kw::Range.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            range_token: Kw::Range.canonical_token(),
             range: range.into(),
         }
     }
@@ -15082,18 +13690,10 @@ impl Default for RecordConstraintBuilder {
 impl RecordConstraintBuilder {
     pub fn new() -> Self {
         Self {
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             record_element_constraints: Vec::new(),
             comma_token: Vec::new(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_left_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -15402,16 +14002,8 @@ pub struct RecordTypeDefinitionEpilogueBuilder {
 impl RecordTypeDefinitionEpilogueBuilder {
     pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            record_token: Token::new(
-                TokenKind::Keyword(Kw::Record),
-                Kw::Record.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
+            record_token: Kw::Record.canonical_token(),
             identifier_token: identifier_token.into().into(),
         }
     }
@@ -15467,11 +14059,7 @@ impl Default for RecordTypeDefinitionPreambleBuilder {
 impl RecordTypeDefinitionPreambleBuilder {
     pub fn new() -> Self {
         Self {
-            record_token: Token::new(
-                TokenKind::Keyword(Kw::Record),
-                Kw::Record.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            record_token: Kw::Record.canonical_token(),
         }
     }
     pub fn with_record_token(mut self, t: impl Into<Token>) -> Self {
@@ -15561,11 +14149,7 @@ impl ReportStatementBuilder {
     pub fn new(label: impl Into<LabelSyntax>, report: impl Into<ExpressionSyntax>) -> Self {
         Self {
             label: label.into(),
-            report_token: Token::new(
-                TokenKind::Keyword(Kw::Report),
-                Kw::Report.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            report_token: Kw::Report.canonical_token(),
             report: report.into(),
             severity_token: None,
             severity: None,
@@ -15592,13 +14176,9 @@ impl ReportStatementBuilder {
         self
     }
     pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.severity_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Keyword(Kw::Severity),
-                Kw::Severity.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .severity_token
+            .get_or_insert_with(|| Kw::Severity.canonical_token());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -15668,11 +14248,7 @@ impl ReturnStatementBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            return_token: Token::new(
-                TokenKind::Keyword(Kw::Return),
-                Kw::Return.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            return_token: Kw::Return.canonical_token(),
             expression: None,
         }
     }
@@ -15724,17 +14300,9 @@ impl SecondaryUnitDeclarationBuilder {
     ) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
-            eq_token: Token::new(
-                TokenKind::EQ,
-                TokenKind::EQ.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            eq_token: TokenKind::EQ.canonical_token().unwrap(),
             physical_literal: physical_literal.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -15820,17 +14388,9 @@ pub struct SelectedAssignmentPreambleBuilder {
 impl SelectedAssignmentPreambleBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            with_token: Token::new(
-                TokenKind::Keyword(Kw::With),
-                Kw::With.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            with_token: Kw::With.canonical_token(),
             expression: expression.into(),
-            select_token: Token::new(
-                TokenKind::Keyword(Kw::Select),
-                Kw::Select.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            select_token: Kw::Select.canonical_token(),
             que_token: None,
         }
     }
@@ -15859,13 +14419,9 @@ impl SelectedAssignmentPreambleBuilder {
         self
     }
     pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.que_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::Que,
-                TokenKind::Que.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .que_token
+            .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -15898,11 +14454,7 @@ impl SelectedExpressionItemBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             expression: expression.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             choices: None,
         }
     }
@@ -16005,23 +14557,11 @@ impl SelectedForceAssignmentBuilder {
         Self {
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            force_token: Token::new(
-                TokenKind::Keyword(Kw::Force),
-                Kw::Force.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
+            force_token: Kw::Force.canonical_token(),
             force_mode: None,
             selected_expressions: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_selected_assignment_preamble(
@@ -16099,11 +14639,7 @@ pub struct SelectedNameBuilder {
 impl SelectedNameBuilder {
     pub fn new(suffix: impl Into<SuffixToken>) -> Self {
         Self {
-            dot_token: Token::new(
-                TokenKind::Dot,
-                TokenKind::Dot.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            dot_token: TokenKind::Dot.canonical_token().unwrap(),
             suffix: suffix.into(),
         }
     }
@@ -16150,17 +14686,9 @@ impl SelectedVariableAssignmentBuilder {
         Self {
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
-            colon_eq_token: Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             selected_expressions: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_selected_assignment_preamble(
@@ -16231,18 +14759,10 @@ impl SelectedWaveformAssignmentBuilder {
         Self {
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             delay_mechanism: None,
             selected_waveforms: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_selected_assignment_preamble(
@@ -16313,11 +14833,7 @@ impl SelectedWaveformItemBuilder {
     pub fn new(waveform: impl Into<WaveformSyntax>) -> Self {
         Self {
             waveform: waveform.into(),
-            when_token: Token::new(
-                TokenKind::Keyword(Kw::When),
-                Kw::When.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            when_token: Kw::When.canonical_token(),
             choices: None,
         }
     }
@@ -16413,11 +14929,7 @@ impl SemiColonTerminatedBindingIndicationBuilder {
     pub fn new() -> Self {
         Self {
             binding_indication: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_binding_indication(mut self, n: impl Into<BindingIndicationSyntax>) -> Self {
@@ -16465,11 +14977,7 @@ impl SemiColonTerminatedGenericMapAspectBuilder {
     pub fn new() -> Self {
         Self {
             generic_map_aspect: GenericMapAspectBuilder::default().build(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
@@ -16515,11 +15023,7 @@ impl SemiColonTerminatedPortMapAspectBuilder {
     pub fn new() -> Self {
         Self {
             port_map_aspect: PortMapAspectBuilder::default().build(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_port_map_aspect(mut self, n: impl Into<PortMapAspectSyntax>) -> Self {
@@ -16564,11 +15068,7 @@ impl SemiColonTerminatedVerificationUnitBindingIndicationBuilder {
         Self {
             verification_unit_binding_indication:
                 VerificationUnitBindingIndicationBuilder::default().build(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_verification_unit_binding_indication(
@@ -16621,11 +15121,7 @@ impl Default for SensitivityClauseBuilder {
 impl SensitivityClauseBuilder {
     pub fn new() -> Self {
         Self {
-            on_token: Token::new(
-                TokenKind::Keyword(Kw::On),
-                Kw::On.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            on_token: Kw::On.canonical_token(),
             name_list: None,
         }
     }
@@ -16754,30 +15250,14 @@ impl SharedVariableDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            shared_token: Token::new(
-                TokenKind::Keyword(Kw::Shared),
-                Kw::Shared.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            variable_token: Token::new(
-                TokenKind::Keyword(Kw::Variable),
-                Kw::Variable.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            shared_token: Kw::Shared.canonical_token(),
+            variable_token: Kw::Variable.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_shared_token(mut self, t: impl Into<Token>) -> Self {
@@ -16817,13 +15297,9 @@ impl SharedVariableDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -16881,26 +15357,14 @@ impl SignalDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            signal_token: Token::new(
-                TokenKind::Keyword(Kw::Signal),
-                Kw::Signal.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            signal_token: Kw::Signal.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             signal_kind: None,
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_signal_token(mut self, t: impl Into<Token>) -> Self {
@@ -16936,13 +15400,9 @@ impl SignalDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -16997,11 +15457,7 @@ impl Default for SignalListAllBuilder {
 impl SignalListAllBuilder {
     pub fn new() -> Self {
         Self {
-            all_token: Token::new(
-                TokenKind::Keyword(Kw::All),
-                Kw::All.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            all_token: Kw::All.canonical_token(),
         }
     }
     pub fn with_all_token(mut self, t: impl Into<Token>) -> Self {
@@ -17082,11 +15538,7 @@ impl Default for SignalListOthersBuilder {
 impl SignalListOthersBuilder {
     pub fn new() -> Self {
         Self {
-            others_token: Token::new(
-                TokenKind::Keyword(Kw::Others),
-                Kw::Others.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            others_token: Kw::Others.canonical_token(),
         }
     }
     pub fn with_others_token(mut self, t: impl Into<Token>) -> Self {
@@ -17122,23 +15574,11 @@ pub struct SignatureBuilder {
 impl SignatureBuilder {
     pub fn new(return_type: impl Into<NameSyntax>) -> Self {
         Self {
-            left_square_token: Token::new(
-                TokenKind::LeftSquare,
-                TokenKind::LeftSquare.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_square_token: TokenKind::LeftSquare.canonical_token().unwrap(),
             names: Vec::new(),
-            return_token: Token::new(
-                TokenKind::Keyword(Kw::Return),
-                Kw::Return.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            return_token: Kw::Return.canonical_token(),
             return_type: return_type.into(),
-            right_square_token: Token::new(
-                TokenKind::RightSquare,
-                TokenKind::RightSquare.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_square_token: TokenKind::RightSquare.canonical_token().unwrap(),
         }
     }
     pub fn with_left_square_token(mut self, t: impl Into<Token>) -> Self {
@@ -17208,11 +15648,7 @@ impl SimpleConfigurationSpecificationBuilder {
             component_configuration_preamble: component_configuration_preamble.into(),
             semi_colon_terminated_binding_indication:
                 SemiColonTerminatedBindingIndicationBuilder::default().build(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
             component_configuration_epilogue: None,
         }
     }
@@ -17284,23 +15720,11 @@ impl SimpleForceAssignmentBuilder {
         Self {
             label: None,
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            force_token: Token::new(
-                TokenKind::Keyword(Kw::Force),
-                Kw::Force.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
+            force_token: Kw::Force.canonical_token(),
             force_mode: None,
             expression: expression.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -17381,22 +15805,10 @@ impl SimpleReleaseAssignmentBuilder {
         Self {
             label: None,
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            release_token: Token::new(
-                TokenKind::Keyword(Kw::Release),
-                Kw::Release.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
+            release_token: Kw::Release.canonical_token(),
             force_mode: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -17469,17 +15881,9 @@ impl SimpleVariableAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             target: target.into(),
-            colon_eq_token: Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             expression: expression.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -17537,18 +15941,10 @@ impl SimpleWaveformAssignmentBuilder {
         Self {
             label: None,
             target: target.into(),
-            lte_token: Token::new(
-                TokenKind::LTE,
-                TokenKind::LTE.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            lte_token: TokenKind::LTE.canonical_token().unwrap(),
             delay_mechanism: None,
             waveform: waveform.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -17691,18 +16087,10 @@ impl Default for SubprogramBodyEpilogueBuilder {
 impl SubprogramBodyEpilogueBuilder {
     pub fn new() -> Self {
         Self {
-            end_token: Token::new(
-                TokenKind::Keyword(Kw::End),
-                Kw::End.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            end_token: Kw::End.canonical_token(),
             subprogram_kind: None,
             designator: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
@@ -17759,11 +16147,7 @@ impl SubprogramBodyPreambleBuilder {
     pub fn new(subprogram_specification: impl Into<SubprogramSpecificationSyntax>) -> Self {
         Self {
             subprogram_specification: subprogram_specification.into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
         }
     }
     pub fn with_subprogram_specification(
@@ -17805,11 +16189,7 @@ impl SubprogramDeclarationBuilder {
     pub fn new(subprogram_specification: impl Into<SubprogramSpecificationSyntax>) -> Self {
         Self {
             subprogram_specification: subprogram_specification.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_subprogram_specification(
@@ -17904,22 +16284,10 @@ impl Default for SubprogramHeaderGenericClauseBuilder {
 impl SubprogramHeaderGenericClauseBuilder {
     pub fn new() -> Self {
         Self {
-            generic_token: Token::new(
-                TokenKind::Keyword(Kw::Generic),
-                Kw::Generic.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            generic_token: Kw::Generic.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             interface_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_token(mut self, t: impl Into<Token>) -> Self {
@@ -17985,11 +16353,7 @@ impl SubprogramInstantiationDeclarationBuilder {
             subprogram_instantiation_declaration_preamble:
                 subprogram_instantiation_declaration_preamble.into(),
             generic_map_aspect: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_subprogram_instantiation_declaration_preamble(
@@ -18052,16 +16416,8 @@ impl SubprogramInstantiationDeclarationPreambleBuilder {
         Self {
             subprogram_kind: subprogram_kind.into(),
             name_token: name_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            new_token: Token::new(
-                TokenKind::Keyword(Kw::New),
-                Kw::New.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
+            new_token: Kw::New.canonical_token(),
             name: name.into(),
             signature: None,
         }
@@ -18139,23 +16495,11 @@ impl SubtypeDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            subtype_token: Token::new(
-                TokenKind::Keyword(Kw::Subtype),
-                Kw::Subtype.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            subtype_token: Kw::Subtype.canonical_token(),
             identifier_token: identifier_token.into().into(),
-            is_token: Token::new(
-                TokenKind::Keyword(Kw::Is),
-                Kw::Is.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            is_token: Kw::Is.canonical_token(),
             subtype_indication: subtype_indication.into(),
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_subtype_token(mut self, t: impl Into<Token>) -> Self {
@@ -18258,11 +16602,7 @@ pub struct SubtypeIndicationAllocatorBuilder {
 impl SubtypeIndicationAllocatorBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            new_token: Token::new(
-                TokenKind::Keyword(Kw::New),
-                Kw::New.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            new_token: Kw::New.canonical_token(),
             subtype_indication: subtype_indication.into(),
         }
     }
@@ -18359,11 +16699,7 @@ pub struct TimeoutClauseBuilder {
 impl TimeoutClauseBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            for_token: Token::new(
-                TokenKind::Keyword(Kw::For),
-                Kw::For.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            for_token: Kw::For.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -18406,11 +16742,7 @@ impl Default for TransportDelayMechanismBuilder {
 impl TransportDelayMechanismBuilder {
     pub fn new() -> Self {
         Self {
-            transport_token: Token::new(
-                TokenKind::Keyword(Kw::Transport),
-                Kw::Transport.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            transport_token: Kw::Transport.canonical_token(),
         }
     }
     pub fn with_transport_token(mut self, t: impl Into<Token>) -> Self {
@@ -18446,17 +16778,9 @@ impl TypeConversionBuilder {
     pub fn new(name: impl Into<NameSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             name: name.into(),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             expression: expression.into(),
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
     pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
@@ -18512,11 +16836,7 @@ impl Default for UnaffectedWaveformBuilder {
 impl UnaffectedWaveformBuilder {
     pub fn new() -> Self {
         Self {
-            unaffected_token: Token::new(
-                TokenKind::Keyword(Kw::Unaffected),
-                Kw::Unaffected.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            unaffected_token: Kw::Unaffected.canonical_token(),
         }
     }
     pub fn with_unaffected_token(mut self, t: impl Into<Token>) -> Self {
@@ -18588,27 +16908,11 @@ pub struct UnboundedArrayDefinitionBuilder {
 impl UnboundedArrayDefinitionBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            array_token: Token::new(
-                TokenKind::Keyword(Kw::Array),
-                Kw::Array.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            left_par_token: Token::new(
-                TokenKind::LeftPar,
-                TokenKind::LeftPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            array_token: Kw::Array.canonical_token(),
+            left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
             index_subtype_definition_list: None,
-            right_par_token: Token::new(
-                TokenKind::RightPar,
-                TokenKind::RightPar.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            of_token: Token::new(
-                TokenKind::Keyword(Kw::Of),
-                Kw::Of.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            of_token: Kw::Of.canonical_token(),
             subtype_indication: subtype_indication.into(),
         }
     }
@@ -18685,11 +16989,7 @@ pub struct UnitDeclarationsBuilder {
 impl UnitDeclarationsBuilder {
     pub fn new(primary_unit_declaration: impl Into<PrimaryUnitDeclarationSyntax>) -> Self {
         Self {
-            units_token: Token::new(
-                TokenKind::Keyword(Kw::Units),
-                Kw::Units.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            units_token: Kw::Units.canonical_token(),
             primary_unit_declaration: primary_unit_declaration.into(),
             secondary_unit_declarations: Vec::new(),
         }
@@ -18748,17 +17048,9 @@ impl Default for UseClauseBuilder {
 impl UseClauseBuilder {
     pub fn new() -> Self {
         Self {
-            use_token: Token::new(
-                TokenKind::Keyword(Kw::Use),
-                Kw::Use.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            use_token: Kw::Use.canonical_token(),
             name_list: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_use_token(mut self, t: impl Into<Token>) -> Self {
@@ -18881,25 +17173,13 @@ impl VariableDeclarationBuilder {
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
     ) -> Self {
         Self {
-            variable_token: Token::new(
-                TokenKind::Keyword(Kw::Variable),
-                Kw::Variable.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            variable_token: Kw::Variable.canonical_token(),
             identifier_list: identifier_list.into(),
-            colon_token: Token::new(
-                TokenKind::Colon,
-                TokenKind::Colon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
             expression: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_variable_token(mut self, t: impl Into<Token>) -> Self {
@@ -18931,13 +17211,9 @@ impl VariableDeclarationBuilder {
         self
     }
     pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self.colon_eq_token.get_or_insert_with(|| {
-            Token::new(
-                TokenKind::ColonEq,
-                TokenKind::ColonEq.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            )
-        });
+        let tok = self
+            .colon_eq_token
+            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
         tok.set_leading_trivia(trivia);
         self
     }
@@ -18991,16 +17267,8 @@ impl Default for VerificationUnitBindingIndicationBuilder {
 impl VerificationUnitBindingIndicationBuilder {
     pub fn new() -> Self {
         Self {
-            use_token: Token::new(
-                TokenKind::Keyword(Kw::Use),
-                Kw::Use.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
-            vunit_token: Token::new(
-                TokenKind::Keyword(Kw::Vunit),
-                Kw::Vunit.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            use_token: Kw::Use.canonical_token(),
+            vunit_token: Kw::Vunit.canonical_token(),
             verification_unit_list: None,
         }
     }
@@ -19099,19 +17367,11 @@ impl WaitStatementBuilder {
     pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
             label: label.into(),
-            wait_token: Token::new(
-                TokenKind::Keyword(Kw::Wait),
-                Kw::Wait.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            wait_token: Kw::Wait.canonical_token(),
             sensitivity_clause: None,
             condition_clause: None,
             timeout_clause: None,
-            semi_colon_token: Token::new(
-                TokenKind::SemiColon,
-                TokenKind::SemiColon.canonical_text().unwrap(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -19184,11 +17444,7 @@ impl WaveformElementBuilder {
     ) -> Self {
         Self {
             expression: expression.into(),
-            after_token: Token::new(
-                TokenKind::Keyword(Kw::After),
-                Kw::After.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            after_token: Kw::After.canonical_token(),
             time_expression: time_expression.into(),
         }
     }
@@ -19276,11 +17532,7 @@ pub struct WhileIterationSchemeBuilder {
 impl WhileIterationSchemeBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            while_token: Token::new(
-                TokenKind::Keyword(Kw::While),
-                Kw::While.canonical_text(),
-                Trivia::from([TriviaPiece::Spaces(1)]),
-            ),
+            while_token: Kw::While.canonical_token(),
             expression: expression.into(),
         }
     }
@@ -19312,37 +17564,7 @@ impl From<WhileIterationSchemeBuilder> for WhileIterationSchemeSyntax {
         value.build()
     }
 }
-pub struct RawTokensBuilder(RawNodeBuilder);
-impl Default for RawTokensBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl RawTokensBuilder {
-    pub fn new() -> Self {
-        Self(RawNodeBuilder::new(NodeKind::RawTokens))
-    }
-    pub fn from_vhdl(vhdl: impl crate::tokens::tokenizer::Tokenize) -> Self {
-        Self(RawNodeBuilder::from_vhdl(NodeKind::RawTokens, vhdl))
-    }
-    pub fn token(self, t: impl Into<Token>) -> Self {
-        Self(self.0.token(t))
-    }
-    pub fn build(self) -> RawTokensSyntax {
-        RawTokensSyntax::cast(self.0.build()).unwrap()
-    }
-}
-impl From<RawTokensBuilder> for RawTokensSyntax {
-    fn from(value: RawTokensBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ActualPartBuilder(RawNodeBuilder);
-impl Default for ActualPartBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ActualPartBuilder {
     pub fn new() -> Self {
         Self(RawNodeBuilder::new(NodeKind::ActualPart))
@@ -19359,6 +17581,26 @@ impl ActualPartBuilder {
 }
 impl From<ActualPartBuilder> for ActualPartSyntax {
     fn from(value: ActualPartBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct RawTokensBuilder(RawNodeBuilder);
+impl RawTokensBuilder {
+    pub fn new() -> Self {
+        Self(RawNodeBuilder::new(NodeKind::RawTokens))
+    }
+    pub fn from_vhdl(vhdl: impl crate::tokens::tokenizer::Tokenize) -> Self {
+        Self(RawNodeBuilder::from_vhdl(NodeKind::RawTokens, vhdl))
+    }
+    pub fn token(self, t: impl Into<Token>) -> Self {
+        Self(self.0.token(t))
+    }
+    pub fn build(self) -> RawTokensSyntax {
+        RawTokensSyntax::cast(self.0.build()).unwrap()
+    }
+}
+impl From<RawTokensBuilder> for RawTokensSyntax {
+    fn from(value: RawTokensBuilder) -> Self {
         value.build()
     }
 }
@@ -19397,221 +17639,97 @@ impl From<crate::builder::StringLiteral> for AliasDesignatorToken {
 pub struct BinaryOperatorToken(pub(crate) Token);
 impl BinaryOperatorToken {
     pub fn and() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::And),
-            Kw::And.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::And.canonical_token())
     }
     pub fn or() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Or),
-            Kw::Or.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Or.canonical_token())
     }
     pub fn nand() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Nand),
-            Kw::Nand.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Nand.canonical_token())
     }
     pub fn nor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Nor),
-            Kw::Nor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Nor.canonical_token())
     }
     pub fn xor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Xor),
-            Kw::Xor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Xor.canonical_token())
     }
     pub fn xnor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Xnor),
-            Kw::Xnor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Xnor.canonical_token())
     }
     pub fn eq() -> Self {
-        Self(Token::new(
-            TokenKind::EQ,
-            TokenKind::EQ.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::EQ.canonical_token().unwrap())
     }
     pub fn ne() -> Self {
-        Self(Token::new(
-            TokenKind::NE,
-            TokenKind::NE.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::NE.canonical_token().unwrap())
     }
     pub fn lt() -> Self {
-        Self(Token::new(
-            TokenKind::LT,
-            TokenKind::LT.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::LT.canonical_token().unwrap())
     }
     pub fn lte() -> Self {
-        Self(Token::new(
-            TokenKind::LTE,
-            TokenKind::LTE.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::LTE.canonical_token().unwrap())
     }
     pub fn gt() -> Self {
-        Self(Token::new(
-            TokenKind::GT,
-            TokenKind::GT.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::GT.canonical_token().unwrap())
     }
     pub fn gte() -> Self {
-        Self(Token::new(
-            TokenKind::GTE,
-            TokenKind::GTE.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::GTE.canonical_token().unwrap())
     }
     pub fn que_eq() -> Self {
-        Self(Token::new(
-            TokenKind::QueEQ,
-            TokenKind::QueEQ.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueEQ.canonical_token().unwrap())
     }
     pub fn que_ne() -> Self {
-        Self(Token::new(
-            TokenKind::QueNE,
-            TokenKind::QueNE.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueNE.canonical_token().unwrap())
     }
     pub fn que_lt() -> Self {
-        Self(Token::new(
-            TokenKind::QueLT,
-            TokenKind::QueLT.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueLT.canonical_token().unwrap())
     }
     pub fn que_gt() -> Self {
-        Self(Token::new(
-            TokenKind::QueGT,
-            TokenKind::QueGT.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueGT.canonical_token().unwrap())
     }
     pub fn que_gte() -> Self {
-        Self(Token::new(
-            TokenKind::QueGTE,
-            TokenKind::QueGTE.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueGTE.canonical_token().unwrap())
     }
     pub fn sll() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Sll),
-            Kw::Sll.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Sll.canonical_token())
     }
     pub fn srl() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Srl),
-            Kw::Srl.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Srl.canonical_token())
     }
     pub fn sla() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Sla),
-            Kw::Sla.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Sla.canonical_token())
     }
     pub fn sra() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Sra),
-            Kw::Sra.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Sra.canonical_token())
     }
     pub fn rol() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Rol),
-            Kw::Rol.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Rol.canonical_token())
     }
     pub fn ror() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Ror),
-            Kw::Ror.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Ror.canonical_token())
     }
     pub fn plus() -> Self {
-        Self(Token::new(
-            TokenKind::Plus,
-            TokenKind::Plus.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Plus.canonical_token().unwrap())
     }
     pub fn minus() -> Self {
-        Self(Token::new(
-            TokenKind::Minus,
-            TokenKind::Minus.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Minus.canonical_token().unwrap())
     }
     pub fn concat() -> Self {
-        Self(Token::new(
-            TokenKind::Concat,
-            TokenKind::Concat.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Concat.canonical_token().unwrap())
     }
     pub fn times() -> Self {
-        Self(Token::new(
-            TokenKind::Times,
-            TokenKind::Times.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Times.canonical_token().unwrap())
     }
     pub fn div() -> Self {
-        Self(Token::new(
-            TokenKind::Div,
-            TokenKind::Div.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Div.canonical_token().unwrap())
     }
     pub fn r#mod() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Mod),
-            Kw::Mod.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Mod.canonical_token())
     }
     pub fn rem() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Rem),
-            Kw::Rem.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Rem.canonical_token())
     }
     pub fn pow() -> Self {
-        Self(Token::new(
-            TokenKind::Pow,
-            TokenKind::Pow.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Pow.canonical_token().unwrap())
     }
 }
 impl From<BinaryOperatorSyntax> for BinaryOperatorToken {
@@ -19646,18 +17764,10 @@ impl From<crate::builder::StringLiteral> for DesignatorToken {
 pub struct DirectionToken(pub(crate) Token);
 impl DirectionToken {
     pub fn to() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::To),
-            Kw::To.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::To.canonical_token())
     }
     pub fn downto() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Downto),
-            Kw::Downto.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Downto.canonical_token())
     }
 }
 impl From<DirectionSyntax> for DirectionToken {
@@ -19668,137 +17778,61 @@ impl From<DirectionSyntax> for DirectionToken {
 pub struct EntityClassToken(pub(crate) Token);
 impl EntityClassToken {
     pub fn entity() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Entity),
-            Kw::Entity.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Entity.canonical_token())
     }
     pub fn architecture() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Architecture),
-            Kw::Architecture.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Architecture.canonical_token())
     }
     pub fn configuration() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Configuration),
-            Kw::Configuration.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Configuration.canonical_token())
     }
     pub fn procedure() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Procedure),
-            Kw::Procedure.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Procedure.canonical_token())
     }
     pub fn function() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Function),
-            Kw::Function.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Function.canonical_token())
     }
     pub fn package() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Package),
-            Kw::Package.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Package.canonical_token())
     }
     pub fn r#type() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Type),
-            Kw::Type.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Type.canonical_token())
     }
     pub fn subtype() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Subtype),
-            Kw::Subtype.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Subtype.canonical_token())
     }
     pub fn constant() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Constant),
-            Kw::Constant.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Constant.canonical_token())
     }
     pub fn signal() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Signal),
-            Kw::Signal.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Signal.canonical_token())
     }
     pub fn variable() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Variable),
-            Kw::Variable.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Variable.canonical_token())
     }
     pub fn component() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Component),
-            Kw::Component.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Component.canonical_token())
     }
     pub fn label() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Label),
-            Kw::Label.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Label.canonical_token())
     }
     pub fn literal() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Literal),
-            Kw::Literal.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Literal.canonical_token())
     }
     pub fn units() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Units),
-            Kw::Units.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Units.canonical_token())
     }
     pub fn group() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Group),
-            Kw::Group.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Group.canonical_token())
     }
     pub fn file() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::File),
-            Kw::File.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::File.canonical_token())
     }
     pub fn property() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Property),
-            Kw::Property.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Property.canonical_token())
     }
     pub fn sequence() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Sequence),
-            Kw::Sequence.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Sequence.canonical_token())
     }
 }
 impl From<EntityClassSyntax> for EntityClassToken {
@@ -19841,18 +17875,10 @@ impl From<crate::builder::StringLiteral> for EntityTagToken {
 pub struct ForceModeToken(pub(crate) Token);
 impl ForceModeToken {
     pub fn r#in() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::In),
-            Kw::In.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::In.canonical_token())
     }
     pub fn out() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Out),
-            Kw::Out.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Out.canonical_token())
     }
 }
 impl From<ForceModeSyntax> for ForceModeToken {
@@ -19863,18 +17889,10 @@ impl From<ForceModeSyntax> for ForceModeToken {
 pub struct FunctionPurityToken(pub(crate) Token);
 impl FunctionPurityToken {
     pub fn pure() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Pure),
-            Kw::Pure.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Pure.canonical_token())
     }
     pub fn impure() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Impure),
-            Kw::Impure.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Impure.canonical_token())
     }
 }
 impl From<FunctionPuritySyntax> for FunctionPurityToken {
@@ -19894,11 +17912,7 @@ impl LiteralToken {
         Self(v.into().into())
     }
     pub fn null() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Null),
-            Kw::Null.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Null.canonical_token())
     }
 }
 impl From<LiteralSyntax> for LiteralToken {
@@ -19924,39 +17938,19 @@ impl From<crate::builder::StringLiteral> for LiteralToken {
 pub struct ModeToken(pub(crate) Token);
 impl ModeToken {
     pub fn r#in() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::In),
-            Kw::In.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::In.canonical_token())
     }
     pub fn out() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Out),
-            Kw::Out.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Out.canonical_token())
     }
     pub fn inout() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Inout),
-            Kw::Inout.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Inout.canonical_token())
     }
     pub fn buffer() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Buffer),
-            Kw::Buffer.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Buffer.canonical_token())
     }
     pub fn linkage() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Linkage),
-            Kw::Linkage.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Linkage.canonical_token())
     }
 }
 impl From<ModeSyntax> for ModeToken {
@@ -19999,18 +17993,10 @@ impl From<crate::builder::CharLiteral> for NameDesignatorToken {
 pub struct SignalKindToken(pub(crate) Token);
 impl SignalKindToken {
     pub fn register() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Register),
-            Kw::Register.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Register.canonical_token())
     }
     pub fn bus() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Bus),
-            Kw::Bus.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Bus.canonical_token())
     }
 }
 impl From<SignalKindSyntax> for SignalKindToken {
@@ -20021,18 +18007,10 @@ impl From<SignalKindSyntax> for SignalKindToken {
 pub struct SubprogramKindToken(pub(crate) Token);
 impl SubprogramKindToken {
     pub fn procedure() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Procedure),
-            Kw::Procedure.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Procedure.canonical_token())
     }
     pub fn function() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Function),
-            Kw::Function.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Function.canonical_token())
     }
 }
 impl From<SubprogramKindSyntax> for SubprogramKindToken {
@@ -20052,11 +18030,7 @@ impl SuffixToken {
         Self(v.into().into())
     }
     pub fn all() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::All),
-            Kw::All.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::All.canonical_token())
     }
 }
 impl From<SuffixSyntax> for SuffixToken {
@@ -20082,81 +18056,37 @@ impl From<crate::builder::CharLiteral> for SuffixToken {
 pub struct UnaryOperatorToken(pub(crate) Token);
 impl UnaryOperatorToken {
     pub fn que_que() -> Self {
-        Self(Token::new(
-            TokenKind::QueQue,
-            TokenKind::QueQue.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::QueQue.canonical_token().unwrap())
     }
     pub fn plus() -> Self {
-        Self(Token::new(
-            TokenKind::Plus,
-            TokenKind::Plus.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Plus.canonical_token().unwrap())
     }
     pub fn minus() -> Self {
-        Self(Token::new(
-            TokenKind::Minus,
-            TokenKind::Minus.canonical_text().unwrap(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(TokenKind::Minus.canonical_token().unwrap())
     }
     pub fn abs() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Abs),
-            Kw::Abs.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Abs.canonical_token())
     }
     pub fn not() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Not),
-            Kw::Not.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Not.canonical_token())
     }
     pub fn and() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::And),
-            Kw::And.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::And.canonical_token())
     }
     pub fn or() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Or),
-            Kw::Or.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Or.canonical_token())
     }
     pub fn nand() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Nand),
-            Kw::Nand.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Nand.canonical_token())
     }
     pub fn nor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Nor),
-            Kw::Nor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Nor.canonical_token())
     }
     pub fn xor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Xor),
-            Kw::Xor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Xor.canonical_token())
     }
     pub fn xnor() -> Self {
-        Self(Token::new(
-            TokenKind::Keyword(Kw::Xnor),
-            Kw::Xnor.canonical_text(),
-            Trivia::from([TriviaPiece::Spaces(1)]),
-        ))
+        Self(Kw::Xnor.canonical_token())
     }
 }
 impl From<UnaryOperatorSyntax> for UnaryOperatorToken {

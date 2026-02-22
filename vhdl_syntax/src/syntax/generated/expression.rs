@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub enum LiteralSyntax {
     BitStringLiteral(SyntaxToken),
@@ -19,10 +19,10 @@ pub enum LiteralSyntax {
 impl LiteralSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            BitStringLiteral => Some(LiteralSyntax::BitStringLiteral(token)),
-            CharacterLiteral => Some(LiteralSyntax::CharacterLiteral(token)),
-            StringLiteral => Some(LiteralSyntax::StringLiteral(token)),
-            Keyword(Kw::Null) => Some(LiteralSyntax::Null(token)),
+            TokenKind::BitStringLiteral => Some(LiteralSyntax::BitStringLiteral(token)),
+            TokenKind::CharacterLiteral => Some(LiteralSyntax::CharacterLiteral(token)),
+            TokenKind::StringLiteral => Some(LiteralSyntax::StringLiteral(token)),
+            TokenKind::Keyword(Kw::Null) => Some(LiteralSyntax::Null(token)),
             _ => None,
         }
     }
@@ -57,19 +57,21 @@ impl ParenthesizedExpressionOrAggregateSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn element_associations(&self) -> impl Iterator<Item = ElementAssociationSyntax> + use<'_> {
         self.0.children().filter_map(ElementAssociationSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -90,17 +92,17 @@ pub enum UnaryOperatorSyntax {
 impl UnaryOperatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            QueQue => Some(UnaryOperatorSyntax::QueQue(token)),
-            Plus => Some(UnaryOperatorSyntax::Plus(token)),
-            Minus => Some(UnaryOperatorSyntax::Minus(token)),
-            Keyword(Kw::Abs) => Some(UnaryOperatorSyntax::Abs(token)),
-            Keyword(Kw::Not) => Some(UnaryOperatorSyntax::Not(token)),
-            Keyword(Kw::And) => Some(UnaryOperatorSyntax::And(token)),
-            Keyword(Kw::Or) => Some(UnaryOperatorSyntax::Or(token)),
-            Keyword(Kw::Nand) => Some(UnaryOperatorSyntax::Nand(token)),
-            Keyword(Kw::Nor) => Some(UnaryOperatorSyntax::Nor(token)),
-            Keyword(Kw::Xor) => Some(UnaryOperatorSyntax::Xor(token)),
-            Keyword(Kw::Xnor) => Some(UnaryOperatorSyntax::Xnor(token)),
+            TokenKind::QueQue => Some(UnaryOperatorSyntax::QueQue(token)),
+            TokenKind::Plus => Some(UnaryOperatorSyntax::Plus(token)),
+            TokenKind::Minus => Some(UnaryOperatorSyntax::Minus(token)),
+            TokenKind::Keyword(Kw::Abs) => Some(UnaryOperatorSyntax::Abs(token)),
+            TokenKind::Keyword(Kw::Not) => Some(UnaryOperatorSyntax::Not(token)),
+            TokenKind::Keyword(Kw::And) => Some(UnaryOperatorSyntax::And(token)),
+            TokenKind::Keyword(Kw::Or) => Some(UnaryOperatorSyntax::Or(token)),
+            TokenKind::Keyword(Kw::Nand) => Some(UnaryOperatorSyntax::Nand(token)),
+            TokenKind::Keyword(Kw::Nor) => Some(UnaryOperatorSyntax::Nor(token)),
+            TokenKind::Keyword(Kw::Xor) => Some(UnaryOperatorSyntax::Xor(token)),
+            TokenKind::Keyword(Kw::Xnor) => Some(UnaryOperatorSyntax::Xnor(token)),
             _ => None,
         }
     }
@@ -181,37 +183,37 @@ pub enum BinaryOperatorSyntax {
 impl BinaryOperatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Keyword(Kw::And) => Some(BinaryOperatorSyntax::And(token)),
-            Keyword(Kw::Or) => Some(BinaryOperatorSyntax::Or(token)),
-            Keyword(Kw::Nand) => Some(BinaryOperatorSyntax::Nand(token)),
-            Keyword(Kw::Nor) => Some(BinaryOperatorSyntax::Nor(token)),
-            Keyword(Kw::Xor) => Some(BinaryOperatorSyntax::Xor(token)),
-            Keyword(Kw::Xnor) => Some(BinaryOperatorSyntax::Xnor(token)),
-            EQ => Some(BinaryOperatorSyntax::Eq(token)),
-            NE => Some(BinaryOperatorSyntax::Ne(token)),
-            LT => Some(BinaryOperatorSyntax::Lt(token)),
-            LTE => Some(BinaryOperatorSyntax::Lte(token)),
-            GT => Some(BinaryOperatorSyntax::Gt(token)),
-            GTE => Some(BinaryOperatorSyntax::Gte(token)),
-            QueEQ => Some(BinaryOperatorSyntax::QueEq(token)),
-            QueNE => Some(BinaryOperatorSyntax::QueNe(token)),
-            QueLT => Some(BinaryOperatorSyntax::QueLt(token)),
-            QueGT => Some(BinaryOperatorSyntax::QueGt(token)),
-            QueGTE => Some(BinaryOperatorSyntax::QueGte(token)),
-            Keyword(Kw::Sll) => Some(BinaryOperatorSyntax::Sll(token)),
-            Keyword(Kw::Srl) => Some(BinaryOperatorSyntax::Srl(token)),
-            Keyword(Kw::Sla) => Some(BinaryOperatorSyntax::Sla(token)),
-            Keyword(Kw::Sra) => Some(BinaryOperatorSyntax::Sra(token)),
-            Keyword(Kw::Rol) => Some(BinaryOperatorSyntax::Rol(token)),
-            Keyword(Kw::Ror) => Some(BinaryOperatorSyntax::Ror(token)),
-            Plus => Some(BinaryOperatorSyntax::Plus(token)),
-            Minus => Some(BinaryOperatorSyntax::Minus(token)),
-            Concat => Some(BinaryOperatorSyntax::Concat(token)),
-            Times => Some(BinaryOperatorSyntax::Times(token)),
-            Div => Some(BinaryOperatorSyntax::Div(token)),
-            Keyword(Kw::Mod) => Some(BinaryOperatorSyntax::Mod(token)),
-            Keyword(Kw::Rem) => Some(BinaryOperatorSyntax::Rem(token)),
-            Pow => Some(BinaryOperatorSyntax::Pow(token)),
+            TokenKind::Keyword(Kw::And) => Some(BinaryOperatorSyntax::And(token)),
+            TokenKind::Keyword(Kw::Or) => Some(BinaryOperatorSyntax::Or(token)),
+            TokenKind::Keyword(Kw::Nand) => Some(BinaryOperatorSyntax::Nand(token)),
+            TokenKind::Keyword(Kw::Nor) => Some(BinaryOperatorSyntax::Nor(token)),
+            TokenKind::Keyword(Kw::Xor) => Some(BinaryOperatorSyntax::Xor(token)),
+            TokenKind::Keyword(Kw::Xnor) => Some(BinaryOperatorSyntax::Xnor(token)),
+            TokenKind::EQ => Some(BinaryOperatorSyntax::Eq(token)),
+            TokenKind::NE => Some(BinaryOperatorSyntax::Ne(token)),
+            TokenKind::LT => Some(BinaryOperatorSyntax::Lt(token)),
+            TokenKind::LTE => Some(BinaryOperatorSyntax::Lte(token)),
+            TokenKind::GT => Some(BinaryOperatorSyntax::Gt(token)),
+            TokenKind::GTE => Some(BinaryOperatorSyntax::Gte(token)),
+            TokenKind::QueEQ => Some(BinaryOperatorSyntax::QueEq(token)),
+            TokenKind::QueNE => Some(BinaryOperatorSyntax::QueNe(token)),
+            TokenKind::QueLT => Some(BinaryOperatorSyntax::QueLt(token)),
+            TokenKind::QueGT => Some(BinaryOperatorSyntax::QueGt(token)),
+            TokenKind::QueGTE => Some(BinaryOperatorSyntax::QueGte(token)),
+            TokenKind::Keyword(Kw::Sll) => Some(BinaryOperatorSyntax::Sll(token)),
+            TokenKind::Keyword(Kw::Srl) => Some(BinaryOperatorSyntax::Srl(token)),
+            TokenKind::Keyword(Kw::Sla) => Some(BinaryOperatorSyntax::Sla(token)),
+            TokenKind::Keyword(Kw::Sra) => Some(BinaryOperatorSyntax::Sra(token)),
+            TokenKind::Keyword(Kw::Rol) => Some(BinaryOperatorSyntax::Rol(token)),
+            TokenKind::Keyword(Kw::Ror) => Some(BinaryOperatorSyntax::Ror(token)),
+            TokenKind::Plus => Some(BinaryOperatorSyntax::Plus(token)),
+            TokenKind::Minus => Some(BinaryOperatorSyntax::Minus(token)),
+            TokenKind::Concat => Some(BinaryOperatorSyntax::Concat(token)),
+            TokenKind::Times => Some(BinaryOperatorSyntax::Times(token)),
+            TokenKind::Div => Some(BinaryOperatorSyntax::Div(token)),
+            TokenKind::Keyword(Kw::Mod) => Some(BinaryOperatorSyntax::Mod(token)),
+            TokenKind::Keyword(Kw::Rem) => Some(BinaryOperatorSyntax::Rem(token)),
+            TokenKind::Pow => Some(BinaryOperatorSyntax::Pow(token)),
             _ => None,
         }
     }
@@ -453,19 +455,21 @@ impl AggregateSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn element_associations(&self) -> impl Iterator<Item = ElementAssociationSyntax> + use<'_> {
         self.0.children().filter_map(ElementAssociationSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -489,7 +493,7 @@ impl SubtypeIndicationAllocatorSyntax {
     pub fn new_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::New))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::New))
             .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
@@ -519,7 +523,7 @@ impl ExpressionAllocatorSyntax {
     pub fn new_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::New))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::New))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -576,7 +580,7 @@ impl OthersChoiceSyntax {
     pub fn others_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Others))
             .nth(0)
     }
 }
@@ -684,7 +688,9 @@ impl ChoicesSyntax {
         self.0.children().filter_map(ChoiceSyntax::cast)
     }
     pub fn bar_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Bar)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Bar)
     }
 }
 #[derive(Debug, Clone)]
@@ -710,7 +716,7 @@ impl ElementAssociationSyntax {
     pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightArrow)
+            .filter(|token| token.kind() == TokenKind::RightArrow)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -738,7 +744,10 @@ impl QualifiedExpressionSyntax {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn tick_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Tick).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Tick)
+            .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
@@ -767,7 +776,7 @@ impl TypeConversionSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -776,7 +785,7 @@ impl TypeConversionSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }

@@ -26,7 +26,7 @@ use crate::latin_1::{char_to_latin1, Latin1Str, Latin1String, NonLatin1CharError
 use crate::parser::builder::NodeBuilder;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::node_kind::NodeKind;
-use crate::tokens::{Token, TokenKind, Tokenize, Trivia, TriviaPiece};
+use crate::tokens::{Keyword, Token, TokenKind, Tokenize, Trivia, TriviaPiece};
 
 fn default_trivia() -> Trivia {
     Trivia::from([TriviaPiece::Spaces(1)])
@@ -414,5 +414,24 @@ impl RawNodeBuilder {
         }
         b.end_node();
         SyntaxNode::new_root(b.end())
+    }
+}
+
+// MARK: Canonical tokens
+
+impl TokenKind {
+    pub(crate) fn canonical_token(&self) -> Option<Token> {
+        self.canonical_text()
+            .map(|text| Token::new(*self, text, default_trivia()))
+    }
+}
+
+impl Keyword {
+    pub(crate) fn canonical_token(&self) -> Token {
+        Token::new(
+            TokenKind::Keyword(*self),
+            self.canonical_text(),
+            default_trivia(),
+        )
     }
 }

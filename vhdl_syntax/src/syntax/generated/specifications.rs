@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct AttributeSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for AttributeSpecificationSyntax {
@@ -29,19 +29,19 @@ impl AttributeSpecificationSyntax {
     pub fn attribute_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Attribute))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Attribute))
             .nth(0)
     }
     pub fn attribute_designator_token_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn of_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Of))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Of))
             .nth(0)
     }
     pub fn entity_specification(&self) -> Option<EntitySpecificationSyntax> {
@@ -53,7 +53,7 @@ impl AttributeSpecificationSyntax {
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -62,7 +62,7 @@ impl AttributeSpecificationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -86,7 +86,7 @@ impl BindingIndicationSyntax {
     pub fn use_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Use))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Use))
             .nth(0)
     }
     pub fn entity_aspect(&self) -> Option<EntityAspectSyntax> {
@@ -132,7 +132,10 @@ impl ComponentSpecificationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
@@ -274,7 +277,7 @@ impl DisconnectionSpecificationSyntax {
     pub fn disconnect_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Disconnect))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Disconnect))
             .nth(0)
     }
     pub fn guarded_signal_specification(&self) -> Option<GuardedSignalSpecificationSyntax> {
@@ -286,7 +289,7 @@ impl DisconnectionSpecificationSyntax {
     pub fn after_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::After))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::After))
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -295,7 +298,7 @@ impl DisconnectionSpecificationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -319,7 +322,7 @@ impl EntityEntityAspectSyntax {
     pub fn entity_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Entity))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Entity))
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -346,7 +349,7 @@ impl EntityConfigurationAspectSyntax {
     pub fn configuration_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Configuration))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Configuration))
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -373,7 +376,7 @@ impl EntityOpenAspectSyntax {
     pub fn open_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Open))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
             .nth(0)
     }
 }
@@ -440,25 +443,25 @@ pub enum EntityClassSyntax {
 impl EntityClassSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Keyword(Kw::Entity) => Some(EntityClassSyntax::Entity(token)),
-            Keyword(Kw::Architecture) => Some(EntityClassSyntax::Architecture(token)),
-            Keyword(Kw::Configuration) => Some(EntityClassSyntax::Configuration(token)),
-            Keyword(Kw::Procedure) => Some(EntityClassSyntax::Procedure(token)),
-            Keyword(Kw::Function) => Some(EntityClassSyntax::Function(token)),
-            Keyword(Kw::Package) => Some(EntityClassSyntax::Package(token)),
-            Keyword(Kw::Type) => Some(EntityClassSyntax::Type(token)),
-            Keyword(Kw::Subtype) => Some(EntityClassSyntax::Subtype(token)),
-            Keyword(Kw::Constant) => Some(EntityClassSyntax::Constant(token)),
-            Keyword(Kw::Signal) => Some(EntityClassSyntax::Signal(token)),
-            Keyword(Kw::Variable) => Some(EntityClassSyntax::Variable(token)),
-            Keyword(Kw::Component) => Some(EntityClassSyntax::Component(token)),
-            Keyword(Kw::Label) => Some(EntityClassSyntax::Label(token)),
-            Keyword(Kw::Literal) => Some(EntityClassSyntax::Literal(token)),
-            Keyword(Kw::Units) => Some(EntityClassSyntax::Units(token)),
-            Keyword(Kw::Group) => Some(EntityClassSyntax::Group(token)),
-            Keyword(Kw::File) => Some(EntityClassSyntax::File(token)),
-            Keyword(Kw::Property) => Some(EntityClassSyntax::Property(token)),
-            Keyword(Kw::Sequence) => Some(EntityClassSyntax::Sequence(token)),
+            TokenKind::Keyword(Kw::Entity) => Some(EntityClassSyntax::Entity(token)),
+            TokenKind::Keyword(Kw::Architecture) => Some(EntityClassSyntax::Architecture(token)),
+            TokenKind::Keyword(Kw::Configuration) => Some(EntityClassSyntax::Configuration(token)),
+            TokenKind::Keyword(Kw::Procedure) => Some(EntityClassSyntax::Procedure(token)),
+            TokenKind::Keyword(Kw::Function) => Some(EntityClassSyntax::Function(token)),
+            TokenKind::Keyword(Kw::Package) => Some(EntityClassSyntax::Package(token)),
+            TokenKind::Keyword(Kw::Type) => Some(EntityClassSyntax::Type(token)),
+            TokenKind::Keyword(Kw::Subtype) => Some(EntityClassSyntax::Subtype(token)),
+            TokenKind::Keyword(Kw::Constant) => Some(EntityClassSyntax::Constant(token)),
+            TokenKind::Keyword(Kw::Signal) => Some(EntityClassSyntax::Signal(token)),
+            TokenKind::Keyword(Kw::Variable) => Some(EntityClassSyntax::Variable(token)),
+            TokenKind::Keyword(Kw::Component) => Some(EntityClassSyntax::Component(token)),
+            TokenKind::Keyword(Kw::Label) => Some(EntityClassSyntax::Label(token)),
+            TokenKind::Keyword(Kw::Literal) => Some(EntityClassSyntax::Literal(token)),
+            TokenKind::Keyword(Kw::Units) => Some(EntityClassSyntax::Units(token)),
+            TokenKind::Keyword(Kw::Group) => Some(EntityClassSyntax::Group(token)),
+            TokenKind::Keyword(Kw::File) => Some(EntityClassSyntax::File(token)),
+            TokenKind::Keyword(Kw::Property) => Some(EntityClassSyntax::Property(token)),
+            TokenKind::Keyword(Kw::Sequence) => Some(EntityClassSyntax::Sequence(token)),
             _ => None,
         }
     }
@@ -531,7 +534,9 @@ impl EntityDesignatorListSyntax {
         self.0.children().filter_map(EntityDesignatorSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -554,7 +559,7 @@ impl EntityNameListAllSyntax {
     pub fn all_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::All))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::All))
             .nth(0)
     }
 }
@@ -578,7 +583,7 @@ impl EntityNameListOthersSyntax {
     pub fn others_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Others))
             .nth(0)
     }
 }
@@ -644,7 +649,10 @@ impl EntitySpecificationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn entity_class(&self) -> Option<EntityClassSyntax> {
         self.0.tokens().filter_map(EntityClassSyntax::cast).nth(0)
@@ -659,9 +667,9 @@ pub enum EntityTagSyntax {
 impl EntityTagSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Identifier => Some(EntityTagSyntax::Identifier(token)),
-            CharacterLiteral => Some(EntityTagSyntax::CharacterLiteral(token)),
-            StringLiteral => Some(EntityTagSyntax::StringLiteral(token)),
+            TokenKind::Identifier => Some(EntityTagSyntax::Identifier(token)),
+            TokenKind::CharacterLiteral => Some(EntityTagSyntax::CharacterLiteral(token)),
+            TokenKind::StringLiteral => Some(EntityTagSyntax::StringLiteral(token)),
             _ => None,
         }
     }
@@ -694,7 +702,10 @@ impl GuardedSignalSpecificationSyntax {
         self.0.children().filter_map(SignalListSyntax::cast).nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
@@ -718,10 +729,14 @@ impl AstNode for InstantiationListListSyntax {
 }
 impl InstantiationListListSyntax {
     pub fn identifier_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Identifier)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -744,7 +759,7 @@ impl InstantiationListAllSyntax {
     pub fn all_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::All))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::All))
             .nth(0)
     }
 }
@@ -768,7 +783,7 @@ impl InstantiationListOthersSyntax {
     pub fn others_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Others))
             .nth(0)
     }
 }
@@ -831,7 +846,9 @@ impl SignalListListSyntax {
         self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -854,7 +871,7 @@ impl SignalListAllSyntax {
     pub fn all_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::All))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::All))
             .nth(0)
     }
 }
@@ -878,7 +895,7 @@ impl SignalListOthersSyntax {
     pub fn others_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Others))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Others))
             .nth(0)
     }
 }
@@ -956,7 +973,7 @@ impl SimpleConfigurationSpecificationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
     pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
@@ -988,13 +1005,13 @@ impl VerificationUnitBindingIndicationSyntax {
     pub fn use_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Use))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Use))
             .nth(0)
     }
     pub fn vunit_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Vunit))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Vunit))
             .nth(0)
     }
     pub fn verification_unit_list(&self) -> Option<VerificationUnitListSyntax> {
@@ -1025,6 +1042,8 @@ impl VerificationUnitListSyntax {
         self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }

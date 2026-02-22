@@ -4,13 +4,13 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenKind, TokenOrNode,
+    ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
 };
-use convert_case::{Case, Casing};
-use proc_macro2::{Ident, Literal, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::{Literal, TokenStream};
+use quote::{format_ident, quote};
 
 pub struct SyntaxNodeGenerator;
 
@@ -27,15 +27,14 @@ impl Generator for SyntaxNodeGenerator {
         sections.sort_by_key(|(name, _)| *name);
 
         for (category, nodes) in sections {
-            let mut stream = TokenStream::new();
-            stream.extend(quote! {
+            let mut stream = quote! {
                 use super::*;
                 use crate::syntax::node::{SyntaxNode, SyntaxToken};
                 use crate::syntax::node_kind::NodeKind;
                 use crate::syntax::AstNode;
                 use crate::tokens::Keyword as Kw;
-                use crate::tokens::TokenKind::*;
-            });
+                use crate::tokens::TokenKind;
+            };
             for node in nodes {
                 stream.extend(generate_rust_struct(node));
                 stream.extend(generate_ast_node_rust_impl(node));
@@ -54,62 +53,28 @@ impl Generator for SyntaxNodeGenerator {
     }
 }
 
-// MARK: Name helpers
-
-fn struct_name(name: &str) -> Ident {
-    format_ident!("{}Syntax", name.to_case(Case::UpperCamel))
-}
-
-fn enum_variant_ident(kind: &str) -> Ident {
-    format_ident!("{}", kind.to_case(Case::UpperCamel))
-}
-
-fn enum_variant_token_ident(name: &str) -> Ident {
-    format_ident!("{}", name.to_case(Case::UpperCamel))
-}
-
-fn syntax_type_ident(kind: &str) -> Ident {
-    format_ident!("{}Syntax", kind.to_case(Case::UpperCamel))
-}
-
-fn token_kind_expression(kind: &TokenKind) -> TokenStream {
-    match kind {
-        TokenKind::Keyword(kw) => {
-            let kw_name = format_ident!("{}", kw.to_string());
-            quote! { Keyword(Kw::#kw_name) }
-        }
-        _ => format_ident!("{}", kind.to_string()).into_token_stream(),
-    }
-}
-
 // MARK: Struct/enum definitions
 
 fn generate_rust_struct(node: &Node) -> TokenStream {
     match node {
-        Node::Items(seq) => generate_sequence_struct(seq),
+        Node::Items(seq) => generate_syntax_node_struct(&seq.name),
         Node::Choices(choice) => generate_choice_enum(choice),
-        Node::RawTokens(name) => generate_raw_tokens_struct(name),
+        Node::RawTokens(name) => generate_syntax_node_struct(name),
     }
 }
 
-fn generate_raw_tokens_struct(name: &str) -> TokenStream {
-    let struct_name = struct_name(name);
+/// Generate the struct `struct FooSyntax(SyntaxNode)`
+fn generate_syntax_node_struct(name: &str) -> TokenStream {
+    let struct_name = syntax_type_ident(name);
     quote! {
         #[derive(Debug, Clone)]
         pub struct #struct_name(pub(crate) SyntaxNode);
     }
 }
 
-fn generate_sequence_struct(node: &SequenceNode) -> TokenStream {
-    let name = struct_name(&node.name);
-    quote! {
-        #[derive(Debug, Clone)]
-        pub struct #name(pub(crate) SyntaxNode);
-    }
-}
-
+/// Generate the choice enum `enum FooSyntax { /* elements of Foo */ }`
 fn generate_choice_enum(node: &ChoiceNode) -> TokenStream {
-    let name = struct_name(&node.name);
+    let name = syntax_type_ident(&node.name);
     let choices = enum_choices(node);
     quote! {
         #[derive(Debug, Clone)]
@@ -119,12 +84,13 @@ fn generate_choice_enum(node: &ChoiceNode) -> TokenStream {
     }
 }
 
+/// Generate all choices (elements) of a choice enum
 fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
     match &node.items {
         NodesOrTokens::Nodes(nodes) => nodes
             .iter()
             .map(|item| {
-                let variant = enum_variant_ident(&item.kind);
+                let variant = variant_ident(&item.kind);
                 let syntax = syntax_type_ident(&item.kind);
                 quote! { #variant(#syntax) }
             })
@@ -132,7 +98,7 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
         NodesOrTokens::Tokens(tokens) => tokens
             .iter()
             .map(|item| {
-                let variant = enum_variant_token_ident(&item.name);
+                let variant = variant_ident(&item.name);
                 quote! { #variant(SyntaxToken) }
             })
             .collect(),
@@ -143,36 +109,15 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
 
 fn generate_ast_node_rust_impl(node: &Node) -> TokenStream {
     match node {
-        Node::Items(seq) => generate_sequence_ast_impl(seq),
+        Node::Items(seq) => generate_sequence_ast_impl(&seq.name),
         Node::Choices(choice) => generate_choice_ast_impl(choice),
-        Node::RawTokens(name) => generate_raw_tokens_ast_impl(name),
+        Node::RawTokens(name) => generate_sequence_ast_impl(name),
     }
 }
 
-fn generate_raw_tokens_ast_impl(name: &str) -> TokenStream {
-    let struct_name = struct_name(name);
-    let node_kind = format_ident!("{}", name.to_case(Case::UpperCamel));
-    quote! {
-        impl AstNode for #struct_name {
-            fn cast(node: SyntaxNode) -> Option<Self> {
-                match node.kind() {
-                    NodeKind::#node_kind => Some(#struct_name(node)),
-                    _ => None,
-                }
-            }
-            fn can_cast(node: &SyntaxNode) -> bool {
-                matches!(node.kind(), NodeKind::#node_kind)
-            }
-            fn raw(&self) -> SyntaxNode {
-                self.0.clone()
-            }
-        }
-    }
-}
-
-fn generate_sequence_ast_impl(node: &SequenceNode) -> TokenStream {
-    let struct_name = struct_name(&node.name);
-    let node_kind = format_ident!("{}", node.name.to_case(Case::UpperCamel));
+fn generate_sequence_ast_impl(name: &str) -> TokenStream {
+    let struct_name = syntax_type_ident(name);
+    let node_kind = node_kind_ident(name);
     quote! {
         impl AstNode for #struct_name {
             fn cast(node: SyntaxNode) -> Option<Self> {
@@ -192,13 +137,13 @@ fn generate_sequence_ast_impl(node: &SequenceNode) -> TokenStream {
 }
 
 fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
-    let enum_name = struct_name(&node.name);
+    let enum_name = syntax_type_ident(&node.name);
     match &node.items {
         NodesOrTokens::Nodes(nodes) => {
             let cast_branches: Vec<TokenStream> = nodes
                 .iter()
                 .map(|item| {
-                    let variant = enum_variant_ident(&item.kind);
+                    let variant = variant_ident(&item.kind);
                     let syntax = syntax_type_ident(&item.kind);
                     quote! {
                         if #syntax::can_cast(&node) {
@@ -218,7 +163,7 @@ fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
             let raw_branches: Vec<TokenStream> = nodes
                 .iter()
                 .map(|item| {
-                    let variant = enum_variant_ident(&item.kind);
+                    let variant = variant_ident(&item.kind);
                     quote! { #enum_name::#variant(inner) => inner.raw() }
                 })
                 .collect();
@@ -243,15 +188,15 @@ fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
             let cast_branches: Vec<_> = tokens
                 .iter()
                 .map(|item| {
-                    let kind_expr = token_kind_expression(&item.kind);
-                    let variant = enum_variant_token_ident(&item.name);
+                    let kind_expr = token_kind_path(&item.kind);
+                    let variant = variant_ident(&item.name);
                     quote! { #kind_expr => Some(#enum_name::#variant(token)) }
                 })
                 .collect();
             let raw_branches: Vec<_> = tokens
                 .iter()
                 .map(|item| {
-                    let variant = enum_variant_token_ident(&item.name);
+                    let variant = variant_ident(&item.name);
                     quote! { #enum_name::#variant(token) => token.clone() }
                 })
                 .collect();
@@ -289,7 +234,7 @@ fn generate_sequence_getters(node: &SequenceNode, model: &Model) -> TokenStream 
         .iter()
         .map(|item| build_getter(item, model))
         .collect();
-    let name = struct_name(&node.name);
+    let name = syntax_type_ident(&node.name);
     quote! {
         impl #name {
             #getters
@@ -334,7 +279,7 @@ fn build_node_getter(node_ref: &NodeRef, model: &Model) -> TokenStream {
 
 fn build_token_getter(token: &Token) -> TokenStream {
     let function_name = format_ident!("{}", token.getter_name());
-    let kind_expr = token_kind_expression(&token.kind);
+    let kind_expr = token_kind_path(&token.kind);
     let nth = Literal::usize_unsuffixed(token.nth);
     if token.repeated {
         assert_eq!(token.nth, 0, "{} multiple", token.name);

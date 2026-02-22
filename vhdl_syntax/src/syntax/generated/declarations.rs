@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub enum DeclarationSyntax {
     SubprogramDeclaration(SubprogramDeclarationSyntax),
@@ -348,7 +348,7 @@ impl AliasDeclarationSyntax {
     pub fn alias_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Alias))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Alias))
             .nth(0)
     }
     pub fn alias_designator(&self) -> Option<AliasDesignatorSyntax> {
@@ -358,7 +358,10 @@ impl AliasDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -369,7 +372,7 @@ impl AliasDeclarationSyntax {
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -381,7 +384,7 @@ impl AliasDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -394,9 +397,9 @@ pub enum AliasDesignatorSyntax {
 impl AliasDesignatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Identifier => Some(AliasDesignatorSyntax::Identifier(token)),
-            CharacterLiteral => Some(AliasDesignatorSyntax::CharacterLiteral(token)),
-            StringLiteral => Some(AliasDesignatorSyntax::StringLiteral(token)),
+            TokenKind::Identifier => Some(AliasDesignatorSyntax::Identifier(token)),
+            TokenKind::CharacterLiteral => Some(AliasDesignatorSyntax::CharacterLiteral(token)),
+            TokenKind::StringLiteral => Some(AliasDesignatorSyntax::StringLiteral(token)),
             _ => None,
         }
     }
@@ -431,7 +434,7 @@ impl AssociationElementSyntax {
     pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightArrow)
+            .filter(|token| token.kind() == TokenKind::RightArrow)
             .nth(0)
     }
     pub fn actual_part(&self) -> Option<ActualPartSyntax> {
@@ -459,7 +462,9 @@ impl AssociationListSyntax {
         self.0.children().filter_map(AssociationElementSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -482,17 +487,20 @@ impl AttributeDeclarationSyntax {
     pub fn attribute_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Attribute))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Attribute))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
@@ -500,7 +508,7 @@ impl AttributeDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -589,19 +597,19 @@ impl ComponentDeclarationPreambleSyntax {
     pub fn component_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Component))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
             .nth(0)
     }
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
 }
@@ -627,25 +635,25 @@ impl ComponentDeclarationEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::End))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
     pub fn component_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Component))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -669,7 +677,7 @@ impl ConstantDeclarationSyntax {
     pub fn constant_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Constant))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Constant))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -679,7 +687,10 @@ impl ConstantDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -690,7 +701,7 @@ impl ConstantDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -699,7 +710,7 @@ impl ConstantDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -870,7 +881,10 @@ impl EntityClassEntrySyntax {
         self.0.tokens().filter_map(EntityClassSyntax::cast).nth(0)
     }
     pub fn box_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == BOX).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::BOX)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -894,7 +908,9 @@ impl EntityClassEntryListSyntax {
         self.0.children().filter_map(EntityClassEntrySyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -917,7 +933,7 @@ impl FileDeclarationSyntax {
     pub fn file_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::File))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::File))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -927,7 +943,10 @@ impl FileDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -944,7 +963,7 @@ impl FileDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -968,7 +987,7 @@ impl FileOpenInformationSyntax {
     pub fn open_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Open))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
             .nth(0)
     }
     pub fn file_open_kind(&self) -> Option<ExpressionSyntax> {
@@ -977,7 +996,7 @@ impl FileOpenInformationSyntax {
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn file_logical_name(&self) -> Option<ExpressionSyntax> {
@@ -1004,7 +1023,7 @@ impl ParenthesizedNameSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -1013,7 +1032,7 @@ impl ParenthesizedNameSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -1064,19 +1083,19 @@ impl FullTypeDeclarationSyntax {
     pub fn type_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Type))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Type))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn type_definition(&self) -> Option<TypeDefinitionSyntax> {
@@ -1088,7 +1107,7 @@ impl FullTypeDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1148,13 +1167,13 @@ impl GenericClausePreambleSyntax {
     pub fn generic_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Generic))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generic))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
 }
@@ -1178,13 +1197,13 @@ impl GenericClauseEpilogueSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1208,19 +1227,19 @@ impl GenericMapAspectSyntax {
     pub fn generic_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Generic))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generic))
             .nth(0)
     }
     pub fn map_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Map))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Map))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn association_list(&self) -> Option<AssociationListSyntax> {
@@ -1232,7 +1251,7 @@ impl GenericMapAspectSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -1257,7 +1276,9 @@ impl GroupConstituentListSyntax {
         self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -1280,17 +1301,20 @@ impl GroupDeclarationSyntax {
     pub fn group_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Group))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Group))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
@@ -1298,7 +1322,7 @@ impl GroupDeclarationSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn group_constituent_list(&self) -> Option<GroupConstituentListSyntax> {
@@ -1310,13 +1334,13 @@ impl GroupDeclarationSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1340,25 +1364,25 @@ impl GroupTemplateDeclarationSyntax {
     pub fn group_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Group))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Group))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn entity_class_entry_list(&self) -> Option<EntityClassEntryListSyntax> {
@@ -1370,13 +1394,13 @@ impl GroupTemplateDeclarationSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1402,7 +1426,7 @@ impl InterfaceConstantDeclarationSyntax {
     pub fn constant_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Constant))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Constant))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -1412,12 +1436,15 @@ impl InterfaceConstantDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn in_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::In))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::In))
             .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
@@ -1429,7 +1456,7 @@ impl InterfaceConstantDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -1504,7 +1531,7 @@ impl InterfaceFileDeclarationSyntax {
     pub fn file_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::File))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::File))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -1514,7 +1541,10 @@ impl InterfaceFileDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -1551,7 +1581,7 @@ impl InterfaceFunctionSpecificationSyntax {
     pub fn function_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Function))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Function))
             .nth(0)
     }
     pub fn designator(&self) -> Option<DesignatorSyntax> {
@@ -1566,7 +1596,7 @@ impl InterfaceFunctionSpecificationSyntax {
     pub fn return_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Return))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -1595,19 +1625,19 @@ impl InterfaceIncompleteTypeDeclarationSyntax {
     pub fn type_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Type))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Type))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1636,7 +1666,9 @@ impl InterfaceListSyntax {
             .filter_map(InterfaceDeclarationSyntax::cast)
     }
     pub fn semi_colon_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == SemiColon)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
     }
 }
 #[derive(Debug, Clone)]
@@ -1719,7 +1751,7 @@ impl InterfacePackageDeclarationSyntax {
     pub fn new_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::New))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::New))
             .nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
@@ -1736,7 +1768,7 @@ impl InterfacePackageDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -1762,19 +1794,19 @@ impl InterfacePackageDeclarationPreambleSyntax {
     pub fn package_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Package))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
 }
@@ -1800,19 +1832,19 @@ impl InterfacePackageGenericMapAspectSyntax {
     pub fn generic_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Generic))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generic))
             .nth(0)
     }
     pub fn map_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Map))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Map))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn interface_package_generic_map_aspect_inner(
@@ -1826,7 +1858,7 @@ impl InterfacePackageGenericMapAspectSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -1850,7 +1882,10 @@ impl AstNode for InterfacePackageGenericMapAspectBoxSyntax {
 }
 impl InterfacePackageGenericMapAspectBoxSyntax {
     pub fn box_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == BOX).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::BOX)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -1878,7 +1913,7 @@ impl InterfacePackageGenericMapAspectDefaultSyntax {
     pub fn default_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Default))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Default))
             .nth(0)
     }
 }
@@ -1967,7 +2002,7 @@ impl InterfaceProcedureSpecificationSyntax {
     pub fn procedure_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Procedure))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Procedure))
             .nth(0)
     }
     pub fn designator(&self) -> Option<DesignatorSyntax> {
@@ -1976,13 +2011,13 @@ impl InterfaceProcedureSpecificationSyntax {
     pub fn parameter_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Parameter))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Parameter))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
@@ -1994,7 +2029,7 @@ impl InterfaceProcedureSpecificationSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -2018,7 +2053,7 @@ impl InterfaceSignalDeclarationSyntax {
     pub fn signal_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Signal))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Signal))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -2028,7 +2063,10 @@ impl InterfaceSignalDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn mode(&self) -> Option<ModeSyntax> {
         self.0.tokens().filter_map(ModeSyntax::cast).nth(0)
@@ -2042,13 +2080,13 @@ impl InterfaceSignalDeclarationSyntax {
     pub fn bus_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Bus))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Bus))
             .nth(0)
     }
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2057,7 +2095,7 @@ impl InterfaceSignalDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2091,7 +2129,7 @@ impl InterfaceSubprogramDeclarationSyntax {
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn interface_subprogram_default(&self) -> Option<InterfaceSubprogramDefaultSyntax> {
@@ -2103,7 +2141,7 @@ impl InterfaceSubprogramDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2150,7 +2188,10 @@ impl AstNode for InterfaceSubprogramDefaultBoxSyntax {
 }
 impl InterfaceSubprogramDefaultBoxSyntax {
     pub fn box_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == BOX).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::BOX)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -2247,7 +2288,7 @@ impl InterfaceVariableDeclarationSyntax {
     pub fn variable_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Variable))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -2257,7 +2298,10 @@ impl InterfaceVariableDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn mode(&self) -> Option<ModeSyntax> {
         self.0.tokens().filter_map(ModeSyntax::cast).nth(0)
@@ -2271,7 +2315,7 @@ impl InterfaceVariableDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2280,7 +2324,7 @@ impl InterfaceVariableDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2295,11 +2339,11 @@ pub enum ModeSyntax {
 impl ModeSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Keyword(Kw::In) => Some(ModeSyntax::In(token)),
-            Keyword(Kw::Out) => Some(ModeSyntax::Out(token)),
-            Keyword(Kw::Inout) => Some(ModeSyntax::Inout(token)),
-            Keyword(Kw::Buffer) => Some(ModeSyntax::Buffer(token)),
-            Keyword(Kw::Linkage) => Some(ModeSyntax::Linkage(token)),
+            TokenKind::Keyword(Kw::In) => Some(ModeSyntax::In(token)),
+            TokenKind::Keyword(Kw::Out) => Some(ModeSyntax::Out(token)),
+            TokenKind::Keyword(Kw::Inout) => Some(ModeSyntax::Inout(token)),
+            TokenKind::Keyword(Kw::Buffer) => Some(ModeSyntax::Buffer(token)),
+            TokenKind::Keyword(Kw::Linkage) => Some(ModeSyntax::Linkage(token)),
             _ => None,
         }
     }
@@ -2369,13 +2413,13 @@ impl PortClausePreambleSyntax {
     pub fn port_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Port))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Port))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
 }
@@ -2399,13 +2443,13 @@ impl PortClauseEpilogueSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2429,19 +2473,19 @@ impl PortMapAspectSyntax {
     pub fn port_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Port))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Port))
             .nth(0)
     }
     pub fn map_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Map))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Map))
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn association_list(&self) -> Option<AssociationListSyntax> {
@@ -2453,7 +2497,7 @@ impl PortMapAspectSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -2477,7 +2521,7 @@ impl RecordElementResolutionSyntax {
     pub fn name_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
@@ -2512,7 +2556,9 @@ impl RecordResolutionSyntax {
             .filter_map(RecordElementResolutionSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -2587,7 +2633,7 @@ impl ParenthesizedElementResolutionResolutionIndicationSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn element_resolution_resolution_indication(
@@ -2601,7 +2647,7 @@ impl ParenthesizedElementResolutionResolutionIndicationSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -2661,7 +2707,7 @@ impl SignalDeclarationSyntax {
     pub fn signal_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Signal))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Signal))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -2671,7 +2717,10 @@ impl SignalDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -2685,7 +2734,7 @@ impl SignalDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2694,7 +2743,7 @@ impl SignalDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2706,8 +2755,8 @@ pub enum SignalKindSyntax {
 impl SignalKindSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Keyword(Kw::Register) => Some(SignalKindSyntax::Register(token)),
-            Keyword(Kw::Bus) => Some(SignalKindSyntax::Bus(token)),
+            TokenKind::Keyword(Kw::Register) => Some(SignalKindSyntax::Register(token)),
+            TokenKind::Keyword(Kw::Bus) => Some(SignalKindSyntax::Bus(token)),
             _ => None,
         }
     }
@@ -2738,19 +2787,19 @@ impl SubtypeDeclarationSyntax {
     pub fn subtype_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Subtype))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Subtype))
             .nth(0)
     }
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Is))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
@@ -2762,7 +2811,7 @@ impl SubtypeDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2896,7 +2945,7 @@ impl VariableDeclarationSyntax {
     pub fn variable_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Variable))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -2906,7 +2955,10 @@ impl VariableDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -2917,7 +2969,7 @@ impl VariableDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2926,7 +2978,7 @@ impl VariableDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2950,13 +3002,13 @@ impl SharedVariableDeclarationSyntax {
     pub fn shared_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Shared))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Shared))
             .nth(0)
     }
     pub fn variable_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Variable))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
             .nth(0)
     }
     pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
@@ -2966,7 +3018,10 @@ impl SharedVariableDeclarationSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -2977,7 +3032,7 @@ impl SharedVariableDeclarationSyntax {
     pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == ColonEq)
+            .filter(|token| token.kind() == TokenKind::ColonEq)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -2986,7 +3041,7 @@ impl SharedVariableDeclarationSyntax {
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == SemiColon)
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }

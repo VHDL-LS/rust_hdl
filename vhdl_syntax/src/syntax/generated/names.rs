@@ -8,7 +8,7 @@ use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct AbsolutePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for AbsolutePathnameSyntax {
@@ -27,7 +27,10 @@ impl AstNode for AbsolutePathnameSyntax {
 }
 impl AbsolutePathnameSyntax {
     pub fn dot_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Dot).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
+            .nth(0)
     }
     pub fn partial_pathname(&self) -> Option<PartialPathnameSyntax> {
         self.0
@@ -56,7 +59,7 @@ impl AttributeNameSyntax {
     pub fn left_square_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftSquare)
+            .filter(|token| token.kind() == TokenKind::LeftSquare)
             .nth(0)
     }
     pub fn signature(&self) -> Option<SignatureSyntax> {
@@ -65,22 +68,25 @@ impl AttributeNameSyntax {
     pub fn right_square_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightSquare)
+            .filter(|token| token.kind() == TokenKind::RightSquare)
             .nth(0)
     }
     pub fn tick_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Tick).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Tick)
+            .nth(0)
     }
     pub fn attribute_designator_token_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == LeftPar)
+            .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
@@ -89,7 +95,7 @@ impl AttributeNameSyntax {
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == RightPar)
+            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -149,12 +155,15 @@ impl AstNode for ExternalConstantNameSyntax {
 }
 impl ExternalConstantNameSyntax {
     pub fn lt_lt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LtLt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LtLt)
+            .nth(0)
     }
     pub fn constant_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Constant))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Constant))
             .nth(0)
     }
     pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
@@ -164,7 +173,10 @@ impl ExternalConstantNameSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -173,7 +185,10 @@ impl ExternalConstantNameSyntax {
             .nth(0)
     }
     pub fn gt_gt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == GtGt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::GtGt)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -194,12 +209,15 @@ impl AstNode for ExternalSignalNameSyntax {
 }
 impl ExternalSignalNameSyntax {
     pub fn lt_lt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LtLt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LtLt)
+            .nth(0)
     }
     pub fn signal_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Signal))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Signal))
             .nth(0)
     }
     pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
@@ -209,7 +227,10 @@ impl ExternalSignalNameSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -218,7 +239,10 @@ impl ExternalSignalNameSyntax {
             .nth(0)
     }
     pub fn gt_gt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == GtGt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::GtGt)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -239,12 +263,15 @@ impl AstNode for ExternalVariableNameSyntax {
 }
 impl ExternalVariableNameSyntax {
     pub fn lt_lt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == LtLt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LtLt)
+            .nth(0)
     }
     pub fn variable_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Keyword(Kw::Variable))
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
             .nth(0)
     }
     pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
@@ -254,7 +281,10 @@ impl ExternalVariableNameSyntax {
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
     pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
@@ -263,7 +293,10 @@ impl ExternalVariableNameSyntax {
             .nth(0)
     }
     pub fn gt_gt_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == GtGt).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::GtGt)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -324,14 +357,18 @@ impl PackagePathnameSyntax {
     pub fn comm_at_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == CommAt)
+            .filter(|token| token.kind() == TokenKind::CommAt)
             .nth(0)
     }
     pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Dot)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
     }
     pub fn simple_name_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Identifier)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
     }
 }
 #[derive(Debug, Clone)]
@@ -352,10 +389,14 @@ impl AstNode for RelativePathnameSyntax {
 }
 impl RelativePathnameSyntax {
     pub fn circ_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Circ)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Circ)
     }
     pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Dot)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
     }
     pub fn partial_pathname(&self) -> Option<PartialPathnameSyntax> {
         self.0
@@ -382,10 +423,14 @@ impl AstNode for PartialPathnameSyntax {
 }
 impl PartialPathnameSyntax {
     pub fn identifier_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Identifier)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
     }
     pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Dot)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
     }
 }
 #[derive(Debug, Clone)]
@@ -409,7 +454,9 @@ impl NameListSyntax {
         self.0.children().filter_map(NameSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0.tokens().filter(|token| token.kind() == Comma)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -432,11 +479,14 @@ impl LabelSyntax {
     pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == Identifier)
+            .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Colon).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -447,8 +497,8 @@ pub enum DesignatorSyntax {
 impl DesignatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Identifier => Some(DesignatorSyntax::Identifier(token)),
-            StringLiteral => Some(DesignatorSyntax::StringLiteral(token)),
+            TokenKind::Identifier => Some(DesignatorSyntax::Identifier(token)),
+            TokenKind::StringLiteral => Some(DesignatorSyntax::StringLiteral(token)),
             _ => None,
         }
     }
@@ -468,9 +518,9 @@ pub enum NameDesignatorSyntax {
 impl NameDesignatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Identifier => Some(NameDesignatorSyntax::Identifier(token)),
-            StringLiteral => Some(NameDesignatorSyntax::StringLiteral(token)),
-            CharacterLiteral => Some(NameDesignatorSyntax::CharacterLiteral(token)),
+            TokenKind::Identifier => Some(NameDesignatorSyntax::Identifier(token)),
+            TokenKind::StringLiteral => Some(NameDesignatorSyntax::StringLiteral(token)),
+            TokenKind::CharacterLiteral => Some(NameDesignatorSyntax::CharacterLiteral(token)),
             _ => None,
         }
     }
@@ -569,10 +619,10 @@ pub enum SuffixSyntax {
 impl SuffixSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            Identifier => Some(SuffixSyntax::Identifier(token)),
-            StringLiteral => Some(SuffixSyntax::StringLiteral(token)),
-            CharacterLiteral => Some(SuffixSyntax::CharacterLiteral(token)),
-            Keyword(Kw::All) => Some(SuffixSyntax::All(token)),
+            TokenKind::Identifier => Some(SuffixSyntax::Identifier(token)),
+            TokenKind::StringLiteral => Some(SuffixSyntax::StringLiteral(token)),
+            TokenKind::CharacterLiteral => Some(SuffixSyntax::CharacterLiteral(token)),
+            TokenKind::Keyword(Kw::All) => Some(SuffixSyntax::All(token)),
             _ => None,
         }
     }
@@ -603,7 +653,10 @@ impl AstNode for SelectedNameSyntax {
 }
 impl SelectedNameSyntax {
     pub fn dot_token(&self) -> Option<SyntaxToken> {
-        self.0.tokens().filter(|token| token.kind() == Dot).nth(0)
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
+            .nth(0)
     }
     pub fn suffix(&self) -> Option<SuffixSyntax> {
         self.0.tokens().filter_map(SuffixSyntax::cast).nth(0)
