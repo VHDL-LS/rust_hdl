@@ -11,7 +11,7 @@
 //! entirely from defaults is a space-separated sequence of the keyword/symbol texts.
 
 use vhdl_syntax::{
-    builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral},
+    builder::Identifier,
     latin_1::Latin1Str,
     parser,
     syntax::{
@@ -24,7 +24,7 @@ use vhdl_syntax::{
     tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
 
-// MARK: ArchitectureEpilogue
+// MARK: Architecture Epilogue
 
 /// A default-built epilogue has no optional tokens: just `end ;`.
 #[test]
@@ -53,6 +53,13 @@ fn arch_epilogue_with_optional_tokens() {
 #[test]
 fn entity_preamble_text() {
     let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"my_entity")).build();
+    assert_eq!(node.raw().to_string(), " entity my_entity is");
+}
+
+/// byte-slices implement `Into<Identifier>`, so `Identifier::from` can be omitted
+#[test]
+fn entity_preamble_text_no_explicit_identifier() {
+    let node = EntityDeclarationPreambleBuilder::new(b"my_entity").build();
     assert_eq!(node.raw().to_string(), " entity my_entity is");
 }
 
@@ -134,116 +141,7 @@ fn entity_declaration_default() {
     assert_eq!(node.raw().to_string(), " entity foo is end ;");
 }
 
-// ── Domain type unit tests ───────────────────────────────────────────────────
-
-/// AbstractLiteral::real(1.0) must produce "1.0", not "1".
-#[test]
-fn abstract_literal_real_always_has_decimal_point() {
-    let tok: Token = AbstractLiteral::real(1.0).into();
-    assert_eq!(tok.kind(), TokenKind::AbstractLiteral);
-    assert_eq!(tok.text().to_string(), "1.0");
-
-    let tok: Token = AbstractLiteral::real(2.5).into();
-    assert_eq!(tok.text().to_string(), "2.5");
-
-    // Scientific notation already has 'e', so no ".0" appended.
-    let tok: Token = AbstractLiteral::real(1e10).into();
-    let text = tok.text().to_string();
-    assert!(
-        text.contains('.') || text.contains('e') || text.contains('E'),
-        "expected decimal point or exponent in {text}"
-    );
-}
-
-/// AbstractLiteral::integer produces a plain decimal string.
-#[test]
-fn abstract_literal_integer() {
-    let tok: Token = AbstractLiteral::integer(42).into();
-    assert_eq!(tok.kind(), TokenKind::AbstractLiteral);
-    assert_eq!(tok.text().to_string(), "42");
-}
-
-/// CharLiteral::new produces tick-wrapped text.
-#[test]
-fn char_literal_has_tick_marks() {
-    let tok: Token = CharLiteral::new(b'A').into();
-    assert_eq!(tok.kind(), TokenKind::CharacterLiteral);
-    assert_eq!(tok.text().to_string(), "'A'");
-}
-
-/// CharLiteral for the single-quote character itself.
-#[test]
-fn char_literal_quote_char() {
-    let tok: Token = CharLiteral::new(b'\'').into();
-    assert_eq!(tok.text().to_string(), "'''");
-}
-
-/// CharLiteral::try_from_char rejects non-Latin-1 codepoints.
-#[test]
-fn char_literal_try_from_char_err() {
-    assert!(CharLiteral::try_from('€').is_err());
-    assert!(CharLiteral::try_from('A').is_ok());
-}
-
-/// StringLiteral::new adds surrounding quotes and doubles embedded quotes.
-#[test]
-fn string_literal_quote_doubling() {
-    let tok: Token = StringLiteral::new("say \"hi\"").into();
-    assert_eq!(tok.kind(), TokenKind::StringLiteral);
-    // "say ""hi""" → opening " + say  + "" (doubled ") + hi + "" (doubled ") + closing "
-    assert_eq!(tok.text().to_string(), "\"say \"\"hi\"\"\"");
-}
-
-/// BitStringLiteral helpers produce correct prefixes.
-#[test]
-fn bit_string_literal_prefixes() {
-    let tok: Token = BitStringLiteral::binary(b"1010").into();
-    assert_eq!(tok.text().to_string(), r#"B"1010""#);
-
-    let tok: Token = BitStringLiteral::octal(b"77").into();
-    assert_eq!(tok.text().to_string(), r#"O"77""#);
-
-    let tok: Token = BitStringLiteral::hex(b"FF").into();
-    assert_eq!(tok.text().to_string(), r#"X"FF""#);
-}
-
-/// From<Token> for Identifier works for correctly-kinded tokens.
-#[test]
-fn identifier_from_token_escape_hatch() {
-    let tok = Token::new(TokenKind::Identifier, b"foo".as_slice(), Trivia::default());
-    let id = Identifier::from(tok);
-    let out: Token = id.into();
-    assert_eq!(out.text().to_string(), "foo");
-}
-
-/// From<Token> for Identifier panics when the kind is wrong.
-#[test]
-#[should_panic(expected = "Identifier")]
-fn identifier_from_token_wrong_kind_panics() {
-    let tok = Token::new(
-        TokenKind::AbstractLiteral,
-        b"42".as_slice(),
-        Trivia::default(),
-    );
-    let _ = Identifier::from(tok);
-}
-
-// MARK: ActualPartBuilder (RawTokens node)
-
-/// `from_vhdl` tokenizes the input and adds a leading space to the first token.
-#[test]
-fn actual_part_from_vhdl_adds_leading_space() {
-    let syntax = ActualPartBuilder::from_vhdl(Latin1Str::new(b"clk")).build();
-    assert_eq!(syntax.raw().to_string(), " clk");
-}
-
-/// A programmatically assembled `ActualPartBuilder` holds exactly the pushed tokens.
-#[test]
-fn actual_part_programmatic_token_chain() {
-    let tok = Token::new(TokenKind::Identifier, b"foo".as_slice(), Trivia::default());
-    let syntax = ActualPartBuilder::new().token(tok).build();
-    assert_eq!(syntax.raw().tokens().count(), 1);
-}
+// MARK: ActualPartBuilder
 
 /// `ActualPartBuilder` satisfies `impl Into<ActualPartSyntax>` required by `AssociationElementBuilder::new`.
 #[test]
@@ -253,13 +151,13 @@ fn actual_part_satisfies_into_for_association_element() {
     )));
 }
 
-// MARK: XyzToken builder wrappers (token-choice nodes)
+// MARK: Token choice nodes
 
 /// `NameDesignatorToken::identifier()` creates a token that can be used with `NameDesignatorPrefixBuilder`.
 #[test]
 fn name_designator_token_identifier_constructor() {
-    let node = NameDesignatorPrefixBuilder::new(NameDesignatorToken::identifier(b"my_signal"))
-        .build();
+    let node =
+        NameDesignatorPrefixBuilder::new(NameDesignatorToken::identifier(b"my_signal")).build();
     assert_eq!(node.raw().to_string(), " my_signal");
 }
 

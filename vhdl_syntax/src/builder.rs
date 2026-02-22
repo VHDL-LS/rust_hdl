@@ -130,6 +130,25 @@ impl TryFrom<String> for Identifier {
     }
 }
 
+#[test]
+fn from_token_works_for_correctly_kinded_tokens() {
+    let tok = Token::new(TokenKind::Identifier, b"foo", Trivia::default());
+    let id = Identifier::from(tok);
+    let out: Token = id.into();
+    assert_eq!(out.text(), "foo");
+}
+
+#[test]
+#[should_panic(expected = "Identifier")]
+fn from_token_panics_with_wong_kind() {
+    let tok = Token::new(
+        TokenKind::AbstractLiteral,
+        b"42".as_slice(),
+        Trivia::default(),
+    );
+    let _ = Identifier::from(tok);
+}
+
 // MARK: AbstractLiteral
 
 domain_type!(
@@ -197,6 +216,31 @@ impl AbstractLiteral {
     }
 }
 
+#[test]
+fn abstract_literal_real_always_has_decimal_point() {
+    let tok: Token = AbstractLiteral::real(1.0).into();
+    assert_eq!(tok.kind(), TokenKind::AbstractLiteral);
+    assert_eq!(tok.text().to_string(), "1.0");
+
+    let tok: Token = AbstractLiteral::real(2.5).into();
+    assert_eq!(tok.text().to_string(), "2.5");
+
+    // Scientific notation already has 'e', so no ".0" appended.
+    let tok: Token = AbstractLiteral::real(1e10).into();
+    let text = tok.text().to_string();
+    assert!(
+        text.contains('.') || text.contains('e') || text.contains('E'),
+        "expected decimal point or exponent in {text}"
+    );
+}
+
+#[test]
+fn abstract_literal_integer_produces_plain_decimal_string() {
+    let tok: Token = AbstractLiteral::integer(42).into();
+    assert_eq!(tok.kind(), TokenKind::AbstractLiteral);
+    assert_eq!(tok.text().to_string(), "42");
+}
+
 // MARK: StringLiteral
 
 domain_type!(
@@ -241,6 +285,14 @@ impl StringLiteral {
     }
 }
 
+#[test]
+fn string_literal_adds_surrounding_quotes_and_doubles_embedded_quotes() {
+    let tok: Token = StringLiteral::new("say \"hi\"").into();
+    assert_eq!(tok.kind(), TokenKind::StringLiteral);
+    // "say ""hi""" → opening " + say  + "" (doubled ") + hi + "" (doubled ") + closing "
+    assert_eq!(tok.text().to_string(), "\"say \"\"hi\"\"\"");
+}
+
 // MARK: CharLiteral
 
 domain_type!(
@@ -282,6 +334,25 @@ impl CharLiteral {
             default_trivia(),
         ))
     }
+}
+
+#[test]
+fn char_literal_has_tick_marks() {
+    let tok: Token = CharLiteral::new(b'A').into();
+    assert_eq!(tok.kind(), TokenKind::CharacterLiteral);
+    assert_eq!(tok.text().to_string(), "'A'");
+}
+
+#[test]
+fn char_literal_produces_correct_output_with_quote_char_itself() {
+    let tok: Token = CharLiteral::new(b'\'').into();
+    assert_eq!(tok.text().to_string(), "'''");
+}
+
+#[test]
+fn char_literal_from_char_rejects_non_latin_1() {
+    assert!(CharLiteral::try_from('€').is_err());
+    assert!(CharLiteral::try_from('A').is_ok());
 }
 
 // MARK: BitStringLiteral
@@ -368,6 +439,18 @@ impl BitStringLiteral {
     }
 }
 
+#[test]
+fn bit_string_literal_helpers_produce_correct_prefixes_prefixes() {
+    let tok: Token = BitStringLiteral::binary(b"1010").into();
+    assert_eq!(tok.text().to_string(), r#"B"1010""#);
+
+    let tok: Token = BitStringLiteral::octal(b"77").into();
+    assert_eq!(tok.text().to_string(), r#"O"77""#);
+
+    let tok: Token = BitStringLiteral::hex(b"FF").into();
+    assert_eq!(tok.text().to_string(), r#"X"FF""#);
+}
+
 // MARK: RawNodeBuilder
 
 /// Shared builder for `!RawTokens` AST nodes (e.g. `ActualPartSyntax`, `RawTokensSyntax`).
@@ -415,6 +498,20 @@ impl RawNodeBuilder {
         b.end_node();
         SyntaxNode::new_root(b.end())
     }
+}
+
+#[test]
+fn raw_node_builder_from_vhdl_adds_leading_space() {
+    let syntax = RawNodeBuilder::from_vhdl(NodeKind::ActualPart, Latin1Str::new(b"clk")).build();
+    assert_eq!(syntax.to_string(), " clk");
+}
+
+/// A programmatically assembled `RawNodeBuilder` holds exactly the pushed tokens.
+#[test]
+fn raw_node_builder_programmatic_token_chain() {
+    let tok = Token::new(TokenKind::Identifier, b"foo".as_slice(), Trivia::default());
+    let syntax = RawNodeBuilder::new(NodeKind::ActualPart).token(tok).build();
+    assert_eq!(syntax.tokens().count(), 1);
 }
 
 // MARK: Canonical tokens
