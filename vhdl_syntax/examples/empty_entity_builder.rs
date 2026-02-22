@@ -40,7 +40,7 @@ fn main() {
         NameDesignatorPrefixBuilder::new(NameDesignatorToken::identifier(b"foo")).build(),
     ));
 
-    // Create an architecture to the entity, this time by repeatedly calling arguments on the builder.
+    // Create an architecture syntax.
     let architecture_syntax =
         ArchitectureBodyBuilder::new(ArchitecturePreambleBuilder::new(b"arch", entity_name))
             .build();
