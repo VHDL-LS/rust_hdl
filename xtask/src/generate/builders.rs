@@ -51,15 +51,15 @@ impl Generator for BuilderGenerator {
         );
 
         // Raw Token builders (e.g., `struct ActualPartBuilder`)
-        token_stream.extend(
-            model
-                .all_nodes()
-                .filter_map(|n| match n {
-                    Node::RawTokens(name) => Some(name.as_str()),
-                    _ => None,
-                })
-                .map(generate_raw_tokens_builder),
-        );
+        let mut raw_token_nodes: Vec<&str> = model
+            .all_nodes()
+            .filter_map(|n| match n {
+                Node::RawTokens(name) => Some(name.as_str()),
+                _ => None,
+            })
+            .collect();
+        raw_token_nodes.sort();
+        token_stream.extend(raw_token_nodes.into_iter().map(generate_raw_tokens_builder));
 
         // Token builders (e.g., `struct ForceToken`)
         let mut choice_nodes: Vec<&ChoiceNode> = model
