@@ -715,3 +715,110 @@ package pkg_inst is new work.test_pkg generic map (8, 9);
         )],
     );
 }
+
+#[test]
+fn no_spurious_duplicate_decl_for_multiple_generic_pkg_instances() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package generic_record_pkg is
+   generic(
+      g_length : natural
+   );
+
+   type generic_record is record
+      field: integer_vector(g_length-1 downto 0);
+   end record;
+end package;
+
+entity tb_playground is
+end entity;
+
+use work.generic_record_pkg;
+
+architecture arch of tb_playground is
+   package i_gen_rec_pkg is new generic_record_pkg generic map(2);
+   alias gen_rec_2 is i_gen_rec_pkg.generic_record;
+
+   package i_other_gen_rec_pkg is new generic_record_pkg generic map(3);
+   alias gen_rec_3 is i_other_gen_rec_pkg.generic_record;
+begin
+
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn multiple_generic_pkg_instances_without_aliases() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package generic_record_pkg is
+   generic(
+      g_length : natural
+   );
+
+   type generic_record is record
+      field: integer_vector(g_length-1 downto 0);
+   end record;
+end package;
+
+entity tb is
+end entity;
+
+use work.generic_record_pkg;
+
+architecture arch of tb is
+   package pkg1 is new generic_record_pkg generic map(2);
+   package pkg2 is new generic_record_pkg generic map(3);
+   signal s1 : pkg1.generic_record;
+   signal s2 : pkg2.generic_record;
+begin
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn multiple_generic_pkg_instances_with_use_all() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package generic_record_pkg is
+   generic(
+      g_length : natural
+   );
+
+   type generic_record is record
+      field: integer_vector(g_length-1 downto 0);
+   end record;
+end package;
+
+entity tb is
+end entity;
+
+use work.generic_record_pkg;
+
+architecture arch of tb is
+   package pkg1 is new generic_record_pkg generic map(2);
+   use pkg1.all;
+
+   package pkg2 is new generic_record_pkg generic map(3);
+begin
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

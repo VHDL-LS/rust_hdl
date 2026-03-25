@@ -113,6 +113,17 @@ impl<'a> AnalyzeContext<'a, '_> {
             inst.set_kind(kind);
         }
 
+        // If the instantiated entity is a type, add it to the scope before
+        // processing its implicit operators. This ensures that `map_type_ent`
+        // can find the newly instantiated type by designator when mapping
+        // the signatures of implicit operators (e.g., "=" and "/=").
+        // Without this, implicit operators from different generic package
+        // instantiations would incorrectly reference the uninstantiated type,
+        // causing spurious "Duplicate Declaration" errors. (See issue #404)
+        if matches!(inst.kind(), AnyEntKind::Type(_)) {
+            scope.add(inst, &mut NullDiagnostics);
+        }
+
         for implicit_uninst in uninst.implicits.iter() {
             unsafe {
                 self.arena.add_implicit(
