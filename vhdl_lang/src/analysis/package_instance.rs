@@ -74,6 +74,15 @@ impl<'a> AnalyzeContext<'a, '_> {
                     // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
                     // They can collide if there are more than one interface type that map to the same actual type
                     nested.add(inst, &mut NullDiagnostics);
+                    if let Err((err, code)) =
+                        self.instantiate_implicits(inst, &mapping, uninst, &nested)
+                    {
+                        let mut diag = Diagnostic::new(decl_pos, err, code);
+                        if let Some(pos) = uninst.decl_pos() {
+                            diag.add_related(pos, "When instantiating this declaration");
+                        }
+                        diagnostics.push(diag);
+                    }
                 }
                 Err((err, code)) => {
                     let mut diag = Diagnostic::new(decl_pos, err, code);
@@ -113,16 +122,23 @@ impl<'a> AnalyzeContext<'a, '_> {
             inst.set_kind(kind);
         }
 
+        Ok(inst)
+    }
+
+    fn instantiate_implicits(
+        &self,
+        inst: EntRef<'a>,
+        mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
+        uninst: EntRef<'a>,
+        scope: &Scope<'a>,
+    ) -> Result<(), (String, ErrorCode)> {
         for implicit_uninst in uninst.implicits.iter() {
+            let implicit_inst = self.instantiate(Some(inst), mapping, implicit_uninst, scope)?;
             unsafe {
-                self.arena.add_implicit(
-                    inst.id(),
-                    self.instantiate(Some(inst), mapping, implicit_uninst, scope)?,
-                );
+                self.arena.add_implicit(inst.id(), implicit_inst);
             }
         }
-
-        Ok(inst)
+        Ok(())
     }
 
     fn map_kind(
@@ -313,6 +329,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 NamedEntities::Single(uninst) => {
                     let inst = self.instantiate(parent, mapping, uninst, scope)?;
                     inst_region.add(inst, &mut NullDiagnostics);
+                    self.instantiate_implicits(inst, mapping, uninst, scope)?;
                 }
                 NamedEntities::Overloaded(overloaded) => {
                     for uninst in overloaded.entities() {
