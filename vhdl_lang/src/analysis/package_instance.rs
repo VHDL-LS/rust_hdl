@@ -74,6 +74,16 @@ impl<'a> AnalyzeContext<'a, '_> {
                     // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
                     // They can collide if there are more than one interface type that map to the same actual type
                     nested.add(inst, &mut NullDiagnostics);
+
+                    for implicit_uninst in uninst.implicits.iter() {
+                        unsafe {
+                            self.arena.add_implicit(
+                                inst.id(),
+                                self.instantiate(Some(inst), &mapping, implicit_uninst, &nested)
+                                    .expect("Failed to instantiate implicit operator"),
+                            );
+                        }
+                    }
                 }
                 Err((err, code)) => {
                     let mut diag = Diagnostic::new(decl_pos, err, code);
@@ -111,26 +121,6 @@ impl<'a> AnalyzeContext<'a, '_> {
         let kind = self.map_kind(Some(inst), mapping, uninst.kind(), scope)?;
         unsafe {
             inst.set_kind(kind);
-        }
-
-        // If the instantiated entity is a type, add it to the scope before
-        // processing its implicit operators. This ensures that `map_type_ent`
-        // can find the newly instantiated type by designator when mapping
-        // the signatures of implicit operators (e.g., "=" and "/=").
-        // Without this, implicit operators from different generic package
-        // instantiations would incorrectly reference the uninstantiated type,
-        // causing spurious "Duplicate Declaration" errors. (See issue #404)
-        if matches!(inst.kind(), AnyEntKind::Type(_)) {
-            scope.add(inst, &mut NullDiagnostics);
-        }
-
-        for implicit_uninst in uninst.implicits.iter() {
-            unsafe {
-                self.arena.add_implicit(
-                    inst.id(),
-                    self.instantiate(Some(inst), mapping, implicit_uninst, scope)?,
-                );
-            }
         }
 
         Ok(inst)
@@ -324,6 +314,15 @@ impl<'a> AnalyzeContext<'a, '_> {
                 NamedEntities::Single(uninst) => {
                     let inst = self.instantiate(parent, mapping, uninst, scope)?;
                     inst_region.add(inst, &mut NullDiagnostics);
+
+                    for implicit_uninst in uninst.implicits.iter() {
+                        unsafe {
+                            self.arena.add_implicit(
+                                inst.id(),
+                                self.instantiate(Some(inst), mapping, implicit_uninst, scope)?,
+                            );
+                        }
+                    }
                 }
                 NamedEntities::Overloaded(overloaded) => {
                     for uninst in overloaded.entities() {
