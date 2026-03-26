@@ -822,3 +822,50 @@ end architecture;
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+// Regression test for https://github.com/VHDL-LS/rust_hdl/issues/403
+#[test]
+fn type_from_generic_package_formal_is_compatible_with_actual() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package base_pkg is
+  generic(n : natural);
+  type t is range 0 to n;
+end package;
+
+use work.base_pkg;
+package wrapper_pkg is
+  generic(package i_base is new base_pkg generic map(<>));
+  function get return i_base.t;
+end package;
+
+package body wrapper_pkg is
+  function get return i_base.t is
+  begin
+    return 0;
+  end function;
+end package body;
+
+use work.base_pkg;
+use work.wrapper_pkg;
+entity tb is end entity;
+
+architecture arch of tb is
+  package my_base is new base_pkg generic map(10);
+  package my_wrapper is new wrapper_pkg generic map(my_base);
+begin
+  process
+    variable v : my_base.t;
+  begin
+    v := my_wrapper.get;
+    wait;
+  end process;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
