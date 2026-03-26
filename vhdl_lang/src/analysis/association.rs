@@ -668,9 +668,13 @@ impl<'a> AnalyzeContext<'a, '_> {
                                     if let Some(actual_region) = actual_region {
                                         for named_entities in actual_region.entities.values() {
                                             if let Some(actual_ent) = named_entities.as_unique() {
-                                                if let (Some(actual_type), Related::InstanceOf(uninst)) =
-                                                    (TypeEnt::from_any(actual_ent), &actual_ent.related)
-                                                {
+                                                if let (
+                                                    Some(actual_type),
+                                                    Related::InstanceOf(uninst),
+                                                ) = (
+                                                    TypeEnt::from_any(actual_ent),
+                                                    &actual_ent.related,
+                                                ) {
                                                     mapping.insert(uninst.id(), actual_type);
                                                 }
                                             }
