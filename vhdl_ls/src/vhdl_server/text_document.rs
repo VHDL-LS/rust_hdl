@@ -16,6 +16,7 @@ impl VHDLServer {
         if let Some(source) = self.project.get_source(&file_name) {
             source.change(None, text);
             self.project.update_source(&source);
+            self.semantic_token_cache.clear();
             self.publish_diagnostics();
         } else {
             match self.settings.non_project_file_handling {
@@ -27,6 +28,7 @@ impl VHDLServer {
                     )));
                     self.project
                         .update_source(&Source::inline(&file_name, text));
+                    self.semantic_token_cache.clear();
                     self.publish_diagnostics();
                 }
             }
@@ -41,6 +43,7 @@ impl VHDLServer {
                 source.change(range.as_ref(), &content_change.text);
             }
             self.project.update_source(&source);
+            self.semantic_token_cache.clear();
             self.publish_diagnostics();
         } else if self.settings.non_project_file_handling != NonProjectFileHandling::Ignore {
             self.message(Message::error(format!(

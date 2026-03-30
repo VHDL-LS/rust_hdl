@@ -7,6 +7,7 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
+use crate::data::Source;
 use crate::named_entity::{EntRef, HasEntityId, Reference};
 use crate::syntax::{HasTokenSpan, TokenAccess};
 
@@ -2000,6 +2001,52 @@ impl Searcher for FindAllUnresolved {
         self.count += 1;
         if reference.is_undefined() {
             self.unresolved.push(pos.clone());
+        }
+        NotFinished
+    }
+}
+
+/// Collects all (position, entity) pairs in a source file for semantic token support.
+pub struct SemanticTokenCollector<'a> {
+    root: &'a DesignRoot,
+    source: Source,
+    pub tokens: Vec<(SrcPos, EntRef<'a>)>,
+}
+
+impl<'a> SemanticTokenCollector<'a> {
+    pub fn new(root: &'a DesignRoot, source: &Source) -> Self {
+        SemanticTokenCollector {
+            root,
+            source: source.clone(),
+            tokens: Vec::new(),
+        }
+    }
+}
+
+impl Searcher for SemanticTokenCollector<'_> {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        reference: &Reference,
+    ) -> SearchState {
+        if let Some(id) = reference.get() {
+            let ent = self.root.get_ent(id);
+            self.tokens.push((pos.clone(), ent));
+        }
+        NotFinished
+    }
+
+    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration<'_>) -> SearchState {
+        if let Some(id) = decl.ent_id() {
+            let ent = self.root.get_ent(id);
+            if let Some(decl_pos) = ent.decl_pos() {
+                // decl_pos may point to a different file (e.g. deferred constants),
+                // filter to only include declarations in the current source file.
+                if decl_pos.source == self.source {
+                    self.tokens.push((decl_pos.clone(), ent));
+                }
+            }
         }
         NotFinished
     }

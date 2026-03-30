@@ -335,6 +335,14 @@ impl Project {
         self.root.find_all_references_in_source(source, ent)
     }
 
+    /// Collect all (position, entity) pairs in a source file for semantic token support.
+    pub fn semantic_tokens(&self, source: &Source) -> Vec<(SrcPos, EntRef<'_>)> {
+        use crate::ast::search::SemanticTokenCollector;
+        let mut collector = SemanticTokenCollector::new(&self.root, source);
+        let _ = self.root.search_source(source, &mut collector);
+        collector.tokens
+    }
+
     /// Get source positions that are not resolved to a declaration
     /// This is used for development to test where the language server is blind
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
