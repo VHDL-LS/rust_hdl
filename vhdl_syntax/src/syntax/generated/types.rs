@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -12,14 +13,25 @@ use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct AccessTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for AccessTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AccessTypeDefinition => Some(AccessTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::AccessTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AccessTypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "access",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Access)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AccessTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -42,14 +54,29 @@ impl AccessTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct ArrayConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for ArrayConstraintSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ArrayConstraint => Some(ArrayConstraintSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ArrayConstraint)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ArrayConstraint,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "index_constraint",
+                kind: LayoutItemKind::Node(NodeKind::IndexConstraint),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "constraint",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::RangeConstraintConstraint,
+                    NodeKind::ArrayConstraint,
+                    NodeKind::RecordConstraint,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ArrayConstraintSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -72,22 +99,27 @@ pub enum ArrayTypeDefinitionSyntax {
     ConstrainedArrayDefinition(ConstrainedArrayDefinitionSyntax),
 }
 impl AstNode for ArrayTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::UnboundedArrayDefinition,
+            NodeKind::ConstrainedArrayDefinition,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if UnboundedArrayDefinitionSyntax::can_cast(&node) {
-            return Some(ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(
-                UnboundedArrayDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(
+                UnboundedArrayDefinitionSyntax::cast_unchecked(node),
+            );
+        }
         if ConstrainedArrayDefinitionSyntax::can_cast(&node) {
-            return Some(ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(
-                ConstrainedArrayDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        UnboundedArrayDefinitionSyntax::can_cast(node)
-            || ConstrainedArrayDefinitionSyntax::can_cast(node)
+            return ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(
+                ConstrainedArrayDefinitionSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -102,21 +134,28 @@ pub enum CompositeTypeDefinitionSyntax {
     RecordTypeDefinition(RecordTypeDefinitionSyntax),
 }
 impl AstNode for CompositeTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::UnboundedArrayDefinition,
+            NodeKind::ConstrainedArrayDefinition,
+            NodeKind::RecordTypeDefinition,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ArrayTypeDefinitionSyntax::can_cast(&node) {
-            return Some(CompositeTypeDefinitionSyntax::ArrayTypeDefinition(
-                ArrayTypeDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return CompositeTypeDefinitionSyntax::ArrayTypeDefinition(
+                ArrayTypeDefinitionSyntax::cast_unchecked(node),
+            );
+        }
         if RecordTypeDefinitionSyntax::can_cast(&node) {
-            return Some(CompositeTypeDefinitionSyntax::RecordTypeDefinition(
-                RecordTypeDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ArrayTypeDefinitionSyntax::can_cast(node) || RecordTypeDefinitionSyntax::can_cast(node)
+            return CompositeTypeDefinitionSyntax::RecordTypeDefinition(
+                RecordTypeDefinitionSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -128,14 +167,37 @@ impl AstNode for CompositeTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct ConstrainedArrayDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConstrainedArrayDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ConstrainedArrayDefinition => Some(ConstrainedArrayDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ConstrainedArrayDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ConstrainedArrayDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "array",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Array)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "index_constraint",
+                kind: LayoutItemKind::Node(NodeKind::IndexConstraint),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "of",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Of)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ConstrainedArrayDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -190,19 +252,17 @@ impl DirectionSyntax {
 #[derive(Debug, Clone)]
 pub struct SubtypeIndicationDiscreteDiscreteRangeSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubtypeIndicationDiscreteDiscreteRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SubtypeIndicationDiscreteDiscreteRange => {
-                Some(SubtypeIndicationDiscreteDiscreteRangeSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(
-            node.kind(),
-            NodeKind::SubtypeIndicationDiscreteDiscreteRange
-        )
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SubtypeIndicationDiscreteDiscreteRange,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "subtype_indication",
+            kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SubtypeIndicationDiscreteDiscreteRangeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -219,16 +279,20 @@ impl SubtypeIndicationDiscreteDiscreteRangeSyntax {
 #[derive(Debug, Clone)]
 pub struct SubtypeIndicationDiscreteRangeSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubtypeIndicationDiscreteRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SubtypeIndicationDiscreteRange => {
-                Some(SubtypeIndicationDiscreteRangeSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SubtypeIndicationDiscreteRange)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SubtypeIndicationDiscreteRange,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "range",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::AttributeRange,
+                NodeKind::RangeExpression,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SubtypeIndicationDiscreteRangeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -242,14 +306,17 @@ impl SubtypeIndicationDiscreteRangeSyntax {
 #[derive(Debug, Clone)]
 pub struct OpenDiscreteRangeSyntax(pub(crate) SyntaxNode);
 impl AstNode for OpenDiscreteRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::OpenDiscreteRange => Some(OpenDiscreteRangeSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::OpenDiscreteRange)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::OpenDiscreteRange,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "open",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        OpenDiscreteRangeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -270,28 +337,33 @@ pub enum DiscreteRangeSyntax {
     OpenDiscreteRange(OpenDiscreteRangeSyntax),
 }
 impl AstNode for DiscreteRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::SubtypeIndicationDiscreteDiscreteRange,
+            NodeKind::SubtypeIndicationDiscreteRange,
+            NodeKind::OpenDiscreteRange,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if SubtypeIndicationDiscreteDiscreteRangeSyntax::can_cast(&node) {
-            return Some(DiscreteRangeSyntax::SubtypeIndicationDiscreteDiscreteRange(
-                SubtypeIndicationDiscreteDiscreteRangeSyntax::cast(node).unwrap(),
-            ));
-        };
+            return DiscreteRangeSyntax::SubtypeIndicationDiscreteDiscreteRange(
+                SubtypeIndicationDiscreteDiscreteRangeSyntax::cast_unchecked(node),
+            );
+        }
         if SubtypeIndicationDiscreteRangeSyntax::can_cast(&node) {
-            return Some(DiscreteRangeSyntax::SubtypeIndicationDiscreteRange(
-                SubtypeIndicationDiscreteRangeSyntax::cast(node).unwrap(),
-            ));
-        };
+            return DiscreteRangeSyntax::SubtypeIndicationDiscreteRange(
+                SubtypeIndicationDiscreteRangeSyntax::cast_unchecked(node),
+            );
+        }
         if OpenDiscreteRangeSyntax::can_cast(&node) {
-            return Some(DiscreteRangeSyntax::OpenDiscreteRange(
-                OpenDiscreteRangeSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        SubtypeIndicationDiscreteDiscreteRangeSyntax::can_cast(node)
-            || SubtypeIndicationDiscreteRangeSyntax::can_cast(node)
-            || OpenDiscreteRangeSyntax::can_cast(node)
+            return DiscreteRangeSyntax::OpenDiscreteRange(
+                OpenDiscreteRangeSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -304,14 +376,37 @@ impl AstNode for DiscreteRangeSyntax {
 #[derive(Debug, Clone)]
 pub struct ElementDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ElementDeclaration => Some(ElementDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ElementDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElementDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier_list",
+                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElementDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -346,14 +441,41 @@ impl ElementDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct EnumerationTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for EnumerationTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::EnumerationTypeDefinition => Some(EnumerationTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::EnumerationTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::EnumerationTypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "discrete_ranges",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::SubtypeIndicationDiscreteDiscreteRange,
+                    NodeKind::SubtypeIndicationDiscreteRange,
+                    NodeKind::OpenDiscreteRange,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        EnumerationTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -384,14 +506,31 @@ impl EnumerationTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct FileTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for FileTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::FileTypeDefinition => Some(FileTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::FileTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::FileTypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "file",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::File)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "of",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Of)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        FileTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -417,14 +556,25 @@ impl FileTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct IdentifierListSyntax(pub(crate) SyntaxNode);
 impl AstNode for IdentifierListSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::IdentifierList => Some(IdentifierListSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::IdentifierList)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IdentifierList,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IdentifierListSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -447,14 +597,31 @@ impl IdentifierListSyntax {
 #[derive(Debug, Clone)]
 pub struct IncompleteTypeDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for IncompleteTypeDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::IncompleteTypeDeclaration => Some(IncompleteTypeDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::IncompleteTypeDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IncompleteTypeDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "type",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Type)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IncompleteTypeDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -483,14 +650,31 @@ impl IncompleteTypeDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct IndexSubtypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for IndexSubtypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::IndexSubtypeDefinition => Some(IndexSubtypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::IndexSubtypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IndexSubtypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "range",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Range)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "box",
+                kind: LayoutItemKind::Token(TokenKind::BOX),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IndexSubtypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -516,14 +700,25 @@ impl IndexSubtypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct PhysicalLiteralSyntax(pub(crate) SyntaxNode);
 impl AstNode for PhysicalLiteralSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PhysicalLiteral => Some(PhysicalLiteralSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PhysicalLiteral)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PhysicalLiteral,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "abstract_literal",
+                kind: LayoutItemKind::Token(TokenKind::AbstractLiteral),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PhysicalLiteralSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -543,14 +738,31 @@ impl PhysicalLiteralSyntax {
 #[derive(Debug, Clone)]
 pub struct PhysicalTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for PhysicalTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PhysicalTypeDefinition => Some(PhysicalTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PhysicalTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PhysicalTypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "range_constraint",
+                kind: LayoutItemKind::Node(NodeKind::RangeConstraint),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "unit_declarations",
+                kind: LayoutItemKind::Node(NodeKind::UnitDeclarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "physical_type_definition_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::PhysicalTypeDefinitionEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PhysicalTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -581,14 +793,31 @@ impl PhysicalTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct UnitDeclarationsSyntax(pub(crate) SyntaxNode);
 impl AstNode for UnitDeclarationsSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UnitDeclarations => Some(UnitDeclarationsSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::UnitDeclarations)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UnitDeclarations,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "units",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Units)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "primary_unit_declaration",
+                kind: LayoutItemKind::Node(NodeKind::PrimaryUnitDeclaration),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "secondary_unit_declarations",
+                kind: LayoutItemKind::Node(NodeKind::SecondaryUnitDeclaration),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UnitDeclarationsSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -618,16 +847,31 @@ impl UnitDeclarationsSyntax {
 #[derive(Debug, Clone)]
 pub struct PhysicalTypeDefinitionEpilogueSyntax(pub(crate) SyntaxNode);
 impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PhysicalTypeDefinitionEpilogue => {
-                Some(PhysicalTypeDefinitionEpilogueSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PhysicalTypeDefinitionEpilogue)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PhysicalTypeDefinitionEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "units",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Units)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PhysicalTypeDefinitionEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -656,14 +900,25 @@ impl PhysicalTypeDefinitionEpilogueSyntax {
 #[derive(Debug, Clone)]
 pub struct PrimaryUnitDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PrimaryUnitDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PrimaryUnitDeclaration => Some(PrimaryUnitDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PrimaryUnitDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PrimaryUnitDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PrimaryUnitDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -686,14 +941,31 @@ impl PrimaryUnitDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeBodySyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeBody => Some(ProtectedTypeBodySyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeBody)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeBody,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected_type_body_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ProtectedTypeBodyPreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "declarations",
+                kind: LayoutItemKind::Node(NodeKind::Declarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected_type_body_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::ProtectedTypeBodyEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeBodySyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -722,14 +994,25 @@ impl ProtectedTypeBodySyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeBodyPreambleSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeBodyPreambleSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeBodyPreamble => Some(ProtectedTypeBodyPreambleSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeBodyPreamble)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeBodyPreamble,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "body",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeBodyPreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -752,14 +1035,37 @@ impl ProtectedTypeBodyPreambleSyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeBodyEpilogueSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeBodyEpilogueSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeBodyEpilogue => Some(ProtectedTypeBodyEpilogueSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeBodyEpilogue)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeBodyEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "body",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeBodyEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -794,14 +1100,31 @@ impl ProtectedTypeBodyEpilogueSyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeDeclaration => Some(ProtectedTypeDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected_type_declaration_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ProtectedTypeDeclarationPreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "declarations",
+                kind: LayoutItemKind::Node(NodeKind::Declarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected_type_declaration_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::ProtectedTypeDeclarationEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -834,16 +1157,17 @@ impl ProtectedTypeDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeDeclarationPreambleSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeDeclarationPreambleSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeDeclarationPreamble => {
-                Some(ProtectedTypeDeclarationPreambleSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeDeclarationPreamble)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeDeclarationPreamble,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "protected",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeDeclarationPreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -860,16 +1184,31 @@ impl ProtectedTypeDeclarationPreambleSyntax {
 #[derive(Debug, Clone)]
 pub struct ProtectedTypeDeclarationEpilogueSyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ProtectedTypeDeclarationEpilogue => {
-                Some(ProtectedTypeDeclarationEpilogueSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ProtectedTypeDeclarationEpilogue)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedTypeDeclarationEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "protected",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedTypeDeclarationEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -901,21 +1240,27 @@ pub enum ProtectedTypeDefinitionSyntax {
     ProtectedTypeBody(ProtectedTypeBodySyntax),
 }
 impl AstNode for ProtectedTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::ProtectedTypeDeclaration,
+            NodeKind::ProtectedTypeBody,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ProtectedTypeDeclarationSyntax::can_cast(&node) {
-            return Some(ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(
-                ProtectedTypeDeclarationSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(
+                ProtectedTypeDeclarationSyntax::cast_unchecked(node),
+            );
+        }
         if ProtectedTypeBodySyntax::can_cast(&node) {
-            return Some(ProtectedTypeDefinitionSyntax::ProtectedTypeBody(
-                ProtectedTypeBodySyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ProtectedTypeDeclarationSyntax::can_cast(node) || ProtectedTypeBodySyntax::can_cast(node)
+            return ProtectedTypeDefinitionSyntax::ProtectedTypeBody(
+                ProtectedTypeBodySyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -927,14 +1272,56 @@ impl AstNode for ProtectedTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct RangeExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for RangeExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RangeExpression => Some(RangeExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RangeExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RangeExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "lhs",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "direction",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Keyword(Kw::To),
+                    TokenKind::Keyword(Kw::Downto),
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "rhs",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RangeExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -954,14 +1341,17 @@ impl RangeExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct AttributeRangeSyntax(pub(crate) SyntaxNode);
 impl AstNode for AttributeRangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AttributeRange => Some(AttributeRangeSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::AttributeRange)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AttributeRange,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "name",
+            kind: LayoutItemKind::Node(NodeKind::Name),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AttributeRangeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -978,21 +1368,20 @@ pub enum RangeSyntax {
     RangeExpression(RangeExpressionSyntax),
 }
 impl AstNode for RangeSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[NodeKind::AttributeRange, NodeKind::RangeExpression],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if AttributeRangeSyntax::can_cast(&node) {
-            return Some(RangeSyntax::AttributeRange(
-                AttributeRangeSyntax::cast(node).unwrap(),
-            ));
-        };
+            return RangeSyntax::AttributeRange(AttributeRangeSyntax::cast_unchecked(node));
+        }
         if RangeExpressionSyntax::can_cast(&node) {
-            return Some(RangeSyntax::RangeExpression(
-                RangeExpressionSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        AttributeRangeSyntax::can_cast(node) || RangeExpressionSyntax::can_cast(node)
+            return RangeSyntax::RangeExpression(RangeExpressionSyntax::cast_unchecked(node));
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1004,14 +1393,28 @@ impl AstNode for RangeSyntax {
 #[derive(Debug, Clone)]
 pub struct RangeConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for RangeConstraintSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RangeConstraint => Some(RangeConstraintSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RangeConstraint)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RangeConstraint,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "range",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Range)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "range",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::AttributeRange,
+                    NodeKind::RangeExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RangeConstraintSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1031,14 +1434,37 @@ impl RangeConstraintSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordConstraintSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordConstraint => Some(RecordConstraintSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordConstraint)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordConstraint,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "record_element_constraints",
+                kind: LayoutItemKind::Node(NodeKind::RecordElementConstraint),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordConstraintSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1073,14 +1499,29 @@ impl RecordConstraintSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordElementConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordElementConstraintSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordElementConstraint => Some(RecordElementConstraintSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordElementConstraint)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordElementConstraint,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "constraint",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::RangeConstraintConstraint,
+                    NodeKind::ArrayConstraint,
+                    NodeKind::RecordConstraint,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordElementConstraintSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1097,14 +1538,31 @@ impl RecordElementConstraintSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordTypeDefinition => Some(RecordTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordTypeDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "record_type_definition_preamble",
+                kind: LayoutItemKind::Node(NodeKind::RecordTypeDefinitionPreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "record_element_declarations",
+                kind: LayoutItemKind::Node(NodeKind::RecordElementDeclarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "record_type_definition_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::RecordTypeDefinitionEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1133,14 +1591,17 @@ impl RecordTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordElementDeclarationsSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordElementDeclarationsSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordElementDeclarations => Some(RecordElementDeclarationsSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordElementDeclarations)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordElementDeclarations,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "element_declarations",
+            kind: LayoutItemKind::Node(NodeKind::ElementDeclaration),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordElementDeclarationsSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1154,16 +1615,17 @@ impl RecordElementDeclarationsSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordTypeDefinitionPreambleSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordTypeDefinitionPreambleSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordTypeDefinitionPreamble => {
-                Some(RecordTypeDefinitionPreambleSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordTypeDefinitionPreamble)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordTypeDefinitionPreamble,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "record",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Record)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordTypeDefinitionPreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1180,16 +1642,31 @@ impl RecordTypeDefinitionPreambleSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordTypeDefinitionEpilogueSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordTypeDefinitionEpilogueSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RecordTypeDefinitionEpilogue => {
-                Some(RecordTypeDefinitionEpilogueSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RecordTypeDefinitionEpilogue)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RecordTypeDefinitionEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "record",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Record)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RecordTypeDefinitionEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1218,14 +1695,17 @@ impl RecordTypeDefinitionEpilogueSyntax {
 #[derive(Debug, Clone)]
 pub struct NumericTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for NumericTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::NumericTypeDefinition => Some(NumericTypeDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::NumericTypeDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::NumericTypeDefinition,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "range_constraint",
+            kind: LayoutItemKind::Node(NodeKind::RangeConstraint),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        NumericTypeDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1246,28 +1726,33 @@ pub enum ScalarTypeDefinitionSyntax {
     PhysicalTypeDefinition(PhysicalTypeDefinitionSyntax),
 }
 impl AstNode for ScalarTypeDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::EnumerationTypeDefinition,
+            NodeKind::NumericTypeDefinition,
+            NodeKind::PhysicalTypeDefinition,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if EnumerationTypeDefinitionSyntax::can_cast(&node) {
-            return Some(ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(
-                EnumerationTypeDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(
+                EnumerationTypeDefinitionSyntax::cast_unchecked(node),
+            );
+        }
         if NumericTypeDefinitionSyntax::can_cast(&node) {
-            return Some(ScalarTypeDefinitionSyntax::NumericTypeDefinition(
-                NumericTypeDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ScalarTypeDefinitionSyntax::NumericTypeDefinition(
+                NumericTypeDefinitionSyntax::cast_unchecked(node),
+            );
+        }
         if PhysicalTypeDefinitionSyntax::can_cast(&node) {
-            return Some(ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(
-                PhysicalTypeDefinitionSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        EnumerationTypeDefinitionSyntax::can_cast(node)
-            || NumericTypeDefinitionSyntax::can_cast(node)
-            || PhysicalTypeDefinitionSyntax::can_cast(node)
+            return ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(
+                PhysicalTypeDefinitionSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -1280,14 +1765,37 @@ impl AstNode for ScalarTypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct SecondaryUnitDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for SecondaryUnitDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SecondaryUnitDeclaration => Some(SecondaryUnitDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SecondaryUnitDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SecondaryUnitDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "eq",
+                kind: LayoutItemKind::Token(TokenKind::EQ),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "physical_literal",
+                kind: LayoutItemKind::Node(NodeKind::PhysicalLiteral),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SecondaryUnitDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1322,14 +1830,41 @@ impl SecondaryUnitDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct IndexConstraintSyntax(pub(crate) SyntaxNode);
 impl AstNode for IndexConstraintSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::IndexConstraint => Some(IndexConstraintSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::IndexConstraint)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IndexConstraint,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "discrete_ranges",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::SubtypeIndicationDiscreteDiscreteRange,
+                    NodeKind::SubtypeIndicationDiscreteRange,
+                    NodeKind::OpenDiscreteRange,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IndexConstraintSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1360,14 +1895,25 @@ impl IndexConstraintSyntax {
 #[derive(Debug, Clone)]
 pub struct IndexSubtypeDefinitionListSyntax(pub(crate) SyntaxNode);
 impl AstNode for IndexSubtypeDefinitionListSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::IndexSubtypeDefinitionList => Some(IndexSubtypeDefinitionListSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::IndexSubtypeDefinitionList)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IndexSubtypeDefinitionList,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "index_subtype_definitions",
+                kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinition),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IndexSubtypeDefinitionListSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -1390,14 +1936,49 @@ impl IndexSubtypeDefinitionListSyntax {
 #[derive(Debug, Clone)]
 pub struct UnboundedArrayDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for UnboundedArrayDefinitionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UnboundedArrayDefinition => Some(UnboundedArrayDefinitionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::UnboundedArrayDefinition)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UnboundedArrayDefinition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "array",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Array)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "index_subtype_definition_list",
+                kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinitionList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "of",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Of)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UnboundedArrayDefinitionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

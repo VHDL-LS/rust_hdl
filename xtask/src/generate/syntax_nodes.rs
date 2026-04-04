@@ -9,8 +9,10 @@ use crate::generate::Generator;
 use crate::model::{
     ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
 };
+use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
+use std::collections::HashSet;
 
 pub struct SyntaxNodeGenerator;
 
@@ -32,12 +34,13 @@ impl Generator for SyntaxNodeGenerator {
                 use crate::syntax::node::{SyntaxNode, SyntaxToken};
                 use crate::syntax::node_kind::NodeKind;
                 use crate::syntax::AstNode;
+                use crate::syntax::meta::{Layout, Sequence, Choice, LayoutItem, LayoutItemKind};
                 use crate::tokens::Keyword as Kw;
                 use crate::tokens::TokenKind;
             };
             for node in nodes {
                 stream.extend(generate_rust_struct(node));
-                stream.extend(generate_ast_node_rust_impl(node));
+                stream.extend(generate_ast_node_rust_impl(node, model));
                 stream.extend(generate_rust_impl_getters(node, model));
             }
             files.push((category.clone(), stream));
@@ -107,27 +110,32 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
 
 // MARK: AstNode impls
 
-fn generate_ast_node_rust_impl(node: &Node) -> TokenStream {
+fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
     match node {
-        Node::Items(seq) => generate_sequence_ast_impl(&seq.name),
-        Node::Choices(choice) => generate_choice_ast_impl(choice),
-        Node::RawTokens(name) => generate_sequence_ast_impl(name),
+        Node::Items(seq) => {
+            let meta_items: Vec<TokenStream> = seq
+                .items
+                .iter()
+                .map(|item| layout_item_ts(item, model))
+                .collect();
+            generate_sequence_ast_impl(&seq.name, &meta_items)
+        }
+        Node::Choices(choice) => generate_choice_ast_impl(choice, model),
+        Node::RawTokens(name) => generate_sequence_ast_impl(name, &[]),
     }
 }
 
-fn generate_sequence_ast_impl(name: &str) -> TokenStream {
+fn generate_sequence_ast_impl(name: &str, meta_items: &[TokenStream]) -> TokenStream {
     let struct_name = syntax_type_ident(name);
     let node_kind = node_kind_ident(name);
     quote! {
         impl AstNode for #struct_name {
-            fn cast(node: SyntaxNode) -> Option<Self> {
-                match node.kind() {
-                    NodeKind::#node_kind => Some(#struct_name(node)),
-                    _ => None,
-                }
-            }
-            fn can_cast(node: &SyntaxNode) -> bool {
-                matches!(node.kind(), NodeKind::#node_kind)
+            const META: &'static Layout = &Layout::Sequence(Sequence {
+                kind: NodeKind::#node_kind,
+                items: &[#(#meta_items),*],
+            });
+            fn cast_unchecked(node: SyntaxNode) -> Self {
+                #struct_name(node)
             }
             fn raw(&self) -> SyntaxNode {
                 self.0.clone()
@@ -136,28 +144,26 @@ fn generate_sequence_ast_impl(name: &str) -> TokenStream {
     }
 }
 
-fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
+fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
     let enum_name = syntax_type_ident(&node.name);
     match &node.items {
         NodesOrTokens::Nodes(nodes) => {
-            let cast_branches: Vec<TokenStream> = nodes
+            let node_kinds: Vec<TokenStream> = nodes
+                .iter()
+                .flat_map(|item| {
+                    collect_concrete_node_kinds(&item.kind, model, &mut HashSet::new())
+                })
+                .collect();
+            let cast_unchecked_branches: Vec<TokenStream> = nodes
                 .iter()
                 .map(|item| {
                     let variant = variant_ident(&item.kind);
                     let syntax = syntax_type_ident(&item.kind);
                     quote! {
                         if #syntax::can_cast(&node) {
-                            // BlockStatementSyntax::cast(node).unwrap()
-                            return Some(#enum_name::#variant(#syntax::cast(node).unwrap()))
+                            return #enum_name::#variant(#syntax::cast_unchecked(node));
                         }
                     }
-                })
-                .collect();
-            let can_cast_branches: Vec<TokenStream> = nodes
-                .iter()
-                .map(|item| {
-                    let syntax = syntax_type_ident(&item.kind);
-                    quote! { #syntax::can_cast(node) }
                 })
                 .collect();
             let raw_branches: Vec<TokenStream> = nodes
@@ -169,12 +175,12 @@ fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
                 .collect();
             quote! {
                 impl AstNode for #enum_name {
-                    fn cast(node: SyntaxNode) -> Option<Self> {
-                        #(#cast_branches ;)*
-                        None
-                    }
-                    fn can_cast(node: &SyntaxNode) -> bool {
-                        #(#can_cast_branches)||*
+                    const META: &'static Layout = &Layout::Choice(Choice {
+                        options: &[#(#node_kinds),*],
+                    });
+                    fn cast_unchecked(node: SyntaxNode) -> Self {
+                        #(#cast_unchecked_branches)*
+                        unreachable!("cast_unchecked called with unexpected node kind {:?}", node.kind())
                     }
                     fn raw(&self) -> SyntaxNode {
                         match self {
@@ -216,6 +222,99 @@ fn generate_choice_ast_impl(node: &ChoiceNode) -> TokenStream {
                 }
             }
         }
+    }
+}
+
+// MARK: META helpers
+
+/// Recursively collect all concrete (sequence / raw-token) `NodeKind::X` token-streams
+/// for a named node, expanding nested choice nodes as needed.
+/// `visited` guards against hypothetical cycles in the choice graph.
+fn collect_concrete_node_kinds(
+    name: &str,
+    model: &Model,
+    visited: &mut HashSet<String>,
+) -> Vec<TokenStream> {
+    if !visited.insert(name.to_owned()) {
+        return vec![];
+    }
+    let node = model
+        .all_nodes()
+        .find(|n| n.name() == name)
+        .unwrap_or_else(|| panic!("node '{}' not found in model", name));
+    match node {
+        Node::Items(_) | Node::RawTokens(_) => {
+            let nk = node_kind_ident(name);
+            vec![quote! { NodeKind::#nk }]
+        }
+        Node::Choices(choice) => match &choice.items {
+            NodesOrTokens::Nodes(alts) => alts
+                .iter()
+                .flat_map(|a| collect_concrete_node_kinds(&a.kind, model, visited))
+                .collect(),
+            NodesOrTokens::Tokens(_) => vec![], // token-choices don't produce NodeKind entries
+        },
+    }
+}
+
+// MARK: META item helpers
+
+/// Build a `LayoutItem { ... }` token-stream for one item in a sequence.
+fn layout_item_ts(item: &TokenOrNode, model: &Model) -> TokenStream {
+    match item {
+        TokenOrNode::Token(t) => {
+            let kind_expr = token_kind_path(&t.kind);
+            let optional = t.optional;
+            let repeated = t.repeated;
+            let name_str = t.name.to_case(Case::Snake);
+            quote! {
+                LayoutItem {
+                    optional: #optional,
+                    repeated: #repeated,
+                    name: #name_str,
+                    kind: LayoutItemKind::Token(#kind_expr),
+                }
+            }
+        }
+        TokenOrNode::Node(node_ref) => {
+            let optional = node_ref.optional;
+            let repeated = node_ref.repeated;
+            let name_str = node_ref.name.to_case(Case::Snake);
+            let kind_expr = layout_item_kind_for_node_ref(node_ref, model);
+            quote! {
+                LayoutItem {
+                    optional: #optional,
+                    repeated: #repeated,
+                    name: #name_str,
+                    kind: #kind_expr,
+                }
+            }
+        }
+    }
+}
+
+/// Produce the `LayoutItemKind::…` expression for a node reference.
+fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStream {
+    let target = model
+        .all_nodes()
+        .find(|n| n.name() == node_ref.kind)
+        .unwrap_or_else(|| panic!("node '{}' not found in model", node_ref.kind));
+
+    match target {
+        Node::Items(_) | Node::RawTokens(_) => {
+            let nk = node_kind_ident(&node_ref.kind);
+            quote! { LayoutItemKind::Node(NodeKind::#nk) }
+        }
+        Node::Choices(choice) => match &choice.items {
+            NodesOrTokens::Nodes(_) => {
+                let nks = collect_concrete_node_kinds(&node_ref.kind, model, &mut HashSet::new());
+                quote! { LayoutItemKind::NodeChoice(&[#(#nks),*]) }
+            }
+            NodesOrTokens::Tokens(toks) => {
+                let tks: Vec<TokenStream> = toks.iter().map(|t| token_kind_path(&t.kind)).collect();
+                quote! { LayoutItemKind::TokenChoice(&[#(#tks),*]) }
+            }
+        },
     }
 }
 
@@ -341,6 +440,9 @@ fn generate_mod(model: &Model) -> TokenStream {
 
         pub mod builders;
         pub use builders::*;
+
+        pub mod meta;
+        pub use meta::*;
     }
 }
 

@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -12,14 +13,25 @@ use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct AbsolutePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for AbsolutePathnameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AbsolutePathname => Some(AbsolutePathnameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::AbsolutePathname)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AbsolutePathname,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "partial_pathname",
+                kind: LayoutItemKind::Node(NodeKind::PartialPathname),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AbsolutePathnameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -42,14 +54,72 @@ impl AbsolutePathnameSyntax {
 #[derive(Debug, Clone)]
 pub struct AttributeNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for AttributeNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::AttributeName => Some(AttributeNameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::AttributeName)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AttributeName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_square",
+                kind: LayoutItemKind::Token(TokenKind::LeftSquare),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "signature",
+                kind: LayoutItemKind::Node(NodeKind::Signature),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_square",
+                kind: LayoutItemKind::Token(TokenKind::RightSquare),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "tick",
+                kind: LayoutItemKind::Token(TokenKind::Tick),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "attribute_designator_token",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AttributeNameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -106,28 +176,33 @@ pub enum ExternalNameSyntax {
     ExternalVariableName(ExternalVariableNameSyntax),
 }
 impl AstNode for ExternalNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::ExternalConstantName,
+            NodeKind::ExternalSignalName,
+            NodeKind::ExternalVariableName,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ExternalConstantNameSyntax::can_cast(&node) {
-            return Some(ExternalNameSyntax::ExternalConstantName(
-                ExternalConstantNameSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExternalNameSyntax::ExternalConstantName(
+                ExternalConstantNameSyntax::cast_unchecked(node),
+            );
+        }
         if ExternalSignalNameSyntax::can_cast(&node) {
-            return Some(ExternalNameSyntax::ExternalSignalName(
-                ExternalSignalNameSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExternalNameSyntax::ExternalSignalName(
+                ExternalSignalNameSyntax::cast_unchecked(node),
+            );
+        }
         if ExternalVariableNameSyntax::can_cast(&node) {
-            return Some(ExternalNameSyntax::ExternalVariableName(
-                ExternalVariableNameSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ExternalConstantNameSyntax::can_cast(node)
-            || ExternalSignalNameSyntax::can_cast(node)
-            || ExternalVariableNameSyntax::can_cast(node)
+            return ExternalNameSyntax::ExternalVariableName(
+                ExternalVariableNameSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -140,14 +215,53 @@ impl AstNode for ExternalNameSyntax {
 #[derive(Debug, Clone)]
 pub struct ExternalConstantNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExternalConstantNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExternalConstantName => Some(ExternalConstantNameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ExternalConstantName)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ExternalConstantName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "lt_lt",
+                kind: LayoutItemKind::Token(TokenKind::LtLt),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "constant",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "external_path_name",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::PackagePathname,
+                    NodeKind::AbsolutePathname,
+                    NodeKind::RelativePathname,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "gt_gt",
+                kind: LayoutItemKind::Token(TokenKind::GtGt),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExternalConstantNameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -194,14 +308,53 @@ impl ExternalConstantNameSyntax {
 #[derive(Debug, Clone)]
 pub struct ExternalSignalNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExternalSignalNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExternalSignalName => Some(ExternalSignalNameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ExternalSignalName)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ExternalSignalName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "lt_lt",
+                kind: LayoutItemKind::Token(TokenKind::LtLt),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "signal",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "external_path_name",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::PackagePathname,
+                    NodeKind::AbsolutePathname,
+                    NodeKind::RelativePathname,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "gt_gt",
+                kind: LayoutItemKind::Token(TokenKind::GtGt),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExternalSignalNameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -248,14 +401,53 @@ impl ExternalSignalNameSyntax {
 #[derive(Debug, Clone)]
 pub struct ExternalVariableNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExternalVariableNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExternalVariableName => Some(ExternalVariableNameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ExternalVariableName)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ExternalVariableName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "lt_lt",
+                kind: LayoutItemKind::Token(TokenKind::LtLt),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "variable",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "external_path_name",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::PackagePathname,
+                    NodeKind::AbsolutePathname,
+                    NodeKind::RelativePathname,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "gt_gt",
+                kind: LayoutItemKind::Token(TokenKind::GtGt),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExternalVariableNameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -306,28 +498,33 @@ pub enum ExternalPathNameSyntax {
     RelativePathname(RelativePathnameSyntax),
 }
 impl AstNode for ExternalPathNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::PackagePathname,
+            NodeKind::AbsolutePathname,
+            NodeKind::RelativePathname,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if PackagePathnameSyntax::can_cast(&node) {
-            return Some(ExternalPathNameSyntax::PackagePathname(
-                PackagePathnameSyntax::cast(node).unwrap(),
+            return ExternalPathNameSyntax::PackagePathname(PackagePathnameSyntax::cast_unchecked(
+                node,
             ));
-        };
+        }
         if AbsolutePathnameSyntax::can_cast(&node) {
-            return Some(ExternalPathNameSyntax::AbsolutePathname(
-                AbsolutePathnameSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExternalPathNameSyntax::AbsolutePathname(
+                AbsolutePathnameSyntax::cast_unchecked(node),
+            );
+        }
         if RelativePathnameSyntax::can_cast(&node) {
-            return Some(ExternalPathNameSyntax::RelativePathname(
-                RelativePathnameSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        PackagePathnameSyntax::can_cast(node)
-            || AbsolutePathnameSyntax::can_cast(node)
-            || RelativePathnameSyntax::can_cast(node)
+            return ExternalPathNameSyntax::RelativePathname(
+                RelativePathnameSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -340,14 +537,31 @@ impl AstNode for ExternalPathNameSyntax {
 #[derive(Debug, Clone)]
 pub struct PackagePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for PackagePathnameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PackagePathname => Some(PackagePathnameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PackagePathname)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PackagePathname,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "comm_at",
+                kind: LayoutItemKind::Token(TokenKind::CommAt),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "simple_name",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PackagePathnameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -374,14 +588,31 @@ impl PackagePathnameSyntax {
 #[derive(Debug, Clone)]
 pub struct RelativePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for RelativePathnameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RelativePathname => Some(RelativePathnameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RelativePathname)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RelativePathname,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "circ",
+                kind: LayoutItemKind::Token(TokenKind::Circ),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "partial_pathname",
+                kind: LayoutItemKind::Node(NodeKind::PartialPathname),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RelativePathnameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -408,14 +639,25 @@ impl RelativePathnameSyntax {
 #[derive(Debug, Clone)]
 pub struct PartialPathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for PartialPathnameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PartialPathname => Some(PartialPathnameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PartialPathname)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PartialPathname,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PartialPathnameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -436,14 +678,25 @@ impl PartialPathnameSyntax {
 #[derive(Debug, Clone)]
 pub struct NameListSyntax(pub(crate) SyntaxNode);
 impl AstNode for NameListSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::NameList => Some(NameListSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::NameList)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::NameList,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "names",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        NameListSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -462,14 +715,25 @@ impl NameListSyntax {
 #[derive(Debug, Clone)]
 pub struct LabelSyntax(pub(crate) SyntaxNode);
 impl AstNode for LabelSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Label => Some(LabelSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::Label)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Label,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        LabelSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -535,14 +799,34 @@ impl NameDesignatorSyntax {
 #[derive(Debug, Clone)]
 pub struct NameSyntax(pub(crate) SyntaxNode);
 impl AstNode for NameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Name => Some(NameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::Name)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Name,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name_prefix",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::ExternalConstantName,
+                    NodeKind::ExternalSignalName,
+                    NodeKind::ExternalVariableName,
+                    NodeKind::NameDesignatorPrefix,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "name_tails",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::SelectedName,
+                    NodeKind::RawTokens,
+                    NodeKind::AttributeName,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        NameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -559,14 +843,21 @@ impl NameSyntax {
 #[derive(Debug, Clone)]
 pub struct NameDesignatorPrefixSyntax(pub(crate) SyntaxNode);
 impl AstNode for NameDesignatorPrefixSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::NameDesignatorPrefix => Some(NameDesignatorPrefixSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::NameDesignatorPrefix)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::NameDesignatorPrefix,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "name_designator",
+            kind: LayoutItemKind::TokenChoice(&[
+                TokenKind::Identifier,
+                TokenKind::StringLiteral,
+                TokenKind::CharacterLiteral,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        NameDesignatorPrefixSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -586,21 +877,27 @@ pub enum NamePrefixSyntax {
     NameDesignatorPrefix(NameDesignatorPrefixSyntax),
 }
 impl AstNode for NamePrefixSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::ExternalConstantName,
+            NodeKind::ExternalSignalName,
+            NodeKind::ExternalVariableName,
+            NodeKind::NameDesignatorPrefix,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ExternalNameSyntax::can_cast(&node) {
-            return Some(NamePrefixSyntax::ExternalName(
-                ExternalNameSyntax::cast(node).unwrap(),
-            ));
-        };
+            return NamePrefixSyntax::ExternalName(ExternalNameSyntax::cast_unchecked(node));
+        }
         if NameDesignatorPrefixSyntax::can_cast(&node) {
-            return Some(NamePrefixSyntax::NameDesignatorPrefix(
-                NameDesignatorPrefixSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ExternalNameSyntax::can_cast(node) || NameDesignatorPrefixSyntax::can_cast(node)
+            return NamePrefixSyntax::NameDesignatorPrefix(
+                NameDesignatorPrefixSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -638,14 +935,30 @@ impl SuffixSyntax {
 #[derive(Debug, Clone)]
 pub struct SelectedNameSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedNameSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SelectedName => Some(SelectedNameSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SelectedName)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SelectedName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "suffix",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Identifier,
+                    TokenKind::StringLiteral,
+                    TokenKind::CharacterLiteral,
+                    TokenKind::Keyword(Kw::All),
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SelectedNameSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -669,28 +982,27 @@ pub enum NameTailSyntax {
     AttributeName(AttributeNameSyntax),
 }
 impl AstNode for NameTailSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::SelectedName,
+            NodeKind::RawTokens,
+            NodeKind::AttributeName,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if SelectedNameSyntax::can_cast(&node) {
-            return Some(NameTailSyntax::SelectedName(
-                SelectedNameSyntax::cast(node).unwrap(),
-            ));
-        };
+            return NameTailSyntax::SelectedName(SelectedNameSyntax::cast_unchecked(node));
+        }
         if RawTokensSyntax::can_cast(&node) {
-            return Some(NameTailSyntax::RawTokens(
-                RawTokensSyntax::cast(node).unwrap(),
-            ));
-        };
+            return NameTailSyntax::RawTokens(RawTokensSyntax::cast_unchecked(node));
+        }
         if AttributeNameSyntax::can_cast(&node) {
-            return Some(NameTailSyntax::AttributeName(
-                AttributeNameSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        SelectedNameSyntax::can_cast(node)
-            || RawTokensSyntax::can_cast(node)
-            || AttributeNameSyntax::can_cast(node)
+            return NameTailSyntax::AttributeName(AttributeNameSyntax::cast_unchecked(node));
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -703,14 +1015,12 @@ impl AstNode for NameTailSyntax {
 #[derive(Debug, Clone)]
 pub struct RawTokensSyntax(pub(crate) SyntaxNode);
 impl AstNode for RawTokensSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::RawTokens => Some(RawTokensSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::RawTokens)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RawTokens,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RawTokensSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
