@@ -7,6 +7,8 @@
 pub mod naming;
 pub mod builders;
 pub use builders::BuilderGenerator;
+pub mod meta;
+pub use meta::MetaGenerator;
 pub mod syntax_nodes;
 pub use syntax_nodes::SyntaxNodeGenerator;
 

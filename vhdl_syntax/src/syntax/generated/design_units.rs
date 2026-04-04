@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -12,14 +13,21 @@ use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct ContextClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextClauseSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ContextClause => Some(ContextClauseSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ContextClause)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ContextClause,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "context_items",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::LibraryClause,
+                NodeKind::UseClauseContextItem,
+                NodeKind::ContextReference,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ContextClauseSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -33,14 +41,31 @@ impl ContextClauseSyntax {
 #[derive(Debug, Clone)]
 pub struct ContextDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ContextDeclaration => Some(ContextDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ContextDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ContextDeclaration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "context_declaration_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ContextDeclarationPreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "context_clause",
+                kind: LayoutItemKind::Node(NodeKind::ContextClause),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "context_declaration_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::ContextDeclarationEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ContextDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -69,14 +94,31 @@ impl ContextDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct ContextDeclarationPreambleSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextDeclarationPreambleSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ContextDeclarationPreamble => Some(ContextDeclarationPreambleSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ContextDeclarationPreamble)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ContextDeclarationPreamble,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ContextDeclarationPreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -105,14 +147,37 @@ impl ContextDeclarationPreambleSyntax {
 #[derive(Debug, Clone)]
 pub struct ContextDeclarationEpilogueSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextDeclarationEpilogueSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ContextDeclarationEpilogue => Some(ContextDeclarationEpilogueSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ContextDeclarationEpilogue)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ContextDeclarationEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ContextDeclarationEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -147,14 +212,17 @@ impl ContextDeclarationEpilogueSyntax {
 #[derive(Debug, Clone)]
 pub struct UseClauseContextItemSyntax(pub(crate) SyntaxNode);
 impl AstNode for UseClauseContextItemSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UseClauseContextItem => Some(UseClauseContextItemSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::UseClauseContextItem)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UseClauseContextItem,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "use_clause",
+            kind: LayoutItemKind::Node(NodeKind::UseClause),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UseClauseContextItemSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -168,14 +236,31 @@ impl UseClauseContextItemSyntax {
 #[derive(Debug, Clone)]
 pub struct ContextReferenceSyntax(pub(crate) SyntaxNode);
 impl AstNode for ContextReferenceSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ContextReference => Some(ContextReferenceSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ContextReference)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ContextReference,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "name_list",
+                kind: LayoutItemKind::Node(NodeKind::NameList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ContextReferenceSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -205,28 +290,31 @@ pub enum ContextItemSyntax {
     ContextReference(ContextReferenceSyntax),
 }
 impl AstNode for ContextItemSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::LibraryClause,
+            NodeKind::UseClauseContextItem,
+            NodeKind::ContextReference,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if LibraryClauseSyntax::can_cast(&node) {
-            return Some(ContextItemSyntax::LibraryClause(
-                LibraryClauseSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ContextItemSyntax::LibraryClause(LibraryClauseSyntax::cast_unchecked(node));
+        }
         if UseClauseContextItemSyntax::can_cast(&node) {
-            return Some(ContextItemSyntax::UseClauseContextItem(
-                UseClauseContextItemSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ContextItemSyntax::UseClauseContextItem(
+                UseClauseContextItemSyntax::cast_unchecked(node),
+            );
+        }
         if ContextReferenceSyntax::can_cast(&node) {
-            return Some(ContextItemSyntax::ContextReference(
-                ContextReferenceSyntax::cast(node).unwrap(),
+            return ContextItemSyntax::ContextReference(ContextReferenceSyntax::cast_unchecked(
+                node,
             ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        LibraryClauseSyntax::can_cast(node)
-            || UseClauseContextItemSyntax::can_cast(node)
-            || ContextReferenceSyntax::can_cast(node)
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -239,14 +327,25 @@ impl AstNode for ContextItemSyntax {
 #[derive(Debug, Clone)]
 pub struct DesignFileSyntax(pub(crate) SyntaxNode);
 impl AstNode for DesignFileSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::DesignFile => Some(DesignFileSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::DesignFile)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::DesignFile,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "design_units",
+                kind: LayoutItemKind::Node(NodeKind::DesignUnit),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Eof),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        DesignFileSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -266,14 +365,34 @@ impl DesignFileSyntax {
 #[derive(Debug, Clone)]
 pub struct DesignUnitSyntax(pub(crate) SyntaxNode);
 impl AstNode for DesignUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::DesignUnit => Some(DesignUnitSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::DesignUnit)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::DesignUnit,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "context_clause",
+                kind: LayoutItemKind::Node(NodeKind::ContextClause),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "library_unit",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::EntityDeclaration,
+                    NodeKind::ConfigurationDeclaration,
+                    NodeKind::PrimaryUnitPackageDeclaration,
+                    NodeKind::PackageInstantiationDeclarationPrimaryUnit,
+                    NodeKind::ContextDeclaration,
+                    NodeKind::PslVerificationUnit,
+                    NodeKind::ArchitectureBody,
+                    NodeKind::SecondaryUnitPackageBody,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        DesignUnitSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -293,14 +412,31 @@ impl DesignUnitSyntax {
 #[derive(Debug, Clone)]
 pub struct LibraryClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for LibraryClauseSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::LibraryClause => Some(LibraryClauseSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::LibraryClause)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::LibraryClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Library)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier_list",
+                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        LibraryClauseSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -332,21 +468,29 @@ pub enum LibraryUnitSyntax {
     SecondaryUnit(SecondaryUnitSyntax),
 }
 impl AstNode for LibraryUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::EntityDeclaration,
+            NodeKind::ConfigurationDeclaration,
+            NodeKind::PrimaryUnitPackageDeclaration,
+            NodeKind::PackageInstantiationDeclarationPrimaryUnit,
+            NodeKind::ContextDeclaration,
+            NodeKind::PslVerificationUnit,
+            NodeKind::ArchitectureBody,
+            NodeKind::SecondaryUnitPackageBody,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if PrimaryUnitSyntax::can_cast(&node) {
-            return Some(LibraryUnitSyntax::PrimaryUnit(
-                PrimaryUnitSyntax::cast(node).unwrap(),
-            ));
-        };
+            return LibraryUnitSyntax::PrimaryUnit(PrimaryUnitSyntax::cast_unchecked(node));
+        }
         if SecondaryUnitSyntax::can_cast(&node) {
-            return Some(LibraryUnitSyntax::SecondaryUnit(
-                SecondaryUnitSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        PrimaryUnitSyntax::can_cast(node) || SecondaryUnitSyntax::can_cast(node)
+            return LibraryUnitSyntax::SecondaryUnit(SecondaryUnitSyntax::cast_unchecked(node));
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -358,16 +502,17 @@ impl AstNode for LibraryUnitSyntax {
 #[derive(Debug, Clone)]
 pub struct PrimaryUnitPackageDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PrimaryUnitPackageDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PrimaryUnitPackageDeclaration => {
-                Some(PrimaryUnitPackageDeclarationSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PrimaryUnitPackageDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PrimaryUnitPackageDeclaration,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "package",
+            kind: LayoutItemKind::Node(NodeKind::Package),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PrimaryUnitPackageDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -381,19 +526,17 @@ impl PrimaryUnitPackageDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct PackageInstantiationDeclarationPrimaryUnitSyntax(pub(crate) SyntaxNode);
 impl AstNode for PackageInstantiationDeclarationPrimaryUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PackageInstantiationDeclarationPrimaryUnit => {
-                Some(PackageInstantiationDeclarationPrimaryUnitSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(
-            node.kind(),
-            NodeKind::PackageInstantiationDeclarationPrimaryUnit
-        )
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PackageInstantiationDeclarationPrimaryUnit,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "package_instantiation",
+            kind: LayoutItemKind::Node(NodeKind::PackageInstantiation),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PackageInstantiationDeclarationPrimaryUnitSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -417,48 +560,51 @@ pub enum PrimaryUnitSyntax {
     PslVerificationUnit(PslVerificationUnitSyntax),
 }
 impl AstNode for PrimaryUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::EntityDeclaration,
+            NodeKind::ConfigurationDeclaration,
+            NodeKind::PrimaryUnitPackageDeclaration,
+            NodeKind::PackageInstantiationDeclarationPrimaryUnit,
+            NodeKind::ContextDeclaration,
+            NodeKind::PslVerificationUnit,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if EntityDeclarationSyntax::can_cast(&node) {
-            return Some(PrimaryUnitSyntax::EntityDeclaration(
-                EntityDeclarationSyntax::cast(node).unwrap(),
+            return PrimaryUnitSyntax::EntityDeclaration(EntityDeclarationSyntax::cast_unchecked(
+                node,
             ));
-        };
+        }
         if ConfigurationDeclarationSyntax::can_cast(&node) {
-            return Some(PrimaryUnitSyntax::ConfigurationDeclaration(
-                ConfigurationDeclarationSyntax::cast(node).unwrap(),
-            ));
-        };
-        if PrimaryUnitPackageDeclarationSyntax::can_cast(&node) {
-            return Some(PrimaryUnitSyntax::PrimaryUnitPackageDeclaration(
-                PrimaryUnitPackageDeclarationSyntax::cast(node).unwrap(),
-            ));
-        };
-        if PackageInstantiationDeclarationPrimaryUnitSyntax::can_cast(&node) {
-            return Some(
-                PrimaryUnitSyntax::PackageInstantiationDeclarationPrimaryUnit(
-                    PackageInstantiationDeclarationPrimaryUnitSyntax::cast(node).unwrap(),
-                ),
+            return PrimaryUnitSyntax::ConfigurationDeclaration(
+                ConfigurationDeclarationSyntax::cast_unchecked(node),
             );
-        };
+        }
+        if PrimaryUnitPackageDeclarationSyntax::can_cast(&node) {
+            return PrimaryUnitSyntax::PrimaryUnitPackageDeclaration(
+                PrimaryUnitPackageDeclarationSyntax::cast_unchecked(node),
+            );
+        }
+        if PackageInstantiationDeclarationPrimaryUnitSyntax::can_cast(&node) {
+            return PrimaryUnitSyntax::PackageInstantiationDeclarationPrimaryUnit(
+                PackageInstantiationDeclarationPrimaryUnitSyntax::cast_unchecked(node),
+            );
+        }
         if ContextDeclarationSyntax::can_cast(&node) {
-            return Some(PrimaryUnitSyntax::ContextDeclaration(
-                ContextDeclarationSyntax::cast(node).unwrap(),
-            ));
-        };
+            return PrimaryUnitSyntax::ContextDeclaration(
+                ContextDeclarationSyntax::cast_unchecked(node),
+            );
+        }
         if PslVerificationUnitSyntax::can_cast(&node) {
-            return Some(PrimaryUnitSyntax::PslVerificationUnit(
-                PslVerificationUnitSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        EntityDeclarationSyntax::can_cast(node)
-            || ConfigurationDeclarationSyntax::can_cast(node)
-            || PrimaryUnitPackageDeclarationSyntax::can_cast(node)
-            || PackageInstantiationDeclarationPrimaryUnitSyntax::can_cast(node)
-            || ContextDeclarationSyntax::can_cast(node)
-            || PslVerificationUnitSyntax::can_cast(node)
+            return PrimaryUnitSyntax::PslVerificationUnit(
+                PslVerificationUnitSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -474,14 +620,17 @@ impl AstNode for PrimaryUnitSyntax {
 #[derive(Debug, Clone)]
 pub struct SecondaryUnitPackageBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for SecondaryUnitPackageBodySyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SecondaryUnitPackageBody => Some(SecondaryUnitPackageBodySyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SecondaryUnitPackageBody)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SecondaryUnitPackageBody,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "package_body",
+            kind: LayoutItemKind::Node(NodeKind::PackageBody),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SecondaryUnitPackageBodySyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -498,21 +647,27 @@ pub enum SecondaryUnitSyntax {
     SecondaryUnitPackageBody(SecondaryUnitPackageBodySyntax),
 }
 impl AstNode for SecondaryUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::ArchitectureBody,
+            NodeKind::SecondaryUnitPackageBody,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ArchitectureBodySyntax::can_cast(&node) {
-            return Some(SecondaryUnitSyntax::ArchitectureBody(
-                ArchitectureBodySyntax::cast(node).unwrap(),
+            return SecondaryUnitSyntax::ArchitectureBody(ArchitectureBodySyntax::cast_unchecked(
+                node,
             ));
-        };
+        }
         if SecondaryUnitPackageBodySyntax::can_cast(&node) {
-            return Some(SecondaryUnitSyntax::SecondaryUnitPackageBody(
-                SecondaryUnitPackageBodySyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ArchitectureBodySyntax::can_cast(node) || SecondaryUnitPackageBodySyntax::can_cast(node)
+            return SecondaryUnitSyntax::SecondaryUnitPackageBody(
+                SecondaryUnitPackageBodySyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {

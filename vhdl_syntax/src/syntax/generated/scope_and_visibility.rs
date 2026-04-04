@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -12,14 +13,31 @@ use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct UseClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for UseClauseSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UseClause => Some(UseClauseSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::UseClause)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UseClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "name_list",
+                kind: LayoutItemKind::Node(NodeKind::NameList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UseClauseSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
