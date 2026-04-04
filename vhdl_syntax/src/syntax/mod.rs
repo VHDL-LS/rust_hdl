@@ -8,10 +8,10 @@ pub mod child;
 #[allow(unused)]
 mod generated;
 pub(crate) mod green;
+pub mod meta;
 pub mod node;
 pub mod rewrite;
 pub mod visitor;
-pub mod meta;
 
 use crate::syntax::meta::Layout;
 use crate::syntax::node::{SyntaxElement, SyntaxNode};

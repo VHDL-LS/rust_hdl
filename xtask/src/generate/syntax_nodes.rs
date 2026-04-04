@@ -307,8 +307,7 @@ fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStre
         }
         Node::Choices(choice) => match &choice.items {
             NodesOrTokens::Nodes(_) => {
-                let nks =
-                    collect_concrete_node_kinds(&node_ref.kind, model, &mut HashSet::new());
+                let nks = collect_concrete_node_kinds(&node_ref.kind, model, &mut HashSet::new());
                 quote! { LayoutItemKind::NodeChoice(&[#(#nks),*]) }
             }
             NodesOrTokens::Tokens(toks) => {

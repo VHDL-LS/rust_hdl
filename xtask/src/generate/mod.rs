@@ -4,8 +4,8 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-pub mod naming;
 pub mod builders;
+pub mod naming;
 pub use builders::BuilderGenerator;
 pub mod meta;
 pub use meta::MetaGenerator;
