@@ -1296,7 +1296,7 @@ impl AstNode for RangeExpressionSyntax {
                 optional: false,
                 repeated: false,
                 name: "direction",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::To),
                     TokenKind::Keyword(Kw::Downto),
                 ]),

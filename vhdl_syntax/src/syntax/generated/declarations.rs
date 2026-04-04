@@ -354,7 +354,7 @@ impl AstNode for AliasDeclarationSyntax {
                 optional: false,
                 repeated: false,
                 name: "alias_designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::CharacterLiteral,
                     TokenKind::StringLiteral,
@@ -1118,7 +1118,7 @@ impl AstNode for EntityClassEntrySyntax {
                 optional: false,
                 repeated: false,
                 name: "entity_class",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Entity),
                     TokenKind::Keyword(Kw::Architecture),
                     TokenKind::Keyword(Kw::Configuration),
@@ -2247,7 +2247,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
                 optional: true,
                 repeated: false,
                 name: "function_purity",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Pure),
                     TokenKind::Keyword(Kw::Impure),
                 ]),
@@ -2262,7 +2262,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
                 optional: false,
                 repeated: false,
                 name: "designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                 ]),
@@ -2825,7 +2825,7 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
                 optional: false,
                 repeated: false,
                 name: "designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                 ]),
@@ -2926,7 +2926,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
                 optional: true,
                 repeated: false,
                 name: "mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                     TokenKind::Keyword(Kw::Inout),
@@ -3260,7 +3260,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
                 optional: true,
                 repeated: false,
                 name: "mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                     TokenKind::Keyword(Kw::Inout),
@@ -3864,7 +3864,7 @@ impl AstNode for SignalDeclarationSyntax {
                 optional: true,
                 repeated: false,
                 name: "signal_kind",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Register),
                     TokenKind::Keyword(Kw::Bus),
                 ]),

@@ -824,7 +824,7 @@ impl AstNode for ConditionalForceAssignmentSyntax {
                 optional: true,
                 repeated: false,
                 name: "force_mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                 ]),
@@ -2706,7 +2706,7 @@ impl AstNode for SelectedForceAssignmentSyntax {
                 optional: true,
                 repeated: false,
                 name: "force_mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                 ]),
@@ -3389,7 +3389,7 @@ impl AstNode for SimpleForceAssignmentSyntax {
                 optional: true,
                 repeated: false,
                 name: "force_mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                 ]),
@@ -3495,7 +3495,7 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
                 optional: true,
                 repeated: false,
                 name: "force_mode",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::In),
                     TokenKind::Keyword(Kw::Out),
                 ]),

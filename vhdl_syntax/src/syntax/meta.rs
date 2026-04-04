@@ -6,7 +6,7 @@ use crate::{syntax::NodeKind, tokens::TokenKind};
 pub enum Layout {
     /// A fixed sequence of child items (also used for raw-token nodes, which have empty items).
     Sequence(Sequence),
-    /// A choice between several concrete sequence/raw-token node kinds.
+    /// A choice between several node kinds.
     Choice(Choice),
 }
 
@@ -22,17 +22,18 @@ pub struct Choice {
     pub options: &'static [NodeKind],
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct TokenChoice {
-    pub options: &'static [TokenKind],
-}
-
 /// A Layout Item
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutItem {
+    /// Whether this item can be missing in correctly formed VHDL
     pub optional: bool,
+    /// Whether this item can appear multiple times (a `repeated` item is always `optionsl`, i.e., zero or more)
     pub repeated: bool,
+    /// The name of this item. Mostly for informative purposes.
+    /// Usually derived from the `kind`, but may be overwritten. For example, the left hand side of a `BinaryExpression`
+    /// is an `Expression`, but called `lhs`
     pub name: &'static str,
+    /// The kind of the item (a token, sub-node, ...)
     pub kind: LayoutItemKind,
 }
 
@@ -40,10 +41,10 @@ pub struct LayoutItem {
 pub enum LayoutItemKind {
     /// A direct token.
     Token(TokenKind),
-    /// A direct reference to a concrete (sequence or raw-token) child node.
+    /// A child node.
     Node(NodeKind),
-    /// A reference to a node-choice child; lists every concrete alternative.
+    /// A node-choice child; lists every concrete alternative.
     NodeChoice(&'static [NodeKind]),
-    /// A reference to a token-choice child; lists every token alternative.
-    TokenGroup(&'static [TokenKind]),
+    /// A token-choice child; lists every token alternative.
+    TokenChoice(&'static [TokenKind]),
 }

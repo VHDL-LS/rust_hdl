@@ -692,7 +692,7 @@ impl AstNode for EntityDesignatorSyntax {
                 optional: false,
                 repeated: false,
                 name: "entity_tag",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::CharacterLiteral,
                     TokenKind::StringLiteral,
@@ -881,7 +881,7 @@ impl AstNode for EntitySpecificationSyntax {
                 optional: false,
                 repeated: false,
                 name: "entity_class",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Entity),
                     TokenKind::Keyword(Kw::Architecture),
                     TokenKind::Keyword(Kw::Configuration),

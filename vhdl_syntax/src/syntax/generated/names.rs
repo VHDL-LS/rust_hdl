@@ -849,7 +849,7 @@ impl AstNode for NameDesignatorPrefixSyntax {
             optional: false,
             repeated: false,
             name: "name_designator",
-            kind: LayoutItemKind::TokenGroup(&[
+            kind: LayoutItemKind::TokenChoice(&[
                 TokenKind::Identifier,
                 TokenKind::StringLiteral,
                 TokenKind::CharacterLiteral,
@@ -948,7 +948,7 @@ impl AstNode for SelectedNameSyntax {
                 optional: false,
                 repeated: false,
                 name: "suffix",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                     TokenKind::CharacterLiteral,

@@ -105,7 +105,7 @@ impl AstNode for ProcedureSpecificationSyntax {
                 optional: false,
                 repeated: false,
                 name: "designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                 ]),
@@ -164,7 +164,7 @@ impl AstNode for FunctionSpecificationSyntax {
                 optional: true,
                 repeated: false,
                 name: "function_purity",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Pure),
                     TokenKind::Keyword(Kw::Impure),
                 ]),
@@ -179,7 +179,7 @@ impl AstNode for FunctionSpecificationSyntax {
                 optional: false,
                 repeated: false,
                 name: "designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                 ]),
@@ -612,7 +612,7 @@ impl AstNode for SubprogramBodyEpilogueSyntax {
                 optional: true,
                 repeated: false,
                 name: "subprogram_kind",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Procedure),
                     TokenKind::Keyword(Kw::Function),
                 ]),
@@ -621,7 +621,7 @@ impl AstNode for SubprogramBodyEpilogueSyntax {
                 optional: true,
                 repeated: false,
                 name: "designator",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::StringLiteral,
                 ]),
@@ -749,7 +749,7 @@ impl AstNode for SubprogramInstantiationDeclarationPreambleSyntax {
                 optional: false,
                 repeated: false,
                 name: "subprogram_kind",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Procedure),
                     TokenKind::Keyword(Kw::Function),
                 ]),

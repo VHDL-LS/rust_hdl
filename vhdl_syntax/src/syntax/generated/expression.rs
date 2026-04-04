@@ -154,7 +154,7 @@ impl AstNode for UnaryExpressionSyntax {
                 optional: false,
                 repeated: false,
                 name: "op",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::QueQue,
                     TokenKind::Plus,
                     TokenKind::Minus,
@@ -336,7 +336,7 @@ impl AstNode for BinaryExpressionSyntax {
                 optional: false,
                 repeated: false,
                 name: "op",
-                kind: LayoutItemKind::TokenGroup(&[
+                kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::And),
                     TokenKind::Keyword(Kw::Or),
                     TokenKind::Keyword(Kw::Nand),
@@ -419,7 +419,7 @@ impl AstNode for LiteralExpressionSyntax {
             optional: false,
             repeated: false,
             name: "literal",
-            kind: LayoutItemKind::TokenGroup(&[
+            kind: LayoutItemKind::TokenChoice(&[
                 TokenKind::BitStringLiteral,
                 TokenKind::CharacterLiteral,
                 TokenKind::StringLiteral,

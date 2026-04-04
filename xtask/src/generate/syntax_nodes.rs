@@ -313,7 +313,7 @@ fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStre
             }
             NodesOrTokens::Tokens(toks) => {
                 let tks: Vec<TokenStream> = toks.iter().map(|t| token_kind_path(&t.kind)).collect();
-                quote! { LayoutItemKind::TokenGroup(&[#(#tks),*]) }
+                quote! { LayoutItemKind::TokenChoice(&[#(#tks),*]) }
             }
         },
     }
