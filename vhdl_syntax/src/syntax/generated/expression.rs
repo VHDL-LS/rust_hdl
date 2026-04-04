@@ -45,7 +45,7 @@ impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -57,13 +57,13 @@ impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -583,7 +583,7 @@ impl AstNode for AggregateSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -595,13 +595,13 @@ impl AstNode for AggregateSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -644,7 +644,7 @@ impl AstNode for SubtypeIndicationAllocatorSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "new",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
             },
             LayoutItem {
@@ -685,7 +685,7 @@ impl AstNode for ExpressionAllocatorSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "new",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
             },
             LayoutItem {
@@ -768,7 +768,7 @@ impl AstNode for OthersChoiceSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "others",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Others)),
         }],
     });
@@ -911,7 +911,7 @@ impl AstNode for ChoicesSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "bar",
                 kind: LayoutItemKind::Token(TokenKind::Bar),
             },
         ],
@@ -952,7 +952,7 @@ impl AstNode for ElementAssociationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_arrow",
                 kind: LayoutItemKind::Token(TokenKind::RightArrow),
             },
             LayoutItem {
@@ -1010,7 +1010,7 @@ impl AstNode for QualifiedExpressionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "tick",
                 kind: LayoutItemKind::Token(TokenKind::Tick),
             },
             LayoutItem {
@@ -1068,7 +1068,7 @@ impl AstNode for TypeConversionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -1091,7 +1091,7 @@ impl AstNode for TypeConversionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],

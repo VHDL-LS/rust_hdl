@@ -9,6 +9,7 @@ use crate::generate::Generator;
 use crate::model::{
     ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
 };
+use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashSet;
@@ -265,11 +266,12 @@ fn layout_item_ts(item: &TokenOrNode, model: &Model) -> TokenStream {
             let kind_expr = token_kind_path(&t.kind);
             let optional = t.optional;
             let repeated = t.repeated;
+            let name_str = t.name.to_case(Case::Snake);
             quote! {
                 LayoutItem {
                     optional: #optional,
                     repeated: #repeated,
-                    name: "",
+                    name: #name_str,
                     kind: LayoutItemKind::Token(#kind_expr),
                 }
             }
@@ -277,7 +279,7 @@ fn layout_item_ts(item: &TokenOrNode, model: &Model) -> TokenStream {
         TokenOrNode::Node(node_ref) => {
             let optional = node_ref.optional;
             let repeated = node_ref.repeated;
-            let name_str = &node_ref.name;
+            let name_str = node_ref.name.to_case(Case::Snake);
             let kind_expr = layout_item_kind_for_node_ref(node_ref, model);
             quote! {
                 LayoutItem {

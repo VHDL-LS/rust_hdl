@@ -100,19 +100,19 @@ impl AstNode for ContextDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "context",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -153,25 +153,25 @@ impl AstNode for ContextDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "end",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "context",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -242,7 +242,7 @@ impl AstNode for ContextReferenceSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "context",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
             },
             LayoutItem {
@@ -254,7 +254,7 @@ impl AstNode for ContextReferenceSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -339,7 +339,7 @@ impl AstNode for DesignFileSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "eof",
                 kind: LayoutItemKind::Token(TokenKind::Eof),
             },
         ],
@@ -418,7 +418,7 @@ impl AstNode for LibraryClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "library",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Library)),
             },
             LayoutItem {
@@ -430,7 +430,7 @@ impl AstNode for LibraryClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],

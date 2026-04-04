@@ -19,7 +19,7 @@ impl AstNode for AbsolutePathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "dot",
                 kind: LayoutItemKind::Token(TokenKind::Dot),
             },
             LayoutItem {
@@ -60,7 +60,7 @@ impl AstNode for AttributeNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_square",
                 kind: LayoutItemKind::Token(TokenKind::LeftSquare),
             },
             LayoutItem {
@@ -72,25 +72,25 @@ impl AstNode for AttributeNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_square",
                 kind: LayoutItemKind::Token(TokenKind::RightSquare),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "tick",
                 kind: LayoutItemKind::Token(TokenKind::Tick),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "attribute_designator_token",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -113,7 +113,7 @@ impl AstNode for AttributeNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -221,13 +221,13 @@ impl AstNode for ExternalConstantNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "lt_lt",
                 kind: LayoutItemKind::Token(TokenKind::LtLt),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "constant",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
@@ -243,7 +243,7 @@ impl AstNode for ExternalConstantNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -255,7 +255,7 @@ impl AstNode for ExternalConstantNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "gt_gt",
                 kind: LayoutItemKind::Token(TokenKind::GtGt),
             },
         ],
@@ -314,13 +314,13 @@ impl AstNode for ExternalSignalNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "lt_lt",
                 kind: LayoutItemKind::Token(TokenKind::LtLt),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "signal",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
@@ -336,7 +336,7 @@ impl AstNode for ExternalSignalNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -348,7 +348,7 @@ impl AstNode for ExternalSignalNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "gt_gt",
                 kind: LayoutItemKind::Token(TokenKind::GtGt),
             },
         ],
@@ -407,13 +407,13 @@ impl AstNode for ExternalVariableNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "lt_lt",
                 kind: LayoutItemKind::Token(TokenKind::LtLt),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "variable",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
@@ -429,7 +429,7 @@ impl AstNode for ExternalVariableNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -441,7 +441,7 @@ impl AstNode for ExternalVariableNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "gt_gt",
                 kind: LayoutItemKind::Token(TokenKind::GtGt),
             },
         ],
@@ -543,19 +543,19 @@ impl AstNode for PackagePathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "comm_at",
                 kind: LayoutItemKind::Token(TokenKind::CommAt),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "dot",
                 kind: LayoutItemKind::Token(TokenKind::Dot),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -594,13 +594,13 @@ impl AstNode for RelativePathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "circ",
                 kind: LayoutItemKind::Token(TokenKind::Circ),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "dot",
                 kind: LayoutItemKind::Token(TokenKind::Dot),
             },
             LayoutItem {
@@ -645,13 +645,13 @@ impl AstNode for PartialPathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "dot",
                 kind: LayoutItemKind::Token(TokenKind::Dot),
             },
         ],
@@ -690,7 +690,7 @@ impl AstNode for NameListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -721,13 +721,13 @@ impl AstNode for LabelSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
         ],
@@ -941,7 +941,7 @@ impl AstNode for SelectedNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "dot",
                 kind: LayoutItemKind::Token(TokenKind::Dot),
             },
             LayoutItem {

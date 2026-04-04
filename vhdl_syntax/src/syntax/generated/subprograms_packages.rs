@@ -28,7 +28,7 @@ impl AstNode for SubprogramDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -98,7 +98,7 @@ impl AstNode for ProcedureSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "procedure",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Procedure)),
             },
             LayoutItem {
@@ -172,7 +172,7 @@ impl AstNode for FunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "function",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Function)),
             },
             LayoutItem {
@@ -199,7 +199,7 @@ impl AstNode for FunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "return",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
             },
             LayoutItem {
@@ -264,19 +264,19 @@ impl AstNode for ParenthesizedInterfaceListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "InterfaceList",
+                name: "interface_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -317,7 +317,7 @@ impl AstNode for ParameterListSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "parameter",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Parameter)),
             },
             LayoutItem {
@@ -419,13 +419,13 @@ impl AstNode for SubprogramHeaderGenericClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "generic",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -437,7 +437,7 @@ impl AstNode for SubprogramHeaderGenericClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -570,7 +570,7 @@ impl AstNode for SubprogramBodyPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -605,7 +605,7 @@ impl AstNode for SubprogramBodyEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "end",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
             },
             LayoutItem {
@@ -629,7 +629,7 @@ impl AstNode for SubprogramBodyEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -705,7 +705,7 @@ impl AstNode for SubprogramInstantiationDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -757,19 +757,19 @@ impl AstNode for SubprogramInstantiationDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "new",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
             },
             LayoutItem {
@@ -899,19 +899,19 @@ impl AstNode for PackagePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -952,25 +952,25 @@ impl AstNode for PackageEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "end",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1029,7 +1029,7 @@ impl AstNode for PackageHeaderSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1123,25 +1123,25 @@ impl AstNode for PackageBodyPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "body",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -1188,31 +1188,31 @@ impl AstNode for PackageBodyEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "end",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "body",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1277,7 +1277,7 @@ impl AstNode for PackageInstantiationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1318,25 +1318,25 @@ impl AstNode for PackageInstantiationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "new",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
             },
             LayoutItem {
@@ -1392,7 +1392,7 @@ impl AstNode for SignatureSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_square",
                 kind: LayoutItemKind::Token(TokenKind::LeftSquare),
             },
             LayoutItem {
@@ -1404,7 +1404,7 @@ impl AstNode for SignatureSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "return",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
             },
             LayoutItem {
@@ -1416,7 +1416,7 @@ impl AstNode for SignatureSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_square",
                 kind: LayoutItemKind::Token(TokenKind::RightSquare),
             },
         ],

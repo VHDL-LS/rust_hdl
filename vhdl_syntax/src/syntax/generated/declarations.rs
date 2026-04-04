@@ -347,7 +347,7 @@ impl AstNode for AliasDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "alias",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Alias)),
             },
             LayoutItem {
@@ -363,7 +363,7 @@ impl AstNode for AliasDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -375,7 +375,7 @@ impl AstNode for AliasDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -393,7 +393,7 @@ impl AstNode for AliasDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -487,7 +487,7 @@ impl AstNode for AssociationElementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "right_arrow",
                 kind: LayoutItemKind::Token(TokenKind::RightArrow),
             },
             LayoutItem {
@@ -534,7 +534,7 @@ impl AstNode for AssociationListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -565,19 +565,19 @@ impl AstNode for AttributeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "attribute",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Attribute)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -589,7 +589,7 @@ impl AstNode for AttributeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -730,19 +730,19 @@ impl AstNode for ComponentDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "component",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Component)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -783,25 +783,25 @@ impl AstNode for ComponentDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "end",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "component",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Component)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -848,7 +848,7 @@ impl AstNode for ConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "constant",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
@@ -860,7 +860,7 @@ impl AstNode for ConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -872,7 +872,7 @@ impl AstNode for ConstantDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -895,7 +895,7 @@ impl AstNode for ConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1143,7 +1143,7 @@ impl AstNode for EntityClassEntrySyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "box",
                 kind: LayoutItemKind::Token(TokenKind::BOX),
             },
         ],
@@ -1181,7 +1181,7 @@ impl AstNode for EntityClassEntryListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -1212,7 +1212,7 @@ impl AstNode for FileDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "file",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::File)),
             },
             LayoutItem {
@@ -1224,7 +1224,7 @@ impl AstNode for FileDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -1242,7 +1242,7 @@ impl AstNode for FileDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1301,7 +1301,7 @@ impl AstNode for FileOpenInformationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "open",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
             },
             LayoutItem {
@@ -1324,7 +1324,7 @@ impl AstNode for FileOpenInformationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -1382,19 +1382,19 @@ impl AstNode for ParenthesizedNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "Name",
+                name: "name",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -1470,19 +1470,19 @@ impl AstNode for FullTypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "type",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Type)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -1505,7 +1505,7 @@ impl AstNode for FullTypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1611,13 +1611,13 @@ impl AstNode for GenericClausePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "generic",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
         ],
@@ -1652,13 +1652,13 @@ impl AstNode for GenericClauseEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1693,19 +1693,19 @@ impl AstNode for GenericMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "generic",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "map",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Map)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -1717,7 +1717,7 @@ impl AstNode for GenericMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -1776,7 +1776,7 @@ impl AstNode for GroupConstituentListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -1807,19 +1807,19 @@ impl AstNode for GroupDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "group",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Group)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -1831,7 +1831,7 @@ impl AstNode for GroupDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -1843,13 +1843,13 @@ impl AstNode for GroupDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -1917,25 +1917,25 @@ impl AstNode for GroupTemplateDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "group",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Group)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -1947,13 +1947,13 @@ impl AstNode for GroupTemplateDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -2018,7 +2018,7 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "constant",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
@@ -2030,13 +2030,13 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "in",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::In)),
             },
             LayoutItem {
@@ -2048,7 +2048,7 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -2181,7 +2181,7 @@ impl AstNode for InterfaceFileDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "file",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::File)),
             },
             LayoutItem {
@@ -2193,7 +2193,7 @@ impl AstNode for InterfaceFileDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -2255,7 +2255,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "function",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Function)),
             },
             LayoutItem {
@@ -2276,7 +2276,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "return",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
             },
             LayoutItem {
@@ -2335,19 +2335,19 @@ impl AstNode for InterfaceIncompleteTypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "type",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Type)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -2402,7 +2402,7 @@ impl AstNode for InterfaceListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -2494,7 +2494,7 @@ impl AstNode for InterfacePackageDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "new",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
             },
             LayoutItem {
@@ -2512,7 +2512,7 @@ impl AstNode for InterfacePackageDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -2566,19 +2566,19 @@ impl AstNode for InterfacePackageDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "package",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
         ],
@@ -2619,19 +2619,19 @@ impl AstNode for InterfacePackageGenericMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "generic",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "map",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Map)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -2647,7 +2647,7 @@ impl AstNode for InterfacePackageGenericMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -2701,7 +2701,7 @@ impl AstNode for InterfacePackageGenericMapAspectBoxSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "box",
             kind: LayoutItemKind::Token(TokenKind::BOX),
         }],
     });
@@ -2728,7 +2728,7 @@ impl AstNode for InterfacePackageGenericMapAspectDefaultSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "default",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Default)),
         }],
     });
@@ -2818,7 +2818,7 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "procedure",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Procedure)),
             },
             LayoutItem {
@@ -2833,13 +2833,13 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "parameter",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Parameter)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -2851,7 +2851,7 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -2907,7 +2907,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "signal",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
@@ -2919,7 +2919,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -2943,13 +2943,13 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "bus",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Bus)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -2972,7 +2972,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -3052,7 +3052,7 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -3067,7 +3067,7 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -3139,7 +3139,7 @@ impl AstNode for InterfaceSubprogramDefaultBoxSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "box",
             kind: LayoutItemKind::Token(TokenKind::BOX),
         }],
     });
@@ -3241,7 +3241,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "variable",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
@@ -3253,7 +3253,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -3277,7 +3277,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -3300,7 +3300,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -3447,13 +3447,13 @@ impl AstNode for PortClausePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "port",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Port)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
         ],
@@ -3488,13 +3488,13 @@ impl AstNode for PortClauseEpilogueSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -3529,19 +3529,19 @@ impl AstNode for PortMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "port",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Port)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "map",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Map)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
@@ -3553,7 +3553,7 @@ impl AstNode for PortMapAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -3606,7 +3606,7 @@ impl AstNode for RecordElementResolutionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -3656,7 +3656,7 @@ impl AstNode for RecordResolutionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -3745,19 +3745,19 @@ impl AstNode for ParenthesizedElementResolutionResolutionIndicationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "left_par",
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "ElementResolutionResolutionIndication",
+                name: "element_resolution_resolution_indication",
                 kind: LayoutItemKind::Node(NodeKind::ElementResolutionResolutionIndication),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "right_par",
                 kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
         ],
@@ -3839,7 +3839,7 @@ impl AstNode for SignalDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "signal",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
@@ -3851,7 +3851,7 @@ impl AstNode for SignalDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -3872,7 +3872,7 @@ impl AstNode for SignalDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -3895,7 +3895,7 @@ impl AstNode for SignalDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -3980,19 +3980,19 @@ impl AstNode for SubtypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "subtype",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Subtype)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -4004,7 +4004,7 @@ impl AstNode for SubtypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -4197,7 +4197,7 @@ impl AstNode for VariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "variable",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
@@ -4209,7 +4209,7 @@ impl AstNode for VariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -4221,7 +4221,7 @@ impl AstNode for VariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -4244,7 +4244,7 @@ impl AstNode for VariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -4306,13 +4306,13 @@ impl AstNode for SharedVariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "shared",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Shared)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "variable",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
@@ -4324,7 +4324,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -4336,7 +4336,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "colon_eq",
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
@@ -4359,7 +4359,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],

@@ -19,19 +19,19 @@ impl AstNode for AttributeSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "attribute",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Attribute)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "attribute_designator_token",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "of",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Of)),
             },
             LayoutItem {
@@ -43,7 +43,7 @@ impl AstNode for AttributeSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "is",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
             },
             LayoutItem {
@@ -66,7 +66,7 @@ impl AstNode for AttributeSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -128,7 +128,7 @@ impl AstNode for BindingIndicationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "",
+                name: "use",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
             },
             LayoutItem {
@@ -207,7 +207,7 @@ impl AstNode for ComponentSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -389,7 +389,7 @@ impl AstNode for DisconnectionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "disconnect",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Disconnect)),
             },
             LayoutItem {
@@ -401,7 +401,7 @@ impl AstNode for DisconnectionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "after",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::After)),
             },
             LayoutItem {
@@ -424,7 +424,7 @@ impl AstNode for DisconnectionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
@@ -474,7 +474,7 @@ impl AstNode for EntityEntityAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "entity",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Entity)),
             },
             LayoutItem {
@@ -512,7 +512,7 @@ impl AstNode for EntityConfigurationAspectSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "configuration",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Configuration)),
             },
             LayoutItem {
@@ -549,7 +549,7 @@ impl AstNode for EntityOpenAspectSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "open",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
         }],
     });
@@ -736,7 +736,7 @@ impl AstNode for EntityDesignatorListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -766,7 +766,7 @@ impl AstNode for EntityNameListAllSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "all",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::All)),
         }],
     });
@@ -793,7 +793,7 @@ impl AstNode for EntityNameListOthersSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "others",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Others)),
         }],
     });
@@ -874,7 +874,7 @@ impl AstNode for EntitySpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -971,7 +971,7 @@ impl AstNode for GuardedSignalSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "colon",
                 kind: LayoutItemKind::Token(TokenKind::Colon),
             },
             LayoutItem {
@@ -1012,13 +1012,13 @@ impl AstNode for InstantiationListListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -1050,7 +1050,7 @@ impl AstNode for InstantiationListAllSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "all",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::All)),
         }],
     });
@@ -1077,7 +1077,7 @@ impl AstNode for InstantiationListOthersSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "others",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Others)),
         }],
     });
@@ -1154,7 +1154,7 @@ impl AstNode for SignalListListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],
@@ -1184,7 +1184,7 @@ impl AstNode for SignalListAllSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "all",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::All)),
         }],
     });
@@ -1211,7 +1211,7 @@ impl AstNode for SignalListOthersSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "",
+            name: "others",
             kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Others)),
         }],
     });
@@ -1290,7 +1290,7 @@ impl AstNode for SimpleConfigurationSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
             LayoutItem {
@@ -1345,13 +1345,13 @@ impl AstNode for VerificationUnitBindingIndicationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "use",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "vunit",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Vunit)),
             },
             LayoutItem {
@@ -1404,7 +1404,7 @@ impl AstNode for VerificationUnitListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "",
+                name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
         ],

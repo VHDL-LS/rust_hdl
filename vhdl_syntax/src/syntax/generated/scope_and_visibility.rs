@@ -19,7 +19,7 @@ impl AstNode for UseClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "use",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
             },
             LayoutItem {
@@ -31,7 +31,7 @@ impl AstNode for UseClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "",
+                name: "semi_colon",
                 kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
