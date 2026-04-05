@@ -11,11 +11,13 @@ pub(crate) mod green;
 pub mod meta;
 pub mod node;
 pub mod rewrite;
+pub mod validate;
 pub mod visitor;
 
 use crate::syntax::meta::Layout;
 use crate::syntax::node::{SyntaxElement, SyntaxNode};
 use crate::syntax::rewrite::RewriteAction;
+use crate::syntax::validate::{check, ValidationError};
 use crate::syntax::visitor::Preorder;
 pub use generated::*;
 
@@ -27,6 +29,7 @@ where
     const META: &'static Layout;
 
     /// Cast without a kind check — caller must ensure `can_cast` is true.
+    /// Panics for Choice nodes (although this might change in the future)
     fn cast_unchecked(node: SyntaxNode) -> Self;
 
     /// Return the underlying Syntax Node.
@@ -57,5 +60,18 @@ where
     fn rewrite(&self, rewrite: impl Fn(&SyntaxElement) -> RewriteAction) -> Self {
         let result = self.raw().rewrite(rewrite);
         Self::cast_unchecked(result)
+    }
+}
+
+/// A layer on top of the `AstNode` with guarantees that there are no missing or extraneous elements.
+pub trait CheckedNode
+where
+    Self: Sized,
+{
+    /// Cast without a check. Caller has to ensure that there are no missing or extraneous elements in the provided node.
+    fn cast_unchecked(node: SyntaxNode) -> Self;
+
+    fn cast(node: SyntaxNode) -> Result<Self, ValidationError> {
+        check(&node).map(|_| CheckedNode::cast_unchecked(node))
     }
 }
