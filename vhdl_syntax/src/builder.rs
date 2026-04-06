@@ -102,6 +102,18 @@ impl From<&[u8]> for Identifier {
     }
 }
 
+impl From<&Latin1Str> for Identifier {
+    fn from(value: &Latin1Str) -> Self {
+        Identifier::new(Latin1String::from(value))
+    }
+}
+
+impl From<Latin1String> for Identifier {
+    fn from(value: Latin1String) -> Self {
+        Identifier::new(value)
+    }
+}
+
 impl<const N: usize> From<[u8; N]> for Identifier {
     fn from(value: [u8; N]) -> Self {
         Identifier::new(Latin1String::from(&value))
