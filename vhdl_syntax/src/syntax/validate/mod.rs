@@ -19,12 +19,9 @@ pub fn check(node: &SyntaxNode) -> Result<(), ValidationError> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parser::{builder::NodeBuilder, parse_syntax, Parser},
+        parser::{Parser, builder::NodeBuilder, parse, parse_syntax},
         syntax::{
-            meta::LayoutItemKind,
-            node::{SyntaxElement, SyntaxNode},
-            node_kind::NodeKind,
-            validate::check,
+            AstNode, meta::LayoutItemKind, node::{SyntaxElement, SyntaxNode}, node_kind::NodeKind, validate::check
         },
         tokens::{Keyword, Token, TokenKind, Trivia},
     };
@@ -85,6 +82,21 @@ mod tests {
             parse_syntax("entity a is end; entity b is end;", Parser::design_file);
         assert!(diagnostics.is_empty());
         assert!(check(&node).is_ok());
+    }
+
+    #[test]
+    fn full_vhdl_file() {
+        let (node, diagnostics) =
+            parse(r#"
+entity foo is
+    port (
+        clk : in bit;
+        rst : in bit
+    );
+end entity foo;
+            "#);
+        assert!(diagnostics.is_empty());
+        assert!(check(&node.raw()).is_ok());
     }
 
     // --- missing-element tests ---
