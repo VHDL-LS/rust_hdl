@@ -64,7 +64,7 @@ pub struct VHDLServer {
     use_external_config: bool,
     project: Project,
     diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
-    semantic_token_cache: FnvHashMap<Url, Vec<(vhdl_lang::Range, u32, u32)>>,
+    semantic_token_cache: FnvHashMap<Url, Vec<semantic_tokens::CachedToken>>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
@@ -1017,8 +1017,15 @@ lib.files = [
         )
     }
 
-    /// Decode delta-encoded semantic tokens to (line, start, length, token_type, modifiers).
-    fn decode_semantic_tokens(tokens: &[SemanticToken]) -> Vec<(u32, u32, u32, u32, u32)> {
+    struct DecodedToken {
+        line: u32,
+        start: u32,
+        length: u32,
+        token_type: u32,
+        modifiers: u32,
+    }
+
+    fn decode_semantic_tokens(tokens: &[SemanticToken]) -> Vec<DecodedToken> {
         let mut result = Vec::new();
         let mut line = 0u32;
         let mut start = 0u32;
@@ -1029,29 +1036,25 @@ lib.files = [
             } else {
                 start += tok.delta_start;
             }
-            result.push((
+            result.push(DecodedToken {
                 line,
                 start,
-                tok.length,
-                tok.token_type,
-                tok.token_modifiers_bitset,
-            ));
+                length: tok.length,
+                token_type: tok.token_type,
+                modifiers: tok.token_modifiers_bitset,
+            });
         }
         result
     }
 
-    fn token_at(
-        decoded: &[(u32, u32, u32, u32, u32)],
-        line: u32,
-        character: u32,
-    ) -> Option<(u32, u32)> {
+    fn token_at(decoded: &[DecodedToken], line: u32, character: u32) -> Option<(u32, u32)> {
         decoded
             .iter()
-            .find(|(l, s, len, _, _)| *l == line && *s <= character && character < s + len)
-            .map(|(_, _, _, tt, m)| (*tt, *m))
+            .find(|t| t.line == line && t.start <= character && character < t.start + t.length)
+            .map(|t| (t.token_type, t.modifiers))
     }
 
-    fn get_semantic_tokens(server: &mut VHDLServer, uri: &Url) -> Vec<(u32, u32, u32, u32, u32)> {
+    fn get_semantic_tokens(server: &mut VHDLServer, uri: &Url) -> Vec<DecodedToken> {
         let result = server
             .semantic_tokens_full(&SemanticTokensParams {
                 text_document: TextDocumentIdentifier { uri: uri.clone() },

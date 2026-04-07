@@ -3,142 +3,204 @@ use lsp_types::*;
 use vhdl_lang::ast::ExternalObjectClass;
 use vhdl_lang::{AnyEntKind, Concurrent, Object, Overloaded, Type};
 
-// Semantic token type indices — order must match TOKEN_TYPES
-const VARIABLE: u32 = 0;
-const PARAMETER: u32 = 1;
-const PROPERTY: u32 = 2;
-const ENUM_MEMBER: u32 = 3;
-const FUNCTION: u32 = 4;
-const TYPE: u32 = 5;
-const CLASS: u32 = 6;
-const NAMESPACE: u32 = 7;
-const STRUCT: u32 = 8;
-const ENUM: u32 = 9;
+/// Generates token type index constants and the TOKEN_TYPES legend array
+/// from a single declaration, keeping the two in sync automatically.
+macro_rules! define_token_types {
+    ( $( ($const:ident = $lsp_type:expr) ),+ $(,)? ) => {
+        define_token_types!(@consts 0, $( $const, )+);
+
+        pub const TOKEN_TYPES: &[SemanticTokenType] = &[
+            $( $lsp_type, )+
+        ];
+    };
+
+    // Base case
+    (@consts $idx:expr, ) => {};
+    // Recursive case: assign current index, increment for the rest
+    (@consts $idx:expr, $const:ident, $( $rest:ident, )*) => {
+        const $const: u32 = $idx;
+        define_token_types!(@consts ($idx + 1), $( $rest, )*);
+    };
+}
+
+define_token_types! {
+    (VARIABLE    = SemanticTokenType::VARIABLE),    // signals, variables, constants, files
+    (PARAMETER   = SemanticTokenType::PARAMETER),   // subprogram parameters
+    (PROPERTY    = SemanticTokenType::PROPERTY),     // attributes, record fields
+    (ENUM_MEMBER = SemanticTokenType::ENUM_MEMBER),  // enum literals
+    (FUNCTION    = SemanticTokenType::FUNCTION),     // functions, procedures
+    (TYPE        = SemanticTokenType::TYPE),          // types (general)
+    (CLASS       = SemanticTokenType::CLASS),         // protected types, components
+    (NAMESPACE   = SemanticTokenType::NAMESPACE),    // libraries, design units, labels
+    (STRUCT      = SemanticTokenType::STRUCT),        // record types
+    (ENUM        = SemanticTokenType::ENUM),          // enum types
+}
 
 // Semantic token modifier bits
 const MOD_READONLY: u32 = 1 << 0;
-
-pub const TOKEN_TYPES: &[SemanticTokenType] = &[
-    SemanticTokenType::VARIABLE,    // 0: signals, variables, constants, files
-    SemanticTokenType::PARAMETER,   // 1: subprogram parameters
-    SemanticTokenType::PROPERTY,    // 2: attributes, record fields
-    SemanticTokenType::ENUM_MEMBER, // 3: enum literals
-    SemanticTokenType::FUNCTION,    // 4: functions, procedures
-    SemanticTokenType::TYPE,        // 5: types (general)
-    SemanticTokenType::CLASS,       // 6: protected types, components
-    SemanticTokenType::NAMESPACE,   // 7: libraries, design units, labels
-    SemanticTokenType::STRUCT,      // 8: record types
-    SemanticTokenType::ENUM,        // 9: enum types
-];
 
 pub const TOKEN_MODIFIERS: &[SemanticTokenModifier] = &[
     SemanticTokenModifier::READONLY, // bit 0: constants, generics
 ];
 
-fn object_token(obj: &Object) -> (u32, u32) {
+/// Classification of a VHDL entity into an LSP semantic token.
+struct TokenClassification {
+    token_type: u32,
+    modifiers: u32,
+}
+
+/// A resolved semantic token ready for caching and encoding.
+pub(crate) struct CachedToken {
+    pub range: vhdl_lang::Range,
+    pub token_type: u32,
+    pub modifiers: u32,
+}
+
+fn object_token(obj: &Object) -> TokenClassification {
     if obj.is_param() {
-        return (PARAMETER, 0);
+        return TokenClassification {
+            token_type: PARAMETER,
+            modifiers: 0,
+        };
     }
     if obj.is_generic() || obj.is_constant() {
-        return (VARIABLE, MOD_READONLY);
+        return TokenClassification {
+            token_type: VARIABLE,
+            modifiers: MOD_READONLY,
+        };
     }
-    (VARIABLE, 0)
+    TokenClassification {
+        token_type: VARIABLE,
+        modifiers: 0,
+    }
 }
 
-fn overloaded_token(o: &Overloaded) -> (u32, u32) {
+fn overloaded_token(o: &Overloaded) -> TokenClassification {
     match o {
-        Overloaded::EnumLiteral(_) => (ENUM_MEMBER, 0),
+        Overloaded::EnumLiteral(_) => TokenClassification {
+            token_type: ENUM_MEMBER,
+            modifiers: 0,
+        },
         Overloaded::Alias(inner) => overloaded_token(inner.kind()),
-        _ => (FUNCTION, 0),
+        _ => TokenClassification {
+            token_type: FUNCTION,
+            modifiers: 0,
+        },
     }
 }
 
-fn type_token(t: &Type) -> (u32, u32) {
+fn type_token(t: &Type) -> TokenClassification {
     match t {
-        Type::Enum(_) => (ENUM, 0),
-        Type::Record(_) => (STRUCT, 0),
-        Type::Protected(..) => (CLASS, 0),
+        Type::Enum(_) => TokenClassification {
+            token_type: ENUM,
+            modifiers: 0,
+        },
+        Type::Record(_) => TokenClassification {
+            token_type: STRUCT,
+            modifiers: 0,
+        },
+        Type::Protected(..) => TokenClassification {
+            token_type: CLASS,
+            modifiers: 0,
+        },
         Type::Subtype(sub) => type_token(sub.type_mark().kind()),
         Type::Alias(t) => type_token(t.kind()),
-        _ => (TYPE, 0),
+        _ => TokenClassification {
+            token_type: TYPE,
+            modifiers: 0,
+        },
     }
 }
 
-fn to_semantic_token(kind: &AnyEntKind) -> Option<(u32, u32)> {
+fn classify(kind: &AnyEntKind) -> Option<TokenClassification> {
     let result = match kind {
         AnyEntKind::Object(obj) => object_token(obj),
         AnyEntKind::DeferredConstant(_)
         | AnyEntKind::LoopParameter(_)
-        | AnyEntKind::PhysicalLiteral(_) => (VARIABLE, MOD_READONLY),
+        | AnyEntKind::PhysicalLiteral(_) => TokenClassification {
+            token_type: VARIABLE,
+            modifiers: MOD_READONLY,
+        },
         AnyEntKind::Overloaded(o) => overloaded_token(o),
         AnyEntKind::Type(t) => type_token(t),
-        AnyEntKind::Component(_) => (CLASS, 0),
-        AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => (PROPERTY, 0),
-        AnyEntKind::Library | AnyEntKind::Design(_) => (NAMESPACE, 0),
-        AnyEntKind::View(_) => (TYPE, 0),
-        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => (VARIABLE, 0),
+        AnyEntKind::Component(_) => TokenClassification {
+            token_type: CLASS,
+            modifiers: 0,
+        },
+        AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => TokenClassification {
+            token_type: PROPERTY,
+            modifiers: 0,
+        },
+        AnyEntKind::Library | AnyEntKind::Design(_) => TokenClassification {
+            token_type: NAMESPACE,
+            modifiers: 0,
+        },
+        AnyEntKind::View(_) => TokenClassification {
+            token_type: TYPE,
+            modifiers: 0,
+        },
+        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => TokenClassification {
+            token_type: VARIABLE,
+            modifiers: 0,
+        },
         AnyEntKind::ObjectAlias { base_object, .. } => object_token(base_object.object()),
         AnyEntKind::ExternalAlias { class, .. } => match class {
-            ExternalObjectClass::Constant => (VARIABLE, MOD_READONLY),
-            _ => (VARIABLE, 0),
+            ExternalObjectClass::Constant => TokenClassification {
+                token_type: VARIABLE,
+                modifiers: MOD_READONLY,
+            },
+            _ => TokenClassification {
+                token_type: VARIABLE,
+                modifiers: 0,
+            },
         },
-        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => (CLASS, 0),
+        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => TokenClassification {
+            token_type: CLASS,
+            modifiers: 0,
+        },
         AnyEntKind::Concurrent(..) | AnyEntKind::Sequential(..) => return None,
     };
     Some(result)
 }
 
-/// Check if a token overlaps the filter range by line.
-/// Character-level precision is not needed as clients request full-line ranges.
-fn in_range(token_range: &vhdl_lang::Range, filter: &vhdl_lang::Range) -> bool {
-    token_range.start.line <= filter.end.line && token_range.end.line >= filter.start.line
-}
-
 /// Map and sort raw tokens from the AST walk into cacheable form.
 fn map_and_sort(
-    raw_tokens: Vec<(vhdl_lang::SrcPos, vhdl_lang::EntRef<'_>)>,
-) -> Vec<(vhdl_lang::Range, u32, u32)> {
-    let mut tokens: Vec<_> = raw_tokens
+    mut raw_tokens: Vec<(vhdl_lang::SrcPos, vhdl_lang::EntRef<'_>)>,
+) -> Vec<CachedToken> {
+    raw_tokens.sort_by(|(pos_a, _), (pos_b, _)| pos_a.cmp(pos_b));
+
+    raw_tokens
         .into_iter()
         .filter_map(|(pos, ent)| {
-            let (token_type, token_modifiers) = to_semantic_token(ent.kind())?;
-            let range = pos.range();
-            Some((range, token_type, token_modifiers))
+            let cls = classify(ent.kind())?;
+            Some(CachedToken {
+                range: pos.range(),
+                token_type: cls.token_type,
+                modifiers: cls.modifiers,
+            })
         })
-        .collect();
-
-    tokens.sort_by(|a, b| {
-        a.0.start
-            .line
-            .cmp(&b.0.start.line)
-            .then(a.0.start.character.cmp(&b.0.start.character))
-    });
-
-    tokens
+        .collect()
 }
 
 /// Delta-encode sorted tokens, optionally filtering to a range.
-fn encode(
-    tokens: &[(vhdl_lang::Range, u32, u32)],
-    range_filter: Option<&vhdl_lang::Range>,
-) -> Vec<SemanticToken> {
+fn encode(tokens: &[CachedToken], range_filter: Option<&vhdl_lang::Range>) -> Vec<SemanticToken> {
     let mut semantic_tokens = Vec::with_capacity(tokens.len());
     let mut prev_line = 0u32;
     let mut prev_start = 0u32;
 
-    for (range, token_type, token_modifiers) in tokens {
+    for token in tokens {
         if let Some(filter) = range_filter {
-            if !in_range(range, filter) {
+            if !token.range.overlaps_lines(filter) {
                 continue;
             }
         }
 
-        let line = range.start.line;
-        let start = range.start.character;
-        if range.start.line != range.end.line {
+        let line = token.range.start.line;
+        let start = token.range.start.character;
+        if token.range.start.line != token.range.end.line {
             continue; // Skip multi-line tokens; identifiers never span lines
         }
-        let length = range.end.character - range.start.character;
+        let length = token.range.end.character - token.range.start.character;
 
         let delta_line = line - prev_line;
         let delta_start = if delta_line == 0 {
@@ -151,8 +213,8 @@ fn encode(
             delta_line,
             delta_start,
             length,
-            token_type: *token_type,
-            token_modifiers_bitset: *token_modifiers,
+            token_type: token.token_type,
+            token_modifiers_bitset: token.modifiers,
         });
 
         prev_line = line;
@@ -164,10 +226,10 @@ fn encode(
 
 impl VHDLServer {
     /// Get or compute the cached semantic tokens for a file.
-    fn cached_semantic_tokens(&mut self, uri: &Url) -> Option<&[(vhdl_lang::Range, u32, u32)]> {
+    fn cached_semantic_tokens(&mut self, uri: &Url) -> Option<&[CachedToken]> {
         if !self.semantic_token_cache.contains_key(uri) {
             let source = self.project.get_source(&uri_to_file_name(uri))?;
-            let raw_tokens = self.project.semantic_tokens(&source);
+            let raw_tokens = self.project.find_all_entity_references(&source);
             let tokens = map_and_sort(raw_tokens);
             self.semantic_token_cache.insert(uri.clone(), tokens);
         }

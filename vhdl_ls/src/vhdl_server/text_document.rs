@@ -16,6 +16,8 @@ impl VHDLServer {
         if let Some(source) = self.project.get_source(&file_name) {
             source.change(None, text);
             self.project.update_source(&source);
+            // Clear all cached semantic tokens: cross-file references mean a
+            // change in one file can affect resolved entities in other files.
             self.semantic_token_cache.clear();
             self.publish_diagnostics();
         } else {

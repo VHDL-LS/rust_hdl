@@ -244,6 +244,11 @@ impl Range {
     pub fn contains(&self, position: Position) -> bool {
         self.start <= position && self.end >= position
     }
+
+    /// Check if two ranges overlap by line (ignoring character positions).
+    pub fn overlaps_lines(&self, other: &Range) -> bool {
+        self.start.line <= other.end.line && self.end.line >= other.start.line
+    }
 }
 
 /// A lexical range within a specific source file.

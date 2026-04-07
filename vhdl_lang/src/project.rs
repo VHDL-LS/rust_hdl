@@ -335,8 +335,8 @@ impl Project {
         self.root.find_all_references_in_source(source, ent)
     }
 
-    /// Collect all (position, entity) pairs in a source file for semantic token support.
-    pub fn semantic_tokens(&self, source: &Source) -> Vec<(SrcPos, EntRef<'_>)> {
+    /// Collect all (position, entity) pairs in a source file.
+    pub fn find_all_entity_references(&self, source: &Source) -> Vec<(SrcPos, EntRef<'_>)> {
         use crate::ast::search::SemanticTokenCollector;
         let mut collector = SemanticTokenCollector::new(&self.root, source);
         let _ = self.root.search_source(source, &mut collector);
