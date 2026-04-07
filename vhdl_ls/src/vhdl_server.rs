@@ -8,6 +8,7 @@ mod completion;
 mod diagnostics;
 mod lifecycle;
 mod rename;
+pub(crate) mod semantic_tokens;
 mod text_document;
 mod workspace;
 
@@ -63,6 +64,7 @@ pub struct VHDLServer {
     use_external_config: bool,
     project: Project,
     diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
+    semantic_token_cache: FnvHashMap<Url, Vec<semantic_tokens::CachedToken>>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
@@ -78,6 +80,7 @@ impl VHDLServer {
             use_external_config: true,
             project: Project::new(VHDLStandard::default()),
             diagnostic_cache: FnvHashMap::default(),
+            semantic_token_cache: FnvHashMap::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
@@ -94,6 +97,7 @@ impl VHDLServer {
             use_external_config,
             project: Project::new(VHDLStandard::default()),
             diagnostic_cache: Default::default(),
+            semantic_token_cache: Default::default(),
             init_params: None,
             config_file: None,
             severity_map: SeverityMap::default(),
@@ -1004,5 +1008,225 @@ lib.files = [
                 uri: config_uri,
             }],
         });
+    }
+
+    fn std_lib_config() -> String {
+        format!(
+            "[libraries]\nstd.files = ['{}/../vhdl_libraries/std/*.vhd']\nlib.files = ['*.vhd']\n",
+            std::env::var("CARGO_MANIFEST_DIR").unwrap()
+        )
+    }
+
+    struct DecodedToken {
+        line: u32,
+        start: u32,
+        length: u32,
+        token_type: u32,
+        modifiers: u32,
+    }
+
+    fn decode_semantic_tokens(tokens: &[SemanticToken]) -> Vec<DecodedToken> {
+        let mut result = Vec::new();
+        let mut line = 0u32;
+        let mut start = 0u32;
+        for tok in tokens {
+            if tok.delta_line > 0 {
+                line += tok.delta_line;
+                start = tok.delta_start;
+            } else {
+                start += tok.delta_start;
+            }
+            result.push(DecodedToken {
+                line,
+                start,
+                length: tok.length,
+                token_type: tok.token_type,
+                modifiers: tok.token_modifiers_bitset,
+            });
+        }
+        result
+    }
+
+    fn token_at(decoded: &[DecodedToken], line: u32, character: u32) -> Option<(u32, u32)> {
+        decoded
+            .iter()
+            .find(|t| t.line == line && t.start <= character && character < t.start + t.length)
+            .map(|t| (t.token_type, t.modifiers))
+    }
+
+    fn get_semantic_tokens(server: &mut VHDLServer, uri: &Url) -> Vec<DecodedToken> {
+        let result = server
+            .semantic_tokens_full(&SemanticTokensParams {
+                text_document: TextDocumentIdentifier { uri: uri.clone() },
+                work_done_progress_params: Default::default(),
+                partial_result_params: Default::default(),
+            })
+            .expect("semantic tokens result");
+        match result {
+            SemanticTokensResult::Tokens(t) => decode_semantic_tokens(&t.data),
+            _ => panic!("expected full tokens"),
+        }
+    }
+
+    #[test]
+    fn semantic_tokens_constant_is_readonly() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let uri = write_file(
+            &root_uri,
+            "test.vhd",
+            "\
+package pkg is
+  constant c1 : integer := 5;
+end package;
+",
+        );
+        let config_uri = write_config(&root_uri, std_lib_config());
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri);
+
+        let decoded = get_semantic_tokens(&mut server, &uri);
+        assert_eq!(
+            token_at(&decoded, 1, "  constant ".len() as u32),
+            Some((0, 1))
+        );
+    }
+
+    #[test]
+    fn semantic_tokens_signal_variable_constant_usage() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        write_file(
+            &root_uri,
+            "pkg.vhd",
+            "\
+package pkg is
+  constant c1 : integer := 5;
+end package;
+",
+        );
+        let ent_uri = write_file(
+            &root_uri,
+            "ent.vhd",
+            "\
+use work.pkg.all;
+entity ent is
+  port (o_val : out integer);
+end entity;
+
+architecture rtl of ent is
+  signal sig1 : integer;
+begin
+  process
+    variable v1 : integer;
+  begin
+    v1 := c1;
+    sig1 <= v1;
+  end process;
+  o_val <= sig1;
+end architecture;
+",
+        );
+        let config_uri = write_config(&root_uri, std_lib_config());
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri);
+
+        let decoded = get_semantic_tokens(&mut server, &ent_uri);
+        // signal and variable declarations: variable token, no modifiers
+        assert_eq!(
+            token_at(&decoded, 6, "  signal ".len() as u32),
+            Some((0, 0))
+        );
+        assert_eq!(
+            token_at(&decoded, 9, "    variable ".len() as u32),
+            Some((0, 0))
+        );
+        // constant usage: variable token + readonly modifier
+        assert_eq!(
+            token_at(&decoded, 11, "    v1 := ".len() as u32),
+            Some((0, 1))
+        );
+        // signal and port usages
+        assert_eq!(token_at(&decoded, 12, "    ".len() as u32), Some((0, 0)));
+        assert_eq!(token_at(&decoded, 14, "  ".len() as u32), Some((0, 0)));
+    }
+
+    #[test]
+    fn semantic_tokens_ports_and_generics() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let uri = write_file(
+            &root_uri,
+            "test.vhd",
+            "\
+entity ent is
+  generic (g_width : integer := 8);
+  port (i_data : in integer; o_data : out integer);
+end entity;
+
+architecture rtl of ent is
+begin
+  o_data <= i_data + g_width;
+end architecture;
+",
+        );
+        let config_uri = write_config(&root_uri, std_lib_config());
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri);
+
+        let decoded = get_semantic_tokens(&mut server, &uri);
+        // generic: variable + readonly
+        assert_eq!(
+            token_at(&decoded, 1, "  generic (".len() as u32),
+            Some((0, 1))
+        );
+        // port: variable, no modifiers
+        assert_eq!(token_at(&decoded, 2, "  port (".len() as u32), Some((0, 0)));
+    }
+
+    #[test]
+    fn semantic_tokens_types_and_functions() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let uri = write_file(
+            &root_uri,
+            "test.vhd",
+            "\
+package pkg is
+  type my_enum is (val_a, val_b);
+  type my_rec is record
+    field1 : integer;
+  end record;
+  function add_one(x : integer) return integer;
+end package;
+
+package body pkg is
+  function add_one(x : integer) return integer is
+  begin
+    return x + 1;
+  end function;
+end package body;
+",
+        );
+        let config_uri = write_config(&root_uri, std_lib_config());
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri);
+
+        let decoded = get_semantic_tokens(&mut server, &uri);
+        assert_eq!(token_at(&decoded, 1, "  type ".len() as u32), Some((9, 0))); // enum
+        assert_eq!(
+            token_at(&decoded, 1, "  type my_enum is (".len() as u32),
+            Some((3, 0))
+        ); // enum_member
+        assert_eq!(token_at(&decoded, 2, "  type ".len() as u32), Some((8, 0))); // struct
+        assert_eq!(token_at(&decoded, 3, "    ".len() as u32), Some((2, 0))); // property
+        assert_eq!(
+            token_at(&decoded, 5, "  function ".len() as u32),
+            Some((4, 0))
+        ); // function
+        assert_eq!(
+            token_at(&decoded, 5, "  function add_one(".len() as u32),
+            Some((1, 0))
+        ); // parameter
     }
 }
