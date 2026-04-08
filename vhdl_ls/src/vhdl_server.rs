@@ -22,8 +22,8 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Case, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
-    Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
+    config::case::CategoryToCaseMap, AnyEntKind, Concurrent, Config, EntHierarchy, EntRef, Message,
+    MessageHandler, Object, Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
 /// Defines how the language server handles files
@@ -66,7 +66,7 @@ pub struct VHDLServer {
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
-    case_transform: Option<Case>,
+    case_transform: Option<CategoryToCaseMap>,
     string_matcher: SkimMatcherV2,
 }
 

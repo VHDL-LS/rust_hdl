@@ -4,13 +4,14 @@ use lsp_types::{
     InsertTextFormat, MarkupContent, MarkupKind,
 };
 use vhdl_lang::ast::{Designator, ObjectClass};
+use vhdl_lang::config::case::{self, Category};
 use vhdl_lang::{kind_str, AnyEntKind, Design, EntRef, InterfaceEnt, Overloaded};
 
 impl VHDLServer {
-    fn insert_text(&self, val: impl ToString) -> String {
+    fn insert_text(&self, val: impl ToString, category: case::Category) -> String {
         let mut val = val.to_string();
         if let Some(case) = &self.case_transform {
-            case.convert(&mut val)
+            case[category].convert(&mut val);
         }
         val
     }
@@ -19,7 +20,7 @@ impl VHDLServer {
         match item {
             vhdl_lang::CompletionItem::Simple(ent) => self.entity_to_completion_item(ent),
             vhdl_lang::CompletionItem::Work => CompletionItem {
-                label: self.insert_text("work"),
+                label: self.insert_text("work", Category::Library),
                 detail: Some("work library".to_string()),
                 kind: Some(CompletionItemKind::MODULE),
                 ..Default::default()
@@ -42,23 +43,26 @@ impl VHDLServer {
                     _ => None,
                 };
                 CompletionItem {
-                    label: self.insert_text(desi),
+                    label: self.insert_text(desi, Category::Subprogram),
                     detail: Some(format!("+{count} overloaded")),
                     kind,
                     ..Default::default()
                 }
             }
             vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
-                label: self.insert_text(kind_str(kind)),
+                label: self.insert_text(kind_str(kind), Category::Keyword),
                 detail: Some(kind_str(kind).to_string()),
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::Instantiation(ent, architectures) => {
-                let work_name = self.insert_text("work");
+                let work_name = self.insert_text("work", Category::Library);
 
                 let library_names = if let Some(lib_name) = ent.library_name() {
-                    vec![work_name, self.insert_text(lib_name.name())]
+                    vec![
+                        work_name,
+                        self.insert_text(lib_name.name(), Category::Library),
+                    ]
                 } else {
                     vec![work_name]
                 };
@@ -68,7 +72,7 @@ impl VHDLServer {
                     // should never happen but better return some value instead of crashing
                     _ => return self.entity_to_completion_item(ent),
                 };
-                let designator = self.insert_text(&ent.designator);
+                let designator = self.insert_text(&ent.designator, Category::DesignUnit);
                 let template = if self.client_supports_snippets() {
                     let mut line = if is_component_instantiation {
                         format!("${{1:{designator}_inst}}: {designator}",)
@@ -81,7 +85,9 @@ impl VHDLServer {
                     if architectures.len() > 1 {
                         line.push_str("(${3|");
                         for (i, architecture) in architectures.iter().enumerate() {
-                            line.push_str(&self.insert_text(architecture.designator()));
+                            line.push_str(
+                                &self.insert_text(architecture.designator(), Category::DesignUnit),
+                            );
                             if i != architectures.len() - 1 {
                                 line.push(',')
                             }
@@ -91,9 +97,13 @@ impl VHDLServer {
                     let (ports, generics) = region.ports_and_generics();
                     let mut idx = 4;
                     let mut interface_ent = |elements: Vec<InterfaceEnt>, purpose: &str| {
-                        line += &*format!("\n {purpose} {}(\n", self.insert_text("map"));
+                        line += &*format!(
+                            "\n {purpose} {}(\n",
+                            self.insert_text("map", Category::Keyword)
+                        );
                         for (i, generic) in elements.iter().enumerate() {
-                            let generic_designator = self.insert_text(&generic.designator);
+                            let generic_designator =
+                                self.insert_text(&generic.designator, Category::Constant);
                             line += &*format!(
                                 "    {generic_designator} => ${{{idx}:{generic_designator}}}",
                             );
@@ -106,10 +116,10 @@ impl VHDLServer {
                         line += ")";
                     };
                     if !generics.is_empty() {
-                        interface_ent(generics, &self.insert_text("generic"));
+                        interface_ent(generics, &self.insert_text("generic", Category::Keyword));
                     }
                     if !ports.is_empty() {
-                        interface_ent(ports, &self.insert_text("port"));
+                        interface_ent(ports, &self.insert_text("port", Category::Keyword));
                     }
                     line += ";";
                     line
@@ -125,7 +135,7 @@ impl VHDLServer {
                 }
             }
             vhdl_lang::CompletionItem::Attribute(attribute) => CompletionItem {
-                label: self.insert_text(attribute),
+                label: self.insert_text(attribute, Category::Attribute),
                 kind: Some(CompletionItemKind::REFERENCE),
                 ..Default::default()
             },
@@ -185,12 +195,46 @@ impl VHDLServer {
 
     fn entity_to_completion_item(&self, ent: EntRef) -> CompletionItem {
         CompletionItem {
-            label: self.insert_text(&ent.designator),
+            label: self.insert_text(&ent.designator, entity_kind_to_casing_category(ent.kind())),
             detail: Some(ent.describe()),
             kind: Some(entity_kind_to_completion_kind(ent.kind())),
             data: serde_json::to_value(ent.id.to_raw()).ok(),
             ..Default::default()
         }
+    }
+}
+
+fn entity_kind_to_casing_category(kind: &AnyEntKind) -> Category {
+    match kind {
+        AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => Category::Alias,
+        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => Category::Object,
+        AnyEntKind::Component(_) => Category::DesignUnit,
+        AnyEntKind::Attribute(_) => Category::Attribute,
+        AnyEntKind::Overloaded(overloaded) => match overloaded {
+            Overloaded::SubprogramDecl(_)
+            | Overloaded::Subprogram(_)
+            | Overloaded::UninstSubprogramDecl(..)
+            | Overloaded::UninstSubprogram(..)
+            | Overloaded::InterfaceSubprogram(_) => Category::Subprogram,
+            Overloaded::EnumLiteral(_) => Category::EnumLiteral,
+            Overloaded::Alias(_) => Category::Alias,
+        },
+        AnyEntKind::Type(_) => Category::Type,
+        AnyEntKind::ElementDeclaration(_) => Category::Object,
+        AnyEntKind::Concurrent(..) => Category::Label,
+        AnyEntKind::Sequential(_) => Category::Label,
+        AnyEntKind::Object(object) => match object.class {
+            ObjectClass::Constant => Category::Constant,
+            ObjectClass::Variable | ObjectClass::SharedVariable | ObjectClass::Signal => {
+                Category::Object
+            }
+        },
+        AnyEntKind::LoopParameter(_) => Category::Label,
+        AnyEntKind::PhysicalLiteral(_) => Category::Object,
+        AnyEntKind::DeferredConstant(_) => Category::Constant,
+        AnyEntKind::Library => Category::Library,
+        AnyEntKind::Design(_) => Category::DesignUnit,
+        AnyEntKind::View(_) => Category::DesignUnit,
     }
 }
 
