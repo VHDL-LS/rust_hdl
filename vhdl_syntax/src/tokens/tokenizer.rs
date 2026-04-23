@@ -328,37 +328,29 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
             0x0C => TriviaPiece::FormFeeds(count_chars!(0x0C)),
             b'\n' => TriviaPiece::LineFeeds(count_chars!(b'\n')),
             b' ' => TriviaPiece::Spaces(count_chars!(b' ')),
-            b'-' => {
-                if self.peek() == Some(b'-') {
-                    self.skip();
-                    self.skip();
-                    let mut bytes = Vec::default();
-                    while let Some(ch) = self.skip_if(|ch| !matches!(ch, b'\r' | b'\n')) {
-                        bytes.push(ch);
-                    }
-                    TriviaPiece::LineComment(Comment::new(bytes))
-                } else {
-                    return None;
+            b'-' if self.peek() == Some(b'-') => {
+                self.skip();
+                self.skip();
+                let mut bytes = Vec::default();
+                while let Some(ch) = self.skip_if(|ch| !matches!(ch, b'\r' | b'\n')) {
+                    bytes.push(ch);
                 }
+                TriviaPiece::LineComment(Comment::new(bytes))
             }
-            b'/' => {
-                if self.peek() == Some(b'*') {
-                    self.skip();
-                    self.skip();
-                    let mut bytes = Vec::default();
-                    loop {
-                        if self.current == Some(b'*') && self.peek() == Some(b'/') {
-                            self.skip();
-                            self.skip();
-                            break;
-                        }
-                        let Some(ch) = self.skip() else { break };
-                        bytes.push(ch)
+            b'/' if self.peek() == Some(b'*') => {
+                self.skip();
+                self.skip();
+                let mut bytes = Vec::default();
+                loop {
+                    if self.current == Some(b'*') && self.peek() == Some(b'/') {
+                        self.skip();
+                        self.skip();
+                        break;
                     }
-                    TriviaPiece::BlockComment(Comment::new(bytes))
-                } else {
-                    return None;
+                    let Some(ch) = self.skip() else { break };
+                    bytes.push(ch)
                 }
+                TriviaPiece::BlockComment(Comment::new(bytes))
             }
             /*non breaking spaces*/
             0xA0 => TriviaPiece::NonBreakingSpaces(count_chars!(0xA0)),

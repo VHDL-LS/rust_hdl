@@ -1608,21 +1608,11 @@ fn get_leading_comments(reader: &mut ContentReader<'_>) -> Result<Vec<Comment>, 
         };
 
         match byte {
-            b'/' => {
-                if reader.pop()? == Some(b'*') {
-                    comments.push(parse_multi_line_comment(reader)?);
-                } else {
-                    reader.set_state(state);
-                    break;
-                }
+            b'/' if reader.pop()? == Some(b'*') => {
+                comments.push(parse_multi_line_comment(reader)?);
             }
-            b'-' => {
-                if reader.pop()? == Some(b'-') {
-                    comments.push(parse_comment(reader));
-                } else {
-                    reader.set_state(state);
-                    break;
-                }
+            b'-' if reader.pop()? == Some(b'-') => {
+                comments.push(parse_comment(reader));
             }
             _ => {
                 reader.set_state(state);
@@ -1667,14 +1657,7 @@ fn get_trailing_comment(reader: &mut ContentReader<'_>) -> Result<Option<Comment
     let state = reader.state();
 
     match reader.pop()? {
-        Some(b'-') => {
-            if reader.pop()? == Some(b'-') {
-                Ok(Some(parse_comment(reader)))
-            } else {
-                reader.set_state(state);
-                Ok(None)
-            }
-        }
+        Some(b'-') if reader.pop()? == Some(b'-') => Ok(Some(parse_comment(reader))),
         _ => {
             reader.set_state(state);
             Ok(None)

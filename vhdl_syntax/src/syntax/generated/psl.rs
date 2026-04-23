@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -12,14 +13,12 @@ use crate::tokens::TokenKind;
 #[derive(Debug, Clone)]
 pub struct PslDirectiveSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslDirectiveSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PslDirective => Some(PslDirectiveSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PslDirective)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PslDirective,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PslDirectiveSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -29,14 +28,12 @@ impl PslDirectiveSyntax {}
 #[derive(Debug, Clone)]
 pub struct PslPropertyDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslPropertyDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PslPropertyDeclaration => Some(PslPropertyDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PslPropertyDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PslPropertyDeclaration,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PslPropertyDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -46,14 +43,12 @@ impl PslPropertyDeclarationSyntax {}
 #[derive(Debug, Clone)]
 pub struct PslSequenceDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslSequenceDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PslSequenceDeclaration => Some(PslSequenceDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PslSequenceDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PslSequenceDeclaration,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PslSequenceDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -63,14 +58,12 @@ impl PslSequenceDeclarationSyntax {}
 #[derive(Debug, Clone)]
 pub struct PslClockDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslClockDeclarationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PslClockDeclaration => Some(PslClockDeclarationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PslClockDeclaration)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PslClockDeclaration,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PslClockDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -80,14 +73,12 @@ impl PslClockDeclarationSyntax {}
 #[derive(Debug, Clone)]
 pub struct PslVerificationUnitSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslVerificationUnitSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PslVerificationUnit => Some(PslVerificationUnitSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PslVerificationUnit)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PslVerificationUnit,
+        items: &[],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PslVerificationUnitSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -38,16 +39,37 @@ impl LiteralSyntax {
 #[derive(Debug, Clone)]
 pub struct ParenthesizedExpressionOrAggregateSyntax(pub(crate) SyntaxNode);
 impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ParenthesizedExpressionOrAggregate => {
-                Some(ParenthesizedExpressionOrAggregateSyntax(node))
-            }
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ParenthesizedExpressionOrAggregate)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ParenthesizedExpressionOrAggregate,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "element_associations",
+                kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ParenthesizedExpressionOrAggregateSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -125,14 +147,48 @@ impl UnaryOperatorSyntax {
 #[derive(Debug, Clone)]
 pub struct UnaryExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for UnaryExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::UnaryExpression => Some(UnaryExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::UnaryExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UnaryExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "op",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::QueQue,
+                    TokenKind::Plus,
+                    TokenKind::Minus,
+                    TokenKind::Keyword(Kw::Abs),
+                    TokenKind::Keyword(Kw::Not),
+                    TokenKind::Keyword(Kw::And),
+                    TokenKind::Keyword(Kw::Or),
+                    TokenKind::Keyword(Kw::Nand),
+                    TokenKind::Keyword(Kw::Nor),
+                    TokenKind::Keyword(Kw::Xor),
+                    TokenKind::Keyword(Kw::Xnor),
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UnaryExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -256,14 +312,85 @@ impl BinaryOperatorSyntax {
 #[derive(Debug, Clone)]
 pub struct BinaryExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for BinaryExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::BinaryExpression => Some(BinaryExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::BinaryExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::BinaryExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "lhs",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "op",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Keyword(Kw::And),
+                    TokenKind::Keyword(Kw::Or),
+                    TokenKind::Keyword(Kw::Nand),
+                    TokenKind::Keyword(Kw::Nor),
+                    TokenKind::Keyword(Kw::Xor),
+                    TokenKind::Keyword(Kw::Xnor),
+                    TokenKind::EQ,
+                    TokenKind::NE,
+                    TokenKind::LT,
+                    TokenKind::LTE,
+                    TokenKind::GT,
+                    TokenKind::GTE,
+                    TokenKind::QueEQ,
+                    TokenKind::QueNE,
+                    TokenKind::QueLT,
+                    TokenKind::QueGT,
+                    TokenKind::QueGTE,
+                    TokenKind::Keyword(Kw::Sll),
+                    TokenKind::Keyword(Kw::Srl),
+                    TokenKind::Keyword(Kw::Sla),
+                    TokenKind::Keyword(Kw::Sra),
+                    TokenKind::Keyword(Kw::Rol),
+                    TokenKind::Keyword(Kw::Ror),
+                    TokenKind::Plus,
+                    TokenKind::Minus,
+                    TokenKind::Concat,
+                    TokenKind::Times,
+                    TokenKind::Div,
+                    TokenKind::Keyword(Kw::Mod),
+                    TokenKind::Keyword(Kw::Rem),
+                    TokenKind::Pow,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "rhs",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        BinaryExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -286,14 +413,22 @@ impl BinaryExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct LiteralExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for LiteralExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::LiteralExpression => Some(LiteralExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::LiteralExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::LiteralExpression,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "literal",
+            kind: LayoutItemKind::TokenChoice(&[
+                TokenKind::BitStringLiteral,
+                TokenKind::CharacterLiteral,
+                TokenKind::StringLiteral,
+                TokenKind::Keyword(Kw::Null),
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        LiteralExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -307,14 +442,17 @@ impl LiteralExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct PhysicalLiteralExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for PhysicalLiteralExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::PhysicalLiteralExpression => Some(PhysicalLiteralExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::PhysicalLiteralExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PhysicalLiteralExpression,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "physical_literal",
+            kind: LayoutItemKind::Node(NodeKind::PhysicalLiteral),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PhysicalLiteralExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -331,14 +469,17 @@ impl PhysicalLiteralExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct NameExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for NameExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::NameExpression => Some(NameExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::NameExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::NameExpression,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "name",
+            kind: LayoutItemKind::Node(NodeKind::Name),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        NameExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -362,64 +503,62 @@ pub enum ExpressionSyntax {
     NameExpression(NameExpressionSyntax),
 }
 impl AstNode for ExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::LiteralExpression,
+            NodeKind::PhysicalLiteralExpression,
+            NodeKind::UnaryExpression,
+            NodeKind::BinaryExpression,
+            NodeKind::ParenthesizedExpressionOrAggregate,
+            NodeKind::SubtypeIndicationAllocator,
+            NodeKind::ExpressionAllocator,
+            NodeKind::QualifiedExpression,
+            NodeKind::TypeConversion,
+            NodeKind::NameExpression,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if LiteralExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::LiteralExpression(
-                LiteralExpressionSyntax::cast(node).unwrap(),
+            return ExpressionSyntax::LiteralExpression(LiteralExpressionSyntax::cast_unchecked(
+                node,
             ));
-        };
+        }
         if PhysicalLiteralExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::PhysicalLiteralExpression(
-                PhysicalLiteralExpressionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::PhysicalLiteralExpression(
+                PhysicalLiteralExpressionSyntax::cast_unchecked(node),
+            );
+        }
         if UnaryExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::UnaryExpression(
-                UnaryExpressionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::UnaryExpression(UnaryExpressionSyntax::cast_unchecked(node));
+        }
         if BinaryExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::BinaryExpression(
-                BinaryExpressionSyntax::cast(node).unwrap(),
+            return ExpressionSyntax::BinaryExpression(BinaryExpressionSyntax::cast_unchecked(
+                node,
             ));
-        };
+        }
         if ParenthesizedExpressionOrAggregateSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::ParenthesizedExpressionOrAggregate(
-                ParenthesizedExpressionOrAggregateSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::ParenthesizedExpressionOrAggregate(
+                ParenthesizedExpressionOrAggregateSyntax::cast_unchecked(node),
+            );
+        }
         if AllocatorSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::Allocator(
-                AllocatorSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::Allocator(AllocatorSyntax::cast_unchecked(node));
+        }
         if QualifiedExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::QualifiedExpression(
-                QualifiedExpressionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::QualifiedExpression(
+                QualifiedExpressionSyntax::cast_unchecked(node),
+            );
+        }
         if TypeConversionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::TypeConversion(
-                TypeConversionSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ExpressionSyntax::TypeConversion(TypeConversionSyntax::cast_unchecked(node));
+        }
         if NameExpressionSyntax::can_cast(&node) {
-            return Some(ExpressionSyntax::NameExpression(
-                NameExpressionSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        LiteralExpressionSyntax::can_cast(node)
-            || PhysicalLiteralExpressionSyntax::can_cast(node)
-            || UnaryExpressionSyntax::can_cast(node)
-            || BinaryExpressionSyntax::can_cast(node)
-            || ParenthesizedExpressionOrAggregateSyntax::can_cast(node)
-            || AllocatorSyntax::can_cast(node)
-            || QualifiedExpressionSyntax::can_cast(node)
-            || TypeConversionSyntax::can_cast(node)
-            || NameExpressionSyntax::can_cast(node)
+            return ExpressionSyntax::NameExpression(NameExpressionSyntax::cast_unchecked(node));
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -438,14 +577,37 @@ impl AstNode for ExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct AggregateSyntax(pub(crate) SyntaxNode);
 impl AstNode for AggregateSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Aggregate => Some(AggregateSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::Aggregate)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Aggregate,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "element_associations",
+                kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AggregateSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -476,14 +638,25 @@ impl AggregateSyntax {
 #[derive(Debug, Clone)]
 pub struct SubtypeIndicationAllocatorSyntax(pub(crate) SyntaxNode);
 impl AstNode for SubtypeIndicationAllocatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::SubtypeIndicationAllocator => Some(SubtypeIndicationAllocatorSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::SubtypeIndicationAllocator)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SubtypeIndicationAllocator,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "new",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SubtypeIndicationAllocatorSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -506,14 +679,36 @@ impl SubtypeIndicationAllocatorSyntax {
 #[derive(Debug, Clone)]
 pub struct ExpressionAllocatorSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExpressionAllocatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExpressionAllocator => Some(ExpressionAllocatorSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ExpressionAllocator)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ExpressionAllocator,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "new",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::New)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExpressionAllocatorSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -536,22 +731,27 @@ pub enum AllocatorSyntax {
     ExpressionAllocator(ExpressionAllocatorSyntax),
 }
 impl AstNode for AllocatorSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::SubtypeIndicationAllocator,
+            NodeKind::ExpressionAllocator,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if SubtypeIndicationAllocatorSyntax::can_cast(&node) {
-            return Some(AllocatorSyntax::SubtypeIndicationAllocator(
-                SubtypeIndicationAllocatorSyntax::cast(node).unwrap(),
-            ));
-        };
+            return AllocatorSyntax::SubtypeIndicationAllocator(
+                SubtypeIndicationAllocatorSyntax::cast_unchecked(node),
+            );
+        }
         if ExpressionAllocatorSyntax::can_cast(&node) {
-            return Some(AllocatorSyntax::ExpressionAllocator(
-                ExpressionAllocatorSyntax::cast(node).unwrap(),
-            ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        SubtypeIndicationAllocatorSyntax::can_cast(node)
-            || ExpressionAllocatorSyntax::can_cast(node)
+            return AllocatorSyntax::ExpressionAllocator(
+                ExpressionAllocatorSyntax::cast_unchecked(node),
+            );
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -563,14 +763,17 @@ impl AstNode for AllocatorSyntax {
 #[derive(Debug, Clone)]
 pub struct OthersChoiceSyntax(pub(crate) SyntaxNode);
 impl AstNode for OthersChoiceSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::OthersChoice => Some(OthersChoiceSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::OthersChoice)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::OthersChoice,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "others",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Others)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        OthersChoiceSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -587,14 +790,28 @@ impl OthersChoiceSyntax {
 #[derive(Debug, Clone)]
 pub struct ExpressionChoiceSyntax(pub(crate) SyntaxNode);
 impl AstNode for ExpressionChoiceSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ExpressionChoice => Some(ExpressionChoiceSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ExpressionChoice)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ExpressionChoice,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "expression",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::LiteralExpression,
+                NodeKind::PhysicalLiteralExpression,
+                NodeKind::UnaryExpression,
+                NodeKind::BinaryExpression,
+                NodeKind::ParenthesizedExpressionOrAggregate,
+                NodeKind::SubtypeIndicationAllocator,
+                NodeKind::ExpressionAllocator,
+                NodeKind::QualifiedExpression,
+                NodeKind::TypeConversion,
+                NodeKind::NameExpression,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExpressionChoiceSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -608,14 +825,21 @@ impl ExpressionChoiceSyntax {
 #[derive(Debug, Clone)]
 pub struct DiscreteRangeChoiceSyntax(pub(crate) SyntaxNode);
 impl AstNode for DiscreteRangeChoiceSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::DiscreteRangeChoice => Some(DiscreteRangeChoiceSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::DiscreteRangeChoice)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::DiscreteRangeChoice,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "discrete_range",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::SubtypeIndicationDiscreteDiscreteRange,
+                NodeKind::SubtypeIndicationDiscreteRange,
+                NodeKind::OpenDiscreteRange,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        DiscreteRangeChoiceSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -636,28 +860,29 @@ pub enum ChoiceSyntax {
     DiscreteRangeChoice(DiscreteRangeChoiceSyntax),
 }
 impl AstNode for ChoiceSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[
+            NodeKind::ExpressionChoice,
+            NodeKind::OthersChoice,
+            NodeKind::DiscreteRangeChoice,
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
         if ExpressionChoiceSyntax::can_cast(&node) {
-            return Some(ChoiceSyntax::ExpressionChoice(
-                ExpressionChoiceSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ChoiceSyntax::ExpressionChoice(ExpressionChoiceSyntax::cast_unchecked(node));
+        }
         if OthersChoiceSyntax::can_cast(&node) {
-            return Some(ChoiceSyntax::OthersChoice(
-                OthersChoiceSyntax::cast(node).unwrap(),
-            ));
-        };
+            return ChoiceSyntax::OthersChoice(OthersChoiceSyntax::cast_unchecked(node));
+        }
         if DiscreteRangeChoiceSyntax::can_cast(&node) {
-            return Some(ChoiceSyntax::DiscreteRangeChoice(
-                DiscreteRangeChoiceSyntax::cast(node).unwrap(),
+            return ChoiceSyntax::DiscreteRangeChoice(DiscreteRangeChoiceSyntax::cast_unchecked(
+                node,
             ));
-        };
-        None
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        ExpressionChoiceSyntax::can_cast(node)
-            || OthersChoiceSyntax::can_cast(node)
-            || DiscreteRangeChoiceSyntax::can_cast(node)
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
     }
     fn raw(&self) -> SyntaxNode {
         match self {
@@ -670,14 +895,29 @@ impl AstNode for ChoiceSyntax {
 #[derive(Debug, Clone)]
 pub struct ChoicesSyntax(pub(crate) SyntaxNode);
 impl AstNode for ChoicesSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Choices => Some(ChoicesSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::Choices)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Choices,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "choices",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::ExpressionChoice,
+                    NodeKind::OthersChoice,
+                    NodeKind::DiscreteRangeChoice,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "bar",
+                kind: LayoutItemKind::Token(TokenKind::Bar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ChoicesSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -696,14 +936,46 @@ impl ChoicesSyntax {
 #[derive(Debug, Clone)]
 pub struct ElementAssociationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementAssociationSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::ElementAssociation => Some(ElementAssociationSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::ElementAssociation)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElementAssociation,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "choice",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::ExpressionChoice,
+                    NodeKind::OthersChoice,
+                    NodeKind::DiscreteRangeChoice,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_arrow",
+                kind: LayoutItemKind::Token(TokenKind::RightArrow),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElementAssociationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -726,14 +998,42 @@ impl ElementAssociationSyntax {
 #[derive(Debug, Clone)]
 pub struct QualifiedExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for QualifiedExpressionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::QualifiedExpression => Some(QualifiedExpressionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::QualifiedExpression)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::QualifiedExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "tick",
+                kind: LayoutItemKind::Token(TokenKind::Tick),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        QualifiedExpressionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
@@ -756,14 +1056,48 @@ impl QualifiedExpressionSyntax {
 #[derive(Debug, Clone)]
 pub struct TypeConversionSyntax(pub(crate) SyntaxNode);
 impl AstNode for TypeConversionSyntax {
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::TypeConversion => Some(TypeConversionSyntax(node)),
-            _ => None,
-        }
-    }
-    fn can_cast(node: &SyntaxNode) -> bool {
-        matches!(node.kind(), NodeKind::TypeConversion)
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::TypeConversion,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::SubtypeIndicationAllocator,
+                    NodeKind::ExpressionAllocator,
+                    NodeKind::QualifiedExpression,
+                    NodeKind::TypeConversion,
+                    NodeKind::NameExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        TypeConversionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()

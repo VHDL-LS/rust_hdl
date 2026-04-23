@@ -38,11 +38,12 @@ pub fn variant_ident(name: &str) -> Ident {
 pub fn method_ident(name: &str) -> Ident {
     let snake = name.to_case(Case::Snake);
     match snake.as_str() {
-        "as" | "async" | "await" | "break" | "const" | "continue" | "crate" | "dyn"
-        | "else" | "enum" | "extern" | "false" | "fn" | "for" | "if" | "impl" | "in"
-        | "let" | "loop" | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return"
-        | "self" | "static" | "struct" | "super" | "trait" | "true" | "type" | "unsafe"
-        | "use" | "where" | "while" => Ident::new_raw(&snake, Span::call_site()),
+        "as" | "async" | "await" | "break" | "const" | "continue" | "crate" | "dyn" | "else"
+        | "enum" | "extern" | "false" | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop"
+        | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return" | "self" | "static"
+        | "struct" | "super" | "trait" | "true" | "type" | "unsafe" | "use" | "where" | "while" => {
+            Ident::new_raw(&snake, Span::call_site())
+        }
         _ => format_ident!("{}", snake),
     }
 }
