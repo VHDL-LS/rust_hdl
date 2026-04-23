@@ -18,7 +18,7 @@ macro_rules! define_token_types {
     (@consts $idx:expr, ) => {};
     // Recursive case: assign current index, increment for the rest
     (@consts $idx:expr, $const:ident, $( $rest:ident, )*) => {
-        const $const: u32 = $idx;
+        pub(crate) const $const: u32 = $idx;
         define_token_types!(@consts ($idx + 1), $( $rest, )*);
     };
 }
@@ -37,7 +37,7 @@ define_token_types! {
 }
 
 // Semantic token modifier bits
-const MOD_READONLY: u32 = 1 << 0;
+pub(crate) const MOD_READONLY: u32 = 1 << 0;
 
 pub const TOKEN_MODIFIERS: &[SemanticTokenModifier] = &[
     SemanticTokenModifier::READONLY, // bit 0: constants, generics
@@ -158,7 +158,10 @@ fn classify(kind: &AnyEntKind) -> Option<TokenClassification> {
             token_type: CLASS,
             modifiers: 0,
         },
-        AnyEntKind::Concurrent(..) | AnyEntKind::Sequential(..) => return None,
+        AnyEntKind::Concurrent(..) | AnyEntKind::Sequential(..) => TokenClassification {
+            token_type: NAMESPACE,
+            modifiers: 0,
+        },
     };
     Some(result)
 }

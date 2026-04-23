@@ -511,7 +511,10 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use crate::rpc_channel::test_support::*;
+    use crate::{
+        rpc_channel::test_support::*,
+        vhdl_server::semantic_tokens::{ENUM_MEMBER, FUNCTION, MOD_READONLY, PARAMETER, VARIABLE},
+    };
 
     pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
         let capabilities = ClientCapabilities::default();
@@ -1088,7 +1091,7 @@ end package;
         let decoded = get_semantic_tokens(&mut server, &uri);
         assert_eq!(
             token_at(&decoded, 1, "  constant ".len() as u32),
-            Some((0, 1))
+            Some((VARIABLE, MOD_READONLY))
         );
     }
 
@@ -1135,20 +1138,26 @@ end architecture;
         // signal and variable declarations: variable token, no modifiers
         assert_eq!(
             token_at(&decoded, 6, "  signal ".len() as u32),
-            Some((0, 0))
+            Some((VARIABLE, 0))
         );
         assert_eq!(
             token_at(&decoded, 9, "    variable ".len() as u32),
-            Some((0, 0))
+            Some((VARIABLE, 0))
         );
         // constant usage: variable token + readonly modifier
         assert_eq!(
             token_at(&decoded, 11, "    v1 := ".len() as u32),
-            Some((0, 1))
+            Some((VARIABLE, MOD_READONLY))
         );
         // signal and port usages
-        assert_eq!(token_at(&decoded, 12, "    ".len() as u32), Some((0, 0)));
-        assert_eq!(token_at(&decoded, 14, "  ".len() as u32), Some((0, 0)));
+        assert_eq!(
+            token_at(&decoded, 12, "    ".len() as u32),
+            Some((VARIABLE, 0))
+        );
+        assert_eq!(
+            token_at(&decoded, 14, "  ".len() as u32),
+            Some((VARIABLE, 0))
+        );
     }
 
     #[test]
@@ -1178,7 +1187,7 @@ end architecture;
         // generic: variable + readonly
         assert_eq!(
             token_at(&decoded, 1, "  generic (".len() as u32),
-            Some((0, 1))
+            Some((VARIABLE, MOD_READONLY))
         );
         // port: variable, no modifiers
         assert_eq!(token_at(&decoded, 2, "  port (".len() as u32), Some((0, 0)));
@@ -1216,17 +1225,17 @@ end package body;
         assert_eq!(token_at(&decoded, 1, "  type ".len() as u32), Some((9, 0))); // enum
         assert_eq!(
             token_at(&decoded, 1, "  type my_enum is (".len() as u32),
-            Some((3, 0))
+            Some((ENUM_MEMBER, 0))
         ); // enum_member
         assert_eq!(token_at(&decoded, 2, "  type ".len() as u32), Some((8, 0))); // struct
         assert_eq!(token_at(&decoded, 3, "    ".len() as u32), Some((2, 0))); // property
         assert_eq!(
             token_at(&decoded, 5, "  function ".len() as u32),
-            Some((4, 0))
+            Some((FUNCTION, 0))
         ); // function
         assert_eq!(
             token_at(&decoded, 5, "  function add_one(".len() as u32),
-            Some((1, 0))
+            Some((PARAMETER, 0))
         ); // parameter
     }
 }
