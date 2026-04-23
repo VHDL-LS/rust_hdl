@@ -231,6 +231,22 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
+        let request = match extract::<request::SemanticTokensFullRequest>(request) {
+            Ok((id, params)) => {
+                let result = server.semantic_tokens_full(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
+        let request = match extract::<request::SemanticTokensRangeRequest>(request) {
+            Ok((id, params)) => {
+                let result = server.semantic_tokens_range(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
 
         debug!("Unhandled request: {request:?}");
         self.send_response(lsp_server::Response::new_err(

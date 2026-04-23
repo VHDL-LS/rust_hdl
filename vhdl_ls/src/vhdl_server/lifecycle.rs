@@ -1,3 +1,4 @@
+use crate::vhdl_server::semantic_tokens::{TOKEN_MODIFIERS, TOKEN_TYPES};
 use crate::vhdl_server::{NonProjectFileHandling, VHDLServer};
 use lsp_types::*;
 use serde_json::Value;
@@ -74,6 +75,17 @@ impl VHDLServer {
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
             document_highlight_provider: Some(OneOf::Left(true)),
+            semantic_tokens_provider: Some(
+                SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
+                    legend: SemanticTokensLegend {
+                        token_types: TOKEN_TYPES.to_vec(),
+                        token_modifiers: TOKEN_MODIFIERS.to_vec(),
+                    },
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                    range: Some(true),
+                    work_done_progress_options: Default::default(),
+                }),
+            ),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),
