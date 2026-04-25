@@ -93,6 +93,10 @@ impl GreenNodeData {
         }
     }
 
+    pub(crate) fn push(&mut self, child: GreenChild) {
+        self.children.push(child);
+    }
+
     pub(crate) fn push_children(&mut self, children: impl IntoIterator<Item = GreenChild>) {
         self.children.extend(children)
     }

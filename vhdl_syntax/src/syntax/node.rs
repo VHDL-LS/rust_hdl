@@ -62,11 +62,11 @@ use std::sync::Arc;
 pub type SyntaxElement = Child<SyntaxNode, SyntaxToken>;
 
 impl SyntaxElement {
-    pub(crate) fn green(&self) -> GreenChild {
+    pub(crate) fn green(&self, offset: usize) -> GreenChild {
         match self {
-            SyntaxElement::Node(node) => GreenChild::Node((node.offset(), node.green().clone())),
+            SyntaxElement::Node(node) => GreenChild::Node((offset, node.green().clone())),
             SyntaxElement::Token(token) => {
-                GreenChild::Token((token.offset(), token.green().clone()))
+                GreenChild::Token((offset, token.green().clone()))
             }
         }
     }

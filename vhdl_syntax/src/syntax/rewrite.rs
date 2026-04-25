@@ -5,15 +5,16 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::syntax::green::{GreenChild, GreenNode};
+use crate::syntax::green::{GreenChild, GreenNode, GreenNodeData};
 use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 
-// TODO: should also support delete and add
 pub enum RewriteAction {
     /// Leave the node as-is
     Leave,
     /// Change the node to a different one
     Change(SyntaxElement),
+    /// Remove the node
+    Remove,
 }
 
 /// Facility to rewrite a `SyntaxNode` by re-building it while changing individual nodes.
@@ -33,30 +34,28 @@ impl<R: Fn(&SyntaxElement) -> RewriteAction> Rewriter<R> {
         SyntaxNode::new_root(self.rewrite_node_to_green(syntax_node))
     }
 
-    fn rewrite_element_to_green(&self, syntax_element: SyntaxElement) -> GreenChild {
-        match (self.rewrite_action)(&syntax_element) {
-            RewriteAction::Leave => match syntax_element {
-                SyntaxElement::Node(node) => {
-                    GreenChild::Node((node.offset(), self.rewrite_node_to_green(node)))
-                }
-                SyntaxElement::Token(token) => {
-                    GreenChild::Token((token.offset(), token.green().clone()))
-                }
-            },
-            RewriteAction::Change(element) => element.green(),
-        }
-    }
-
     fn rewrite_node_to_green(&self, syntax_node: SyntaxNode) -> GreenNode {
-        let mut new_green_node = syntax_node.green().data().clone();
-        for (i, child) in syntax_node.children_with_tokens().enumerate() {
+        let mut new_green_node = GreenNodeData::new(syntax_node.kind());
+        let mut offset = 0usize;
+        for child in syntax_node.children_with_tokens() {
+            let len = child.byte_len();
             match (self.rewrite_action)(&child) {
-                RewriteAction::Leave => {
-                    new_green_node.replace_child(i, self.rewrite_element_to_green(child));
-                }
+                RewriteAction::Leave => match child {
+                    SyntaxElement::Node(node) => {
+                        new_green_node
+                            .push(GreenChild::Node((offset, self.rewrite_node_to_green(node))));
+                        offset += len;
+                    }
+                    SyntaxElement::Token(token) => {
+                        new_green_node.push(GreenChild::Token((offset, token.green().clone())));
+                        offset += len;
+                    }
+                },
                 RewriteAction::Change(node) => {
-                    new_green_node.replace_child(i, node.green());
+                    new_green_node.push(node.green(offset));
+                    offset += len;
                 }
+                RewriteAction::Remove => {}
             }
         }
         GreenNode::new(new_green_node)
@@ -95,7 +94,9 @@ impl<R: TokenRewrite> TokenRewriter<R> {
     fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> GreenNode {
         self.rewrite.enter(&syntax_node);
         let mut new_green_node = syntax_node.green().data().clone();
+        let mut offset = 0usize;
         for (i, child) in syntax_node.children_with_tokens().enumerate() {
+            let len = child.byte_len();
             match child {
                 SyntaxElement::Node(node) => {
                     new_green_node.replace_child(
@@ -106,12 +107,231 @@ impl<R: TokenRewrite> TokenRewriter<R> {
                 SyntaxElement::Token(tok) => match self.rewrite.token(&tok) {
                     TokenRewriteAction::Keep => {}
                     TokenRewriteAction::Replace(syntax_token) => {
-                        new_green_node.replace_child(i, SyntaxElement::Token(syntax_token).green());
+                        new_green_node.replace_child(
+                            i,
+                            GreenChild::Token((offset, syntax_token.green().clone())),
+                        );
                     }
                 },
             }
+            offset += len;
         }
         self.rewrite.exit(&syntax_node);
         GreenNode::new(new_green_node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser;
+    use crate::syntax::child::Child;
+    use crate::syntax::green::GreenNode;
+    use crate::syntax::node_kind::NodeKind;
+    use crate::syntax::AstNode;
+    use pretty_assertions::assert_eq;
+
+    /// Walks the green tree and checks that every node's children carry
+    /// node-local, monotonically increasing offsets, and that the sum of
+    /// child lengths equals the parent's `byte_len`.
+    fn assert_offsets_consistent(green: &GreenNode) {
+        let mut expected = 0usize;
+        for child in green.children() {
+            match child {
+                GreenChild::Node((off, node)) => {
+                    assert_eq!(
+                        *off, expected,
+                        "child node offset mismatch in {:?}",
+                        green.kind()
+                    );
+                    expected += node.byte_len();
+                    assert_offsets_consistent(node);
+                }
+                GreenChild::Token((off, token)) => {
+                    assert_eq!(
+                        *off, expected,
+                        "child token offset mismatch in {:?}",
+                        green.kind()
+                    );
+                    expected += token.byte_len();
+                }
+            }
+        }
+        assert_eq!(
+            expected,
+            green.byte_len(),
+            "byte_len/children sum mismatch in {:?}",
+            green.kind()
+        );
+    }
+
+    fn parse_root(src: &str) -> SyntaxNode {
+        let (file, diagnostics) = parser::parse(src);
+        assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
+        file.raw()
+    }
+
+    const MULTI_ENTITY: &str = "\
+entity myent is
+end entity;
+
+entity myent2 is
+end entity myent2;
+
+entity myent3 is
+end myent3;
+";
+
+    #[test]
+    fn leave_round_trips() {
+        let root = parse_root(MULTI_ENTITY);
+        let new_root = root.rewrite(|_| RewriteAction::Leave);
+        assert_eq!(format!("{}", new_root), MULTI_ENTITY);
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn change_token_same_length() {
+        // "myent2" -> "myentX" (both 6 bytes)
+        let root = parse_root(MULTI_ENTITY);
+        let new_root = root.rewrite(|el| match el {
+            SyntaxElement::Token(tok)
+                if tok.kind() == crate::tokens::TokenKind::Identifier
+                    && tok.text() == "myent2" =>
+            {
+                RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"myentX")))
+            }
+            _ => RewriteAction::Leave,
+        });
+        assert_eq!(
+            format!("{}", new_root),
+            MULTI_ENTITY.replace("myent2", "myentX")
+        );
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn change_token_different_length() {
+        // "myent2" (6) -> "x" (1) — this is the regression case for the offset bugs.
+        let root = parse_root(MULTI_ENTITY);
+        let new_root = root.rewrite(|el| match el {
+            SyntaxElement::Token(tok)
+                if tok.kind() == crate::tokens::TokenKind::Identifier
+                    && tok.text() == "myent2" =>
+            {
+                RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"x")))
+            }
+            _ => RewriteAction::Leave,
+        });
+        assert_eq!(
+            format!("{}", new_root),
+            MULTI_ENTITY.replace("myent2", "x")
+        );
+        assert_offsets_consistent(new_root.green());
+    }
+
+    fn remove_design_unit_at(index: usize, src: &str) -> SyntaxNode {
+        let root = parse_root(src);
+        let mut seen = 0usize;
+        let target = std::cell::Cell::new(None::<usize>);
+        for child in root.children_with_tokens() {
+            if let Child::Node(n) = child {
+                if n.kind() == NodeKind::DesignUnit {
+                    if seen == index {
+                        target.set(Some(n.offset()));
+                        break;
+                    }
+                    seen += 1;
+                }
+            }
+        }
+        let target_offset = target.get().expect("design unit index out of range");
+        root.rewrite(|el| match el {
+            SyntaxElement::Node(n)
+                if n.kind() == NodeKind::DesignUnit && n.offset() == target_offset =>
+            {
+                RewriteAction::Remove
+            }
+            _ => RewriteAction::Leave,
+        })
+    }
+
+    #[test]
+    fn remove_first_design_unit() {
+        let new_root = remove_design_unit_at(0, MULTI_ENTITY);
+        assert_eq!(
+            format!("{}", new_root),
+            "\
+entity myent2 is
+end entity myent2;
+
+entity myent3 is
+end myent3;
+"
+        );
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn remove_middle_design_unit() {
+        let new_root = remove_design_unit_at(1, MULTI_ENTITY);
+        assert_eq!(
+            format!("{}", new_root),
+            "\
+entity myent is
+end entity;
+
+
+entity myent3 is
+end myent3;
+"
+        );
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn remove_last_design_unit() {
+        let new_root = remove_design_unit_at(2, MULTI_ENTITY);
+        assert_eq!(
+            format!("{}", new_root),
+            "\
+entity myent is
+end entity;
+
+entity myent2 is
+end entity myent2;
+
+"
+        );
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn remove_all_design_units() {
+        let root = parse_root(MULTI_ENTITY);
+        let new_root = root.rewrite(|el| match el {
+            SyntaxElement::Node(n) if n.kind() == NodeKind::DesignUnit => RewriteAction::Remove,
+            _ => RewriteAction::Leave,
+        });
+        let mut remaining_kinds = new_root.green().children().map(|c| match c {
+            GreenChild::Node((_, n)) => Child::Node(n.kind()),
+            GreenChild::Token((_, t)) => Child::Token(t.kind()),
+        });
+        // Only the trailing Eof token survives.
+        assert!(matches!(
+            remaining_kinds.next(),
+            Some(Child::Token(crate::tokens::TokenKind::Eof))
+        ));
+        assert!(remaining_kinds.next().is_none());
+        assert_offsets_consistent(new_root.green());
+    }
+
+    #[test]
+    fn idempotent_when_no_match() {
+        let root = parse_root(MULTI_ENTITY);
+        let once = root.rewrite(|_| RewriteAction::Leave);
+        let twice = once.rewrite(|_| RewriteAction::Leave);
+        assert_eq!(once.green(), twice.green());
+        assert_offsets_consistent(twice.green());
     }
 }
