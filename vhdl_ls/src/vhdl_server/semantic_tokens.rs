@@ -9,7 +9,7 @@ macro_rules! define_token_types {
     ( $( ($const:ident = $lsp_type:expr) ),+ $(,)? ) => {
         define_token_types!(@consts 0, $( $const, )+);
 
-        pub const TOKEN_TYPES: &[SemanticTokenType] = &[
+        pub const TOKEN_TYPES: &[SemanticTokenTypes] = &[
             $( $lsp_type, )+
         ];
     };
@@ -24,23 +24,23 @@ macro_rules! define_token_types {
 }
 
 define_token_types! {
-    (VARIABLE    = SemanticTokenType::VARIABLE),    // signals, variables, constants, files
-    (PARAMETER   = SemanticTokenType::PARAMETER),   // subprogram parameters
-    (PROPERTY    = SemanticTokenType::PROPERTY),     // attributes, record fields
-    (ENUM_MEMBER = SemanticTokenType::ENUM_MEMBER),  // enum literals
-    (FUNCTION    = SemanticTokenType::FUNCTION),     // functions, procedures
-    (TYPE        = SemanticTokenType::TYPE),          // types (general)
-    (CLASS       = SemanticTokenType::CLASS),         // protected types, components
-    (NAMESPACE   = SemanticTokenType::NAMESPACE),    // libraries, design units, labels
-    (STRUCT      = SemanticTokenType::STRUCT),        // record types
-    (ENUM        = SemanticTokenType::ENUM),          // enum types
+    (VARIABLE    = SemanticTokenTypes::Variable),    // signals, variables, constants, files
+    (PARAMETER   = SemanticTokenTypes::Parameter),   // subprogram parameters
+    (PROPERTY    = SemanticTokenTypes::Property),     // attributes, record fields
+    (ENUM_MEMBER = SemanticTokenTypes::EnumMember),  // enum literals
+    (FUNCTION    = SemanticTokenTypes::Function),     // functions, procedures
+    (TYPE        = SemanticTokenTypes::Type),          // types (general)
+    (CLASS       = SemanticTokenTypes::Class),         // protected types, components
+    (NAMESPACE   = SemanticTokenTypes::Namespace),    // libraries, design units, labels
+    (STRUCT      = SemanticTokenTypes::Struct),        // record types
+    (ENUM        = SemanticTokenTypes::Enum),          // enum types
 }
 
 // Semantic token modifier bits
 pub(crate) const MOD_READONLY: u32 = 1 << 0;
 
-pub const TOKEN_MODIFIERS: &[SemanticTokenModifier] = &[
-    SemanticTokenModifier::READONLY, // bit 0: constants, generics
+pub const TOKEN_MODIFIERS: &[SemanticTokenModifiers] = &[
+    SemanticTokenModifiers::Readonly, // bit 0: constants, generics
 ];
 
 /// Classification of a VHDL entity into an LSP semantic token.
@@ -229,7 +229,7 @@ fn encode(tokens: &[CachedToken], range_filter: Option<&vhdl_lang::Range>) -> Ve
 
 impl VHDLServer {
     /// Get or compute the cached semantic tokens for a file.
-    fn cached_semantic_tokens(&mut self, uri: &Url) -> Option<&[CachedToken]> {
+    fn cached_semantic_tokens(&mut self, uri: &Uri) -> Option<&[CachedToken]> {
         if !self.semantic_token_cache.contains_key(uri) {
             let source = self.project.get_source(&uri_to_file_name(uri))?;
             let raw_tokens = self.project.find_all_entity_references(&source);
@@ -242,27 +242,27 @@ impl VHDLServer {
     pub fn semantic_tokens_full(
         &mut self,
         params: &SemanticTokensParams,
-    ) -> Option<SemanticTokensResult> {
+    ) -> Option<SemanticTokens> {
         let tokens = self.cached_semantic_tokens(&params.text_document.uri)?;
         let data = encode(tokens, None);
 
-        Some(SemanticTokensResult::Tokens(SemanticTokens {
+        Some(SemanticTokens {
             result_id: None,
             data,
-        }))
+        })
     }
 
     pub fn semantic_tokens_range(
         &mut self,
         params: &SemanticTokensRangeParams,
-    ) -> Option<SemanticTokensRangeResult> {
+    ) -> Option<SemanticTokens> {
         let filter = from_lsp_range(params.range);
         let tokens = self.cached_semantic_tokens(&params.text_document.uri)?;
         let data = encode(tokens, Some(&filter));
 
-        Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
+        Some(SemanticTokens {
             result_id: None,
             data,
-        }))
+        })
     }
 }

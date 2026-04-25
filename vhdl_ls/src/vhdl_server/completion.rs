@@ -21,13 +21,13 @@ impl VHDLServer {
             vhdl_lang::CompletionItem::Work => CompletionItem {
                 label: self.insert_text("work"),
                 detail: Some("work library".to_string()),
-                kind: Some(CompletionItemKind::MODULE),
+                kind: Some(CompletionItemKind::Module),
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::Formal(ent) => {
                 let mut item = self.entity_to_completion_item(ent);
                 if self.client_supports_snippets() {
-                    item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+                    item.insert_text_format = Some(InsertTextFormat::Snippet);
                     item.insert_text = Some(format!(
                         "{} => $1,",
                         item.insert_text.as_ref().unwrap_or(&item.label)
@@ -37,8 +37,8 @@ impl VHDLServer {
             }
             vhdl_lang::CompletionItem::Overloaded(desi, count) => {
                 let kind = match desi {
-                    Designator::Identifier(_) => Some(CompletionItemKind::FUNCTION),
-                    Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
+                    Designator::Identifier(_) => Some(CompletionItemKind::Function),
+                    Designator::OperatorSymbol(_) => Some(CompletionItemKind::Operator),
                     _ => None,
                 };
                 CompletionItem {
@@ -51,7 +51,7 @@ impl VHDLServer {
             vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
                 label: self.insert_text(kind_str(kind)),
                 detail: Some(kind_str(kind).to_string()),
-                kind: Some(CompletionItemKind::KEYWORD),
+                kind: Some(CompletionItemKind::Keyword),
                 ..Default::default()
             },
             vhdl_lang::CompletionItem::Instantiation(ent, architectures) => {
@@ -119,14 +119,14 @@ impl VHDLServer {
                 CompletionItem {
                     label: format!("{designator} instantiation"),
                     insert_text: Some(template),
-                    insert_text_format: Some(InsertTextFormat::SNIPPET),
-                    kind: Some(CompletionItemKind::MODULE),
+                    insert_text_format: Some(InsertTextFormat::Snippet),
+                    kind: Some(CompletionItemKind::Module),
                     ..Default::default()
                 }
             }
             vhdl_lang::CompletionItem::Attribute(attribute) => CompletionItem {
                 label: self.insert_text(attribute),
-                kind: Some(CompletionItemKind::REFERENCE),
+                kind: Some(CompletionItemKind::Reference),
                 ..Default::default()
             },
         }
@@ -135,7 +135,7 @@ impl VHDLServer {
     /// Called when the client requests a completion.
     /// This function looks in the source code to find suitable options and then returns them
     pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
-        let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
+        let binding = uri_to_file_name(&params.text_document_position_params.text_document.uri);
         let file = binding.as_path();
         // 1) get source position, and source file
         let Some(source) = self.project.get_source(file) else {
@@ -144,7 +144,7 @@ impl VHDLServer {
                 ..Default::default()
             };
         };
-        let cursor = from_lsp_pos(params.text_document_position.position);
+        let cursor = from_lsp_pos(params.text_document_position_params.position);
         // 2) Optimization chance: go to last recognizable token before the cursor. For example:
         //    - Any primary unit (e.g. entity declaration, package declaration, ...)
         //      => keyword `entity`, `package`, ...
@@ -162,6 +162,8 @@ impl VHDLServer {
         CompletionList {
             items: options,
             is_incomplete: true,
+            apply_kind: None,
+            item_defaults: None,
         }
     }
 
@@ -197,34 +199,34 @@ impl VHDLServer {
 fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
     match kind {
         AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
-            CompletionItemKind::FIELD
+            CompletionItemKind::Field
         }
-        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
-        AnyEntKind::Component(_) => CompletionItemKind::MODULE,
-        AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
+        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::File,
+        AnyEntKind::Component(_) => CompletionItemKind::Module,
+        AnyEntKind::Attribute(_) => CompletionItemKind::Reference,
         AnyEntKind::Overloaded(overloaded) => match overloaded {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
             | Overloaded::UninstSubprogramDecl(..)
             | Overloaded::UninstSubprogram(..)
-            | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
-            Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
-            Overloaded::Alias(_) => CompletionItemKind::FIELD,
+            | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::Function,
+            Overloaded::EnumLiteral(_) => CompletionItemKind::EnumMember,
+            Overloaded::Alias(_) => CompletionItemKind::Field,
         },
-        AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
-        AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
-        AnyEntKind::Concurrent(..) => CompletionItemKind::MODULE,
-        AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Type(_) => CompletionItemKind::TypeParameter,
+        AnyEntKind::ElementDeclaration(_) => CompletionItemKind::Field,
+        AnyEntKind::Concurrent(..) => CompletionItemKind::Module,
+        AnyEntKind::Sequential(_) => CompletionItemKind::Module,
         AnyEntKind::Object(object) => match object.class {
-            ObjectClass::Signal => CompletionItemKind::EVENT,
-            ObjectClass::Constant => CompletionItemKind::CONSTANT,
-            ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
+            ObjectClass::Signal => CompletionItemKind::Event,
+            ObjectClass::Constant => CompletionItemKind::Constant,
+            ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::Variable,
         },
-        AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
-        AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
-        AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
-        AnyEntKind::Library => CompletionItemKind::MODULE,
-        AnyEntKind::Design(_) => CompletionItemKind::MODULE,
-        AnyEntKind::View(_) => CompletionItemKind::INTERFACE,
+        AnyEntKind::LoopParameter(_) => CompletionItemKind::Module,
+        AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::Unit,
+        AnyEntKind::DeferredConstant(_) => CompletionItemKind::Constant,
+        AnyEntKind::Library => CompletionItemKind::Module,
+        AnyEntKind::Design(_) => CompletionItemKind::Module,
+        AnyEntKind::View(_) => CompletionItemKind::Interface,
     }
 }

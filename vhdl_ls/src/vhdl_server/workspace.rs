@@ -1,7 +1,7 @@
 use crate::vhdl_server::{srcpos_to_location, to_symbol_kind, uri_to_file_name, VHDLServer};
 use fuzzy_matcher::FuzzyMatcher;
 use lsp_types::{
-    DidChangeWatchedFilesParams, OneOf, WorkspaceSymbol, WorkspaceSymbolParams,
+    BaseSymbolInformation, DidChangeWatchedFilesParams, WorkspaceSymbol, WorkspaceSymbolParams,
     WorkspaceSymbolResponse,
 };
 use std::cmp::Ordering;
@@ -48,7 +48,7 @@ impl VHDLServer {
                 Designator::Anonymous(_) => None,
             });
 
-        Some(WorkspaceSymbolResponse::Nested(
+        Some(WorkspaceSymbolResponse::WorkspaceSymbolList(
             self.filter_workspace_symbols(symbols.into_iter(), &query, trunc_limit),
         ))
     }
@@ -89,11 +89,13 @@ impl VHDLServer {
                 self.string_matcher.fuzzy_match(&name, query).map(|score| {
                     WorkspaceSymbolWithScore {
                         symbol: WorkspaceSymbol {
-                            name: ent.describe(),
-                            kind: to_symbol_kind(ent.kind()),
-                            tags: None,
-                            container_name: ent.parent.map(|ent| ent.path_name()),
-                            location: OneOf::Left(srcpos_to_location(decl_pos)),
+                            base_symbol_information: BaseSymbolInformation {
+                                name: ent.describe(),
+                                kind: to_symbol_kind(ent.kind()),
+                                tags: None,
+                                container_name: ent.parent.map(|ent| ent.path_name()),
+                            },
+                            location: srcpos_to_location(decl_pos).into(),
                             data: None,
                         },
                         score,

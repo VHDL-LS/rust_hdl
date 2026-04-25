@@ -26,7 +26,7 @@ impl VHDLServer {
         if self.client_supports_did_change_watched_files() {
             let register_options = DidChangeWatchedFilesRegistrationOptions {
                 watchers: vec![FileSystemWatcher {
-                    glob_pattern: GlobPattern::String("**/vhdl_ls.toml".to_owned()),
+                    glob_pattern: GlobPattern::Pattern("**/vhdl_ls.toml".to_owned()),
                     kind: None,
                 }],
             };
@@ -60,36 +60,38 @@ impl VHDLServer {
         let trigger_chars: Vec<String> = r"'.".chars().map(|ch| ch.to_string()).collect();
 
         let capabilities = ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::INCREMENTAL,
-            )),
-            declaration_provider: Some(DeclarationCapability::Simple(true)),
-            definition_provider: Some(OneOf::Left(true)),
-            hover_provider: Some(HoverProviderCapability::Simple(true)),
-            references_provider: Some(OneOf::Left(true)),
-            implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
-            rename_provider: Some(OneOf::Right(RenameOptions {
-                prepare_provider: Some(true),
-                work_done_progress_options: Default::default(),
-            })),
-            workspace_symbol_provider: Some(OneOf::Left(true)),
-            document_symbol_provider: Some(OneOf::Left(true)),
-            document_highlight_provider: Some(OneOf::Left(true)),
-            semantic_tokens_provider: Some(
-                SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
-                    legend: SemanticTokensLegend {
-                        token_types: TOKEN_TYPES.to_vec(),
-                        token_modifiers: TOKEN_MODIFIERS.to_vec(),
-                    },
-                    full: Some(SemanticTokensFullOptions::Bool(true)),
-                    range: Some(true),
+            text_document_sync: Some(TextDocumentSyncKind::Incremental.into()),
+            declaration_provider: Some(true.into()),
+            definition_provider: Some(true.into()),
+            hover_provider: Some(true.into()),
+            references_provider: Some(true.into()),
+            implementation_provider: Some(true.into()),
+            rename_provider: Some(
+                RenameOptions {
+                    prepare_provider: Some(true),
                     work_done_progress_options: Default::default(),
-                }),
+                }
+                .into(),
+            ),
+            workspace_symbol_provider: Some(true.into()),
+            document_symbol_provider: Some(true.into()),
+            document_highlight_provider: Some(true.into()),
+            semantic_tokens_provider: Some(
+                SemanticTokensOptions {
+                    legend: SemanticTokensLegend {
+                        token_types: TOKEN_TYPES.iter().map(|t| t.to_string()).collect(),
+                        token_modifiers: TOKEN_MODIFIERS.iter().map(|t| t.to_string()).collect(),
+                    },
+                    full: Some(true.into()),
+                    range: Some(true.into()),
+                    work_done_progress_options: Default::default(),
+                }
+                .into(),
             ),
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),
-                completion_item: Some(CompletionOptionsCompletionItem {
+                completion_item: Some(ServerCompletionItemOptions {
                     label_details_support: Some(true),
                 }),
                 ..Default::default()

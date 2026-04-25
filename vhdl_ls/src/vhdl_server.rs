@@ -63,8 +63,8 @@ pub struct VHDLServer {
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
     project: Project,
-    diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
-    semantic_token_cache: FnvHashMap<Url, Vec<semantic_tokens::CachedToken>>,
+    diagnostic_cache: FnvHashMap<Uri, Vec<vhdl_lang::Diagnostic>>,
+    semantic_token_cache: FnvHashMap<Uri, Vec<semantic_tokens::CachedToken>>,
     init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
     severity_map: SeverityMap,
@@ -190,6 +190,7 @@ impl VHDLServer {
                 .as_ref()?
                 .publish_diagnostics
                 .as_ref()?
+                .diagnostics_capabilities
                 .related_information
         };
         try_fun().unwrap_or(false)
@@ -285,7 +286,7 @@ impl VHDLServer {
                 }
             }
 
-            Some(DocumentSymbolResponse::Nested(
+            Some(DocumentSymbolResponse::DocumentSymbolList(
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
@@ -300,16 +301,18 @@ impl VHDLServer {
                     .unwrap_or_else(|| ent.src_span.start_token.pos(ctx));
                 #[allow(deprecated)]
                 SymbolInformation {
-                    name: ent.describe(),
-                    kind: to_symbol_kind(ent.kind()),
-                    tags: None,
                     location: srcpos_to_location(selection_pos),
                     deprecated: None,
-                    container_name: ent.parent_in_same_source().map(|ent| ent.describe()),
+                    base_symbol_information: BaseSymbolInformation {
+                        name: ent.describe(),
+                        kind: to_symbol_kind(ent.kind()),
+                        tags: None,
+                        container_name: ent.parent_in_same_source().map(|ent| ent.describe()),
+                    },
                 }
             }
 
-            Some(DocumentSymbolResponse::Flat(
+            Some(DocumentSymbolResponse::SymbolInformationList(
                 self.project
                     .document_symbols(&library_name, &source)
                     .into_iter()
@@ -351,7 +354,7 @@ impl MessageHandler for MessageFilter {
             self.rpc.send_notification(
                 "window/showMessage",
                 ShowMessageParams {
-                    typ: to_lsp_message_type(&msg.message_type),
+                    kind: to_lsp_message_type(&msg.message_type),
                     message: msg.message.clone(),
                 },
             );
@@ -360,7 +363,7 @@ impl MessageHandler for MessageFilter {
         self.rpc.send_notification(
             "window/logMessage",
             LogMessageParams {
-                typ: to_lsp_message_type(&msg.message_type),
+                kind: to_lsp_message_type(&msg.message_type),
                 message: msg.message,
             },
         );
@@ -369,10 +372,10 @@ impl MessageHandler for MessageFilter {
 
 fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
     match message_type {
-        vhdl_lang::MessageType::Error => MessageType::ERROR,
-        vhdl_lang::MessageType::Warning => MessageType::WARNING,
-        vhdl_lang::MessageType::Info => MessageType::INFO,
-        vhdl_lang::MessageType::Log => MessageType::LOG,
+        vhdl_lang::MessageType::Error => MessageType::Error,
+        vhdl_lang::MessageType::Warning => MessageType::Warning,
+        vhdl_lang::MessageType::Info => MessageType::Info,
+        vhdl_lang::MessageType::Log => MessageType::Log,
     }
 }
 
@@ -412,33 +415,33 @@ fn from_lsp_range(range: lsp_types::Range) -> vhdl_lang::Range {
     }
 }
 
-fn file_name_to_uri(file_name: &Path) -> Url {
+fn file_name_to_uri(file_name: &Path) -> Uri {
     // @TODO return error to client
-    Url::from_file_path(file_name).unwrap()
+    Uri::from_file_path(file_name).unwrap()
 }
 
-fn uri_to_file_name(uri: &Url) -> PathBuf {
+fn uri_to_file_name(uri: &Uri) -> PathBuf {
     // @TODO return error to client
     uri.to_file_path().unwrap()
 }
 
 fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {
     match overloaded {
-        Overloaded::SubprogramDecl(_) => SymbolKind::FUNCTION,
-        Overloaded::Subprogram(_) => SymbolKind::FUNCTION,
-        Overloaded::UninstSubprogramDecl(..) => SymbolKind::FUNCTION,
-        Overloaded::UninstSubprogram(..) => SymbolKind::FUNCTION,
-        Overloaded::InterfaceSubprogram(_) => SymbolKind::FUNCTION,
-        Overloaded::EnumLiteral(_) => SymbolKind::ENUM_MEMBER,
+        Overloaded::SubprogramDecl(_) => SymbolKind::Function,
+        Overloaded::Subprogram(_) => SymbolKind::Function,
+        Overloaded::UninstSubprogramDecl(..) => SymbolKind::Function,
+        Overloaded::UninstSubprogram(..) => SymbolKind::Function,
+        Overloaded::InterfaceSubprogram(_) => SymbolKind::Function,
+        Overloaded::EnumLiteral(_) => SymbolKind::EnumMember,
         Overloaded::Alias(o) => overloaded_kind(o.kind()),
     }
 }
 
 fn object_kind(object: &Object) -> SymbolKind {
     if matches!(object.subtype.type_mark().kind(), Type::Protected(..)) {
-        SymbolKind::OBJECT
+        SymbolKind::Object
     } else if object.iface.is_some() {
-        SymbolKind::INTERFACE
+        SymbolKind::Interface
     } else {
         object_class_kind(object.class)
     }
@@ -446,29 +449,29 @@ fn object_kind(object: &Object) -> SymbolKind {
 
 fn object_class_kind(class: ObjectClass) -> SymbolKind {
     match class {
-        ObjectClass::Signal => SymbolKind::EVENT,
-        ObjectClass::Constant => SymbolKind::CONSTANT,
-        ObjectClass::Variable => SymbolKind::VARIABLE,
-        ObjectClass::SharedVariable => SymbolKind::VARIABLE,
+        ObjectClass::Signal => SymbolKind::Event,
+        ObjectClass::Constant => SymbolKind::Constant,
+        ObjectClass::Variable => SymbolKind::Variable,
+        ObjectClass::SharedVariable => SymbolKind::Variable,
     }
 }
 
 fn type_kind(t: &Type) -> SymbolKind {
     match t {
-        vhdl_lang::Type::Array { .. } => SymbolKind::ARRAY,
-        vhdl_lang::Type::Enum(_) => SymbolKind::ENUM,
-        vhdl_lang::Type::Integer => SymbolKind::NUMBER,
-        vhdl_lang::Type::Real => SymbolKind::NUMBER,
-        vhdl_lang::Type::Physical => SymbolKind::NUMBER,
-        vhdl_lang::Type::Access(_) => SymbolKind::ENUM,
-        vhdl_lang::Type::Record(_) => SymbolKind::STRUCT,
-        vhdl_lang::Type::Incomplete => SymbolKind::NULL,
+        vhdl_lang::Type::Array { .. } => SymbolKind::Array,
+        vhdl_lang::Type::Enum(_) => SymbolKind::Enum,
+        vhdl_lang::Type::Integer => SymbolKind::Number,
+        vhdl_lang::Type::Real => SymbolKind::Number,
+        vhdl_lang::Type::Physical => SymbolKind::Number,
+        vhdl_lang::Type::Access(_) => SymbolKind::Enum,
+        vhdl_lang::Type::Record(_) => SymbolKind::Struct,
+        vhdl_lang::Type::Incomplete => SymbolKind::Null,
         vhdl_lang::Type::Subtype(t) => type_kind(t.type_mark().kind()),
-        vhdl_lang::Type::Protected(_, _) => SymbolKind::CLASS,
-        vhdl_lang::Type::File => SymbolKind::FILE,
-        vhdl_lang::Type::Interface => SymbolKind::TYPE_PARAMETER,
+        vhdl_lang::Type::Protected(_, _) => SymbolKind::Class,
+        vhdl_lang::Type::File => SymbolKind::File,
+        vhdl_lang::Type::Interface => SymbolKind::TypeParameter,
         vhdl_lang::Type::Alias(t) => type_kind(t.kind()),
-        vhdl_lang::Type::Universal(_) => SymbolKind::NUMBER,
+        vhdl_lang::Type::Universal(_) => SymbolKind::Number,
     }
 }
 
@@ -477,31 +480,31 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::ExternalAlias { class, .. } => object_class_kind(ObjectClass::from(*class)),
         AnyEntKind::ObjectAlias { base_object, .. } => object_kind(base_object.object()),
         AnyEntKind::Object(o) => object_kind(o),
-        AnyEntKind::LoopParameter(_) => SymbolKind::CONSTANT,
-        AnyEntKind::PhysicalLiteral(_) => SymbolKind::CONSTANT,
-        AnyEntKind::DeferredConstant(_) => SymbolKind::CONSTANT,
-        AnyEntKind::File { .. } => SymbolKind::FILE,
-        AnyEntKind::InterfaceFile { .. } => SymbolKind::INTERFACE,
-        AnyEntKind::Component(_) => SymbolKind::CLASS,
-        AnyEntKind::Attribute(_) => SymbolKind::PROPERTY,
+        AnyEntKind::LoopParameter(_) => SymbolKind::Constant,
+        AnyEntKind::PhysicalLiteral(_) => SymbolKind::Constant,
+        AnyEntKind::DeferredConstant(_) => SymbolKind::Constant,
+        AnyEntKind::File { .. } => SymbolKind::File,
+        AnyEntKind::InterfaceFile { .. } => SymbolKind::Interface,
+        AnyEntKind::Component(_) => SymbolKind::Class,
+        AnyEntKind::Attribute(_) => SymbolKind::Property,
         AnyEntKind::Overloaded(o) => overloaded_kind(o),
         AnyEntKind::Type(t) => type_kind(t),
-        AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
-        AnyEntKind::Sequential(_) => SymbolKind::NAMESPACE,
-        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => SymbolKind::MODULE,
-        AnyEntKind::Concurrent(..) => SymbolKind::NAMESPACE,
-        AnyEntKind::Library => SymbolKind::NAMESPACE,
-        AnyEntKind::View(_) => SymbolKind::INTERFACE,
+        AnyEntKind::ElementDeclaration(_) => SymbolKind::Field,
+        AnyEntKind::Sequential(_) => SymbolKind::Namespace,
+        AnyEntKind::Concurrent(Some(Concurrent::Instance), _) => SymbolKind::Module,
+        AnyEntKind::Concurrent(..) => SymbolKind::Namespace,
+        AnyEntKind::Library => SymbolKind::Namespace,
+        AnyEntKind::View(_) => SymbolKind::Interface,
         AnyEntKind::Design(d) => match d {
-            vhdl_lang::Design::Entity(_, _) => SymbolKind::MODULE,
-            vhdl_lang::Design::Architecture(..) => SymbolKind::MODULE,
-            vhdl_lang::Design::Configuration => SymbolKind::MODULE,
-            vhdl_lang::Design::Package(_, _) => SymbolKind::PACKAGE,
-            vhdl_lang::Design::PackageBody(..) => SymbolKind::PACKAGE,
-            vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::PACKAGE,
-            vhdl_lang::Design::PackageInstance(_) => SymbolKind::PACKAGE,
-            vhdl_lang::Design::InterfacePackageInstance(..) => SymbolKind::PACKAGE,
-            vhdl_lang::Design::Context(_) => SymbolKind::NAMESPACE,
+            vhdl_lang::Design::Entity(_, _) => SymbolKind::Module,
+            vhdl_lang::Design::Architecture(..) => SymbolKind::Module,
+            vhdl_lang::Design::Configuration => SymbolKind::Module,
+            vhdl_lang::Design::Package(_, _) => SymbolKind::Package,
+            vhdl_lang::Design::PackageBody(..) => SymbolKind::Package,
+            vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::Package,
+            vhdl_lang::Design::PackageInstance(_) => SymbolKind::Package,
+            vhdl_lang::Design::InterfacePackageInstance(..) => SymbolKind::Package,
+            vhdl_lang::Design::Context(_) => SymbolKind::Namespace,
         },
     }
 }
@@ -516,7 +519,7 @@ mod tests {
         vhdl_server::semantic_tokens::{ENUM_MEMBER, FUNCTION, MOD_READONLY, PARAMETER, VARIABLE},
     };
 
-    pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
+    pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Uri) {
         let capabilities = ClientCapabilities::default();
 
         #[allow(deprecated)]
@@ -527,7 +530,9 @@ mod tests {
             initialization_options: None,
             capabilities,
             trace: None,
-            workspace_folders: None,
+            workspace_folders_initialize_params: WorkspaceFoldersInitializeParams {
+                workspace_folders: None,
+            },
             client_info: None,
             locale: None,
             work_done_progress_params: WorkDoneProgressParams::default(),
@@ -537,13 +542,13 @@ mod tests {
         server.initialized_notification();
     }
 
-    pub(crate) fn temp_root_uri() -> (tempfile::TempDir, Url) {
+    pub(crate) fn temp_root_uri() -> (tempfile::TempDir, Uri) {
         let tempdir = tempfile::tempdir().unwrap();
-        let root_uri = Url::from_file_path(tempdir.path().canonicalize().unwrap()).unwrap();
+        let root_uri = Uri::from_file_path(tempdir.path().canonicalize().unwrap()).unwrap();
         (tempdir, root_uri)
     }
 
-    pub(crate) fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
+    pub(crate) fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Uri) {
         let file_name = config_uri
             .to_file_path()
             .unwrap()
@@ -598,7 +603,7 @@ end entity ent;
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
                 uri: file_url,
-                language_id: "vhdl".to_owned(),
+                language_id: LanguageKind::new("vhdl"),
                 version: 0,
                 text: code,
             },
@@ -627,7 +632,7 @@ end entity ent2;
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
                 uri: file_url.clone(),
-                language_id: "vhdl".to_owned(),
+                language_id: LanguageKind::new("vhdl"),
                 version: 0,
                 text: code,
             },
@@ -646,8 +651,8 @@ end entity ent2;
                         character: "end entity ent2".len() as u32,
                     },
                 },
-                code: Some(NumberOrString::String("syntax_error".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(Code::String("syntax_error".to_owned())),
+                severity: Some(DiagnosticSeverity::Error),
                 source: Some("vhdl ls".to_owned()),
                 message: "End identifier mismatch, expected ent".to_owned(),
                 ..Default::default()
@@ -668,14 +673,10 @@ end entity ent;
 
         let did_change = DidChangeTextDocumentParams {
             text_document: VersionedTextDocumentIdentifier {
-                uri: file_url.clone(),
+                text_document_identifier: TextDocumentIdentifier::new(file_url.clone()),
                 version: 1,
             },
-            content_changes: vec![TextDocumentContentChangeEvent {
-                range: None,
-                range_length: None,
-                text: code,
-            }],
+            content_changes: vec![TextDocumentContentChangeWholeDocument { text: code }.into()],
         };
 
         let publish_diagnostics = PublishDiagnosticsParams {
@@ -689,16 +690,16 @@ end entity ent;
     }
 
     pub(crate) fn write_file(
-        root_uri: &Url,
+        root_uri: &Uri,
         file_name: impl AsRef<str>,
         contents: impl AsRef<str>,
-    ) -> Url {
+    ) -> Uri {
         let path = root_uri.to_file_path().unwrap().join(file_name.as_ref());
         std::fs::write(&path, contents.as_ref()).unwrap();
-        Url::from_file_path(path).unwrap()
+        Uri::from_file_path(path).unwrap()
     }
 
-    pub(crate) fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
+    pub(crate) fn write_config(root_uri: &Uri, contents: impl AsRef<str>) -> Uri {
         write_file(root_uri, "vhdl_ls.toml", contents)
     }
 
@@ -742,8 +743,8 @@ lib.files = [
                         character: "architecture rtl of ent2".len() as u32,
                     },
                 },
-                code: Some(NumberOrString::String("unresolved".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(Code::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::Error),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
                 ..Default::default()
@@ -839,7 +840,7 @@ lib.files = [
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
                 uri: file_url2.clone(),
-                language_id: "vhdl".to_owned(),
+                language_id: LanguageKind::new("vhdl"),
                 version: 0,
                 text: code2,
             },
@@ -886,7 +887,7 @@ lib.files = [
 
         let register_options = DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![FileSystemWatcher {
-                glob_pattern: GlobPattern::String("**/vhdl_ls.toml".to_owned()),
+                glob_pattern: GlobPattern::Pattern("**/vhdl_ls.toml".to_owned()),
                 kind: None,
             }],
         };
@@ -967,8 +968,8 @@ lib.files = [
                         character: "architecture rtl of ent".len() as u32,
                     },
                 },
-                code: Some(NumberOrString::String("unresolved".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(Code::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::Error),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent\' within library \'lib\'".to_owned(),
                 ..Default::default()
@@ -1007,7 +1008,7 @@ lib.files = [
         );
         server.workspace_did_change_watched_files(&DidChangeWatchedFilesParams {
             changes: vec![FileEvent {
-                typ: FileChangeType::CHANGED,
+                kind: FileChangeType::Changed,
                 uri: config_uri,
             }],
         });
@@ -1057,7 +1058,7 @@ lib.files = [
             .map(|t| (t.token_type, t.modifiers))
     }
 
-    fn get_semantic_tokens(server: &mut VHDLServer, uri: &Url) -> Vec<DecodedToken> {
+    fn get_semantic_tokens(server: &mut VHDLServer, uri: &Uri) -> Vec<DecodedToken> {
         let result = server
             .semantic_tokens_full(&SemanticTokensParams {
                 text_document: TextDocumentIdentifier { uri: uri.clone() },
@@ -1065,10 +1066,7 @@ lib.files = [
                 partial_result_params: Default::default(),
             })
             .expect("semantic tokens result");
-        match result {
-            SemanticTokensResult::Tokens(t) => decode_semantic_tokens(&t.data),
-            _ => panic!("expected full tokens"),
-        }
+        decode_semantic_tokens(&result.data)
     }
 
     #[test]
