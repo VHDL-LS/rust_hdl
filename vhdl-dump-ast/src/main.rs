@@ -25,10 +25,6 @@ struct Args {
     #[arg(short, long, default_value = "false")]
     trivia: bool,
 
-    /// Include source-code location into the dumped AST
-    #[arg(short, long, default_value = "false")]
-    loc: bool,
-
     /// Specify the encoding to use for comments
     #[arg(short, long, default_value = "None")]
     comment_encoding: Option<String>,
@@ -46,13 +42,11 @@ fn serialize(
     format: OutputFormat,
     pretty: bool,
     trivia: bool,
-    loc: bool,
     comment_encoding: String,
 ) -> Result<String, Box<dyn Error>> {
     let serde_flags = SerdeFlags::default()
         .with_comment_encoding(comment_encoding)
-        .include_trivia(trivia)
-        .include_loc(loc);
+        .include_trivia(trivia);
     let serializable_node = node.serialize_with(serde_flags);
     Ok(match (format, pretty) {
         (OutputFormat::Json, false) => serde_json::to_string(&serializable_node)?,
@@ -80,7 +74,6 @@ fn main() {
         args.format,
         !args.no_pretty,
         args.trivia,
-        args.loc,
         args.comment_encoding
             .unwrap_or(DEFAULT_COMMENT_ENCODING.to_string()),
     ) {

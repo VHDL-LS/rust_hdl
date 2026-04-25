@@ -89,8 +89,8 @@ impl fmt::Display for SyntaxToken {
 impl fmt::Display for GreenChild {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Child::Node((_, node)) => write!(f, "{}", node),
-            Child::Token((_, token)) => write!(f, "{}", token),
+            Child::Node(node) => write!(f, "{}", node),
+            Child::Token(token) => write!(f, "{}", token),
         }
     }
 }
