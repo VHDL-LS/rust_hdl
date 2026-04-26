@@ -1409,18 +1409,46 @@ fn parse_abstract_literal(
                 let (integer, mut int_text) = base_result?;
                 base_text.append(&mut int_text);
                 base_text.push(b'#');
-                if (2..=16).contains(&base) {
-                    Ok((
-                        AbstractLiteral,
-                        Value::AbstractLiteral(base_text, ast::AbstractLiteral::Integer(integer)),
-                    ))
-                } else {
-                    Err(TokenError::range(
+                if !(2..=16).contains(&base) {
+                    return Err(TokenError::range(
                         state.pos(),
                         pos_after_initial,
                         format!("Base must be at least 2 and at most 16, got {base}"),
-                    ))
+                    ));
                 }
+                // Optional exponent: value is base ** exp, per LRM 15.5.3
+                let value = if matches!(reader.peek()?, Some(b'e' | b'E')) {
+                    base_text.push(reader.peek()?.unwrap());
+                    reader.skip();
+                    let (exp, mut exp_text) = parse_exponent(reader)?;
+                    base_text.append(&mut exp_text);
+                    if exp < 0 {
+                        return Err(TokenError::range(
+                            state.pos(),
+                            reader.pos(),
+                            "Integer literals may not have negative exponent",
+                        ));
+                    }
+                    match base
+                        .checked_pow(exp as u32)
+                        .and_then(|x| x.checked_mul(integer))
+                    {
+                        Some(v) => v,
+                        None => {
+                            return Err(TokenError::range(
+                                state.pos(),
+                                reader.pos(),
+                                "Integer too large for 64-bit unsigned",
+                            ));
+                        }
+                    }
+                } else {
+                    integer
+                };
+                Ok((
+                    AbstractLiteral,
+                    Value::AbstractLiteral(base_text, ast::AbstractLiteral::Integer(value)),
+                ))
             } else {
                 Err(TokenError::range(
                     state.pos(),
@@ -2692,6 +2720,64 @@ my_other_ident",
                     ast::AbstractLiteral::Integer(0xeeffa)
                 )
             ),]
+        );
+    }
+
+    #[test]
+    fn tokenize_based_integer_with_exponent() {
+        // LRM 15.5.3: exponent is power of base
+        assert_eq!(
+            kind_value_tokenize("16#E#E1"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"16#E#E1"),
+                    ast::AbstractLiteral::Integer(224)
+                )
+            ),]
+        );
+        assert_eq!(
+            kind_value_tokenize("2#1#e4"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2#1#e4"),
+                    ast::AbstractLiteral::Integer(16)
+                )
+            ),]
+        );
+        assert_eq!(
+            kind_value_tokenize("10#5#E+2"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"10#5#E+2"),
+                    ast::AbstractLiteral::Integer(500)
+                )
+            ),]
+        );
+        assert_eq!(
+            kind_value_tokenize("16#FF#E0"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"16#FF#E0"),
+                    ast::AbstractLiteral::Integer(255)
+                )
+            ),]
+        );
+    }
+
+    #[test]
+    fn tokenize_based_integer_negative_exponent() {
+        let code = Code::new("2#1#e-1");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                code.pos(),
+                "Integer literals may not have negative exponent",
+            ))]
         );
     }
 
