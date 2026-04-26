@@ -27,7 +27,7 @@ Shows how to use this crate to build a simple VHDL linter
 
 Showcases the AST rewriting capabilities to change the name of a VHDL entity.
 
-### [source_refactring](./examples/source_refactoring.rs)
+### [source_refactoring](./examples/source_refactoring.rs)
 
 Shows how the library can be used to exchange source code elements that are more
 than just a token.
