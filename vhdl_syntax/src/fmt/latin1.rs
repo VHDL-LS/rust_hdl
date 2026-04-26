@@ -90,8 +90,8 @@ impl ToLatin1 for SyntaxToken {
 impl ToLatin1 for GreenChild {
     fn to_latin1(&self) -> Latin1String {
         match self {
-            Child::Node((_, node)) => node.to_latin1(),
-            Child::Token((_, token)) => token.to_latin1(),
+            Child::Node(node) => node.to_latin1(),
+            Child::Token(token) => token.to_latin1(),
         }
     }
 }

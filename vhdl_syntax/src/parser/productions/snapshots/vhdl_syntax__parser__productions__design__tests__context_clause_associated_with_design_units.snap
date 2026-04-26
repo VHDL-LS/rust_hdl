@@ -10,15 +10,16 @@ DesignFile
         IdentifierList
           Identifier 'lib'
         SemiColon
-      UseClause
-        Keyword(Use)
-        NameList
-          Name
-            Identifier 'lib'
-            SelectedName
-              Dot
-              Identifier 'foo'
-        SemiColon
+      UseClauseContextItem
+        UseClause
+          Keyword(Use)
+          NameList
+            Name
+              Identifier 'lib'
+              SelectedName
+                Dot
+                Identifier 'foo'
+          SemiColon
     EntityDeclaration
       EntityDeclarationPreamble
         Keyword(Entity)

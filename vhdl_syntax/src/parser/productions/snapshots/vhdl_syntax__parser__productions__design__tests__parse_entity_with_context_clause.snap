@@ -10,18 +10,19 @@ DesignFile
         IdentifierList
           Identifier 'ieee'
         SemiColon
-      UseClause
-        Keyword(Use)
-        NameList
-          Name
-            Identifier 'ieee'
-            SelectedName
-              Dot
-              Identifier 'std_logic_1164'
-            SelectedName
-              Dot
-              Keyword(All)
-        SemiColon
+      UseClauseContextItem
+        UseClause
+          Keyword(Use)
+          NameList
+            Name
+              Identifier 'ieee'
+              SelectedName
+                Dot
+                Identifier 'std_logic_1164'
+              SelectedName
+                Dot
+                Keyword(All)
+          SemiColon
     EntityDeclaration
       EntityDeclarationPreamble
         Keyword(Entity)

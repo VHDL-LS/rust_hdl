@@ -64,10 +64,8 @@ pub type SyntaxElement = Child<SyntaxNode, SyntaxToken>;
 impl SyntaxElement {
     pub(crate) fn green(&self) -> GreenChild {
         match self {
-            SyntaxElement::Node(node) => GreenChild::Node((node.offset(), node.green().clone())),
-            SyntaxElement::Token(token) => {
-                GreenChild::Token((token.offset(), token.green().clone()))
-            }
+            SyntaxElement::Node(node) => GreenChild::Node(node.green().clone()),
+            SyntaxElement::Token(token) => GreenChild::Token(token.green().clone()),
         }
     }
 }
@@ -297,30 +295,30 @@ impl SyntaxNode {
     }
 
     pub fn byte_len(&self) -> usize {
-        // TODO: This should be cached on the node
-        self.children_with_tokens()
-            .fold(0, |acc, next| acc + next.byte_len())
+        self.green().byte_len()
     }
 
     pub fn children_with_tokens(
         &self,
     ) -> impl Iterator<Item = Child<SyntaxNode, SyntaxToken>> + use<'_> {
+        let parent_offset = self.offset();
         self.green()
             .children()
             .enumerate()
-            .map(|(i, child)| match child {
-                Child::Token((rel_offset, token)) => Child::Token(SyntaxToken::new(
-                    self.offset() + rel_offset,
-                    i,
-                    self.clone(),
-                    token.clone(),
-                )),
-                Child::Node((rel_offset, node)) => Child::Node(SyntaxNode::new_child(
-                    self.offset() + rel_offset,
-                    i,
-                    self.clone(),
-                    node.clone(),
-                )),
+            .scan(0usize, move |run, (i, child)| {
+                let child_offset = parent_offset + *run;
+                *run += child.byte_len();
+                Some(match child {
+                    Child::Token(t) => {
+                        Child::Token(SyntaxToken::new(child_offset, i, self.clone(), t.clone()))
+                    }
+                    Child::Node(n) => Child::Node(SyntaxNode::new_child(
+                        child_offset,
+                        i,
+                        self.clone(),
+                        n.clone(),
+                    )),
+                })
             })
     }
 
@@ -380,7 +378,7 @@ impl SyntaxNode {
         iter::successors(Some(self.clone()), SyntaxNode::parent)
     }
 
-    pub fn rewrite(&self, rewrite: impl Fn(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
+    pub fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
         Rewriter::new(rewrite).rewrite(self.clone())
     }
 
@@ -493,7 +491,7 @@ mod tests {
     fn no_leading_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(0, token);
+        green_node.push_token(token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().leading_trivia(),
@@ -509,7 +507,7 @@ mod tests {
             Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
         );
         let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(0, token);
+        green_node.push_token(token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().leading_trivia(),
@@ -532,7 +530,7 @@ mod tests {
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_tokens(0, tokens);
+        green_node.push_tokens(tokens);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.tokens().nth(1).unwrap().leading_trivia(),
@@ -544,7 +542,7 @@ mod tests {
     fn no_trailing_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(0, token);
+        green_node.push_token(token);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().trailing_trivia(),
@@ -567,7 +565,7 @@ mod tests {
             ),
         ];
         let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_tokens(0, tokens);
+        green_node.push_tokens(tokens);
         let node = SyntaxNode::new_root(GreenNode::new(green_node));
         assert_eq!(
             node.first_token().unwrap().trailing_trivia(),
@@ -579,7 +577,7 @@ mod tests {
     fn no_rewrite_is_noop() {
         let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(0, orig_tokens.clone());
+        data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite(|_| RewriteAction::Leave);
         let new_tokens = new_node
@@ -592,7 +590,7 @@ mod tests {
     #[test]
     fn rewrite_tokens() {
         let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(0, "entity foo is end foo;".tokenize());
+        data.push_tokens("entity foo is end foo;".tokenize());
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite_tokens(|tok| {
             if tok.text() == "foo" {
@@ -615,7 +613,7 @@ mod tests {
     fn rewrite_does_not_modify_self() {
         let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(0, orig_tokens.clone());
+        data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite_nodes(|node| match node.kind() {
             EntityDeclaration => panic!("Should not modify self"),
@@ -632,25 +630,19 @@ mod tests {
     fn next_token() {
         let mut top = GreenNodeData::new(DesignFile);
         let mut n1 = GreenNodeData::new(EntityDeclaration);
-        n1.push_tokens(
-            0,
-            [
-                Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
-                Token::simple(TokenKind::Identifier, b"foo"),
-            ],
-        );
+        n1.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+            Token::simple(TokenKind::Identifier, b"foo"),
+        ]);
         let n1 = GreenNode::new(n1);
         let mut n2 = GreenNodeData::new(ArchitectureBody);
-        n2.push_tokens(
-            0,
-            [
-                Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
-                Token::simple(TokenKind::Identifier, b"bar"),
-            ],
-        );
+        n2.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
+            Token::simple(TokenKind::Identifier, b"bar"),
+        ]);
         let n2 = GreenNode::new(n2);
 
-        top.push_children([GreenChild::Node((0, n1)), GreenChild::Node((0, n2))]);
+        top.push_children([GreenChild::Node(n1), GreenChild::Node(n2)]);
 
         let s = SyntaxNode::new_root(GreenNode::new(top));
         let first_token = s.first_token().expect("Node must have first token");

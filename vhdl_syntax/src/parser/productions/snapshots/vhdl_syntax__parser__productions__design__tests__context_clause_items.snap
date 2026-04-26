@@ -13,15 +13,16 @@ ContextDeclaration
       IdentifierList
         Identifier 'foo'
       SemiColon
-    UseClause
-      Keyword(Use)
-      NameList
-        Name
-          Identifier 'foo'
-          SelectedName
-            Dot
-            Identifier 'bar'
-      SemiColon
+    UseClauseContextItem
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            Identifier 'foo'
+            SelectedName
+              Dot
+              Identifier 'bar'
+        SemiColon
     ContextReference
       Keyword(Context)
       NameList

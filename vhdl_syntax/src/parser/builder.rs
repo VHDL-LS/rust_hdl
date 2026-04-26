@@ -10,7 +10,6 @@ use crate::tokens::Token;
 
 /// Internal builder used to create nodes when parsing.
 pub(crate) struct NodeBuilder {
-    rel_offset: usize,
     text_len: usize,
     token_index: usize,
     parents: Vec<(NodeKind, usize)>,
@@ -22,7 +21,6 @@ pub(crate) type Checkpoint = usize;
 impl NodeBuilder {
     pub fn new() -> NodeBuilder {
         NodeBuilder {
-            rel_offset: 0,
             text_len: 0,
             token_index: 0,
             parents: Vec::new(),
@@ -32,10 +30,8 @@ impl NodeBuilder {
 
     pub fn push(&mut self, token: Token) {
         let tok_text_len = token.byte_len();
-        let offset = self.rel_offset;
         self.children
-            .push(GreenChild::Token((offset, GreenToken::new(token))));
-        self.rel_offset += tok_text_len;
+            .push(GreenChild::Token(GreenToken::new(token)));
         self.token_index += 1;
         self.text_len += tok_text_len;
     }
@@ -53,15 +49,14 @@ impl NodeBuilder {
         // TODO: This is a required invariant, but enforcing it here is brittle.
         // Instead, we should move to a event-based API for parser <-> builder
         if !data.is_empty() {
-            self.children
-                .push(GreenChild::Node((0, GreenNode::new(data))));
+            self.children.push(GreenChild::Node(GreenNode::new(data)));
         }
     }
 
     pub fn end(mut self) -> GreenNode {
         assert_eq!(self.children.len(), 1);
         match self.children.pop().unwrap() {
-            GreenChild::Node((_, node)) => node,
+            GreenChild::Node(node) => node,
             GreenChild::Token(_) => panic!(),
         }
     }
@@ -92,9 +87,7 @@ impl NodeBuilder {
 
     pub(crate) fn push_node(&mut self, node: GreenNode) {
         let node_len = node.byte_len();
-        let offset = self.rel_offset;
-        self.children.push(GreenChild::Node((offset, node)));
-        self.rel_offset += node_len;
+        self.children.push(GreenChild::Node(node));
         self.text_len += node_len;
     }
 

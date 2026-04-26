@@ -47,22 +47,7 @@ impl GreenToken {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GreenNode(Arc<GreenNodeData>);
 
-impl GreenNode {
-    pub(crate) fn data(&self) -> &GreenNodeData {
-        &self.0
-    }
-}
-
-pub(crate) type GreenChild = Child<(usize, GreenNode), (usize, GreenToken)>;
-
-impl GreenChild {
-    pub fn byte_len(&self) -> usize {
-        match self {
-            GreenChild::Token((_, token)) => token.byte_len(),
-            GreenChild::Node((_, node)) => node.byte_len(),
-        }
-    }
-}
+pub(crate) type GreenChild = Child<GreenNode, GreenToken>;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) struct GreenNodeData {
@@ -70,41 +55,38 @@ pub(crate) struct GreenNodeData {
     kind: NodeKind,
     /// The sub-nodes or token of this node
     children: Vec<GreenChild>,
+    byte_len: usize,
 }
 
 impl GreenNodeData {
-    #[cfg(test)]
-    fn push_child(&mut self, child: GreenChild) {
-        self.children.push(child)
+    pub(crate) fn push(&mut self, child: GreenChild) {
+        self.byte_len += child.byte_len();
+        self.children.push(child);
     }
 
     #[cfg(test)]
-    pub(crate) fn push_token(&mut self, offset: usize, token: Token) {
-        self.push_child(Child::Token((offset, GreenToken::new(token))))
+    pub(crate) fn push_token(&mut self, token: Token) {
+        self.push(Child::Token(GreenToken::new(token)))
     }
 
     #[cfg(test)]
-    pub fn push_tokens(&mut self, offset: usize, tokens: impl IntoIterator<Item = Token>) {
-        let mut new_offset = offset;
+    pub fn push_tokens(&mut self, tokens: impl IntoIterator<Item = Token>) {
         for token in tokens {
-            let tok_len = token.byte_len();
-            self.push_token(new_offset, token);
-            new_offset += tok_len;
+            self.push_token(token);
         }
     }
 
     pub(crate) fn push_children(&mut self, children: impl IntoIterator<Item = GreenChild>) {
-        self.children.extend(children)
-    }
-
-    pub(crate) fn replace_child(&mut self, index: usize, child: GreenChild) {
-        self.children[index] = child;
+        for child in children {
+            self.push(child);
+        }
     }
 
     pub(crate) fn new(kind: NodeKind) -> GreenNodeData {
         GreenNodeData {
             kind,
             children: vec![],
+            byte_len: 0,
         }
     }
 
@@ -113,9 +95,7 @@ impl GreenNodeData {
     }
 
     pub fn byte_len(&self) -> usize {
-        self.children
-            .iter()
-            .fold(0, |acc, next| acc + next.byte_len())
+        self.byte_len
     }
 }
 
@@ -139,8 +119,8 @@ impl GreenNode {
     pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         for child in self.children() {
             match child {
-                Child::Node((_, node)) => node.write_to(writer)?,
-                Child::Token((_, token)) => token.write_to(writer)?,
+                Child::Node(node) => node.write_to(writer)?,
+                Child::Token(token) => token.write_to(writer)?,
             }
         }
         Ok(())
@@ -156,10 +136,10 @@ impl GreenNode {
                 writeln!(&mut w, "{:?}", n.kind())?;
                 for child in n.children() {
                     match child {
-                        Child::Node((_, subnode)) => {
+                        Child::Node(subnode) => {
                             write!(&mut w, "{}", subnode.test_text(indent + 2))?
                         }
-                        Child::Token((_, token)) => {
+                        Child::Token(token) => {
                             write!(&mut w, "{:indent$}", "", indent = indent + 2)?;
                             write!(&mut w, "{:?}", token.kind())?;
                             if matches!(
@@ -188,5 +168,61 @@ impl Child<GreenNode, GreenToken> {
             Child::Token(token) => token.byte_len(),
             Child::Node(node) => node.byte_len(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::syntax::node_kind::NodeKind;
+    use crate::tokens::{Keyword, Token, TokenKind};
+    use pretty_assertions::assert_eq;
+
+    /// Walks a green tree and asserts that every node's cached `byte_len`
+    /// equals the sum of its children's lengths.
+    fn assert_byte_len_consistent(node: &GreenNode) {
+        let mut sum = 0usize;
+        for child in node.children() {
+            sum += child.byte_len();
+            if let Child::Node(n) = child {
+                assert_byte_len_consistent(n);
+            }
+        }
+        assert_eq!(
+            sum,
+            node.byte_len(),
+            "byte_len cache out of sync in {:?}",
+            node.kind()
+        );
+    }
+
+    #[test]
+    fn push_keeps_byte_len_in_sync() {
+        let mut data = GreenNodeData::new(NodeKind::EntityDeclaration);
+        assert_eq!(data.byte_len(), 0);
+        data.push_token(Token::simple(
+            TokenKind::Keyword(Keyword::Entity),
+            b"entity",
+        ));
+        assert_eq!(data.byte_len(), 6);
+        data.push_token(Token::simple(TokenKind::Identifier, b"foo"));
+        assert_eq!(data.byte_len(), 9);
+    }
+
+    #[test]
+    fn nested_byte_len_consistent() {
+        let mut inner = GreenNodeData::new(NodeKind::EntityDeclarationPreamble);
+        inner.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+            Token::simple(TokenKind::Identifier, b"foo"),
+        ]);
+        let inner = GreenNode::new(inner);
+
+        let mut outer = GreenNodeData::new(NodeKind::EntityDeclaration);
+        outer.push(Child::Node(inner));
+        let outer = GreenNode::new(outer);
+
+        assert_byte_len_consistent(&outer);
+        assert_eq!(outer.byte_len(), 9);
     }
 }
