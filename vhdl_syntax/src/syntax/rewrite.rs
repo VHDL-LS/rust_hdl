@@ -21,27 +21,26 @@ pub enum RewriteAction {
 ///
 /// Note that when calling `Rewrite` on a node, the node itself cannot change, only it's children
 /// may.
-pub struct Rewriter<R: Fn(&SyntaxElement) -> RewriteAction> {
+pub struct Rewriter<R: FnMut(&SyntaxElement) -> RewriteAction> {
     rewrite_action: R,
 }
 
-impl<R: Fn(&SyntaxElement) -> RewriteAction> Rewriter<R> {
+impl<R: FnMut(&SyntaxElement) -> RewriteAction> Rewriter<R> {
     pub fn new(rewrite_action: R) -> Self {
         Rewriter { rewrite_action }
     }
 
-    pub fn rewrite(&self, syntax_node: SyntaxNode) -> SyntaxNode {
+    pub fn rewrite(&mut self, syntax_node: SyntaxNode) -> SyntaxNode {
         SyntaxNode::new_root(self.rewrite_node_to_green(syntax_node))
     }
 
-    fn rewrite_node_to_green(&self, syntax_node: SyntaxNode) -> GreenNode {
+    fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> GreenNode {
         let mut new_green_node = GreenNodeData::new(syntax_node.kind());
         for child in syntax_node.children_with_tokens() {
             match (self.rewrite_action)(&child) {
                 RewriteAction::Leave => match child {
                     SyntaxElement::Node(node) => {
-                        new_green_node
-                            .push(GreenChild::Node(self.rewrite_node_to_green(node)));
+                        new_green_node.push(GreenChild::Node(self.rewrite_node_to_green(node)));
                     }
                     SyntaxElement::Token(token) => {
                         new_green_node.push(GreenChild::Token(token.green().clone()));
@@ -93,16 +92,12 @@ impl<R: TokenRewrite> TokenRewriter<R> {
         for child in syntax_node.children_with_tokens() {
             match child {
                 SyntaxElement::Node(node) => {
-                    new_green_node.push(
-                        GreenChild::Node(self.rewrite_node_to_green(node)),
-                    );
+                    new_green_node.push(GreenChild::Node(self.rewrite_node_to_green(node)));
                 }
                 SyntaxElement::Token(tok) => match self.rewrite.token(&tok) {
                     TokenRewriteAction::Keep => {}
                     TokenRewriteAction::Replace(syntax_token) => {
-                        new_green_node.push(
-                            GreenChild::Token(syntax_token.green().clone()),
-                        );
+                        new_green_node.push(GreenChild::Token(syntax_token.green().clone()));
                     }
                 },
             }
@@ -150,8 +145,7 @@ end myent3;
         let root = parse_root(MULTI_ENTITY);
         let new_root = root.rewrite(|el| match el {
             SyntaxElement::Token(tok)
-                if tok.kind() == crate::tokens::TokenKind::Identifier
-                    && tok.text() == "myent2" =>
+                if tok.kind() == crate::tokens::TokenKind::Identifier && tok.text() == "myent2" =>
             {
                 RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"myentX")))
             }

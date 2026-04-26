@@ -54,7 +54,7 @@ where
         Preorder::new(self.raw())
     }
 
-    fn rewrite(&self, rewrite: impl Fn(&SyntaxElement) -> RewriteAction) -> Self {
+    fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> Self {
         let result = self.raw().rewrite(rewrite);
         Self::cast_unchecked(result)
     }

@@ -18,22 +18,18 @@ impl<'a> Serialize for Serializable<'a, GreenChild> {
         S: serde::Serializer,
     {
         match self.inner {
-            Child::Node(node) => {
-                serializer.serialize_newtype_variant(
-                    "Child",
-                    0,
-                    "Node",
-                    &self.new_with_same_flags(node),
-                )
-            }
-            Child::Token(token) => {
-                serializer.serialize_newtype_variant(
-                    "Child",
-                    1,
-                    "Token",
-                    &self.new_with_same_flags(token),
-                )
-            }
+            Child::Node(node) => serializer.serialize_newtype_variant(
+                "Child",
+                0,
+                "Node",
+                &self.new_with_same_flags(node),
+            ),
+            Child::Token(token) => serializer.serialize_newtype_variant(
+                "Child",
+                1,
+                "Token",
+                &self.new_with_same_flags(token),
+            ),
         }
     }
 }

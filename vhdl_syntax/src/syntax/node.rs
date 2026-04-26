@@ -378,7 +378,7 @@ impl SyntaxNode {
         iter::successors(Some(self.clone()), SyntaxNode::parent)
     }
 
-    pub fn rewrite(&self, rewrite: impl Fn(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
+    pub fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
         Rewriter::new(rewrite).rewrite(self.clone())
     }
 
@@ -630,20 +630,16 @@ mod tests {
     fn next_token() {
         let mut top = GreenNodeData::new(DesignFile);
         let mut n1 = GreenNodeData::new(EntityDeclaration);
-        n1.push_tokens(
-            [
-                Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
-                Token::simple(TokenKind::Identifier, b"foo"),
-            ],
-        );
+        n1.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+            Token::simple(TokenKind::Identifier, b"foo"),
+        ]);
         let n1 = GreenNode::new(n1);
         let mut n2 = GreenNodeData::new(ArchitectureBody);
-        n2.push_tokens(
-            [
-                Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
-                Token::simple(TokenKind::Identifier, b"bar"),
-            ],
-        );
+        n2.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
+            Token::simple(TokenKind::Identifier, b"bar"),
+        ]);
         let n2 = GreenNode::new(n2);
 
         top.push_children([GreenChild::Node(n1), GreenChild::Node(n2)]);

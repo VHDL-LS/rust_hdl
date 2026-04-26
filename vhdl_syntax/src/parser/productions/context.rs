@@ -32,7 +32,11 @@ impl Parser {
         self.start_node(NodeKind::ContextClause);
         loop {
             match self.peek_token() {
-                Keyword(Kw::Use) => self.use_clause(),
+                Keyword(Kw::Use) => {
+                    self.start_node(NodeKind::UseClauseContextItem);
+                    self.use_clause();
+                    self.end_node();
+                }
                 Keyword(Kw::Library) => self.library_clause(),
                 Keyword(Kw::Context) => {
                     if !self.next_nth_is(Keyword(Kw::Is), 2) {

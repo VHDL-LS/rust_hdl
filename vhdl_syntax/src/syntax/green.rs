@@ -55,7 +55,7 @@ pub(crate) struct GreenNodeData {
     kind: NodeKind,
     /// The sub-nodes or token of this node
     children: Vec<GreenChild>,
-    byte_len : usize,
+    byte_len: usize,
 }
 
 impl GreenNodeData {
@@ -200,7 +200,10 @@ mod tests {
     fn push_keeps_byte_len_in_sync() {
         let mut data = GreenNodeData::new(NodeKind::EntityDeclaration);
         assert_eq!(data.byte_len(), 0);
-        data.push_token(Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"));
+        data.push_token(Token::simple(
+            TokenKind::Keyword(Keyword::Entity),
+            b"entity",
+        ));
         assert_eq!(data.byte_len(), 6);
         data.push_token(Token::simple(TokenKind::Identifier, b"foo"));
         assert_eq!(data.byte_len(), 9);
@@ -209,12 +212,10 @@ mod tests {
     #[test]
     fn nested_byte_len_consistent() {
         let mut inner = GreenNodeData::new(NodeKind::EntityDeclarationPreamble);
-        inner.push_tokens(
-            [
-                Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
-                Token::simple(TokenKind::Identifier, b"foo"),
-            ],
-        );
+        inner.push_tokens([
+            Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+            Token::simple(TokenKind::Identifier, b"foo"),
+        ]);
         let inner = GreenNode::new(inner);
 
         let mut outer = GreenNodeData::new(NodeKind::EntityDeclaration);
