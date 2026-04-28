@@ -207,8 +207,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                 Design::PackageInstance(region) => AnyEntKind::Design(Design::PackageInstance(
                     self.map_region(parent, mapping, region, scope)?,
                 )),
-                Design::InterfacePackageInstance(region) => {
+                Design::InterfacePackageInstance(map_kind, region) => {
                     AnyEntKind::Design(Design::InterfacePackageInstance(
+                        *map_kind,
                         self.map_region(parent, mapping, region, scope)?,
                     ))
                 }

@@ -662,7 +662,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                                 if let ResolvedName::Design(actual_pkg) = resolved {
                                     let actual_region = match actual_pkg.kind() {
                                         Design::PackageInstance(r)
-                                        | Design::InterfacePackageInstance(r) => Some(r),
+                                        | Design::InterfacePackageInstance(_, r) => Some(r),
                                         _ => None,
                                     };
                                     if let Some(actual_region) = actual_region {

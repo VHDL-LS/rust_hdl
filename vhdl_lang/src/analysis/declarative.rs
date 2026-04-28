@@ -968,10 +968,16 @@ impl<'a> AnalyzeContext<'a, '_> {
                     diagnostics,
                 )?;
 
+                let map_kind = match instance.generic_map.item {
+                    InterfacePackageGenericMapAspect::Map(_) => InterfacePackageMapKind::Map,
+                    InterfacePackageGenericMapAspect::Box => InterfacePackageMapKind::Box,
+                    InterfacePackageGenericMapAspect::Default => InterfacePackageMapKind::Default,
+                };
+
                 vec![self.define(
                     &mut instance.ident,
                     parent,
-                    AnyEntKind::Design(Design::InterfacePackageInstance(package_region)),
+                    AnyEntKind::Design(Design::InterfacePackageInstance(map_kind, package_region)),
                     span,
                 )]
             }
@@ -1284,7 +1290,7 @@ fn get_entity_class(ent: EntRef<'_>) -> Option<EntityClass> {
             Design::PackageBody(..) => None,
             Design::UninstPackage(_, _) => None,
             Design::PackageInstance(_) => None,
-            Design::InterfacePackageInstance(_) => None,
+            Design::InterfacePackageInstance(..) => None,
             Design::Context(_) => None,
         },
         AnyEntKind::View(_) => None,

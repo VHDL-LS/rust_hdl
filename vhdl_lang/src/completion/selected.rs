@@ -61,7 +61,7 @@ fn completions_for_design<'a>(
 ) -> Vec<CompletionItem<'a>> {
     use crate::named_entity::Design::*;
     match design {
-        Package(_, region) | PackageInstance(region) | InterfacePackageInstance(region) => {
+        Package(_, region) | PackageInstance(region) | InterfacePackageInstance(_, region) => {
             completion_items_from_region(root, region)
                 .chain(once(CompletionItem::Keyword(All)))
                 .collect()

@@ -40,7 +40,7 @@ impl<'a> InterfaceEnt<'a> {
             AnyEntKind::InterfaceFile(_) => {
                 Some(InterfaceEnt::File(FileEnt::from_any(ent).unwrap()))
             }
-            AnyEntKind::Design(Design::InterfacePackageInstance(_)) => {
+            AnyEntKind::Design(Design::InterfacePackageInstance(..)) => {
                 Some(InterfaceEnt::Package(DesignEnt::from_any(ent).unwrap()))
             }
             AnyEntKind::Type(Type::Interface) => {
@@ -56,6 +56,10 @@ impl<'a> InterfaceEnt<'a> {
     pub fn has_default(&self) -> bool {
         match self {
             InterfaceEnt::Object(o) => o.kind().has_default,
+            InterfaceEnt::Package(pkg) => match pkg.kind() {
+                Design::InterfacePackageInstance(map_kind, _) => map_kind.has_default(),
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -124,7 +128,7 @@ impl<'a> GpkgInterfaceEnt<'a> {
             AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
                 GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
             ),
-            AnyEntKind::Design(Design::InterfacePackageInstance(_)) => {
+            AnyEntKind::Design(Design::InterfacePackageInstance(..)) => {
                 Some(GpkgInterfaceEnt::Package(DesignEnt::from_any(ent).unwrap()))
             }
             _ => None,

@@ -131,7 +131,7 @@ fn visible_entities_from<'a>(
             completion_items_from_visibility(root, visibility),
         )
         .collect_vec(),
-        PackageInstance(region) | InterfacePackageInstance(region) | Context(region) => {
+        PackageInstance(region) | InterfacePackageInstance(_, region) | Context(region) => {
             completion_items_from_region(root, region).collect_vec()
         }
         Configuration => vec![],

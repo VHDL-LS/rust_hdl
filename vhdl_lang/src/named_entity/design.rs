@@ -13,6 +13,31 @@ use crate::ast::WithRef;
 use crate::named_entity::visibility::Visibility;
 use crate::Diagnostic;
 
+/// LRM 6.5.5: Discriminates the three forms an interface-package's
+/// `generic_map_aspect` may take.
+/// [`crate::ast::InterfacePackageGenericMapAspect`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InterfacePackageMapKind {
+    /// `generic map (a => x, ...)` - fully bound at declaration; the enclosing
+    /// generic clause is the only place the package's generics are associated.
+    Map,
+    /// `generic map (<>)` - unbound; the enclosing entity/package/subprogram's
+    /// instantiation must associate this interface package.
+    Box,
+    /// `generic map (default)` - bound via the named package's default values
+    /// for its generics.
+    Default,
+}
+
+impl InterfacePackageMapKind {
+    /// Returns whether the enclosing instantiation is *not* required to
+    /// associate this interface package - i.e., it is fully bound at the
+    /// declaration site.
+    pub fn has_default(self) -> bool {
+        matches!(self, Self::Map | Self::Default)
+    }
+}
+
 #[derive(Clone)]
 pub enum Design<'a> {
     Entity(Visibility<'a>, Region<'a>),
@@ -34,7 +59,10 @@ pub enum Design<'a> {
     ///     package foo is new bar generic map (<>)
     /// )
     /// ```
-    InterfacePackageInstance(Region<'a>),
+    /// The [`InterfacePackageMapKind`] records which of the three forms of
+    /// `generic_map_aspect` was used; this drives whether the enclosing
+    /// instantiation must associate the interface package.
+    InterfacePackageInstance(InterfacePackageMapKind, Region<'a>),
     Context(Region<'a>),
 }
 
@@ -48,7 +76,7 @@ impl Design<'_> {
             Package(..) => "package",
             PackageBody(..) => "package body",
             UninstPackage(..) => "uninstantiated package",
-            PackageInstance(_) | InterfacePackageInstance(_) => "package instance",
+            PackageInstance(_) | InterfacePackageInstance(..) => "package instance",
             Context(..) => "context",
         }
     }
@@ -88,7 +116,7 @@ impl<'a> DesignEnt<'a> {
         match self.kind() {
             Design::Package(_, ref region)
             | Design::PackageInstance(ref region)
-            | Design::InterfacePackageInstance(ref region) => {
+            | Design::InterfacePackageInstance(_, ref region) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {

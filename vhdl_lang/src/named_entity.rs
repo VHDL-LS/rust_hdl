@@ -20,7 +20,7 @@ pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey, Subprog
 mod object;
 pub use object::{InterfaceMode, Object, ObjectEnt, ObjectInterface, ViewEnt};
 mod design;
-pub use design::{Design, DesignEnt};
+pub use design::{Design, DesignEnt, InterfacePackageMapKind};
 mod attribute;
 pub use attribute::AttributeEnt;
 mod arena;

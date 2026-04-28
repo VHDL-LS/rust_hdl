@@ -679,7 +679,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         }
                         Design::Package(_, ref primary_region)
                         | Design::PackageInstance(ref primary_region)
-                        | Design::InterfacePackageInstance(ref primary_region) => {
+                        | Design::InterfacePackageInstance(_, ref primary_region) => {
                             scope.make_all_potentially_visible(
                                 Some(&name.pos(self.ctx)),
                                 primary_region,

@@ -869,3 +869,38 @@ end architecture;
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+// Regression test for https://github.com/VHDL-LS/rust_hdl/issues/460
+#[test]
+fn interface_package_with_explicit_generic_map_does_not_require_association() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package example_pkg is
+    generic (
+        G_GENERIC   : integer
+    );
+end package;
+
+entity example is
+    generic (
+        package example_pkg is new work.example_pkg
+        generic map (
+            G_GENERIC   => 1
+        )
+    );
+end entity;
+
+architecture rtl of example is
+begin
+
+    inst: entity work.example;
+
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
