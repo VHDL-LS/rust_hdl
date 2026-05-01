@@ -1478,6 +1478,8 @@ dependencies = [
  "predicates",
  "pretty_assertions",
  "rayon",
+ "serde",
+ "serde_json",
  "strum",
  "subst",
  "tempfile",

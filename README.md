@@ -42,6 +42,8 @@ the [Contributors Guide](https://github.com/kraigher/rust_hdl/wiki/Contributor-G
 - Rename symbol
 - Find workspace symbols
 - View/find document symbols
+- View design instantiation hierarchy via the custom requests
+  `vhdl/designHierarchy` and `vhdl/designHierarchyCandidates` (see below)
 
 ## When Installing it from Crate
 
@@ -196,6 +198,65 @@ begin
     -- vhdl_ls on
 end architecture;
 ```
+
+## Design hierarchy (custom LSP requests)
+
+Beyond the standard LSP surface, `vhdl_ls` exposes two custom JSON-RPC
+requests that let an editor render a project's instantiation hierarchy.
+
+### `vhdl/designHierarchyCandidates`
+
+Returns every entity in the project ranked as a top-level candidate. Roots
+(entities with no incoming instantiations) come first, deepest subtree
+first; the rest follow in the same order. Useful for populating a
+"choose top entity" picker.
+
+* Params: none (`{}`).
+* Result:
+  ```json
+  {
+    "candidates": [
+      {
+        "library": "ie",
+        "entity": "gev",
+        "depth": 4,
+        "instanceCount": 0,
+        "isRoot": true,
+        "entityLocation": { "uri": "file:///...", "range": { ... } }
+      }
+    ]
+  }
+  ```
+
+### `vhdl/designHierarchy`
+
+Walks the instantiation tree starting at the given top entity. Component
+instantiations are followed through default binding to the bound entity;
+configuration instantiations appear as leaves; cycles are detected and
+truncated with a note.
+
+* Params: `{ "library": "ie", "entity": "gev" }`.
+* Result: a tree node
+  ```json
+  {
+    "label": null,
+    "entity": "ie.gev",
+    "architecture": "rtl",
+    "kind": "top",
+    "instanceLocation": null,
+    "entityLocation": { "uri": "file:///...", "range": { ... } },
+    "notes": [],
+    "children": [ /* recursive */ ]
+  }
+  ```
+  `kind` is one of `top`, `entity`, `boundComponent`, `unboundComponent`,
+  `configuration`, `unresolved`.
+* Errors: `InvalidRequest` if the library or entity does not exist; the
+  message lists known names.
+
+The same walker is reachable from the `vhdl_lang` CLI via
+`vhdl_lang --config vhdl_ls.toml --hierarchy [LIB.]ENTITY`
+(use `--hierarchy-format json` for machine-readable output).
 
 ## As an LSP-client developer how should I integrate VHDL-LS?
 
