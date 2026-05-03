@@ -163,9 +163,14 @@ PackageInstantiationPreamble: !Sequence
 Signature: !Sequence
   - token: LeftSquare
   - node: Name
-    repeated: True
-    separator: Comma
+    repeated: true
+    optional: true
+  - token: Comma
+    repeated: true
+    optional: true
   - keyword: Return
+    optional: true
   - node: Name
     name: return_type
+    optional: true
   - token: RightSquare

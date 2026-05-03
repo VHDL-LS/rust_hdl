@@ -16,10 +16,7 @@ Assertion: !Sequence
     optional: true
 
 AssertionStatement: !Sequence
-  - token: Identifier
-    name: label
-    optional: true
-  - token: Colon
+  - node: Label
     optional: true
   - node: Assertion
   - token: SemiColon
@@ -43,11 +40,11 @@ CaseStatement: !Sequence
 
 CaseStatementPreamble: !Sequence
   - node: Label
+    optional: true
   - keyword: Case
   - token: Que
     optional: true
   - node: Expression
-    optional: true
   - keyword: Is
 
 CaseStatementEpilogue: !Sequence
@@ -152,10 +149,7 @@ DelayMechanism: !Choice
   - node: InertialDelayMechanism
 
 ExitStatement: !Sequence
-  - token: Identifier
-    name: label
-    optional: true
-  - token: Colon
+  - node: Label
     optional: true
   - keyword: Exit
   - token: Identifier
@@ -194,10 +188,7 @@ IfStatement: !Sequence
   - node: IfStatementEpilogue
 
 IfStatementPreamble: !Sequence
-  - token: Identifier
-    name: if_label
-    optional: true
-  - token: Colon
+  - node: Label
     optional: true
   - keyword: If
   - node: Expression
@@ -278,12 +269,14 @@ ReportStatement: !Sequence
   - node: Expression
     name: severity
     optional: true
+  - token: SemiColon
 
 ReturnStatement: !Sequence
   - node: Label
   - keyword: Return
   - node: Expression
     optional: true
+  - token: SemiColon
 
 SelectedExpressionItem: !Sequence
   - node: Expression
@@ -449,8 +442,10 @@ WaitStatement: !Sequence
 WaveformElement: !Sequence
   - node: Expression
   - keyword: After
+    optional: true
   - node: Expression
     name: time_expression
+    optional: true
 
 WaveformElements: !Sequence
   - node: WaveformElement

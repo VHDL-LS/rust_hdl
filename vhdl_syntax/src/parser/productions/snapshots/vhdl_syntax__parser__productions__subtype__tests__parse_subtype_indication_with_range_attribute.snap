@@ -5,17 +5,17 @@ expression: "to_test_text(Parser::subtype_indication, \"integer range lib.foo.ba
 SubtypeIndication
   Name
     Identifier 'integer'
-  RangeConstraint
-    Keyword(Range)
-    AttributeRange
-      Name
-        Identifier 'lib'
-        SelectedName
-          Dot
-          Identifier 'foo'
-        SelectedName
-          Dot
-          Identifier 'bar'
-        AttributeName
-          Tick
-          Keyword(Range)
+    RangeConstraint
+      Keyword(Range)
+      NameExpression
+        Name
+          Identifier 'lib'
+          SelectedName
+            Dot
+            Identifier 'foo'
+          SelectedName
+            Dot
+            Identifier 'bar'
+          AttributeName
+            Tick
+            Keyword(Range)

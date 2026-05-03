@@ -5,13 +5,22 @@ expression: "to_test_text(Parser::subtype_indication, \"integer_vector(lib.pkg.b
 SubtypeIndication
   Name
     Identifier 'integer_vector'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      Identifier 'lib'
-      Dot
-      Identifier 'pkg'
-      Dot
-      Identifier 'bar'
-      Tick
-      Keyword(Range)
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'lib'
+                  SelectedName
+                    Dot
+                    Identifier 'pkg'
+                  SelectedName
+                    Dot
+                    Identifier 'bar'
+                  AttributeName
+                    Tick
+                    Keyword(Range)
       RightPar

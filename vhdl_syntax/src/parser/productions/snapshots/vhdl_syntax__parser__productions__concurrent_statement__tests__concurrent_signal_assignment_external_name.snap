@@ -24,10 +24,17 @@ ConcurrentSimpleSignalAssignment
       NameExpression
         Name
           Identifier 'bar'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            AbstractLiteral '2'
-            Keyword(To)
-            AbstractLiteral '3'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    BinaryExpression
+                      LiteralExpression
+                        AbstractLiteral '2'
+                      Keyword(To)
+                      LiteralExpression
+                        AbstractLiteral '3'
             RightPar
   SemiColon

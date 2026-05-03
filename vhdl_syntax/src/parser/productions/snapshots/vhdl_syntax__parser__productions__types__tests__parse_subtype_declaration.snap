@@ -9,12 +9,21 @@ SubtypeDeclaration
   SubtypeIndication
     Name
       Identifier 'integer_vector'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        AbstractLiteral '2'
-        Minus
-        AbstractLiteral '1'
-        Keyword(Downto)
-        AbstractLiteral '0'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                BinaryExpression
+                  BinaryExpression
+                    LiteralExpression
+                      AbstractLiteral '2'
+                    Minus
+                    LiteralExpression
+                      AbstractLiteral '1'
+                  Keyword(Downto)
+                  LiteralExpression
+                    AbstractLiteral '0'
         RightPar
   SemiColon

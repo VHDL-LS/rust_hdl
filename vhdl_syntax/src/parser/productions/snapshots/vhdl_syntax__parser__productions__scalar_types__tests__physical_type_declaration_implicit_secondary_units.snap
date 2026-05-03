@@ -7,13 +7,14 @@ FullTypeDeclaration
   Identifier 'phys'
   Keyword(Is)
   PhysicalTypeDefinition
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '15'
+    RangeConstraint
+      Keyword(Range)
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '15'
     Keyword(Units)
     UnitDeclarations
       PrimaryUnitDeclaration

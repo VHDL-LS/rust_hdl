@@ -4,11 +4,20 @@ expression: "name_to_test_text(\"foo(open, arg => open)\")"
 ---
 Name
   Identifier 'foo'
-  RawTokens
+  ParenthesizedName
     LeftPar
-    Keyword(Open)
-    Comma
-    Identifier 'arg'
-    RightArrow
-    Keyword(Open)
+    AssociationList
+      AssociationElement
+        ActualPart
+          ActualPartOpen
+            Keyword(Open)
+      Comma
+      AssociationElement
+        FormalPart
+          Name
+            Identifier 'arg'
+        RightArrow
+        ActualPart
+          ActualPartOpen
+            Keyword(Open)
     RightPar

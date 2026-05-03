@@ -92,11 +92,6 @@ impl Parser {
         self.builder.current_token_index()
     }
 
-    pub(crate) fn skip_to(&mut self, token_index: usize) {
-        assert!(token_index >= self.token_index());
-        self.skip_n(token_index - self.token_index());
-    }
-
     pub(crate) fn expect_token(&mut self, kind: TokenKind) {
         if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
             self.builder.push(token);
@@ -216,13 +211,6 @@ impl Parser {
 
     pub(crate) fn end(self) -> (GreenNode, Vec<ParserDiagnostic>) {
         (self.builder.end(), self.diagnostics)
-    }
-
-    pub(crate) fn lookahead<const N: usize>(
-        &mut self,
-        kinds: [TokenKind; N],
-    ) -> Result<(TokenKind, usize), (LookaheadError, usize)> {
-        self.lookahead_max_token_index_skip_n(usize::MAX, 0, kinds)
     }
 
     pub(crate) fn lookahead_max_token_index<const N: usize>(

@@ -5,11 +5,15 @@ expression: "expr_to_test_text(\"foo'(others => '1')\")"
 NameExpression
   Name
     Identifier 'foo'
-    AttributeName
+    QualifiedTail
       Tick
-    RawTokens
-      LeftPar
-      Keyword(Others)
-      RightArrow
-      CharacterLiteral ''1''
-      RightPar
+      Aggregate
+        LeftPar
+        ElementAssociation
+          Choices
+            OthersChoice
+              Keyword(Others)
+          RightArrow
+          LiteralExpression
+            CharacterLiteral ''1''
+        RightPar

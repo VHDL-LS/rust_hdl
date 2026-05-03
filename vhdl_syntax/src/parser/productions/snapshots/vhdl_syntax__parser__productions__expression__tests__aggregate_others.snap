@@ -6,7 +6,8 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      Keyword(Others)
+      OthersChoice
+        Keyword(Others)
     RightArrow
     LiteralExpression
       AbstractLiteral '1'

@@ -834,7 +834,7 @@ def print_rules(rules: dict[str, Rule]):
         print(f"{rule}\n")
 
 if __name__ == "__main__":
-    with open("productions.txt") as infile:
+    with open("../doc/productions.txt") as infile:
         text = infile.read()
 
     tokenizer = Tokenizer(text)

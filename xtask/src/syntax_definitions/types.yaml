@@ -4,10 +4,6 @@ AccessTypeDefinition: !Sequence
   - keyword: Access
   - node: SubtypeIndication
 
-ArrayConstraint: !Sequence
-  - node: IndexConstraint
-  - node: Constraint
-
 ArrayTypeDefinition: !Choice
   - node: UnboundedArrayDefinition
   - node: ConstrainedArrayDefinition
@@ -22,22 +18,22 @@ ConstrainedArrayDefinition: !Sequence
   - keyword: Of
   - node: SubtypeIndication
 
-Direction: !Choice
-  - keyword: To
-  - keyword: Downto
-
-SubtypeIndicationDiscreteDiscreteRange: !Sequence
-  - node: SubtypeIndication
-
-SubtypeIndicationDiscreteRange: !Sequence
-  - node: Range
+# Supertype of `expression` and `subtype_indication`: a non-`open` discrete
+# range is an optional resolution indication followed by an expression. The
+# trailing expression covers both `expression` (e.g. `1 to N`) and the
+# `name [range_constraint]` of a subtype indication (e.g. `T range 1 to N`),
+# because `name` accepts a `RangeConstraint` tail and `to`/`downto` are
+# binary operators.
+DiscreteRangeNormal: !Sequence
+  - node: ResolutionIndication
+    optional: true
+  - node: Expression
 
 OpenDiscreteRange: !Sequence
   - keyword: Open
 
 DiscreteRange: !Choice
-  - node: SubtypeIndicationDiscreteDiscreteRange
-  - node: SubtypeIndicationDiscreteRange
+  - node: DiscreteRangeNormal
   - node: OpenDiscreteRange
 
 ElementDeclaration: !Sequence
@@ -46,6 +42,9 @@ ElementDeclaration: !Sequence
   - node: SubtypeIndication
   - token: SemiColon
 
+# LRM elements are `enumeration_literal` (identifier or character_literal).
+# We reuse `DiscreteRange` here so the parser can share its parenthesized-list
+# code with `IndexConstraint`; analysis rejects non-literal elements.
 EnumerationTypeDefinition: !Sequence
   - token: LeftPar
   - node: DiscreteRange
@@ -134,35 +133,11 @@ ProtectedTypeDefinition: !Choice
   - node: ProtectedTypeDeclaration
   - node: ProtectedTypeBody
 
-RangeExpression: !Sequence
-  - node: Expression
-    name: lhs
-  - node: Direction
-  - node: Expression
-    name: rhs
-
-AttributeRange: !Sequence
-  - node: Name
-
-Range: !Choice
-  - node: AttributeRange
-  - node: RangeExpression
-
+# `to`/`downto` are now `BinaryOperator`s, so an `a to b` range parses as a
+# `BinaryExpression`. `range_constraint` therefore takes a plain expression.
 RangeConstraint: !Sequence
   - keyword: Range
-  - node: Range
-
-RecordConstraint: !Sequence
-  - token: LeftPar
-  - node: RecordElementConstraint
-    repeated: true
-  - token: Comma
-    repeated: true
-  - token: RightPar
-
-RecordElementConstraint: !Sequence
-  - node: Name
-  - node: Constraint
+  - node: Expression
 
 RecordTypeDefinition: !Sequence
   - node: RecordTypeDefinitionPreamble

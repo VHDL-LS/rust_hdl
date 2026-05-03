@@ -6,12 +6,14 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      LiteralExpression
-        AbstractLiteral '1'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '1'
     RightArrow
     LiteralExpression
       AbstractLiteral '2'
   Comma
-  LiteralExpression
-    AbstractLiteral '3'
+  ElementAssociation
+    LiteralExpression
+      AbstractLiteral '3'
   RightPar

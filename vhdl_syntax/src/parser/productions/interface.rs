@@ -129,6 +129,9 @@ impl Parser {
 
     pub fn interface_procedure_specification(&mut self) {
         self.start_node(InterfaceProcedureSpecification);
+        self.expect_kw(Kw::Procedure);
+        self.designator();
+        self.opt_parameter_list();
         self.end_node();
     }
 
@@ -248,7 +251,7 @@ impl Parser {
             self.formal_part();
             self.expect_token(RightArrow);
         }
-        self.actual_part_bounded(max_index);
+        self.actual_part();
 
         self.end_node();
     }
@@ -260,10 +263,33 @@ impl Parser {
         self.end_node();
     }
 
-    fn actual_part_bounded(&mut self, max_index: usize) {
+    fn actual_part(&mut self) {
+        // actual_part        ::= actual_part_prefix actual_part_suffix
+        // actual_part_prefix ::= [ "inertial" ] [ resolution_indication ]
+        // actual_part_suffix ::= expression | "open"
+        //
+        // The LRM forms `name "(" actual_designator ")"` and
+        // `type_mark "(" actual_designator ")"` collapse into the suffix
+        // expression because `Name` accepts a `ParenthesizedName` tail.
         self.start_node(ActualPart);
-        // Parsing of `actual_part` would boil down to `name | expression | subtype_indication`
-        self.skip_to(max_index);
+
+        self.start_node(ActualPartPrefix);
+        self.opt_token(Keyword(Kw::Inertial));
+        self.opt_resolution_indication();
+        self.end_node();
+
+        // `ActualPartSuffix` is a Choice with no NodeKind of its own; we emit
+        // the chosen variant directly.
+        if self.next_is(Keyword(Kw::Open)) {
+            self.start_node(ActualPartOpen);
+            self.skip();
+            self.end_node();
+        } else {
+            self.start_node(ActualPartExpression);
+            self.expression();
+            self.end_node();
+        }
+
         self.end_node();
     }
 }

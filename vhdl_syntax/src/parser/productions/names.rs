@@ -101,13 +101,15 @@ impl Parser {
     }
 
     fn opt_name_tail_bounded(&mut self, max_index: usize) -> bool {
-        // name             ::= prefix [ name_tail ] ;
-        // name_tail        ::= selected_name | attribute_name | indexed_name | slice_name | function_name ;
-        // selected_name    ::= `.` suffix [ name_tail ] ;
-        // attribute_name   ::= [ signature ] `'` identifier [ `(` expression `)` ] [ name_tail ] ;
-        // function_name    ::= `(` association_list `)` [ name_tail ] ;
-        // indexed_name     ::= `(` expression { `,` expression } `)` [ name_tail ] ;
-        // slice_name       ::= `(` discrete_range `)` [ name_tail ] ;
+        // name      ::= name_prefix { name_tail } ;
+        // name_tail ::= selected_name
+        //             | parenthesized_name      // (assoc_list) — covers indexed/slice/call/conversion
+        //             | attribute_name          // [signature] ' identifier
+        //             | range_constraint        // range expression
+        //             | qualified_tail          // ' aggregate
+        //
+        // The grammar is intentionally broader than the LRM's separate
+        // indexed/slice/function/conversion forms; analysis disambiguates.
 
         if self.next_is(Dot) {
             self.start_node(SelectedName);
@@ -116,8 +118,6 @@ impl Parser {
             self.end_node();
             self.opt_name_tail_bounded(max_index)
         } else if self.next_is(LeftPar) {
-            // Instead of trying to differentiate between `subtype_indication`, `association_list`, a list of `expression`s and a `discrete_range`
-            // put all tokens inside the parenthesis in a `RawTokens` node.
             let end_index_opt =
                 match self.lookahead_max_token_index_skip_n(max_index, 1, [RightPar]) {
                     Ok((_, end_index)) => Some(end_index),
@@ -129,10 +129,12 @@ impl Parser {
                     Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
                 };
 
-            if let Some(end_index) = end_index_opt {
-                self.start_node(RawTokens);
+            if end_index_opt.is_some() {
+                self.start_node(ParenthesizedName);
                 self.expect_token(LeftPar);
-                self.skip_to(end_index);
+                if !self.next_is(RightPar) {
+                    self.association_list();
+                }
                 self.expect_token(RightPar);
                 self.end_node();
 
@@ -140,41 +142,31 @@ impl Parser {
             } else {
                 false
             }
+        } else if self.next_is(Keyword(Kw::Range)) && !self.next_nth_is(BOX, 1) {
+            // `range <>` belongs to an `IndexSubtypeDefinition`, not a
+            // `range_constraint` on the name (BOX is not an expression).
+            self.range_constraint();
+            self.opt_name_tail_bounded(max_index)
         } else if is_start_of_attribute_name(self) {
-            self.start_node(AttributeName);
-            if self.next_is(LeftSquare) {
-                self.signature();
-            }
-            self.expect_token(Tick);
-
-            // Enable qualified expressions
-            if !self.next_is(LeftPar) {
-                // Either an identifier or a keyword (e.g., `range`, `subtype`, e.t.c.)
+            // `'(...)` is a qualified expression tail (T'(expr) or T'(others=>x)),
+            // distinct from `'identifier` which is an attribute name.
+            if self.next_is(Tick) && self.next_nth_is(LeftPar, 1) {
+                self.start_node(QualifiedTail);
+                self.expect_token(Tick);
+                self.aggregate();
+                self.end_node();
+            } else {
+                self.start_node(AttributeName);
+                if self.next_is(LeftSquare) {
+                    self.signature();
+                }
+                self.expect_token(Tick);
+                // Either an identifier or a keyword (e.g., `range`, `subtype`).
                 if matches!(self.peek_token(), Keyword(_) | Identifier) {
                     self.skip();
                 }
+                self.end_node();
             }
-
-            if self.next_is(LeftPar) {
-                let end_index_opt = match self.lookahead_max_token_index(max_index, [RightPar]) {
-                    Ok((_, end_index)) => Some(end_index),
-                    Err((LookaheadError::MaxIndexReached, _)) => None,
-                    // Skip parsing of the parenthesized group, if EOF is reached
-                    Err((LookaheadError::Eof, _)) => None,
-                    // This error is only possible, when a `RightPar` is found before any token in `kinds`.
-                    // Since `RightPar` is in `kinds` that's not possible!
-                    Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
-                };
-                if end_index_opt.is_some() {
-                    self.start_node(ParenthesizedExpressionOrAggregate);
-                    self.expect_token(LeftPar);
-                    self.association_list();
-                    self.expect_token(RightPar);
-                    self.end_node();
-                }
-                // TODO: Error
-            }
-            self.end_node();
             self.opt_name_tail_bounded(max_index)
         } else {
             false
@@ -258,17 +250,18 @@ impl Parser {
     }
 
     pub fn choice(&mut self) {
-        if self.opt_token(Keyword(Kw::Others)) {
+        if self.next_is(Keyword(Kw::Others)) {
+            self.start_node(OthersChoice);
+            self.skip();
+            self.end_node();
             return;
         }
-        let checkpoint = self.checkpoint();
-        self.expression(); // TODO: can also be discrete range
-        if self.next_is_one_of([Keyword(Kw::To), Keyword(Kw::Downto)]) {
-            self.skip();
-            self.start_node_at(checkpoint, RangeExpression);
-            self.expression();
-            self.end_node();
-        }
+        // `expression` now subsumes the old `range` (`to`/`downto` are binary
+        // operators); `choice = expression | discrete_range | others` collapses
+        // to "either an expression or `others`" at the parser level.
+        self.start_node(ExpressionChoice);
+        self.expression();
+        self.end_node();
     }
 }
 

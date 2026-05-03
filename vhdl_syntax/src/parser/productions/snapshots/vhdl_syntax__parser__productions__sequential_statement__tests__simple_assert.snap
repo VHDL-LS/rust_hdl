@@ -3,8 +3,9 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "to_test_text(Parser::assert_statement, \"assert false;\")"
 ---
 AssertionStatement
-  Keyword(Assert)
-  NameExpression
-    Name
-      Identifier 'false'
+  Assertion
+    Keyword(Assert)
+    NameExpression
+      Name
+        Identifier 'false'
   SemiColon

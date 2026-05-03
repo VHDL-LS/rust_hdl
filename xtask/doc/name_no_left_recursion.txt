@@ -185,3 +185,16 @@ choice ::= simple_expression | discrete_range | identifier | `others`;
 record_element_resolution ::= identifier resolution_indication;
 
 actual_designator ::= [ `inertial` ] expression | name | subtype_indication | `open`;
+
+
+name ::= prefix { rest }
+
+rest ::= selected_name | attribute_name | parenthesized_name;
+
+selected_name ::= `.` suffix
+
+signature_name ::= signature
+
+attribute_name ::= `'` identifier [ `(` expression `)` ]
+
+parenthesized_name ::= `(` association_element { `,` association_element } `)`

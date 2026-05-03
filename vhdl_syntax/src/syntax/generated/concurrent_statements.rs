@@ -293,10 +293,7 @@ impl AstNode for ParenthesizedExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -612,10 +609,7 @@ impl AstNode for CaseGenerateStatementPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -1310,10 +1304,7 @@ impl AstNode for ConcurrentSelectedSignalAssignmentPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -1854,10 +1845,7 @@ impl AstNode for IfGenerateElsifSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -2078,10 +2066,7 @@ impl AstNode for IfGenerateStatementPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -2287,24 +2272,6 @@ impl AstNode for EntityInstantiatedUnitSyntax {
                 name: "name",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "right_par",
-                kind: LayoutItemKind::Token(TokenKind::RightPar),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -2323,24 +2290,6 @@ impl EntityInstantiatedUnitSyntax {
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftPar)
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -2504,8 +2453,8 @@ impl AstNode for ProcessStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                name: "sequential_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
             },
             LayoutItem {
                 optional: false,
@@ -2541,10 +2490,10 @@ impl ProcessStatementSyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
+            .filter_map(SequentialStatementsSyntax::cast)
             .nth(0)
     }
     pub fn process_statement_epilogue(&self) -> Option<ProcessStatementEpilogueSyntax> {

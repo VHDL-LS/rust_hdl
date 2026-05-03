@@ -6,19 +6,23 @@ BinaryExpression
   NameExpression
     Name
       Identifier 'mark0'
-      AttributeName
+      QualifiedTail
         Tick
-      RawTokens
-        LeftPar
-        AbstractLiteral '0'
-        RightPar
+        Aggregate
+          LeftPar
+          ElementAssociation
+            LiteralExpression
+              AbstractLiteral '0'
+          RightPar
   LT
   NameExpression
     Name
       Identifier 'mark1'
-      AttributeName
+      QualifiedTail
         Tick
-      RawTokens
-        LeftPar
-        AbstractLiteral '1'
-        RightPar
+        Aggregate
+          LeftPar
+          ElementAssociation
+            LiteralExpression
+              AbstractLiteral '1'
+          RightPar

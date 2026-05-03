@@ -13,9 +13,14 @@ ProcessStatement
         Comma
         Name
           Identifier 'vec'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            AbstractLiteral '1'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    LiteralExpression
+                      AbstractLiteral '1'
             RightPar
       RightPar
     Keyword(Is)

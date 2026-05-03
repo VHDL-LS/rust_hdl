@@ -37,7 +37,9 @@ SubprogramHeader
             Identifier 'x'
         RightArrow
         ActualPart
-          AbstractLiteral '2'
+          ActualPartExpression
+            LiteralExpression
+              AbstractLiteral '2'
       Comma
       AssociationElement
         FormalPart
@@ -45,5 +47,7 @@ SubprogramHeader
             Identifier 'y'
         RightArrow
         ActualPart
-          AbstractLiteral '0.4'
+          ActualPartExpression
+            LiteralExpression
+              AbstractLiteral '0.4'
     RightPar

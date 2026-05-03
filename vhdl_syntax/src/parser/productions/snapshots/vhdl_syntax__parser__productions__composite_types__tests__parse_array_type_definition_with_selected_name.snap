@@ -10,12 +10,16 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      RawTokens
-        Identifier 'lib'
-        Dot
-        Identifier 'pkg'
-        Dot
-        Identifier 'foo'
+      DiscreteRangeNormal
+        NameExpression
+          Name
+            Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'pkg'
+            SelectedName
+              Dot
+              Identifier 'foo'
       RightPar
     Keyword(Of)
     SubtypeIndication

@@ -6,8 +6,9 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      LiteralExpression
-        AbstractLiteral '1'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '1'
     RightArrow
     LiteralExpression
       AbstractLiteral '2'

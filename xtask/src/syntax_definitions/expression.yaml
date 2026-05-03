@@ -4,6 +4,7 @@ Literal: !Choice
   - token: BitStringLiteral
   - token: CharacterLiteral
   - token: StringLiteral
+  - token: AbstractLiteral
   - keyword: "Null"
 
 ParenthesizedExpressionOrAggregate: !Sequence
@@ -47,6 +48,7 @@ BinaryOperator: !Choice
   - token: GTE
   - token: QueEQ
   - token: QueNE
+  - token: QueLTE
   - token: QueLT
   - token: QueGT
   - token: QueGTE
@@ -64,6 +66,11 @@ BinaryOperator: !Choice
   - keyword: Mod
   - keyword: Rem
   - token: Pow
+  # `to`/`downto` are folded into `BinaryOperator` so an `a to b` range
+  # parses as a `BinaryExpression`, removing the need for a separate `range`
+  # production.
+  - keyword: To
+  - keyword: Downto
 
 BinaryExpression: !Sequence
   - node: Expression
@@ -82,6 +89,9 @@ PhysicalLiteralExpression: !Sequence
 NameExpression: !Sequence
   - node: Name
 
+# `QualifiedExpression` (`T'(expr)`) and `TypeConversion` (`T(expr)`) are
+# reached via `NameExpression`: `Name` has a `QualifiedTail` and a
+# `ParenthesizedName` tail that produce both forms.
 Expression: !Choice
   - node: LiteralExpression
   - node: PhysicalLiteralExpression
@@ -89,8 +99,6 @@ Expression: !Choice
   - node: BinaryExpression
   - node: ParenthesizedExpressionOrAggregate
   - node: Allocator
-  - node: QualifiedExpression
-  - node: TypeConversion
   - node: NameExpression
 
 Aggregate: !Sequence
@@ -101,17 +109,13 @@ Aggregate: !Sequence
     repeated: true
   - token: RightPar
 
-SubtypeIndicationAllocator: !Sequence
+# LRM has `new subtype_indication | new qualified_expression`. Both are unified
+# here: `qualified_expression` is reachable as a `Name` with a qualified tail,
+# and `SubtypeIndication = [resolution_indication] Name`, so a single
+# `new subtype_indication` covers both forms.
+Allocator: !Sequence
   - keyword: New
   - node: SubtypeIndication
-
-ExpressionAllocator: !Sequence
-  - keyword: New
-  - node: Expression
-
-Allocator: !Choice
-  - node: SubtypeIndicationAllocator
-  - node: ExpressionAllocator
 
 OthersChoice: !Sequence
   - keyword: Others
@@ -134,17 +138,8 @@ Choices: !Sequence
     repeated: true
 
 ElementAssociation: !Sequence
-  - node: Choice
+  - node: Choices
+    optional: true
   - token: RightArrow
+    optional: true
   - node: Expression
-
-QualifiedExpression: !Sequence
-  - node: Name
-  - token: Tick
-  - node: Expression
-
-TypeConversion: !Sequence
-  - node: Name
-  - token: LeftPar
-  - node: Expression
-  - token: RightPar

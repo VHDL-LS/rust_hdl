@@ -14,8 +14,14 @@ use std::num::NonZeroU8;
 
 fn binary_precedence(token: TokenKind) -> Option<NonZeroU8> {
     Some(match token {
+        // `to`/`downto` were a separate `range` production in the LRM; folding
+        // them into the operator table lets `range_constraint` accept any
+        // expression and reuse precedence climbing.
+        Keyword(Kw::To | Kw::Downto) => nonzero!(1u8),
         Keyword(Kw::And | Kw::Or | Kw::Nand | Kw::Nor | Kw::Xor | Kw::Xnor) => nonzero!(2u8),
-        EQ | NE | LT | LTE | GT | GTE | QueEQ | QueNE | QueLT | QueGT | QueGTE => nonzero!(3u8),
+        EQ | NE | LT | LTE | GT | GTE | QueEQ | QueNE | QueLT | QueLTE | QueGT | QueGTE => {
+            nonzero!(3u8)
+        }
         Keyword(Kw::Sll | Kw::Srl | Kw::Sla | Kw::Sra | Kw::Rol | Kw::Ror) => nonzero!(4u8),
         Plus | Minus | Concat => nonzero!(5u8),
         Times | Div | Keyword(Kw::Mod | Kw::Rem) => nonzero!(7u8),
@@ -67,7 +73,7 @@ impl Parser {
     }
 
     pub fn allocator(&mut self) {
-        self.start_node(ExpressionAllocator);
+        self.start_node(Allocator);
         self.expect_kw(Kw::New);
         self.subtype_indication();
         self.end_node();

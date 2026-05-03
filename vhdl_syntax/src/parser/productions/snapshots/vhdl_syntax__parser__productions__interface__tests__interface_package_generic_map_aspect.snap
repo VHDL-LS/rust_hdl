@@ -25,5 +25,8 @@ InterfacePackageDeclaration
               Identifier 'foo'
           RightArrow
           ActualPart
-            Identifier 'bar'
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'bar'
     RightPar

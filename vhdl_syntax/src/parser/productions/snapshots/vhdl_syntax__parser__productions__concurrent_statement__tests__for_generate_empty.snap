@@ -11,10 +11,13 @@ ForGenerateStatement
     ParameterSpecification
       Identifier 'idx'
       Keyword(In)
-      RawTokens
-        AbstractLiteral '0'
-        Keyword(To)
-        AbstractLiteral '1'
+      DiscreteRangeNormal
+        BinaryExpression
+          LiteralExpression
+            AbstractLiteral '0'
+          Keyword(To)
+          LiteralExpression
+            AbstractLiteral '1'
     Keyword(Generate)
   ForGenerateStatementEpilogue
     Keyword(End)

@@ -4,9 +4,16 @@ expression: "name_to_test_text(\"prefix(3 downto 0)\")"
 ---
 Name
   Identifier 'prefix'
-  RawTokens
+  ParenthesizedName
     LeftPar
-    AbstractLiteral '3'
-    Keyword(Downto)
-    AbstractLiteral '0'
+    AssociationList
+      AssociationElement
+        ActualPart
+          ActualPartExpression
+            BinaryExpression
+              LiteralExpression
+                AbstractLiteral '3'
+              Keyword(Downto)
+              LiteralExpression
+                AbstractLiteral '0'
     RightPar

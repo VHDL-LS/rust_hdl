@@ -5,21 +5,50 @@ expression: "to_test_text(Parser::subtype_indication,\n\"axi_m2s_t(tdata(2-1 dow
 SubtypeIndication
   Name
     Identifier 'axi_m2s_t'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      Identifier 'tdata'
-      LeftPar
-      AbstractLiteral '2'
-      Minus
-      AbstractLiteral '1'
-      Keyword(Downto)
-      AbstractLiteral '0'
-      RightPar
-      Comma
-      Identifier 'tuser'
-      LeftPar
-      AbstractLiteral '3'
-      Keyword(To)
-      AbstractLiteral '5'
-      RightPar
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'tdata'
+                  ParenthesizedName
+                    LeftPar
+                    AssociationList
+                      AssociationElement
+                        ActualPart
+                          ActualPartExpression
+                            BinaryExpression
+                              BinaryExpression
+                                LiteralExpression
+                                  AbstractLiteral '2'
+                                Minus
+                                LiteralExpression
+                                  AbstractLiteral '1'
+                              Keyword(Downto)
+                              LiteralExpression
+                                AbstractLiteral '0'
+                    RightPar
+        Comma
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'tuser'
+                  ParenthesizedName
+                    LeftPar
+                    AssociationList
+                      AssociationElement
+                        ActualPart
+                          ActualPartExpression
+                            BinaryExpression
+                              LiteralExpression
+                                AbstractLiteral '3'
+                              Keyword(To)
+                              LiteralExpression
+                                AbstractLiteral '5'
+                    RightPar
       RightPar

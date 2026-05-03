@@ -7,13 +7,14 @@ FullTypeDeclaration
   Identifier 'dec_t'
   Keyword(Is)
   PhysicalTypeDefinition
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '1e10'
+    RangeConstraint
+      Keyword(Range)
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '1e10'
     Keyword(Units)
     UnitDeclarations
       PrimaryUnitDeclaration

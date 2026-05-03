@@ -325,17 +325,182 @@ impl UseClauseDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ActualPartPrefixSyntax(pub(crate) SyntaxNode);
+impl AstNode for ActualPartPrefixSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ActualPartPrefix,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "inertial",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Inertial)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "resolution_indication",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::NameResolutionIndication,
+                    NodeKind::ParenthesizedElementResolutionResolutionIndication,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ActualPartPrefixSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ActualPartPrefixSyntax {
+    pub fn inertial_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Inertial))
+            .nth(0)
+    }
+    pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(ResolutionIndicationSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ActualPartExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ActualPartExpressionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ActualPartExpression,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "expression",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::LiteralExpression,
+                NodeKind::PhysicalLiteralExpression,
+                NodeKind::UnaryExpression,
+                NodeKind::BinaryExpression,
+                NodeKind::ParenthesizedExpressionOrAggregate,
+                NodeKind::Allocator,
+                NodeKind::NameExpression,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ActualPartExpressionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ActualPartExpressionSyntax {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ActualPartOpenSyntax(pub(crate) SyntaxNode);
+impl AstNode for ActualPartOpenSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ActualPartOpen,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "open",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ActualPartOpenSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ActualPartOpenSyntax {
+    pub fn open_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum ActualPartSuffixSyntax {
+    ActualPartExpression(ActualPartExpressionSyntax),
+    ActualPartOpen(ActualPartOpenSyntax),
+}
+impl AstNode for ActualPartSuffixSyntax {
+    const META: &'static Layout = &Layout::Choice(Choice {
+        options: &[NodeKind::ActualPartExpression, NodeKind::ActualPartOpen],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        if ActualPartExpressionSyntax::can_cast(&node) {
+            return ActualPartSuffixSyntax::ActualPartExpression(
+                ActualPartExpressionSyntax::cast_unchecked(node),
+            );
+        }
+        if ActualPartOpenSyntax::can_cast(&node) {
+            return ActualPartSuffixSyntax::ActualPartOpen(ActualPartOpenSyntax::cast_unchecked(
+                node,
+            ));
+        }
+        unreachable!(
+            "cast_unchecked called with unexpected node kind {:?}",
+            node.kind()
+        )
+    }
+    fn raw(&self) -> SyntaxNode {
+        match self {
+            ActualPartSuffixSyntax::ActualPartExpression(inner) => inner.raw(),
+            ActualPartSuffixSyntax::ActualPartOpen(inner) => inner.raw(),
+        }
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ActualPartSyntax(pub(crate) SyntaxNode);
 impl AstNode for ActualPartSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::ActualPart,
-        items: &[],
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "actual_part_prefix",
+                kind: LayoutItemKind::Node(NodeKind::ActualPartPrefix),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "actual_part_suffix",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::ActualPartExpression,
+                    NodeKind::ActualPartOpen,
+                ]),
+            },
+        ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ActualPartSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
+    }
+}
+impl ActualPartSyntax {
+    pub fn actual_part_prefix(&self) -> Option<ActualPartPrefixSyntax> {
+        self.0
+            .children()
+            .filter_map(ActualPartPrefixSyntax::cast)
+            .nth(0)
+    }
+    pub fn actual_part_suffix(&self) -> Option<ActualPartSuffixSyntax> {
+        self.0
+            .children()
+            .filter_map(ActualPartSuffixSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -885,10 +1050,7 @@ impl AstNode for ConstantDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -946,74 +1108,6 @@ impl ConstantDeclarationSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct RangeConstraintConstraintSyntax(pub(crate) SyntaxNode);
-impl AstNode for RangeConstraintConstraintSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::RangeConstraintConstraint,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "range_constraint",
-            kind: LayoutItemKind::Node(NodeKind::RangeConstraint),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        RangeConstraintConstraintSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl RangeConstraintConstraintSyntax {
-    pub fn range_constraint(&self) -> Option<RangeConstraintSyntax> {
-        self.0
-            .children()
-            .filter_map(RangeConstraintSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub enum ConstraintSyntax {
-    RangeConstraintConstraint(RangeConstraintConstraintSyntax),
-    ArrayConstraint(ArrayConstraintSyntax),
-    RecordConstraint(RecordConstraintSyntax),
-}
-impl AstNode for ConstraintSyntax {
-    const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[
-            NodeKind::RangeConstraintConstraint,
-            NodeKind::ArrayConstraint,
-            NodeKind::RecordConstraint,
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        if RangeConstraintConstraintSyntax::can_cast(&node) {
-            return ConstraintSyntax::RangeConstraintConstraint(
-                RangeConstraintConstraintSyntax::cast_unchecked(node),
-            );
-        }
-        if ArrayConstraintSyntax::can_cast(&node) {
-            return ConstraintSyntax::ArrayConstraint(ArrayConstraintSyntax::cast_unchecked(node));
-        }
-        if RecordConstraintSyntax::can_cast(&node) {
-            return ConstraintSyntax::RecordConstraint(RecordConstraintSyntax::cast_unchecked(
-                node,
-            ));
-        }
-        unreachable!(
-            "cast_unchecked called with unexpected node kind {:?}",
-            node.kind()
-        )
-    }
-    fn raw(&self) -> SyntaxNode {
-        match self {
-            ConstraintSyntax::RangeConstraintConstraint(inner) => inner.raw(),
-            ConstraintSyntax::ArrayConstraint(inner) => inner.raw(),
-            ConstraintSyntax::RecordConstraint(inner) => inner.raw(),
-        }
     }
 }
 #[derive(Debug, Clone)]
@@ -1314,10 +1408,7 @@ impl AstNode for FileOpenInformationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -1337,10 +1428,7 @@ impl AstNode for FileOpenInformationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -1374,74 +1462,16 @@ impl FileOpenInformationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ParenthesizedNameSyntax(pub(crate) SyntaxNode);
-impl AstNode for ParenthesizedNameSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ParenthesizedName,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "right_par",
-                kind: LayoutItemKind::Token(TokenKind::RightPar),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ParenthesizedNameSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ParenthesizedNameSyntax {
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftPar)
-            .nth(0)
-    }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct FormalPartSyntax(pub(crate) SyntaxNode);
 impl AstNode for FormalPartSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::FormalPart,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "parenthesized_name",
-                kind: LayoutItemKind::Node(NodeKind::ParenthesizedName),
-            },
-        ],
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "name",
+            kind: LayoutItemKind::Node(NodeKind::Name),
+        }],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FormalPartSyntax(node)
@@ -1453,12 +1483,6 @@ impl AstNode for FormalPartSyntax {
 impl FormalPartSyntax {
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn parenthesized_name(&self) -> Option<ParenthesizedNameSyntax> {
-        self.0
-            .children()
-            .filter_map(ParenthesizedNameSyntax::cast)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -1762,43 +1786,6 @@ impl GenericMapAspectSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct GroupConstituentListSyntax(pub(crate) SyntaxNode);
-impl AstNode for GroupConstituentListSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::GroupConstituentList,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "names",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        GroupConstituentListSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl GroupConstituentListSyntax {
-    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
-        self.0.children().filter_map(NameSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct GroupDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for GroupDeclarationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -1827,24 +1814,6 @@ impl AstNode for GroupDeclarationSyntax {
                 repeated: false,
                 name: "name",
                 kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "group_constituent_list",
-                kind: LayoutItemKind::Node(NodeKind::GroupConstituentList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "right_par",
-                kind: LayoutItemKind::Token(TokenKind::RightPar),
             },
             LayoutItem {
                 optional: false,
@@ -1882,24 +1851,6 @@ impl GroupDeclarationSyntax {
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftPar)
-            .nth(0)
-    }
-    pub fn group_constituent_list(&self) -> Option<GroupConstituentListSyntax> {
-        self.0
-            .children()
-            .filter_map(GroupConstituentListSyntax::cast)
-            .nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
-            .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -2061,10 +2012,7 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -2344,12 +2292,6 @@ impl AstNode for InterfaceIncompleteTypeDeclarationSyntax {
                 name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -2370,12 +2312,6 @@ impl InterfaceIncompleteTypeDeclarationSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2509,12 +2445,6 @@ impl AstNode for InterfacePackageDeclarationSyntax {
                 name: "interface_package_generic_map_aspect",
                 kind: LayoutItemKind::Node(NodeKind::InterfacePackageGenericMapAspect),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -2548,12 +2478,6 @@ impl InterfacePackageDeclarationSyntax {
         self.0
             .children()
             .filter_map(InterfacePackageGenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -2831,28 +2755,10 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
                 ]),
             },
             LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "parameter",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Parameter)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-            LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "interface_list",
-                kind: LayoutItemKind::Node(NodeKind::InterfaceList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "right_par",
-                kind: LayoutItemKind::Token(TokenKind::RightPar),
+                name: "parameter_list",
+                kind: LayoutItemKind::Node(NodeKind::ParameterList),
             },
         ],
     });
@@ -2873,28 +2779,10 @@ impl InterfaceProcedureSpecificationSyntax {
     pub fn designator(&self) -> Option<DesignatorSyntax> {
         self.0.tokens().filter_map(DesignatorSyntax::cast).nth(0)
     }
-    pub fn parameter_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Parameter))
-            .nth(0)
-    }
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftPar)
-            .nth(0)
-    }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn parameter_list(&self) -> Option<ParameterListSyntax> {
         self.0
             .children()
-            .filter_map(InterfaceListSyntax::cast)
-            .nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
+            .filter_map(ParameterListSyntax::cast)
             .nth(0)
     }
 }
@@ -2962,18 +2850,9 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
     });
@@ -3027,12 +2906,6 @@ impl InterfaceSignalDeclarationSyntax {
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
 }
 #[derive(Debug, Clone)]
 pub struct InterfaceSubprogramDeclarationSyntax(pub(crate) SyntaxNode);
@@ -3064,12 +2937,6 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
                     NodeKind::InterfaceSubprogramDefaultBox,
                 ]),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -3098,12 +2965,6 @@ impl InterfaceSubprogramDeclarationSyntax {
         self.0
             .children()
             .filter_map(InterfaceSubprogramDefaultSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -3290,18 +3151,9 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
     });
@@ -3348,12 +3200,6 @@ impl InterfaceVariableDeclarationSyntax {
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -3885,10 +3731,7 @@ impl AstNode for SignalDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -4055,7 +3898,7 @@ impl AstNode for SubtypeIndicationSyntax {
         kind: NodeKind::SubtypeIndication,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "resolution_indication",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -4234,10 +4077,7 @@ impl AstNode for VariableDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },
@@ -4349,10 +4189,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
                 ]),
             },

@@ -7,9 +7,16 @@ WaveformElements
     NameExpression
       Name
         Identifier 'bar'
-        RawTokens
+        ParenthesizedName
           LeftPar
-          AbstractLiteral '1'
-          Keyword(To)
-          AbstractLiteral '3'
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  BinaryExpression
+                    LiteralExpression
+                      AbstractLiteral '1'
+                    Keyword(To)
+                    LiteralExpression
+                      AbstractLiteral '3'
           RightPar

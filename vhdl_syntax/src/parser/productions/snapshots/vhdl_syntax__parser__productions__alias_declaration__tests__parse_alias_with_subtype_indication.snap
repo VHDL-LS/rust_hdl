@@ -9,11 +9,18 @@ AliasDeclaration
   SubtypeIndication
     Name
       Identifier 'vector'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        AbstractLiteral '0'
-        Keyword(To)
-        AbstractLiteral '1'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                BinaryExpression
+                  LiteralExpression
+                    AbstractLiteral '0'
+                  Keyword(To)
+                  LiteralExpression
+                    AbstractLiteral '1'
         RightPar
   Keyword(Is)
   Name

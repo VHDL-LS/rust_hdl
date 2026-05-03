@@ -22,10 +22,19 @@ SimpleVariableAssignment
   NameExpression
     Name
       Identifier 'bar'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        AbstractLiteral '1'
-        Comma
-        AbstractLiteral '2'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '1'
+          Comma
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '2'
         RightPar
   SemiColon

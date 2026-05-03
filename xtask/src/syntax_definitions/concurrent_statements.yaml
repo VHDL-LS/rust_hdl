@@ -85,6 +85,8 @@ ComponentInstantiationItems: !Sequence
   - node: PortMapAspect
     optional: true
 
+# A procedure with zero arguments (`proc_call: foo;`) and a component instantiation (`inst: cmp;`) without generic / port
+# maps are indistinguishable.
 ConcurrentProcedureCallOrComponentInstantiationStatement: !Sequence
   - node: Label
     optional: true
@@ -261,15 +263,11 @@ ComponentInstantiatedUnit: !Sequence
     optional: true
   - node: Name
 
+# LRM has `"entity" name [ "(" identifier ")" ]`. The `(identifier)`
+# architecture-disambiguation is absorbed as a `ParenthesizedName` tail.
 EntityInstantiatedUnit: !Sequence
   - keyword: Entity
   - node: Name
-  - token: LeftPar
-    optional: true
-  - token: Identifier
-    optional: true
-  - token: RightPar
-    optional: true
 
 ConfigurationInstantiatedUnit: !Sequence
   - keyword: Configuration
@@ -293,7 +291,7 @@ ProcessStatement: !Sequence
   - node: Declarations
     optional: true
   - node: DeclarationStatementSeparator
-  - node: ConcurrentStatements
+  - node: SequentialStatements
     optional: true
   - node: ProcessStatementEpilogue
 

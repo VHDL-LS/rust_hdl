@@ -6,11 +6,13 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      LiteralExpression
-        AbstractLiteral '1'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '1'
       Bar
-      LiteralExpression
-        AbstractLiteral '2'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '2'
     RightArrow
     LiteralExpression
       AbstractLiteral '3'

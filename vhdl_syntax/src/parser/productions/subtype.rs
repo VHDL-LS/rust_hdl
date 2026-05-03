@@ -61,27 +61,45 @@ impl Parser {
     }
 
     pub fn subtype_indication(&mut self) {
+        // subtype_indication ::= [resolution_indication] name
+        // Constraints (range/index/record) are now `NameTail`s on the type-mark
+        // `Name`, so no separate constraint slot is needed here.
         self.start_node(SubtypeIndication);
         if self.next_is(LeftPar) {
             self.resolution_indication();
+            self.name();
         } else {
+            // Bare-name `resolution_indication` is only detectable when a
+            // second name follows. Take a checkpoint, parse the first name,
+            // and if another name follows wrap the first retroactively as a
+            // `NameResolutionIndication`.
+            let checkpoint = self.checkpoint();
             self.name();
+            if is_start_of_name(self) {
+                self.start_node_at(checkpoint, NameResolutionIndication);
+                self.end_node();
+                self.name();
+            }
         }
-        if is_start_of_name(self) {
-            self.name();
-        }
-        self.opt_constraint();
         self.end_node();
     }
 
-    fn opt_constraint(&mut self) {
-        if self.next_is(Keyword(Kw::Range)) {
-            self.start_node(RangeConstraint);
-            self.skip();
-            self.range();
-            self.end_node();
+    pub(crate) fn opt_resolution_indication(&mut self) {
+        if self.next_is(LeftPar) {
+            self.resolution_indication();
         }
-        // all other constraints are handled by `name`
+        // The leading-name form of `resolution_indication` is indistinguishable
+        // from a bare type-mark name and is resolved by analysis.
+    }
+
+    /// `range_constraint ::= "range" expression`. `to`/`downto` are binary
+    /// operators in the expression grammar, so the old `range` production is
+    /// gone and the constraint body is just an expression.
+    pub fn range_constraint(&mut self) {
+        self.start_node(RangeConstraint);
+        self.expect_kw(Kw::Range);
+        self.expression();
+        self.end_node();
     }
 }
 

@@ -9,9 +9,14 @@ ConcurrentSelectedSignalAssignment
       NameExpression
         Name
           Identifier 'x'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            AbstractLiteral '0'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    LiteralExpression
+                      AbstractLiteral '0'
             RightPar
       Plus
       LiteralExpression
@@ -20,9 +25,14 @@ ConcurrentSelectedSignalAssignment
   NameTarget
     Name
       Identifier 'foo'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        AbstractLiteral '0'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '0'
         RightPar
   LTE
   TransportDelayMechanism
@@ -34,11 +44,20 @@ ConcurrentSelectedSignalAssignment
           NameExpression
             Name
               Identifier 'bar'
-              RawTokens
+              ParenthesizedName
                 LeftPar
-                AbstractLiteral '1'
-                Comma
-                AbstractLiteral '2'
+                AssociationList
+                  AssociationElement
+                    ActualPart
+                      ActualPartExpression
+                        LiteralExpression
+                          AbstractLiteral '1'
+                  Comma
+                  AssociationElement
+                    ActualPart
+                      ActualPartExpression
+                        LiteralExpression
+                          AbstractLiteral '2'
                 RightPar
           Keyword(After)
           PhysicalLiteral
@@ -47,9 +66,11 @@ ConcurrentSelectedSignalAssignment
               Identifier 'ns'
       Keyword(When)
       Choices
-        LiteralExpression
-          AbstractLiteral '0'
+        ExpressionChoice
+          LiteralExpression
+            AbstractLiteral '0'
         Bar
-        LiteralExpression
-          AbstractLiteral '1'
+        ExpressionChoice
+          LiteralExpression
+            AbstractLiteral '1'
   SemiColon

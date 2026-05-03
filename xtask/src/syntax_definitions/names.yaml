@@ -3,18 +3,16 @@
 AbsolutePathname: !Sequence
   - token: Dot
   - node: PartialPathname
-    optional: true
 
+# `(expression)` after the attribute designator becomes a separate
+# `ParenthesizedName` tail on the enclosing `Name`. The signature brackets
+# are also a name tail position; analysis associates them with this attribute.
 AttributeName: !Sequence
-  - token: LeftSquare
   - node: Signature
-  - token: RightSquare
+    optional: true
   - token: Tick
   - token: Identifier
     name: attribute_designator_token
-  - token: LeftPar
-  - node: Expression
-  - token: RightPar
 
 ExternalName: !Choice
   - node: ExternalConstantName
@@ -113,9 +111,26 @@ SelectedName: !Sequence
   - token: Dot
   - node: Suffix
 
+# Indexed names, slice names, function calls, type conversions, and the
+# `group_constituent_list` of a group declaration all collapse to this
+# parenthesized association list. Analysis decides which one it is.
+ParenthesizedName: !Sequence
+  - token: LeftPar
+  - node: AssociationList
+    optional: true
+  - token: RightPar
+
+# `T'(expr)` qualified expression as a name tail.
+QualifiedTail: !Sequence
+  - token: Tick
+  - node: Aggregate
+
+# `RangeConstraint` appears here so the constraint of a `subtype_indication`
+# (e.g. `integer range 1 to 10`) parses as a `Name` followed by a tail —
+# see the comment on `SubtypeIndication`.
 NameTail: !Choice
   - node: SelectedName
-  - node: RawTokens
+  - node: ParenthesizedName
   - node: AttributeName
-
-RawTokens: !RawTokens
+  - node: RangeConstraint
+  - node: QualifiedTail

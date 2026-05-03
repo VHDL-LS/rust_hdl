@@ -6,12 +6,13 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      RangeExpression
-        LiteralExpression
-          AbstractLiteral '1'
-        Keyword(To)
-        LiteralExpression
-          AbstractLiteral '0'
+      ExpressionChoice
+        BinaryExpression
+          LiteralExpression
+            AbstractLiteral '1'
+          Keyword(To)
+          LiteralExpression
+            AbstractLiteral '0'
     RightArrow
     LiteralExpression
       AbstractLiteral '2'

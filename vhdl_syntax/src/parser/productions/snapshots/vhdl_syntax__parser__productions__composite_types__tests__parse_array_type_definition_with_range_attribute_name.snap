@@ -10,10 +10,13 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      RawTokens
-        Identifier 'arr_t'
-        Tick
-        Keyword(Range)
+      DiscreteRangeNormal
+        NameExpression
+          Name
+            Identifier 'arr_t'
+            AttributeName
+              Tick
+              Keyword(Range)
       RightPar
     Keyword(Of)
     SubtypeIndication

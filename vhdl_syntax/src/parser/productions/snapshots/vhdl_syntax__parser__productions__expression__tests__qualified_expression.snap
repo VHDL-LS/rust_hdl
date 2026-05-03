@@ -5,11 +5,15 @@ expression: "expr_to_test_text(\"foo'(1+2)\")"
 NameExpression
   Name
     Identifier 'foo'
-    AttributeName
+    QualifiedTail
       Tick
-    RawTokens
-      LeftPar
-      AbstractLiteral '1'
-      Plus
-      AbstractLiteral '2'
-      RightPar
+      Aggregate
+        LeftPar
+        ElementAssociation
+          BinaryExpression
+            LiteralExpression
+              AbstractLiteral '1'
+            Plus
+            LiteralExpression
+              AbstractLiteral '2'
+        RightPar

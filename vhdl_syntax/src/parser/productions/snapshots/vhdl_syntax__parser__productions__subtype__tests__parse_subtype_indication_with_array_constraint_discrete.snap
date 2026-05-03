@@ -5,11 +5,19 @@ expression: "to_test_text(Parser::subtype_indication, \"integer_vector(lib.foo.b
 SubtypeIndication
   Name
     Identifier 'integer_vector'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      Identifier 'lib'
-      Dot
-      Identifier 'foo'
-      Dot
-      Identifier 'bar'
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'lib'
+                  SelectedName
+                    Dot
+                    Identifier 'foo'
+                  SelectedName
+                    Dot
+                    Identifier 'bar'
       RightPar

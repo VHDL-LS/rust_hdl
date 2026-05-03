@@ -27,6 +27,9 @@ ComponentInstantiationStatement
               Identifier 'clk'
           RightArrow
           ActualPart
-            Identifier 'clk_foo'
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'clk_foo'
       RightPar
   SemiColon

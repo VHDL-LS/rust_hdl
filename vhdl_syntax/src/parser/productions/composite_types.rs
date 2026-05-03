@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 /// Parsing of composite types (LRM §5.3)
-use crate::parser::{util::LookaheadError, Parser};
+use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
@@ -75,33 +75,21 @@ impl Parser {
     }
 
     pub fn discrete_range(&mut self) {
-        // One of the following tokens must follow after a `discrete_range`.
-        //    FOLLOW(discrete_range) := "," | ")" | "|" | "=>" | "generate" | "loop" | ";"
-        let end_of_range = match self.lookahead([
-            Comma,
-            RightPar,
-            RightArrow,
-            Bar,
-            Keyword(Kw::Generate),
-            Keyword(Kw::Loop),
-            SemiColon,
-        ]) {
-            Ok((tok, end_index)) => Some((tok, end_index)),
-            // If EOF is reached, the range cannot be parsed correctly
-            Err((LookaheadError::Eof, _)) => {
-                self.eof_err();
-                None
+        // discrete_range        ::= discrete_range_normal | open_discrete_range
+        // discrete_range_normal ::= [ resolution_indication ] expression
+        //
+        // -`1 to N` parses as `BinaryExpression` (as opposed to the LRM, `to`/`downto` are binary operators)
+        // - `T range 1 to N` parses as a `Name`
+        if self.next_is(Keyword(Kw::Open)) {
+            self.start_node(OpenDiscreteRange);
+            self.skip();
+            self.end_node();
+        } else {
+            self.start_node(DiscreteRangeNormal);
+            self.opt_resolution_indication();
+            if !self.next_is_one_of([Comma, Bar, RightArrow, RightPar, Keyword(Kw::Generate), Keyword(Kw::Loop)]) {
+                self.expression();
             }
-            // Since we use `usize::MAX` as a maximum index, this error is not possible!
-            Err((LookaheadError::MaxIndexReached, _)) => unreachable!(),
-            // This error is only possible, when a `RightPar` is found before any token in `kinds`.
-            // Since `RightPar` is in `kinds` that's not possible!
-            Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
-        };
-
-        if let Some((_, end_index)) = end_of_range {
-            self.start_node(RawTokens);
-            self.skip_to(end_index);
             self.end_node();
         }
     }

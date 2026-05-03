@@ -5,7 +5,11 @@ expression: "to_test_text(Parser::subtype_indication, \"integer_vector(open)\")"
 SubtypeIndication
   Name
     Identifier 'integer_vector'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      Keyword(Open)
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartOpen
+              Keyword(Open)
       RightPar

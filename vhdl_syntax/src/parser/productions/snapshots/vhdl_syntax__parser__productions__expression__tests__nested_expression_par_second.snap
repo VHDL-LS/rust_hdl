@@ -8,10 +8,11 @@ BinaryExpression
   Plus
   ParenthesizedExpressionOrAggregate
     LeftPar
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '2'
-      Plus
-      LiteralExpression
-        AbstractLiteral '3'
+    ElementAssociation
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '2'
+        Plus
+        LiteralExpression
+          AbstractLiteral '3'
     RightPar

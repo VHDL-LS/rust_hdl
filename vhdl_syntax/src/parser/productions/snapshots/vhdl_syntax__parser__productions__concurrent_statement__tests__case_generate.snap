@@ -12,9 +12,14 @@ CaseGenerateStatement
       NameExpression
         Name
           Identifier 'expr'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            AbstractLiteral '0'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    LiteralExpression
+                      AbstractLiteral '0'
             RightPar
       Plus
       LiteralExpression
@@ -23,11 +28,13 @@ CaseGenerateStatement
   CaseGenerateAlternative
     Keyword(When)
     Choices
-      LiteralExpression
-        AbstractLiteral '1'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '1'
       Bar
-      LiteralExpression
-        AbstractLiteral '2'
+      ExpressionChoice
+        LiteralExpression
+          AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
       ConcurrentStatements
@@ -45,16 +52,23 @@ CaseGenerateStatement
   CaseGenerateAlternative
     Keyword(When)
     Choices
-      Keyword(Others)
+      OthersChoice
+        Keyword(Others)
     RightArrow
     GenerateStatementBody
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
             Identifier 'foo'
-            RawTokens
+            ParenthesizedName
               LeftPar
-              Identifier 'clk'
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      NameExpression
+                        Name
+                          Identifier 'clk'
               RightPar
           SemiColon
   CaseGenerateStatementEpilogue

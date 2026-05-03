@@ -9,9 +9,16 @@ InterfaceConstantDeclaration
   SubtypeIndication
     Name
       Identifier 'std_ulogic_vector'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        AbstractLiteral '31'
-        Keyword(Downto)
-        AbstractLiteral '0'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                BinaryExpression
+                  LiteralExpression
+                    AbstractLiteral '31'
+                  Keyword(Downto)
+                  LiteralExpression
+                    AbstractLiteral '0'
         RightPar
