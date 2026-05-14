@@ -333,9 +333,7 @@ impl Code {
         &self.pos.source
     }
 
-    fn tokenize_result_raw(
-        &self,
-    ) -> (Vec<Token>, Vec<Diagnostic>, Vec<Comment>, usize) {
+    fn tokenize_result_raw(&self) -> (Vec<Token>, Vec<Diagnostic>, Vec<Comment>, usize) {
         let mut tokens = Vec::new();
         let mut diagnostics = Vec::new();
         let final_comments: Vec<Comment>;

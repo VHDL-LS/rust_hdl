@@ -1874,10 +1874,8 @@ impl<'a> Tokenizer<'a> {
                     if let Some(msg) = warning {
                         let start = self.state.start.pos();
                         let end = self.reader.pos();
-                        self.diagnostics.push(Diagnostic::syntax_error(
-                            self.source.pos(start, end),
-                            msg,
-                        ));
+                        self.diagnostics
+                            .push(Diagnostic::syntax_error(self.source.pos(start, end), msg));
                     }
                     (kind, value)
                 }
@@ -2405,10 +2403,7 @@ my_other_ident",
         assert_eq!(
             diagnostics,
             vec![
-                Diagnostic::syntax_error(
-                    code.s1("€"),
-                    "Found invalid latin-1 character '€'",
-                ),
+                Diagnostic::syntax_error(code.s1("€"), "Found invalid latin-1 character '€'",),
                 Diagnostic::syntax_error(
                     code.s1("\u{1F4A3}"),
                     "Found invalid latin-1 character '\u{1F4A3}'",
