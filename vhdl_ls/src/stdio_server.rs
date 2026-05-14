@@ -248,6 +248,44 @@ impl ConnectionRpcChannel {
             Err(request) => request,
         };
 
+        // Custom request: vhdl/designHierarchyCandidates
+        if request.method == "vhdl/designHierarchyCandidates" {
+            let id = request.id.clone();
+            let response = server.design_hierarchy_candidates();
+            self.send_response(lsp_server::Response::new_ok(id, response));
+            return;
+        }
+
+        // Custom request: vhdl/designHierarchy
+        if request.method == "vhdl/designHierarchy" {
+            use crate::vhdl_server::hierarchy::DesignHierarchyParams;
+            let id = request.id.clone();
+            let params: DesignHierarchyParams = match serde_json::from_value(request.params) {
+                Ok(p) => p,
+                Err(err) => {
+                    self.send_response(lsp_server::Response::new_err(
+                        id,
+                        lsp_server::ErrorCode::InvalidParams as i32,
+                        format!("Invalid params for vhdl/designHierarchy: {err}"),
+                    ));
+                    return;
+                }
+            };
+            match server.design_hierarchy(&params) {
+                Ok(tree) => {
+                    self.send_response(lsp_server::Response::new_ok(id, tree));
+                }
+                Err(err) => {
+                    self.send_response(lsp_server::Response::new_err(
+                        id,
+                        lsp_server::ErrorCode::InvalidRequest as i32,
+                        format!("{err}"),
+                    ));
+                }
+            }
+            return;
+        }
+
         debug!("Unhandled request: {request:?}");
         self.send_response(lsp_server::Response::new_err(
             request.id,

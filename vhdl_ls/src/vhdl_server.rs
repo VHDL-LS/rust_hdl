@@ -6,6 +6,7 @@
 
 mod completion;
 mod diagnostics;
+pub(crate) mod hierarchy;
 mod lifecycle;
 mod rename;
 pub(crate) mod semantic_tokens;

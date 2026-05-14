@@ -364,6 +364,32 @@ impl Project {
     pub fn entity_id_from_raw(&self, raw: usize) -> Option<EntityId> {
         self.root.entity_id_from_raw(raw)
     }
+
+    /// Compute the design instantiation hierarchy starting at `library.entity`.
+    pub fn design_hierarchy(
+        &self,
+        library_name: &str,
+        entity_name: &str,
+    ) -> Result<crate::DesignHierarchyNode, crate::HierarchyError> {
+        crate::compute_design_hierarchy(&self.root, library_name, entity_name)
+    }
+
+    /// Enumerate every entity in the design with its instance count and
+    /// subtree depth, ranked roots-first / deepest-first.
+    pub fn design_hierarchy_candidates(&self) -> Vec<crate::TopCandidate> {
+        crate::list_top_candidates(&self.root)
+    }
+
+    /// Sorted list of library names known to the project.
+    pub fn library_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .root
+            .libraries()
+            .map(|lib| lib.name().name_utf8())
+            .collect();
+        names.sort();
+        names
+    }
 }
 
 /// Multiply cloneable value by cloning

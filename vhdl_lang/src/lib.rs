@@ -25,6 +25,7 @@ mod syntax;
 
 mod completion;
 mod formatting;
+mod hierarchy;
 mod standard;
 
 pub use crate::config::{Case, Config};
@@ -46,4 +47,8 @@ pub use crate::syntax::{
 };
 
 pub use completion::{list_completion_options, CompletionItem};
+pub use hierarchy::{
+    compute_design_hierarchy, list_top_candidates, DesignHierarchyNode, HierarchyError,
+    HierarchyKind, TopCandidate,
+};
 pub use standard::VHDLStandard;
