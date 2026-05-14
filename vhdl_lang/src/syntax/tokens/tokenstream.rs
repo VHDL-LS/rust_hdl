@@ -71,6 +71,9 @@ impl<'a> TokenStream<'a> {
                 Err(err) => diagnostics.push(err),
             }
         }
+        for diag in tokenizer.take_diagnostics() {
+            diagnostics.push(diag);
+        }
         TokenStream {
             tokenizer,
             idx: Cell::new(0),
