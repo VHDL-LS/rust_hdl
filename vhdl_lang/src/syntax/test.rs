@@ -333,8 +333,11 @@ impl Code {
         &self.pos.source
     }
 
-    fn tokenize_result_raw(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>, usize) {
+    fn tokenize_result_raw(
+        &self,
+    ) -> (Vec<Token>, Vec<Diagnostic>, Vec<Comment>, usize) {
         let mut tokens = Vec::new();
+        let mut diagnostics = Vec::new();
         let final_comments: Vec<Comment>;
         let mut dropped_tokens: usize = 0;
         {
@@ -347,42 +350,47 @@ impl Code {
             let reader = ContentReader::new(&contents);
             let mut tokenizer = Tokenizer::new(&self.symbols, &source, reader);
             loop {
-                let token = tokenizer.pop();
-
-                match token {
+                match tokenizer.pop() {
                     Ok(None) => break,
                     Ok(Some(token)) => {
                         if token.pos.start() >= self.pos.start() {
-                            tokens.push(Ok(token));
+                            tokens.push(token);
                         } else {
                             dropped_tokens += 1;
                         }
                     }
-                    Err(err) => tokens.push(Err(err)),
+                    Err(err) => diagnostics.push(err),
                 }
             }
+            diagnostics.extend(tokenizer.take_diagnostics());
             match tokenizer.get_final_comments() {
                 Some(comments) => final_comments = comments,
                 None => panic!("Tokenizer failed to check for final comments."),
             }
         }
-        (tokens, final_comments, dropped_tokens)
+        (tokens, diagnostics, final_comments, dropped_tokens)
     }
 
-    /// Helper method to test tokenization functions
-    pub fn tokenize_result(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>) {
-        let (tokens, final_comments, _) = self.tokenize_result_raw();
-        (tokens, final_comments)
+    /// Helper method to test tokenization functions. Returns the produced
+    /// tokens, any diagnostics emitted during tokenization, and final
+    /// (file-level) comments.
+    pub fn tokenize_result(&self) -> (Vec<Token>, Vec<Diagnostic>, Vec<Comment>) {
+        let (tokens, diagnostics, final_comments, _) = self.tokenize_result_raw();
+        (tokens, diagnostics, final_comments)
     }
 
     /// Tokenize and check that there are no errors, ignore final comments
     pub fn tokenize(&self) -> Vec<Token> {
-        let tokens = self.tokenize_result().0;
-        tokens.into_iter().map(|tok| tok.unwrap()).collect()
+        let (tokens, diagnostics, _) = self.tokenize_result();
+        assert!(
+            diagnostics.is_empty(),
+            "expected no tokenizer diagnostics, got {diagnostics:?}",
+        );
+        tokens
     }
 
     pub fn token_span(&self) -> TokenSpan {
-        let (tokens, _, dropped_tokens) = self.tokenize_result_raw();
+        let (tokens, _, _, dropped_tokens) = self.tokenize_result_raw();
         let start_token = TokenId::new(dropped_tokens);
         let end_token = TokenId::new(dropped_tokens + tokens.len() - 1);
         TokenSpan::new(start_token, end_token)

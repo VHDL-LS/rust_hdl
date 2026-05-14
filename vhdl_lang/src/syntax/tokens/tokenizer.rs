@@ -1567,9 +1567,8 @@ fn parse_basic_identifier_or_keyword(
     buffer: &mut Latin1String,
     reader: &mut ContentReader<'_>,
     symbols: &Symbols,
-) -> Result<(Kind, Value), TokenError> {
+) -> Result<(Kind, Value, Option<&'static str>), TokenError> {
     buffer.bytes.clear();
-    let start = reader.pos();
     while let Some(b) = reader.peek()? {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
@@ -1582,10 +1581,9 @@ fn parse_basic_identifier_or_keyword(
         }
     }
 
-    validate_basic_identifier(&buffer.bytes)
-        .map_err(|msg| TokenError::range(start, reader.pos(), msg))?;
-
-    Ok(symbols.insert_or_keyword(buffer))
+    let warning = validate_basic_identifier(&buffer.bytes).err();
+    let (kind, value) = symbols.insert_or_keyword(buffer);
+    Ok((kind, value, warning))
 }
 
 /// Validates that `bytes` is a well-formed basic identifier according to the
@@ -1602,9 +1600,9 @@ fn validate_basic_identifier(bytes: &[u8]) -> Result<(), &'static str> {
     let mut iter = bytes.iter().copied();
 
     match iter.next() {
-        None => return Err("Basic identifier cannot be empty"),
+        None => return Err("Identifier cannot be empty"),
         Some(b) if !b.is_ascii_alphabetic() => {
-            return Err("Basic identifier must start with a letter");
+            return Err("Identifier must start with a letter");
         }
         _ => {}
     }
@@ -1613,18 +1611,18 @@ fn validate_basic_identifier(bytes: &[u8]) -> Result<(), &'static str> {
     for b in iter {
         if b == b'_' {
             if prev_underscore {
-                return Err("Basic identifier cannot contain consecutive underscores");
+                return Err("Identifier cannot contain consecutive underscores");
             }
             prev_underscore = true;
         } else if b.is_ascii_alphanumeric() {
             prev_underscore = false;
         } else {
-            return Err("Basic identifier contains an invalid character");
+            return Err("Identifier contains an invalid character");
         }
     }
 
     if prev_underscore {
-        return Err("Basic identifier cannot end with an underscore");
+        return Err("Identifier cannot end with an underscore");
     }
 
     Ok(())
@@ -1801,6 +1799,9 @@ pub struct Tokenizer<'a> {
     pub source: &'a Source,
     reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
+    /// Non-fatal diagnostics (e.g. basic identifiers that violate LRM 15.4.2
+    /// but are recovered as identifiers anyway).
+    diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -1816,7 +1817,15 @@ impl<'a> Tokenizer<'a> {
             source,
             reader,
             final_comments: None,
+            diagnostics: Vec::new(),
         }
+    }
+
+    /// Take all non-fatal diagnostics that the tokenizer has accumulated so
+    /// far, leaving the internal buffer empty. Intended to be called once at
+    /// the end of tokenization.
+    pub fn take_diagnostics(&mut self) -> Vec<Diagnostic> {
+        std::mem::take(&mut self.diagnostics)
     }
 
     pub fn attribute(&self, sym: Symbol) -> AttributeDesignator {
@@ -1846,7 +1855,7 @@ impl<'a> Tokenizer<'a> {
         };
 
         let (kind, value) = match byte {
-            b'a'..=b'z' | b'A'..=b'Z' => {
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => {
                 let state = self.reader.state();
                 if let Some(base_spec) = maybe_base_specifier(&mut self.reader)? {
                     parse_bit_string(
@@ -1857,11 +1866,20 @@ impl<'a> Tokenizer<'a> {
                         state.pos().character as usize,
                     )?
                 } else {
-                    parse_basic_identifier_or_keyword(
+                    let (kind, value, warning) = parse_basic_identifier_or_keyword(
                         &mut self.buffer,
                         &mut self.reader,
                         self.symbols,
-                    )?
+                    )?;
+                    if let Some(msg) = warning {
+                        let start = self.state.start.pos();
+                        let end = self.reader.pos();
+                        self.diagnostics.push(Diagnostic::syntax_error(
+                            self.source.pos(start, end),
+                            msg,
+                        ));
+                    }
+                    (kind, value)
                 }
             }
             b'0'..=b'9' => parse_abstract_literal(&mut self.buffer, &mut self.reader)?,
@@ -2381,19 +2399,20 @@ my_other_ident",
     fn tokenize_non_latin1_error() {
         // Euro takes 1 utf-16 code and Bomb emojii requires 2 utf-16 codes
         let code = Code::new("€\u{1F4A3}");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
 
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
+            diagnostics,
             vec![
-                Err(Diagnostic::syntax_error(
+                Diagnostic::syntax_error(
                     code.s1("€"),
                     "Found invalid latin-1 character '€'",
-                )),
-                Err(Diagnostic::syntax_error(
+                ),
+                Diagnostic::syntax_error(
                     code.s1("\u{1F4A3}"),
                     "Found invalid latin-1 character '\u{1F4A3}'",
-                )),
+                ),
             ]
         );
     }
@@ -2401,14 +2420,15 @@ my_other_ident",
     #[test]
     fn tokenize_integer_negative_exponent() {
         let code = Code::new("1e-1");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
 
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Integer literals may not have negative exponent",
-            ))]
+            )]
         );
     }
 
@@ -2571,13 +2591,11 @@ my_other_ident",
     fn tokenize_string_literal_error_on_multiline() {
         // Multiline is illegal
         let code = Code::new("\"str\ning\"");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
-                code.pos(),
-                "Multi line string"
-            ))]
+            diagnostics,
+            vec![Diagnostic::syntax_error(code.pos(), "Multi line string")]
         );
     }
 
@@ -2585,13 +2603,14 @@ my_other_ident",
     fn tokenize_string_literal_error_on_early_eof() {
         // End of file
         let code = Code::new("\"string");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Reached EOF before end quote",
-            ))]
+            )]
         );
     }
 
@@ -2664,74 +2683,79 @@ my_other_ident",
     #[test]
     fn tokenize_illegal_bit_string() {
         let code = Code::new("10x");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Invalid bit string literal",
-            ))]
+            )]
         );
 
         let code = Code::new("10ux");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Invalid bit string literal",
-            ))]
+            )]
         );
     }
 
     #[test]
     fn non_ascii_in_bit_string() {
         let code = Code::new("X\"Ä087€\"");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("€"),
                 "Found invalid latin-1 character '€'",
-            ))]
+            )]
         );
 
         let code = Code::new("X\"Ä087€\"\"A\"");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("€"),
                 "Found invalid latin-1 character '€'",
-            ))]
+            )]
         );
     }
 
     #[test]
     fn non_ascii_before_bit_string() {
         let code = Code::new("€X\"ABC\"");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
         assert_eq!(
             tokens,
-            vec![
-                Err(Diagnostic::syntax_error(
-                    code.s1("€"),
-                    "Found invalid latin-1 character '€'",
-                )),
-                Ok(Token {
-                    kind: BitString,
-                    value: Value::BitString(
-                        Latin1String::from_utf8_unchecked("X\"ABC\""),
-                        ast::BitString {
-                            length: None,
-                            base: BaseSpecifier::X,
-                            value: Latin1String::from_utf8_unchecked("ABC"),
-                        }
-                    ),
-                    pos: code.s1("X\"ABC\"").pos(),
-                    comments: None,
-                })
-            ],
+            vec![Token {
+                kind: BitString,
+                value: Value::BitString(
+                    Latin1String::from_utf8_unchecked("X\"ABC\""),
+                    ast::BitString {
+                        length: None,
+                        base: BaseSpecifier::X,
+                        value: Latin1String::from_utf8_unchecked("ABC"),
+                    }
+                ),
+                pos: code.s1("X\"ABC\"").pos(),
+                comments: None,
+            }],
+        );
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
+                code.s1("€"),
+                "Found invalid latin-1 character '€'",
+            )],
         );
     }
 
@@ -2817,39 +2841,63 @@ my_other_ident",
     #[test]
     fn tokenize_based_integer_negative_exponent() {
         let code = Code::new("2#1#e-1");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Integer literals may not have negative exponent",
-            ))]
+            )]
         );
     }
 
     #[test]
     fn tokenize_illegal_basic_identifier_trailing_underscore() {
         let code = Code::new("Default_");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        let ident_kinds: Vec<Kind> = tokens.iter().map(|t| t.kind).collect();
+        assert_eq!(ident_kinds, vec![Identifier]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("Default_"),
                 "Basic identifier cannot end with an underscore",
-            ))]
+            )]
         );
     }
 
     #[test]
     fn tokenize_illegal_basic_identifier_consecutive_underscores() {
         let code = Code::new("foo__bar");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        let ident_kinds: Vec<Kind> = tokens.iter().map(|t| t.kind).collect();
+        assert_eq!(ident_kinds, vec![Identifier]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("foo__bar"),
                 "Basic identifier cannot contain consecutive underscores",
-            ))]
+            )]
+        );
+    }
+
+    #[test]
+    fn tokenize_illegal_basic_identifier_recovers_for_downstream_parsing() {
+        let code = Code::new("signal Bad_ : std_logic;");
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        let ident_kinds: Vec<Kind> = tokens.iter().map(|t| t.kind).collect();
+        // The bad identifier is still emitted as an Identifier so parsing can continue.
+        assert_eq!(
+            ident_kinds,
+            vec![Signal, Identifier, Colon, Identifier, SemiColon],
+        );
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
+                code.s1("Bad_"),
+                "Basic identifier cannot end with an underscore",
+            )]
         );
     }
 
@@ -2916,13 +2964,14 @@ my_other_ident",
     fn tokenize_illegal_integer() {
         let code = Code::new("100k");
 
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("k"),
                 "Invalid integer character 'k'",
-            ))]
+            )]
         );
     }
 
@@ -2930,42 +2979,45 @@ my_other_ident",
     fn tokenize_illegal_based_integer() {
         // May not use digit larger than or equal base
         let code = Code::new("3#3#");
-        let (tokens, _) = code.tokenize_result();
-        println!("{tokens:?}");
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s("3", 2),
                 "Illegal digit '3' for base 3",
-            ))]
+            )]
         );
         // Base may only be 2-16
         let code = Code::new("1#0#");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("1"),
                 "Base must be at least 2 and at most 16, got 1",
-            ))]
+            )]
         );
         let code = Code::new("17#f#");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("17"),
                 "Base must be at least 2 and at most 16, got 17",
-            ))]
+            )]
         );
         let code = Code::new("15#f#");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("f"),
                 "Illegal digit 'f' for base 15",
-            ))]
+            )]
         );
     }
 
@@ -3138,67 +3190,73 @@ comment
     fn tokenize_too_large_integer() {
         let large_int = "100000000000000000000000000000000000000000";
         let code = Code::new(large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Integer too large for 64-bit unsigned",
-            ))]
+            )]
         );
 
         let large_int = "1e100";
         let code = Code::new(large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Integer too large for 64-bit unsigned",
-            ))]
+            )]
         );
 
         let exponent_str = ((i32::MAX as i64) + 1).to_string();
         let large_int = format!("1e{exponent_str}");
         let code = Code::new(&large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed",
-            ))]
+            )]
         );
 
         let exponent_str = ((i32::MIN as i64) - 1).to_string();
         let large_int = format!("1.0e{exponent_str}");
         let code = Code::new(&large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed",
-            ))]
+            )]
         );
 
         let large_int = ((u64::MAX as i128) + 1).to_string();
         let code = Code::new(&large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.pos(),
                 "Integer too large for 64-bit unsigned",
-            ))]
+            )]
         );
 
         let large_int = u64::MAX.to_string();
         let code = Code::new(&large_int);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
+        assert_eq!(diagnostics, vec![]);
         assert_eq!(
             tokens,
-            vec![Ok(Token {
+            vec![Token {
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(
                     Latin1String::from_utf8_unchecked(&u64::MAX.to_string()),
@@ -3206,38 +3264,41 @@ comment
                 ),
                 pos: code.pos(),
                 comments: None,
-            })]
+            }]
         );
     }
 
     #[test]
     fn tokenize_illegal() {
         let code = Code::new("begin!end");
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, diagnostics, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![
-                Ok(Token {
+                Token {
                     kind: Begin,
                     value: Value::None,
                     pos: code.s1("begin").pos(),
                     comments: None,
-                }),
-                Err(Diagnostic::syntax_error(code.s1("!"), "Illegal token")),
-                Ok(Token {
+                },
+                Token {
                     kind: End,
                     value: Value::None,
                     pos: code.s1("end").pos(),
                     comments: None,
-                }),
+                },
             ]
+        );
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::syntax_error(code.s1("!"), "Illegal token")],
         );
     }
 
     #[test]
     fn extract_final_comments() {
         let code = Code::new("--final");
-        let (tokens, final_comments) = code.tokenize_result();
+        let (tokens, _, final_comments) = code.tokenize_result();
         assert_eq!(tokens, vec![]);
         assert_eq!(
             final_comments,
@@ -3252,13 +3313,14 @@ comment
     #[test]
     fn extract_incomplete_multi_line_comment() {
         let code = Code::new("/* final");
-        let (tokens, final_comments) = code.tokenize_result();
+        let (tokens, diagnostics, final_comments) = code.tokenize_result();
+        assert_eq!(tokens, vec![]);
         assert_eq!(
-            tokens,
-            vec![Err(Diagnostic::syntax_error(
+            diagnostics,
+            vec![Diagnostic::syntax_error(
                 code.s1("/* final"),
                 "Incomplete multi-line comment",
-            ))]
+            )]
         );
 
         assert_eq!(final_comments, vec![]);
@@ -3278,13 +3340,13 @@ comment
        -- and another one
 ",
         );
-        let (tokens, final_comments) = code.tokenize_result();
+        let (tokens, _, final_comments) = code.tokenize_result();
         let minus_pos = code.s1("- --").s1("-").pos();
 
         assert_eq!(
             tokens,
             vec![
-                Ok(Token {
+                Token {
                     kind: Plus,
                     value: Value::None,
                     pos: code.s1("+").pos(),
@@ -3300,8 +3362,8 @@ comment
                             multi_line: false,
                         }),
                     })),
-                }),
-                Ok(Token {
+                },
+                Token {
                     kind: Minus,
                     value: Value::None,
                     pos: minus_pos,
@@ -3324,7 +3386,7 @@ comment
                             multi_line: false,
                         }),
                     })),
-                }),
+                },
             ]
         );
         assert_eq!(
@@ -3357,11 +3419,11 @@ bar*/
 /*final*/
 ",
         );
-        let (tokens, final_comments) = code.tokenize_result();
+        let (tokens, _, final_comments) = code.tokenize_result();
 
         assert_eq!(
             tokens,
-            vec![Ok(Token {
+            vec![Token {
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(
                     Latin1String::new(b"2"),
@@ -3376,7 +3438,7 @@ bar*/
                     },],
                     trailing: None,
                 })),
-            }),]
+            },]
         );
         assert_eq!(
             final_comments,
@@ -3396,11 +3458,11 @@ bar*/
 entity -- €
 ",
         );
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, _, _) = code.tokenize_result();
 
         assert_eq!(
             tokens,
-            vec![Ok(Token {
+            vec![Token {
                 kind: Entity,
                 value: Value::None,
                 pos: code.s1("entity").pos(),
@@ -3416,7 +3478,7 @@ entity -- €
                         multi_line: false,
                     }),
                 })),
-            })]
+            }]
         );
     }
 
@@ -3424,32 +3486,23 @@ entity -- €
     fn tokenize_different_versions() {
         let code_str = "view default";
         let code = Code::with_standard(code_str, VHDLStandard::VHDL1993);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, _, _) = code.tokenize_result();
         assert_eq!(
-            tokens
-                .into_iter()
-                .map(|tok| tok.unwrap().kind)
-                .collect_vec(),
+            tokens.into_iter().map(|tok| tok.kind).collect_vec(),
             vec![Identifier, Identifier]
         );
 
         let code = Code::with_standard(code_str, VHDLStandard::VHDL2008);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, _, _) = code.tokenize_result();
         assert_eq!(
-            tokens
-                .into_iter()
-                .map(|tok| tok.unwrap().kind)
-                .collect_vec(),
+            tokens.into_iter().map(|tok| tok.kind).collect_vec(),
             vec![Identifier, Default]
         );
 
         let code = Code::with_standard(code_str, VHDLStandard::VHDL2019);
-        let (tokens, _) = code.tokenize_result();
+        let (tokens, _, _) = code.tokenize_result();
         assert_eq!(
-            tokens
-                .into_iter()
-                .map(|tok| tok.unwrap().kind)
-                .collect_vec(),
+            tokens.into_iter().map(|tok| tok.kind).collect_vec(),
             vec![View, Default]
         );
     }
