@@ -1569,6 +1569,7 @@ fn parse_basic_identifier_or_keyword(
     symbols: &Symbols,
 ) -> Result<(Kind, Value), TokenError> {
     buffer.bytes.clear();
+    let start = reader.pos();
     while let Some(b) = reader.peek()? {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
@@ -1581,7 +1582,52 @@ fn parse_basic_identifier_or_keyword(
         }
     }
 
+    validate_basic_identifier(&buffer.bytes)
+        .map_err(|msg| TokenError::range(start, reader.pos(), msg))?;
+
     Ok(symbols.insert_or_keyword(buffer))
+}
+
+/// Validates that `bytes` is a well-formed basic identifier according to the
+/// LRM 15.4.2 grammar:
+///
+/// ```text
+///   basic_identifier ::= letter { [ underline ] letter_or_digit }
+/// ```
+///
+/// Works on any Latin-1 byte slice. Common violations (leading non-letter,
+/// trailing underscore, consecutive underscores) report dedicated messages;
+/// other violations get a generic invalid-character message.
+fn validate_basic_identifier(bytes: &[u8]) -> Result<(), &'static str> {
+    let mut iter = bytes.iter().copied();
+
+    match iter.next() {
+        None => return Err("Basic identifier cannot be empty"),
+        Some(b) if !b.is_ascii_alphabetic() => {
+            return Err("Basic identifier must start with a letter");
+        }
+        _ => {}
+    }
+
+    let mut prev_underscore = false;
+    for b in iter {
+        if b == b'_' {
+            if prev_underscore {
+                return Err("Basic identifier cannot contain consecutive underscores");
+            }
+            prev_underscore = true;
+        } else if b.is_ascii_alphanumeric() {
+            prev_underscore = false;
+        } else {
+            return Err("Basic identifier contains an invalid character");
+        }
+    }
+
+    if prev_underscore {
+        return Err("Basic identifier cannot end with an underscore");
+    }
+
+    Ok(())
 }
 
 /// Assumes leading ' has already been consumed
@@ -2778,6 +2824,91 @@ my_other_ident",
                 code.pos(),
                 "Integer literals may not have negative exponent",
             ))]
+        );
+    }
+
+    #[test]
+    fn tokenize_illegal_basic_identifier_trailing_underscore() {
+        let code = Code::new("Default_");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                code.s1("Default_"),
+                "Basic identifier cannot end with an underscore",
+            ))]
+        );
+    }
+
+    #[test]
+    fn tokenize_illegal_basic_identifier_consecutive_underscores() {
+        let code = Code::new("foo__bar");
+        let (tokens, _) = code.tokenize_result();
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::syntax_error(
+                code.s1("foo__bar"),
+                "Basic identifier cannot contain consecutive underscores",
+            ))]
+        );
+    }
+
+    #[test]
+    fn validate_basic_identifier_accepts_valid_identifiers() {
+        for ident in ["a", "A", "abc", "foo_bar", "Mixed_Case_42", "x1"] {
+            assert_eq!(
+                validate_basic_identifier(ident.as_bytes()),
+                Ok(()),
+                "expected {ident:?} to be valid"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_basic_identifier_rejects_empty() {
+        assert_eq!(
+            validate_basic_identifier(b""),
+            Err("Basic identifier cannot be empty"),
+        );
+    }
+
+    #[test]
+    fn validate_basic_identifier_rejects_leading_non_letter() {
+        assert_eq!(
+            validate_basic_identifier(b"_foo"),
+            Err("Basic identifier must start with a letter"),
+        );
+        assert_eq!(
+            validate_basic_identifier(b"1foo"),
+            Err("Basic identifier must start with a letter"),
+        );
+    }
+
+    #[test]
+    fn validate_basic_identifier_rejects_invalid_character() {
+        assert_eq!(
+            validate_basic_identifier(b"foo$bar"),
+            Err("Basic identifier contains an invalid character"),
+        );
+        assert_eq!(
+            validate_basic_identifier(b"foo-bar"),
+            Err("Basic identifier contains an invalid character"),
+        );
+    }
+
+    #[test]
+    fn validate_basic_identifier_rejects_trailing_underscore() {
+        assert_eq!(
+            validate_basic_identifier(b"foo_"),
+            Err("Basic identifier cannot end with an underscore"),
+        );
+    }
+
+    #[test]
+    fn validate_basic_identifier_rejects_consecutive_underscores() {
+        assert_eq!(
+            validate_basic_identifier(b"foo__bar"),
+            Err("Basic identifier cannot contain consecutive underscores"),
         );
     }
 
