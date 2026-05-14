@@ -2862,7 +2862,7 @@ my_other_ident",
             diagnostics,
             vec![Diagnostic::syntax_error(
                 code.s1("Default_"),
-                "Basic identifier cannot end with an underscore",
+                "Identifier cannot end with an underscore",
             )]
         );
     }
@@ -2877,7 +2877,7 @@ my_other_ident",
             diagnostics,
             vec![Diagnostic::syntax_error(
                 code.s1("foo__bar"),
-                "Basic identifier cannot contain consecutive underscores",
+                "Identifier cannot contain consecutive underscores",
             )]
         );
     }
@@ -2896,7 +2896,7 @@ my_other_ident",
             diagnostics,
             vec![Diagnostic::syntax_error(
                 code.s1("Bad_"),
-                "Basic identifier cannot end with an underscore",
+                "Identifier cannot end with an underscore",
             )]
         );
     }
@@ -2916,7 +2916,7 @@ my_other_ident",
     fn validate_basic_identifier_rejects_empty() {
         assert_eq!(
             validate_basic_identifier(b""),
-            Err("Basic identifier cannot be empty"),
+            Err("Identifier cannot be empty"),
         );
     }
 
@@ -2924,11 +2924,11 @@ my_other_ident",
     fn validate_basic_identifier_rejects_leading_non_letter() {
         assert_eq!(
             validate_basic_identifier(b"_foo"),
-            Err("Basic identifier must start with a letter"),
+            Err("Identifier must start with a letter"),
         );
         assert_eq!(
             validate_basic_identifier(b"1foo"),
-            Err("Basic identifier must start with a letter"),
+            Err("Identifier must start with a letter"),
         );
     }
 
@@ -2936,11 +2936,11 @@ my_other_ident",
     fn validate_basic_identifier_rejects_invalid_character() {
         assert_eq!(
             validate_basic_identifier(b"foo$bar"),
-            Err("Basic identifier contains an invalid character"),
+            Err("Identifier contains an invalid character"),
         );
         assert_eq!(
             validate_basic_identifier(b"foo-bar"),
-            Err("Basic identifier contains an invalid character"),
+            Err("Identifier contains an invalid character"),
         );
     }
 
@@ -2948,7 +2948,7 @@ my_other_ident",
     fn validate_basic_identifier_rejects_trailing_underscore() {
         assert_eq!(
             validate_basic_identifier(b"foo_"),
-            Err("Basic identifier cannot end with an underscore"),
+            Err("Identifier cannot end with an underscore"),
         );
     }
 
@@ -2956,7 +2956,7 @@ my_other_ident",
     fn validate_basic_identifier_rejects_consecutive_underscores() {
         assert_eq!(
             validate_basic_identifier(b"foo__bar"),
-            Err("Basic identifier cannot contain consecutive underscores"),
+            Err("Identifier cannot contain consecutive underscores"),
         );
     }
 
