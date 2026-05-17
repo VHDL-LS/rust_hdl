@@ -904,3 +904,59 @@ end architecture;
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+// Regression test for https://github.com/VHDL-LS/rust_hdl/issues/463
+//
+// Operators and subprograms declared alongside a type in a generic package
+// must reference the *instantiated* type, not the uninstantiated one, no
+// matter the order in which the package's entities are visited during
+// instantiation (the order is hash-determined and previously caused
+// intermittent "Found no match for operator ..." diagnostics).
+#[test]
+fn implicit_operators_resolve_against_instantiated_type() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package pokemon_pkg is
+    generic (
+        NUMBER_OF_POKEMONS: natural := 3
+    );
+
+    type pokemon_t is (pikachu, karnimani);
+    function get_pokemon(idx: natural) return pokemon_t;
+end package;
+
+package body pokemon_pkg is
+    function get_pokemon(idx: natural) return pokemon_t is begin
+        if idx = 0 then
+            return pikachu;
+        else
+            return karnimani;
+        end if;
+    end function;
+end package body;
+
+package pokemon_pkg_inst is new work.pokemon_pkg
+    generic map (NUMBER_OF_POKEMONS => 3);
+
+use work.pokemon_pkg_inst.all;
+
+entity pokemon is
+end entity;
+
+architecture behavioural of pokemon is
+    constant NUMBER_OF_POKEMONS: natural := 3;
+begin
+    gen_scoops: for i in 0 to NUMBER_OF_POKEMONS - 1 generate
+        constant MY_POKEMON: pokemon_t := get_pokemon(i);
+    begin
+        check: assert (MY_POKEMON = pikachu);
+    end generate;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

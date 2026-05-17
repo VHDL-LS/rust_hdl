@@ -68,12 +68,37 @@ impl<'a> AnalyzeContext<'a, '_> {
             )?;
         }
 
+        // Pre-allocate placeholder entities for every type declared in the
+        // region and register them in `mapping` so any other entity in the
+        // same region (operators, subprograms, enum literals) sees the
+        // instantiated type when its kind is mapped.
+        for uninst in &other {
+            if matches!(uninst.kind(), AnyEntKind::Type(_)) {
+                let inst = self.preallocate_instance(
+                    Some(ent),
+                    uninst,
+                    AnyEntKind::Type(Type::Incomplete),
+                );
+                if let Some(typ) = TypeEnt::from_any(inst) {
+                    mapping.insert(uninst.id(), typ);
+                }
+                nested.add(inst, &mut NullDiagnostics);
+            }
+        }
+
         for uninst in other {
-            match self.instantiate(Some(ent), &mapping, uninst, &nested) {
-                Ok(inst) => {
+            let inst_result =
+                if let Some(&typ) = mapping.get(&uninst.id()) {
+                    self.finalize_instance(typ.into(), &mapping, uninst, &nested)
+                } else {
                     // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
                     // They can collide if there are more than one interface type that map to the same actual type
-                    nested.add(inst, &mut NullDiagnostics);
+                    self.instantiate(Some(ent), &mapping, uninst, &nested)
+                        .inspect(|inst| nested.add(inst, &mut NullDiagnostics))
+                };
+
+            match inst_result {
+                Ok(inst) => {
                     if let Err((err, code)) =
                         self.instantiate_implicits(inst, &mapping, uninst, &nested)
                     {
@@ -104,24 +129,45 @@ impl<'a> AnalyzeContext<'a, '_> {
         uninst: EntRef<'a>,
         scope: &Scope<'a>,
     ) -> Result<EntRef<'a>, (String, ErrorCode)> {
-        let designator = uninst.designator().clone();
+        let inst = self.preallocate_instance(parent, uninst, AnyEntKind::Library);
+        self.finalize_instance(inst, mapping, uninst, scope)
+    }
 
-        let decl_pos = uninst.decl_pos().cloned();
-
-        let inst = self.arena.alloc(
-            designator,
+    /// Allocate an instance entity with a placeholder kind. The placeholder is
+    /// overwritten by [`finalize_instance`] once the surrounding mapping has
+    /// been populated. Splitting allocation from kind-mapping lets callers
+    /// register the instance in `mapping`/`scope` before mapping any kind that
+    /// might reference it.
+    fn preallocate_instance(
+        &self,
+        parent: Option<EntRef<'a>>,
+        uninst: EntRef<'a>,
+        placeholder_kind: AnyEntKind<'a>,
+    ) -> EntRef<'a> {
+        self.arena.alloc(
+            uninst.designator().clone(),
             parent.or(uninst.parent),
             Related::InstanceOf(uninst),
-            AnyEntKind::Library, // Will be immediately overwritten below
-            decl_pos,
+            placeholder_kind,
+            uninst.decl_pos().cloned(),
             uninst.src_span,
             Some(self.source()),
-        );
+        )
+    }
+
+    /// Compute the final kind for a pre-allocated instance entity and
+    /// overwrite the placeholder kind set by [`preallocate_instance`].
+    fn finalize_instance(
+        &self,
+        inst: EntRef<'a>,
+        mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
+        uninst: EntRef<'a>,
+        scope: &Scope<'a>,
+    ) -> Result<EntRef<'a>, (String, ErrorCode)> {
         let kind = self.map_kind(Some(inst), mapping, uninst.kind(), scope)?;
         unsafe {
             inst.set_kind(kind);
         }
-
         Ok(inst)
     }
 
