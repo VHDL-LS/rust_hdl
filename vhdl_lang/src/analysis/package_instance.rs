@@ -87,15 +87,14 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         for uninst in other {
-            let inst_result =
-                if let Some(&typ) = mapping.get(&uninst.id()) {
-                    self.finalize_instance(typ.into(), &mapping, uninst, &nested)
-                } else {
-                    // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
-                    // They can collide if there are more than one interface type that map to the same actual type
-                    self.instantiate(Some(ent), &mapping, uninst, &nested)
-                        .inspect(|inst| nested.add(inst, &mut NullDiagnostics))
-                };
+            let inst_result = if let Some(&typ) = mapping.get(&uninst.id()) {
+                self.finalize_instance(typ.into(), &mapping, uninst, &nested)
+            } else {
+                // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
+                // They can collide if there are more than one interface type that map to the same actual type
+                self.instantiate(Some(ent), &mapping, uninst, &nested)
+                    .inspect(|inst| nested.add(inst, &mut NullDiagnostics))
+            };
 
             match inst_result {
                 Ok(inst) => {
