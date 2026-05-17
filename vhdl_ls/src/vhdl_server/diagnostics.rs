@@ -1,8 +1,7 @@
 use crate::vhdl_server::{file_name_to_uri, to_lsp_range, VHDLServer};
 use fnv::FnvHashMap;
 use lsp_types::{
-    DiagnosticRelatedInformation, DiagnosticSeverity, Location, NumberOrString,
-    PublishDiagnosticsParams, Url,
+    Code, DiagnosticRelatedInformation, DiagnosticSeverity, Location, PublishDiagnosticsParams, Uri,
 };
 use std::collections::hash_map::Entry;
 use vhdl_lang::{Diagnostic, Severity, SeverityMap};
@@ -79,8 +78,8 @@ impl VHDLServer {
     }
 }
 
-fn diagnostics_by_uri(diagnostics: Vec<Diagnostic>) -> FnvHashMap<Url, Vec<Diagnostic>> {
-    let mut map: FnvHashMap<Url, Vec<Diagnostic>> = FnvHashMap::default();
+fn diagnostics_by_uri(diagnostics: Vec<Diagnostic>) -> FnvHashMap<Uri, Vec<Diagnostic>> {
+    let mut map: FnvHashMap<Uri, Vec<Diagnostic>> = FnvHashMap::default();
 
     for diagnostic in diagnostics {
         let uri = file_name_to_uri(diagnostic.pos.source.file_name());
@@ -110,10 +109,10 @@ fn to_lsp_diagnostic(
     severity_map: &SeverityMap,
 ) -> Option<lsp_types::Diagnostic> {
     let severity = match severity_map[diagnostic.code]? {
-        Severity::Error => DiagnosticSeverity::ERROR,
-        Severity::Warning => DiagnosticSeverity::WARNING,
-        Severity::Info => DiagnosticSeverity::INFORMATION,
-        Severity::Hint => DiagnosticSeverity::HINT,
+        Severity::Error => DiagnosticSeverity::Error,
+        Severity::Warning => DiagnosticSeverity::Warning,
+        Severity::Info => DiagnosticSeverity::Information,
+        Severity::Hint => DiagnosticSeverity::Hint,
     };
 
     let related_information = if !diagnostic.related.is_empty() {
@@ -136,7 +135,7 @@ fn to_lsp_diagnostic(
     Some(lsp_types::Diagnostic {
         range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
-        code: Some(NumberOrString::String(format!("{}", diagnostic.code))),
+        code: Some(Code::String(format!("{}", diagnostic.code))),
         source: Some("vhdl ls".to_owned()),
         message: diagnostic.message,
         related_information,
@@ -151,9 +150,8 @@ pub mod tests {
         write_config, write_file,
     };
     use lsp_types::{
-        DiagnosticSeverity, DidChangeTextDocumentParams, NumberOrString, Position,
-        PublishDiagnosticsParams, Range, TextDocumentContentChangeEvent,
-        VersionedTextDocumentIdentifier,
+        Code, DiagnosticSeverity, DidChangeTextDocumentParams, Position, PublishDiagnosticsParams,
+        Range, TextDocumentContentChangePartial, VersionedTextDocumentIdentifier,
     };
     use regex::Regex;
 
@@ -197,8 +195,8 @@ lib.files = [
                     Position::new(0, "architecture rtl of ".len() as u32),
                     Position::new(0, "architecture rtl of ent3".len() as u32),
                 ),
-                code: Some(NumberOrString::String("unresolved".to_owned())),
-                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(Code::String("unresolved".to_owned())),
+                severity: Some(DiagnosticSeverity::Error),
                 source: Some("vhdl ls".to_owned()),
                 message: "No primary unit \'ent3\' within library \'lib\'".to_owned(),
                 ..Default::default()
@@ -223,15 +221,19 @@ lib.files = [
 
         // Change "ent2" to "ent3"
         server.text_document_did_change_notification(&DidChangeTextDocumentParams {
-            text_document: VersionedTextDocumentIdentifier::new(file2_uri, 0),
-            content_changes: vec![TextDocumentContentChangeEvent {
-                range: Some(Range::new(
+            text_document: VersionedTextDocumentIdentifier {
+                version: 0,
+                text_document_identifier: lsp_types::TextDocumentIdentifier { uri: file2_uri },
+            },
+            content_changes: vec![TextDocumentContentChangePartial {
+                range: Range::new(
                     Position::new(0, "architecture rtl of ent".len() as u32),
                     Position::new(0, "architecture rtl of ent2".len() as u32),
-                )),
-                range_length: None,
+                ),
                 text: "3".to_string(),
-            }],
+                ..Default::default()
+            }
+            .into()],
         })
     }
 }

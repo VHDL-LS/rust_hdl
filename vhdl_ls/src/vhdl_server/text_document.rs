@@ -2,11 +2,13 @@ use crate::vhdl_server::{
     from_lsp_pos, from_lsp_range, srcpos_to_location, to_lsp_range, uri_to_file_name,
     NonProjectFileHandling, VHDLServer,
 };
+#[allow(deprecated)]
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DocumentHighlight,
-    DocumentHighlightKind, GotoDefinitionResponse, Hover, HoverContents, LanguageString, Location,
-    MarkedString, ReferenceParams, TextDocumentItem, TextDocumentPositionParams,
+    Contents, DefinitionResponse, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    DocumentHighlight, DocumentHighlightKind, Hover, Location, MarkedString,
+    MarkedStringWithLanguage, ReferenceParams, TextDocumentItem, TextDocumentPositionParams,
 };
+use lsp_types::{Definition, TextDocumentContentChangeEvent};
 use vhdl_lang::{Message, Source};
 
 impl VHDLServer {
@@ -38,11 +40,22 @@ impl VHDLServer {
     }
 
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        let file_name = uri_to_file_name(&params.text_document.uri);
+        let file_name = uri_to_file_name(&params.text_document.text_document_identifier.uri);
         if let Some(source) = self.project.get_source(&file_name) {
             for content_change in params.content_changes.iter() {
-                let range = content_change.range.map(from_lsp_range);
-                source.change(range.as_ref(), &content_change.text);
+                match content_change {
+                    TextDocumentContentChangeEvent::TextDocumentContentChangePartial(
+                        content_change,
+                    ) => {
+                        let range = from_lsp_range(content_change.range);
+                        source.change(Some(&range), &content_change.text);
+                    }
+                    TextDocumentContentChangeEvent::TextDocumentContentChangeWholeDocument(
+                        content_change,
+                    ) => {
+                        source.change(None, &content_change.text);
+                    }
+                };
             }
             self.project.update_source(&source);
             self.semantic_token_cache.clear();
@@ -86,7 +99,7 @@ impl VHDLServer {
     pub fn text_document_implementation(
         &mut self,
         params: &TextDocumentPositionParams,
-    ) -> Option<GotoDefinitionResponse> {
+    ) -> Option<DefinitionResponse> {
         let source = self
             .project
             .get_source(&uri_to_file_name(&params.text_document.uri))?;
@@ -95,11 +108,11 @@ impl VHDLServer {
             .project
             .find_implementation(&source, from_lsp_pos(params.position));
 
-        Some(GotoDefinitionResponse::Array(
+        Some(DefinitionResponse::Definition(Definition::LocationList(
             ents.into_iter()
                 .filter_map(|ent| ent.decl_pos().map(srcpos_to_location))
                 .collect(),
-        ))
+        )))
     }
 
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
@@ -113,10 +126,13 @@ impl VHDLServer {
         let value = self.project.format_declaration(ent)?;
 
         Some(Hover {
-            contents: HoverContents::Scalar(MarkedString::LanguageString(LanguageString {
-                language: "vhdl".to_string(),
-                value,
-            })),
+            contents: Contents::MarkedString(MarkedString::MarkedStringWithLanguage(
+                #[allow(deprecated)]
+                MarkedStringWithLanguage {
+                    language: "vhdl".to_string(),
+                    value,
+                },
+            )),
             range: None,
         })
     }
@@ -125,12 +141,12 @@ impl VHDLServer {
         let ent = self
             .project
             .get_source(&uri_to_file_name(
-                &params.text_document_position.text_document.uri,
+                &params.text_document_position_params.text_document.uri,
             ))
             .and_then(|source| {
                 self.project.find_declaration(
                     &source,
-                    from_lsp_pos(params.text_document_position.position),
+                    from_lsp_pos(params.text_document_position_params.position),
                 )
             });
 
@@ -163,7 +179,7 @@ impl VHDLServer {
                 .iter()
                 .map(|pos| DocumentHighlight {
                     range: to_lsp_range(pos.range()),
-                    kind: Some(DocumentHighlightKind::TEXT),
+                    kind: Some(DocumentHighlightKind::Text),
                 })
                 .collect(),
         )

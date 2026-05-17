@@ -9,7 +9,13 @@
 //! dispatching them to the appropriate server methods.
 
 use lsp_server::{Connection, ExtractError, Request, RequestId};
-use lsp_types::{notification, request, InitializeParams};
+use lsp_types::{
+    CompletionRequest, CompletionResolveRequest, DeclarationRequest, DefinitionRequest,
+    DidChangeTextDocumentNotification, DidChangeWatchedFilesNotification,
+    DidOpenTextDocumentNotification, DocumentHighlightRequest, DocumentSymbolRequest, HoverRequest,
+    ImplementationRequest, InitializeParams, Notification, PrepareRenameRequest, ReferencesRequest,
+    RenameRequest, SemanticTokensRangeRequest, SemanticTokensRequest, WorkspaceSymbolRequest,
+};
 use serde_json::Value;
 
 use std::{cell::RefCell, rc::Rc};
@@ -121,10 +127,10 @@ impl ConnectionRpcChannel {
             request: lsp_server::Request,
         ) -> Result<(lsp_server::RequestId, R::Params), lsp_server::Request>
         where
-            R: request::Request,
+            R: lsp_types::Request,
             R::Params: serde::de::DeserializeOwned,
         {
-            request.extract(R::METHOD).map_err(|e| match e {
+            request.extract(R::METHOD.as_str()).map_err(|e| match e {
                 ExtractError::MethodMismatch(r) => r,
                 err @ ExtractError::JsonError { .. } => {
                     panic!("{err:?}");
@@ -133,7 +139,7 @@ impl ConnectionRpcChannel {
         }
 
         trace!("Handling request: {request:?}");
-        let request = match extract::<request::GotoDeclaration>(request) {
+        let request = match extract::<DeclarationRequest>(request) {
             Ok((id, params)) => {
                 let result =
                     server.text_document_declaration(&params.text_document_position_params);
@@ -142,7 +148,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::GotoDefinition>(request) {
+        let request = match extract::<DefinitionRequest>(request) {
             Ok((id, params)) => {
                 let result = server.text_document_definition(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -150,7 +156,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::GotoImplementation>(request) {
+        let request = match extract::<ImplementationRequest>(request) {
             Ok((id, params)) => {
                 let result =
                     server.text_document_implementation(&params.text_document_position_params);
@@ -159,7 +165,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::Rename>(request) {
+        let request = match extract::<RenameRequest>(request) {
             Ok((id, params)) => {
                 let result = server.rename(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -167,15 +173,15 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::PrepareRenameRequest>(request) {
+        let request = match extract::<PrepareRenameRequest>(request) {
             Ok((id, params)) => {
-                let result = server.prepare_rename(&params);
+                let result = server.prepare_rename(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
                 return;
             }
             Err(request) => request,
         };
-        let request = match extract::<request::WorkspaceSymbolRequest>(request) {
+        let request = match extract::<WorkspaceSymbolRequest>(request) {
             Ok((id, params)) => {
                 let result = server.workspace_symbol(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -183,7 +189,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::DocumentSymbolRequest>(request) {
+        let request = match extract::<DocumentSymbolRequest>(request) {
             Ok((id, params)) => {
                 let result = server.document_symbol(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -191,7 +197,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::DocumentHighlightRequest>(request) {
+        let request = match extract::<DocumentHighlightRequest>(request) {
             Ok((id, params)) => {
                 let result = server.document_highlight(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -199,7 +205,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::HoverRequest>(request) {
+        let request = match extract::<HoverRequest>(request) {
             Ok((id, params)) => {
                 let result = server.text_document_hover(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -207,7 +213,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::References>(request) {
+        let request = match extract::<ReferencesRequest>(request) {
             Ok((id, params)) => {
                 let result = server.text_document_references(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -215,7 +221,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::Completion>(request) {
+        let request = match extract::<CompletionRequest>(request) {
             Ok((id, params)) => {
                 let res = server.request_completion(&params);
                 self.send_response(lsp_server::Response::new_ok(id, res));
@@ -223,7 +229,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::ResolveCompletionItem>(request) {
+        let request = match extract::<CompletionResolveRequest>(request) {
             Ok((id, params)) => {
                 let res = server.resolve_completion_item(&params);
                 self.send_response(lsp_server::Response::new_ok(id, res));
@@ -231,7 +237,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::SemanticTokensFullRequest>(request) {
+        let request = match extract::<SemanticTokensRequest>(request) {
             Ok((id, params)) => {
                 let result = server.semantic_tokens_full(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -239,7 +245,7 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
-        let request = match extract::<request::SemanticTokensRangeRequest>(request) {
+        let request = match extract::<SemanticTokensRangeRequest>(request) {
             Ok((id, params)) => {
                 let result = server.semantic_tokens_range(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
@@ -262,30 +268,32 @@ impl ConnectionRpcChannel {
             notification: lsp_server::Notification,
         ) -> Result<N::Params, lsp_server::Notification>
         where
-            N: notification::Notification,
+            N: Notification,
             N::Params: serde::de::DeserializeOwned,
         {
-            notification.extract(N::METHOD).map_err(|e| match e {
-                ExtractError::MethodMismatch(n) => n,
-                err @ ExtractError::JsonError { .. } => {
-                    panic!("{err:?}");
-                }
-            })
+            notification
+                .extract(N::METHOD.as_str())
+                .map_err(|e| match e {
+                    ExtractError::MethodMismatch(n) => n,
+                    err @ ExtractError::JsonError { .. } => {
+                        panic!("{err:?}");
+                    }
+                })
         }
 
         trace!("Handling notification: {notification:?}");
         // textDocument/didChange
-        let notification = match extract::<notification::DidChangeTextDocument>(notification) {
+        let notification = match extract::<DidChangeTextDocumentNotification>(notification) {
             Ok(params) => return server.text_document_did_change_notification(&params),
             Err(notification) => notification,
         };
         // textDocument/didOpen
-        let notification = match extract::<notification::DidOpenTextDocument>(notification) {
+        let notification = match extract::<DidOpenTextDocumentNotification>(notification) {
             Ok(params) => return server.text_document_did_open_notification(&params),
             Err(notification) => notification,
         };
         // workspace.didChangeWatchedFiles
-        let notification = match extract::<notification::DidChangeWatchedFiles>(notification) {
+        let notification = match extract::<DidChangeWatchedFilesNotification>(notification) {
             Ok(params) => return server.workspace_did_change_watched_files(&params),
             Err(notification) => notification,
         };
