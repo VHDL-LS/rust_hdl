@@ -95,7 +95,7 @@
        ry="8.3826399" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:15.7143px;line-height:1.25;font-family:'Lucida Console';-inkscape-font-specification:'Lucida Console';fill:#2ba84a;fill-opacity:1;stroke:none;stroke-width:0.245993;stroke-miterlimit:4;stroke-dasharray:none"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.5px;line-height:1.25;font-family:'Lucida Console';-inkscape-font-specification:'Lucida Console';fill:#2ba84a;fill-opacity:1;stroke:none;stroke-width:0.245993;stroke-miterlimit:4;stroke-dasharray:none"
        x="49.270264"
        y="125.38107"
        id="text12-8-0-4"
@@ -104,18 +104,18 @@
          id="tspan10-4-3-5"
          x="49.270264"
          y="125.38107"
-         style="font-style:italic;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:15.7143px;font-family:Calibri;-inkscape-font-specification:'Calibri Bold Italic';fill:#2ba84a;fill-opacity:1;stroke-width:0.245993;stroke-miterlimit:4;stroke-dasharray:none">VHDL</tspan></text>
+         style="font-style:italic;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:11.5px;font-family:Calibri;-inkscape-font-specification:'Calibri Bold Italic';fill:#2ba84a;fill-opacity:1;stroke-width:0.245993;stroke-miterlimit:4;stroke-dasharray:none">VHDL</tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:24.182px;line-height:1.25;font-family:Calibri;-inkscape-font-specification:'Calibri Italic';fill:#fcfffc;fill-opacity:1;stroke:none;stroke-width:0.453411"
-       x="57.981281"
-       y="149.74188"
+       style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18px;line-height:1.25;font-family:Calibri;-inkscape-font-specification:'Calibri Italic';fill:#fcfffc;fill-opacity:1;stroke:none;stroke-width:0.453411"
+       x="61"
+       y="148"
        id="text21-7-0-7"><tspan
          sodipodi:role="line"
          id="tspan19-3-6-0"
-         x="57.981281"
-         y="149.74188"
-         style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:24.182px;font-family:Calibri;-inkscape-font-specification:'Calibri Italic';fill:#fcfffc;fill-opacity:1;stroke-width:0.453411">LS</tspan></text>
+         x="61"
+         y="148"
+         style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18px;font-family:Calibri;-inkscape-font-specification:'Calibri Italic';fill:#fcfffc;fill-opacity:1;stroke-width:0.453411">LS</tspan></text>
     <path
        d="m 57.818791,145.85477 c 0,0.0472 -0.0135,0.11017 -0.0406,0.18892 0,0.0787 -0.0406,0.1653 -0.12173,0.25976 -0.0812,0.0866 -0.17598,0.17712 -0.28446,0.27158 -0.10826,0.0866 -0.24365,0.16924 -0.40618,0.24796 -0.13533,0.0787 -0.32487,0.14169 -0.56862,0.18892 -0.2167,0.0473 -0.46038,0.0709 -0.73104,0.0709 h -7.613608 c -0.352,0 -0.60923,-0.0354 -0.77169,-0.10627 -0.16247,-0.0708 -0.2437,-0.17712 -0.2437,-0.31881 0,-0.0393 0.0135,-0.0944 0.0406,-0.1653 0.0271,-0.0787 0.0677,-0.16137 0.12184,-0.24796 0.0812,-0.0945 0.17599,-0.18892 0.2843,-0.28339 0.1083,-0.0945 0.24368,-0.17711 0.40614,-0.24796 0.16247,-0.0787 0.33847,-0.13775 0.528,-0.17711 0.21661,-0.0473 0.47385,-0.0709 0.7717,-0.0709 h 7.613528 c 0.37907,0 0.6363,0.0354 0.77169,0.10627 0.16235,0.0709 0.24353,0.16531 0.24353,0.28339 z"
        style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:24.182px;line-height:1.25;font-family:Calibri;-inkscape-font-specification:'Calibri Italic';fill:#266831;fill-opacity:1;stroke:none;stroke-width:0.840919"
