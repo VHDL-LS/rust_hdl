@@ -4,9 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
-use crate::builder::{
-    AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral,
-};
+use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
 use crate::parser::builder::NodeBuilder;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::node_kind::NodeKind;

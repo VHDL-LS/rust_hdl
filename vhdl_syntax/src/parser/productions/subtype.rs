@@ -86,7 +86,25 @@ impl Parser {
 
     pub(crate) fn opt_resolution_indication(&mut self) {
         if self.next_is(LeftPar) {
-            self.resolution_indication();
+            // A parenthesized `resolution_indication` is always followed by a
+            // type-mark name (per the LRM `subtype_indication` grammar). If the
+            // token after the matching `)` is not a name-starter, the `(` must
+            // belong to a parenthesized expression / aggregate instead, and
+            // consuming it here would derail the parse — e.g. an actual_part
+            // `(a + b)` would otherwise be misparsed as a resolution.
+            match self.lookahead_skip_n(1, [RightPar]) {
+                Ok((_, end_index)) => {
+                    if matches!(
+                        self.peek_nth_token(end_index - self.token_index() + 1),
+                        Identifier | StringLiteral | CharacterLiteral | LtLt
+                    ) {
+                        self.resolution_indication();
+                    }
+                }
+                Err(_) => {
+                    // No matching `)` (or EOF) — leave it for the caller.
+                }
+            }
         }
         // The leading-name form of `resolution_indication` is indistinguishable
         // from a bare type-mark name and is resolved by analysis.

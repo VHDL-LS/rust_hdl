@@ -413,7 +413,7 @@ RecordResolution: !Sequence
 NameResolutionIndication: !Sequence
   - node: Name
 
-# TODO: Is this required? (Could potentially be replaced by ELement Resolution)
+# TODO: Is this required? (Could potentially be replaced by Element Resolution)
 ElementResolutionResolutionIndication: !Sequence
   - node: ElementResolution
 

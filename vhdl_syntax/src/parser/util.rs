@@ -88,7 +88,7 @@ impl Parser {
         }
     }
 
-    fn token_index(&self) -> usize {
+    pub(crate) fn token_index(&self) -> usize {
         self.builder.current_token_index()
     }
 

@@ -79,10 +79,6 @@ class ChoiceTag(list):
     pass
 
 
-class RawTokensTag:
-    pass
-
-
 def _build_loader() -> type[yaml.SafeLoader]:
     class Loader(yaml.SafeLoader):
         pass
@@ -93,12 +89,8 @@ def _build_loader() -> type[yaml.SafeLoader]:
     def choice_ctor(loader: yaml.SafeLoader, node: yaml.Node) -> ChoiceTag:
         return ChoiceTag(loader.construct_sequence(node, deep=True))
 
-    def raw_ctor(_loader: yaml.SafeLoader, _node: yaml.Node) -> RawTokensTag:
-        return RawTokensTag()
-
     Loader.add_constructor("!Sequence", seq_ctor)
     Loader.add_constructor("!Choice", choice_ctor)
-    Loader.add_constructor("!RawTokens", raw_ctor)
     return Loader
 
 
@@ -193,9 +185,7 @@ def render_choice(items: list[dict]) -> str:
 
 def render_node(name: str, contents: object) -> str:
     head = f"{to_snake(name)} ::="
-    if isinstance(contents, RawTokensTag):
-        body = "/* raw tokens */"
-    elif isinstance(contents, SeqTag):
+    if isinstance(contents, SeqTag):
         body = render_seq(list(contents))
     elif isinstance(contents, ChoiceTag):
         body = render_choice(list(contents))

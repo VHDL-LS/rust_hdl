@@ -26,7 +26,7 @@ impl Generator for BuilderGenerator {
     fn generate_files(&self, model: &Model) -> Vec<(String, TokenStream)> {
         let mut token_stream = quote! {
             use super::*;
-            use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, RawNodeBuilder, StringLiteral};
+            use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
             use crate::parser::builder::NodeBuilder;
             use crate::syntax::node::SyntaxNode;
             use crate::syntax::node_kind::NodeKind;
@@ -49,17 +49,6 @@ impl Generator for BuilderGenerator {
                 .iter()
                 .map(|node| generate_builder(node, model, &defaultable)),
         );
-
-        // Raw Token builders (e.g., `struct ActualPartBuilder`)
-        let mut raw_token_nodes: Vec<&str> = model
-            .all_nodes()
-            .filter_map(|n| match n {
-                Node::RawTokens(name) => Some(name.as_str()),
-                _ => None,
-            })
-            .collect();
-        raw_token_nodes.sort();
-        token_stream.extend(raw_token_nodes.into_iter().map(generate_raw_tokens_builder));
 
         // Token builders (e.g., `struct ForceToken`)
         let mut choice_nodes: Vec<&ChoiceNode> = model
@@ -515,39 +504,6 @@ fn generate_builder(
 
         impl From<#builder> for #syntax {
             fn from(value: #builder) -> Self {
-                value.build()
-            }
-        }
-    }
-}
-
-fn generate_raw_tokens_builder(name: &str) -> TokenStream {
-    let builder_name = builder_ident(name);
-    let syntax_name = syntax_type_ident(name);
-    let node_kind = node_kind_ident(name);
-    quote! {
-        pub struct #builder_name(RawNodeBuilder);
-        impl #builder_name {
-            pub fn new() -> Self {
-                Self(RawNodeBuilder::new(NodeKind::#node_kind))
-            }
-            pub fn from_vhdl(vhdl: impl crate::tokens::tokenizer::Tokenize) -> Self {
-                Self(RawNodeBuilder::from_vhdl(NodeKind::#node_kind, vhdl))
-            }
-            pub fn token(self, t: impl Into<Token>) -> Self {
-                Self(self.0.token(t))
-            }
-            pub fn build(self) -> #syntax_name {
-                #syntax_name::cast(self.0.build()).unwrap()
-            }
-        }
-        impl Default for #builder_name {
-            fn default() -> Self {
-                Self::new()
-            }
-        }
-        impl From<#builder_name> for #syntax_name {
-            fn from(value: #builder_name) -> Self {
                 value.build()
             }
         }
