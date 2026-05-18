@@ -1,0 +1,11 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"-foo\")"
+---
+ActualPart
+  ActualPartExpression
+    UnaryExpression
+      Minus
+      NameExpression
+        Name
+          Identifier 'foo'

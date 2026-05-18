@@ -96,31 +96,38 @@ impl From<AccessTypeDefinitionBuilder> for AccessTypeDefinitionSyntax {
     }
 }
 pub struct ActualPartBuilder {
-    actual_part_prefix: Option<ActualPartPrefixSyntax>,
-    actual_part_suffix: ActualPartSuffixSyntax,
+    inertial_token: Option<Token>,
+    actual_part_body: ActualPartBodySyntax,
 }
 impl ActualPartBuilder {
-    pub fn new(actual_part_suffix: impl Into<ActualPartSuffixSyntax>) -> Self {
+    pub fn new(actual_part_body: impl Into<ActualPartBodySyntax>) -> Self {
         Self {
-            actual_part_prefix: None,
-            actual_part_suffix: actual_part_suffix.into(),
+            inertial_token: None,
+            actual_part_body: actual_part_body.into(),
         }
     }
-    pub fn with_actual_part_prefix(mut self, n: impl Into<ActualPartPrefixSyntax>) -> Self {
-        self.actual_part_prefix = Some(n.into());
+    pub fn with_inertial_token(mut self, t: impl Into<Token>) -> Self {
+        self.inertial_token = Some(t.into());
         self
     }
-    pub fn with_actual_part_suffix(mut self, n: impl Into<ActualPartSuffixSyntax>) -> Self {
-        self.actual_part_suffix = n.into();
+    pub fn with_inertial_token_trivia(mut self, trivia: Trivia) -> Self {
+        let tok = self
+            .inertial_token
+            .get_or_insert_with(|| Kw::Inertial.canonical_token());
+        tok.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_actual_part_body(mut self, n: impl Into<ActualPartBodySyntax>) -> Self {
+        self.actual_part_body = n.into();
         self
     }
     pub fn build(self) -> ActualPartSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ActualPart);
-        if let Some(n) = self.actual_part_prefix {
-            builder.push_node(n.raw().green().clone());
+        if let Some(t) = self.inertial_token {
+            builder.push(t);
         }
-        builder.push_node(self.actual_part_suffix.raw().green().clone());
+        builder.push_node(self.actual_part_body.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -197,54 +204,31 @@ impl From<ActualPartOpenBuilder> for ActualPartOpenSyntax {
         value.build()
     }
 }
-pub struct ActualPartPrefixBuilder {
-    inertial_token: Option<Token>,
-    resolution_indication: Option<ResolutionIndicationSyntax>,
+pub struct ActualPartSubtypeIndicationBuilder {
+    subtype_indication: SubtypeIndicationSyntax,
 }
-impl Default for ActualPartPrefixBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ActualPartPrefixBuilder {
-    pub fn new() -> Self {
+impl ActualPartSubtypeIndicationBuilder {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            inertial_token: None,
-            resolution_indication: None,
+            subtype_indication: subtype_indication.into(),
         }
     }
-    pub fn with_inertial_token(mut self, t: impl Into<Token>) -> Self {
-        self.inertial_token = Some(t.into());
+    pub fn with_subtype_indication(mut self, n: impl Into<SubtypeIndicationSyntax>) -> Self {
+        self.subtype_indication = n.into();
         self
     }
-    pub fn with_inertial_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .inertial_token
-            .get_or_insert_with(|| Kw::Inertial.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_resolution_indication(mut self, n: impl Into<ResolutionIndicationSyntax>) -> Self {
-        self.resolution_indication = Some(n.into());
-        self
-    }
-    pub fn build(self) -> ActualPartPrefixSyntax {
+    pub fn build(self) -> ActualPartSubtypeIndicationSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ActualPartPrefix);
-        if let Some(t) = self.inertial_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.resolution_indication {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.start_node(NodeKind::ActualPartSubtypeIndication);
+        builder.push_node(self.subtype_indication.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ActualPartPrefixSyntax::cast(node).unwrap()
+        ActualPartSubtypeIndicationSyntax::cast(node).unwrap()
     }
 }
-impl From<ActualPartPrefixBuilder> for ActualPartPrefixSyntax {
-    fn from(value: ActualPartPrefixBuilder) -> Self {
+impl From<ActualPartSubtypeIndicationBuilder> for ActualPartSubtypeIndicationSyntax {
+    fn from(value: ActualPartSubtypeIndicationBuilder) -> Self {
         value.build()
     }
 }

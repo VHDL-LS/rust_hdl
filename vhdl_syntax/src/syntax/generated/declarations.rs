@@ -325,50 +325,6 @@ impl UseClauseDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ActualPartPrefixSyntax(pub(crate) SyntaxNode);
-impl AstNode for ActualPartPrefixSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ActualPartPrefix,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "inertial",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Inertial)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "resolution_indication",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::NameResolutionIndication,
-                    NodeKind::ParenthesizedElementResolutionResolutionIndication,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ActualPartPrefixSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ActualPartPrefixSyntax {
-    pub fn inertial_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Inertial))
-            .nth(0)
-    }
-    pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(ResolutionIndicationSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ActualPartExpressionSyntax(pub(crate) SyntaxNode);
 impl AstNode for ActualPartExpressionSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -401,6 +357,33 @@ impl ActualPartExpressionSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ActualPartSubtypeIndicationSyntax(pub(crate) SyntaxNode);
+impl AstNode for ActualPartSubtypeIndicationSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ActualPartSubtypeIndication,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "subtype_indication",
+            kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ActualPartSubtypeIndicationSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ActualPartSubtypeIndicationSyntax {
+    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(SubtypeIndicationSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ActualPartOpenSyntax(pub(crate) SyntaxNode);
 impl AstNode for ActualPartOpenSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -428,22 +411,32 @@ impl ActualPartOpenSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum ActualPartSuffixSyntax {
+pub enum ActualPartBodySyntax {
     ActualPartExpression(ActualPartExpressionSyntax),
+    ActualPartSubtypeIndication(ActualPartSubtypeIndicationSyntax),
     ActualPartOpen(ActualPartOpenSyntax),
 }
-impl AstNode for ActualPartSuffixSyntax {
+impl AstNode for ActualPartBodySyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[NodeKind::ActualPartExpression, NodeKind::ActualPartOpen],
+        options: &[
+            NodeKind::ActualPartExpression,
+            NodeKind::ActualPartSubtypeIndication,
+            NodeKind::ActualPartOpen,
+        ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         if ActualPartExpressionSyntax::can_cast(&node) {
-            return ActualPartSuffixSyntax::ActualPartExpression(
+            return ActualPartBodySyntax::ActualPartExpression(
                 ActualPartExpressionSyntax::cast_unchecked(node),
             );
         }
+        if ActualPartSubtypeIndicationSyntax::can_cast(&node) {
+            return ActualPartBodySyntax::ActualPartSubtypeIndication(
+                ActualPartSubtypeIndicationSyntax::cast_unchecked(node),
+            );
+        }
         if ActualPartOpenSyntax::can_cast(&node) {
-            return ActualPartSuffixSyntax::ActualPartOpen(ActualPartOpenSyntax::cast_unchecked(
+            return ActualPartBodySyntax::ActualPartOpen(ActualPartOpenSyntax::cast_unchecked(
                 node,
             ));
         }
@@ -454,8 +447,9 @@ impl AstNode for ActualPartSuffixSyntax {
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ActualPartSuffixSyntax::ActualPartExpression(inner) => inner.raw(),
-            ActualPartSuffixSyntax::ActualPartOpen(inner) => inner.raw(),
+            ActualPartBodySyntax::ActualPartExpression(inner) => inner.raw(),
+            ActualPartBodySyntax::ActualPartSubtypeIndication(inner) => inner.raw(),
+            ActualPartBodySyntax::ActualPartOpen(inner) => inner.raw(),
         }
     }
 }
@@ -468,15 +462,16 @@ impl AstNode for ActualPartSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "actual_part_prefix",
-                kind: LayoutItemKind::Node(NodeKind::ActualPartPrefix),
+                name: "inertial",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Inertial)),
             },
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "actual_part_suffix",
+                name: "actual_part_body",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::ActualPartExpression,
+                    NodeKind::ActualPartSubtypeIndication,
                     NodeKind::ActualPartOpen,
                 ]),
             },
@@ -490,16 +485,16 @@ impl AstNode for ActualPartSyntax {
     }
 }
 impl ActualPartSyntax {
-    pub fn actual_part_prefix(&self) -> Option<ActualPartPrefixSyntax> {
+    pub fn inertial_token(&self) -> Option<SyntaxToken> {
         self.0
-            .children()
-            .filter_map(ActualPartPrefixSyntax::cast)
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Inertial))
             .nth(0)
     }
-    pub fn actual_part_suffix(&self) -> Option<ActualPartSuffixSyntax> {
+    pub fn actual_part_body(&self) -> Option<ActualPartBodySyntax> {
         self.0
             .children()
-            .filter_map(ActualPartSuffixSyntax::cast)
+            .filter_map(ActualPartBodySyntax::cast)
             .nth(0)
     }
 }

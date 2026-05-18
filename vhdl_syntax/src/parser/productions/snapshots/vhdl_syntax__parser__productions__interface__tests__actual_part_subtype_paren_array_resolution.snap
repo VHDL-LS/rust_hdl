@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"(resolve) bit_vector\")"
+---
+ActualPart
+  ActualPartSubtypeIndication
+    SubtypeIndication
+      ParenthesizedElementResolutionResolutionIndication
+        LeftPar
+        ElementResolutionResolutionIndication
+          ResolutionIndicationElementResolution
+            NameResolutionIndication
+              Name
+                Identifier 'resolve'
+        RightPar
+      Name
+        Identifier 'bit_vector'

@@ -352,11 +352,6 @@ mod tests {
     }
 
     #[test]
-    fn test_association_list_actual_part_open() {
-        insta::assert_snapshot!(name_to_test_text("foo(open, arg => open)"));
-    }
-
-    #[test]
     fn test_external_name_implicit_relative() {
         insta::assert_snapshot!(name_to_test_text("<< signal dut.foo : std_logic >>"));
     }

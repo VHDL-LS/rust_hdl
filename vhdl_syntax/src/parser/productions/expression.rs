@@ -111,6 +111,19 @@ impl Parser {
         self.expression_inner(0);
     }
 
+    /// Continue an expression parse from an already-emitted primary located at
+    /// `checkpoint`. The caller is responsible for having emitted the leading
+    /// primary node (e.g. `NameExpression`) starting at `checkpoint`.
+    pub(crate) fn expression_from_primary(&mut self, checkpoint: crate::parser::builder::Checkpoint) {
+        while let Some(precedence) = binary_precedence(self.peek_token()) {
+            let precedence: u8 = precedence.into();
+            self.start_node_at(checkpoint, BinaryExpression);
+            self.skip();
+            self.expression_inner(precedence);
+            self.end_node();
+        }
+    }
+
     pub fn condition(&mut self) {
         self.expression()
     }

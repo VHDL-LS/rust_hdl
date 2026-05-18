@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"T'(1, 2, 3)\")"
+---
+ActualPart
+  ActualPartExpression
+    NameExpression
+      Name
+        Identifier 'T'
+        QualifiedTail
+          Tick
+          Aggregate
+            LeftPar
+            ElementAssociation
+              LiteralExpression
+                AbstractLiteral '1'
+            Comma
+            ElementAssociation
+              LiteralExpression
+                AbstractLiteral '2'
+            Comma
+            ElementAssociation
+              LiteralExpression
+                AbstractLiteral '3'
+            RightPar

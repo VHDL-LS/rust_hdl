@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"lib.pkg.sig\")"
+---
+ActualPart
+  ActualPartExpression
+    NameExpression
+      Name
+        Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'pkg'
+        SelectedName
+          Dot
+          Identifier 'sig'

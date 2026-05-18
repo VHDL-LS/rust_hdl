@@ -39,33 +39,36 @@ PackageBodyDeclaration: !Sequence
 UseClauseDeclaration: !Sequence
   - node: UseClause
 
-# LRM splits `actual_part` into `actual_designator | name "(" actual_designator ")" |
-# type_mark "(" actual_designator ")"`, with `actual_designator =
-# [inertial] expression | name | subtype_indication | open`.
-# We unify all forms into a prefix/suffix split: any leading resolution
-# indication or `inertial` keyword binds to the prefix, and the suffix is just
-# `expression | "open"`. Because `Expression` includes `NameExpression`, and
-# `NameExpression` accepts a `ParenthesizedName` tail, the wrapped variants
-# fall out of the same shape.
-ActualPartPrefix: !Sequence
-  - keyword: Inertial
-    optional: true
-  - node: ResolutionIndication
-    optional: true
-
+# LRM:
+#   actual_part       ::= actual_designator | name "(" actual_designator ")"
+#                       | type_mark "(" actual_designator ")"
+#   actual_designator ::= [inertial] expression | subtype_indication | open
+#
+# Disambiguation between `Expression` and `SubtypeIndication` is done at
+# parse time by lookahead: the only syntactic discriminator is a second
+# name following the first (the resolution_function_name + type_mark
+# pattern, or the `(element_resolution)` + type_mark pattern). The wrapped
+# `name "(" actual_designator ")"` forms collapse into `Expression`
+# because `Name` accepts a `ParenthesizedName` tail; analysis disambiguates
+# type conversions / resolution functions later.
 ActualPartExpression: !Sequence
   - node: Expression
+
+ActualPartSubtypeIndication: !Sequence
+  - node: SubtypeIndication
 
 ActualPartOpen: !Sequence
   - keyword: Open
 
-ActualPartSuffix: !Choice
+ActualPartBody: !Choice
   - node: ActualPartExpression
+  - node: ActualPartSubtypeIndication
   - node: ActualPartOpen
 
 ActualPart: !Sequence
-  - node: ActualPartPrefix
-  - node: ActualPartSuffix
+  - keyword: Inertial
+    optional: true
+  - node: ActualPartBody
 
 AliasDeclaration: !Sequence
   - keyword: Alias
