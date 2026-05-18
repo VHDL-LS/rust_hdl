@@ -4,7 +4,6 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::util::LookaheadError;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
@@ -41,10 +40,6 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
 
 impl Parser {
     pub fn name(&mut self) {
-        self.name_bounded(usize::MAX);
-    }
-
-    pub(crate) fn name_bounded(&mut self, max_index: usize) {
         // (Based on) LRM §8.1
         // The LRM grammar rules for names were transformed to avoid left recursion.
 
@@ -58,7 +53,7 @@ impl Parser {
             self.expect_one_of_tokens([Identifier, StringLiteral, CharacterLiteral]);
         }
 
-        self.opt_name_tail_bounded(max_index);
+        while self.opt_name_tail() {}
 
         // Ambiguity: `range <>` is the tail of an index subtype definition.
         // This wires through name due to the starting `type_mark`.
@@ -108,35 +103,16 @@ impl Parser {
         ]);
     }
 
-    fn opt_name_tail_bounded(&mut self, max_index: usize) -> bool {
-        // name      ::= name_prefix { name_tail } ;
-        // name_tail ::= selected_name
-        //             | parenthesized_name      // (assoc_list) — covers indexed/slice/call/conversion
-        //             | attribute_name          // [signature] ' identifier
-        //             | qualified_tail          // ' aggregate
-        //
-        // The grammar is intentionally broader than the LRM's separate
-        // indexed/slice/function/conversion forms; analysis disambiguates.
-
-        if self.next_is(Dot) {
-            self.start_node(SelectedName);
-            self.expect_token(Dot);
-            self.suffix();
-            self.end_node();
-            self.opt_name_tail_bounded(max_index)
-        } else if self.next_is(LeftPar) {
-            let end_index_opt =
-                match self.lookahead_max_token_index_skip_n(max_index, 1, [RightPar]) {
-                    Ok((_, end_index)) => Some(end_index),
-                    Err((LookaheadError::MaxIndexReached, _)) => None,
-                    // Skip parsing of the parenthesized group, if EOF is reached
-                    Err((LookaheadError::Eof, _)) => None,
-                    // This error is only possible, when a `RightPar` is found before any token in `kinds`.
-                    // Since `RightPar` is in `kinds` that's not possible!
-                    Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
-                };
-
-            if end_index_opt.is_some() {
+    fn opt_name_tail(&mut self) -> bool {
+        match self.peek_token() {
+            Dot => {
+                self.start_node(SelectedName);
+                self.expect_token(Dot);
+                self.suffix();
+                self.end_node();
+                true
+            }
+            LeftPar => {
                 self.start_node(ParenthesizedName);
                 self.expect_token(LeftPar);
                 if !self.next_is(RightPar) {
@@ -144,34 +120,32 @@ impl Parser {
                 }
                 self.expect_token(RightPar);
                 self.end_node();
-
-                self.opt_name_tail_bounded(max_index)
-            } else {
-                false
+                true
             }
-        } else if is_start_of_attribute_name(self) {
-            // `'(...)` is a qualified expression tail (T'(expr) or T'(others=>x)),
-            // distinct from `'identifier` which is an attribute name.
-            if self.next_is(Tick) && self.next_nth_is(LeftPar, 1) {
-                self.start_node(QualifiedTail);
-                self.expect_token(Tick);
-                self.aggregate();
-                self.end_node();
-            } else {
-                self.start_node(AttributeName);
-                if self.next_is(LeftSquare) {
-                    self.signature();
+            _ => {
+                if is_start_of_attribute_name(self) {
+                    if self.next_is(Tick) && self.next_nth_is(LeftPar, 1) {
+                        self.start_node(QualifiedTail);
+                        self.expect_token(Tick);
+                        self.aggregate();
+                        self.end_node();
+                    } else {
+                        self.start_node(AttributeName);
+                        if self.next_is(LeftSquare) {
+                            self.signature();
+                        }
+                        self.expect_token(Tick);
+                        // Either an identifier or a keyword (e.g., `range`, `subtype`).
+                        if matches!(self.peek_token(), Keyword(_) | Identifier) {
+                            self.skip();
+                        }
+                        self.end_node();
+                    }
+                    true
+                } else {
+                    false
                 }
-                self.expect_token(Tick);
-                // Either an identifier or a keyword (e.g., `range`, `subtype`).
-                if matches!(self.peek_token(), Keyword(_) | Identifier) {
-                    self.skip();
-                }
-                self.end_node();
             }
-            self.opt_name_tail_bounded(max_index)
-        } else {
-            false
         }
     }
 
