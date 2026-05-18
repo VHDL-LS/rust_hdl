@@ -42,12 +42,13 @@ ElementDeclaration: !Sequence
   - node: SubtypeIndication
   - token: SemiColon
 
-# LRM elements are `enumeration_literal` (identifier or character_literal).
-# We reuse `DiscreteRange` here so the parser can share its parenthesized-list
-# code with `IndexConstraint`; analysis rejects non-literal elements.
+EnumerationLiteral: !Choice
+  - token: Identifier
+  - token: CharacterLiteral
+
 EnumerationTypeDefinition: !Sequence
   - token: LeftPar
-  - node: DiscreteRange
+  - node: EnumerationLiteral
     repeated: true
   - token: Comma
     repeated: true

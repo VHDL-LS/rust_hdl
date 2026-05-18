@@ -361,6 +361,26 @@ impl ElementDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub enum EnumerationLiteralSyntax {
+    Identifier(SyntaxToken),
+    CharacterLiteral(SyntaxToken),
+}
+impl EnumerationLiteralSyntax {
+    pub fn cast(token: SyntaxToken) -> Option<Self> {
+        match token.kind() {
+            TokenKind::Identifier => Some(EnumerationLiteralSyntax::Identifier(token)),
+            TokenKind::CharacterLiteral => Some(EnumerationLiteralSyntax::CharacterLiteral(token)),
+            _ => None,
+        }
+    }
+    pub fn raw(&self) -> SyntaxToken {
+        match self {
+            EnumerationLiteralSyntax::Identifier(token) => token.clone(),
+            EnumerationLiteralSyntax::CharacterLiteral(token) => token.clone(),
+        }
+    }
+}
+#[derive(Debug, Clone)]
 pub struct EnumerationTypeDefinitionSyntax(pub(crate) SyntaxNode);
 impl AstNode for EnumerationTypeDefinitionSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -375,10 +395,10 @@ impl AstNode for EnumerationTypeDefinitionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "discrete_ranges",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::DiscreteRangeNormal,
-                    NodeKind::OpenDiscreteRange,
+                name: "enumeration_literals",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Identifier,
+                    TokenKind::CharacterLiteral,
                 ]),
             },
             LayoutItem {
@@ -409,8 +429,8 @@ impl EnumerationTypeDefinitionSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn discrete_ranges(&self) -> impl Iterator<Item = DiscreteRangeSyntax> + use<'_> {
-        self.0.children().filter_map(DiscreteRangeSyntax::cast)
+    pub fn enumeration_literals(&self) -> impl Iterator<Item = EnumerationLiteralSyntax> + use<'_> {
+        self.0.tokens().filter_map(EnumerationLiteralSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0

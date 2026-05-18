@@ -6342,7 +6342,7 @@ impl From<EntitySpecificationBuilder> for EntitySpecificationSyntax {
 }
 pub struct EnumerationTypeDefinitionBuilder {
     left_par_token: Token,
-    discrete_ranges: Vec<DiscreteRangeSyntax>,
+    enumeration_literals: Vec<EnumerationLiteralToken>,
     comma_token: Vec<Token>,
     right_par_token: Token,
 }
@@ -6355,7 +6355,7 @@ impl EnumerationTypeDefinitionBuilder {
     pub fn new() -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            discrete_ranges: Vec::new(),
+            enumeration_literals: Vec::new(),
             comma_token: Vec::new(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
@@ -6368,8 +6368,8 @@ impl EnumerationTypeDefinitionBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_discrete_ranges(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
-        self.discrete_ranges.push(n.into());
+    pub fn add_enumeration_literals(mut self, n: impl Into<EnumerationLiteralToken>) -> Self {
+        self.enumeration_literals.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -6388,8 +6388,8 @@ impl EnumerationTypeDefinitionBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::EnumerationTypeDefinition);
         builder.push(self.left_par_token);
-        for n in self.discrete_ranges {
-            builder.push_node(n.raw().green().clone());
+        for n in self.enumeration_literals {
+            builder.push(n.0);
         }
         for t in self.comma_token {
             builder.push(t);
@@ -17334,6 +17334,30 @@ impl From<crate::builder::CharLiteral> for EntityTagToken {
 impl From<crate::builder::StringLiteral> for EntityTagToken {
     fn from(v: crate::builder::StringLiteral) -> Self {
         EntityTagToken::string_literal(v)
+    }
+}
+pub struct EnumerationLiteralToken(pub(crate) Token);
+impl EnumerationLiteralToken {
+    pub fn identifier(v: impl Into<crate::builder::Identifier>) -> Self {
+        Self(v.into().into())
+    }
+    pub fn character_literal(v: impl Into<crate::builder::CharLiteral>) -> Self {
+        Self(v.into().into())
+    }
+}
+impl From<EnumerationLiteralSyntax> for EnumerationLiteralToken {
+    fn from(s: EnumerationLiteralSyntax) -> Self {
+        EnumerationLiteralToken(s.raw().token().clone())
+    }
+}
+impl From<crate::builder::Identifier> for EnumerationLiteralToken {
+    fn from(v: crate::builder::Identifier) -> Self {
+        EnumerationLiteralToken::identifier(v)
+    }
+}
+impl From<crate::builder::CharLiteral> for EnumerationLiteralToken {
+    fn from(v: crate::builder::CharLiteral) -> Self {
+        EnumerationLiteralToken::character_literal(v)
     }
 }
 pub struct ForceModeToken(pub(crate) Token);
