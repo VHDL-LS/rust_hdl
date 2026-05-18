@@ -14,11 +14,10 @@ use vhdl_syntax::{
     builder::Identifier,
     parser,
     syntax::{
-        ArchitectureEpilogueBuilder, AstNode,
-        BinaryOperatorToken, EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
-        EntityDeclarationPreambleBuilder, LibraryUnitSyntax, LiteralExpressionBuilder,
-        LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder, NameDesignatorToken,
-        PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
+        ArchitectureEpilogueBuilder, AstNode, BinaryOperatorToken, EntityDeclarationBuilder,
+        EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax,
+        LiteralExpressionBuilder, LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder,
+        NameDesignatorToken, PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
     },
     tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
