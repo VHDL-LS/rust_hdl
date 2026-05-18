@@ -123,13 +123,9 @@ OthersChoice: !Sequence
 ExpressionChoice: !Sequence
   - node: Expression
 
-DiscreteRangeChoice: !Sequence
-  - node: DiscreteRange
-
 Choice: !Choice
   - node: ExpressionChoice
   - node: OthersChoice
-  - node: DiscreteRangeChoice
 
 Choices: !Sequence
   - node: Choice

@@ -9,13 +9,12 @@ LoopStatement
       ParameterSpecification
         Identifier 'idx'
         Keyword(In)
-        DiscreteRangeNormal
-          BinaryExpression
-            LiteralExpression
-              AbstractLiteral '0'
-            Keyword(To)
-            LiteralExpression
-              AbstractLiteral '3'
+        BinaryExpression
+          LiteralExpression
+            AbstractLiteral '0'
+          Keyword(To)
+          LiteralExpression
+            AbstractLiteral '3'
     Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement

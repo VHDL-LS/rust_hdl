@@ -753,9 +753,14 @@ impl AstNode for NameSyntax {
                     NodeKind::SelectedName,
                     NodeKind::ParenthesizedName,
                     NodeKind::AttributeName,
-                    NodeKind::RangeConstraint,
                     NodeKind::QualifiedTail,
                 ]),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "range_constraint",
+                kind: LayoutItemKind::Node(NodeKind::RangeConstraint),
             },
         ],
     });
@@ -772,6 +777,12 @@ impl NameSyntax {
     }
     pub fn name_tails(&self) -> impl Iterator<Item = NameTailSyntax> + use<'_> {
         self.0.children().filter_map(NameTailSyntax::cast)
+    }
+    pub fn range_constraint(&self) -> Option<RangeConstraintSyntax> {
+        self.0
+            .children()
+            .filter_map(RangeConstraintSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -1005,7 +1016,6 @@ pub enum NameTailSyntax {
     SelectedName(SelectedNameSyntax),
     ParenthesizedName(ParenthesizedNameSyntax),
     AttributeName(AttributeNameSyntax),
-    RangeConstraint(RangeConstraintSyntax),
     QualifiedTail(QualifiedTailSyntax),
 }
 impl AstNode for NameTailSyntax {
@@ -1014,7 +1024,6 @@ impl AstNode for NameTailSyntax {
             NodeKind::SelectedName,
             NodeKind::ParenthesizedName,
             NodeKind::AttributeName,
-            NodeKind::RangeConstraint,
             NodeKind::QualifiedTail,
         ],
     });
@@ -1030,9 +1039,6 @@ impl AstNode for NameTailSyntax {
         if AttributeNameSyntax::can_cast(&node) {
             return NameTailSyntax::AttributeName(AttributeNameSyntax::cast_unchecked(node));
         }
-        if RangeConstraintSyntax::can_cast(&node) {
-            return NameTailSyntax::RangeConstraint(RangeConstraintSyntax::cast_unchecked(node));
-        }
         if QualifiedTailSyntax::can_cast(&node) {
             return NameTailSyntax::QualifiedTail(QualifiedTailSyntax::cast_unchecked(node));
         }
@@ -1046,7 +1052,6 @@ impl AstNode for NameTailSyntax {
             NameTailSyntax::SelectedName(inner) => inner.raw(),
             NameTailSyntax::ParenthesizedName(inner) => inner.raw(),
             NameTailSyntax::AttributeName(inner) => inner.raw(),
-            NameTailSyntax::RangeConstraint(inner) => inner.raw(),
             NameTailSyntax::QualifiedTail(inner) => inner.raw(),
         }
     }

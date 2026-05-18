@@ -252,7 +252,7 @@ NullStatement: !Sequence
 ParameterSpecification: !Sequence
   - token: Identifier
   - keyword: In
-  - node: DiscreteRange
+  - node: Expression
 
 ProcedureCallStatement: !Sequence
   - node: Label

@@ -59,6 +59,14 @@ impl Parser {
         }
 
         self.opt_name_tail_bounded(max_index);
+
+        // Ambiguity: `range <>` is the tail of an index subtype definition.
+        // This wires through name due to the starting `type_mark`.
+        // TODO: consider alternative: broaden language to make "<>" a valid expression.
+        // Creates less ambiguity here.
+        if self.next_is(Keyword(Kw::Range)) && !self.next_nth_is(BOX, 1) {
+            self.range_constraint();
+        }
         self.end_node();
     }
 
@@ -105,7 +113,6 @@ impl Parser {
         // name_tail ::= selected_name
         //             | parenthesized_name      // (assoc_list) — covers indexed/slice/call/conversion
         //             | attribute_name          // [signature] ' identifier
-        //             | range_constraint        // range expression
         //             | qualified_tail          // ' aggregate
         //
         // The grammar is intentionally broader than the LRM's separate
@@ -142,11 +149,6 @@ impl Parser {
             } else {
                 false
             }
-        } else if self.next_is(Keyword(Kw::Range)) && !self.next_nth_is(BOX, 1) {
-            // `range <>` belongs to an `IndexSubtypeDefinition`, not a
-            // `range_constraint` on the name (BOX is not an expression).
-            self.range_constraint();
-            self.opt_name_tail_bounded(max_index)
         } else if is_start_of_attribute_name(self) {
             // `'(...)` is a qualified expression tail (T'(expr) or T'(others=>x)),
             // distinct from `'identifier` which is an attribute name.

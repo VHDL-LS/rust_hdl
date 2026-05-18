@@ -728,48 +728,13 @@ impl ExpressionChoiceSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct DiscreteRangeChoiceSyntax(pub(crate) SyntaxNode);
-impl AstNode for DiscreteRangeChoiceSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::DiscreteRangeChoice,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "discrete_range",
-            kind: LayoutItemKind::NodeChoice(&[
-                NodeKind::DiscreteRangeNormal,
-                NodeKind::OpenDiscreteRange,
-            ]),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        DiscreteRangeChoiceSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl DiscreteRangeChoiceSyntax {
-    pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
-        self.0
-            .children()
-            .filter_map(DiscreteRangeSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum ChoiceSyntax {
     ExpressionChoice(ExpressionChoiceSyntax),
     OthersChoice(OthersChoiceSyntax),
-    DiscreteRangeChoice(DiscreteRangeChoiceSyntax),
 }
 impl AstNode for ChoiceSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[
-            NodeKind::ExpressionChoice,
-            NodeKind::OthersChoice,
-            NodeKind::DiscreteRangeChoice,
-        ],
+        options: &[NodeKind::ExpressionChoice, NodeKind::OthersChoice],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         if ExpressionChoiceSyntax::can_cast(&node) {
@@ -777,11 +742,6 @@ impl AstNode for ChoiceSyntax {
         }
         if OthersChoiceSyntax::can_cast(&node) {
             return ChoiceSyntax::OthersChoice(OthersChoiceSyntax::cast_unchecked(node));
-        }
-        if DiscreteRangeChoiceSyntax::can_cast(&node) {
-            return ChoiceSyntax::DiscreteRangeChoice(DiscreteRangeChoiceSyntax::cast_unchecked(
-                node,
-            ));
         }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
@@ -792,7 +752,6 @@ impl AstNode for ChoiceSyntax {
         match self {
             ChoiceSyntax::ExpressionChoice(inner) => inner.raw(),
             ChoiceSyntax::OthersChoice(inner) => inner.raw(),
-            ChoiceSyntax::DiscreteRangeChoice(inner) => inner.raw(),
         }
     }
 }
@@ -809,7 +768,6 @@ impl AstNode for ChoicesSyntax {
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::ExpressionChoice,
                     NodeKind::OthersChoice,
-                    NodeKind::DiscreteRangeChoice,
                 ]),
             },
             LayoutItem {

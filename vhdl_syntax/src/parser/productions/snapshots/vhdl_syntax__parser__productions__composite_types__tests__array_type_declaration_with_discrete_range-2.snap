@@ -10,29 +10,26 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      DiscreteRangeNormal
-        BinaryExpression
-          LiteralExpression
-            AbstractLiteral '10'
-          Keyword(Downto)
-          LiteralExpression
-            AbstractLiteral '5'
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '10'
+        Keyword(Downto)
+        LiteralExpression
+          AbstractLiteral '5'
       Comma
-      DiscreteRangeNormal
-        BinaryExpression
-          LiteralExpression
-            CharacterLiteral ''A''
-          Keyword(To)
-          LiteralExpression
-            CharacterLiteral ''B''
+      BinaryExpression
+        LiteralExpression
+          CharacterLiteral ''A''
+        Keyword(To)
+        LiteralExpression
+          CharacterLiteral ''B''
       Comma
-      DiscreteRangeNormal
-        NameExpression
-          Name
-            Identifier 'enum_t'
-            AttributeName
-              Tick
-              Keyword(Range)
+      NameExpression
+        Name
+          Identifier 'enum_t'
+          AttributeName
+            Tick
+            Keyword(Range)
       RightPar
     Keyword(Of)
     SubtypeIndication

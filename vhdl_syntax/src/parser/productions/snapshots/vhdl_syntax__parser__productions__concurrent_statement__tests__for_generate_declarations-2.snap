@@ -11,13 +11,12 @@ ForGenerateStatement
     ParameterSpecification
       Identifier 'idx'
       Keyword(In)
-      DiscreteRangeNormal
-        BinaryExpression
-          LiteralExpression
-            AbstractLiteral '0'
-          Keyword(To)
-          LiteralExpression
-            AbstractLiteral '1'
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '1'
     Keyword(Generate)
   GenerateStatementBody
     Declarations

@@ -2240,10 +2240,15 @@ impl AstNode for ParameterSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "discrete_range",
+                name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::DiscreteRangeNormal,
-                    NodeKind::OpenDiscreteRange,
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
                 ]),
             },
         ],
@@ -2268,11 +2273,8 @@ impl ParameterSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::In))
             .nth(0)
     }
-    pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
-        self.0
-            .children()
-            .filter_map(DiscreteRangeSyntax::cast)
-            .nth(0)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

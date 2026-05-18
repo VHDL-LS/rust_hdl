@@ -93,6 +93,11 @@ Name: !Sequence
   - node: NamePrefix
   - node: NameTail
     repeated: true
+  # `RangeConstraint` appears here so the constraint of a `subtype_indication`
+  # (e.g. `integer range 1 to 10`) parses as a `Name` followed by a tail —
+  # see the comment on `SubtypeIndication`.
+  - node: RangeConstraint
+    optional: true
 
 NameDesignatorPrefix: !Sequence
   - node: NameDesignator
@@ -125,12 +130,8 @@ QualifiedTail: !Sequence
   - token: Tick
   - node: Aggregate
 
-# `RangeConstraint` appears here so the constraint of a `subtype_indication`
-# (e.g. `integer range 1 to 10`) parses as a `Name` followed by a tail —
-# see the comment on `SubtypeIndication`.
 NameTail: !Choice
   - node: SelectedName
   - node: ParenthesizedName
   - node: AttributeName
-  - node: RangeConstraint
   - node: QualifiedTail

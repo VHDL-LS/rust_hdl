@@ -69,29 +69,9 @@ impl Parser {
     pub fn index_constraint(&mut self) {
         self.start_node(IndexConstraint);
         self.expect_token(LeftPar);
-        self.separated_list(Parser::discrete_range, Comma);
+        self.separated_list(Parser::expression, Comma);
         self.expect_token(RightPar);
         self.end_node();
-    }
-
-    pub fn discrete_range(&mut self) {
-        // discrete_range        ::= discrete_range_normal | open_discrete_range
-        // discrete_range_normal ::= [ resolution_indication ] expression
-        //
-        // -`1 to N` parses as `BinaryExpression` (as opposed to the LRM, `to`/`downto` are binary operators)
-        // - `T range 1 to N` parses as a `Name`
-        if self.next_is(Keyword(Kw::Open)) {
-            self.start_node(OpenDiscreteRange);
-            self.skip();
-            self.end_node();
-        } else {
-            self.start_node(DiscreteRangeNormal);
-            self.opt_resolution_indication();
-            if !self.next_is_one_of([Comma, Bar, RightArrow, RightPar, Keyword(Kw::Generate), Keyword(Kw::Loop)]) {
-                self.expression();
-            }
-            self.end_node();
-        }
     }
 }
 

@@ -188,114 +188,6 @@ impl ConstrainedArrayDefinitionSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct DiscreteRangeNormalSyntax(pub(crate) SyntaxNode);
-impl AstNode for DiscreteRangeNormalSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::DiscreteRangeNormal,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "resolution_indication",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::NameResolutionIndication,
-                    NodeKind::ParenthesizedElementResolutionResolutionIndication,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        DiscreteRangeNormalSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl DiscreteRangeNormalSyntax {
-    pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(ResolutionIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct OpenDiscreteRangeSyntax(pub(crate) SyntaxNode);
-impl AstNode for OpenDiscreteRangeSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::OpenDiscreteRange,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "open",
-            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        OpenDiscreteRangeSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl OpenDiscreteRangeSyntax {
-    pub fn open_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub enum DiscreteRangeSyntax {
-    DiscreteRangeNormal(DiscreteRangeNormalSyntax),
-    OpenDiscreteRange(OpenDiscreteRangeSyntax),
-}
-impl AstNode for DiscreteRangeSyntax {
-    const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[NodeKind::DiscreteRangeNormal, NodeKind::OpenDiscreteRange],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        if DiscreteRangeNormalSyntax::can_cast(&node) {
-            return DiscreteRangeSyntax::DiscreteRangeNormal(
-                DiscreteRangeNormalSyntax::cast_unchecked(node),
-            );
-        }
-        if OpenDiscreteRangeSyntax::can_cast(&node) {
-            return DiscreteRangeSyntax::OpenDiscreteRange(
-                OpenDiscreteRangeSyntax::cast_unchecked(node),
-            );
-        }
-        unreachable!(
-            "cast_unchecked called with unexpected node kind {:?}",
-            node.kind()
-        )
-    }
-    fn raw(&self) -> SyntaxNode {
-        match self {
-            DiscreteRangeSyntax::DiscreteRangeNormal(inner) => inner.raw(),
-            DiscreteRangeSyntax::OpenDiscreteRange(inner) => inner.raw(),
-        }
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ElementDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementDeclarationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -1563,10 +1455,15 @@ impl AstNode for IndexConstraintSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "discrete_ranges",
+                name: "expressions",
                 kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::DiscreteRangeNormal,
-                    NodeKind::OpenDiscreteRange,
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
                 ]),
             },
             LayoutItem {
@@ -1597,8 +1494,8 @@ impl IndexConstraintSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn discrete_ranges(&self) -> impl Iterator<Item = DiscreteRangeSyntax> + use<'_> {
-        self.0.children().filter_map(DiscreteRangeSyntax::cast)
+    pub fn expressions(&self) -> impl Iterator<Item = ExpressionSyntax> + use<'_> {
+        self.0.children().filter_map(ExpressionSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0

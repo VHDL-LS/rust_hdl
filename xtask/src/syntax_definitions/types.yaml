@@ -18,23 +18,17 @@ ConstrainedArrayDefinition: !Sequence
   - keyword: Of
   - node: SubtypeIndication
 
-# Supertype of `expression` and `subtype_indication`: a non-`open` discrete
-# range is an optional resolution indication followed by an expression. The
-# trailing expression covers both `expression` (e.g. `1 to N`) and the
-# `name [range_constraint]` of a subtype indication (e.g. `T range 1 to N`),
-# because `name` accepts a `RangeConstraint` tail and `to`/`downto` are
-# binary operators.
-DiscreteRangeNormal: !Sequence
-  - node: ResolutionIndication
-    optional: true
-  - node: Expression
-
-OpenDiscreteRange: !Sequence
-  - keyword: Open
-
-DiscreteRange: !Choice
-  - node: DiscreteRangeNormal
-  - node: OpenDiscreteRange
+# DiscreteRange
+# LRM 5.3.2.1: "If a subtype indication appears as a discrete range, the subtype indication shall not contain a resolution indication."
+# Without a resolution indication, discrete_range collapses into a simple `expression`:
+#
+# discrete_range ::= discrete_subtype_indication | range
+#
+# - discrete_subtype_indication ::= type_mark [ constraint ]
+#   * type_mark is the same as a name
+#   * As part of the broadening strategy, name absorbs constraint (due to ambiguity)
+# - range ::= range_attribute_name | simple_expression direction simple_expression
+#   * As part of the broadening strategy, the second form (expression direction expression) is absorbed into expression
 
 ElementDeclaration: !Sequence
   - node: IdentifierList
@@ -174,7 +168,7 @@ SecondaryUnitDeclaration: !Sequence
 
 IndexConstraint: !Sequence
   - token: LeftPar
-  - node: DiscreteRange
+  - node: Expression
     repeated: true
   - token: Comma
     repeated: true

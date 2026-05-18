@@ -5431,71 +5431,6 @@ impl From<DisconnectionSpecificationBuilder> for DisconnectionSpecificationSynta
         value.build()
     }
 }
-pub struct DiscreteRangeChoiceBuilder {
-    discrete_range: DiscreteRangeSyntax,
-}
-impl DiscreteRangeChoiceBuilder {
-    pub fn new(discrete_range: impl Into<DiscreteRangeSyntax>) -> Self {
-        Self {
-            discrete_range: discrete_range.into(),
-        }
-    }
-    pub fn with_discrete_range(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
-        self.discrete_range = n.into();
-        self
-    }
-    pub fn build(self) -> DiscreteRangeChoiceSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::DiscreteRangeChoice);
-        builder.push_node(self.discrete_range.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        DiscreteRangeChoiceSyntax::cast(node).unwrap()
-    }
-}
-impl From<DiscreteRangeChoiceBuilder> for DiscreteRangeChoiceSyntax {
-    fn from(value: DiscreteRangeChoiceBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct DiscreteRangeNormalBuilder {
-    resolution_indication: Option<ResolutionIndicationSyntax>,
-    expression: ExpressionSyntax,
-}
-impl DiscreteRangeNormalBuilder {
-    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            resolution_indication: None,
-            expression: expression.into(),
-        }
-    }
-    pub fn with_resolution_indication(mut self, n: impl Into<ResolutionIndicationSyntax>) -> Self {
-        self.resolution_indication = Some(n.into());
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn build(self) -> DiscreteRangeNormalSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::DiscreteRangeNormal);
-        if let Some(n) = self.resolution_indication {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.expression.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        DiscreteRangeNormalSyntax::cast(node).unwrap()
-    }
-}
-impl From<DiscreteRangeNormalBuilder> for DiscreteRangeNormalSyntax {
-    fn from(value: DiscreteRangeNormalBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ElementAssociationBuilder {
     choices: Option<ChoicesSyntax>,
     right_arrow_token: Option<Token>,
@@ -8719,7 +8654,7 @@ impl From<IncompleteTypeDeclarationBuilder> for IncompleteTypeDeclarationSyntax 
 }
 pub struct IndexConstraintBuilder {
     left_par_token: Token,
-    discrete_ranges: Vec<DiscreteRangeSyntax>,
+    expressions: Vec<ExpressionSyntax>,
     comma_token: Vec<Token>,
     right_par_token: Token,
 }
@@ -8732,7 +8667,7 @@ impl IndexConstraintBuilder {
     pub fn new() -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            discrete_ranges: Vec::new(),
+            expressions: Vec::new(),
             comma_token: Vec::new(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
@@ -8745,8 +8680,8 @@ impl IndexConstraintBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_discrete_ranges(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
-        self.discrete_ranges.push(n.into());
+    pub fn add_expressions(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expressions.push(n.into());
         self
     }
     pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
@@ -8765,7 +8700,7 @@ impl IndexConstraintBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IndexConstraint);
         builder.push(self.left_par_token);
-        for n in self.discrete_ranges {
+        for n in self.expressions {
             builder.push_node(n.raw().green().clone());
         }
         for t in self.comma_token {
@@ -10388,12 +10323,14 @@ impl From<LoopStatementPreambleBuilder> for LoopStatementPreambleSyntax {
 pub struct NameBuilder {
     name_prefix: NamePrefixSyntax,
     name_tails: Vec<NameTailSyntax>,
+    range_constraint: Option<RangeConstraintSyntax>,
 }
 impl NameBuilder {
     pub fn new(name_prefix: impl Into<NamePrefixSyntax>) -> Self {
         Self {
             name_prefix: name_prefix.into(),
             name_tails: Vec::new(),
+            range_constraint: None,
         }
     }
     pub fn with_name_prefix(mut self, n: impl Into<NamePrefixSyntax>) -> Self {
@@ -10404,11 +10341,18 @@ impl NameBuilder {
         self.name_tails.push(n.into());
         self
     }
+    pub fn with_range_constraint(mut self, n: impl Into<RangeConstraintSyntax>) -> Self {
+        self.range_constraint = Some(n.into());
+        self
+    }
     pub fn build(self) -> NameSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::Name);
         builder.push_node(self.name_prefix.raw().green().clone());
         for n in self.name_tails {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.range_constraint {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -10737,43 +10681,6 @@ impl NumericTypeDefinitionBuilder {
 }
 impl From<NumericTypeDefinitionBuilder> for NumericTypeDefinitionSyntax {
     fn from(value: NumericTypeDefinitionBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct OpenDiscreteRangeBuilder {
-    open_token: Token,
-}
-impl Default for OpenDiscreteRangeBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl OpenDiscreteRangeBuilder {
-    pub fn new() -> Self {
-        Self {
-            open_token: Kw::Open.canonical_token(),
-        }
-    }
-    pub fn with_open_token(mut self, t: impl Into<Token>) -> Self {
-        self.open_token = t.into();
-        self
-    }
-    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.open_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> OpenDiscreteRangeSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::OpenDiscreteRange);
-        builder.push(self.open_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        OpenDiscreteRangeSyntax::cast(node).unwrap()
-    }
-}
-impl From<OpenDiscreteRangeBuilder> for OpenDiscreteRangeSyntax {
-    fn from(value: OpenDiscreteRangeBuilder) -> Self {
         value.build()
     }
 }
@@ -11618,17 +11525,17 @@ impl From<ParameterListBuilder> for ParameterListSyntax {
 pub struct ParameterSpecificationBuilder {
     identifier_token: Token,
     in_token: Token,
-    discrete_range: DiscreteRangeSyntax,
+    expression: ExpressionSyntax,
 }
 impl ParameterSpecificationBuilder {
     pub fn new(
         identifier_token: impl Into<crate::builder::Identifier>,
-        discrete_range: impl Into<DiscreteRangeSyntax>,
+        expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
             identifier_token: identifier_token.into().into(),
             in_token: Kw::In.canonical_token(),
-            discrete_range: discrete_range.into(),
+            expression: expression.into(),
         }
     }
     pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
@@ -11647,8 +11554,8 @@ impl ParameterSpecificationBuilder {
         self.in_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_discrete_range(mut self, n: impl Into<DiscreteRangeSyntax>) -> Self {
-        self.discrete_range = n.into();
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
         self
     }
     pub fn build(self) -> ParameterSpecificationSyntax {
@@ -11656,7 +11563,7 @@ impl ParameterSpecificationBuilder {
         builder.start_node(NodeKind::ParameterSpecification);
         builder.push(self.identifier_token);
         builder.push(self.in_token);
-        builder.push_node(self.discrete_range.raw().green().clone());
+        builder.push_node(self.expression.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);

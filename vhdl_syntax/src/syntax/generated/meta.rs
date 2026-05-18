@@ -116,8 +116,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::DesignFile => DesignFileSyntax::META,
         NodeKind::DesignUnit => DesignUnitSyntax::META,
         NodeKind::DisconnectionSpecification => DisconnectionSpecificationSyntax::META,
-        NodeKind::DiscreteRangeChoice => DiscreteRangeChoiceSyntax::META,
-        NodeKind::DiscreteRangeNormal => DiscreteRangeNormalSyntax::META,
         NodeKind::ElementAssociation => ElementAssociationSyntax::META,
         NodeKind::ElementDeclaration => ElementDeclarationSyntax::META,
         NodeKind::ElementResolutionResolutionIndication => {
@@ -224,7 +222,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::NextStatement => NextStatementSyntax::META,
         NodeKind::NullStatement => NullStatementSyntax::META,
         NodeKind::NumericTypeDefinition => NumericTypeDefinitionSyntax::META,
-        NodeKind::OpenDiscreteRange => OpenDiscreteRangeSyntax::META,
         NodeKind::OthersChoice => OthersChoiceSyntax::META,
         NodeKind::Package => PackageSyntax::META,
         NodeKind::PackageBody => PackageBodySyntax::META,

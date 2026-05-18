@@ -10,13 +10,12 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      DiscreteRangeNormal
-        BinaryExpression
-          LiteralExpression
-            AbstractLiteral '0'
-          Keyword(To)
-          LiteralExpression
-            AbstractLiteral '1'
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '1'
       RightPar
     Keyword(Of)
     SubtypeIndication

@@ -402,7 +402,7 @@ impl Parser {
         self.start_node(ParameterSpecification);
         self.identifier();
         self.expect_kw(Kw::In);
-        self.discrete_range();
+        self.expression();
         self.end_node();
     }
 
