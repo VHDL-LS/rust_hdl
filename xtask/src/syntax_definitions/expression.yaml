@@ -109,13 +109,14 @@ Aggregate: !Sequence
     repeated: true
   - token: RightPar
 
-# LRM has `new subtype_indication | new qualified_expression`. Both are unified
-# here: `qualified_expression` is reachable as a `Name` with a qualified tail,
-# and `SubtypeIndication = [resolution_indication] Name`, so a single
-# `new subtype_indication` covers both forms.
+# LRM has `new subtype_indication | new qualified_expression`. Additionally:
+# "A subtype indication that is part of an allocator shall not include a resolution indication" (LRM 9.3.7)
+# Applying unification yields: `allocator ::= name`:
+# - `qualified_expression` is reachable as `name` with a qualified tail.
+# - `subtype_indication` is reachable as `name` with optional constraints.
 Allocator: !Sequence
   - keyword: New
-  - node: SubtypeIndication
+  - node: Name
 
 OthersChoice: !Sequence
   - keyword: Others

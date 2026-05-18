@@ -491,13 +491,13 @@ impl From<AllSensitivityListBuilder> for AllSensitivityListSyntax {
 }
 pub struct AllocatorBuilder {
     new_token: Token,
-    subtype_indication: SubtypeIndicationSyntax,
+    name: NameSyntax,
 }
 impl AllocatorBuilder {
-    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
             new_token: Kw::New.canonical_token(),
-            subtype_indication: subtype_indication.into(),
+            name: name.into(),
         }
     }
     pub fn with_new_token(mut self, t: impl Into<Token>) -> Self {
@@ -508,15 +508,15 @@ impl AllocatorBuilder {
         self.new_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_subtype_indication(mut self, n: impl Into<SubtypeIndicationSyntax>) -> Self {
-        self.subtype_indication = n.into();
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
         self
     }
     pub fn build(self) -> AllocatorSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::Allocator);
         builder.push(self.new_token);
-        builder.push_node(self.subtype_indication.raw().green().clone());
+        builder.push_node(self.name.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);

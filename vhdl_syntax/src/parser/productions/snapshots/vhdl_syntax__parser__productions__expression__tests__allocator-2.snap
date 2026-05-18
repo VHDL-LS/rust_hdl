@@ -1,11 +1,11 @@
 ---
 source: vhdl_syntax/src/parser/productions/expression.rs
-expression: "expr_to_test_text(\"new integer_vector(0 to 1)\")"
+expression: "expr_to_test_text(\"new arr(0 to 1)\")"
 ---
 Allocator
   Keyword(New)
   Name
-    Identifier 'integer_vector'
+    Identifier 'arr'
     ParenthesizedName
       LeftPar
       AssociationList

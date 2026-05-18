@@ -75,7 +75,7 @@ impl Parser {
     pub fn allocator(&mut self) {
         self.start_node(Allocator);
         self.expect_kw(Kw::New);
-        self.subtype_indication();
+        self.name();
         self.end_node();
     }
 

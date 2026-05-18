@@ -642,8 +642,8 @@ impl AstNode for AllocatorSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
     });
@@ -661,11 +661,8 @@ impl AllocatorSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::New))
             .nth(0)
     }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
-            .nth(0)
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
