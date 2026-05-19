@@ -14,7 +14,9 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
     // Those rules can be `alias_declaration` (LRM §6.6.1) and `subprogram_instantiation_declaration` (LRM §4.4).
     // By checking whether the closing square bracket is followed by a `Tick` this ambiguity is resolved
     match parser.peek_token() {
-        Tick => true,
+        Tick => {
+            matches!(parser.peek_nth_token(1), Identifier | Keyword(_))
+        }
         LeftSquare => {
             let mut idx = 1;
             let mut bracket_count = 1;
@@ -124,23 +126,16 @@ impl Parser {
             }
             _ => {
                 if is_start_of_attribute_name(self) {
-                    if self.next_is(Tick) && self.next_nth_is(LeftPar, 1) {
-                        self.start_node(QualifiedTail);
-                        self.expect_token(Tick);
-                        self.aggregate();
-                        self.end_node();
-                    } else {
-                        self.start_node(AttributeName);
-                        if self.next_is(LeftSquare) {
-                            self.signature();
-                        }
-                        self.expect_token(Tick);
-                        // Either an identifier or a keyword (e.g., `range`, `subtype`).
-                        if matches!(self.peek_token(), Keyword(_) | Identifier) {
-                            self.skip();
-                        }
-                        self.end_node();
+                    self.start_node(AttributeName);
+                    if self.next_is(LeftSquare) {
+                        self.signature();
                     }
+                    self.expect_token(Tick);
+                    // Either an identifier or a keyword (e.g., `range`, `subtype`).
+                    if matches!(self.peek_token(), Keyword(_) | Identifier) {
+                        self.skip();
+                    }
+                    self.end_node();
                     true
                 } else {
                     false

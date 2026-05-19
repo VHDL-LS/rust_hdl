@@ -183,6 +183,7 @@ impl AstNode for UnaryExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -336,6 +337,7 @@ impl AstNode for BinaryExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -391,6 +393,7 @@ impl AstNode for BinaryExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -498,6 +501,58 @@ impl NameExpressionSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct QualifiedExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for QualifiedExpressionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::QualifiedExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "tick",
+                kind: LayoutItemKind::Token(TokenKind::Tick),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "parenthesized_expression_or_aggregate",
+                kind: LayoutItemKind::Node(NodeKind::ParenthesizedExpressionOrAggregate),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        QualifiedExpressionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl QualifiedExpressionSyntax {
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+    pub fn tick_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Tick)
+            .nth(0)
+    }
+    pub fn parenthesized_expression_or_aggregate(
+        &self,
+    ) -> Option<ParenthesizedExpressionOrAggregateSyntax> {
+        self.0
+            .children()
+            .filter_map(ParenthesizedExpressionOrAggregateSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ExpressionSyntax {
     LiteralExpression(LiteralExpressionSyntax),
     PhysicalLiteralExpression(PhysicalLiteralExpressionSyntax),
@@ -506,6 +561,7 @@ pub enum ExpressionSyntax {
     ParenthesizedExpressionOrAggregate(ParenthesizedExpressionOrAggregateSyntax),
     Allocator(AllocatorSyntax),
     NameExpression(NameExpressionSyntax),
+    QualifiedExpression(QualifiedExpressionSyntax),
 }
 impl AstNode for ExpressionSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -517,6 +573,7 @@ impl AstNode for ExpressionSyntax {
             NodeKind::ParenthesizedExpressionOrAggregate,
             NodeKind::Allocator,
             NodeKind::NameExpression,
+            NodeKind::QualifiedExpression,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -549,6 +606,11 @@ impl AstNode for ExpressionSyntax {
         if NameExpressionSyntax::can_cast(&node) {
             return ExpressionSyntax::NameExpression(NameExpressionSyntax::cast_unchecked(node));
         }
+        if QualifiedExpressionSyntax::can_cast(&node) {
+            return ExpressionSyntax::QualifiedExpression(
+                QualifiedExpressionSyntax::cast_unchecked(node),
+            );
+        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -563,6 +625,7 @@ impl AstNode for ExpressionSyntax {
             ExpressionSyntax::ParenthesizedExpressionOrAggregate(inner) => inner.raw(),
             ExpressionSyntax::Allocator(inner) => inner.raw(),
             ExpressionSyntax::NameExpression(inner) => inner.raw(),
+            ExpressionSyntax::QualifiedExpression(inner) => inner.raw(),
         }
     }
 }
@@ -642,8 +705,17 @@ impl AstNode for AllocatorSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
             },
         ],
     });
@@ -661,8 +733,8 @@ impl AllocatorSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::New))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -709,6 +781,7 @@ impl AstNode for ExpressionChoiceSyntax {
                 NodeKind::ParenthesizedExpressionOrAggregate,
                 NodeKind::Allocator,
                 NodeKind::NameExpression,
+                NodeKind::QualifiedExpression,
             ]),
         }],
     });
@@ -822,6 +895,7 @@ impl AstNode for ElementAssociationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],

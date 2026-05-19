@@ -475,13 +475,13 @@ impl From<AllSensitivityListBuilder> for AllSensitivityListSyntax {
 }
 pub struct AllocatorBuilder {
     new_token: Token,
-    name: NameSyntax,
+    expression: ExpressionSyntax,
 }
 impl AllocatorBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             new_token: Kw::New.canonical_token(),
-            name: name.into(),
+            expression: expression.into(),
         }
     }
     pub fn with_new_token(mut self, t: impl Into<Token>) -> Self {
@@ -492,15 +492,15 @@ impl AllocatorBuilder {
         self.new_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
         self
     }
     pub fn build(self) -> AllocatorSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::Allocator);
         builder.push(self.new_token);
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.expression.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -13205,21 +13205,23 @@ impl From<PslVerificationUnitBuilder> for PslVerificationUnitSyntax {
         value.build()
     }
 }
-pub struct QualifiedTailBuilder {
+pub struct QualifiedExpressionBuilder {
+    name: NameSyntax,
     tick_token: Token,
-    aggregate: AggregateSyntax,
+    parenthesized_expression_or_aggregate: ParenthesizedExpressionOrAggregateSyntax,
 }
-impl Default for QualifiedTailBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl QualifiedTailBuilder {
-    pub fn new() -> Self {
+impl QualifiedExpressionBuilder {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
+            name: name.into(),
             tick_token: TokenKind::Tick.canonical_token().unwrap(),
-            aggregate: AggregateBuilder::default().build(),
+            parenthesized_expression_or_aggregate:
+                ParenthesizedExpressionOrAggregateBuilder::default().build(),
         }
+    }
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
+        self
     }
     pub fn with_tick_token(mut self, t: impl Into<Token>) -> Self {
         self.tick_token = t.into();
@@ -13229,23 +13231,32 @@ impl QualifiedTailBuilder {
         self.tick_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_aggregate(mut self, n: impl Into<AggregateSyntax>) -> Self {
-        self.aggregate = n.into();
+    pub fn with_parenthesized_expression_or_aggregate(
+        mut self,
+        n: impl Into<ParenthesizedExpressionOrAggregateSyntax>,
+    ) -> Self {
+        self.parenthesized_expression_or_aggregate = n.into();
         self
     }
-    pub fn build(self) -> QualifiedTailSyntax {
+    pub fn build(self) -> QualifiedExpressionSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::QualifiedTail);
+        builder.start_node(NodeKind::QualifiedExpression);
+        builder.push_node(self.name.raw().green().clone());
         builder.push(self.tick_token);
-        builder.push_node(self.aggregate.raw().green().clone());
+        builder.push_node(
+            self.parenthesized_expression_or_aggregate
+                .raw()
+                .green()
+                .clone(),
+        );
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        QualifiedTailSyntax::cast(node).unwrap()
+        QualifiedExpressionSyntax::cast(node).unwrap()
     }
 }
-impl From<QualifiedTailBuilder> for QualifiedTailSyntax {
-    fn from(value: QualifiedTailBuilder) -> Self {
+impl From<QualifiedExpressionBuilder> for QualifiedExpressionSyntax {
+    fn from(value: QualifiedExpressionBuilder) -> Self {
         value.build()
     }
 }

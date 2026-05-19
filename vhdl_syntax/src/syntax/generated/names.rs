@@ -753,7 +753,6 @@ impl AstNode for NameSyntax {
                     NodeKind::SelectedName,
                     NodeKind::ParenthesizedName,
                     NodeKind::AttributeName,
-                    NodeKind::QualifiedTail,
                 ]),
             },
             LayoutItem {
@@ -974,49 +973,10 @@ impl ParenthesizedNameSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct QualifiedTailSyntax(pub(crate) SyntaxNode);
-impl AstNode for QualifiedTailSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::QualifiedTail,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "tick",
-                kind: LayoutItemKind::Token(TokenKind::Tick),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "aggregate",
-                kind: LayoutItemKind::Node(NodeKind::Aggregate),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        QualifiedTailSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl QualifiedTailSyntax {
-    pub fn tick_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Tick)
-            .nth(0)
-    }
-    pub fn aggregate(&self) -> Option<AggregateSyntax> {
-        self.0.children().filter_map(AggregateSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum NameTailSyntax {
     SelectedName(SelectedNameSyntax),
     ParenthesizedName(ParenthesizedNameSyntax),
     AttributeName(AttributeNameSyntax),
-    QualifiedTail(QualifiedTailSyntax),
 }
 impl AstNode for NameTailSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -1024,7 +984,6 @@ impl AstNode for NameTailSyntax {
             NodeKind::SelectedName,
             NodeKind::ParenthesizedName,
             NodeKind::AttributeName,
-            NodeKind::QualifiedTail,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -1039,9 +998,6 @@ impl AstNode for NameTailSyntax {
         if AttributeNameSyntax::can_cast(&node) {
             return NameTailSyntax::AttributeName(AttributeNameSyntax::cast_unchecked(node));
         }
-        if QualifiedTailSyntax::can_cast(&node) {
-            return NameTailSyntax::QualifiedTail(QualifiedTailSyntax::cast_unchecked(node));
-        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -1052,7 +1008,6 @@ impl AstNode for NameTailSyntax {
             NameTailSyntax::SelectedName(inner) => inner.raw(),
             NameTailSyntax::ParenthesizedName(inner) => inner.raw(),
             NameTailSyntax::AttributeName(inner) => inner.raw(),
-            NameTailSyntax::QualifiedTail(inner) => inner.raw(),
         }
     }
 }

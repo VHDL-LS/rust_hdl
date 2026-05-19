@@ -45,9 +45,9 @@ impl Parser {
     pub fn primary(&mut self) {
         match_next_token!(self,
             Identifier, LtLt => {
-              self.start_node(NameExpression);
+              let checkpoint = self.checkpoint();
               self.name();
-              self.end_node();
+              self.continue_primary_after_name(checkpoint);
             },
             BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Kw::Null) => self.skip_into_node(LiteralExpression),
             AbstractLiteral => {
@@ -62,9 +62,7 @@ impl Parser {
                 self.end_node();
             },
             LeftPar => {
-                self.start_node(ParenthesizedExpressionOrAggregate);
-                self.aggregate_inner();
-                self.end_node();
+                self.parenthesized_expression_or_aggregate();
             },
             Keyword(Kw::New) => {
               self.allocator();
@@ -72,10 +70,35 @@ impl Parser {
         );
     }
 
+    pub(crate) fn parenthesized_expression_or_aggregate(&mut self) {
+        self.start_node(ParenthesizedExpressionOrAggregate);
+        self.aggregate_inner();
+        self.end_node();
+    }
+
+    /// Finalize a primary whose leading `Name` was already parsed and starts
+    /// at `checkpoint`. If a `Tick` follows, the name is the type mark of a
+    /// `QualifiedExpression` and the `'(…)` is consumed here; otherwise the
+    /// name is wrapped in `NameExpression`. Callers that need to continue
+    /// with binary operators should follow up with `expression_from_primary`.
+    pub(crate) fn continue_primary_after_name(
+        &mut self,
+        checkpoint: crate::parser::builder::Checkpoint,
+    ) {
+        if self.next_is(Tick) {
+            self.start_node_at(checkpoint, QualifiedExpression);
+            self.skip();
+            self.parenthesized_expression_or_aggregate();
+        } else {
+            self.start_node_at(checkpoint, NameExpression);
+        }
+        self.end_node();
+    }
+
     pub fn allocator(&mut self) {
         self.start_node(Allocator);
         self.expect_kw(Kw::New);
-        self.name();
+        self.expression();
         self.end_node();
     }
 

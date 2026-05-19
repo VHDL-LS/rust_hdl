@@ -125,13 +125,7 @@ ParenthesizedName: !Sequence
     optional: true
   - token: RightPar
 
-# `T'(expr)` qualified expression as a name tail.
-QualifiedTail: !Sequence
-  - token: Tick
-  - node: Aggregate
-
 NameTail: !Choice
   - node: SelectedName
   - node: ParenthesizedName
   - node: AttributeName
-  - node: QualifiedTail

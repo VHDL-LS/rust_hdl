@@ -4,18 +4,19 @@ expression: "expr_to_test_text(\"new integer_vector(0 to 1)\")"
 ---
 Allocator
   Keyword(New)
-  Name
-    Identifier 'integer_vector'
-    ParenthesizedName
-      LeftPar
-      AssociationList
-        AssociationElement
-          ActualPart
-            ActualPartExpression
-              BinaryExpression
-                LiteralExpression
-                  AbstractLiteral '0'
-                Keyword(To)
-                LiteralExpression
-                  AbstractLiteral '1'
-      RightPar
+  NameExpression
+    Name
+      Identifier 'integer_vector'
+      ParenthesizedName
+        LeftPar
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                BinaryExpression
+                  LiteralExpression
+                    AbstractLiteral '0'
+                  Keyword(To)
+                  LiteralExpression
+                    AbstractLiteral '1'
+        RightPar

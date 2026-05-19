@@ -89,9 +89,11 @@ PhysicalLiteralExpression: !Sequence
 NameExpression: !Sequence
   - node: Name
 
-# `QualifiedExpression` (`T'(expr)`) and `TypeConversion` (`T(expr)`) are
-# reached via `NameExpression`: `Name` has a `QualifiedTail` and a
-# `ParenthesizedName` tail that produce both forms.
+QualifiedExpression: !Sequence
+  - node: Name
+  - token: Tick
+  - node: ParenthesizedExpressionOrAggregate
+
 Expression: !Choice
   - node: LiteralExpression
   - node: PhysicalLiteralExpression
@@ -100,6 +102,7 @@ Expression: !Choice
   - node: ParenthesizedExpressionOrAggregate
   - node: Allocator
   - node: NameExpression
+  - node: QualifiedExpression
 
 Aggregate: !Sequence
   - token: LeftPar
@@ -112,11 +115,13 @@ Aggregate: !Sequence
 # LRM has `new subtype_indication | new qualified_expression`. Additionally:
 # "A subtype indication that is part of an allocator shall not include a resolution indication" (LRM 9.3.7)
 # Applying unification yields: `allocator ::= name`:
-# - `qualified_expression` is reachable as `name` with a qualified tail.
-# - `subtype_indication` is reachable as `name` with optional constraints.
+# LRM: `allocator ::= new subtype_indication | new qualified_expression`.
+# Both forms are subsumed by `Expression` (subtype_indication is reached as
+# `NameExpression` with optional constraints on the underlying `Name`);
+# analysis sorts the two cases out later.
 Allocator: !Sequence
   - keyword: New
-  - node: Name
+  - node: Expression
 
 OthersChoice: !Sequence
   - keyword: Others

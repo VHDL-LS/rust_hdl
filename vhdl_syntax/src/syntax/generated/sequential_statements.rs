@@ -34,6 +34,7 @@ impl AstNode for AssertionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -54,6 +55,7 @@ impl AstNode for AssertionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -74,6 +76,7 @@ impl AstNode for AssertionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -344,6 +347,7 @@ impl AstNode for CaseStatementPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -488,6 +492,7 @@ impl AstNode for ConditionClauseSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -534,6 +539,7 @@ impl AstNode for ConditionalElseWhenExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -554,6 +560,7 @@ impl AstNode for ConditionalElseWhenExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -609,6 +616,7 @@ impl AstNode for ConditionalElseItemSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -703,6 +711,7 @@ impl AstNode for ConditionalExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -723,6 +732,7 @@ impl AstNode for ConditionalExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1056,6 +1066,7 @@ impl AstNode for ConditionalWaveformElseWhenExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1215,6 +1226,7 @@ impl AstNode for ConditionalWaveformSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1291,6 +1303,7 @@ impl AstNode for InertialDelayMechanismSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1402,6 +1415,7 @@ impl AstNode for ExitStatementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1495,6 +1509,7 @@ impl AstNode for IfStatementElsifSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1686,6 +1701,7 @@ impl AstNode for IfStatementPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1812,6 +1828,7 @@ impl AstNode for WhileIterationSchemeSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2120,6 +2137,7 @@ impl AstNode for NextStatementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2249,6 +2267,7 @@ impl AstNode for ParameterSpecificationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2354,6 +2373,7 @@ impl AstNode for ReportStatementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2374,6 +2394,7 @@ impl AstNode for ReportStatementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2450,6 +2471,7 @@ impl AstNode for ReturnStatementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2505,6 +2527,7 @@ impl AstNode for SelectedExpressionItemSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3003,6 +3026,7 @@ impl AstNode for SelectedAssignmentPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3317,6 +3341,7 @@ impl AstNode for SimpleForceAssignmentSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3617,6 +3642,7 @@ impl AstNode for SimpleVariableAssignmentSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3754,6 +3780,7 @@ impl AstNode for TimeoutClauseSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -3923,6 +3950,7 @@ impl AstNode for WaveformElementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3943,6 +3971,7 @@ impl AstNode for WaveformElementSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],

@@ -2,18 +2,17 @@
 source: vhdl_syntax/src/parser/productions/expression.rs
 expression: "expr_to_test_text(\"foo'(1+2)\")"
 ---
-NameExpression
+QualifiedExpression
   Name
     Identifier 'foo'
-    QualifiedTail
-      Tick
-      Aggregate
-        LeftPar
-        ElementAssociation
-          BinaryExpression
-            LiteralExpression
-              AbstractLiteral '1'
-            Plus
-            LiteralExpression
-              AbstractLiteral '2'
-        RightPar
+  Tick
+  ParenthesizedExpressionOrAggregate
+    LeftPar
+    ElementAssociation
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '1'
+        Plus
+        LiteralExpression
+          AbstractLiteral '2'
+    RightPar

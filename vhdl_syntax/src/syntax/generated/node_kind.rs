@@ -242,7 +242,7 @@ pub enum NodeKind {
     PslPropertyDeclaration,
     PslSequenceDeclaration,
     PslVerificationUnit,
-    QualifiedTail,
+    QualifiedExpression,
     RangeConstraint,
     RecordElementDeclarations,
     RecordElementResolution,

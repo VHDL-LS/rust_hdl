@@ -280,7 +280,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PslPropertyDeclaration => PslPropertyDeclarationSyntax::META,
         NodeKind::PslSequenceDeclaration => PslSequenceDeclarationSyntax::META,
         NodeKind::PslVerificationUnit => PslVerificationUnitSyntax::META,
-        NodeKind::QualifiedTail => QualifiedTailSyntax::META,
+        NodeKind::QualifiedExpression => QualifiedExpressionSyntax::META,
         NodeKind::RangeConstraint => RangeConstraintSyntax::META,
         NodeKind::RecordElementDeclarations => RecordElementDeclarationsSyntax::META,
         NodeKind::RecordElementResolution => RecordElementResolutionSyntax::META,

@@ -2,18 +2,17 @@
 source: vhdl_syntax/src/parser/productions/expression.rs
 expression: "expr_to_test_text(\"foo'(others => '1')\")"
 ---
-NameExpression
+QualifiedExpression
   Name
     Identifier 'foo'
-    QualifiedTail
-      Tick
-      Aggregate
-        LeftPar
-        ElementAssociation
-          Choices
-            OthersChoice
-              Keyword(Others)
-          RightArrow
-          LiteralExpression
-            CharacterLiteral ''1''
-        RightPar
+  Tick
+  ParenthesizedExpressionOrAggregate
+    LeftPar
+    ElementAssociation
+      Choices
+        OthersChoice
+          Keyword(Others)
+      RightArrow
+      LiteralExpression
+        CharacterLiteral ''1''
+    RightPar

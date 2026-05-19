@@ -1126,6 +1126,7 @@ impl AstNode for RangeConstraintSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1464,6 +1465,7 @@ impl AstNode for IndexConstraintSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {

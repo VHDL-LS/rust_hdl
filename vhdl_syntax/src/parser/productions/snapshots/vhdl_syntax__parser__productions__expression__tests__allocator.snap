@@ -4,17 +4,17 @@ expression: "expr_to_test_text(\"new integer_vector'(0, 1)\")"
 ---
 Allocator
   Keyword(New)
-  Name
-    Identifier 'integer_vector'
-    QualifiedTail
-      Tick
-      Aggregate
-        LeftPar
-        ElementAssociation
-          LiteralExpression
-            AbstractLiteral '0'
-        Comma
-        ElementAssociation
-          LiteralExpression
-            AbstractLiteral '1'
-        RightPar
+  QualifiedExpression
+    Name
+      Identifier 'integer_vector'
+    Tick
+    ParenthesizedExpressionOrAggregate
+      LeftPar
+      ElementAssociation
+        LiteralExpression
+          AbstractLiteral '0'
+      Comma
+      ElementAssociation
+        LiteralExpression
+          AbstractLiteral '1'
+      RightPar

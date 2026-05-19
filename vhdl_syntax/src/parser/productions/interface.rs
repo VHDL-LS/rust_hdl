@@ -323,8 +323,7 @@ impl Parser {
                 self.end_node(); // ActualPartSubtypeIndication
             } else {
                 self.start_node_at(cp, ActualPartExpression);
-                self.start_node_at(cp, NameExpression);
-                self.end_node(); // NameExpression
+                self.continue_primary_after_name(cp);
                 self.expression_from_primary(cp);
                 self.end_node(); // ActualPartExpression
             }

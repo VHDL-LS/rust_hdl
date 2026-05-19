@@ -4,18 +4,19 @@ expression: "expr_to_test_text(\"new integer_vector(foo'range)\")"
 ---
 Allocator
   Keyword(New)
-  Name
-    Identifier 'integer_vector'
-    ParenthesizedName
-      LeftPar
-      AssociationList
-        AssociationElement
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  Identifier 'foo'
-                  AttributeName
-                    Tick
-                    Keyword(Range)
-      RightPar
+  NameExpression
+    Name
+      Identifier 'integer_vector'
+      ParenthesizedName
+        LeftPar
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                NameExpression
+                  Name
+                    Identifier 'foo'
+                    AttributeName
+                      Tick
+                      Keyword(Range)
+        RightPar

@@ -4,5 +4,6 @@ expression: "expr_to_test_text(\"new integer_vector\")"
 ---
 Allocator
   Keyword(New)
-  Name
-    Identifier 'integer_vector'
+  NameExpression
+    Name
+      Identifier 'integer_vector'

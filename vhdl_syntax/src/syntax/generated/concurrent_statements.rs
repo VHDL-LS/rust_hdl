@@ -295,6 +295,7 @@ impl AstNode for ParenthesizedExpressionSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -611,6 +612,7 @@ impl AstNode for CaseGenerateStatementPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1306,6 +1308,7 @@ impl AstNode for ConcurrentSelectedSignalAssignmentPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1847,6 +1850,7 @@ impl AstNode for IfGenerateElsifSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2068,6 +2072,7 @@ impl AstNode for IfGenerateStatementPreambleSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {

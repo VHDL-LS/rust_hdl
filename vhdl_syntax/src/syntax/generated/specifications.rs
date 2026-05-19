@@ -58,6 +58,7 @@ impl AstNode for AttributeSpecificationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -413,6 +414,7 @@ impl AstNode for DisconnectionSpecificationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {

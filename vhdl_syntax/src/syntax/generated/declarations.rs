@@ -341,6 +341,7 @@ impl AstNode for ActualPartExpressionSyntax {
                 NodeKind::ParenthesizedExpressionOrAggregate,
                 NodeKind::Allocator,
                 NodeKind::NameExpression,
+                NodeKind::QualifiedExpression,
             ]),
         }],
     });
@@ -1047,6 +1048,7 @@ impl AstNode for ConstantDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1405,6 +1407,7 @@ impl AstNode for FileOpenInformationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1425,6 +1428,7 @@ impl AstNode for FileOpenInformationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2009,6 +2013,7 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2847,6 +2852,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -3148,6 +3154,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -3728,6 +3735,7 @@ impl AstNode for SignalDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -4074,6 +4082,7 @@ impl AstNode for VariableDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -4186,6 +4195,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
                     NodeKind::ParenthesizedExpressionOrAggregate,
                     NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {

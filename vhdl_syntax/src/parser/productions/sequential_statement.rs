@@ -925,4 +925,12 @@ with x(0) + 1 select
     fn procedure_call_statement_no_args() {
         insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo;"));
     }
+
+    #[test]
+    fn procedure_call_with_qualified_expression() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::sequential_statement,
+            "foo(l, string'(\"L: \"));"
+        ));
+    }
 }
