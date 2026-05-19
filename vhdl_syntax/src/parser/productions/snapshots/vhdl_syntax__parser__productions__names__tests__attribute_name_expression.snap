@@ -7,9 +7,17 @@ Name
   AttributeName
     Tick
     Identifier 'foo'
-  RawTokens
+  ParenthesizedName
     LeftPar
-    Identifier 'expr'
-    Plus
-    AbstractLiteral '1'
+    AssociationList
+      AssociationElement
+        ActualPart
+          ActualPartExpression
+            BinaryExpression
+              NameExpression
+                Name
+                  Identifier 'expr'
+              Plus
+              LiteralExpression
+                AbstractLiteral '1'
     RightPar

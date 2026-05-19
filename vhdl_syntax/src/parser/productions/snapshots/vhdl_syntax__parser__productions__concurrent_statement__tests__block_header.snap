@@ -40,7 +40,9 @@ BlockStatement
                 Identifier 'gen'
             RightArrow
             ActualPart
-              AbstractLiteral '1'
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '1'
         RightPar
       SemiColon
     PortClause
@@ -73,7 +75,9 @@ BlockStatement
                 Identifier 'prt'
             RightArrow
             ActualPart
-              AbstractLiteral '2'
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '2'
         RightPar
       SemiColon
   DeclarationStatementSeparator

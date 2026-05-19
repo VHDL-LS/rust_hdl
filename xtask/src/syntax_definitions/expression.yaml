@@ -4,6 +4,7 @@ Literal: !Choice
   - token: BitStringLiteral
   - token: CharacterLiteral
   - token: StringLiteral
+  - token: AbstractLiteral
   - keyword: "Null"
 
 ParenthesizedExpressionOrAggregate: !Sequence
@@ -47,6 +48,7 @@ BinaryOperator: !Choice
   - token: GTE
   - token: QueEQ
   - token: QueNE
+  - token: QueLTE
   - token: QueLT
   - token: QueGT
   - token: QueGTE
@@ -64,6 +66,11 @@ BinaryOperator: !Choice
   - keyword: Mod
   - keyword: Rem
   - token: Pow
+  # `to`/`downto` are folded into `BinaryOperator` so an `a to b` range
+  # parses as a `BinaryExpression`, removing the need for a separate `range`
+  # production.
+  - keyword: To
+  - keyword: Downto
 
 BinaryExpression: !Sequence
   - node: Expression
@@ -82,6 +89,11 @@ PhysicalLiteralExpression: !Sequence
 NameExpression: !Sequence
   - node: Name
 
+QualifiedExpression: !Sequence
+  - node: Name
+  - token: Tick
+  - node: ParenthesizedExpressionOrAggregate
+
 Expression: !Choice
   - node: LiteralExpression
   - node: PhysicalLiteralExpression
@@ -89,9 +101,8 @@ Expression: !Choice
   - node: BinaryExpression
   - node: ParenthesizedExpressionOrAggregate
   - node: Allocator
-  - node: QualifiedExpression
-  - node: TypeConversion
   - node: NameExpression
+  - node: QualifiedExpression
 
 Aggregate: !Sequence
   - token: LeftPar
@@ -101,17 +112,16 @@ Aggregate: !Sequence
     repeated: true
   - token: RightPar
 
-SubtypeIndicationAllocator: !Sequence
-  - keyword: New
-  - node: SubtypeIndication
-
-ExpressionAllocator: !Sequence
+# LRM has `new subtype_indication | new qualified_expression`. Additionally:
+# "A subtype indication that is part of an allocator shall not include a resolution indication" (LRM 9.3.7)
+# Applying unification yields: `allocator ::= name`:
+# LRM: `allocator ::= new subtype_indication | new qualified_expression`.
+# Both forms are subsumed by `Expression` (subtype_indication is reached as
+# `NameExpression` with optional constraints on the underlying `Name`);
+# analysis sorts the two cases out later.
+Allocator: !Sequence
   - keyword: New
   - node: Expression
-
-Allocator: !Choice
-  - node: SubtypeIndicationAllocator
-  - node: ExpressionAllocator
 
 OthersChoice: !Sequence
   - keyword: Others
@@ -119,13 +129,9 @@ OthersChoice: !Sequence
 ExpressionChoice: !Sequence
   - node: Expression
 
-DiscreteRangeChoice: !Sequence
-  - node: DiscreteRange
-
 Choice: !Choice
   - node: ExpressionChoice
   - node: OthersChoice
-  - node: DiscreteRangeChoice
 
 Choices: !Sequence
   - node: Choice
@@ -134,17 +140,8 @@ Choices: !Sequence
     repeated: true
 
 ElementAssociation: !Sequence
-  - node: Choice
+  - node: Choices
+    optional: true
   - token: RightArrow
+    optional: true
   - node: Expression
-
-QualifiedExpression: !Sequence
-  - node: Name
-  - token: Tick
-  - node: Expression
-
-TypeConversion: !Sequence
-  - node: Name
-  - token: LeftPar
-  - node: Expression
-  - token: RightPar

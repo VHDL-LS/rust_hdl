@@ -13,11 +13,22 @@ EntityDeclaration
     ConcurrentProcedureCallOrComponentInstantiationStatement
       Name
         Identifier 'check'
-        RawTokens
+        ParenthesizedName
           LeftPar
-          Identifier 'clk'
-          Comma
-          Identifier 'valid'
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      Identifier 'clk'
+            Comma
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      Identifier 'valid'
           RightPar
       SemiColon
   EntityDeclarationEpilogue

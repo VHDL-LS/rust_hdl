@@ -27,6 +27,8 @@ ComponentInstantiationStatement
               Identifier 'const'
           RightArrow
           ActualPart
-            AbstractLiteral '1'
+            ActualPartExpression
+              LiteralExpression
+                AbstractLiteral '1'
       RightPar
   SemiColon

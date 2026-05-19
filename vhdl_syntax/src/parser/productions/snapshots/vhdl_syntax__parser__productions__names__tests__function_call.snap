@@ -4,9 +4,16 @@ expression: "name_to_test_text(\"foo(arg => 0)\")"
 ---
 Name
   Identifier 'foo'
-  RawTokens
+  ParenthesizedName
     LeftPar
-    Identifier 'arg'
-    RightArrow
-    AbstractLiteral '0'
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            Identifier 'arg'
+        RightArrow
+        ActualPart
+          ActualPartExpression
+            LiteralExpression
+              AbstractLiteral '0'
     RightPar

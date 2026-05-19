@@ -4,9 +4,11 @@ expression: "expr_to_test_text(\"(1, 2)\")"
 ---
 ParenthesizedExpressionOrAggregate
   LeftPar
-  LiteralExpression
-    AbstractLiteral '1'
+  ElementAssociation
+    LiteralExpression
+      AbstractLiteral '1'
   Comma
-  LiteralExpression
-    AbstractLiteral '2'
+  ElementAssociation
+    LiteralExpression
+      AbstractLiteral '2'
   RightPar

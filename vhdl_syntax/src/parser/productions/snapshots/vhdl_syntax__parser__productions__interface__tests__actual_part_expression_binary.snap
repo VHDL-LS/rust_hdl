@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"a + b * 2\")"
+---
+ActualPart
+  ActualPartExpression
+    BinaryExpression
+      NameExpression
+        Name
+          Identifier 'a'
+      Plus
+      BinaryExpression
+        NameExpression
+          Name
+            Identifier 'b'
+        Times
+        LiteralExpression
+          AbstractLiteral '2'

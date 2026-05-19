@@ -44,6 +44,8 @@ SubprogramDeclaration
                 Identifier 'x'
             RightArrow
             ActualPart
-              AbstractLiteral '42'
+              ActualPartExpression
+                LiteralExpression
+                  AbstractLiteral '42'
         RightPar
   SemiColon

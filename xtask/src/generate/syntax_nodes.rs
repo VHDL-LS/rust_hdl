@@ -62,7 +62,6 @@ fn generate_rust_struct(node: &Node) -> TokenStream {
     match node {
         Node::Items(seq) => generate_syntax_node_struct(&seq.name),
         Node::Choices(choice) => generate_choice_enum(choice),
-        Node::RawTokens(name) => generate_syntax_node_struct(name),
     }
 }
 
@@ -121,7 +120,6 @@ fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
             generate_sequence_ast_impl(&seq.name, &meta_items)
         }
         Node::Choices(choice) => generate_choice_ast_impl(choice, model),
-        Node::RawTokens(name) => generate_sequence_ast_impl(name, &[]),
     }
 }
 
@@ -243,7 +241,7 @@ fn collect_concrete_node_kinds(
         .find(|n| n.name() == name)
         .unwrap_or_else(|| panic!("node '{}' not found in model", name));
     match node {
-        Node::Items(_) | Node::RawTokens(_) => {
+        Node::Items(_) => {
             let nk = node_kind_ident(name);
             vec![quote! { NodeKind::#nk }]
         }
@@ -301,7 +299,7 @@ fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStre
         .unwrap_or_else(|| panic!("node '{}' not found in model", node_ref.kind));
 
     match target {
-        Node::Items(_) | Node::RawTokens(_) => {
+        Node::Items(_) => {
             let nk = node_kind_ident(&node_ref.kind);
             quote! { LayoutItemKind::Node(NodeKind::#nk) }
         }
@@ -323,7 +321,7 @@ fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStre
 fn generate_rust_impl_getters(node: &Node, model: &Model) -> TokenStream {
     match node {
         Node::Items(seq) => generate_sequence_getters(seq, model),
-        Node::Choices(_) | Node::RawTokens(_) => quote! {},
+        Node::Choices(_) => quote! {},
     }
 }
 

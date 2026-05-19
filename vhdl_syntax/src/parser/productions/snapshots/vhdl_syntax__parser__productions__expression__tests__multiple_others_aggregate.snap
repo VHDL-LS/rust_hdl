@@ -6,14 +6,16 @@ ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
     Choices
-      Keyword(Others)
+      OthersChoice
+        Keyword(Others)
     RightArrow
     LiteralExpression
       AbstractLiteral '1'
   Comma
   ElementAssociation
     Choices
-      Keyword(Others)
+      OthersChoice
+        Keyword(Others)
     RightArrow
     LiteralExpression
       AbstractLiteral '2'

@@ -35,7 +35,7 @@ aggregate ::= "(" element_association {"," element_association } ")"
 
 // § 6.6.1
 alias_declaration ::=
-    "alias" alias_designator [ ":" subtype_indication ] "is" name [ signature ] ;
+    "alias" alias_designator [ ":" subtype_indication ] "is" name [ signature ] ";"
 
 // § 6.6.1
 alias_designator ::= identifier | character_literal | operator_symbol
@@ -261,7 +261,8 @@ composite_type_definition ::=
 
 // § 7.3.1
 compound_configuration_specification ::=
-    "for" component_specification binding_indication ";"
+    "for" component_specification
+        binding_indication ";"
         verification_unit_binding_indication ";"
         { verification_unit_binding_indication ";" }
     "end" "for" ";"

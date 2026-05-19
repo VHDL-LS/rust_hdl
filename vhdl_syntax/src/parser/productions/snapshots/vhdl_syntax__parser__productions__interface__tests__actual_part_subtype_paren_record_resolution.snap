@@ -1,0 +1,20 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"(elem resolve) rec_t\")"
+---
+ActualPart
+  ActualPartSubtypeIndication
+    SubtypeIndication
+      ParenthesizedElementResolutionResolutionIndication
+        LeftPar
+        ElementResolutionResolutionIndication
+          RecordResolutionElementResolution
+            RecordResolution
+              RecordElementResolution
+                Identifier 'elem'
+                NameResolutionIndication
+                  Name
+                    Identifier 'resolve'
+        RightPar
+      Name
+        Identifier 'rec_t'

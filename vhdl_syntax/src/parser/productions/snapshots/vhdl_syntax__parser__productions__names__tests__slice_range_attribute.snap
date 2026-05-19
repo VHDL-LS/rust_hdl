@@ -4,12 +4,25 @@ expression: "name_to_test_text(\"prefix(foo(0)'range)\")"
 ---
 Name
   Identifier 'prefix'
-  RawTokens
+  ParenthesizedName
     LeftPar
-    Identifier 'foo'
-    LeftPar
-    AbstractLiteral '0'
-    RightPar
-    Tick
-    Keyword(Range)
+    AssociationList
+      AssociationElement
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                Identifier 'foo'
+                ParenthesizedName
+                  LeftPar
+                  AssociationList
+                    AssociationElement
+                      ActualPart
+                        ActualPartExpression
+                          LiteralExpression
+                            AbstractLiteral '0'
+                  RightPar
+                AttributeName
+                  Tick
+                  Keyword(Range)
     RightPar

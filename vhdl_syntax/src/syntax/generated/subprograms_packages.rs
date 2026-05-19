@@ -1396,19 +1396,25 @@ impl AstNode for SignatureSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftSquare),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "names",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
+                repeated: true,
+                name: "comma",
+                kind: LayoutItemKind::Token(TokenKind::Comma),
+            },
+            LayoutItem {
+                optional: true,
                 repeated: false,
                 name: "return",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "return_type",
                 kind: LayoutItemKind::Node(NodeKind::Name),
@@ -1437,6 +1443,11 @@ impl SignatureSyntax {
     }
     pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
         self.0.children().filter_map(NameSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
     pub fn return_token(&self) -> Option<SyntaxToken> {
         self.0

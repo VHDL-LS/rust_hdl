@@ -10,20 +10,26 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      RawTokens
-        AbstractLiteral '10'
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '10'
         Keyword(Downto)
-        AbstractLiteral '5'
+        LiteralExpression
+          AbstractLiteral '5'
       Comma
-      RawTokens
-        CharacterLiteral ''A''
+      BinaryExpression
+        LiteralExpression
+          CharacterLiteral ''A''
         Keyword(To)
-        CharacterLiteral ''B''
+        LiteralExpression
+          CharacterLiteral ''B''
       Comma
-      RawTokens
-        Identifier 'enum_t'
-        Tick
-        Keyword(Range)
+      NameExpression
+        Name
+          Identifier 'enum_t'
+          AttributeName
+            Tick
+            Keyword(Range)
       RightPar
     Keyword(Of)
     SubtypeIndication

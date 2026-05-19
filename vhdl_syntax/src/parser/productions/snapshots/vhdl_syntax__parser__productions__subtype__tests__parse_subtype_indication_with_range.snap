@@ -5,15 +5,15 @@ expression: "to_test_text(Parser::subtype_indication, \"integer range 0 to 2-1\"
 SubtypeIndication
   Name
     Identifier 'integer'
-  RangeConstraint
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
+    RangeConstraint
+      Keyword(Range)
       BinaryExpression
         LiteralExpression
-          AbstractLiteral '2'
-        Minus
-        LiteralExpression
-          AbstractLiteral '1'
+          AbstractLiteral '0'
+        Keyword(To)
+        BinaryExpression
+          LiteralExpression
+            AbstractLiteral '2'
+          Minus
+          LiteralExpression
+            AbstractLiteral '1'

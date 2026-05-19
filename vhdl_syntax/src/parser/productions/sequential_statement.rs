@@ -40,16 +40,7 @@ impl Parser {
     pub fn assert_statement(&mut self) {
         self.start_node(AssertionStatement);
         self.opt_label();
-        self.expect_kw(Kw::Assert);
-        self.condition();
-        if self.next_is(Keyword(Kw::Report)) {
-            self.skip();
-            self.expression();
-        }
-        if self.next_is(Keyword(Kw::Severity)) {
-            self.skip();
-            self.expression();
-        }
+        self.assertion();
         self.expect_token(SemiColon);
         self.end_node();
     }
@@ -163,6 +154,7 @@ impl Parser {
 
     pub fn case_statement_preamble(&mut self) {
         self.start_node(CaseStatementPreamble);
+        self.opt_label();
         self.expect_kw(Kw::Case);
         self.opt_token(Que);
         self.expression();
@@ -174,7 +166,7 @@ impl Parser {
         self.start_node(CaseStatementEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Case)]);
         self.opt_token(Que);
-        self.opt_label();
+        self.opt_identifier();
         self.expect_token(SemiColon);
         self.end_node();
     }
@@ -207,19 +199,17 @@ impl Parser {
     }
 
     pub fn element_association(&mut self) {
+        self.start_node(ElementAssociation);
         let has_choices = matches!(
             self.lookahead_max_token_index(usize::MAX, [RightArrow, Comma]),
             Ok((RightArrow, _))
         );
         if has_choices {
-            self.start_node(ElementAssociation);
             self.choices();
-            self.expect_token(RightArrow)
+            self.expect_token(RightArrow);
         }
         self.expression();
-        if has_choices {
-            self.end_node();
-        }
+        self.end_node();
     }
 
     pub fn loop_statement(&mut self) {
@@ -934,5 +924,13 @@ with x(0) + 1 select
     #[test]
     fn procedure_call_statement_no_args() {
         insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo;"));
+    }
+
+    #[test]
+    fn procedure_call_with_qualified_expression() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::sequential_statement,
+            "foo(l, string'(\"L: \"));"
+        ));
     }
 }

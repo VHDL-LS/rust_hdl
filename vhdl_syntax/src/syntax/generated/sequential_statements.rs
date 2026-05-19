@@ -32,11 +32,9 @@ impl AstNode for AssertionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -55,11 +53,9 @@ impl AstNode for AssertionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -78,11 +74,9 @@ impl AstNode for AssertionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -133,13 +127,7 @@ impl AstNode for AssertionStatementSyntax {
                 optional: true,
                 repeated: false,
                 name: "label",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
+                kind: LayoutItemKind::Node(NodeKind::Label),
             },
             LayoutItem {
                 optional: false,
@@ -163,17 +151,8 @@ impl AstNode for AssertionStatementSyntax {
     }
 }
 impl AssertionStatementSyntax {
-    pub fn label_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
     pub fn assertion(&self) -> Option<AssertionSyntax> {
         self.0.children().filter_map(AssertionSyntax::cast).nth(0)
@@ -339,7 +318,7 @@ impl AstNode for CaseStatementPreambleSyntax {
         kind: NodeKind::CaseStatementPreamble,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -357,7 +336,7 @@ impl AstNode for CaseStatementPreambleSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Que),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -366,11 +345,9 @@ impl AstNode for CaseStatementPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -513,11 +490,9 @@ impl AstNode for ConditionClauseSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -562,11 +537,9 @@ impl AstNode for ConditionalElseWhenExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -585,11 +558,9 @@ impl AstNode for ConditionalElseWhenExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -643,11 +614,9 @@ impl AstNode for ConditionalElseItemSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -740,11 +709,9 @@ impl AstNode for ConditionalExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -763,11 +730,9 @@ impl AstNode for ConditionalExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1099,11 +1064,9 @@ impl AstNode for ConditionalWaveformElseWhenExpressionSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1261,11 +1224,9 @@ impl AstNode for ConditionalWaveformSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -1340,11 +1301,9 @@ impl AstNode for InertialDelayMechanismSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1424,13 +1383,7 @@ impl AstNode for ExitStatementSyntax {
                 optional: true,
                 repeated: false,
                 name: "label",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
+                kind: LayoutItemKind::Node(NodeKind::Label),
             },
             LayoutItem {
                 optional: false,
@@ -1460,11 +1413,9 @@ impl AstNode for ExitStatementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1483,17 +1434,8 @@ impl AstNode for ExitStatementSyntax {
     }
 }
 impl ExitStatementSyntax {
-    pub fn label_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
     pub fn exit_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1505,7 +1447,7 @@ impl ExitStatementSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(1)
+            .nth(0)
     }
     pub fn when_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1565,11 +1507,9 @@ impl AstNode for IfStatementElsifSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1740,14 +1680,8 @@ impl AstNode for IfStatementPreambleSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "if_label",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
             },
             LayoutItem {
                 optional: false,
@@ -1765,11 +1699,9 @@ impl AstNode for IfStatementPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -1788,17 +1720,8 @@ impl AstNode for IfStatementPreambleSyntax {
     }
 }
 impl IfStatementPreambleSyntax {
-    pub fn if_label_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
     pub fn if_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1903,11 +1826,9 @@ impl AstNode for WhileIterationSchemeSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2214,11 +2135,9 @@ impl AstNode for NextStatementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2339,11 +2258,16 @@ impl AstNode for ParameterSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "discrete_range",
+                name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::SubtypeIndicationDiscreteDiscreteRange,
-                    NodeKind::SubtypeIndicationDiscreteRange,
-                    NodeKind::OpenDiscreteRange,
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -2368,11 +2292,8 @@ impl ParameterSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::In))
             .nth(0)
     }
-    pub fn discrete_range(&self) -> Option<DiscreteRangeSyntax> {
-        self.0
-            .children()
-            .filter_map(DiscreteRangeSyntax::cast)
-            .nth(0)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -2450,11 +2371,9 @@ impl AstNode for ReportStatementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -2473,12 +2392,16 @@ impl AstNode for ReportStatementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
     });
@@ -2511,6 +2434,12 @@ impl ReportStatementSyntax {
     pub fn severity(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
     }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
 }
 #[derive(Debug, Clone)]
 pub struct ReturnStatementSyntax(pub(crate) SyntaxNode);
@@ -2540,12 +2469,16 @@ impl AstNode for ReturnStatementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
             },
         ],
     });
@@ -2569,6 +2502,12 @@ impl ReturnStatementSyntax {
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
 }
 #[derive(Debug, Clone)]
 pub struct SelectedExpressionItemSyntax(pub(crate) SyntaxNode);
@@ -2586,11 +2525,9 @@ impl AstNode for SelectedExpressionItemSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3087,11 +3024,9 @@ impl AstNode for SelectedAssignmentPreambleSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3404,11 +3339,9 @@ impl AstNode for SimpleForceAssignmentSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3707,11 +3640,9 @@ impl AstNode for SimpleVariableAssignmentSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
@@ -3847,11 +3778,9 @@ impl AstNode for TimeoutClauseSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],
@@ -4019,21 +3948,19 @@ impl AstNode for WaveformElementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "after",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::After)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "time_expression",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -4042,11 +3969,9 @@ impl AstNode for WaveformElementSyntax {
                     NodeKind::UnaryExpression,
                     NodeKind::BinaryExpression,
                     NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
+                    NodeKind::Allocator,
                     NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
                 ]),
             },
         ],

@@ -1,0 +1,19 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"std_ulogic(p)\")"
+---
+ActualPart
+  ActualPartExpression
+    NameExpression
+      Name
+        Identifier 'std_ulogic'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      Identifier 'p'
+          RightPar

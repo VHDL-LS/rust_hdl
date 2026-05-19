@@ -9,14 +9,16 @@ SimpleVariableAssignment
   AggregateTarget
     Aggregate
       LeftPar
-      NameExpression
-        Name
-          Identifier 'foo'
+      ElementAssociation
+        NameExpression
+          Name
+            Identifier 'foo'
       Comma
       ElementAssociation
         Choices
-          LiteralExpression
-            AbstractLiteral '1'
+          ExpressionChoice
+            LiteralExpression
+              AbstractLiteral '1'
         RightArrow
         NameExpression
           Name

@@ -9,16 +9,22 @@ CaseStatement
     NameExpression
       Name
         Identifier 'foo'
-        RawTokens
+        ParenthesizedName
           LeftPar
-          AbstractLiteral '1'
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '1'
           RightPar
     Keyword(Is)
   CaseStatementAlternative
     CaseStatementAlternativePreamble
       Keyword(When)
       Choices
-        Keyword(Others)
+        OthersChoice
+          Keyword(Others)
       RightArrow
     SequentialStatements
       NullStatement

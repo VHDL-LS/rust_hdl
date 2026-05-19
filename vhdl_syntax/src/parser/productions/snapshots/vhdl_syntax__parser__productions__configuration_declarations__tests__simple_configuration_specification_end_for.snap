@@ -26,9 +26,15 @@ SimpleConfigurationSpecification
         SelectedName
           Dot
           Identifier 'foo'
-        RawTokens
+        ParenthesizedName
           LeftPar
-          Identifier 'rtl'
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      Identifier 'rtl'
           RightPar
   SemiColon
   ComponentConfigurationEpilogue

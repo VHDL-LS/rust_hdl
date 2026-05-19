@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"bit_vector(7 downto 0)\")"
+---
+ActualPart
+  ActualPartExpression
+    NameExpression
+      Name
+        Identifier 'bit_vector'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  BinaryExpression
+                    LiteralExpression
+                      AbstractLiteral '7'
+                    Keyword(Downto)
+                    LiteralExpression
+                      AbstractLiteral '0'
+          RightPar

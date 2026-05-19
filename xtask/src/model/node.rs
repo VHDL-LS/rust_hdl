@@ -69,10 +69,6 @@ impl NodeRef {
 pub enum Node {
     Items(SequenceNode),
     Choices(ChoiceNode),
-    /// A node whose children are populated by the parser as raw tokens rather than
-    /// being composed from named sub-nodes. Such a node always has ≥1 token at
-    /// runtime; it is therefore never empty-capable and never gets a builder.
-    RawTokens(String),
 }
 
 impl Node {
@@ -80,7 +76,6 @@ impl Node {
         match self {
             Node::Items(items) => items.name.clone(),
             Node::Choices(choices) => choices.name.clone(),
-            Node::RawTokens(name) => name.clone(),
         }
     }
 
@@ -97,7 +92,7 @@ impl Node {
     pub fn as_sequence(&self) -> Option<&SequenceNode> {
         match self {
             Node::Items(seq) => Some(seq),
-            Node::Choices(_) | Node::RawTokens(_) => None,
+            Node::Choices(_) => None,
         }
     }
 }
@@ -211,8 +206,6 @@ impl Model {
         loop {
             let prev_size = empty_capable.len();
             for node in self.all_nodes() {
-                // RawTokens nodes are populated by the parser and always contain ≥1 token;
-                // they are never empty-capable even though they have no declared children.
                 if let Node::Items(seq) = node {
                     if empty_capable.contains(&seq.name) {
                         continue;
@@ -223,9 +216,6 @@ impl Model {
                             node_ref.optional
                                 || node_ref.repeated
                                 || empty_capable.contains(&node_ref.kind)
-                            // Note: a required reference to a RawTokens node correctly
-                            // returns false here (raw token nodes never enter empty_capable),
-                            // so the parent is rightly considered non-empty-capable.
                         }
                     });
                     if is_empty_capable {
@@ -285,7 +275,6 @@ impl Model {
             for node in nodes {
                 let mut seen = HashSet::new();
                 match node {
-                    Node::RawTokens(_) => {}
                     Node::Items(seq_node) => {
                         for item in &seq_node.items {
                             let name = item.getter_name();
@@ -359,7 +348,7 @@ impl Model {
         let mut found_nodes = HashSet::new();
         for node in self.all_nodes() {
             match node {
-                Node::Items(_) | Node::RawTokens(_) => {}
+                Node::Items(_) => {}
                 Node::Choices(choice) => match &choice.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for node in nodes {
@@ -380,7 +369,6 @@ impl Model {
         let mut referenced_nodes = vec![];
         for node in self.all_nodes() {
             match node {
-                Node::RawTokens(_) => {}
                 Node::Items(items) => {
                     for item in &items.items {
                         match item {
@@ -450,7 +438,6 @@ impl Model {
         let mut referenced = HashSet::new();
         for node in self.sections.values().flatten() {
             match node {
-                Node::RawTokens(_) => {}
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
                         if let TokenOrNode::Node(node_ref) = item {
@@ -476,7 +463,7 @@ impl Model {
 
     pub fn collect_all_sequence_node_kinds(&self) -> HashSet<String> {
         self.all_nodes()
-            .filter(|node| matches!(node, Node::Items(_) | Node::RawTokens(_)))
+            .filter(|node| matches!(node, Node::Items(_)))
             .map(|node| node.name())
             .collect()
     }

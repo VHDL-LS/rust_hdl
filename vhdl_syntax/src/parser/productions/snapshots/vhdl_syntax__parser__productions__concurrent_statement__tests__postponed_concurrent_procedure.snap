@@ -6,8 +6,14 @@ ConcurrentProcedureCallOrComponentInstantiationStatement
   Keyword(Postponed)
   Name
     Identifier 'foo'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      Identifier 'clk'
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'clk'
       RightPar
   SemiColon

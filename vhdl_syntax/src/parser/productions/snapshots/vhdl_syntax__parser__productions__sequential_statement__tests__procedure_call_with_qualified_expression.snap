@@ -1,0 +1,33 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "to_test_text(Parser::sequential_statement, \"foo(l, string'(\\\"L: \\\"));\")"
+---
+ProcedureCallStatement
+  NameTarget
+    Name
+      Identifier 'foo'
+      ParenthesizedName
+        LeftPar
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                NameExpression
+                  Name
+                    Identifier 'l'
+          Comma
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                QualifiedExpression
+                  Name
+                    Identifier 'string'
+                  Tick
+                  ParenthesizedExpressionOrAggregate
+                    LeftPar
+                    ElementAssociation
+                      LiteralExpression
+                        StringLiteral '"L: "'
+                    RightPar
+        RightPar
+  SemiColon

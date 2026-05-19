@@ -28,7 +28,9 @@ ComponentInstantiationStatement
               Identifier 'const'
           RightArrow
           ActualPart
-            AbstractLiteral '1'
+            ActualPartExpression
+              LiteralExpression
+                AbstractLiteral '1'
       RightPar
     PortMapAspect
       Keyword(Port)
@@ -41,6 +43,9 @@ ComponentInstantiationStatement
               Identifier 'clk'
           RightArrow
           ActualPart
-            Identifier 'clk_foo'
+            ActualPartExpression
+              NameExpression
+                Name
+                  Identifier 'clk_foo'
       RightPar
   SemiColon

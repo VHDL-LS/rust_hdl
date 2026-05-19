@@ -23,13 +23,12 @@ impl Generator for MetaGenerator {
 }
 
 fn generate_meta(model: &Model) -> TokenStream {
-    // Collect sequence and raw-token nodes (the only ones with NodeKind variants).
+    // Collect sequence nodes (the only ones with NodeKind variants).
     // Sort for determinism — model iterates a HashMap.
     let mut entries: Vec<_> = model
         .all_nodes()
         .filter_map(|node| match node {
             Node::Items(seq) => Some(seq.name.clone()),
-            Node::RawTokens(name) => Some(name.clone()),
             Node::Choices(_) => None,
         })
         .collect();

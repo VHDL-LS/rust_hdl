@@ -2,8 +2,8 @@
 source: vhdl_syntax/src/parser/productions/expression.rs
 expression: "expr_to_test_text(\"new integer_vector\")"
 ---
-ExpressionAllocator
+Allocator
   Keyword(New)
-  SubtypeIndication
+  NameExpression
     Name
       Identifier 'integer_vector'

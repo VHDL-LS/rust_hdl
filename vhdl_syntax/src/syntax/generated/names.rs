@@ -58,22 +58,10 @@ impl AstNode for AttributeNameSyntax {
         kind: NodeKind::AttributeName,
         items: &[
             LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_square",
-                kind: LayoutItemKind::Token(TokenKind::LeftSquare),
-            },
-            LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "signature",
                 kind: LayoutItemKind::Node(NodeKind::Signature),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "right_square",
-                kind: LayoutItemKind::Token(TokenKind::RightSquare),
             },
             LayoutItem {
                 optional: false,
@@ -87,35 +75,6 @@ impl AstNode for AttributeNameSyntax {
                 name: "attribute_designator_token",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::SubtypeIndicationAllocator,
-                    NodeKind::ExpressionAllocator,
-                    NodeKind::QualifiedExpression,
-                    NodeKind::TypeConversion,
-                    NodeKind::NameExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "right_par",
-                kind: LayoutItemKind::Token(TokenKind::RightPar),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -126,20 +85,8 @@ impl AstNode for AttributeNameSyntax {
     }
 }
 impl AttributeNameSyntax {
-    pub fn left_square_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftSquare)
-            .nth(0)
-    }
     pub fn signature(&self) -> Option<SignatureSyntax> {
         self.0.children().filter_map(SignatureSyntax::cast).nth(0)
-    }
-    pub fn right_square_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightSquare)
-            .nth(0)
     }
     pub fn tick_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -151,21 +98,6 @@ impl AttributeNameSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn left_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::LeftPar)
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
     }
 }
@@ -819,9 +751,15 @@ impl AstNode for NameSyntax {
                 name: "name_tails",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::SelectedName,
-                    NodeKind::RawTokens,
+                    NodeKind::ParenthesizedName,
                     NodeKind::AttributeName,
                 ]),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "range_constraint",
+                kind: LayoutItemKind::Node(NodeKind::RangeConstraint),
             },
         ],
     });
@@ -838,6 +776,12 @@ impl NameSyntax {
     }
     pub fn name_tails(&self) -> impl Iterator<Item = NameTailSyntax> + use<'_> {
         self.0.children().filter_map(NameTailSyntax::cast)
+    }
+    pub fn range_constraint(&self) -> Option<RangeConstraintSyntax> {
+        self.0
+            .children()
+            .filter_map(RangeConstraintSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -976,16 +920,69 @@ impl SelectedNameSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ParenthesizedNameSyntax(pub(crate) SyntaxNode);
+impl AstNode for ParenthesizedNameSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ParenthesizedName,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "association_list",
+                kind: LayoutItemKind::Node(NodeKind::AssociationList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ParenthesizedNameSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ParenthesizedNameSyntax {
+    pub fn left_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LeftPar)
+            .nth(0)
+    }
+    pub fn association_list(&self) -> Option<AssociationListSyntax> {
+        self.0
+            .children()
+            .filter_map(AssociationListSyntax::cast)
+            .nth(0)
+    }
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::RightPar)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum NameTailSyntax {
     SelectedName(SelectedNameSyntax),
-    RawTokens(RawTokensSyntax),
+    ParenthesizedName(ParenthesizedNameSyntax),
     AttributeName(AttributeNameSyntax),
 }
 impl AstNode for NameTailSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::SelectedName,
-            NodeKind::RawTokens,
+            NodeKind::ParenthesizedName,
             NodeKind::AttributeName,
         ],
     });
@@ -993,8 +990,10 @@ impl AstNode for NameTailSyntax {
         if SelectedNameSyntax::can_cast(&node) {
             return NameTailSyntax::SelectedName(SelectedNameSyntax::cast_unchecked(node));
         }
-        if RawTokensSyntax::can_cast(&node) {
-            return NameTailSyntax::RawTokens(RawTokensSyntax::cast_unchecked(node));
+        if ParenthesizedNameSyntax::can_cast(&node) {
+            return NameTailSyntax::ParenthesizedName(ParenthesizedNameSyntax::cast_unchecked(
+                node,
+            ));
         }
         if AttributeNameSyntax::can_cast(&node) {
             return NameTailSyntax::AttributeName(AttributeNameSyntax::cast_unchecked(node));
@@ -1007,22 +1006,8 @@ impl AstNode for NameTailSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             NameTailSyntax::SelectedName(inner) => inner.raw(),
-            NameTailSyntax::RawTokens(inner) => inner.raw(),
+            NameTailSyntax::ParenthesizedName(inner) => inner.raw(),
             NameTailSyntax::AttributeName(inner) => inner.raw(),
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct RawTokensSyntax(pub(crate) SyntaxNode);
-impl AstNode for RawTokensSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::RawTokens,
-        items: &[],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        RawTokensSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
     }
 }

@@ -42,9 +42,14 @@ ConfigurationDeclaration
         Keyword(For)
         Name
           Identifier 'rtl'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            AbstractLiteral '0'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    LiteralExpression
+                      AbstractLiteral '0'
             RightPar
       BlockConfigurationEpilogue
         Keyword(End)

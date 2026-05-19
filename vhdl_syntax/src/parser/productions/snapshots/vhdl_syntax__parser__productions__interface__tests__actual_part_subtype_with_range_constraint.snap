@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "to_test_text(Parser::actual_part, \"integer range 0 to 7\")"
+---
+ActualPart
+  ActualPartExpression
+    NameExpression
+      Name
+        Identifier 'integer'
+        RangeConstraint
+          Keyword(Range)
+          BinaryExpression
+            LiteralExpression
+              AbstractLiteral '0'
+            Keyword(To)
+            LiteralExpression
+              AbstractLiteral '7'

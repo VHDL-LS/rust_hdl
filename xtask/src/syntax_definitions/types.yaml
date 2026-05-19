@@ -4,10 +4,6 @@ AccessTypeDefinition: !Sequence
   - keyword: Access
   - node: SubtypeIndication
 
-ArrayConstraint: !Sequence
-  - node: IndexConstraint
-  - node: Constraint
-
 ArrayTypeDefinition: !Choice
   - node: UnboundedArrayDefinition
   - node: ConstrainedArrayDefinition
@@ -22,23 +18,17 @@ ConstrainedArrayDefinition: !Sequence
   - keyword: Of
   - node: SubtypeIndication
 
-Direction: !Choice
-  - keyword: To
-  - keyword: Downto
-
-SubtypeIndicationDiscreteDiscreteRange: !Sequence
-  - node: SubtypeIndication
-
-SubtypeIndicationDiscreteRange: !Sequence
-  - node: Range
-
-OpenDiscreteRange: !Sequence
-  - keyword: Open
-
-DiscreteRange: !Choice
-  - node: SubtypeIndicationDiscreteDiscreteRange
-  - node: SubtypeIndicationDiscreteRange
-  - node: OpenDiscreteRange
+# DiscreteRange
+# LRM 5.3.2.1: "If a subtype indication appears as a discrete range, the subtype indication shall not contain a resolution indication."
+# Without a resolution indication, discrete_range collapses into a simple `expression`:
+#
+# discrete_range ::= discrete_subtype_indication | range
+#
+# - discrete_subtype_indication ::= type_mark [ constraint ]
+#   * type_mark is the same as a name
+#   * As part of the broadening strategy, name absorbs constraint (due to ambiguity)
+# - range ::= range_attribute_name | simple_expression direction simple_expression
+#   * As part of the broadening strategy, the second form (expression direction expression) is absorbed into expression
 
 ElementDeclaration: !Sequence
   - node: IdentifierList
@@ -46,9 +36,13 @@ ElementDeclaration: !Sequence
   - node: SubtypeIndication
   - token: SemiColon
 
+EnumerationLiteral: !Choice
+  - token: Identifier
+  - token: CharacterLiteral
+
 EnumerationTypeDefinition: !Sequence
   - token: LeftPar
-  - node: DiscreteRange
+  - node: EnumerationLiteral
     repeated: true
   - token: Comma
     repeated: true
@@ -134,35 +128,11 @@ ProtectedTypeDefinition: !Choice
   - node: ProtectedTypeDeclaration
   - node: ProtectedTypeBody
 
-RangeExpression: !Sequence
-  - node: Expression
-    name: lhs
-  - node: Direction
-  - node: Expression
-    name: rhs
-
-AttributeRange: !Sequence
-  - node: Name
-
-Range: !Choice
-  - node: AttributeRange
-  - node: RangeExpression
-
+# `to`/`downto` are now `BinaryOperator`s, so an `a to b` range parses as a
+# `BinaryExpression`. `range_constraint` therefore takes a plain expression.
 RangeConstraint: !Sequence
   - keyword: Range
-  - node: Range
-
-RecordConstraint: !Sequence
-  - token: LeftPar
-  - node: RecordElementConstraint
-    repeated: true
-  - token: Comma
-    repeated: true
-  - token: RightPar
-
-RecordElementConstraint: !Sequence
-  - node: Name
-  - node: Constraint
+  - node: Expression
 
 RecordTypeDefinition: !Sequence
   - node: RecordTypeDefinitionPreamble
@@ -198,7 +168,7 @@ SecondaryUnitDeclaration: !Sequence
 
 IndexConstraint: !Sequence
   - token: LeftPar
-  - node: DiscreteRange
+  - node: Expression
     repeated: true
   - token: Comma
     repeated: true

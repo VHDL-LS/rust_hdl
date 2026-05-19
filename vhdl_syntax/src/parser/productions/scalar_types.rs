@@ -12,8 +12,7 @@ use crate::tokens::TokenKind::*;
 impl Parser {
     pub fn numeric_type_definition(&mut self) {
         let checkpoint = self.checkpoint();
-        self.expect_kw(Kw::Range);
-        self.range();
+        self.range_constraint();
         if self.opt_token(Keyword(Kw::Units)) {
             self.start_node_at(checkpoint, PhysicalTypeDefinition);
             self.start_node(UnitDeclarations);
@@ -44,33 +43,6 @@ impl Parser {
 
     pub fn enumeration_literal(&mut self) {
         self.expect_one_of_tokens([Identifier, CharacterLiteral]);
-    }
-
-    pub fn range(&mut self) {
-        self.range_bounded(usize::MAX);
-    }
-
-    fn range_bounded(&mut self, max_index: usize) {
-        // LRM §5.2.1
-
-        // `max_index` should point to the end of the range to parse (exclusive).
-        // This way the parser can use a bounded lookahead to distinguish between range expressions (using `to` or `downto`) and attribute names.
-
-        let is_range_expression = self
-            .lookahead_max_token_index(max_index, [Keyword(Kw::To), Keyword(Kw::Downto)])
-            .is_ok();
-
-        if is_range_expression {
-            self.start_node(RangeExpression);
-            self.expression();
-            self.expect_one_of_tokens([Keyword(Kw::To), Keyword(Kw::Downto)]);
-            self.expression();
-        } else {
-            self.start_node(AttributeRange);
-            self.name_bounded(max_index);
-        }
-
-        self.end_node();
     }
 
     pub fn primary_unit_declaration(&mut self) {
@@ -174,9 +146,10 @@ end units;"
     }
 
     #[test]
-    fn range() {
-        insta::assert_snapshot!(to_test_text(Parser::range, "100 downto 10"));
-        insta::assert_snapshot!(to_test_text(Parser::range, "0 to 0"));
-        insta::assert_snapshot!(to_test_text(Parser::range, "slv32_t'range"));
+    fn range_expression() {
+        // `to`/`downto` are binary operators; ranges are now plain expressions.
+        insta::assert_snapshot!(to_test_text(Parser::expression, "100 downto 10"));
+        insta::assert_snapshot!(to_test_text(Parser::expression, "0 to 0"));
+        insta::assert_snapshot!(to_test_text(Parser::expression, "slv32_t'range"));
     }
 }

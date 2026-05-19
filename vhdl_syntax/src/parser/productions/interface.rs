@@ -129,6 +129,9 @@ impl Parser {
 
     pub fn interface_procedure_specification(&mut self) {
         self.start_node(InterfaceProcedureSpecification);
+        self.expect_kw(Kw::Procedure);
+        self.designator();
+        self.opt_parameter_list();
         self.end_node();
     }
 
@@ -218,15 +221,11 @@ impl Parser {
     }
 
     pub fn association_list(&mut self) {
-        self.association_list_bounded(usize::MAX);
-    }
-
-    fn association_list_bounded(&mut self, max_index: usize) {
         self.start_node(AssociationList);
         self.separated_list(
             |parser| {
                 let end_of_element_idx =
-                    match parser.lookahead_max_token_index(max_index, [Comma, RightPar]) {
+                    match parser.lookahead_max_token_index(usize::MAX, [Comma, RightPar]) {
                         Ok((_, idx)) => idx,
                         Err((_, idx)) => idx,
                     };
@@ -248,7 +247,7 @@ impl Parser {
             self.formal_part();
             self.expect_token(RightArrow);
         }
-        self.actual_part_bounded(max_index);
+        self.actual_part();
 
         self.end_node();
     }
@@ -260,10 +259,80 @@ impl Parser {
         self.end_node();
     }
 
-    fn actual_part_bounded(&mut self, max_index: usize) {
+    pub fn actual_part(&mut self) {
+        // actual_part       ::= actual_designator | name "(" actual_designator ")"
+        //                     | type_mark "(" actual_designator ")"
+        // actual_designator ::= [inertial] expression | subtype_indication | open
+        //
+        // Dispatch between `Expression` and `SubtypeIndication` is decided by
+        // a single lookahead: the only syntactic signal that a subtype is
+        // intended is a second name following the first (either the bare
+        // `resolution_function_name type_mark` form or the
+        // `(element_resolution) type_mark` form). The LRM-wrapped forms
+        // `name "(" actual_designator ")"` collapse into `Expression`
+        // because `Name` accepts a `ParenthesizedName` tail; analysis sorts
+        // them out later.
         self.start_node(ActualPart);
-        // Parsing of `actual_part` would boil down to `name | expression | subtype_indication`
-        self.skip_to(max_index);
+        self.opt_token(Keyword(Kw::Inertial));
+
+        if self.next_is(Keyword(Kw::Open)) {
+            self.start_node(ActualPartOpen);
+            self.skip();
+            self.end_node();
+        } else if self.next_is(LeftPar) {
+            // Look past the matching `)`. If a name-starter follows, the
+            // parenthesized group is an `(element_resolution)` and we are in
+            // a subtype_indication; otherwise it is a parenthesized
+            // expression / aggregate.
+            let is_subtype = match self.lookahead_skip_n(1, [RightPar]) {
+                Ok((_, end_index)) => matches!(
+                    self.peek_nth_token(end_index - self.token_index() + 1),
+                    Identifier | StringLiteral | CharacterLiteral | LtLt
+                ),
+                Err(_) => false,
+            };
+            if is_subtype {
+                self.start_node(ActualPartSubtypeIndication);
+                self.subtype_indication();
+                self.end_node();
+            } else {
+                self.start_node(ActualPartExpression);
+                self.expression();
+                self.end_node();
+            }
+        } else if matches!(
+            self.peek_token(),
+            Identifier | StringLiteral | CharacterLiteral | LtLt
+        ) {
+            // The actual_part starts with a name. Parse it greedily; if a
+            // second name follows, the first was a `resolution_function_name`
+            // and we promote to subtype_indication retroactively. Otherwise
+            // the name is the leading primary of an expression.
+            let cp = self.checkpoint();
+            self.name();
+            if matches!(
+                self.peek_token(),
+                Identifier | StringLiteral | CharacterLiteral | LtLt
+            ) {
+                self.start_node_at(cp, ActualPartSubtypeIndication);
+                self.start_node_at(cp, SubtypeIndication);
+                self.start_node_at(cp, NameResolutionIndication);
+                self.end_node(); // NameResolutionIndication
+                self.name(); // type_mark
+                self.end_node(); // SubtypeIndication
+                self.end_node(); // ActualPartSubtypeIndication
+            } else {
+                self.start_node_at(cp, ActualPartExpression);
+                self.continue_primary_after_name(cp);
+                self.expression_from_primary(cp);
+                self.end_node(); // ActualPartExpression
+            }
+        } else {
+            self.start_node(ActualPartExpression);
+            self.expression();
+            self.end_node();
+        }
+
         self.end_node();
     }
 }
@@ -281,6 +350,91 @@ mod tests {
             Parser::association_list,
             "p1 => 1, std_ulogic(p2)=>     sl_sig"
         ));
+    }
+
+    #[test]
+    fn actual_part_open() {
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "open"));
+    }
+
+    #[test]
+    fn actual_part_inertial_open() {
+        // `inertial` only meaningfully binds to an expression per the LRM;
+        // we accept it before any body and let analysis reject misuse.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "inertial open"));
+    }
+
+    #[test]
+    fn actual_part_expression() {
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "42"));
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "lib.pkg.sig"));
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "a + b * 2"));
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "-foo"));
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "(foo) + 1"));
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "(a, b, c)"));
+    }
+
+    #[test]
+    fn actual_part_expression_type_conversion_shape() {
+        // `std_ulogic(p)` — the LRM `type_mark "(" actual_designator ")"`
+        // wrapped form. Broadened into an Expression whose Name has a
+        // ParenthesizedName tail; analysis recovers the conversion.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "std_ulogic(p)"));
+    }
+
+    #[test]
+    fn actual_part_expression_inertial() {
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "inertial a + 1"));
+    }
+
+    #[test]
+    fn actual_part_expression_qualified() {
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "T'(1, 2, 3)"));
+    }
+
+    #[test]
+    fn actual_part_subtype_resolution_function_name() {
+        // `resolve std_logic` — two adjacent names ⇒ subtype_indication
+        // with a `NameResolutionIndication`.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "resolve std_logic"));
+    }
+
+    #[test]
+    fn actual_part_subtype_resolution_function_selected_name() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::actual_part,
+            "lib.pkg.resolve std_logic"
+        ));
+    }
+
+    #[test]
+    fn actual_part_subtype_paren_array_resolution() {
+        // `(resolve) bit_vector` — `(element_resolution)` followed by a
+        // type_mark name ⇒ subtype_indication.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "(resolve) bit_vector"));
+    }
+
+    #[test]
+    fn actual_part_subtype_paren_record_resolution() {
+        // Record element resolution — `(field fn)` followed by a type_mark.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "(elem resolve) rec_t"));
+    }
+
+    #[test]
+    fn actual_part_subtype_with_range_constraint() {
+        // `integer range 0 to 7` — bare type_mark with a range constraint.
+        // `name()` greedily consumes the trailing range, so this is
+        // broadened into an `ActualPartExpression` whose `Name` carries a
+        // `RangeConstraint` tail; analysis recognizes the subtype shape.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "integer range 0 to 7"));
+    }
+
+    #[test]
+    fn actual_part_subtype_with_array_constraint_shape() {
+        // `bit_vector(7 downto 0)` — bare type_mark with an array
+        // constraint, indistinguishable from an indexed-name expression at
+        // parse time and emitted as `ActualPartExpression`.
+        insta::assert_snapshot!(to_test_text(Parser::actual_part, "bit_vector(7 downto 0)"));
     }
 
     #[test]

@@ -4,7 +4,6 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::util::LookaheadError;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::Keyword as Kw;
@@ -15,7 +14,9 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
     // Those rules can be `alias_declaration` (LRM §6.6.1) and `subprogram_instantiation_declaration` (LRM §4.4).
     // By checking whether the closing square bracket is followed by a `Tick` this ambiguity is resolved
     match parser.peek_token() {
-        Tick => true,
+        Tick => {
+            matches!(parser.peek_nth_token(1), Identifier | Keyword(_))
+        }
         LeftSquare => {
             let mut idx = 1;
             let mut bracket_count = 1;
@@ -41,10 +42,6 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
 
 impl Parser {
     pub fn name(&mut self) {
-        self.name_bounded(usize::MAX);
-    }
-
-    pub(crate) fn name_bounded(&mut self, max_index: usize) {
         // (Based on) LRM §8.1
         // The LRM grammar rules for names were transformed to avoid left recursion.
 
@@ -58,7 +55,15 @@ impl Parser {
             self.expect_one_of_tokens([Identifier, StringLiteral, CharacterLiteral]);
         }
 
-        self.opt_name_tail_bounded(max_index);
+        while self.opt_name_tail() {}
+
+        // Ambiguity: `range <>` is the tail of an index subtype definition.
+        // This wires through name due to the starting `type_mark`.
+        // TODO: consider alternative: broaden language to make "<>" a valid expression.
+        // Creates less ambiguity here.
+        if self.next_is(Keyword(Kw::Range)) && !self.next_nth_is(BOX, 1) {
+            self.range_constraint();
+        }
         self.end_node();
     }
 
@@ -100,84 +105,42 @@ impl Parser {
         ]);
     }
 
-    fn opt_name_tail_bounded(&mut self, max_index: usize) -> bool {
-        // name             ::= prefix [ name_tail ] ;
-        // name_tail        ::= selected_name | attribute_name | indexed_name | slice_name | function_name ;
-        // selected_name    ::= `.` suffix [ name_tail ] ;
-        // attribute_name   ::= [ signature ] `'` identifier [ `(` expression `)` ] [ name_tail ] ;
-        // function_name    ::= `(` association_list `)` [ name_tail ] ;
-        // indexed_name     ::= `(` expression { `,` expression } `)` [ name_tail ] ;
-        // slice_name       ::= `(` discrete_range `)` [ name_tail ] ;
-
-        if self.next_is(Dot) {
-            self.start_node(SelectedName);
-            self.expect_token(Dot);
-            self.suffix();
-            self.end_node();
-            self.opt_name_tail_bounded(max_index)
-        } else if self.next_is(LeftPar) {
-            // Instead of trying to differentiate between `subtype_indication`, `association_list`, a list of `expression`s and a `discrete_range`
-            // put all tokens inside the parenthesis in a `RawTokens` node.
-            let end_index_opt =
-                match self.lookahead_max_token_index_skip_n(max_index, 1, [RightPar]) {
-                    Ok((_, end_index)) => Some(end_index),
-                    Err((LookaheadError::MaxIndexReached, _)) => None,
-                    // Skip parsing of the parenthesized group, if EOF is reached
-                    Err((LookaheadError::Eof, _)) => None,
-                    // This error is only possible, when a `RightPar` is found before any token in `kinds`.
-                    // Since `RightPar` is in `kinds` that's not possible!
-                    Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
-                };
-
-            if let Some(end_index) = end_index_opt {
-                self.start_node(RawTokens);
+    fn opt_name_tail(&mut self) -> bool {
+        match self.peek_token() {
+            Dot => {
+                self.start_node(SelectedName);
+                self.expect_token(Dot);
+                self.suffix();
+                self.end_node();
+                true
+            }
+            LeftPar => {
+                self.start_node(ParenthesizedName);
                 self.expect_token(LeftPar);
-                self.skip_to(end_index);
+                if !self.next_is(RightPar) {
+                    self.association_list();
+                }
                 self.expect_token(RightPar);
                 self.end_node();
-
-                self.opt_name_tail_bounded(max_index)
-            } else {
-                false
+                true
             }
-        } else if is_start_of_attribute_name(self) {
-            self.start_node(AttributeName);
-            if self.next_is(LeftSquare) {
-                self.signature();
-            }
-            self.expect_token(Tick);
-
-            // Enable qualified expressions
-            if !self.next_is(LeftPar) {
-                // Either an identifier or a keyword (e.g., `range`, `subtype`, e.t.c.)
-                if matches!(self.peek_token(), Keyword(_) | Identifier) {
-                    self.skip();
-                }
-            }
-
-            if self.next_is(LeftPar) {
-                let end_index_opt = match self.lookahead_max_token_index(max_index, [RightPar]) {
-                    Ok((_, end_index)) => Some(end_index),
-                    Err((LookaheadError::MaxIndexReached, _)) => None,
-                    // Skip parsing of the parenthesized group, if EOF is reached
-                    Err((LookaheadError::Eof, _)) => None,
-                    // This error is only possible, when a `RightPar` is found before any token in `kinds`.
-                    // Since `RightPar` is in `kinds` that's not possible!
-                    Err((LookaheadError::TokenKindNotFound, _)) => unreachable!(),
-                };
-                if end_index_opt.is_some() {
-                    self.start_node(ParenthesizedExpressionOrAggregate);
-                    self.expect_token(LeftPar);
-                    self.association_list();
-                    self.expect_token(RightPar);
+            _ => {
+                if is_start_of_attribute_name(self) {
+                    self.start_node(AttributeName);
+                    if self.next_is(LeftSquare) {
+                        self.signature();
+                    }
+                    self.expect_token(Tick);
+                    // Either an identifier or a keyword (e.g., `range`, `subtype`).
+                    if matches!(self.peek_token(), Keyword(_) | Identifier) {
+                        self.skip();
+                    }
                     self.end_node();
+                    true
+                } else {
+                    false
                 }
-                // TODO: Error
             }
-            self.end_node();
-            self.opt_name_tail_bounded(max_index)
-        } else {
-            false
         }
     }
 
@@ -258,17 +221,18 @@ impl Parser {
     }
 
     pub fn choice(&mut self) {
-        if self.opt_token(Keyword(Kw::Others)) {
+        if self.next_is(Keyword(Kw::Others)) {
+            self.start_node(OthersChoice);
+            self.skip();
+            self.end_node();
             return;
         }
-        let checkpoint = self.checkpoint();
-        self.expression(); // TODO: can also be discrete range
-        if self.next_is_one_of([Keyword(Kw::To), Keyword(Kw::Downto)]) {
-            self.skip();
-            self.start_node_at(checkpoint, RangeExpression);
-            self.expression();
-            self.end_node();
-        }
+        // `expression` now subsumes the old `range` (`to`/`downto` are binary
+        // operators); `choice = expression | discrete_range | others` collapses
+        // to "either an expression or `others`" at the parser level.
+        self.start_node(ExpressionChoice);
+        self.expression();
+        self.end_node();
     }
 }
 
@@ -354,11 +318,6 @@ mod tests {
     #[test]
     fn test_function_call() {
         insta::assert_snapshot!(name_to_test_text("foo(arg => 0)"));
-    }
-
-    #[test]
-    fn test_association_list_actual_part_open() {
-        insta::assert_snapshot!(name_to_test_text("foo(open, arg => open)"));
     }
 
     #[test]

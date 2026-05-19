@@ -34,9 +34,15 @@ IfGenerateStatement
       ConcurrentProcedureCallOrComponentInstantiationStatement
         Name
           Identifier 'foo1'
-          RawTokens
+          ParenthesizedName
             LeftPar
-            Identifier 'clk'
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        Identifier 'clk'
             RightPar
         SemiColon
   IfGenerateElsif
@@ -67,9 +73,15 @@ IfGenerateStatement
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
             Identifier 'foo2'
-            RawTokens
+            ParenthesizedName
               LeftPar
-              Identifier 'clk'
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      NameExpression
+                        Name
+                          Identifier 'clk'
               RightPar
           SemiColon
   IfGenerateElse
@@ -92,9 +104,15 @@ IfGenerateStatement
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
             Identifier 'foo3'
-            RawTokens
+            ParenthesizedName
               LeftPar
-              Identifier 'clk'
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      NameExpression
+                        Name
+                          Identifier 'clk'
               RightPar
           SemiColon
   IfGenerateStatementEpilogue

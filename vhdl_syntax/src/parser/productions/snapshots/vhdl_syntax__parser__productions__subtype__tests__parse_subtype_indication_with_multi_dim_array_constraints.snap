@@ -5,15 +5,30 @@ expression: "to_test_text(Parser::subtype_indication,\n\"integer_vector(2-1 down
 SubtypeIndication
   Name
     Identifier 'integer_vector'
-    RawTokens
+    ParenthesizedName
       LeftPar
-      AbstractLiteral '2'
-      Minus
-      AbstractLiteral '1'
-      Keyword(Downto)
-      AbstractLiteral '0'
-      Comma
-      AbstractLiteral '11'
-      Keyword(To)
-      AbstractLiteral '14'
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              BinaryExpression
+                BinaryExpression
+                  LiteralExpression
+                    AbstractLiteral '2'
+                  Minus
+                  LiteralExpression
+                    AbstractLiteral '1'
+                Keyword(Downto)
+                LiteralExpression
+                  AbstractLiteral '0'
+        Comma
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              BinaryExpression
+                LiteralExpression
+                  AbstractLiteral '11'
+                Keyword(To)
+                LiteralExpression
+                  AbstractLiteral '14'
       RightPar

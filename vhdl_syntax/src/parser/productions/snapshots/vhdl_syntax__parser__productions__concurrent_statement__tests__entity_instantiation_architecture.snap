@@ -16,8 +16,14 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-      RawTokens
+      ParenthesizedName
         LeftPar
-        Identifier 'arch'
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                NameExpression
+                  Name
+                    Identifier 'arch'
         RightPar
   SemiColon

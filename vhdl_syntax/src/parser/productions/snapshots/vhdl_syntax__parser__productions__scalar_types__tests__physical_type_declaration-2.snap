@@ -7,13 +7,14 @@ FullTypeDeclaration
   Identifier 'distance_t'
   Keyword(Is)
   PhysicalTypeDefinition
-    Keyword(Range)
-    RangeExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      LiteralExpression
-        AbstractLiteral '10'
+    RangeConstraint
+      Keyword(Range)
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '10'
     Keyword(Units)
     UnitDeclarations
       PrimaryUnitDeclaration

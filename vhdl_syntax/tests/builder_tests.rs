@@ -12,14 +12,12 @@
 
 use vhdl_syntax::{
     builder::Identifier,
-    latin_1::Latin1Str,
     parser,
     syntax::{
-        ActualPartBuilder, ArchitectureEpilogueBuilder, AssociationElementBuilder, AstNode,
-        BinaryOperatorToken, EntityDeclarationBuilder, EntityDeclarationEpilogueBuilder,
-        EntityDeclarationPreambleBuilder, LibraryUnitSyntax, LiteralExpressionBuilder,
-        LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder, NameDesignatorToken,
-        PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
+        ArchitectureEpilogueBuilder, AstNode, BinaryOperatorToken, EntityDeclarationBuilder,
+        EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax,
+        LiteralExpressionBuilder, LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder,
+        NameDesignatorToken, PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
     },
     tokens::{Token, TokenKind, Trivia, TriviaPiece},
 };
@@ -139,16 +137,6 @@ fn entity_declaration_default() {
     )
     .build();
     assert_eq!(node.raw().to_string(), " entity foo is end ;");
-}
-
-// MARK: ActualPartBuilder
-
-/// `ActualPartBuilder` satisfies `impl Into<ActualPartSyntax>` required by `AssociationElementBuilder::new`.
-#[test]
-fn actual_part_satisfies_into_for_association_element() {
-    let _ = AssociationElementBuilder::new(ActualPartBuilder::from_vhdl(Latin1Str::new(
-        b"system_clock",
-    )));
 }
 
 // MARK: Token choice nodes

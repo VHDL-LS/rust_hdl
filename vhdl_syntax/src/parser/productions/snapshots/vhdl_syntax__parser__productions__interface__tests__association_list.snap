@@ -5,8 +5,14 @@ expression: "to_test_text(Parser::association_list, \"arg1, arg2\",)"
 AssociationList
   AssociationElement
     ActualPart
-      Identifier 'arg1'
+      ActualPartExpression
+        NameExpression
+          Name
+            Identifier 'arg1'
   Comma
   AssociationElement
     ActualPart
-      Identifier 'arg2'
+      ActualPartExpression
+        NameExpression
+          Name
+            Identifier 'arg2'

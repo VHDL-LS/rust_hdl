@@ -5,12 +5,13 @@ expression: "expr_to_test_text(\"(1+2)*3\")"
 BinaryExpression
   ParenthesizedExpressionOrAggregate
     LeftPar
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '1'
-      Plus
-      LiteralExpression
-        AbstractLiteral '2'
+    ElementAssociation
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '1'
+        Plus
+        LiteralExpression
+          AbstractLiteral '2'
     RightPar
   Times
   LiteralExpression

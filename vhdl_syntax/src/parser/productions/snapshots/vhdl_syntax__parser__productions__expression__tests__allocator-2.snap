@@ -1,0 +1,21 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"new arr(0 to 1)\")"
+---
+Allocator
+  Keyword(New)
+  Name
+    Identifier 'arr'
+    ParenthesizedName
+      LeftPar
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              BinaryExpression
+                LiteralExpression
+                  AbstractLiteral '0'
+                Keyword(To)
+                LiteralExpression
+                  AbstractLiteral '1'
+      RightPar

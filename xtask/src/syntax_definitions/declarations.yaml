@@ -39,7 +39,36 @@ PackageBodyDeclaration: !Sequence
 UseClauseDeclaration: !Sequence
   - node: UseClause
 
-ActualPart: !RawTokens
+# LRM:
+#   actual_part       ::= actual_designator | name "(" actual_designator ")"
+#                       | type_mark "(" actual_designator ")"
+#   actual_designator ::= [inertial] expression | subtype_indication | open
+#
+# Disambiguation between `Expression` and `SubtypeIndication` is done at
+# parse time by lookahead: the only syntactic discriminator is a second
+# name following the first (the resolution_function_name + type_mark
+# pattern, or the `(element_resolution)` + type_mark pattern). The wrapped
+# `name "(" actual_designator ")"` forms collapse into `Expression`
+# because `Name` accepts a `ParenthesizedName` tail; analysis disambiguates
+# type conversions / resolution functions later.
+ActualPartExpression: !Sequence
+  - node: Expression
+
+ActualPartSubtypeIndication: !Sequence
+  - node: SubtypeIndication
+
+ActualPartOpen: !Sequence
+  - keyword: Open
+
+ActualPartBody: !Choice
+  - node: ActualPartExpression
+  - node: ActualPartSubtypeIndication
+  - node: ActualPartOpen
+
+ActualPart: !Sequence
+  - keyword: Inertial
+    optional: true
+  - node: ActualPartBody
 
 AliasDeclaration: !Sequence
   - keyword: Alias
@@ -116,15 +145,6 @@ ConstantDeclaration: !Sequence
     optional: true
   - token: SemiColon
 
-RangeConstraintConstraint: !Sequence
-  - node: RangeConstraint
-
-Constraint: !Choice
-  - node: RangeConstraintConstraint
-  - node: ArrayConstraint
-  - node: RecordConstraint
-
-# TODO: Rename to something with ArrayResolution
 ResolutionIndicationElementResolution: !Sequence
   - node: ResolutionIndication
 
@@ -163,10 +183,11 @@ FileOpenInformation: !Sequence
   - node: Expression
     name: file_logical_name
 
+# LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
+# The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
+# with a `ParenthesizedName` tail, so a plain `Name` covers all cases.
 FormalPart: !Sequence
   - node: Name
-  - node: Name
-    parenthesized: true
 
 FullTypeDeclaration: !Sequence
   - keyword: Type
@@ -197,21 +218,14 @@ GenericMapAspect: !Sequence
     optional: true
   - token: RightPar
 
-GroupConstituentList: !Sequence
-  - node: Name
-    repeated: true
-  - token: Comma
-    repeated: true
-
+# LRM has `"group" identifier ":" name "(" group_constituent_list ")" ";"`.
+# The `(group_constituent_list)` is absorbed as a `ParenthesizedName` tail on
+# the preceding `Name`, so no explicit list/parens are needed here.
 GroupDeclaration: !Sequence
   - keyword: Group
   - token: Identifier
   - token: Colon
   - node: Name
-  - token: LeftPar
-  - node: GroupConstituentList
-    optional: true
-  - token: RightPar
   - token: SemiColon
 
 GroupTemplateDeclaration: !Sequence
@@ -258,7 +272,6 @@ InterfaceFunctionSpecification: !Sequence
 InterfaceIncompleteTypeDeclaration: !Sequence
   - keyword: Type
   - token: Identifier
-  - token: SemiColon
 
 InterfaceList: !Sequence
   - node: InterfaceDeclaration
@@ -277,7 +290,6 @@ InterfacePackageDeclaration: !Sequence
   - keyword: New
   - node: Name
   - node: InterfacePackageGenericMapAspect
-  - token: SemiColon
 
 InterfacePackageDeclarationPreamble: !Sequence
   - keyword: Package
@@ -309,11 +321,8 @@ InterfacePackageGenericMapAspectInner: !Choice
 InterfaceProcedureSpecification: !Sequence
   - keyword: Procedure
   - node: Designator
-  - keyword: Parameter
-  - token: LeftPar
-  - node: InterfaceList
+  - node: ParameterList
     optional: true
-  - token: RightPar
 
 InterfaceSignalDeclaration: !Sequence
   - keyword: Signal
@@ -329,7 +338,6 @@ InterfaceSignalDeclaration: !Sequence
     optional: true
   - node: Expression
     optional: true
-  - token: SemiColon
 
 InterfaceSubprogramDeclaration: !Sequence
   - node: InterfaceSubprogramSpecification
@@ -337,7 +345,6 @@ InterfaceSubprogramDeclaration: !Sequence
     optional: true
   - node: InterfaceSubprogramDefault
     optional: true
-  - token: SemiColon
 
 InterfaceSubprogramDefaultName: !Sequence
   - node: Name
@@ -365,7 +372,6 @@ InterfaceVariableDeclaration: !Sequence
     optional: true
   - node: Expression
     optional: true
-  - token: SemiColon
 
 Mode: !Choice
   - keyword: In
@@ -410,7 +416,7 @@ RecordResolution: !Sequence
 NameResolutionIndication: !Sequence
   - node: Name
 
-# TODO: Is this required? (Could potentially be replaced by ELement Resolution)
+# TODO: Is this required? (Could potentially be replaced by Element Resolution)
 ElementResolutionResolutionIndication: !Sequence
   - node: ElementResolution
 
@@ -443,8 +449,12 @@ SubtypeDeclaration: !Sequence
   - node: SubtypeIndication
   - token: SemiColon
 
+# LRM has `[resolution_indication] type_mark [constraint]`. Here `type_mark`
+# becomes `Name`, and constraints (range/index/record) are absorbed as
+# `NameTail` items, so no explicit `Constraint` slot is needed.
 SubtypeIndication: !Sequence
   - node: ResolutionIndication
+    optional: true
   - node: Name
 
 TypeDeclaration: !Choice

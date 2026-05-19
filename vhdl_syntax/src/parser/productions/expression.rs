@@ -14,8 +14,14 @@ use std::num::NonZeroU8;
 
 fn binary_precedence(token: TokenKind) -> Option<NonZeroU8> {
     Some(match token {
+        // `to`/`downto` were a separate `range` production in the LRM; folding
+        // them into the operator table lets `range_constraint` accept any
+        // expression and reuse precedence climbing.
+        Keyword(Kw::To | Kw::Downto) => nonzero!(1u8),
         Keyword(Kw::And | Kw::Or | Kw::Nand | Kw::Nor | Kw::Xor | Kw::Xnor) => nonzero!(2u8),
-        EQ | NE | LT | LTE | GT | GTE | QueEQ | QueNE | QueLT | QueGT | QueGTE => nonzero!(3u8),
+        EQ | NE | LT | LTE | GT | GTE | QueEQ | QueNE | QueLT | QueLTE | QueGT | QueGTE => {
+            nonzero!(3u8)
+        }
         Keyword(Kw::Sll | Kw::Srl | Kw::Sla | Kw::Sra | Kw::Rol | Kw::Ror) => nonzero!(4u8),
         Plus | Minus | Concat => nonzero!(5u8),
         Times | Div | Keyword(Kw::Mod | Kw::Rem) => nonzero!(7u8),
@@ -39,9 +45,9 @@ impl Parser {
     pub fn primary(&mut self) {
         match_next_token!(self,
             Identifier, LtLt => {
-              self.start_node(NameExpression);
+              let checkpoint = self.checkpoint();
               self.name();
-              self.end_node();
+              self.continue_primary_after_name(checkpoint);
             },
             BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Kw::Null) => self.skip_into_node(LiteralExpression),
             AbstractLiteral => {
@@ -56,9 +62,7 @@ impl Parser {
                 self.end_node();
             },
             LeftPar => {
-                self.start_node(ParenthesizedExpressionOrAggregate);
-                self.aggregate_inner();
-                self.end_node();
+                self.parenthesized_expression_or_aggregate();
             },
             Keyword(Kw::New) => {
               self.allocator();
@@ -66,10 +70,35 @@ impl Parser {
         );
     }
 
+    pub(crate) fn parenthesized_expression_or_aggregate(&mut self) {
+        self.start_node(ParenthesizedExpressionOrAggregate);
+        self.aggregate_inner();
+        self.end_node();
+    }
+
+    /// Finalize a primary whose leading `Name` was already parsed and starts
+    /// at `checkpoint`. If a `Tick` follows, the name is the type mark of a
+    /// `QualifiedExpression` and the `'(…)` is consumed here; otherwise the
+    /// name is wrapped in `NameExpression`. Callers that need to continue
+    /// with binary operators should follow up with `expression_from_primary`.
+    pub(crate) fn continue_primary_after_name(
+        &mut self,
+        checkpoint: crate::parser::builder::Checkpoint,
+    ) {
+        if self.next_is(Tick) {
+            self.start_node_at(checkpoint, QualifiedExpression);
+            self.skip();
+            self.parenthesized_expression_or_aggregate();
+        } else {
+            self.start_node_at(checkpoint, NameExpression);
+        }
+        self.end_node();
+    }
+
     pub fn allocator(&mut self) {
-        self.start_node(ExpressionAllocator);
+        self.start_node(Allocator);
         self.expect_kw(Kw::New);
-        self.subtype_indication();
+        self.expression();
         self.end_node();
     }
 
@@ -103,6 +132,22 @@ impl Parser {
 
     pub fn expression(&mut self) {
         self.expression_inner(0);
+    }
+
+    /// Continue an expression parse from an already-emitted primary located at
+    /// `checkpoint`. The caller is responsible for having emitted the leading
+    /// primary node (e.g. `NameExpression`) starting at `checkpoint`.
+    pub(crate) fn expression_from_primary(
+        &mut self,
+        checkpoint: crate::parser::builder::Checkpoint,
+    ) {
+        while let Some(precedence) = binary_precedence(self.peek_token()) {
+            let precedence: u8 = precedence.into();
+            self.start_node_at(checkpoint, BinaryExpression);
+            self.skip();
+            self.expression_inner(precedence);
+            self.end_node();
+        }
     }
 
     pub fn condition(&mut self) {

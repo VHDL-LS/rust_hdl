@@ -10,8 +10,9 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      RawTokens
-        Identifier 'natural'
+      NameExpression
+        Name
+          Identifier 'natural'
       RightPar
     Keyword(Of)
     SubtypeIndication
