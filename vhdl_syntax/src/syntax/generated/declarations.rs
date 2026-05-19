@@ -1013,7 +1013,7 @@ impl AstNode for ConstantDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -1307,7 +1307,7 @@ impl AstNode for FileDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::File)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -1972,7 +1972,7 @@ impl AstNode for InterfaceConstantDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -2133,7 +2133,7 @@ impl AstNode for InterfaceFileDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::File)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -2799,7 +2799,7 @@ impl AstNode for InterfaceSignalDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -3107,7 +3107,7 @@ impl AstNode for InterfaceVariableDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -3691,7 +3691,7 @@ impl AstNode for SignalDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -4047,7 +4047,7 @@ impl AstNode for VariableDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -4160,7 +4160,7 @@ impl AstNode for SharedVariableDeclarationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),

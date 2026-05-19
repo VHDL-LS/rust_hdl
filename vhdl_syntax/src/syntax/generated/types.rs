@@ -194,7 +194,7 @@ impl AstNode for ElementDeclarationSyntax {
         kind: NodeKind::ElementDeclaration,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
@@ -394,13 +394,13 @@ impl AstNode for IdentifierListSyntax {
         items: &[
             LayoutItem {
                 optional: false,
-                repeated: false,
+                repeated: true,
                 name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
-                repeated: false,
+                repeated: true,
                 name: "comma",
                 kind: LayoutItemKind::Token(TokenKind::Comma),
             },
@@ -414,17 +414,15 @@ impl AstNode for IdentifierListSyntax {
     }
 }
 impl IdentifierListSyntax {
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
     }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Comma)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

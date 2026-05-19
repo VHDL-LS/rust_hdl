@@ -4760,7 +4760,7 @@ impl From<ConfigurationInstantiatedUnitBuilder> for ConfigurationInstantiatedUni
 }
 pub struct ConstantDeclarationBuilder {
     constant_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     colon_eq_token: Option<Token>,
@@ -4768,13 +4768,10 @@ pub struct ConstantDeclarationBuilder {
     semi_colon_token: Token,
 }
 impl ConstantDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             constant_token: Kw::Constant.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
@@ -4791,7 +4788,7 @@ impl ConstantDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -4833,7 +4830,9 @@ impl ConstantDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConstantDeclaration);
         builder.push(self.constant_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         if let Some(t) = self.colon_eq_token {
@@ -5469,25 +5468,22 @@ impl From<ElementAssociationBuilder> for ElementAssociationSyntax {
     }
 }
 pub struct ElementDeclarationBuilder {
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     semi_colon_token: Token,
 }
 impl ElementDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -5513,7 +5509,9 @@ impl ElementDeclarationBuilder {
     pub fn build(self) -> ElementDeclarationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ElementDeclaration);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         builder.push(self.semi_colon_token);
@@ -6698,7 +6696,7 @@ impl From<ExternalVariableNameBuilder> for ExternalVariableNameSyntax {
 }
 pub struct FileDeclarationBuilder {
     file_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     file_open_information: FileOpenInformationSyntax,
@@ -6706,13 +6704,12 @@ pub struct FileDeclarationBuilder {
 }
 impl FileDeclarationBuilder {
     pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
         file_open_information: impl Into<FileOpenInformationSyntax>,
     ) -> Self {
         Self {
             file_token: Kw::File.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             file_open_information: file_open_information.into(),
@@ -6728,7 +6725,7 @@ impl FileDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -6759,7 +6756,9 @@ impl FileDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::FileDeclaration);
         builder.push(self.file_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         builder.push_node(self.file_open_information.raw().green().clone());
@@ -7885,37 +7884,38 @@ impl From<GuardedSignalSpecificationBuilder> for GuardedSignalSpecificationSynta
     }
 }
 pub struct IdentifierListBuilder {
-    identifier_token: Token,
-    comma_token: Token,
+    identifier_token: Vec<Token>,
+    comma_token: Vec<Token>,
+}
+impl Default for IdentifierListBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 impl IdentifierListBuilder {
-    pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
+    pub fn new() -> Self {
         Self {
-            identifier_token: identifier_token.into().into(),
-            comma_token: TokenKind::Comma.canonical_token().unwrap(),
+            identifier_token: Vec::new(),
+            comma_token: Vec::new(),
         }
     }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = t.into().into();
+    pub fn add_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.identifier_token.push(t.into().into());
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.identifier_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_comma_token(mut self, t: impl Into<Token>) -> Self {
-        self.comma_token = t.into();
-        self
-    }
-    pub fn with_comma_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.comma_token.set_leading_trivia(trivia);
+    pub fn add_comma_token(mut self, t: impl Into<Token>) -> Self {
+        self.comma_token.push(t.into());
         self
     }
     pub fn build(self) -> IdentifierListSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IdentifierList);
-        builder.push(self.identifier_token);
-        builder.push(self.comma_token);
+        for t in self.identifier_token {
+            builder.push(t);
+        }
+        for t in self.comma_token {
+            builder.push(t);
+        }
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -8981,7 +8981,7 @@ impl From<InstantiationListOthersBuilder> for InstantiationListOthersSyntax {
 }
 pub struct InterfaceConstantDeclarationBuilder {
     constant_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     in_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
@@ -8990,13 +8990,12 @@ pub struct InterfaceConstantDeclarationBuilder {
 }
 impl InterfaceConstantDeclarationBuilder {
     pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
         subtype_indication: impl Into<SubtypeIndicationSyntax>,
         expression: impl Into<ExpressionSyntax>,
     ) -> Self {
         Self {
             constant_token: Kw::Constant.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             in_token: Kw::In.canonical_token(),
             subtype_indication: subtype_indication.into(),
@@ -9013,7 +9012,7 @@ impl InterfaceConstantDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -9052,7 +9051,9 @@ impl InterfaceConstantDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::InterfaceConstantDeclaration);
         builder.push(self.constant_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push(self.in_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
@@ -9071,18 +9072,15 @@ impl From<InterfaceConstantDeclarationBuilder> for InterfaceConstantDeclarationS
 }
 pub struct InterfaceFileDeclarationBuilder {
     file_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
 }
 impl InterfaceFileDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             file_token: Kw::File.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
         }
@@ -9096,7 +9094,7 @@ impl InterfaceFileDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -9115,7 +9113,9 @@ impl InterfaceFileDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::InterfaceFileDeclaration);
         builder.push(self.file_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         builder.end_node();
@@ -9670,7 +9670,7 @@ impl From<InterfaceProcedureSpecificationBuilder> for InterfaceProcedureSpecific
 }
 pub struct InterfaceSignalDeclarationBuilder {
     signal_token: Option<Token>,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     mode: Option<ModeToken>,
     subtype_indication: SubtypeIndicationSyntax,
@@ -9679,13 +9679,10 @@ pub struct InterfaceSignalDeclarationBuilder {
     expression: Option<ExpressionSyntax>,
 }
 impl InterfaceSignalDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             signal_token: None,
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             mode: None,
             subtype_indication: subtype_indication.into(),
@@ -9706,7 +9703,7 @@ impl InterfaceSignalDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -9757,7 +9754,9 @@ impl InterfaceSignalDeclarationBuilder {
         if let Some(t) = self.signal_token {
             builder.push(t);
         }
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         if let Some(n) = self.mode {
             builder.push(n.0);
@@ -9914,7 +9913,7 @@ impl From<InterfaceSubprogramDefaultNameBuilder> for InterfaceSubprogramDefaultN
 }
 pub struct InterfaceVariableDeclarationBuilder {
     variable_token: Option<Token>,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     mode: Option<ModeToken>,
     subtype_indication: SubtypeIndicationSyntax,
@@ -9922,13 +9921,10 @@ pub struct InterfaceVariableDeclarationBuilder {
     expression: Option<ExpressionSyntax>,
 }
 impl InterfaceVariableDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             variable_token: None,
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             mode: None,
             subtype_indication: subtype_indication.into(),
@@ -9948,7 +9944,7 @@ impl InterfaceVariableDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -9988,7 +9984,9 @@ impl InterfaceVariableDeclarationBuilder {
         if let Some(t) = self.variable_token {
             builder.push(t);
         }
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         if let Some(n) = self.mode {
             builder.push(n.0);
@@ -10056,14 +10054,19 @@ impl From<LabelBuilder> for LabelSyntax {
 }
 pub struct LibraryClauseBuilder {
     library_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     semi_colon_token: Token,
 }
+impl Default for LibraryClauseBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl LibraryClauseBuilder {
-    pub fn new(identifier_list: impl Into<IdentifierListSyntax>) -> Self {
+    pub fn new() -> Self {
         Self {
             library_token: Kw::Library.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -10076,7 +10079,7 @@ impl LibraryClauseBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -10091,7 +10094,9 @@ impl LibraryClauseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::LibraryClause);
         builder.push(self.library_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.semi_colon_token);
         builder.end_node();
         let green = builder.end();
@@ -14778,7 +14783,7 @@ impl From<SequentialStatementsBuilder> for SequentialStatementsSyntax {
 pub struct SharedVariableDeclarationBuilder {
     shared_token: Token,
     variable_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     colon_eq_token: Option<Token>,
@@ -14786,14 +14791,11 @@ pub struct SharedVariableDeclarationBuilder {
     semi_colon_token: Token,
 }
 impl SharedVariableDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             shared_token: Kw::Shared.canonical_token(),
             variable_token: Kw::Variable.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
@@ -14818,7 +14820,7 @@ impl SharedVariableDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -14861,7 +14863,9 @@ impl SharedVariableDeclarationBuilder {
         builder.start_node(NodeKind::SharedVariableDeclaration);
         builder.push(self.shared_token);
         builder.push(self.variable_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         if let Some(t) = self.colon_eq_token {
@@ -14884,7 +14888,7 @@ impl From<SharedVariableDeclarationBuilder> for SharedVariableDeclarationSyntax 
 }
 pub struct SignalDeclarationBuilder {
     signal_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     signal_kind: Option<SignalKindToken>,
@@ -14893,13 +14897,10 @@ pub struct SignalDeclarationBuilder {
     semi_colon_token: Token,
 }
 impl SignalDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             signal_token: Kw::Signal.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             signal_kind: None,
@@ -14917,7 +14918,7 @@ impl SignalDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -14963,7 +14964,9 @@ impl SignalDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SignalDeclaration);
         builder.push(self.signal_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         if let Some(n) = self.signal_kind {
@@ -16567,7 +16570,7 @@ impl From<UseClauseDeclarationBuilder> for UseClauseDeclarationSyntax {
 }
 pub struct VariableDeclarationBuilder {
     variable_token: Token,
-    identifier_list: IdentifierListSyntax,
+    identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     colon_eq_token: Option<Token>,
@@ -16575,13 +16578,10 @@ pub struct VariableDeclarationBuilder {
     semi_colon_token: Token,
 }
 impl VariableDeclarationBuilder {
-    pub fn new(
-        identifier_list: impl Into<IdentifierListSyntax>,
-        subtype_indication: impl Into<SubtypeIndicationSyntax>,
-    ) -> Self {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
             variable_token: Kw::Variable.canonical_token(),
-            identifier_list: identifier_list.into(),
+            identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             colon_eq_token: None,
@@ -16598,7 +16598,7 @@ impl VariableDeclarationBuilder {
         self
     }
     pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = n.into();
+        self.identifier_list = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -16640,7 +16640,9 @@ impl VariableDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::VariableDeclaration);
         builder.push(self.variable_token);
-        builder.push_node(self.identifier_list.raw().green().clone());
+        if let Some(n) = self.identifier_list {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
         if let Some(t) = self.colon_eq_token {

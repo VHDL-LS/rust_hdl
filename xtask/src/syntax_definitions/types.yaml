@@ -55,7 +55,9 @@ FileTypeDefinition: !Sequence
 
 IdentifierList: !Sequence
   - token: Identifier
+    repeated: true
   - token: Comma
+    repeated: true
 
 IncompleteTypeDeclaration: !Sequence
   - keyword: Type

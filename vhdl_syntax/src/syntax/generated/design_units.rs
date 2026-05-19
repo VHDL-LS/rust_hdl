@@ -422,7 +422,7 @@ impl AstNode for LibraryClauseSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Library)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier_list",
                 kind: LayoutItemKind::Node(NodeKind::IdentifierList),
