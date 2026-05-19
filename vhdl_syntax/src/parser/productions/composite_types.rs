@@ -38,7 +38,7 @@ impl Parser {
         self.end_node();
 
         self.start_node(RecordElementDeclarations);
-        while !self.next_is(Keyword(Kw::End)) {
+        while self.next_is(Identifier) {
             self.element_declaration();
         }
         self.end_node();

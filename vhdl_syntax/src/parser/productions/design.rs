@@ -26,7 +26,7 @@ impl Parser {
         self.start_node(NodeKind::DesignUnit);
 
         self.context_clause();
-        match self.peek_token() {
+        match_next_token!(self,
             Keyword(Kw::Architecture) => self.architecture(),
             Keyword(Kw::Package) => {
                 if self.next_nth_is(Keyword(Kw::Body), 1) {
@@ -38,18 +38,11 @@ impl Parser {
                 } else {
                     self.package_declaration();
                 }
-            }
+            },
             Keyword(Kw::Entity) => self.entity_declaration(),
             Keyword(Kw::Configuration) => self.configuration_declaration(),
             Keyword(Kw::Context) => self.context_declaration(),
-            _ => self.expect_tokens_err([
-                Keyword(Kw::Architecture),
-                Keyword(Kw::Package),
-                Keyword(Kw::Entity),
-                Keyword(Kw::Configuration),
-                Keyword(Kw::Context),
-            ]),
-        }
+        );
         self.end_node();
     }
 
