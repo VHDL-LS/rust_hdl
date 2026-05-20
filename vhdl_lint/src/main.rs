@@ -1,19 +1,50 @@
-use std::{path::PathBuf, process::ExitCode};
+use std::{io::IsTerminal, path::PathBuf, process::ExitCode};
 
-use ariadne::{Label, Report, ReportKind, Source};
-use clap::Parser;
-use vhdl_syntax::{
-    parser::{self, diagnostics::ParserDiagnostic},
-    tokens::TokenKind,
-};
+use anstream::ColorChoice;
+use ariadne::Source;
+use clap::{Parser, ValueEnum};
+use vhdl_syntax::parser;
+
+use crate::reporting::parser_diagnostic_to_report;
+
+mod reporting;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum ColorWhen {
+    Auto,
+    Always,
+    Never,
+}
+
+impl From<ColorWhen> for ColorChoice {
+    fn from(c: ColorWhen) -> Self {
+        match c {
+            ColorWhen::Auto => ColorChoice::Auto,
+            ColorWhen::Always => ColorChoice::Always,
+            ColorWhen::Never => ColorChoice::Never,
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 struct Args {
     file: PathBuf,
+
+    /// Control color output.
+    #[arg(long, value_name = "WHEN", default_value = "auto")]
+    color: ColorWhen,
 }
 
 fn main() -> ExitCode {
     let args = Args::parse();
+
+    let choice: ColorChoice = args.color.into();
+    choice.write_global();
+    let use_color = match choice {
+        ColorChoice::Always | ColorChoice::AlwaysAnsi => true,
+        ColorChoice::Never => false,
+        ColorChoice::Auto => std::io::stderr().is_terminal(),
+    };
 
     let content = match std::fs::read(&args.file) {
         Ok(content) => content,
@@ -35,59 +66,21 @@ fn main() -> ExitCode {
     }
 
     let fname = args.file.file_name().unwrap().to_string_lossy().to_string();
+    let config = ariadne::Config::new().with_color(use_color);
+    let mut stderr = anstream::AutoStream::new(std::io::stderr(), choice);
 
     for diagnostic in diagnostics {
-        let report = match diagnostic {
-            ParserDiagnostic::ExpectedToken {
-                expected: (insertion_pos, expected),
-                found: (found_pos, found),
-            } => Report::build(ReportKind::Error, (&fname, insertion_pos..insertion_pos))
-                .with_message(expected_token_message(&expected, found))
-                .with_label(
-                    Label::new((&fname, insertion_pos..insertion_pos))
-                        .with_message(format!("{} expected here", expected_message(&expected))),
-                )
-                .with_label(Label::new((&fname, found_pos)).with_message("unexpected token"))
-                .finish(),
-            ParserDiagnostic::UnexpectedInput { span } => {
-                Report::build(ReportKind::Error, (&fname, span.clone()))
-                    .with_message("UnexpectedInput")
-                    .with_label(Label::new((&fname, span)).with_message("This input is unexpected"))
-                    .finish()
-            }
-        };
+        let report = parser_diagnostic_to_report(&diagnostic, fname.as_str(), config);
         report
-            .eprint((
-                &fname,
-                Source::from(std::fs::read_to_string(&args.file).unwrap()),
-            ))
+            .write(
+                (
+                    fname.as_str(),
+                    Source::from(std::fs::read_to_string(&args.file).unwrap()),
+                ),
+                &mut stderr,
+            )
             .unwrap();
     }
 
-    return ExitCode::FAILURE;
-}
-
-fn expected_message(expected: &[TokenKind]) -> String {
-    if expected.len() == 1 {
-        format!("{:?}", expected[0])
-    } else {
-        format!(
-            "one of {}",
-            expected
-                .iter()
-                .map(|f| format!("{f:?}"))
-                .collect::<Vec<_>>()
-                .join(",")
-        )
-    }
-}
-
-fn expected_token_message(expected: &[TokenKind], found: TokenKind) -> String {
-    let exp_message = expected_message(expected);
-
-    if found == TokenKind::Eof {
-        format!("Expected {exp_message}")
-    } else {
-        format!("Expected {exp_message}, found {found:?}")
-    }
+    ExitCode::FAILURE
 }

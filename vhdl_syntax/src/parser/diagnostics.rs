@@ -34,7 +34,7 @@ impl ParserDiagnostic {
     }
 
     pub fn unexpected_input(span: Span) -> ParserDiagnostic {
-        return ParserDiagnostic::UnexpectedInput { span };
+        ParserDiagnostic::UnexpectedInput { span }
     }
 
     pub fn missing_token(
@@ -43,9 +43,9 @@ impl ParserDiagnostic {
         found: TokenKind,
         found_where: Span,
     ) -> ParserDiagnostic {
-        return ParserDiagnostic::ExpectedToken {
+        ParserDiagnostic::ExpectedToken {
             expected: (insert_pos, expected.into()),
             found: (found_where, found),
-        };
+        }
     }
 }
