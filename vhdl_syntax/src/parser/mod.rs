@@ -7,7 +7,7 @@
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};
-use crate::tokens::TokenStream;
+use crate::tokens::{TokenKind, TokenStream};
 use crate::tokens::Tokenizer;
 
 pub(crate) mod builder;
@@ -17,6 +17,7 @@ mod test_utils;
 #[macro_use]
 mod util;
 mod list;
+mod error_recovery;
 pub mod productions;
 
 /// The parser turns a token stream, produced by a [TokenStream] into
@@ -29,6 +30,10 @@ pub struct Parser {
     diagnostics: Vec<diagnostics::ParserDiagnostic>,
     unexpected_eof: bool,
     standard: VHDLStandard,
+    /// One entry per currently-open node. Each entry is that node's FOLLOW set
+    /// (the tokens that may legally appear immediately after the node closes).
+    /// Used as the cumulative recovery set during panic-mode skipping.
+    pub(crate) sync_stack: Vec<&'static [TokenKind]>,
 }
 
 impl Parser {
@@ -39,6 +44,7 @@ impl Parser {
             diagnostics: Vec::default(),
             unexpected_eof: false,
             standard,
+            sync_stack: Vec::new(),
         }
     }
 

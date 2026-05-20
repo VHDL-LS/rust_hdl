@@ -4,29 +4,48 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+use std::ops::Range;
+
 use crate::tokens::TokenKind;
+
+type Span = Range<usize>;
 
 /// Errors that occur during parsing.
 /// These are not stringified so that downstream listeners
 /// can react dynamically without having to parse the message
 #[derive(Debug)]
-pub enum ParserError {
-    /// One of the provided token kinds was expected
-    ExpectingTokens(Box<[TokenKind]>),
-    /// An unexpected End-of file was detected
-    Eof,
-    /// A lookahead could not find the provided token
-    LookaheadFailed(TokenKind),
-}
-
-#[derive(Debug)]
-pub struct ParserDiagnostic {
-    pub text_pos: usize,
-    pub error: ParserError,
+pub enum ParserDiagnostic {
+    /// A token was expected, but instead something else was found.
+    /// Note: `found` can be TokenKind::EoF
+    ExpectedToken {
+        expected: (usize, Box<[TokenKind]>),
+        found: (Span, TokenKind),
+    },
+    /// Input that came unexpectedly
+    UnexpectedInput { span: Span },
 }
 
 impl ParserDiagnostic {
-    pub fn new(text_pos: usize, error: ParserError) -> ParserDiagnostic {
-        ParserDiagnostic { text_pos, error }
+    pub fn eof_err(expected: impl Into<Box<[TokenKind]>>, pos: usize) -> ParserDiagnostic {
+        ParserDiagnostic::ExpectedToken {
+            expected: (pos, expected.into()),
+            found: (pos..pos, TokenKind::Eof),
+        }
+    }
+
+    pub fn unexpected_input(span: Span) -> ParserDiagnostic {
+        return ParserDiagnostic::UnexpectedInput { span };
+    }
+
+    pub fn missing_token(
+        expected: impl Into<Box<[TokenKind]>>,
+        insert_pos: usize,
+        found: TokenKind,
+        found_where: Span,
+    ) -> ParserDiagnostic {
+        return ParserDiagnostic::ExpectedToken {
+            expected: (insert_pos, expected.into()),
+            found: (found_where, found),
+        };
     }
 }

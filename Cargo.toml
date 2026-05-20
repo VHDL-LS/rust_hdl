@@ -13,11 +13,12 @@ members = [
     "vhdl_syntax",
     "xtask",
     "vhdl-dump-ast",
+    "vhdl_lint",
 ]
 
 # By default, do not include members that are only needed at build-time
 # e.g., (vhdl_lang_macros, xtask)
-default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast"]
+default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast", "vhdl_lint"]
 
 [workspace.package]
 version = "0.87.0"

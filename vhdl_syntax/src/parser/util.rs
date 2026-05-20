@@ -6,7 +6,6 @@ use crate::parser::builder::Checkpoint;
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
 use crate::parser::diagnostics::ParserDiagnostic;
-use crate::parser::diagnostics::ParserError::*;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -37,8 +36,7 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
-            _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+])
         }
     };
 }
@@ -57,8 +55,7 @@ macro_rules! match_next_token_consume {
                 $parser.skip();
                 $action
             }),+
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
-            _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+])
         }
     };
 }
@@ -97,11 +94,8 @@ impl Parser {
             self.builder.push(token);
             return;
         }
-        // TODO: what are possible recovery strategies?
-        // - Leave as is
-        // - Insert pseudo-token
-        self.skip();
-        self.expect_tokens_err([kind]);
+
+        self.expect_tokens_recover([kind]);
     }
 
     pub(crate) fn expect_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) {
@@ -179,10 +173,15 @@ impl Parser {
     }
 
     pub(crate) fn start_node(&mut self, kind: NodeKind) {
-        self.builder.start_node(kind)
+        self.builder.start_node(kind);
+        self.sync_stack
+            .push(crate::parser::error_recovery::sync_tokens_for_node_kind(
+                kind,
+            ));
     }
 
     pub(crate) fn end_node(&mut self) {
+        self.sync_stack.pop();
         self.builder.end_node()
     }
 
@@ -190,23 +189,21 @@ impl Parser {
         self.builder.checkpoint()
     }
 
+    /// Retroactively wrap children from `checkpoint` onward in a node of the
+    /// given kind. Pushes the node's FOLLOW set onto the sync stack — the
+    /// pre-checkpoint span was already parsed under the parent's recovery
+    /// context, which is the right behaviour: until this commit point, the
+    /// node's identity was undetermined and it had no FOLLOW to contribute.
     pub(crate) fn start_node_at(&mut self, checkpoint: Checkpoint, kind: NodeKind) {
-        self.builder.start_node_at(checkpoint, kind)
+        self.builder.start_node_at(checkpoint, kind);
+        self.sync_stack
+            .push(crate::parser::error_recovery::sync_tokens_for_node_kind(
+                kind,
+            ));
     }
 
-    pub(crate) fn eof_err(&mut self) {
-        if !self.unexpected_eof {
-            self.unexpected_eof = true;
-            self.diagnostics
-                .push(ParserDiagnostic::new(self.builder.current_pos(), Eof))
-        }
-    }
-
-    pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        self.diagnostics.push(ParserDiagnostic::new(
-            self.builder.current_pos(),
-            ExpectingTokens(tokens.into()),
-        ));
+    pub(crate) fn expect_tokens_err<const N: usize>(&mut self, tokens: [TokenKind; N]) {
+        self.expect_tokens_recover(tokens);
     }
 
     pub(crate) fn end(self) -> (GreenNode, Vec<ParserDiagnostic>) {

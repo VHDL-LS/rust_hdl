@@ -68,6 +68,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "ariadne"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8454c8a44ce2cb9cc7e7fae67fc6128465b343b92c6631e94beca3c8d1524ea5"
+dependencies = [
+ "unicode-width 0.2.2",
+ "yansi",
+]
+
+[[package]]
 name = "arraydeque"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1539,6 +1549,15 @@ version = "0.87.0"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "vhdl_lint"
+version = "0.87.0"
+dependencies = [
+ "ariadne",
+ "clap",
+ "vhdl_syntax",
 ]
 
 [[package]]
