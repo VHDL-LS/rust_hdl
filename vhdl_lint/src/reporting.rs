@@ -72,8 +72,7 @@ struct Expected(TokenKind);
 impl fmt::Display for Expected {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
-            TokenKind::Keyword(kw)
-             => {
+            TokenKind::Keyword(kw) => {
                 write!(f, "`{}`", kw.canonical_text())
             }
             TokenKind::Plus => write!(f, "`+`"),
@@ -126,4 +125,3 @@ impl fmt::Display for Expected {
         }
     }
 }
-

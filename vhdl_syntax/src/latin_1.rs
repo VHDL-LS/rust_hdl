@@ -9,7 +9,7 @@
 //!
 //! In Rust's `String` and `str`, a character is a Unicode scalar value (represented as `char`),
 //! which can be multiple bytes when encoded in UTF-8. In contrast, Latin-1 has a 1:1 mapping
-//! between bytes and characters—each byte (0-255) represents exactly one character.
+//! between bytes and characters. Each byte (0-255) represents exactly one character.
 //! This means [`Latin1String`] and [`Latin1Str`] work directly with bytes, where a single `u8`
 //! is equivalent to a single character, simplifying indexing and iteration.
 //!
@@ -558,18 +558,23 @@ impl Latin1Str {
     ///
     /// In safe code, guard the call with [`Latin1Str::is_ascii`].
     pub unsafe fn to_str_unchecked(&self) -> &str {
-        debug_assert!(self.is_ascii(), "called to_str_unchecked with non-ascii bytes");
+        debug_assert!(
+            self.is_utf8(),
+            "called to_str_unchecked with non-ascii bytes"
+        );
         str::from_utf8_unchecked(&self.inner)
     }
 
-    /// Checks if all chars in this string are ASCII
-    pub fn is_ascii(&self) -> bool {
+    /// Checks if all chars in this string are UTF-8 compatible
+    pub fn is_utf8(&self) -> bool {
+        // All ASCII symbols are UTF-8 compatible.
+        // Non-ascii symbols have different encodings.
         self.inner.is_ascii()
     }
 
     pub fn to_str(&self) -> Cow<'_, str> {
-        if self.is_ascii() {
-            // SAFETY: all characters are ASCII, the Latin1-String can safely be transmuted to a str
+        if self.is_utf8() {
+            // SAFETY: all characters are UTF-8, the Latin1-String can safely be transmuted to a str
             Cow::Borrowed(unsafe { self.to_str_unchecked() })
         } else {
             Cow::Owned(iso_8859_1_to_utf8(&self.inner))

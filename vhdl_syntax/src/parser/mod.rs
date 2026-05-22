@@ -7,8 +7,8 @@
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};
-use crate::tokens::{TokenKind, TokenStream};
 use crate::tokens::Tokenizer;
+use crate::tokens::{TokenKind, TokenStream};
 
 pub(crate) mod builder;
 pub mod diagnostics;
@@ -16,8 +16,8 @@ pub mod diagnostics;
 mod test_utils;
 #[macro_use]
 mod util;
-mod list;
 mod error_recovery;
+mod list;
 pub mod productions;
 
 /// The parser turns a token stream, produced by a [TokenStream] into

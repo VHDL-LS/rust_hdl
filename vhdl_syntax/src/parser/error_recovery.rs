@@ -4,8 +4,8 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::Parser;
 use crate::parser::diagnostics::ParserDiagnostic;
+use crate::parser::Parser;
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
@@ -32,9 +32,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         // Inside an argument/element list of a parenthesised construct,
         // the natural recovery points are the comma separator and the
         // closing paren.
-        NodeKind::ActualPart
-        | NodeKind::ActualPartExpression
-        | NodeKind::ActualPartOpen => &[TokenKind::RightPar, TokenKind::Comma],
+        NodeKind::ActualPart | NodeKind::ActualPartExpression | NodeKind::ActualPartOpen => {
+            &[TokenKind::RightPar, TokenKind::Comma]
+        }
 
         // Everything else: no node-specific recovery yet. Falls back on
         // ancestors via the sync stack.
@@ -110,7 +110,6 @@ impl Parser {
             skipped_any = true;
         }
     }
-
 }
 
 #[cfg(test)]
@@ -215,7 +214,11 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1);
-        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)], TokenKind::SemiColon);
+        assert_expected_token(
+            &diags[0],
+            &[TokenKind::Keyword(Kw::Is)],
+            TokenKind::SemiColon,
+        );
     }
 
     /// Garbage before a recovery token: tokens are consumed up to (not
@@ -364,4 +367,3 @@ mod tests {
         assert!(text.contains("foo"));
     }
 }
-
