@@ -14,3 +14,5 @@ pub mod standard;
 pub mod syntax;
 mod token_interning;
 pub mod tokens;
+pub mod source_location;
+pub mod encoding;

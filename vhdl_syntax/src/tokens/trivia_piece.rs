@@ -9,7 +9,7 @@ use std::{
     io::{self, Write},
 };
 
-use crate::latin_1::Latin1Str;
+use crate::{encoding::{Encoder, Latin1Encoder, LossyUtf8Encoder, Utf8Encoder}, latin_1::Latin1Str};
 
 /// A comment
 ///
@@ -29,16 +29,20 @@ impl Comment {
         }
     }
 
+    pub fn encode<E: Encoder>(&self) -> Result<E::Str<'_>, E::Err> {
+        E::encode(&self.inner)
+    }
+
     pub fn as_latin1(&self) -> &Latin1Str {
-        Latin1Str::new(&self.inner)
+        self.encode::<Latin1Encoder>().unwrap()
     }
 
     pub fn as_utf8(&self) -> Result<&str, std::str::Utf8Error> {
-        str::from_utf8(&self.inner)
+        self.encode::<Utf8Encoder>()
     }
 
     pub fn to_utf8_lossy(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.inner)
+        self.encode::<LossyUtf8Encoder>().unwrap()
     }
 
     pub fn as_bytes(&self) -> &[u8] {
