@@ -9,7 +9,7 @@
 use std::{collections::HashMap, str::Utf8Error};
 
 use crate::{
-    fmt::encoding::{Encoder, Utf8Encoder},
+    fmt::encoding::{Encoder, LossyUtf8Encoder, Utf8Encoder},
     latin_1::Latin1Str,
     syntax::node::SyntaxNode,
     tokens::TriviaPiece,
@@ -152,11 +152,22 @@ impl SourceLocConverter {
     pub fn line_count(&self) -> usize {
         self.line_starts.len()
     }
+
+    /// Byte offset of the first character of the given 1-based line.
+    /// Returns `total_len` if `line` is past the last line.
+    pub fn line_start(&self, line: usize) -> usize {
+        let i = line.saturating_sub(1);
+        self.line_starts.get(i).copied().unwrap_or(self.total_len)
+    }
 }
 
 impl SourceLocConverter {
     pub fn new_utf8(root: &SyntaxNode) -> Result<SourceLocConverter, Utf8Error> {
         SourceLocConverter::new::<Utf8Encoder>(root)
+    }
+
+    pub fn new_utf8_lossy(root: &SyntaxNode) -> SourceLocConverter {
+        SourceLocConverter::new::<LossyUtf8Encoder>(root).unwrap()
     }
 }
 

@@ -47,12 +47,12 @@ impl GreenToken {
 }
 
 impl FormatTo for GreenToken {
-    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
         E::Str<'a>: fmt::Display,
     {
-        self.0.format_to::<E>(f)
+        self.0.write_encoded::<E>(writer)
     }
 }
 
@@ -175,15 +175,15 @@ impl GreenNode {
 }
 
 impl FormatTo for GreenNode {
-    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
         E::Str<'a>: fmt::Display,
     {
         for child in self.children() {
             match child {
-                Child::Node(node) => node.format_to::<E>(f)?,
-                Child::Token(token) => token.format_to::<E>(f)?,
+                Child::Node(node) => node.write_encoded::<E>(writer)?,
+                Child::Token(token) => token.write_encoded::<E>(writer)?,
             }
         }
         Ok(())

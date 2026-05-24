@@ -1,9 +1,9 @@
 use std::{io::IsTerminal, path::PathBuf, process::ExitCode};
 
+use annotate_snippets::{renderer::DecorStyle, Renderer};
 use anstream::ColorChoice;
-use ariadne::Source;
 use clap::{Parser, ValueEnum};
-use vhdl_syntax::parser;
+use vhdl_syntax::{parser, source_location::SourceLocConverter, syntax::AstNode};
 
 use crate::reporting::parser_diagnostic_to_report;
 
@@ -60,26 +60,21 @@ fn main() -> ExitCode {
         }
     };
 
-    let (_, diagnostics) = parser::parse(content);
+    let (ast, diagnostics) = parser::parse(content);
     if diagnostics.is_empty() {
         return ExitCode::SUCCESS;
     }
 
+    let cache = SourceLocConverter::new_utf8_lossy(&ast.raw());
+
     let fname = args.file.file_name().unwrap().to_string_lossy().to_string();
-    let config = ariadne::Config::new().with_color(use_color);
-    let mut stderr = anstream::AutoStream::new(std::io::stderr(), choice);
+
+    let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
 
     for diagnostic in diagnostics {
-        let report = parser_diagnostic_to_report(&diagnostic, fname.as_str(), config);
-        report
-            .write(
-                (
-                    fname.as_str(),
-                    Source::from(std::fs::read_to_string(&args.file).unwrap()),
-                ),
-                &mut stderr,
-            )
-            .unwrap();
+        let report = parser_diagnostic_to_report(&diagnostic, fname.as_str(), &ast.raw(), &cache);
+
+        anstream::println!("{}", renderer.render(&[report]));
     }
 
     ExitCode::FAILURE

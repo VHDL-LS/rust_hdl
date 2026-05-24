@@ -1,38 +1,107 @@
 use core::fmt;
-use std::ops::Range;
+use std::{fmt::Display, ops::Range};
 
-use vhdl_syntax::{parser::diagnostics::ParserDiagnostic, tokens::TokenKind};
+use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
+use vhdl_syntax::{
+    fmt::{
+        encoding::{Encoder, LossyUtf8Encoder},
+        Error, FormatTo,
+    },
+    parser::diagnostics::ParserDiagnostic,
+    source_location::SourceLocConverter,
+    syntax::node::SyntaxNode,
+    tokens::TokenKind,
+};
+
+/// Returns the snippet text covering `byte_range` (with `surplus` extra lines of
+/// context on each side) along with the absolute byte offset of its first
+/// character. The offset lets callers translate absolute source spans into
+/// snippet-relative ones.
+fn lines<E: Encoder>(
+    source: &SyntaxNode,
+    cache: &SourceLocConverter,
+    byte_range: Range<usize>,
+    surplus: usize,
+) -> Result<(String, usize), E::Err>
+where
+    for<'a> E::Str<'a>: Display,
+{
+    let mut full = String::new();
+    match source.write_encoded::<E>(&mut full) {
+        Ok(()) => {}
+        Err(Error::Fmt(_)) => unreachable!("Writing to a string should not fail"),
+        Err(Error::Encoding(e)) => return Err(e),
+    }
+
+    let last_byte = byte_range.end.saturating_sub(1).max(byte_range.start);
+    let start_line = cache.location(byte_range.start).line;
+    let end_line = cache.location(last_byte).line;
+    let first = start_line.saturating_sub(surplus).max(1);
+    let last = end_line.saturating_add(surplus);
+    let base = cache.line_start(first);
+
+    let mut result = String::new();
+    for (i, line) in full.split_inclusive('\n').enumerate() {
+        let line_num = i + 1;
+        if line_num > last {
+            break;
+        }
+        if line_num >= first {
+            result.push_str(line);
+        }
+    }
+    Ok((result, base))
+}
 
 pub fn parser_diagnostic_to_report<'a>(
     diagnostic: &ParserDiagnostic,
     file_name: &'a str,
-    config: ariadne::Config,
-) -> ariadne::Report<'a, (&'a str, Range<usize>)> {
-    use ariadne::{Label, ReportKind};
+    tree: &SyntaxNode,
+    cache: &SourceLocConverter,
+) -> Group<'a> {
     match diagnostic {
         ParserDiagnostic::ExpectedToken {
             expected: (insertion_pos, expected),
             found: (found_pos, found),
-        } => ariadne::Report::build(
-            ReportKind::Error,
-            (file_name, *insertion_pos..*insertion_pos),
-        )
-        .with_config(config)
-        .with_message(expected_token_message(expected, *found))
-        .with_label(
-            Label::new((file_name, *insertion_pos..*insertion_pos))
-                .with_message(format!("{} expected here", expected_message(expected))),
-        )
-        .with_label(Label::new((file_name, found_pos.clone())).with_message("unexpected token"))
-        .finish(),
-        ParserDiagnostic::UnexpectedInput { span } => {
-            ariadne::Report::build(ReportKind::Error, (file_name, span.clone()))
-                .with_config(config)
-                .with_message("UnexpectedInput")
-                .with_label(
-                    Label::new((file_name, span.clone())).with_message("This input is unexpected"),
+        } => {
+            let (snippet, base) =
+                lines::<LossyUtf8Encoder>(tree, cache, *insertion_pos..found_pos.end, 0).unwrap();
+            let ins = *insertion_pos - base;
+            let found_rel = (found_pos.start - base)..(found_pos.end - base);
+            let mut annotations = vec![AnnotationKind::Primary
+                .span(ins..ins)
+                .label(format!("{} expected here", expected_message(expected)))];
+            if !found.is_eof() {
+                annotations.push(
+                    AnnotationKind::Context
+                        .span(found_rel)
+                        .label("unexpected token"),
+                );
+            }
+
+            Level::ERROR
+                .primary_title(expected_token_message(expected, *found))
+                .element(
+                    Snippet::source(snippet)
+                        .line_start(cache.location(*insertion_pos).line)
+                        .path(file_name)
+                        .annotations(annotations),
                 )
-                .finish()
+        }
+        ParserDiagnostic::UnexpectedInput { span } => {
+            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let rel_span = (span.start - base)..(span.end - base);
+
+            Level::ERROR.primary_title("Unexpected input").element(
+                Snippet::source(snippet)
+                    .line_start(cache.location(span.start).line)
+                    .path(file_name)
+                    .annotation(
+                        AnnotationKind::Primary
+                            .span(rel_span)
+                            .label("This input is unexpected"),
+                    ),
+            )
         }
     }
 }
@@ -123,5 +192,66 @@ impl fmt::Display for Expected {
                 unreachable!("should never be called by 'expected'")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vhdl_syntax::fmt::encoding::Utf8Encoder;
+    use vhdl_syntax::parser;
+    use vhdl_syntax::syntax::AstNode;
+
+    fn setup(src: &str) -> (SyntaxNode, SourceLocConverter) {
+        let (design, _) = parser::parse(src);
+        let node = design.raw().clone();
+        let cache = SourceLocConverter::new_utf8(&node).expect("valid utf-8");
+        (node, cache)
+    }
+
+    fn run(src: &str, range: Range<usize>, surplus: usize) -> (String, usize) {
+        let (node, cache) = setup(src);
+        lines::<Utf8Encoder>(&node, &cache, range, surplus).expect("utf-8")
+    }
+
+    #[test]
+    fn single_line_no_surplus() {
+        let src = "entity foo is end foo;";
+        assert_eq!(run(src, 0..3, 0), ("entity foo is end foo;".into(), 0));
+    }
+
+    #[test]
+    fn middle_line_no_surplus() {
+        let src = "line1\nline2\nline3\n";
+        // 'line2' starts at byte 6.
+        assert_eq!(run(src, 6..11, 0), ("line2\n".into(), 6));
+    }
+
+    #[test]
+    fn surplus_includes_neighbors() {
+        let src = "line1\nline2\nline3\nline4\nline5\n";
+        // Range on line3 (bytes 12..17), one line of context each side.
+        assert_eq!(run(src, 12..17, 1), ("line2\nline3\nline4\n".into(), 6),);
+    }
+
+    #[test]
+    fn surplus_clamps_at_start_and_end() {
+        let src = "line1\nline2\nline3\n";
+        // Range on line1 with surplus 5 — clamps to file extent.
+        assert_eq!(run(src, 0..5, 5), ("line1\nline2\nline3\n".into(), 0),);
+    }
+
+    #[test]
+    fn range_spanning_multiple_lines() {
+        let src = "line1\nline2\nline3\nline4\n";
+        // Bytes 0..17 covers lines 1..3 (inclusive end at start of line3 trailing).
+        assert_eq!(run(src, 0..17, 0), ("line1\nline2\nline3\n".into(), 0),);
+    }
+
+    #[test]
+    fn empty_range_picks_its_line() {
+        let src = "line1\nline2\nline3\n";
+        // Empty range located on line2 (byte 8 sits within "line2").
+        assert_eq!(run(src, 8..8, 0), ("line2\n".into(), 6));
     }
 }

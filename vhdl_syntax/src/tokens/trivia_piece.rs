@@ -60,7 +60,7 @@ impl Comment {
 }
 
 impl FormatTo for Comment {
-    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
         E::Str<'a>: fmt::Display,
@@ -69,7 +69,7 @@ impl FormatTo for Comment {
             Ok(str) => str,
             Err(e) => return Err(crate::fmt::Error::Encoding(e)),
         };
-        write!(f, "{}", str)?;
+        write!(writer, "{}", str)?;
         Ok(())
     }
 }
@@ -177,31 +177,31 @@ impl TriviaPiece {
 }
 
 impl FormatTo for TriviaPiece {
-    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
         E::Str<'a>: fmt::Display,
     {
         use TriviaPiece::*;
         match self {
-            HorizontalTabs(n) => write!(f, "{}", "\t".repeat(*n))?,
-            VerticalTabs(n) => write!(f, "{}", "\x0B".repeat(*n))?,
-            CarriageReturns(n) => write!(f, "{}", "\r".repeat(*n))?,
-            CarriageReturnLineFeeds(n) => write!(f, "{}", "\r\n".repeat(*n))?,
-            LineFeeds(n) => write!(f, "{}", "\n".repeat(*n))?,
-            FormFeeds(n) => write!(f, "{}", "\u{0C}".repeat(*n))?,
+            HorizontalTabs(n) => write!(writer, "{}", "\t".repeat(*n))?,
+            VerticalTabs(n) => write!(writer, "{}", "\x0B".repeat(*n))?,
+            CarriageReturns(n) => write!(writer, "{}", "\r".repeat(*n))?,
+            CarriageReturnLineFeeds(n) => write!(writer, "{}", "\r\n".repeat(*n))?,
+            LineFeeds(n) => write!(writer, "{}", "\n".repeat(*n))?,
+            FormFeeds(n) => write!(writer, "{}", "\u{0C}".repeat(*n))?,
             LineComment(comment) => {
-                write!(f, "--")?;
-                comment.format_to::<E>(f)?;
+                write!(writer, "--")?;
+                comment.write_encoded::<E>(writer)?;
             }
             BlockComment(comment) => {
-                write!(f, "/*")?;
-                comment.format_to::<E>(f)?;
-                write!(f, "*/")?;
+                write!(writer, "/*")?;
+                comment.write_encoded::<E>(writer)?;
+                write!(writer, "*/")?;
             }
-            Spaces(n) => write!(f, "{}", " ".repeat(*n))?,
-            NonBreakingSpaces(n) => write!(f, "{}", "\u{A0}".repeat(*n))?,
-            Unexpected(items) => write!(f, "/*{}*/", String::from_utf8_lossy(items))?,
+            Spaces(n) => write!(writer, "{}", " ".repeat(*n))?,
+            NonBreakingSpaces(n) => write!(writer, "{}", "\u{A0}".repeat(*n))?,
+            Unexpected(items) => write!(writer, "/*{}*/", String::from_utf8_lossy(items))?,
         }
         Ok(())
     }

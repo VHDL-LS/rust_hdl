@@ -20,7 +20,7 @@ impl<E> From<fmt::Error> for Error<E> {
 pub type Result<Err> = std::result::Result<(), Error<Err>>;
 
 pub trait FormatTo {
-    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
         E::Str<'a>: fmt::Display;
@@ -57,7 +57,7 @@ where
     E::Err: Into<Infallible>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.inner.format_to::<E>(f) {
+        match self.inner.write_encoded::<E>(f) {
             Ok(()) => Ok(()),
             Err(Error::Fmt(e)) => Err(e),
             Err(Error::Encoding(_)) => unreachable!(),
