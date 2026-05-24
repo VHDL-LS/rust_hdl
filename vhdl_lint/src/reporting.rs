@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{fmt::Display, ops::Range};
+use std::{borrow::Cow, fmt::Display, ops::Range};
 
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use vhdl_syntax::{
@@ -55,7 +55,7 @@ where
 
 pub fn parser_diagnostic_to_report<'a>(
     diagnostic: &ParserDiagnostic,
-    file_name: &'a str,
+    file_name: Option<Cow<'a, str>>,
     tree: &SyntaxNode,
     cache: &SourceLocConverter,
 ) -> Group<'a> {
@@ -109,7 +109,7 @@ pub fn parser_diagnostic_to_report<'a>(
 fn expected_message(expected: &[TokenKind]) -> String {
     use std::fmt::Write;
     match expected {
-        [] => String::new(),
+        [] => unreachable!("At least one expected must be present"),
         [only] => format!("{}", Expected(*only)),
         [head @ .., last] => {
             let mut out = String::new();

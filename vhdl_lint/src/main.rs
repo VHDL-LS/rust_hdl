@@ -1,62 +1,27 @@
-use std::{io::IsTerminal, path::PathBuf, process::ExitCode};
+use std::{path::PathBuf, process::ExitCode};
 
 use annotate_snippets::{renderer::DecorStyle, Renderer};
-use anstream::ColorChoice;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use vhdl_syntax::{parser, source_location::SourceLocConverter, syntax::AstNode};
 
 use crate::reporting::parser_diagnostic_to_report;
 
 mod reporting;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
-enum ColorWhen {
-    Auto,
-    Always,
-    Never,
-}
-
-impl From<ColorWhen> for ColorChoice {
-    fn from(c: ColorWhen) -> Self {
-        match c {
-            ColorWhen::Auto => ColorChoice::Auto,
-            ColorWhen::Always => ColorChoice::Always,
-            ColorWhen::Never => ColorChoice::Never,
-        }
-    }
-}
-
 #[derive(Parser, Debug)]
 struct Args {
+    /// The file to lint.
     file: PathBuf,
-
-    /// Control color output.
-    #[arg(long, value_name = "WHEN", default_value = "auto")]
-    color: ColorWhen,
 }
 
 fn main() -> ExitCode {
     let args = Args::parse();
 
-    let choice: ColorChoice = args.color.into();
-    choice.write_global();
-    let use_color = match choice {
-        ColorChoice::Always | ColorChoice::AlwaysAnsi => true,
-        ColorChoice::Never => false,
-        ColorChoice::Auto => std::io::stderr().is_terminal(),
-    };
-
     let content = match std::fs::read(&args.file) {
         Ok(content) => content,
         Err(io_err) => {
-            // TODO: Nicer error message
-            println!(
-                "Cannot open file {}: {}",
-                args.file.display(),
-                io_err.kind()
-            );
-            println!("{}", io_err);
-            return ExitCode::FAILURE;
+            anstream::eprintln!("couldn't read `{}`: {}", args.file.display(), io_err);
+            return ExitCode::from(2);
         }
     };
 
@@ -67,15 +32,15 @@ fn main() -> ExitCode {
 
     let cache = SourceLocConverter::new_utf8_lossy(&ast.raw());
 
-    let fname = args.file.file_name().unwrap().to_string_lossy().to_string();
+    let fname = args.file.file_name().map(|path| path.to_string_lossy());
+
+    let report = diagnostics
+        .into_iter()
+        .map(|diag| parser_diagnostic_to_report(&diag, fname.clone(), &ast.raw(), &cache))
+        .collect::<Vec<_>>();
 
     let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
+    anstream::eprintln!("{}", renderer.render(&report));
 
-    for diagnostic in diagnostics {
-        let report = parser_diagnostic_to_report(&diagnostic, fname.as_str(), &ast.raw(), &cache);
-
-        anstream::println!("{}", renderer.render(&[report]));
-    }
-
-    ExitCode::FAILURE
+    ExitCode::from(1)
 }
