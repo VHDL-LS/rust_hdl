@@ -12,6 +12,7 @@
 
 use vhdl_syntax::{
     builder::Identifier,
+    fmt::FormatToExt,
     parser,
     syntax::{
         ArchitectureEpilogueBuilder, AstNode, BinaryOperatorToken, EntityDeclarationBuilder,
@@ -28,7 +29,7 @@ use vhdl_syntax::{
 #[test]
 fn arch_epilogue_default_text() {
     let node = ArchitectureEpilogueBuilder::new().build();
-    assert_eq!(node.raw().to_string(), " end ;");
+    assert_eq!(node.raw().display().to_string(), " end ;");
 }
 
 /// Optional tokens can be added with `with_*` setters.
@@ -44,21 +45,24 @@ fn arch_epilogue_with_optional_tokens() {
         .with_architecture_token(arch_tok)
         .with_identifier_token(Identifier::from(b"my_arch"))
         .build();
-    assert_eq!(node.raw().to_string(), " end architecture my_arch ;");
+    assert_eq!(
+        node.raw().display().to_string(),
+        " end architecture my_arch ;"
+    );
 }
 
 /// Preamble requires the entity name; keywords are auto-filled.
 #[test]
 fn entity_preamble_text() {
     let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"my_entity")).build();
-    assert_eq!(node.raw().to_string(), " entity my_entity is");
+    assert_eq!(node.raw().display().to_string(), " entity my_entity is");
 }
 
 /// byte-slices implement `Into<Identifier>`, so `Identifier::from` can be omitted
 #[test]
 fn entity_preamble_text_no_explicit_identifier() {
     let node = EntityDeclarationPreambleBuilder::new(b"my_entity").build();
-    assert_eq!(node.raw().to_string(), " entity my_entity is");
+    assert_eq!(node.raw().display().to_string(), " entity my_entity is");
 }
 
 /// The auto-filled `entity` keyword can be overridden by passing a full `Token`.
@@ -75,14 +79,14 @@ fn entity_preamble_custom_entity_token() {
         .with_entity_token(kw) // full Token for explicit trivia control (canonical field)
         .build();
     // No space before "entity" because we overrode the trivia.
-    assert_eq!(node.raw().to_string(), "entity e is");
+    assert_eq!(node.raw().display().to_string(), "entity e is");
 }
 
 /// Default epilogue: just `end ;`. The `entity` keyword and identifier are both optional.
 #[test]
 fn entity_epilogue_default_text() {
     let node = EntityDeclarationEpilogueBuilder::default().build();
-    assert_eq!(node.raw().to_string(), " end ;");
+    assert_eq!(node.raw().display().to_string(), " end ;");
 }
 
 /// Epilogue with an optional identifier added via setter.
@@ -91,7 +95,7 @@ fn entity_epilogue_with_identifier() {
     let node = EntityDeclarationEpilogueBuilder::default()
         .with_identifier_token(Identifier::from(b"foo"))
         .build();
-    assert_eq!(node.raw().to_string(), " end foo ;");
+    assert_eq!(node.raw().display().to_string(), " end foo ;");
 }
 
 /// Parse a real entity, extract the name token, rebuild the preamble, and verify
@@ -125,7 +129,7 @@ fn roundtrip_entity_preamble_name_from_parsed_ast() {
     // Token implements Into<Identifier> via From<Token> for Identifier.
     let rebuilt = EntityDeclarationPreambleBuilder::new(name_tok.token().clone()).build();
     // The trivia of the original token is preserved; keywords use single-space trivia.
-    assert_eq!(rebuilt.raw().to_string(), " entity work is");
+    assert_eq!(rebuilt.raw().display().to_string(), " entity work is");
 }
 
 /// Default entity declaration: preamble + default (empty) header + epilogue.
@@ -136,7 +140,7 @@ fn entity_declaration_default() {
         EntityDeclarationPreambleBuilder::new(Identifier::from(b"foo")).build(),
     )
     .build();
-    assert_eq!(node.raw().to_string(), " entity foo is end ;");
+    assert_eq!(node.raw().display().to_string(), " entity foo is end ;");
 }
 
 // MARK: Token choice nodes
@@ -146,7 +150,7 @@ fn entity_declaration_default() {
 fn name_designator_token_identifier_constructor() {
     let node =
         NameDesignatorPrefixBuilder::new(NameDesignatorToken::identifier(b"my_signal")).build();
-    assert_eq!(node.raw().to_string(), " my_signal");
+    assert_eq!(node.raw().display().to_string(), " my_signal");
 }
 
 /// `From<Identifier> for NameDesignatorToken` lets an `Identifier` be passed directly
@@ -154,7 +158,7 @@ fn name_designator_token_identifier_constructor() {
 #[test]
 fn name_designator_prefix_from_identifier_directly() {
     let node = NameDesignatorPrefixBuilder::new(Identifier::from(b"clk")).build();
-    assert_eq!(node.raw().to_string(), " clk");
+    assert_eq!(node.raw().display().to_string(), " clk");
 }
 
 /// `SuffixToken::all()` produces the canonical `all` keyword token;
@@ -162,7 +166,7 @@ fn name_designator_prefix_from_identifier_directly() {
 #[test]
 fn suffix_token_canonical_all_constructor() {
     let node = SelectedNameBuilder::new(SuffixToken::all()).build();
-    assert_eq!(node.raw().to_string(), " . all");
+    assert_eq!(node.raw().display().to_string(), " . all");
 }
 
 /// `LiteralToken::null()` produces the canonical `null` keyword;
@@ -170,7 +174,7 @@ fn suffix_token_canonical_all_constructor() {
 #[test]
 fn literal_expression_from_null_token() {
     let node = LiteralExpressionBuilder::new(LiteralToken::null()).build();
-    assert_eq!(node.raw().to_string(), " null");
+    assert_eq!(node.raw().display().to_string(), " null");
 }
 
 /// `From<LiteralSyntax> for LiteralToken` is implemented: verified by coercing the

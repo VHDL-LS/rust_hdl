@@ -6,10 +6,15 @@
 
 use std::{
     borrow::Cow,
+    fmt,
     io::{self, Write},
 };
 
-use crate::{encoding::{Encoder, Latin1Encoder, LossyUtf8Encoder, Utf8Encoder}, latin_1::Latin1Str};
+use crate::{
+    fmt::encoding::{Encoder, Latin1Encoder, LossyUtf8Encoder, Utf8Encoder},
+    fmt::FormatTo,
+    latin_1::Latin1Str,
+};
 
 /// A comment
 ///
@@ -51,6 +56,21 @@ impl Comment {
 
     pub fn byte_len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+impl FormatTo for Comment {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        let str = match self.encode::<E>() {
+            Ok(str) => str,
+            Err(e) => return Err(crate::fmt::Error::Encoding(e)),
+        };
+        write!(f, "{}", str)?;
+        Ok(())
     }
 }
 
@@ -153,5 +173,36 @@ impl TriviaPiece {
             NonBreakingSpaces(n) => write_repeated(writer, &[0xA0u8], *n),
             Unexpected(unexpected) => writer.write_all(unexpected),
         }
+    }
+}
+
+impl FormatTo for TriviaPiece {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        use TriviaPiece::*;
+        match self {
+            HorizontalTabs(n) => write!(f, "{}", "\t".repeat(*n))?,
+            VerticalTabs(n) => write!(f, "{}", "\x0B".repeat(*n))?,
+            CarriageReturns(n) => write!(f, "{}", "\r".repeat(*n))?,
+            CarriageReturnLineFeeds(n) => write!(f, "{}", "\r\n".repeat(*n))?,
+            LineFeeds(n) => write!(f, "{}", "\n".repeat(*n))?,
+            FormFeeds(n) => write!(f, "{}", "\u{0C}".repeat(*n))?,
+            LineComment(comment) => {
+                write!(f, "--")?;
+                comment.format_to::<E>(f)?;
+            }
+            BlockComment(comment) => {
+                write!(f, "/*")?;
+                comment.format_to::<E>(f)?;
+                write!(f, "*/")?;
+            }
+            Spaces(n) => write!(f, "{}", " ".repeat(*n))?,
+            NonBreakingSpaces(n) => write!(f, "{}", "\u{A0}".repeat(*n))?,
+            Unexpected(items) => write!(f, "/*{}*/", String::from_utf8_lossy(items))?,
+        }
+        Ok(())
     }
 }

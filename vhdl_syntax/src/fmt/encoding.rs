@@ -37,7 +37,7 @@ impl Encoder for LossyUtf8Encoder {
     type Str<'a> = Cow<'a, str>;
     type Err = Infallible;
 
-    fn encode(bytes: & [u8]) -> Result<Self::Str<'_>, Self::Err> {
+    fn encode(bytes: &[u8]) -> Result<Self::Str<'_>, Self::Err> {
         Ok(String::from_utf8_lossy(bytes))
     }
 }

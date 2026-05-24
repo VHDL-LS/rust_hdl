@@ -9,7 +9,7 @@
 use std::{collections::HashMap, str::Utf8Error};
 
 use crate::{
-    encoding::{Encoder, Utf8Encoder},
+    fmt::encoding::{Encoder, Utf8Encoder},
     latin_1::Latin1Str,
     syntax::node::SyntaxNode,
     tokens::TriviaPiece,

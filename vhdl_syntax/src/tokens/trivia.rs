@@ -4,9 +4,10 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::tokens::TriviaPiece;
+use crate::{fmt::encoding::Encoder, fmt::FormatTo, tokens::TriviaPiece};
 use core::slice;
 use std::{
+    fmt,
     io::{self, Write},
     ops::{Deref, DerefMut},
     vec,
@@ -110,6 +111,19 @@ impl Trivia {
 
     pub fn contains_comments(&self) -> bool {
         self.pieces.iter().any(|piece| piece.is_comment())
+    }
+}
+
+impl FormatTo for Trivia {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        for trivia in self.iter() {
+            trivia.format_to::<E>(f)?;
+        }
+        Ok(())
     }
 }
 

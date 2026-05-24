@@ -7,9 +7,12 @@
 //! This example uses the builder-API to show how to programatically create a testbench entity.
 //! The builder-API is feature-complete, but may not be ergonomic for common cases such as
 //! testbench generation.
-use vhdl_syntax::syntax::{
-    builders::*, AstNode, LibraryUnitSyntax, NameDesignatorToken, NamePrefixSyntax,
-    PrimaryUnitSyntax, SecondaryUnitSyntax,
+use vhdl_syntax::{
+    fmt::FormatToExt,
+    syntax::{
+        builders::*, AstNode, LibraryUnitSyntax, NameDesignatorToken, NamePrefixSyntax,
+        PrimaryUnitSyntax, SecondaryUnitSyntax,
+    },
 };
 
 fn main() {
@@ -58,7 +61,7 @@ fn main() {
     // The canonical output consists of tokens separated by a single space.
     // Formatters can be used to nicely display this to the user.
     assert_eq!(
-        file.raw().to_string(),
+        file.raw().display().to_string(),
         " entity foo is end foo ; architecture arch of foo is begin end ; "
     )
 }

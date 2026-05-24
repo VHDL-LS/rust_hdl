@@ -48,13 +48,15 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::fmt::encoding::Encoder;
+use crate::fmt::FormatTo;
 use crate::latin_1::{Latin1Str, Latin1String, Utf8ToLatin1Error};
 use crate::syntax::child::Child;
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
 use crate::tokens::{Token, TokenKind, Trivia};
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use std::io::{self, Write};
 use std::iter;
 use std::ops::Range;
@@ -280,6 +282,16 @@ impl SyntaxToken {
     /// the token's text and not in surrounding trivia. Use for cursor-on-token queries.
     pub fn text_contains_offset(&self, offset: usize) -> bool {
         self.text_range().contains(&offset)
+    }
+}
+
+impl FormatTo for SyntaxToken {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        self.green().format_to::<E>(f)
     }
 }
 
@@ -550,6 +562,16 @@ impl SyntaxNode {
                 }
             }
         }
+    }
+}
+
+impl FormatTo for SyntaxNode {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        self.green().format_to::<E>(f)
     }
 }
 

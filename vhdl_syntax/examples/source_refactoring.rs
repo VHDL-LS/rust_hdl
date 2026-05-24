@@ -8,6 +8,7 @@
 //! function that is applied to every node. The function returns [RewriteAction::Leave], if the
 //! node is to be left as-is. However, the user can also return [RewriteAction::Change] to
 //! change the current node into a different one.
+use vhdl_syntax::fmt::FormatToExt;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -79,7 +80,7 @@ end foobar;
     });
 
     assert_eq!(
-        format!("{}", new_file),
+        format!("{}", new_file.display()),
         "\
 entity no_longer_foo is
 end no_longer_foo;

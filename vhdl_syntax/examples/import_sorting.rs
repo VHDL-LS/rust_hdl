@@ -6,6 +6,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use std::collections::HashMap;
+use vhdl_syntax::fmt::FormatToExt;
 use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::{SyntaxElement, SyntaxNode};
 use vhdl_syntax::syntax::rewrite::RewriteAction;
@@ -65,7 +66,7 @@ end foo;
     });
 
     assert_eq!(
-        format!("{}", new_file),
+        format!("{}", new_file.display()),
         "\
 library ieee;
 use ieee.math_real.all;
@@ -81,5 +82,5 @@ end foo;
 /// Alphabetical sort key — just the displayed text without surrounding whitespace.
 /// Good enough for this example; a real tool would compare the parsed name segments.
 fn sort_key(item: &UseClauseContextItemSyntax) -> String {
-    item.raw().to_string().trim().to_lowercase()
+    item.raw().display().to_string().trim().to_lowercase()
 }

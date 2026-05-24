@@ -1,4 +1,5 @@
 //! Private API for the underlying Green Tree
+use crate::fmt::{encoding::Encoder, FormatTo};
 use crate::latin_1::Latin1Str;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -8,6 +9,7 @@ use crate::latin_1::Latin1Str;
 use crate::syntax::child::Child;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};
+use std::fmt;
 use std::io::{self, Write};
 use std::sync::Arc;
 
@@ -41,6 +43,16 @@ impl GreenToken {
 
     pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         self.0.write_to(writer)
+    }
+}
+
+impl FormatTo for GreenToken {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        self.0.format_to::<E>(f)
     }
 }
 
@@ -159,6 +171,22 @@ impl GreenNode {
                 Ok(w)
             };
         fail_fn(self, indent).unwrap()
+    }
+}
+
+impl FormatTo for GreenNode {
+    fn format_to<'a, E>(&'a self, f: &mut fmt::Formatter<'_>) -> crate::fmt::Result<E::Err>
+    where
+        E: Encoder,
+        E::Str<'a>: fmt::Display,
+    {
+        for child in self.children() {
+            match child {
+                Child::Node(node) => node.format_to::<E>(f)?,
+                Child::Token(token) => token.format_to::<E>(f)?,
+            }
+        }
+        Ok(())
     }
 }
 
