@@ -42,5 +42,12 @@ fn main() -> ExitCode {
     let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
     anstream::eprintln!("{}", renderer.render(&report));
 
+    let count = report.len();
+    if count == 1 {
+        anstream::eprintln!("1 error emitted");
+    } else {
+        anstream::eprintln!("{count} errors emitted");
+    }
+
     ExitCode::from(1)
 }

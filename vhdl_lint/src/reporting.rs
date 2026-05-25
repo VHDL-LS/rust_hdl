@@ -102,7 +102,7 @@ pub fn parser_diagnostic_to_report<'a>(
                     ),
             )
         }
-        ParserDiagnostic::IllegalInput { span, text } => {
+        ParserDiagnostic::IllegalInput { span, text: _ } => {
             let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
             let rel_span = (span.start - base)..(span.end - base);
 
