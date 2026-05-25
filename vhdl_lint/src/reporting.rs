@@ -138,7 +138,7 @@ pub fn parser_diagnostic_to_report<'a>(
 
 fn describe_unterminated(kind: &UnterminatedKind) -> &'static str {
     match kind {
-        UnterminatedKind::StringLiteral => "string Literal",
+        UnterminatedKind::StringLiteral => "string literal",
         UnterminatedKind::BasedLiteral => "based literal",
         UnterminatedKind::ExtendedIdentifier => "extended identifier",
         UnterminatedKind::BlockComment => "comment",

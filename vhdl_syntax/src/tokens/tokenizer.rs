@@ -105,10 +105,10 @@ impl Tokenize for Vec<u8> {
 /// use vhdl_syntax::tokens::{Keyword, TokenKind, Tokenizer};
 /// // &str implements IntoIter<u8>, therefore it can be converted to a tokenizer
 /// let mut tokenizer = Tokenizer::from("entity foo".bytes());
-/// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Keyword(Keyword::Entity));
-/// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Identifier);
-/// assert_eq!(tokenizer.next().unwrap().kind(), TokenKind::Eof);
-/// assert_eq!(tokenizer.next(), None);
+/// assert_eq!(tokenizer.next().unwrap().0.kind(), TokenKind::Keyword(Keyword::Entity));
+/// assert_eq!(tokenizer.next().unwrap().0.kind(), TokenKind::Identifier);
+/// assert_eq!(tokenizer.next().unwrap().0.kind(), TokenKind::Eof);
+/// assert!(tokenizer.next().is_none());
 /// ```
 ///
 /// The [Tokenize] trait enables syntactic sugar to work with tokenizers using iterators:
@@ -226,17 +226,12 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Tokenize an identifier, keyword or Bit String Literal.
-    fn identifier_keyword_or_bistring_literal(
-        &mut self,
-        buf: &mut Latin1String,
-    ) -> (TokenKind, Option<LexDiagnostic>) {
+    fn identifier_or_keyword(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexDiagnostic>) {
         self.fill_buffer_while(
             buf,
             |ch| matches!(ch, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
         );
-        if self.current == Some(b'"') {
-            self.quoted(buf, QuoteKind::QuotationMark)
-        } else if let Some(kw) =
+        if let Some(kw) =
             Kw::from_latin1(&buf).filter(|kw| kw.introduced_in() <= self.standard)
         {
             (Keyword(kw), None)
@@ -314,31 +309,9 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 self.opt_exponent(buf);
             }
             Some(b'e' | b'E') => self.opt_exponent(buf),
-            _ => {
-                // TODO: Do not parse bit_string_literal here.
-                // instead, parse only abstract_literal and merge abstract_literal bitstring_literal at a secondary pass.
-                return self
-                    .opt_bit_string_literal(buf)
-                    .unwrap_or((AbstractLiteral, None));
-            }
+            _ => {}
         }
         (AbstractLiteral, diag)
-    }
-
-    fn opt_bit_string_literal(
-        &mut self,
-        buf: &mut Latin1String,
-    ) -> Option<(TokenKind, Option<LexDiagnostic>)> {
-        match self.current?.to_ascii_lowercase() {
-            b's' | b'u' | b'b' | b'o' | b'x' | b'd' => {
-                match self.identifier_keyword_or_bistring_literal(buf) {
-                    (kind @ BitStringLiteral, None) => Some((kind, None)),
-                    // TOOD: This must be refactored, see the call-site at abstract_literal
-                    _ => Some((Unknown, None)),
-                }
-            }
-            _ => None,
-        }
     }
 
     /// Parse a quoted string.
@@ -476,7 +449,7 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
         let (kind, text) = match current {
             b'a'..=b'z' | b'A'..=b'Z' => {
                 let mut ident_str = Latin1String::new();
-                let (kind, diag) = self.identifier_keyword_or_bistring_literal(&mut ident_str);
+                let (kind, diag) = self.identifier_or_keyword(&mut ident_str);
                 token_diag = diag;
                 (kind, ident_str)
             }
@@ -715,7 +688,6 @@ fn can_be_char(last_token_kind: Option<TokenKind>) -> bool {
 #[cfg(test)]
 mod tests {
 
-    use crate::latin_1::Latin1String;
     use crate::tokens::tokenizer::Tokenize;
     use crate::tokens::trivia_piece::Comment;
     use crate::tokens::TokenKind;
@@ -1002,54 +974,40 @@ my_other_ident"
         );
     }
 
-    #[ignore]
     #[test]
-    fn tokenize_bit_string_literal() {
-        // Test all base specifiers
-        for &base in ["b", "o", "x", "d", "sb", "so", "sx", "ub", "uo", "ux"].iter() {
-            let (base_spec, value, length) = match base {
-                "b" => ("b", "10", 2),
-                "o" => ("o", "76543210", 8 * 3),
-                "x" => ("x", "fedcba987654321", 16 * 4),
-                "d" => ("d", "9876543210", 34),
-                "sb" => ("sb", "10", 2),
-                "so" => ("so", "76543210", 8 * 3),
-                "sx" => ("sx", "fedcba987654321", 16 * 4),
-                "ub" => ("ub", "10", 2),
-                "uo" => ("uo", "76543210", 8 * 3),
-                "ux" => ("ux", "fedcba987654321", 16 * 4),
-                _ => unreachable!(),
-            };
-
-            // Test with upper and lower case base specifier
-            for &upper_case in [true, false].iter() {
-                // Test with and without length prefix
-                for &use_length in [true, false].iter() {
-                    let length_str = if use_length {
-                        length.to_string()
-                    } else {
-                        "".to_owned()
-                    };
-
-                    let mut code =
-                        Latin1String::from_utf8(&format!("{length_str}{base_spec}\"{value}\""))
-                            .unwrap();
-
-                    if upper_case {
-                        code.make_uppercase()
-                    }
-
-                    let token = code.tokenize_one();
-                    assert_eq!(token, Token::simple(BitStringLiteral, code));
-                }
-            }
-        }
+    fn tokenize_base_specifier_then_string() {
+        // The tokenizer emits these as separate tokens; merging into
+        // BitStringLiteral happens in TokenStream.
+        assert_eq!(
+            "b\"0101\"".tokenize_kinds(),
+            vec![Identifier, StringLiteral, Eof]
+        );
+        assert_eq!(
+            "sx\"FF\"".tokenize_kinds(),
+            vec![Identifier, StringLiteral, Eof]
+        );
+        assert_eq!(
+            "10ub\"0101\"".tokenize_kinds(),
+            vec![AbstractLiteral, Identifier, StringLiteral, Eof]
+        );
     }
 
     #[test]
-    fn tokenize_illegal_bit_string() {
-        assert_eq!("10x".tokenize_one(), Token::simple(Unknown, b"10x"));
-        assert_eq!("10ux".tokenize_one(), Token::simple(Unknown, b"10ux"));
+    fn tokenize_number_followed_by_identifier() {
+        // Previously these were swallowed as Unknown; now the tokenizer emits
+        // separate tokens, allowing the parser/user to interpret `10s` etc.
+        assert_eq!(
+            "10x".tokenize_kinds(),
+            vec![AbstractLiteral, Identifier, Eof]
+        );
+        assert_eq!(
+            "10ux".tokenize_kinds(),
+            vec![AbstractLiteral, Identifier, Eof]
+        );
+        assert_eq!(
+            "10s".tokenize_kinds(),
+            vec![AbstractLiteral, Identifier, Eof]
+        );
     }
 
     #[test]
