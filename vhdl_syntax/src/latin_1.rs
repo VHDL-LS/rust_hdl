@@ -9,7 +9,7 @@
 //!
 //! In Rust's `String` and `str`, a character is a Unicode scalar value (represented as `char`),
 //! which can be multiple bytes when encoded in UTF-8. In contrast, Latin-1 has a 1:1 mapping
-//! between bytes and characters—each byte (0-255) represents exactly one character.
+//! between bytes and characters. Each byte (0-255) represents exactly one character.
 //! This means [`Latin1String`] and [`Latin1Str`] work directly with bytes, where a single `u8`
 //! is equivalent to a single character, simplifying indexing and iteration.
 //!
@@ -42,6 +42,16 @@
 //! assert_eq!(utf8_string, "café");
 //! ```
 //!
+//! Using [`Latin1Str::to_str`] optimizes the common case where the string is ASCII:
+//!
+//! ```
+//! # use vhdl_syntax::latin_1::Latin1Str;
+//! # use std::borrow::{Borrow, Cow};
+//! let latin1 = Latin1Str::new(b"Hello, World!");
+//! let utf8 = latin1.to_str();
+//! assert!(matches!(utf8, Cow::Borrowed(_)));
+//! ```
+//!
 //! ### From Raw Bytes
 //!
 //! Create a [`Latin1String`] directly from a byte vector or byte slice without validation:
@@ -59,7 +69,7 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::hash::{Hash, Hasher};
 use std::ops::{self, Range};
 use std::str::{self, FromStr};
@@ -534,6 +544,40 @@ impl Latin1Str {
         let inner = unsafe { Box::from_raw(rw) };
         Latin1String {
             bytes: Vec::from(inner),
+        }
+    }
+
+    /// Reinterprets the underlying bytes as a UTF-8 `&str` without
+    /// allocation and validation. For the safe, allocating equivalent
+    /// that handles non-ASCII bytes correctly, use [`Latin1Str::to_str`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that every byte in `self` is < 0x80
+    /// (i.e. pure ASCII).
+    ///
+    /// In safe code, guard the call with [`Latin1Str::is_ascii`].
+    pub unsafe fn to_str_unchecked(&self) -> &str {
+        debug_assert!(
+            self.is_utf8(),
+            "called to_str_unchecked with non-ascii bytes"
+        );
+        str::from_utf8_unchecked(&self.inner)
+    }
+
+    /// Checks if all chars in this string are UTF-8 compatible
+    pub fn is_utf8(&self) -> bool {
+        // All ASCII symbols are UTF-8 compatible.
+        // Non-ascii symbols have different encodings.
+        self.inner.is_ascii()
+    }
+
+    pub fn to_str(&self) -> Cow<'_, str> {
+        if self.is_utf8() {
+            // SAFETY: all characters are UTF-8, the Latin1-String can safely be transmuted to a str
+            Cow::Borrowed(unsafe { self.to_str_unchecked() })
+        } else {
+            Cow::Owned(iso_8859_1_to_utf8(&self.inner))
         }
     }
 }
