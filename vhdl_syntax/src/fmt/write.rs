@@ -79,6 +79,7 @@ where
         match self.inner.fmt_to::<E>(f) {
             Ok(()) => Ok(()),
             Err(WriteError::Fmt(e)) => Err(e),
+            #[allow(unreachable_code)]
             Err(WriteError::Encoding(e)) => match e.into() {},
         }
     }
