@@ -1,11 +1,12 @@
 //! Similar to `source_refactoring.rs`, this example shows how to perform simple changes,
 //! for example, to change the name of an entity using the `Rewriter`.
-use vhdl_syntax::parser;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+use vhdl_syntax::fmt::write::FormatToExt;
+use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::SyntaxElement;
 use vhdl_syntax::syntax::node_kind::NodeKind;
 use vhdl_syntax::syntax::rewrite::RewriteAction;
@@ -42,7 +43,7 @@ end foo;
     });
 
     assert_eq!(
-        format!("{}", new_file),
+        format!("{}", new_file.display()),
         "\
 entity tb_foo is
     port (foo : in std_logic);

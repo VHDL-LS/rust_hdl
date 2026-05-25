@@ -4,12 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use std::{
-    borrow::Cow,
-    io::{self, Write},
-};
-
-use crate::latin_1::Latin1Str;
+use std::io::{self, Write};
 
 /// A comment
 ///
@@ -29,18 +24,6 @@ impl Comment {
         }
     }
 
-    pub fn as_latin1(&self) -> &Latin1Str {
-        Latin1Str::new(&self.inner)
-    }
-
-    pub fn as_utf8(&self) -> Result<&str, std::str::Utf8Error> {
-        str::from_utf8(&self.inner)
-    }
-
-    pub fn to_utf8_lossy(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.inner)
-    }
-
     pub fn as_bytes(&self) -> &[u8] {
         &self.inner
     }
@@ -53,13 +36,13 @@ impl Comment {
 /// Single trivia pieces that can be combined to form [Trivia](crate::tokens::Trivia) tokens.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum TriviaPiece {
-    /// Horizontal tabs '\t' (a.k.a regular tabs) characters
+    /// Horizontal tab '\t' characters
     HorizontalTabs(usize),
-    /// Vertical tabs '\v' characters
+    /// Vertical tab '\v' characters
     VerticalTabs(usize),
-    /// newline '\r' characters
+    /// Carriage return '\r' characters
     CarriageReturns(usize),
-    /// Carriage return ('\r') + newline ('\n') feeds
+    /// Carriage return + line feed ("\r\n") pairs
     CarriageReturnLineFeeds(usize),
     /// newline '\n' characters
     LineFeeds(usize),

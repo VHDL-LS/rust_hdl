@@ -1,4 +1,5 @@
 //! Provides facilities to format nodes and tokens to encoded strings.
 
-pub mod latin1;
-pub mod utf8;
+pub mod encoding;
+pub mod impls;
+pub mod write;

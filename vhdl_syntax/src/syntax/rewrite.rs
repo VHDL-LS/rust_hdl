@@ -110,6 +110,7 @@ impl<R: TokenRewrite> TokenRewriter<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fmt::write::FormatToExt;
     use crate::parser;
     use crate::syntax::child::Child;
     use crate::syntax::node_kind::NodeKind;
@@ -137,7 +138,7 @@ end myent3;
     fn leave_round_trips() {
         let root = parse_root(MULTI_ENTITY);
         let new_root = root.rewrite(|_| RewriteAction::Leave);
-        assert_eq!(format!("{}", new_root), MULTI_ENTITY);
+        assert_eq!(format!("{}", new_root.display()), MULTI_ENTITY);
     }
 
     #[test]
@@ -152,7 +153,7 @@ end myent3;
             _ => RewriteAction::Leave,
         });
         assert_eq!(
-            format!("{}", new_root),
+            format!("{}", new_root.display()),
             MULTI_ENTITY.replace("myent2", "myentX")
         );
     }
@@ -187,7 +188,7 @@ end myent3;
     fn remove_first_design_unit() {
         let new_root = remove_design_unit_at(0, MULTI_ENTITY);
         assert_eq!(
-            format!("{}", new_root).trim(),
+            format!("{}", new_root.display()).trim(),
             "\
 entity myent2 is
 end entity myent2;
@@ -201,7 +202,7 @@ end myent3;"
     fn remove_middle_design_unit() {
         let new_root = remove_design_unit_at(1, MULTI_ENTITY);
         assert_eq!(
-            format!("{}", new_root).trim(),
+            format!("{}", new_root.display()).trim(),
             "\
 entity myent is
 end entity;
@@ -215,7 +216,7 @@ end myent3;"
     fn remove_last_design_unit() {
         let new_root = remove_design_unit_at(2, MULTI_ENTITY);
         assert_eq!(
-            format!("{}", new_root).trim(),
+            format!("{}", new_root.display()).trim(),
             "\
 entity myent is
 end entity;
