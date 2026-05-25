@@ -60,10 +60,10 @@ impl Comment {
 }
 
 impl FormatTo for Comment {
-    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(&self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for<'a> E::Str<'a>: fmt::Display,
     {
         let str = match self.encode::<E>() {
             Ok(str) => str,
@@ -177,10 +177,10 @@ impl TriviaPiece {
 }
 
 impl FormatTo for TriviaPiece {
-    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(& self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for <'a> E::Str<'a>: fmt::Display,
     {
         use TriviaPiece::*;
         match self {

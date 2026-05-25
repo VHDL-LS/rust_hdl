@@ -286,10 +286,10 @@ impl SyntaxToken {
 }
 
 impl FormatTo for SyntaxToken {
-    fn write_encoded<'a, E>(&'a self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(& self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for <'a> E::Str<'a>: fmt::Display,
     {
         self.green().write_encoded::<E>(write)
     }
@@ -566,10 +566,10 @@ impl SyntaxNode {
 }
 
 impl FormatTo for SyntaxNode {
-    fn write_encoded<'a, E>(&'a self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(&self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for <'a> E::Str<'a>: fmt::Display,
     {
         self.green().write_encoded::<E>(write)
     }

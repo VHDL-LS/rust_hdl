@@ -20,10 +20,10 @@ impl<E> From<fmt::Error> for Error<E> {
 pub type Result<Err> = std::result::Result<(), Error<Err>>;
 
 pub trait FormatTo {
-    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(&self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display;
+        for <'a> E::Str<'a>: fmt::Display;
 }
 
 pub struct Displayed<'a, T: ?Sized, E = LossyUtf8Encoder> {

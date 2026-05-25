@@ -70,10 +70,10 @@ impl Token {
 }
 
 impl FormatTo for Token {
-    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(&self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for <'a> E::Str<'a>: fmt::Display,
     {
         self.leading_trivia().write_encoded::<E>(writer)?;
         write!(writer, "{}", self.text())?;

@@ -115,10 +115,10 @@ impl Trivia {
 }
 
 impl FormatTo for Trivia {
-    fn write_encoded<'a, E>(&'a self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
+    fn write_encoded<E>(& self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
     where
         E: Encoder,
-        E::Str<'a>: fmt::Display,
+        for <'a> E::Str<'a>: fmt::Display,
     {
         for trivia in self.iter() {
             trivia.write_encoded::<E>(writer)?;
