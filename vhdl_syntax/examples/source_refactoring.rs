@@ -13,6 +13,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+use vhdl_syntax::fmt::write::FormatToExt;
 use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::SyntaxElement;
 use vhdl_syntax::syntax::rewrite::RewriteAction;
@@ -79,7 +80,7 @@ end foobar;
     });
 
     assert_eq!(
-        format!("{}", new_file),
+        format!("{}", new_file.display()),
         "\
 entity no_longer_foo is
 end no_longer_foo;
