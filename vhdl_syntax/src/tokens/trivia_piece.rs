@@ -56,8 +56,6 @@ pub enum TriviaPiece {
     Spaces(usize),
     /// Non breaking space characters
     NonBreakingSpaces(usize),
-    /// Any trivia not covered by the other branches
-    Unexpected(Vec<u8>),
 }
 
 impl TriviaPiece {
@@ -70,7 +68,6 @@ impl TriviaPiece {
             CarriageReturnLineFeeds(n) => *n * 2,
             LineComment(str) => 2 + str.byte_len(),
             BlockComment(str) => 4 + str.byte_len(),
-            Unexpected(unexpected) => unexpected.len(),
         }
     }
 
@@ -130,7 +127,6 @@ impl TriviaPiece {
             }
             Spaces(n) => write_repeated(writer, b" ", *n),
             NonBreakingSpaces(n) => write_repeated(writer, &[0xA0u8], *n),
-            Unexpected(unexpected) => writer.write_all(unexpected),
         }
     }
 }

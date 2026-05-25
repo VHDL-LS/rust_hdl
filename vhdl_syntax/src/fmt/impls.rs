@@ -69,7 +69,6 @@ impl WriteEncoded for TriviaPiece {
             }
             Spaces(n) => write!(writer, "{}", " ".repeat(*n))?,
             NonBreakingSpaces(n) => write!(writer, "{}", "\u{A0}".repeat(*n))?,
-            Unexpected(items) => write!(writer, "/*{}*/", String::from_utf8_lossy(items))?,
         }
         Ok(())
     }
