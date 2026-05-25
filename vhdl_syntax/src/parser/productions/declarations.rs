@@ -68,10 +68,25 @@ impl Parser {
                 Keyword(Kw::Attribute) => self.attribute_declaration_or_specification(),
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
-                _ => {
-                    self.skip();
-                    self.expect_tokens_err([Keyword(Kw::Type)])
-                }
+                _ => self.expect_tokens_err([
+                    Keyword(Kw::Type),
+                    Keyword(Kw::Subtype),
+                    Keyword(Kw::Component),
+                    Keyword(Kw::Impure),
+                    Keyword(Kw::Pure),
+                    Keyword(Kw::Function),
+                    Keyword(Kw::Procedure),
+                    Keyword(Kw::Package),
+                    Keyword(Kw::For),
+                    Keyword(Kw::File),
+                    Keyword(Kw::Shared),
+                    Keyword(Kw::Variable),
+                    Keyword(Kw::Constant),
+                    Keyword(Kw::Signal),
+                    Keyword(Kw::Attribute),
+                    Keyword(Kw::Use),
+                    Keyword(Kw::Alias),
+                ]),
             }
         }
         self.end_node();

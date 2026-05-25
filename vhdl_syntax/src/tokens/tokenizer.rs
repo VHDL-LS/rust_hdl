@@ -163,7 +163,7 @@ where
 
 #[derive(Copy, Clone)]
 enum QuoteKind {
-    QuotationMark,   // "
+    QuotationMark,      // "
     ExtendedIdentifier, // \
 }
 
@@ -226,14 +226,15 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Tokenize an identifier, keyword or Bit String Literal.
-    fn identifier_or_keyword(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexDiagnostic>) {
+    fn identifier_or_keyword(
+        &mut self,
+        buf: &mut Latin1String,
+    ) -> (TokenKind, Option<LexDiagnostic>) {
         self.fill_buffer_while(
             buf,
             |ch| matches!(ch, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
         );
-        if let Some(kw) =
-            Kw::from_latin1(buf).filter(|kw| kw.introduced_in() <= self.standard)
-        {
+        if let Some(kw) = Kw::from_latin1(buf).filter(|kw| kw.introduced_in() <= self.standard) {
             (Keyword(kw), None)
         } else {
             (Identifier, None)

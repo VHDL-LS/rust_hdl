@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::latin_1::{Latin1String, Latin1Str};
+use crate::latin_1::{Latin1Str, Latin1String};
 use crate::tokens::tokenizer::LexDiagnostic;
 use crate::tokens::{Token, TokenKind, Tokenizer};
 use std::collections::VecDeque;

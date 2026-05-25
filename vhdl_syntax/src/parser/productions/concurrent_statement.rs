@@ -190,10 +190,22 @@ impl Parser {
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => {
-                self.skip();
-                self.expect_tokens_err([Keyword(Kw::Block)])
-            }
+            _ => self.expect_tokens_err([
+                Keyword(Kw::Block),
+                Keyword(Kw::Process),
+                Keyword(Kw::Component),
+                Keyword(Kw::Configuration),
+                Keyword(Kw::Entity),
+                Keyword(Kw::For),
+                Keyword(Kw::If),
+                Keyword(Kw::Case),
+                Keyword(Kw::Assert),
+                Keyword(Kw::With),
+                Identifier,
+                LtLt,
+                StringLiteral,
+                CharacterLiteral,
+            ]),
         }
     }
 
