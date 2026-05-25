@@ -17,7 +17,7 @@
 //! ```
 //! use vhdl_syntax::builder::Identifier;
 //! use vhdl_syntax::syntax::{AstNode, EntityDeclarationPreambleBuilder};
-//! use vhdl_syntax::fmt::FormatToExt;
+//! use vhdl_syntax::fmt::write::FormatToExt;
 //!
 //! let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"my_entity")).build();
 //! assert_eq!(node.raw().display().to_string(), " entity my_entity is");

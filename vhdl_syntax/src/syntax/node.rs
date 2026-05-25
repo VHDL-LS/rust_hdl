@@ -48,15 +48,13 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::fmt::encoding::Encoder;
-use crate::fmt::FormatTo;
 use crate::latin_1::{Latin1Str, Latin1String, Utf8ToLatin1Error};
 use crate::syntax::child::Child;
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
 use crate::tokens::{Token, TokenKind, Trivia};
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
 use std::io::{self, Write};
 use std::iter;
 use std::ops::Range;
@@ -282,16 +280,6 @@ impl SyntaxToken {
     /// the token's text and not in surrounding trivia. Use for cursor-on-token queries.
     pub fn text_contains_offset(&self, offset: usize) -> bool {
         self.text_range().contains(&offset)
-    }
-}
-
-impl FormatTo for SyntaxToken {
-    fn write_encoded<E>(& self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
-    where
-        E: Encoder,
-        for <'a> E::Str<'a>: fmt::Display,
-    {
-        self.green().write_encoded::<E>(write)
     }
 }
 
@@ -565,16 +553,6 @@ impl SyntaxNode {
     }
 }
 
-impl FormatTo for SyntaxNode {
-    fn write_encoded<E>(&self, write: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
-    where
-        E: Encoder,
-        for <'a> E::Str<'a>: fmt::Display,
-    {
-        self.green().write_encoded::<E>(write)
-    }
-}
-
 impl SyntaxElement {
     pub fn last_token(&self) -> Option<SyntaxToken> {
         match self {
@@ -704,7 +682,10 @@ mod tests {
 
     #[test]
     fn no_rewrite_is_noop() {
-        let orig_tokens = "entity foo is end foo".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>();
+        let orig_tokens = "entity foo is end foo"
+            .tokenize()
+            .map(|(tok, _)| tok)
+            .collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
@@ -734,13 +715,19 @@ mod tests {
             .collect::<VecDeque<_>>();
         assert_eq!(
             new_tokens,
-            "entity bar is end bar;".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>()
+            "entity bar is end bar;"
+                .tokenize()
+                .map(|(tok, _)| tok)
+                .collect::<Vec<_>>()
         );
     }
 
     #[test]
     fn rewrite_does_not_modify_self() {
-        let orig_tokens = "entity foo is end foo".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>();
+        let orig_tokens = "entity foo is end foo"
+            .tokenize()
+            .map(|(tok, _)| tok)
+            .collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));

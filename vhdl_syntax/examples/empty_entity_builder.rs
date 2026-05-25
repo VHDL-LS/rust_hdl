@@ -8,7 +8,7 @@
 //! The builder-API is feature-complete, but may not be ergonomic for common cases such as
 //! testbench generation.
 use vhdl_syntax::{
-    fmt::FormatToExt,
+    fmt::write::FormatToExt,
     syntax::{
         builders::*, AstNode, LibraryUnitSyntax, NameDesignatorToken, NamePrefixSyntax,
         PrimaryUnitSyntax, SecondaryUnitSyntax,

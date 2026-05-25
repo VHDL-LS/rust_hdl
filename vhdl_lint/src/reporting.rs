@@ -4,12 +4,13 @@ use std::{borrow::Cow, fmt::Display, ops::Range};
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use vhdl_syntax::{
     fmt::{
-        Error, FormatTo, encoding::{Encoder, LossyUtf8Encoder}
+        encoding::{Encoder, LossyUtf8Encoder},
+        write::{WriteEncoded, WriteError},
     },
     parser::diagnostics::ParserDiagnostic,
     source_location::SourceLocConverter,
     syntax::node::SyntaxNode,
-    tokens::{TokenKind, tokenizer::{UnterminatedKind}},
+    tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
 
 /// Returns the snippet text covering `byte_range` (with `surplus` extra lines of
@@ -26,10 +27,10 @@ where
     for<'a> E::Str<'a>: Display,
 {
     let mut full = String::new();
-    match source.write_encoded::<E>(&mut full) {
+    match source.fmt_to::<E>(&mut full) {
         Ok(()) => {}
-        Err(Error::Fmt(_)) => unreachable!("Writing to a string should not fail"),
-        Err(Error::Encoding(e)) => return Err(e),
+        Err(WriteError::Fmt(_)) => unreachable!("Writing to a string should not fail"),
+        Err(WriteError::Encoding(e)) => return Err(e),
     }
 
     let last_byte = byte_range.end.saturating_sub(1).max(byte_range.start);
@@ -116,22 +117,24 @@ pub fn parser_diagnostic_to_report<'a>(
                             .label("This input is unexpected"),
                     ),
             )
-        },
+        }
         // TODO: For unterminated: highlight start delimiter
         ParserDiagnostic::Unterminated { span, kind } => {
             let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
             let rel_span = (span.start - base)..(span.end - base);
 
-            Level::ERROR.primary_title(format!("Unterminated {}", describe_unterminated(kind))).element(
-                Snippet::source(snippet)
-                    .line_start(cache.location(span.start).line)
-                    .path(file_name)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(rel_span)
-                            .label("Opening delimiter was never closed"),
-                    ),
-            )
+            Level::ERROR
+                .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
+                .element(
+                    Snippet::source(snippet)
+                        .line_start(cache.location(span.start).line)
+                        .path(file_name)
+                        .annotation(
+                            AnnotationKind::Primary
+                                .span(rel_span)
+                                .label("Opening delimiter was never closed"),
+                        ),
+                )
         }
     }
 }

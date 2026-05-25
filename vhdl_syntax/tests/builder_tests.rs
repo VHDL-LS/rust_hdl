@@ -12,7 +12,7 @@
 
 use vhdl_syntax::{
     builder::Identifier,
-    fmt::FormatToExt,
+    fmt::write::FormatToExt,
     parser,
     syntax::{
         ArchitectureEpilogueBuilder, AstNode, BinaryOperatorToken, EntityDeclarationBuilder,

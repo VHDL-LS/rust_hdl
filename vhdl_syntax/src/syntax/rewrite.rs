@@ -110,7 +110,7 @@ impl<R: TokenRewrite> TokenRewriter<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fmt::FormatToExt;
+    use crate::fmt::write::FormatToExt;
     use crate::parser;
     use crate::syntax::child::Child;
     use crate::syntax::node_kind::NodeKind;

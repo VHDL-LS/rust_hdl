@@ -4,12 +4,9 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::fmt::encoding::Encoder;
-use crate::fmt::FormatTo;
 use crate::latin_1::Latin1Str;
 use crate::token_interning::Symbol;
 use crate::tokens::{TokenKind, Trivia};
-use std::fmt;
 use std::io::{self, Write};
 
 /// A source-code token.
@@ -65,18 +62,6 @@ impl Token {
     pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         self.leading_trivia().write_to(writer)?;
         writer.write_all(self.text().as_bytes())?;
-        Ok(())
-    }
-}
-
-impl FormatTo for Token {
-    fn write_encoded<E>(&self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
-    where
-        E: Encoder,
-        for <'a> E::Str<'a>: fmt::Display,
-    {
-        self.leading_trivia().write_encoded::<E>(writer)?;
-        write!(writer, "{}", self.text())?;
         Ok(())
     }
 }

@@ -4,17 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use std::{
-    borrow::Cow,
-    fmt,
-    io::{self, Write},
-};
-
-use crate::{
-    fmt::encoding::{Encoder, Latin1Encoder, LossyUtf8Encoder, Utf8Encoder},
-    fmt::FormatTo,
-    latin_1::Latin1Str,
-};
+use std::io::{self, Write};
 
 /// A comment
 ///
@@ -34,22 +24,6 @@ impl Comment {
         }
     }
 
-    pub fn encode<E: Encoder>(&self) -> Result<E::Str<'_>, E::Err> {
-        E::encode(&self.inner)
-    }
-
-    pub fn as_latin1(&self) -> &Latin1Str {
-        self.encode::<Latin1Encoder>().unwrap()
-    }
-
-    pub fn as_utf8(&self) -> Result<&str, std::str::Utf8Error> {
-        self.encode::<Utf8Encoder>()
-    }
-
-    pub fn to_utf8_lossy(&self) -> Cow<'_, str> {
-        self.encode::<LossyUtf8Encoder>().unwrap()
-    }
-
     pub fn as_bytes(&self) -> &[u8] {
         &self.inner
     }
@@ -59,31 +33,16 @@ impl Comment {
     }
 }
 
-impl FormatTo for Comment {
-    fn write_encoded<E>(&self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
-    where
-        E: Encoder,
-        for<'a> E::Str<'a>: fmt::Display,
-    {
-        let str = match self.encode::<E>() {
-            Ok(str) => str,
-            Err(e) => return Err(crate::fmt::Error::Encoding(e)),
-        };
-        write!(writer, "{}", str)?;
-        Ok(())
-    }
-}
-
 /// Single trivia pieces that can be combined to form [Trivia](crate::tokens::Trivia) tokens.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum TriviaPiece {
-    /// Horizontal tabs '\t' (a.k.a regular tabs) characters
+    /// Horizontal tab '\t' characters
     HorizontalTabs(usize),
-    /// Vertical tabs '\v' characters
+    /// Vertical tab '\v' characters
     VerticalTabs(usize),
-    /// newline '\r' characters
+    /// Carriage return '\r' characters
     CarriageReturns(usize),
-    /// Carriage return ('\r') + newline ('\n') feeds
+    /// Carriage return + line feed ("\r\n") pairs
     CarriageReturnLineFeeds(usize),
     /// newline '\n' characters
     LineFeeds(usize),
@@ -97,8 +56,6 @@ pub enum TriviaPiece {
     Spaces(usize),
     /// Non breaking space characters
     NonBreakingSpaces(usize),
-    /// Any trivia not covered by the other branches
-    Unexpected(Vec<u8>),
 }
 
 impl TriviaPiece {
@@ -111,7 +68,6 @@ impl TriviaPiece {
             CarriageReturnLineFeeds(n) => *n * 2,
             LineComment(str) => 2 + str.byte_len(),
             BlockComment(str) => 4 + str.byte_len(),
-            Unexpected(unexpected) => unexpected.len(),
         }
     }
 
@@ -171,38 +127,6 @@ impl TriviaPiece {
             }
             Spaces(n) => write_repeated(writer, b" ", *n),
             NonBreakingSpaces(n) => write_repeated(writer, &[0xA0u8], *n),
-            Unexpected(unexpected) => writer.write_all(unexpected),
         }
-    }
-}
-
-impl FormatTo for TriviaPiece {
-    fn write_encoded<E>(& self, writer: &mut impl fmt::Write) -> crate::fmt::Result<E::Err>
-    where
-        E: Encoder,
-        for <'a> E::Str<'a>: fmt::Display,
-    {
-        use TriviaPiece::*;
-        match self {
-            HorizontalTabs(n) => write!(writer, "{}", "\t".repeat(*n))?,
-            VerticalTabs(n) => write!(writer, "{}", "\x0B".repeat(*n))?,
-            CarriageReturns(n) => write!(writer, "{}", "\r".repeat(*n))?,
-            CarriageReturnLineFeeds(n) => write!(writer, "{}", "\r\n".repeat(*n))?,
-            LineFeeds(n) => write!(writer, "{}", "\n".repeat(*n))?,
-            FormFeeds(n) => write!(writer, "{}", "\u{0C}".repeat(*n))?,
-            LineComment(comment) => {
-                write!(writer, "--")?;
-                comment.write_encoded::<E>(writer)?;
-            }
-            BlockComment(comment) => {
-                write!(writer, "/*")?;
-                comment.write_encoded::<E>(writer)?;
-                write!(writer, "*/")?;
-            }
-            Spaces(n) => write!(writer, "{}", " ".repeat(*n))?,
-            NonBreakingSpaces(n) => write!(writer, "{}", "\u{A0}".repeat(*n))?,
-            Unexpected(items) => write!(writer, "/*{}*/", String::from_utf8_lossy(items))?,
-        }
-        Ok(())
     }
 }

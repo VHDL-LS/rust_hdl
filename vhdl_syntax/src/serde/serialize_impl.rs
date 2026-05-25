@@ -137,9 +137,6 @@ impl<'a> Serialize for Serializable<'a, TriviaPiece> {
             TriviaPiece::NonBreakingSpaces(n) => {
                 serializer.serialize_newtype_variant("TriviaPiece", 9, "NonBreakingSpaces", n)
             }
-            TriviaPiece::Unexpected(items) => {
-                serializer.serialize_newtype_variant("TriviaPiece", 10, "Unexpected", items)
-            }
         }
     }
 }
