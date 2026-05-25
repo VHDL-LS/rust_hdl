@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn no_rewrite_is_noop() {
-        let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
+        let orig_tokens = "entity foo is end foo".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));
@@ -719,7 +719,7 @@ mod tests {
     #[test]
     fn rewrite_tokens() {
         let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens("entity foo is end foo;".tokenize());
+        data.push_tokens("entity foo is end foo;".tokenize().map(|(tok, _)| tok));
         let node = SyntaxNode::new_root(GreenNode::new(data));
         let new_node = node.rewrite_tokens(|tok| {
             if tok.text() == "foo" {
@@ -734,13 +734,13 @@ mod tests {
             .collect::<VecDeque<_>>();
         assert_eq!(
             new_tokens,
-            "entity bar is end bar;".tokenize().collect::<Vec<_>>()
+            "entity bar is end bar;".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>()
         );
     }
 
     #[test]
     fn rewrite_does_not_modify_self() {
-        let orig_tokens = "entity foo is end foo".tokenize().collect::<Vec<_>>();
+        let orig_tokens = "entity foo is end foo".tokenize().map(|(tok, _)| tok).collect::<Vec<_>>();
         let mut data = GreenNodeData::new(EntityDeclaration);
         data.push_tokens(orig_tokens.clone());
         let node = SyntaxNode::new_root(GreenNode::new(data));

@@ -4,25 +4,25 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::tokens::{Token, Tokenizer};
+use crate::tokens::{tokenizer::LexDiagnostic, Token, Tokenizer};
 use std::collections::VecDeque;
 
 /// A Token stream is similar to an `Iterator`, however the stream has arbitrary amount of
 /// lookahead by using [TokenStream::peek]
 pub struct TokenStream {
     // OPTIMIZATION: This is likely inefficient and should be replaced by a more ergonomic implementation.
-    inner: VecDeque<Token>,
+    inner: VecDeque<(Token, Option<LexDiagnostic>)>,
 }
 
 impl TokenStream {
-    fn new(tokens: VecDeque<Token>) -> TokenStream {
+    fn new(tokens: VecDeque<(Token, Option<LexDiagnostic>)>) -> TokenStream {
         TokenStream { inner: tokens }
     }
 
     /// Peek `n` tokens in advance where `n == 0` means the next token
     /// (i.e., the token that would be returned by `next`)
     pub fn peek(&self, n: usize) -> Option<&Token> {
-        self.inner.get(n)
+        self.inner.get(n).map(|(tok, _)| tok)
     }
 
     /// Peek the next token.
@@ -37,7 +37,10 @@ impl TokenStream {
 
     /// Returns the next token if a given precondition is `true` for the next token.
     /// Returns `None`, if the precondition is `false` or the tokenizer is at EOF
-    pub fn next_if(&mut self, cond: impl FnOnce(&Token) -> bool) -> Option<Token> {
+    pub fn next_if(
+        &mut self,
+        cond: impl FnOnce(&Token) -> bool,
+    ) -> Option<(Token, Option<LexDiagnostic>)> {
         if cond(self.peek_next()?) {
             self.next()
         } else {
@@ -47,7 +50,7 @@ impl TokenStream {
 }
 
 impl Iterator for TokenStream {
-    type Item = Token;
+    type Item = (Token, Option<LexDiagnostic>);
 
     /// Consumes and returns the next token.
     /// Returns `None`, if the tokenizer is empty, i.e., there are
@@ -57,8 +60,8 @@ impl Iterator for TokenStream {
     }
 }
 
-impl FromIterator<Token> for TokenStream {
-    fn from_iter<T: IntoIterator<Item = Token>>(iter: T) -> Self {
+impl FromIterator<(Token, Option<LexDiagnostic>)> for TokenStream {
+    fn from_iter<T: IntoIterator<Item = (Token, Option<LexDiagnostic>)>>(iter: T) -> Self {
         TokenStream::new(iter.into_iter().collect())
     }
 }

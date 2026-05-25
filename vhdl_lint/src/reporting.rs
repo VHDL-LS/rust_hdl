@@ -4,13 +4,12 @@ use std::{borrow::Cow, fmt::Display, ops::Range};
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 use vhdl_syntax::{
     fmt::{
-        encoding::{Encoder, LossyUtf8Encoder},
-        Error, FormatTo,
+        Error, FormatTo, encoding::{Encoder, LossyUtf8Encoder}
     },
     parser::diagnostics::ParserDiagnostic,
     source_location::SourceLocConverter,
     syntax::node::SyntaxNode,
-    tokens::TokenKind,
+    tokens::{TokenKind, tokenizer::{UnterminatedKind}},
 };
 
 /// Returns the snippet text covering `byte_range` (with `surplus` extra lines of
@@ -103,6 +102,46 @@ pub fn parser_diagnostic_to_report<'a>(
                     ),
             )
         }
+        ParserDiagnostic::IllegalInput { span, text } => {
+            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let rel_span = (span.start - base)..(span.end - base);
+
+            Level::ERROR.primary_title("Illegal input").element(
+                Snippet::source(snippet)
+                    .line_start(cache.location(span.start).line)
+                    .path(file_name)
+                    .annotation(
+                        AnnotationKind::Primary
+                            .span(rel_span)
+                            .label("This input is unexpected"),
+                    ),
+            )
+        },
+        // TODO: For unterminated: highlight start delimiter
+        ParserDiagnostic::Unterminated { span, kind } => {
+            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let rel_span = (span.start - base)..(span.end - base);
+
+            Level::ERROR.primary_title(format!("Unterminated {}", describe_unterminated(kind))).element(
+                Snippet::source(snippet)
+                    .line_start(cache.location(span.start).line)
+                    .path(file_name)
+                    .annotation(
+                        AnnotationKind::Primary
+                            .span(rel_span)
+                            .label("Opening delimiter was never closed"),
+                    ),
+            )
+        }
+    }
+}
+
+fn describe_unterminated(kind: &UnterminatedKind) -> &'static str {
+    match kind {
+        UnterminatedKind::StringLiteral => "string Literal",
+        UnterminatedKind::BasedLiteral => "based literal",
+        UnterminatedKind::ExtendedIdentifier => "extended identifier",
+        UnterminatedKind::BlockComment => "comment",
     }
 }
 
@@ -188,7 +227,7 @@ impl fmt::Display for Expected {
             TokenKind::BitStringLiteral => write!(f, "bitstring literal"),
             TokenKind::CharacterLiteral => write!(f, "character literal"),
             TokenKind::ToolDirective => write!(f, "tool directive"),
-            TokenKind::Unterminated | TokenKind::Unknown => {
+            TokenKind::Unknown => {
                 unreachable!("should never be called by 'expected'")
             }
         }

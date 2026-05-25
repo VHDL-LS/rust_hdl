@@ -6,7 +6,10 @@
 
 use std::ops::Range;
 
-use crate::tokens::TokenKind;
+use crate::{
+    latin_1::Latin1String,
+    tokens::{tokenizer::UnterminatedKind, TokenKind},
+};
 
 type Span = Range<usize>;
 
@@ -22,7 +25,17 @@ pub enum ParserDiagnostic {
         found: (Span, TokenKind),
     },
     /// Input that came unexpectedly
-    UnexpectedInput { span: Span },
+    UnexpectedInput {
+        span: Span,
+    },
+    IllegalInput {
+        span: Span,
+        text: Latin1String,
+    },
+    Unterminated {
+        span: Span,
+        kind: UnterminatedKind,
+    },
 }
 
 impl ParserDiagnostic {

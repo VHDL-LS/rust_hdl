@@ -9,7 +9,8 @@ use crate::parser::diagnostics::ParserDiagnostic;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
-use crate::tokens::{Keyword, TokenKind};
+use crate::tokens::tokenizer::{LexDiagnostic, LexError, LexErrorPos};
+use crate::tokens::{Keyword, Token, TokenKind};
 
 /// Allows match-style syntax for tokens.
 /// This function does not consume the next token.
@@ -70,8 +71,52 @@ pub enum LookaheadError {
 }
 
 impl Parser {
+    fn push_opt_lex_err(&mut self, err: Option<LexDiagnostic>, token: &Token, token_start: usize) {
+        if let Some(err) = err {
+            self.push_lex_err(err, token, token_start);
+        }
+    }
+
+    fn push_lex_err(&mut self, err: LexDiagnostic, token: &Token, token_start: usize) {
+        let span = match err.pos {
+            LexErrorPos::Token => {
+                token_start + token.leading_trivia().byte_len()
+                    ..token_start + token.leading_trivia().byte_len() + token.byte_len()
+            }
+            LexErrorPos::Trivia(index) => {
+                if index == 0 {
+                    token_start..token_start + token.leading_trivia()[0].byte_len()
+                } else {
+                    let offset: usize = token.leading_trivia()[..index - 1]
+                        .iter()
+                        .map(|piece| piece.byte_len())
+                        .sum();
+                    token_start + offset
+                        ..token_start + offset + token.leading_trivia()[index].byte_len()
+                }
+            }
+        };
+
+        match err.err {
+            LexError::Unterminated(unterminated_kind) => {
+                self.diagnostics.push(ParserDiagnostic::Unterminated {
+                    span,
+                    kind: unterminated_kind,
+                });
+            }
+            LexError::IllegalInput => {
+                self.diagnostics.push(ParserDiagnostic::IllegalInput {
+                    span,
+                    text: token.text().to_latin1_string(),
+                });
+            }
+        }
+    }
+
     pub(crate) fn skip(&mut self) {
-        if let Some(token) = self.token_stream.next() {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next() {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
         }
     }
@@ -90,7 +135,9 @@ impl Parser {
     }
 
     pub(crate) fn expect_token(&mut self, kind: TokenKind) {
-        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next_if(|token| token.kind() == kind) {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
             return;
         }
@@ -148,7 +195,9 @@ impl Parser {
     }
 
     pub(crate) fn opt_token(&mut self, kind: TokenKind) -> bool {
-        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next_if(|token| token.kind() == kind) {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
             true
         } else {
@@ -160,10 +209,12 @@ impl Parser {
         &mut self,
         kinds: [TokenKind; N],
     ) -> Option<TokenKind> {
-        if let Some(token) = self
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self
             .token_stream
             .next_if(|token| kinds.contains(&token.kind()))
         {
+            self.push_opt_lex_err(err, &token, start);
             let kind = token.kind();
             self.builder.push(token);
             Some(kind)
