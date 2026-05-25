@@ -48,7 +48,7 @@ pub type WriteResult<E> = std::result::Result<(), WriteError<E>>;
 /// Writer for encoded strings.
 ///
 /// Note: This is mostly an internal trait, intended for nodes and tokens to plug in.
-/// The `write_to` function will only write ambiguous constructs (comments) using the given
+/// The `fmt_to` function will only write ambiguous constructs (comments) using the given
 /// encoder, and not transform Latin-1 to UTF-8.
 pub trait WriteEncoded {
     /// Write `self` to a [fmt::Write] sink using the given encoder.
@@ -79,7 +79,7 @@ where
         match self.inner.fmt_to::<E>(f) {
             Ok(()) => Ok(()),
             Err(WriteError::Fmt(e)) => Err(e),
-            Err(WriteError::Encoding(_)) => unreachable!(),
+            Err(WriteError::Encoding(e)) => match e.into() {},
         }
     }
 }
