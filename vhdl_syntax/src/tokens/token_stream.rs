@@ -58,7 +58,7 @@ fn merge_bit_string_literals(
             }
             // Pattern: AbstractLiteral Identifier StringLiteral (e.g., 10ub"0101")
             TokenKind::AbstractLiteral => {
-                if let (Some((ident, _)), Some((string, _))) = (tokens.get(0), tokens.get(1)) {
+                if let (Some((ident, _)), Some((string, _))) = (tokens.front(), tokens.get(1)) {
                     if ident.kind() == TokenKind::Identifier
                         && ident.leading_trivia().is_empty()
                         && is_base_specifier(ident.text())

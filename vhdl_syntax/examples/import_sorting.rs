@@ -7,6 +7,7 @@
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use std::collections::HashMap;
 use vhdl_syntax::fmt::FormatToExt;
+use vhdl_syntax::latin_1::Latin1String;
 use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::{SyntaxElement, SyntaxNode};
 use vhdl_syntax::syntax::rewrite::RewriteAction;

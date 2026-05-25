@@ -168,14 +168,14 @@ enum QuoteKind {
 }
 
 impl QuoteKind {
-    pub fn to_unterminated_kind(&self) -> UnterminatedKind {
+    pub fn unterminated_kind(&self) -> UnterminatedKind {
         match self {
             QuoteKind::QuotationMark => UnterminatedKind::StringLiteral,
             QuoteKind::ExtendedIdentifier => UnterminatedKind::ExtendedIdentifier,
         }
     }
 
-    pub fn to_token_kind(&self) -> TokenKind {
+    pub fn token_kind(&self) -> TokenKind {
         match self {
             QuoteKind::QuotationMark => StringLiteral,
             QuoteKind::ExtendedIdentifier => Identifier,
@@ -232,7 +232,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
             |ch| matches!(ch, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
         );
         if let Some(kw) =
-            Kw::from_latin1(&buf).filter(|kw| kw.introduced_in() <= self.standard)
+            Kw::from_latin1(buf).filter(|kw| kw.introduced_in() <= self.standard)
         {
             (Keyword(kw), None)
         } else {
@@ -339,12 +339,12 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
         }
         let err = if !found_end {
             Some(LexDiagnostic::token(LexError::Unterminated(
-                quote_kind.to_unterminated_kind(),
+                quote_kind.unterminated_kind(),
             )))
         } else {
             None
         };
-        (quote_kind.to_token_kind(), err)
+        (quote_kind.token_kind(), err)
     }
 
     /// Consume a trivia piece (i.e., whitespace, newline, comments, ...)
