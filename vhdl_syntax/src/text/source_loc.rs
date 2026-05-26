@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    fmt::encoding::Encoder, latin_1::Latin1Str, syntax::node::SyntaxNode, text::{char_encoding::CharEncoding, char_iter::CharIter}, tokens::TriviaPiece
+    fmt::encoding::Encoder,
+    latin_1::Latin1Str,
+    syntax::node::SyntaxNode,
+    text::{char_encoding::CharEncoding, char_iter::CharIter},
+    tokens::TriviaPiece,
 };
 
 /// A zero-based `(line, column)` position in source text.
@@ -220,5 +224,184 @@ fn record_str<C: CharEncoding>(
                 target_len: char_width,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fmt::encoding::{Latin1Encoder, Utf8Encoder};
+    use crate::parser::parse;
+    use crate::text::char_encoding::{Utf16, Utf32, Utf8};
+
+    fn converter<E: Encoder, C: CharEncoding>(input: &str) -> SourceLocConverter
+    where
+        for<'a> E::Str<'a>: CharIter,
+        E::Err: std::fmt::Debug,
+    {
+        let (design_file, _) = parse(input);
+        SourceLocConverter::new::<E, C>(&design_file.0).unwrap()
+    }
+
+    fn utf8_utf16(input: &str) -> SourceLocConverter {
+        converter::<Utf8Encoder, Utf16>(input)
+    }
+
+    fn loc(conv: &SourceLocConverter, offset: usize) -> (usize, usize) {
+        let l = conv.source_loc(offset);
+        (l.line, l.col)
+    }
+
+    // ASCII-only (all encodings agree)
+
+    #[test]
+    fn single_line_ascii() {
+        let conv = utf8_utf16("entity e is end;");
+        assert_eq!(loc(&conv, 0), (0, 0));
+        assert_eq!(loc(&conv, 7), (0, 7));
+    }
+
+    #[test]
+    fn multi_line_ascii() {
+        // "entity e is\nend;\n"
+        let input = "entity e is\nend;\n";
+        let conv = utf8_utf16(input);
+        assert_eq!(loc(&conv, 0), (0, 0));
+        // offset 11 = last char of first line ('s')
+        assert_eq!(loc(&conv, 11), (0, 11));
+        // offset 12 = first char of second line ('e' in "end")
+        assert_eq!(loc(&conv, 12), (1, 0));
+        assert_eq!(loc(&conv, 15), (1, 3));
+    }
+
+    #[test]
+    fn crlf_line_endings() {
+        let input = "entity e is\r\nend;\r\n";
+        let conv = utf8_utf16(input);
+        // After \r\n (2 bytes), second line starts at offset 13
+        assert_eq!(loc(&conv, 13), (1, 0));
+        assert_eq!(loc(&conv, 16), (1, 3));
+    }
+
+    // Line comment with non-ASCII (UTF-8 source, UTF-16 target)
+
+    #[test]
+    fn line_comment_with_umlaut() {
+        // ä is 2 bytes in UTF-8, 1 unit in UTF-16
+        // Layout: "--" (2) + " " (1) + "ä" (2) + "\n" (1) = 6 bytes on line 0
+        let input = "-- ä\nentity e is end;";
+        let conv = utf8_utf16(input);
+
+        // byte 2 = space after "--", col 2
+        assert_eq!(loc(&conv, 2), (0, 2));
+        // byte 3 = start of ä, col 3
+        assert_eq!(loc(&conv, 3), (0, 3));
+        // byte 4 = inside ä (second UTF-8 byte), clamps to ä start = col 3
+        assert_eq!(loc(&conv, 4), (0, 3));
+        // "entity" starts at byte 6 (after \n)
+        assert_eq!(loc(&conv, 6), (1, 0));
+    }
+
+    #[test]
+    fn line_comment_with_emoji() {
+        // 💣 is 4 bytes in UTF-8, 2 units in UTF-16
+        let input = "-- 💣\nentity e is end;";
+        let conv = utf8_utf16(input);
+        // "-- " = 3 bytes, "💣" = 4 bytes, "\n" = 1 byte => line 1 starts at offset 8
+        assert_eq!(loc(&conv, 8), (1, 0));
+        // byte 3 = start of 💣, UTF-16 col = 3
+        assert_eq!(loc(&conv, 3), (0, 3));
+        // byte 5 = inside 💣 (4-byte char), should clamp to start = col 3
+        assert_eq!(loc(&conv, 5), (0, 3));
+    }
+
+    // Block comment spanning multiple lines
+
+    #[test]
+    fn block_comment_multiline() {
+        let input = "/* line1\nline2 */\nentity e is end;";
+        let conv = utf8_utf16(input);
+        // "/*" = 2, " line1\n" = 7 bytes => line 1 starts at offset 9
+        assert_eq!(loc(&conv, 9), (1, 0));
+        // "line2 */" = 8, "\n" = 1 => line 2 starts at offset 18
+        assert_eq!(loc(&conv, 18), (2, 0));
+    }
+
+    // Offset clamping
+
+    #[test]
+    fn offset_beyond_end_is_clamped() {
+        let input = "entity e is end;";
+        let conv = utf8_utf16(input);
+        let clamped = conv.source_loc(9999);
+        let end = conv.source_loc(input.len());
+        assert_eq!(clamped.line, end.line);
+        assert_eq!(clamped.col, end.col);
+    }
+
+    #[test]
+    fn offset_zero() {
+        let input = "entity e is end;";
+        let conv = utf8_utf16(input);
+        assert_eq!(loc(&conv, 0), (0, 0));
+    }
+
+    // UTF-8 source, UTF-32 target (code point columns)
+
+    #[test]
+    fn utf32_target_counts_code_points() {
+        let input = "-- 💣x\nentity e is end;";
+        let conv = converter::<Utf8Encoder, Utf32>(input);
+        // 💣 is 1 code point, x is 1 code point
+        // byte 3 = start of 💣, UTF-32 col = 3
+        assert_eq!(loc(&conv, 3), (0, 3));
+        // byte 7 = 'x' (after 4-byte 💣), UTF-32 col = 4
+        assert_eq!(loc(&conv, 7), (0, 4));
+    }
+
+    // UTF-8 source, UTF-8 target (byte columns, no wide chars)
+
+    #[test]
+    fn utf8_target_matches_byte_offset() {
+        let input = "-- ä💣\nentity e is end;";
+        let conv = converter::<Utf8Encoder, Utf8>(input);
+        // With UTF-8 target, col == byte offset within line since source is also UTF-8
+        assert_eq!(loc(&conv, 3), (0, 3)); // start of ä
+        assert_eq!(loc(&conv, 5), (0, 5)); // start of 💣
+        assert_eq!(loc(&conv, 9), (0, 9)); // past 💣
+    }
+
+    // Latin-1 source, UTF-16 target
+
+    #[test]
+    fn latin1_source_utf16_target() {
+        // All ASCII, so Latin-1 and UTF-16 agree: every byte is 1 column unit.
+        let input = "-- hello\nentity e is end;";
+        let conv = converter::<Latin1Encoder, Utf16>(input);
+        assert_eq!(loc(&conv, 0), (0, 0));
+        assert_eq!(loc(&conv, 9), (1, 0));
+    }
+
+    // Multiple wide chars on the same line
+
+    #[test]
+    fn multiple_wide_chars_same_line() {
+        // Two umlauts: each 2 bytes UTF-8, 1 unit UTF-16
+        let input = "-- äö\nentity e is end;";
+        let conv = utf8_utf16(input);
+        // byte 3 = ä (2 bytes), byte 5 = ö (2 bytes)
+        // UTF-16 col of ä = 3, of ö = 4
+        assert_eq!(loc(&conv, 3), (0, 3));
+        assert_eq!(loc(&conv, 5), (0, 4));
+        // byte 7 = \n, so line 1 starts at byte 8
+        assert_eq!(loc(&conv, 8), (1, 0));
+    }
+
+    // Empty input
+
+    #[test]
+    fn empty_input() {
+        let conv = utf8_utf16("");
+        assert_eq!(loc(&conv, 0), (0, 0));
     }
 }
