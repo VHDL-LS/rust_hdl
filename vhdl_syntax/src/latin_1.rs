@@ -494,6 +494,10 @@ impl<'a> Iterator for Chars<'a> {
         self.iter.count()
     }
 
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+
     fn last(self) -> Option<Self::Item>
     where
         Self: Sized,
@@ -501,6 +505,8 @@ impl<'a> Iterator for Chars<'a> {
         self.iter.last().map(|byte| *byte as char)
     }
 }
+
+impl <'a> ExactSizeIterator for Chars<'a> {}
 
 impl Latin1Str {
     pub fn new(bytes: &[u8]) -> &Latin1Str {
