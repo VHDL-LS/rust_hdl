@@ -10,8 +10,8 @@ pub mod latin_1;
 pub mod parser;
 #[cfg(feature = "serde")]
 pub mod serde;
-pub mod source_location;
 pub mod standard;
 pub mod syntax;
+pub mod text;
 mod token_interning;
 pub mod tokens;

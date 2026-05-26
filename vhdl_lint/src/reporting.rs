@@ -8,8 +8,8 @@ use vhdl_syntax::{
         write::{WriteEncoded, WriteError},
     },
     parser::diagnostics::ParserDiagnostic,
-    source_location::SourceLocConverter,
     syntax::node::SyntaxNode,
+    text::source_loc::SourceLocConverter,
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
 
@@ -34,8 +34,8 @@ where
     }
 
     let last_byte = byte_range.end.saturating_sub(1).max(byte_range.start);
-    let start_line = cache.location(byte_range.start).line;
-    let end_line = cache.location(last_byte).line;
+    let start_line = cache.source_loc(byte_range.start).line;
+    let end_line = cache.source_loc(last_byte).line;
     let first = start_line.saturating_sub(surplus).max(1);
     let last = end_line.saturating_add(surplus);
     let base = cache.line_start(first);
@@ -83,7 +83,7 @@ pub fn parser_diagnostic_to_report<'a>(
                 .primary_title(expected_token_message(expected, *found))
                 .element(
                     Snippet::source(snippet)
-                        .line_start(cache.location(*insertion_pos).line)
+                        .line_start(cache.source_loc(*insertion_pos).line)
                         .path(file_name)
                         .annotations(annotations),
                 )
@@ -94,7 +94,7 @@ pub fn parser_diagnostic_to_report<'a>(
 
             Level::ERROR.primary_title("Unexpected input").element(
                 Snippet::source(snippet)
-                    .line_start(cache.location(span.start).line)
+                    .line_start(cache.source_loc(span.start).line)
                     .path(file_name)
                     .annotation(
                         AnnotationKind::Primary
@@ -109,7 +109,7 @@ pub fn parser_diagnostic_to_report<'a>(
 
             Level::ERROR.primary_title("Illegal input").element(
                 Snippet::source(snippet)
-                    .line_start(cache.location(span.start).line)
+                    .line_start(cache.source_loc(span.start).line)
                     .path(file_name)
                     .annotation(
                         AnnotationKind::Primary
@@ -127,7 +127,7 @@ pub fn parser_diagnostic_to_report<'a>(
                 .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
                 .element(
                     Snippet::source(snippet)
-                        .line_start(cache.location(span.start).line)
+                        .line_start(cache.source_loc(span.start).line)
                         .path(file_name)
                         .annotation(
                             AnnotationKind::Primary
@@ -243,11 +243,14 @@ mod tests {
     use vhdl_syntax::fmt::encoding::Utf8Encoder;
     use vhdl_syntax::parser;
     use vhdl_syntax::syntax::AstNode;
+    use vhdl_syntax::text::char_encoding;
+    use vhdl_syntax::text::source_loc::SourceLocConverter;
 
     fn setup(src: &str) -> (SyntaxNode, SourceLocConverter) {
         let (design, _) = parser::parse(src);
         let node = design.raw().clone();
-        let cache = SourceLocConverter::new_utf8(&node).expect("valid utf-8");
+        let cache = SourceLocConverter::new::<Utf8Encoder, char_encoding::Utf8>(&node)
+            .expect("valid utf-8");
         (node, cache)
     }
 
