@@ -13,6 +13,7 @@ use crate::{
 /// The column is expressed in the target encoding's code units, not bytes.
 /// For example, with [`super::char_encoding::Utf16`] as the target, `col` counts
 /// UTF-16 code units — matching what LSP clients expect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLoc {
     /// Zero-based line number.
     pub line: usize,
@@ -212,6 +213,16 @@ fn record_str<C: CharEncoding>(
             line += 1;
             continue;
         }
+        if ch == '\r' {
+            if itr.peek().is_some_and(|(_, ch)| *ch == '\n') {
+                let _ = itr.next();
+                line_starts.push(cursor + pos + 2);
+            } else {
+                line_starts.push(cursor + pos + 1);
+            }
+            line += 1;
+            continue;
+        }
         let next_pos = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
         let byte_width = next_pos - pos;
         let char_width = C::char_len(ch);
@@ -325,6 +336,26 @@ mod tests {
         assert_eq!(loc(&conv, 9), (1, 0));
         // "line2 */" = 8, "\n" = 1 => line 2 starts at offset 18
         assert_eq!(loc(&conv, 18), (2, 0));
+    }
+
+    #[test]
+    fn block_comment_multiline_carriage_return() {
+        let input = "/* line1\rline2 */\rentity e is end;";
+        let conv = utf8_utf16(input);
+        // "/*" = 2, " line1\r" = 7 bytes => line 1 starts at offset 9
+        assert_eq!(loc(&conv, 9), (1, 0));
+        // "line2 */" = 8, "\r" = 1 => line 2 starts at offset 18
+        assert_eq!(loc(&conv, 18), (2, 0));
+    }
+
+    #[test]
+    fn block_comment_multiline_carriage_return_line_feed() {
+        let input = "/* line1\r\nline2 */\r\nentity e is end;";
+        let conv = utf8_utf16(input);
+        // "/*" = 2, " line1\r\n" = 7 bytes => line 1 starts at offset 9
+        assert_eq!(loc(&conv, 10), (1, 0));
+        // "line2 */" = 8, "\r\n" = 1 => line 2 starts at offset 18
+        assert_eq!(loc(&conv, 20), (2, 0));
     }
 
     // Offset clamping
