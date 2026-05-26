@@ -467,6 +467,41 @@ fn iso_8859_1_uppercase(chr: u8) -> u8 {
     }
 }
 
+/// An iterator over the chars of a Latin-1 encoded string
+pub struct Chars<'a> {
+    iter: slice::Iter<'a, u8>,
+}
+
+impl<'a> Chars<'a> {
+    pub fn new(value: &'a Latin1Str) -> Chars<'a> {
+        Chars {
+            iter: value.inner.iter(),
+        }
+    }
+}
+
+impl<'a> Iterator for Chars<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|byte| *byte as char)
+    }
+
+    fn count(self) -> usize
+    where
+        Self: Sized,
+    {
+        self.iter.count()
+    }
+
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter.last().map(|byte| *byte as char)
+    }
+}
+
 impl Latin1Str {
     pub fn new(bytes: &[u8]) -> &Latin1Str {
         // SAFETY: Latin1Str is a transparent newtype wrapper around [u8],
@@ -492,8 +527,8 @@ impl Latin1Str {
         Latin1String::from(&self.inner)
     }
 
-    pub fn chars(&self) -> slice::Iter<'_, u8> {
-        self.inner.iter()
+    pub fn chars(&self) -> Chars<'_> {
+        Chars::new(self)
     }
 
     pub fn len(&self) -> usize {
