@@ -1,7 +1,7 @@
-use std::{collections::HashMap, ops::Range};
+use std::{collections::BTreeMap, convert::Infallible, ops::Range};
 
 use crate::{
-    fmt::encoding::{BytePreservingEncoder, Encoder, LossyEncoder, Replacements},
+    fmt::encoding::{BytePreservingEncoder, Encoder, LossyEncoder, Replacement},
     latin_1::Latin1Str,
     syntax::node::SyntaxNode,
     text::{char_encoding::CharEncoding, char_iter::CharIter},
@@ -65,31 +65,29 @@ impl WideChar {
 pub struct SourceLocConverter {
     line_starts: Vec<usize>,
     text_len: usize,
-    wide_char_lines: HashMap<usize, Vec<WideChar>>,
+    wide_char_lines: BTreeMap<usize, Vec<WideChar>>,
 }
 
 impl SourceLocConverter {
-    /// Build the index by walking all tokens and trivia in the tree.
-    ///
-    /// `E` determines how comment bytes are decoded into characters.
-    /// `C` determines how each character's column width is measured.
-    /// Returns `Err` if a comment body cannot be decoded under `E`.
-    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(root: &SyntaxNode) -> Result<SourceLocConverter, E::Err>
-    where
-        for<'a> E::Str<'a>: CharIter,
-    {
+    fn build<C: CharEncoding, Err>(
+        root: &SyntaxNode,
+        mut handle_piece: impl FnMut(
+            &TriviaPiece,
+            usize,
+            &mut Vec<usize>,
+            &mut BTreeMap<usize, Vec<WideChar>>,
+        ) -> Result<(), Err>,
+    ) -> Result<SourceLocConverter, Err> {
         let mut line_starts = vec![0usize];
-        let mut wide_char_lines = HashMap::new();
+        let mut wide_char_lines = BTreeMap::new();
         let mut cursor = 0usize;
 
         let mut tok = root.first_token();
         while let Some(t) = tok {
             for piece in t.leading_trivia() {
-                record_piece::<E, C>(piece, cursor, &mut line_starts, &mut wide_char_lines)?;
+                handle_piece(piece, cursor, &mut line_starts, &mut wide_char_lines)?;
                 cursor += piece.byte_len();
             }
-            // Text could contain newlines for unterminated inputs or characters that are multiple byte-offsets in the target encoding.
-            // Record it as well
             record_text::<C>(t.text(), cursor, &mut line_starts, &mut wide_char_lines);
             cursor += t.text().len();
             tok = t.next_token();
@@ -102,30 +100,31 @@ impl SourceLocConverter {
         })
     }
 
+    /// Build the index by walking all tokens and trivia in the tree.
+    ///
+    /// `E` determines how comment bytes are decoded into characters.
+    /// `C` determines how each character's column width is measured.
+    /// Returns `Err` if a comment body cannot be decoded under `E`.
+    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(
+        root: &SyntaxNode,
+    ) -> Result<SourceLocConverter, E::Err>
+    where
+        for<'a> E::Str<'a>: CharIter,
+    {
+        Self::build::<C, _>(root, |piece, cursor, line_starts, wide_char_lines| {
+            record_piece::<E, C>(piece, cursor, line_starts, wide_char_lines)
+        })
+    }
+
     pub fn new_lossy<E: LossyEncoder, C: CharEncoding>(root: &SyntaxNode) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
     {
-        let mut line_starts = vec![0usize];
-        let mut wide_char_lines = HashMap::new();
-        let mut cursor = 0usize;
-
-        let mut tok = root.first_token();
-        while let Some(t) = tok {
-            for piece in t.leading_trivia() {
-                record_piece_lossy::<E, C>(piece, cursor, &mut line_starts, &mut wide_char_lines);
-                cursor += piece.byte_len();
-            }
-            record_text::<C>(t.text(), cursor, &mut line_starts, &mut wide_char_lines);
-            cursor += t.text().len();
-            tok = t.next_token();
-        }
-
-        SourceLocConverter {
-            line_starts,
-            text_len: cursor,
-            wide_char_lines,
-        }
+        Self::build::<C, Infallible>(root, |piece, cursor, line_starts, wide_char_lines| {
+            record_piece_lossy::<E, C>(piece, cursor, line_starts, wide_char_lines);
+            Ok(())
+        })
+        .unwrap()
     }
 
     /// Convert a byte offset into a [`SourceLoc`].
@@ -208,114 +207,51 @@ fn record_text<C: CharEncoding>(
     text: &Latin1Str,
     cursor: usize,
     line_starts: &mut Vec<usize>,
-    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
 ) {
-    record_str::<C>(text, line_starts, wide_char_lines, cursor);
+    record_str::<C>(text, &[], line_starts, wide_char_lines, cursor);
 }
 
 fn record_piece<E: Encoder, C: CharEncoding>(
     piece: &TriviaPiece,
     cursor: usize,
     line_starts: &mut Vec<usize>,
-    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
 ) -> Result<(), E::Err>
 where
     for<'a> E::Str<'a>: CharIter,
 {
     match piece {
-        TriviaPiece::LineFeeds(n)
-        | TriviaPiece::CarriageReturns(n)
-        | TriviaPiece::FormFeeds(n)
-        | TriviaPiece::VerticalTabs(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + i + 1);
-            }
-        }
-        TriviaPiece::CarriageReturnLineFeeds(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + (i + 1) * 2);
-            }
-        }
         // Note: In theory, `LineComment`s don't need the special newline handling, it's just included here for simplicity.
         // If performance ever becomes a bottleneck, this can be split.
         TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
             record_str::<C>(
                 c.encode::<E>()?,
+                &[],
                 line_starts,
                 wide_char_lines,
-                cursor + 2
+                cursor + 2,
             );
         }
-        _ => {}
+        other => {
+            record_non_comment_trivia::<C>(other, cursor, line_starts, wide_char_lines);
+        }
     }
     Ok(())
-}
-
-fn record_str<C: CharEncoding>(
-    str: impl CharIter,
-    line_starts: &mut Vec<usize>,
-    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
-    cursor: usize,
-) {
-    let mut line = line_starts.len() - 1;
-    let mut itr = str.iter_chars_indices().peekable();
-    let byte_len = str.byte_count();
-    while let Some((pos, ch)) = itr.next() {
-        if ch == '\n' {
-            line_starts.push(cursor + pos + 1);
-            line += 1;
-            continue;
-        }
-        if ch == '\r' {
-            if itr.peek().is_some_and(|(_, ch)| *ch == '\n') {
-                let _ = itr.next();
-                line_starts.push(cursor + pos + 2);
-            } else {
-                line_starts.push(cursor + pos + 1);
-            }
-            line += 1;
-            continue;
-        }
-        let next_pos = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
-        let byte_width = next_pos - pos;
-        let char_width = C::char_len(ch);
-        if byte_width != 1 || byte_width != char_width {
-            let abs_offset = cursor + pos;
-            let line_start = line_starts[line];
-            wide_char_lines.entry(line).or_default().push(WideChar {
-                offset: abs_offset - line_start,
-                byte_len: byte_width,
-                target_len: char_width,
-            });
-        }
-    }
 }
 
 fn record_piece_lossy<E: LossyEncoder, C: CharEncoding>(
     piece: &TriviaPiece,
     cursor: usize,
     line_starts: &mut Vec<usize>,
-    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
 ) where
     for<'a> E::Str<'a>: CharIter,
 {
     match piece {
-        TriviaPiece::LineFeeds(n)
-        | TriviaPiece::CarriageReturns(n)
-        | TriviaPiece::FormFeeds(n)
-        | TriviaPiece::VerticalTabs(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + i + 1);
-            }
-        }
-        TriviaPiece::CarriageReturnLineFeeds(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + (i + 1) * 2);
-            }
-        }
         TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
             let (encoded, replacements) = c.encode_lossy::<E>();
-            record_str_with_replacements::<C>(
+            record_str::<C>(
                 encoded,
                 &replacements,
                 line_starts,
@@ -323,26 +259,64 @@ fn record_piece_lossy<E: LossyEncoder, C: CharEncoding>(
                 cursor + 2,
             );
         }
+        other => {
+            record_non_comment_trivia::<C>(other, cursor, line_starts, wide_char_lines);
+        }
+    }
+}
+
+fn record_non_comment_trivia<C: CharEncoding>(
+    piece: &TriviaPiece,
+    cursor: usize,
+    line_starts: &mut Vec<usize>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
+) {
+    match piece {
+        TriviaPiece::LineFeeds(n)
+        | TriviaPiece::CarriageReturns(n)
+        | TriviaPiece::FormFeeds(n)
+        | TriviaPiece::VerticalTabs(n) => {
+            for i in 0..*n {
+                line_starts.push(cursor + i + 1);
+            }
+        }
+        TriviaPiece::CarriageReturnLineFeeds(n) => {
+            for i in 0..*n {
+                line_starts.push(cursor + (i + 1) * 2);
+            }
+        }
+        TriviaPiece::BlockComment(_) | TriviaPiece::LineComment(_) => {
+            unreachable!("Handled by specific branch");
+        }
+        TriviaPiece::NonBreakingSpaces(n) => {
+            let target_len = C::char_len('\u{00A0}');
+            if target_len != 1 {
+                let line = line_starts.len() - 1;
+                let line_start = line_starts[line];
+                for i in 0..*n {
+                    let abs_offset = cursor + i;
+                    wide_char_lines.entry(line).or_default().push(WideChar {
+                        offset: abs_offset - line_start,
+                        byte_len: 1,
+                        target_len,
+                    });
+                }
+            }
+        }
         _ => {}
     }
 }
 
-fn record_str_with_replacements<C: CharEncoding>(
+fn record_str<C: CharEncoding>(
     encoded: impl CharIter,
-    replacements: &Replacements,
+    replacements: &[Replacement],
     line_starts: &mut Vec<usize>,
-    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
     cursor: usize,
 ) {
-    if replacements.is_empty() {
-        record_str::<C>(encoded, line_starts, wide_char_lines, cursor);
-        return;
-    }
-
     let mut line = line_starts.len() - 1;
     let mut itr = encoded.iter_chars_indices().peekable();
     let byte_len = encoded.byte_count();
-    let entries = replacements.entries();
     let mut repl_idx = 0;
     // Accumulated difference between encoded and source positions.
     // encoded_pos = source_pos + delta
@@ -371,11 +345,11 @@ fn record_str_with_replacements<C: CharEncoding>(
         let enc_byte_width = enc_next - enc_pos;
         let target_width = C::char_len(ch);
 
-        let at_replacement = repl_idx < entries.len()
-            && source_pos == entries[repl_idx].source_offset;
+        let at_replacement =
+            repl_idx < replacements.len() && source_pos == replacements[repl_idx].source_offset;
 
         if at_replacement {
-            let r = &entries[repl_idx];
+            let r = &replacements[repl_idx];
             let source_byte_width = r.source_bytes;
             if source_byte_width != target_width {
                 let abs_offset = cursor + source_pos;
@@ -410,7 +384,9 @@ mod tests {
     use crate::text::char_encoding::{Utf16, Utf32, Utf8};
     use crate::tokens::TokenStream;
 
-    fn converter<E: BytePreservingEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    fn converter<E: BytePreservingEncoder, C: CharEncoding>(
+        input: impl Into<TokenStream>,
+    ) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
         E::Err: std::fmt::Debug,
@@ -419,9 +395,11 @@ mod tests {
         SourceLocConverter::new::<E, C>(&design_file.0).unwrap()
     }
 
-    fn lossy_converter<E: LossyEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    fn lossy_converter<E: LossyEncoder, C: CharEncoding>(
+        input: impl Into<TokenStream>,
+    ) -> SourceLocConverter
     where
-        for<'a> E::Str<'a>: CharIter
+        for<'a> E::Str<'a>: CharIter,
     {
         let (design_file, _) = parse(input);
         SourceLocConverter::new_lossy::<E, C>(&design_file.0)
@@ -647,5 +625,36 @@ mod tests {
     fn empty_input() {
         let conv = utf8_utf16("");
         assert_eq!(loc(&conv, 0), (0, 0));
+    }
+
+    // Non-breaking spaces (U+00A0)
+
+    #[test]
+    fn non_breaking_space_latin1_to_utf8() {
+        // \xA0 = non-breaking space, 1 byte in Latin-1, 2 bytes in UTF-8
+        // Layout: "\xA0" (1) + "entity e is end;" (16)
+        let input: &[u8] = b"\xA0entity e is end;";
+        let conv = converter::<Latin1Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0); // start of NBSP
+        assert_eq!(conv.convert_byte_offset(1), 2); // 'e' in entity (delta +1)
+    }
+
+    #[test]
+    fn non_breaking_space_latin1_to_utf16() {
+        // \xA0 is 1 byte Latin-1, 1 code unit UTF-16 — no expansion
+        let input: &[u8] = b"\xA0entity e is end;";
+        let conv = converter::<Latin1Encoder, Utf16>(input);
+        assert_eq!(loc(&conv, 0), (0, 0));
+        assert_eq!(loc(&conv, 1), (0, 1));
+    }
+
+    #[test]
+    fn multiple_non_breaking_spaces_latin1_to_utf8() {
+        // Two consecutive NBSPs before a token
+        let input: &[u8] = b"\xA0\xA0entity e is end;";
+        let conv = converter::<Latin1Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0); // first NBSP
+        assert_eq!(conv.convert_byte_offset(1), 2); // second NBSP (delta +1)
+        assert_eq!(conv.convert_byte_offset(2), 4); // 'e' in entity (delta +2)
     }
 }
