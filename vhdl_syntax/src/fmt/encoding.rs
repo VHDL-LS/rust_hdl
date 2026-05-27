@@ -8,7 +8,7 @@
 //! UTF-8 characters while only using the ASCII subset in code
 //! (ASCII is shared between UTF-8 and Latin-1, the default VHDL encoding).
 
-use std::{borrow::Cow, convert::Infallible, str::Utf8Error};
+use std::{borrow::Cow, convert::Infallible, ops::Deref, str::Utf8Error};
 
 use crate::latin_1::Latin1Str;
 
@@ -79,6 +79,14 @@ impl Replacements {
 
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+}
+
+impl Deref for Replacements {
+    type Target = [Replacement];
+
+    fn deref(&self) -> &Self::Target {
+        &self.entries
     }
 }
 
