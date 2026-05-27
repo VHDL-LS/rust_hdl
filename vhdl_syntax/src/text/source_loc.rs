@@ -288,7 +288,7 @@ fn record_non_comment_trivia<C: CharEncoding>(
                 line_starts.push(cursor + (i + 1) * 2);
             }
         }
-        TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
+        TriviaPiece::BlockComment(_) | TriviaPiece::LineComment(_) => {
             unreachable!("Handled by specific branch");
         }
         TriviaPiece::NonBreakingSpaces(n) => {

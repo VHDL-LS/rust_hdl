@@ -508,7 +508,7 @@ impl<'a> Iterator for Chars<'a> {
 
 impl<'a> ExactSizeIterator for Chars<'a> {}
 
-impl <'a> DoubleEndedIterator for Chars<'a> {
+impl<'a> DoubleEndedIterator for Chars<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|byte| *byte as char)
     }
