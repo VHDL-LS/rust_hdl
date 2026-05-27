@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::Range};
+use std::{collections::BTreeMap, convert::Infallible, ops::Range};
 
 use crate::{
     fmt::encoding::{BytePreservingEncoder, Encoder, LossyEncoder, Replacement},
@@ -69,17 +69,15 @@ pub struct SourceLocConverter {
 }
 
 impl SourceLocConverter {
-    /// Build the index by walking all tokens and trivia in the tree.
-    ///
-    /// `E` determines how comment bytes are decoded into characters.
-    /// `C` determines how each character's column width is measured.
-    /// Returns `Err` if a comment body cannot be decoded under `E`.
-    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(
+    fn build<C: CharEncoding, Err>(
         root: &SyntaxNode,
-    ) -> Result<SourceLocConverter, E::Err>
-    where
-        for<'a> E::Str<'a>: CharIter,
-    {
+        mut handle_piece: impl FnMut(
+            &TriviaPiece,
+            usize,
+            &mut Vec<usize>,
+            &mut BTreeMap<usize, Vec<WideChar>>,
+        ) -> Result<(), Err>,
+    ) -> Result<SourceLocConverter, Err> {
         let mut line_starts = vec![0usize];
         let mut wide_char_lines = BTreeMap::new();
         let mut cursor = 0usize;
@@ -87,11 +85,9 @@ impl SourceLocConverter {
         let mut tok = root.first_token();
         while let Some(t) = tok {
             for piece in t.leading_trivia() {
-                record_piece::<E, C>(piece, cursor, &mut line_starts, &mut wide_char_lines)?;
+                handle_piece(piece, cursor, &mut line_starts, &mut wide_char_lines)?;
                 cursor += piece.byte_len();
             }
-            // Text could contain newlines for unterminated inputs or characters that are multiple byte-offsets in the target encoding.
-            // Record it as well
             record_text::<C>(t.text(), cursor, &mut line_starts, &mut wide_char_lines);
             cursor += t.text().len();
             tok = t.next_token();
@@ -104,30 +100,31 @@ impl SourceLocConverter {
         })
     }
 
+    /// Build the index by walking all tokens and trivia in the tree.
+    ///
+    /// `E` determines how comment bytes are decoded into characters.
+    /// `C` determines how each character's column width is measured.
+    /// Returns `Err` if a comment body cannot be decoded under `E`.
+    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(
+        root: &SyntaxNode,
+    ) -> Result<SourceLocConverter, E::Err>
+    where
+        for<'a> E::Str<'a>: CharIter,
+    {
+        Self::build::<C, _>(root, |piece, cursor, line_starts, wide_char_lines| {
+            record_piece::<E, C>(piece, cursor, line_starts, wide_char_lines)
+        })
+    }
+
     pub fn new_lossy<E: LossyEncoder, C: CharEncoding>(root: &SyntaxNode) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
     {
-        let mut line_starts = vec![0usize];
-        let mut wide_char_lines = BTreeMap::new();
-        let mut cursor = 0usize;
-
-        let mut tok = root.first_token();
-        while let Some(t) = tok {
-            for piece in t.leading_trivia() {
-                record_piece_lossy::<E, C>(piece, cursor, &mut line_starts, &mut wide_char_lines);
-                cursor += piece.byte_len();
-            }
-            record_text::<C>(t.text(), cursor, &mut line_starts, &mut wide_char_lines);
-            cursor += t.text().len();
-            tok = t.next_token();
-        }
-
-        SourceLocConverter {
-            line_starts,
-            text_len: cursor,
-            wide_char_lines,
-        }
+        Self::build::<C, Infallible>(root, |piece, cursor, line_starts, wide_char_lines| {
+            record_piece_lossy::<E, C>(piece, cursor, line_starts, wide_char_lines);
+            Ok(())
+        })
+        .unwrap()
     }
 
     /// Convert a byte offset into a [`SourceLoc`].
