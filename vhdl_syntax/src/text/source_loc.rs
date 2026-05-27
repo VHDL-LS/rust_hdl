@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Range};
 
 use crate::{
-    fmt::encoding::Encoder,
+    fmt::encoding::{BytePreservingEncoder, Encoder, LossyEncoder, Replacements},
     latin_1::Latin1Str,
     syntax::node::SyntaxNode,
     text::{char_encoding::CharEncoding, char_iter::CharIter},
@@ -74,7 +74,7 @@ impl SourceLocConverter {
     /// `E` determines how comment bytes are decoded into characters.
     /// `C` determines how each character's column width is measured.
     /// Returns `Err` if a comment body cannot be decoded under `E`.
-    pub fn new<E: Encoder, C: CharEncoding>(root: &SyntaxNode) -> Result<SourceLocConverter, E::Err>
+    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(root: &SyntaxNode) -> Result<SourceLocConverter, E::Err>
     where
         for<'a> E::Str<'a>: CharIter,
     {
@@ -100,6 +100,32 @@ impl SourceLocConverter {
             text_len: cursor,
             wide_char_lines,
         })
+    }
+
+    pub fn new_lossy<E: LossyEncoder, C: CharEncoding>(root: &SyntaxNode) -> SourceLocConverter
+    where
+        for<'a> E::Str<'a>: CharIter,
+    {
+        let mut line_starts = vec![0usize];
+        let mut wide_char_lines = HashMap::new();
+        let mut cursor = 0usize;
+
+        let mut tok = root.first_token();
+        while let Some(t) = tok {
+            for piece in t.leading_trivia() {
+                record_piece_lossy::<E, C>(piece, cursor, &mut line_starts, &mut wide_char_lines);
+                cursor += piece.byte_len();
+            }
+            record_text::<C>(t.text(), cursor, &mut line_starts, &mut wide_char_lines);
+            cursor += t.text().len();
+            tok = t.next_token();
+        }
+
+        SourceLocConverter {
+            line_starts,
+            text_len: cursor,
+            wide_char_lines,
+        }
     }
 
     /// Convert a byte offset into a [`SourceLoc`].
@@ -155,17 +181,17 @@ impl SourceLocConverter {
     /// using UTF-8. This function correctly returns the beginning of the UTF-8 offset
     /// (if the encoder was constructed using a UTF-8 char encoding)
     pub fn convert_byte_offset(&self, offset: usize) -> usize {
-        let mut wide_adapt = 0usize;
+        let mut delta = 0usize;
         for (line, wide_chars) in &self.wide_char_lines {
             let line_start = self.line_starts[*line];
             for wide in wide_chars {
-                if wide.offset + line_start >= offset + wide_adapt {
+                if wide.offset + line_start >= offset {
                     break;
                 }
-                wide_adapt = wide_adapt + wide.byte_len;
+                delta += wide.target_len - wide.byte_len;
             }
         }
-        offset + wide_adapt as usize
+        offset + delta
     }
 
     pub fn convert_byte_span(&self, span: &Range<usize>) -> Range<usize> {
@@ -265,19 +291,115 @@ fn record_str<C: CharEncoding>(
     }
 }
 
-fn check<E: Encoder>(bytes: &[u8]) -> Result<(), E::Err> where for <'a> E::Str<'a> : AsRef<[u8]> + CharIter {
-    let res = E::encode(bytes)?;
-    let byte_len = res.byte_count();
-    if res.as_ref() != bytes {
-        let mut itr = res.iter_chars_indices().peekable();
-        while let Some((pos, el)) = itr.next() {
-            let next_pos = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
-            let byte_width = next_pos - pos;
+fn record_piece_lossy<E: LossyEncoder, C: CharEncoding>(
+    piece: &TriviaPiece,
+    cursor: usize,
+    line_starts: &mut Vec<usize>,
+    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+) where
+    for<'a> E::Str<'a>: CharIter,
+{
+    match piece {
+        TriviaPiece::LineFeeds(n)
+        | TriviaPiece::CarriageReturns(n)
+        | TriviaPiece::FormFeeds(n)
+        | TriviaPiece::VerticalTabs(n) => {
+            for i in 0..*n {
+                line_starts.push(cursor + i + 1);
+            }
+        }
+        TriviaPiece::CarriageReturnLineFeeds(n) => {
+            for i in 0..*n {
+                line_starts.push(cursor + (i + 1) * 2);
+            }
+        }
+        TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
+            let (encoded, replacements) = c.encode_lossy::<E>();
+            record_str_with_replacements::<C>(
+                encoded,
+                &replacements,
+                line_starts,
+                wide_char_lines,
+                cursor + 2,
+            );
+        }
+        _ => {}
+    }
+}
 
-            
+fn record_str_with_replacements<C: CharEncoding>(
+    encoded: impl CharIter,
+    replacements: &Replacements,
+    line_starts: &mut Vec<usize>,
+    wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
+    cursor: usize,
+) {
+    if replacements.is_empty() {
+        record_str::<C>(encoded, line_starts, wide_char_lines, cursor);
+        return;
+    }
+
+    let mut line = line_starts.len() - 1;
+    let mut itr = encoded.iter_chars_indices().peekable();
+    let byte_len = encoded.byte_count();
+    let entries = replacements.entries();
+    let mut repl_idx = 0;
+    // Accumulated difference between encoded and source positions.
+    // encoded_pos = source_pos + delta
+    let mut delta: usize = 0;
+
+    while let Some((enc_pos, ch)) = itr.next() {
+        let source_pos = enc_pos - delta;
+
+        if ch == '\n' {
+            line_starts.push(cursor + source_pos + 1);
+            line += 1;
+            continue;
+        }
+        if ch == '\r' {
+            if itr.peek().is_some_and(|(_, ch)| *ch == '\n') {
+                let _ = itr.next();
+                line_starts.push(cursor + source_pos + 2);
+            } else {
+                line_starts.push(cursor + source_pos + 1);
+            }
+            line += 1;
+            continue;
+        }
+
+        let enc_next = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
+        let enc_byte_width = enc_next - enc_pos;
+        let target_width = C::char_len(ch);
+
+        let at_replacement = repl_idx < entries.len()
+            && source_pos == entries[repl_idx].source_offset;
+
+        if at_replacement {
+            let r = &entries[repl_idx];
+            let source_byte_width = r.source_bytes;
+            if source_byte_width != target_width {
+                let abs_offset = cursor + source_pos;
+                let line_start = line_starts[line];
+                wide_char_lines.entry(line).or_default().push(WideChar {
+                    offset: abs_offset - line_start,
+                    byte_len: source_byte_width,
+                    target_len: target_width,
+                });
+            }
+            delta += r.target_bytes - r.source_bytes;
+            repl_idx += 1;
+        } else {
+            if enc_byte_width != 1 || enc_byte_width != target_width {
+                let abs_offset = cursor + source_pos;
+                let line_start = line_starts[line];
+                wide_char_lines.entry(line).or_default().push(WideChar {
+                    offset: abs_offset - line_start,
+                    byte_len: enc_byte_width,
+                    target_len: target_width,
+                });
+            }
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -288,13 +410,21 @@ mod tests {
     use crate::text::char_encoding::{Utf16, Utf32, Utf8};
     use crate::tokens::TokenStream;
 
-    fn converter<E: Encoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    fn converter<E: BytePreservingEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
         E::Err: std::fmt::Debug,
     {
         let (design_file, _) = parse(input);
         SourceLocConverter::new::<E, C>(&design_file.0).unwrap()
+    }
+
+    fn lossy_converter<E: LossyEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    where
+        for<'a> E::Str<'a>: CharIter
+    {
+        let (design_file, _) = parse(input);
+        SourceLocConverter::new_lossy::<E, C>(&design_file.0)
     }
 
     fn utf8_utf16(input: &str) -> SourceLocConverter {
@@ -458,34 +588,42 @@ mod tests {
 
     #[test]
     fn latin1_source_utf8_target_codepoint() {
-        let input: &[u8] = b"use \xE4 foo";
+        // \xE4 = Latin-1 'ä' (1 byte source, 2 bytes UTF-8 target)
+        // Layout: "--" (2) + "\xE4" (1) + "\n" (1) + "entity e is end;" (16)
+        let input: &[u8] = b"--\xE4\nentity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
         assert_eq!(conv.convert_byte_offset(0), 0);
-        assert_eq!(conv.convert_byte_offset(4), 4);
-        assert_eq!(conv.convert_byte_offset(5), 6);
+        assert_eq!(conv.convert_byte_offset(2), 2); // start of ä
+        assert_eq!(conv.convert_byte_offset(3), 4); // \n (after ä: delta +1)
+        assert_eq!(conv.convert_byte_offset(4), 5); // 'e' in entity
     }
 
     #[test]
     fn latin1_source_utf8_target_codepoint_twice() {
-        let input: &[u8] = b"use \xE4\xE4 foo";
+        // Two consecutive \xE4 in a line comment
+        // Layout: "--" (2) + "\xE4\xE4" (2) + "\n" (1) + "entity e is end;" (16)
+        let input: &[u8] = b"--\xE4\xE4\nentity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
         assert_eq!(conv.convert_byte_offset(0), 0);
-        assert_eq!(conv.convert_byte_offset(4), 4);
-        assert_eq!(conv.convert_byte_offset(5), 6);
-        assert_eq!(conv.convert_byte_offset(6), 8);
-        assert_eq!(conv.convert_byte_offset(7), 9);
+        assert_eq!(conv.convert_byte_offset(2), 2); // start of first ä
+        assert_eq!(conv.convert_byte_offset(3), 4); // start of second ä (delta +1)
+        assert_eq!(conv.convert_byte_offset(4), 6); // \n (delta +2)
+        assert_eq!(conv.convert_byte_offset(5), 7); // 'e' in entity
     }
 
     #[test]
     fn lossy_utf8_to_utf8() {
-        let input: &[u8] = b"/*\xE4\xE4*/ foo";
-        let conv = converter::<LossyUtf8Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0);
-        assert_eq!(conv.convert_byte_offset(1), 1);
-        assert_eq!(conv.convert_byte_offset(2), 2);
-        assert_eq!(conv.convert_byte_offset(3), 6);
-        assert_eq!(conv.convert_byte_offset(4), 9);
-        assert_eq!(conv.convert_byte_offset(5), 11);
+        // Two invalid UTF-8 bytes in a block comment, each replaced with U+FFFD (3 bytes)
+        // Layout: "/*" (2) + "\xE4\xE4" (2) + "*/" (2) + "entity e is end;" (16)
+        let input: &[u8] = b"/*\xE4\xE4*/entity e is end;";
+        let conv = lossy_converter::<LossyUtf8Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0); // '/'
+        assert_eq!(conv.convert_byte_offset(1), 1); // '*'
+        assert_eq!(conv.convert_byte_offset(2), 2); // first \xE4 → FFFD start
+        assert_eq!(conv.convert_byte_offset(3), 5); // second \xE4 → FFFD start (delta +2)
+        assert_eq!(conv.convert_byte_offset(4), 8); // '*' of */ (delta +4)
+        assert_eq!(conv.convert_byte_offset(5), 9); // '/' of */
+        assert_eq!(conv.convert_byte_offset(6), 10); // 'e' in entity
     }
 
     // Multiple wide chars on the same line
