@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 use crate::{
     fmt::encoding::Encoder,
@@ -21,6 +21,7 @@ pub struct SourceLoc {
     pub col: usize,
 }
 
+#[derive(Debug)]
 struct WideChar {
     // Byte offset relative to line start
     offset: usize,
@@ -148,6 +149,33 @@ impl SourceLocConverter {
             col: target_col,
         }
     }
+
+    /// Convert a compiler-issued byte-offset to a byte-offset under the given character encoding.
+    /// For example, a Latin-1 "ä" character occupies one byte but it occupies two bytes
+    /// using UTF-8. This function correctly returns the beginning of the UTF-8 offset
+    /// (if the encoder was constructed using a UTF-8 char encoding)
+    pub fn convert_byte_offset(&self, offset: usize) -> usize {
+        let mut wide_adapt = 0usize;
+        for (line, wide_chars) in &self.wide_char_lines {
+            let line_start = self.line_starts[*line];
+            for wide in wide_chars {
+                if wide.offset + line_start >= offset + wide_adapt {
+                    break;
+                }
+                wide_adapt = wide_adapt + wide.byte_len;
+            }
+        }
+        offset + wide_adapt as usize
+    }
+
+    pub fn convert_byte_span(&self, span: &Range<usize>) -> Range<usize> {
+        self.convert_byte_offset(span.start)..self.convert_byte_offset(span.end)
+    }
+
+    /// Returns the byte offset of the line at index.
+    pub fn line_start(&self, index: usize) -> usize {
+        self.line_starts[index]
+    }
 }
 
 fn record_text<C: CharEncoding>(
@@ -156,7 +184,7 @@ fn record_text<C: CharEncoding>(
     line_starts: &mut Vec<usize>,
     wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
 ) {
-    record_str::<C>(text, line_starts, wide_char_lines, cursor, text.len());
+    record_str::<C>(text, line_starts, wide_char_lines, cursor);
 }
 
 fn record_piece<E: Encoder, C: CharEncoding>(
@@ -189,8 +217,7 @@ where
                 c.encode::<E>()?,
                 line_starts,
                 wide_char_lines,
-                cursor + 2,
-                c.byte_len(),
+                cursor + 2
             );
         }
         _ => {}
@@ -203,10 +230,10 @@ fn record_str<C: CharEncoding>(
     line_starts: &mut Vec<usize>,
     wide_char_lines: &mut HashMap<usize, Vec<WideChar>>,
     cursor: usize,
-    byte_len: usize,
 ) {
     let mut line = line_starts.len() - 1;
     let mut itr = str.iter_chars_indices().peekable();
+    let byte_len = str.byte_count();
     while let Some((pos, ch)) = itr.next() {
         if ch == '\n' {
             line_starts.push(cursor + pos + 1);
@@ -226,7 +253,7 @@ fn record_str<C: CharEncoding>(
         let next_pos = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
         let byte_width = next_pos - pos;
         let char_width = C::char_len(ch);
-        if byte_width != char_width {
+        if byte_width != 1 || byte_width != char_width {
             let abs_offset = cursor + pos;
             let line_start = line_starts[line];
             wide_char_lines.entry(line).or_default().push(WideChar {
@@ -238,14 +265,30 @@ fn record_str<C: CharEncoding>(
     }
 }
 
+fn check<E: Encoder>(bytes: &[u8]) -> Result<(), E::Err> where for <'a> E::Str<'a> : AsRef<[u8]> + CharIter {
+    let res = E::encode(bytes)?;
+    let byte_len = res.byte_count();
+    if res.as_ref() != bytes {
+        let mut itr = res.iter_chars_indices().peekable();
+        while let Some((pos, el)) = itr.next() {
+            let next_pos = itr.peek().map(|(p, _)| *p).unwrap_or(byte_len);
+            let byte_width = next_pos - pos;
+
+            
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fmt::encoding::{Latin1Encoder, Utf8Encoder};
+    use crate::fmt::encoding::{Latin1Encoder, LossyUtf8Encoder, Utf8Encoder};
     use crate::parser::parse;
     use crate::text::char_encoding::{Utf16, Utf32, Utf8};
+    use crate::tokens::TokenStream;
 
-    fn converter<E: Encoder, C: CharEncoding>(input: &str) -> SourceLocConverter
+    fn converter<E: Encoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
         E::Err: std::fmt::Debug,
@@ -411,6 +454,38 @@ mod tests {
         let conv = converter::<Latin1Encoder, Utf16>(input);
         assert_eq!(loc(&conv, 0), (0, 0));
         assert_eq!(loc(&conv, 9), (1, 0));
+    }
+
+    #[test]
+    fn latin1_source_utf8_target_codepoint() {
+        let input: &[u8] = b"use \xE4 foo";
+        let conv = converter::<Latin1Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0);
+        assert_eq!(conv.convert_byte_offset(4), 4);
+        assert_eq!(conv.convert_byte_offset(5), 6);
+    }
+
+    #[test]
+    fn latin1_source_utf8_target_codepoint_twice() {
+        let input: &[u8] = b"use \xE4\xE4 foo";
+        let conv = converter::<Latin1Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0);
+        assert_eq!(conv.convert_byte_offset(4), 4);
+        assert_eq!(conv.convert_byte_offset(5), 6);
+        assert_eq!(conv.convert_byte_offset(6), 8);
+        assert_eq!(conv.convert_byte_offset(7), 9);
+    }
+
+    #[test]
+    fn lossy_utf8_to_utf8() {
+        let input: &[u8] = b"/*\xE4\xE4*/ foo";
+        let conv = converter::<LossyUtf8Encoder, Utf8>(input);
+        assert_eq!(conv.convert_byte_offset(0), 0);
+        assert_eq!(conv.convert_byte_offset(1), 1);
+        assert_eq!(conv.convert_byte_offset(2), 2);
+        assert_eq!(conv.convert_byte_offset(3), 6);
+        assert_eq!(conv.convert_byte_offset(4), 9);
+        assert_eq!(conv.convert_byte_offset(5), 11);
     }
 
     // Multiple wide chars on the same line

@@ -12,12 +12,18 @@
 /// This is *not* the byte width in the source file.
 pub trait CharEncoding {
     fn char_len(ch: char) -> usize;
+
+    fn byte_len(ch: char) -> usize;
 }
 
 /// UTF-8: 1–4 code units (bytes) per character.
 pub struct Utf8;
 impl CharEncoding for Utf8 {
     fn char_len(ch: char) -> usize {
+        ch.len_utf8()
+    }
+
+    fn byte_len(ch: char) -> usize {
         ch.len_utf8()
     }
 }
@@ -28,6 +34,10 @@ impl CharEncoding for Utf16 {
     fn char_len(ch: char) -> usize {
         ch.len_utf16()
     }
+
+    fn byte_len(ch: char) -> usize {
+        ch.len_utf16() * 2
+    }
 }
 
 /// UTF-32 / code point index: always 1 unit per character.
@@ -35,6 +45,10 @@ pub struct Utf32;
 impl CharEncoding for Utf32 {
     fn char_len(_ch: char) -> usize {
         1
+    }
+
+    fn byte_len(_ch: char) -> usize {
+        4
     }
 }
 
@@ -44,6 +58,10 @@ impl CharEncoding for Utf32 {
 pub struct Latin1;
 impl CharEncoding for Latin1 {
     fn char_len(_ch: char) -> usize {
+        1
+    }
+
+    fn byte_len(_ch: char) -> usize {
         1
     }
 }

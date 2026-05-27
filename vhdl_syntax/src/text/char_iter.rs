@@ -11,11 +11,21 @@ use crate::latin_1::Latin1Str;
 pub trait CharIter {
     /// Return an iterator yielding the byte position and the character
     fn iter_chars_indices(&self) -> impl Iterator<Item = (usize, char)>;
+
+    /// Returns the total number of bytes this iterator will iterate over
+    fn byte_count(&self) -> usize;
 }
 
-impl CharIter for &str {
+impl<T> CharIter for T
+where
+    T: AsRef<str>,
+{
     fn iter_chars_indices(&self) -> impl Iterator<Item = (usize, char)> {
-        self.char_indices()
+        self.as_ref().char_indices()
+    }
+
+    fn byte_count(&self) -> usize {
+        self.as_ref().len()
     }
 }
 
@@ -23,5 +33,9 @@ impl CharIter for &Latin1Str {
     fn iter_chars_indices(&self) -> impl Iterator<Item = (usize, char)> {
         // Every byte is one character in Latin-1, so byte index == char index.
         self.chars().enumerate()
+    }
+
+    fn byte_count(&self) -> usize {
+        self.len()
     }
 }
