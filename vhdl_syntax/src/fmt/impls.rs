@@ -4,7 +4,9 @@ use std::{borrow::Cow, fmt, str::Utf8Error};
 
 use crate::{
     fmt::{
-        encoding::{Encoder, Latin1Encoder, LossyEncoder, LossyUtf8Encoder, Replacements, Utf8Encoder},
+        encoding::{
+            Encoder, Latin1Encoder, LossyEncoder, LossyUtf8Encoder, Replacements, Utf8Encoder,
+        },
         write::{WriteEncoded, WriteError, WriteResult},
     },
     latin_1::Latin1Str,
@@ -12,7 +14,7 @@ use crate::{
         green::{GreenChild, GreenNode, GreenToken},
         node::{SyntaxNode, SyntaxToken},
     },
-    tokens::{Token, Trivia, TriviaPiece, trivia_piece::Comment},
+    tokens::{trivia_piece::Comment, Token, Trivia, TriviaPiece},
 };
 
 // MARK: Token

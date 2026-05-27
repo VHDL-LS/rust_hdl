@@ -34,16 +34,19 @@ pub trait BytePreservingEncoder: Encoder {}
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Replacement {
     /// Byte offset within the input slice where the replacement occurred.
-    pub offset: usize,
+    pub source_offset: usize,
     /// Number of source bytes consumed by this replacement.
-    pub bytes_consumed: usize,
+    pub source_bytes: usize,
+    /// Number of new bytes emitted
+    pub target_bytes: usize,
 }
 
 impl Replacement {
-    pub fn new(offset: usize, bytes_consumed: usize) -> Replacement {
+    pub fn new(source_offset: usize, source_bytes: usize, target_bytes: usize) -> Replacement {
         Replacement {
-            offset,
-            bytes_consumed,
+            source_offset,
+            source_bytes,
+            target_bytes,
         }
     }
 }
@@ -58,10 +61,11 @@ impl Replacements {
         Replacements::default()
     }
 
-    pub fn push(&mut self, offset: usize, bytes: usize) {
+    pub fn push(&mut self, offset: usize, source_bytes: usize, target_bytes: usize) {
         self.entries.push(Replacement {
-            offset,
-            bytes_consumed: bytes,
+            source_offset: offset,
+            source_bytes,
+            target_bytes,
         });
     }
 
@@ -127,14 +131,14 @@ impl LossyEncoder for LossyUtf8Encoder {
         res.push_str(first_valid);
         cursor += first_valid.len();
         res.push_str(REPLACEMENT);
-        replacements.push(cursor, chunk.invalid().len());
+        replacements.push(cursor, chunk.invalid().len(), REPLACEMENT.len());
         cursor += chunk.invalid().len();
 
         for chunk in iter {
             res.push_str(chunk.valid());
             cursor += chunk.valid().len();
             if !chunk.invalid().is_empty() {
-                replacements.push(cursor, chunk.invalid().len());
+                replacements.push(cursor, chunk.invalid().len(), REPLACEMENT.len());
                 cursor += chunk.invalid().len();
                 res.push_str(REPLACEMENT);
             }
@@ -205,7 +209,7 @@ mod tests {
     fn single_invalid_byte() {
         let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4");
         assert_eq!(s, "\u{FFFD}");
-        assert_eq!(r.entries(), &[Replacement::new(0, 1)]);
+        assert_eq!(r.entries(), &[Replacement::new(0, 1, 3)]);
     }
 
     #[test]
@@ -214,7 +218,7 @@ mod tests {
         assert_eq!(s, "\u{FFFD}\u{FFFD}");
         assert_eq!(
             r.entries(),
-            &[Replacement::new(0, 1), Replacement::new(1, 1)]
+            &[Replacement::new(0, 1, 3), Replacement::new(1, 1, 3)]
         );
     }
 
@@ -222,14 +226,14 @@ mod tests {
     fn invalid_then_valid() {
         let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4ABCD");
         assert_eq!(s, "\u{FFFD}ABCD");
-        assert_eq!(r.entries(), &[Replacement::new(0, 1)]);
+        assert_eq!(r.entries(), &[Replacement::new(0, 1, 3)]);
     }
 
     #[test]
     fn valid_then_invalid() {
         let (s, r) = LossyUtf8Encoder::encode_lossy(b"ABCD\xE4");
         assert_eq!(s, "ABCD\u{FFFD}");
-        assert_eq!(r.entries(), &[Replacement::new(4, 1)]);
+        assert_eq!(r.entries(), &[Replacement::new(4, 1, 3)]);
     }
 
     #[test]
@@ -238,7 +242,7 @@ mod tests {
         assert_eq!(s, "AB\u{FFFD}\u{FFFD}CD");
         assert_eq!(
             r.entries(),
-            &[Replacement::new(2, 1), Replacement::new(3, 1)]
+            &[Replacement::new(2, 1, 3), Replacement::new(3, 1, 3)]
         );
     }
 
@@ -249,9 +253,9 @@ mod tests {
         assert_eq!(
             r.entries(),
             &[
-                Replacement::new(0, 1),
-                Replacement::new(3, 1),
-                Replacement::new(6, 1)
+                Replacement::new(0, 1, 3),
+                Replacement::new(3, 1, 3),
+                Replacement::new(6, 1, 3)
             ]
         );
     }
@@ -261,7 +265,7 @@ mod tests {
         // 0xF0 0x9F: valid start of a 4-byte sequence (e.g., emoji), truncated
         let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xF0\x9FAB");
         assert_eq!(s, "\u{FFFD}AB");
-        assert_eq!(r.entries(), &[Replacement::new(0, 2)]);
+        assert_eq!(r.entries(), &[Replacement::new(0, 2, 3)]);
     }
 
     #[test]
@@ -271,7 +275,7 @@ mod tests {
         assert_eq!(s, "\u{FFFD}\u{FFFD}AB");
         assert_eq!(
             r.entries(),
-            &[Replacement::new(0, 1), Replacement::new(1, 1)]
+            &[Replacement::new(0, 1, 3), Replacement::new(1, 1, 3)]
         );
     }
 
@@ -282,7 +286,7 @@ mod tests {
         assert_eq!(s, "\u{FFFD}ä\u{FFFD}");
         assert_eq!(
             r.entries(),
-            &[Replacement::new(0, 1), Replacement::new(3, 1)]
+            &[Replacement::new(0, 1, 3), Replacement::new(3, 1, 3)]
         );
     }
 }
