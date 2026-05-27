@@ -2,7 +2,12 @@ use std::{path::PathBuf, process::ExitCode};
 
 use annotate_snippets::{renderer::DecorStyle, Renderer};
 use clap::Parser;
-use vhdl_syntax::{parser, source_location::SourceLocConverter, syntax::AstNode};
+use vhdl_syntax::{
+    fmt::encoding::LossyUtf8Encoder,
+    parser,
+    syntax::AstNode,
+    text::{char_encoding, source_loc::SourceLocConverter},
+};
 
 use crate::reporting::parser_diagnostic_to_report;
 
@@ -30,7 +35,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let cache = SourceLocConverter::new_utf8_lossy(&ast.raw());
+    let cache = SourceLocConverter::new_lossy::<LossyUtf8Encoder, char_encoding::Utf8>(&ast.raw());
 
     let fname = args.file.file_name().map(|path| path.to_string_lossy());
 

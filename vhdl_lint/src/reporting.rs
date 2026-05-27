@@ -36,17 +36,16 @@ where
     let last_byte = byte_range.end.saturating_sub(1).max(byte_range.start);
     let start_line = cache.source_loc(byte_range.start).line;
     let end_line = cache.source_loc(last_byte).line;
-    let first = start_line.saturating_sub(surplus).max(1);
+    let first = start_line.saturating_sub(surplus);
     let last = end_line.saturating_add(surplus);
-    let base = cache.line_start(first);
+    let base = cache.convert_byte_offset(cache.line_start(first));
 
     let mut result = String::new();
     for (i, line) in full.split_inclusive('\n').enumerate() {
-        let line_num = i + 1;
-        if line_num > last {
+        if i > last {
             break;
         }
-        if line_num >= first {
+        if i >= first {
             result.push_str(line);
         }
     }
@@ -66,7 +65,8 @@ pub fn parser_diagnostic_to_report<'a>(
         } => {
             let (snippet, base) =
                 lines::<LossyUtf8Encoder>(tree, cache, *insertion_pos..found_pos.end, 0).unwrap();
-            let ins = *insertion_pos - base;
+            let ins = cache.convert_byte_offset(*insertion_pos) - base;
+            let found_pos = cache.convert_byte_span(found_pos);
             let found_rel = (found_pos.start - base)..(found_pos.end - base);
             let mut annotations = vec![AnnotationKind::Primary
                 .span(ins..ins)
@@ -83,18 +83,19 @@ pub fn parser_diagnostic_to_report<'a>(
                 .primary_title(expected_token_message(expected, *found))
                 .element(
                     Snippet::source(snippet)
-                        .line_start(cache.source_loc(*insertion_pos).line)
+                        .line_start(cache.source_loc(*insertion_pos).line + 1)
                         .path(file_name)
                         .annotations(annotations),
                 )
         }
         ParserDiagnostic::UnexpectedInput { span } => {
             let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let span = cache.convert_byte_span(span);
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR.primary_title("Unexpected input").element(
                 Snippet::source(snippet)
-                    .line_start(cache.source_loc(span.start).line)
+                    .line_start(cache.source_loc(span.start).line + 1)
                     .path(file_name)
                     .annotation(
                         AnnotationKind::Primary
@@ -105,11 +106,12 @@ pub fn parser_diagnostic_to_report<'a>(
         }
         ParserDiagnostic::IllegalInput { span, text: _ } => {
             let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let span = cache.convert_byte_span(span);
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR.primary_title("Illegal input").element(
                 Snippet::source(snippet)
-                    .line_start(cache.source_loc(span.start).line)
+                    .line_start(cache.source_loc(span.start).line + 1)
                     .path(file_name)
                     .annotation(
                         AnnotationKind::Primary
@@ -121,13 +123,14 @@ pub fn parser_diagnostic_to_report<'a>(
         // TODO: For unterminated: highlight start delimiter
         ParserDiagnostic::Unterminated { span, kind } => {
             let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
+            let span = cache.convert_byte_span(span);
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR
                 .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
                 .element(
                     Snippet::source(snippet)
-                        .line_start(cache.source_loc(span.start).line)
+                        .line_start(cache.source_loc(span.start).line + 1)
                         .path(file_name)
                         .annotation(
                             AnnotationKind::Primary
