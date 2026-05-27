@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt, str::Utf8Error};
 
 use crate::{
     fmt::{
-        encoding::{Encoder, Latin1Encoder, LossyUtf8Encoder, Utf8Encoder},
+        encoding::{Encoder, Latin1Encoder, LossyEncoder, LossyUtf8Encoder, Replacements, Utf8Encoder},
         write::{WriteEncoded, WriteError, WriteResult},
     },
     latin_1::Latin1Str,
@@ -12,7 +12,7 @@ use crate::{
         green::{GreenChild, GreenNode, GreenToken},
         node::{SyntaxNode, SyntaxToken},
     },
-    tokens::{trivia_piece::Comment, Token, Trivia, TriviaPiece},
+    tokens::{Token, Trivia, TriviaPiece, trivia_piece::Comment},
 };
 
 // MARK: Token
@@ -78,6 +78,11 @@ impl Comment {
     /// Encode this comment using the specified encoder
     pub fn encode<E: Encoder>(&self) -> Result<E::Str<'_>, E::Err> {
         E::encode(self.as_bytes())
+    }
+
+    /// Encode this comment lossy and return all [Replacements]
+    pub fn encode_lossy<E: LossyEncoder>(&self) -> (E::Str<'_>, Replacements) {
+        E::encode_lossy(self.as_bytes())
     }
 
     pub fn as_latin1(&self) -> &Latin1Str {

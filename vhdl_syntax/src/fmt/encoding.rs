@@ -12,33 +12,79 @@ use std::{borrow::Cow, convert::Infallible, str::Utf8Error};
 
 use crate::latin_1::Latin1Str;
 
-/// A generic encoder.
-/// This trait is very general to support various use-cases.
-/// Callers should further restrict the associated types to support concrete use-cases.
-/// For example, a caller might require `for <'a> Str<'a> : Display` to print the encoded string to some console.
+/// Interprets a byte slice as a string in some encoding.
 ///
-/// Each encoder has an associated `Str` type.
-/// This is the string when encoded in the specific encoding. For example,
-/// for `latin-1`, this could be the [Latin1Str] type. For UTF-8, it's the builtin [str]
-/// type.
+/// Callers can further restrict the associated types for concrete use-cases
+/// (e.g., `for<'a> E::Str<'a>: Display` for printing).
 ///
-/// This trait supports lossless and lossy encodings.
-/// Lossless encoding may return an `Err` (e.g., [Utf8Error] when encoding UTF-8),
-/// indicating that the given byte-sequence does not represent a valid string under the given encoding.
-///
-/// Lossy encoders should set `Err` to [Infallible] when they always produce valid output.
+/// Encoding may fail (e.g., invalid UTF-8). Lossy encoders that always succeed
+/// should also implement [`LossyEncoder`].
 pub trait Encoder {
-    /// The type that represents the encoded string.
-    /// This carries a lifetime such that encoding can happen cheaply.
-    /// Commonly, the `Str` type is a light wrapper around the given byte-sequence
-    /// with certain guarantees and behaviour. This is the case for [str] and [Latin1Str],
-    /// the two most used encoders.
+    /// The encoded string type. Carries a lifetime so encoding can be zero-copy.
     type Str<'a>;
-    /// The error that may occur when encoding a string.
     type Err;
 
-    /// Encode a byte-slice and return the string if successful or an error if not.
     fn encode(bytes: &[u8]) -> Result<Self::Str<'_>, Self::Err>;
+}
+
+/// Marker: encoding reinterprets the input bytes without modifying them.
+/// The encoded `Str` has the same byte representation as the input.
+pub trait BytePreservingEncoder: Encoder {}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Replacement {
+    /// Byte offset within the input slice where the replacement occurred.
+    pub offset: usize,
+    /// Number of source bytes consumed by this replacement.
+    pub bytes_consumed: usize,
+}
+
+impl Replacement {
+    pub fn new(offset: usize, bytes_consumed: usize) -> Replacement {
+        Replacement {
+            offset,
+            bytes_consumed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Replacements {
+    entries: Vec<Replacement>,
+}
+
+impl Replacements {
+    pub fn new() -> Replacements {
+        Replacements::default()
+    }
+
+    pub fn push(&mut self, offset: usize, bytes: usize) {
+        self.entries.push(Replacement {
+            offset,
+            bytes_consumed: bytes,
+        });
+    }
+
+    pub fn entries(&self) -> &[Replacement] {
+        &self.entries
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+/// An encoder that always succeeds, replacing invalid byte sequences
+/// rather than returning an error. Returns the encoded string together
+/// with a record of which source bytes were replaced.
+pub trait LossyEncoder {
+    type Str<'a>;
+
+    fn encode_lossy(bytes: &[u8]) -> (Self::Str<'_>, Replacements);
 }
 
 /// Encodes UTF-8 sequences. May fail with a `Utf8Error`
@@ -53,11 +99,54 @@ impl Encoder for Utf8Encoder {
     }
 }
 
+impl BytePreservingEncoder for Utf8Encoder {}
+
 /// A UTF-8 encoder that never fails and replaces each invalid byte with a replacement sequence.
 pub struct LossyUtf8Encoder;
 
+impl LossyEncoder for LossyUtf8Encoder {
+    type Str<'a> = Cow<'a, str>;
+
+    fn encode_lossy(bytes: &[u8]) -> (Self::Str<'_>, Replacements) {
+        let mut iter = bytes.utf8_chunks();
+        let Some(chunk) = iter.next() else {
+            return (Cow::Borrowed(""), Replacements::default());
+        };
+        let first_valid = chunk.valid();
+        if chunk.invalid().is_empty() {
+            debug_assert_eq!(first_valid.len(), bytes.len());
+            return (Cow::Borrowed(first_valid), Replacements::default());
+        }
+
+        const REPLACEMENT: &str = "\u{FFFD}";
+
+        let mut res = String::with_capacity(bytes.len());
+        let mut replacements = Replacements::new();
+        let mut cursor = 0usize;
+
+        res.push_str(first_valid);
+        cursor += first_valid.len();
+        res.push_str(REPLACEMENT);
+        replacements.push(cursor, chunk.invalid().len());
+        cursor += chunk.invalid().len();
+
+        for chunk in iter {
+            res.push_str(chunk.valid());
+            cursor += chunk.valid().len();
+            if !chunk.invalid().is_empty() {
+                replacements.push(cursor, chunk.invalid().len());
+                cursor += chunk.invalid().len();
+                res.push_str(REPLACEMENT);
+            }
+        }
+
+        (Cow::Owned(res), replacements)
+    }
+}
+
 impl Encoder for LossyUtf8Encoder {
     type Str<'a> = Cow<'a, str>;
+
     type Err = Infallible;
 
     fn encode(bytes: &[u8]) -> Result<Self::Str<'_>, Self::Err> {
@@ -74,5 +163,126 @@ impl Encoder for Latin1Encoder {
 
     fn encode(bytes: &[u8]) -> Result<Self::Str<'_>, Self::Err> {
         Ok(Latin1Str::new(bytes))
+    }
+}
+
+impl LossyEncoder for Latin1Encoder {
+    type Str<'a> = &'a Latin1Str;
+
+    fn encode_lossy(bytes: &[u8]) -> (Self::Str<'_>, Replacements) {
+        (Latin1Str::new(bytes), Replacements::default())
+    }
+}
+
+impl BytePreservingEncoder for Latin1Encoder {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"");
+        assert_eq!(s, "");
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn all_valid_ascii() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"hello world");
+        assert_eq!(s, "hello world");
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn all_valid_multibyte() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy("äöü💣".as_bytes());
+        assert_eq!(s, "äöü💣");
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn single_invalid_byte() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4");
+        assert_eq!(s, "\u{FFFD}");
+        assert_eq!(r.entries(), &[Replacement::new(0, 1)]);
+    }
+
+    #[test]
+    fn two_consecutive_invalid_bytes() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4\xE5");
+        assert_eq!(s, "\u{FFFD}\u{FFFD}");
+        assert_eq!(
+            r.entries(),
+            &[Replacement::new(0, 1), Replacement::new(1, 1)]
+        );
+    }
+
+    #[test]
+    fn invalid_then_valid() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4ABCD");
+        assert_eq!(s, "\u{FFFD}ABCD");
+        assert_eq!(r.entries(), &[Replacement::new(0, 1)]);
+    }
+
+    #[test]
+    fn valid_then_invalid() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"ABCD\xE4");
+        assert_eq!(s, "ABCD\u{FFFD}");
+        assert_eq!(r.entries(), &[Replacement::new(4, 1)]);
+    }
+
+    #[test]
+    fn invalid_between_valid() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"AB\xE4\xE5CD");
+        assert_eq!(s, "AB\u{FFFD}\u{FFFD}CD");
+        assert_eq!(
+            r.entries(),
+            &[Replacement::new(2, 1), Replacement::new(3, 1)]
+        );
+    }
+
+    #[test]
+    fn multiple_invalid_groups_separated_by_valid() {
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4AB\xE5CD\xE6");
+        assert_eq!(s, "\u{FFFD}AB\u{FFFD}CD\u{FFFD}");
+        assert_eq!(
+            r.entries(),
+            &[
+                Replacement::new(0, 1),
+                Replacement::new(3, 1),
+                Replacement::new(6, 1)
+            ]
+        );
+    }
+
+    #[test]
+    fn incomplete_multibyte_sequence() {
+        // 0xF0 0x9F: valid start of a 4-byte sequence (e.g., emoji), truncated
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xF0\x9FAB");
+        assert_eq!(s, "\u{FFFD}AB");
+        assert_eq!(r.entries(), &[Replacement::new(0, 2)]);
+    }
+
+    #[test]
+    fn overlong_encoding_splits_into_separate_replacements() {
+        // 0xF0 0x80: 0x80 is not a valid second byte after 0xF0 (needs 0x90..=0xBF)
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xF0\x80AB");
+        assert_eq!(s, "\u{FFFD}\u{FFFD}AB");
+        assert_eq!(
+            r.entries(),
+            &[Replacement::new(0, 1), Replacement::new(1, 1)]
+        );
+    }
+
+    #[test]
+    fn valid_multibyte_between_invalid() {
+        // ä = C3 A4 in UTF-8
+        let (s, r) = LossyUtf8Encoder::encode_lossy(b"\xE4\xC3\xA4\xE5");
+        assert_eq!(s, "\u{FFFD}ä\u{FFFD}");
+        assert_eq!(
+            r.entries(),
+            &[Replacement::new(0, 1), Replacement::new(3, 1)]
+        );
     }
 }
