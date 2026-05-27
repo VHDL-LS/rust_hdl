@@ -225,19 +225,6 @@ where
     for<'a> E::Str<'a>: CharIter,
 {
     match piece {
-        TriviaPiece::LineFeeds(n)
-        | TriviaPiece::CarriageReturns(n)
-        | TriviaPiece::FormFeeds(n)
-        | TriviaPiece::VerticalTabs(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + i + 1);
-            }
-        }
-        TriviaPiece::CarriageReturnLineFeeds(n) => {
-            for i in 0..*n {
-                line_starts.push(cursor + (i + 1) * 2);
-            }
-        }
         // Note: In theory, `LineComment`s don't need the special newline handling, it's just included here for simplicity.
         // If performance ever becomes a bottleneck, this can be split.
         TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
@@ -249,22 +236,9 @@ where
                 cursor + 2,
             );
         }
-        TriviaPiece::NonBreakingSpaces(n) => {
-            let target_len = C::char_len('\u{00A0}');
-            if target_len != 1 {
-                let line = line_starts.len() - 1;
-                let line_start = line_starts[line];
-                for i in 0..*n {
-                    let abs_offset = cursor + i;
-                    wide_char_lines.entry(line).or_default().push(WideChar {
-                        offset: abs_offset - line_start,
-                        byte_len: 1,
-                        target_len,
-                    });
-                }
-            }
+        other => {
+            record_non_comment_trivia::<C>(other, cursor, line_starts, wide_char_lines);
         }
-        _ => {}
     }
     Ok(())
 }
@@ -277,6 +251,29 @@ fn record_piece_lossy<E: LossyEncoder, C: CharEncoding>(
 ) where
     for<'a> E::Str<'a>: CharIter,
 {
+    match piece {
+        TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
+            let (encoded, replacements) = c.encode_lossy::<E>();
+            record_str::<C>(
+                encoded,
+                &replacements,
+                line_starts,
+                wide_char_lines,
+                cursor + 2,
+            );
+        }
+        other => {
+            record_non_comment_trivia::<C>(other, cursor, line_starts, wide_char_lines);
+        }
+    }
+}
+
+fn record_non_comment_trivia<C: CharEncoding>(
+    piece: &TriviaPiece,
+    cursor: usize,
+    line_starts: &mut Vec<usize>,
+    wide_char_lines: &mut BTreeMap<usize, Vec<WideChar>>,
+) {
     match piece {
         TriviaPiece::LineFeeds(n)
         | TriviaPiece::CarriageReturns(n)
@@ -292,14 +289,7 @@ fn record_piece_lossy<E: LossyEncoder, C: CharEncoding>(
             }
         }
         TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
-            let (encoded, replacements) = c.encode_lossy::<E>();
-            record_str::<C>(
-                encoded,
-                &replacements,
-                line_starts,
-                wide_char_lines,
-                cursor + 2,
-            );
+            unreachable!("Handled by specific branch");
         }
         TriviaPiece::NonBreakingSpaces(n) => {
             let target_len = C::char_len('\u{00A0}');
