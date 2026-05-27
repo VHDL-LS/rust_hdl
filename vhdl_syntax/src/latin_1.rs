@@ -506,7 +506,7 @@ impl<'a> Iterator for Chars<'a> {
     }
 }
 
-impl <'a> ExactSizeIterator for Chars<'a> {}
+impl<'a> ExactSizeIterator for Chars<'a> {}
 
 impl Latin1Str {
     pub fn new(bytes: &[u8]) -> &Latin1Str {

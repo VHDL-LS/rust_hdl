@@ -74,7 +74,9 @@ impl SourceLocConverter {
     /// `E` determines how comment bytes are decoded into characters.
     /// `C` determines how each character's column width is measured.
     /// Returns `Err` if a comment body cannot be decoded under `E`.
-    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(root: &SyntaxNode) -> Result<SourceLocConverter, E::Err>
+    pub fn new<E: BytePreservingEncoder, C: CharEncoding>(
+        root: &SyntaxNode,
+    ) -> Result<SourceLocConverter, E::Err>
     where
         for<'a> E::Str<'a>: CharIter,
     {
@@ -239,12 +241,7 @@ where
         // Note: In theory, `LineComment`s don't need the special newline handling, it's just included here for simplicity.
         // If performance ever becomes a bottleneck, this can be split.
         TriviaPiece::BlockComment(c) | TriviaPiece::LineComment(c) => {
-            record_str::<C>(
-                c.encode::<E>()?,
-                line_starts,
-                wide_char_lines,
-                cursor + 2
-            );
+            record_str::<C>(c.encode::<E>()?, line_starts, wide_char_lines, cursor + 2);
         }
         _ => {}
     }
@@ -371,8 +368,8 @@ fn record_str_with_replacements<C: CharEncoding>(
         let enc_byte_width = enc_next - enc_pos;
         let target_width = C::char_len(ch);
 
-        let at_replacement = repl_idx < entries.len()
-            && source_pos == entries[repl_idx].source_offset;
+        let at_replacement =
+            repl_idx < entries.len() && source_pos == entries[repl_idx].source_offset;
 
         if at_replacement {
             let r = &entries[repl_idx];
@@ -410,7 +407,9 @@ mod tests {
     use crate::text::char_encoding::{Utf16, Utf32, Utf8};
     use crate::tokens::TokenStream;
 
-    fn converter<E: BytePreservingEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    fn converter<E: BytePreservingEncoder, C: CharEncoding>(
+        input: impl Into<TokenStream>,
+    ) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
         E::Err: std::fmt::Debug,
@@ -419,9 +418,11 @@ mod tests {
         SourceLocConverter::new::<E, C>(&design_file.0).unwrap()
     }
 
-    fn lossy_converter<E: LossyEncoder, C: CharEncoding>(input: impl Into<TokenStream>) -> SourceLocConverter
+    fn lossy_converter<E: LossyEncoder, C: CharEncoding>(
+        input: impl Into<TokenStream>,
+    ) -> SourceLocConverter
     where
-        for<'a> E::Str<'a>: CharIter
+        for<'a> E::Str<'a>: CharIter,
     {
         let (design_file, _) = parse(input);
         SourceLocConverter::new_lossy::<E, C>(&design_file.0)
