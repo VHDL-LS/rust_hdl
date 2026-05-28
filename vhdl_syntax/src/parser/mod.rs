@@ -34,6 +34,10 @@ pub struct Parser {
     /// (the tokens that may legally appear immediately after the node closes).
     /// Used as the cumulative recovery set during panic-mode skipping.
     pub(crate) sync_stack: Vec<&'static [TokenKind]>,
+    /// Builder position at the last `expect_tokens_recover` call that made no
+    /// progress.  When recovery is invoked a second time at the same position,
+    /// we force-skip a token to guarantee forward progress.
+    last_recovery_pos: Option<usize>,
 }
 
 impl Parser {
@@ -45,6 +49,7 @@ impl Parser {
             unexpected_eof: false,
             standard,
             sync_stack: Vec::new(),
+            last_recovery_pos: None,
         }
     }
 

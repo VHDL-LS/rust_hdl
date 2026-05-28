@@ -9,39 +9,6 @@ use crate::parser::Parser;
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
-/// Tokens that begin a new design unit. Carried by `DesignFile` so any
-/// runaway skip eventually terminates at the start of the next unit, even
-/// if every intermediate frame has an empty FOLLOW.
-const DESIGN_UNIT_STARTERS: &[TokenKind] = &[
-    TokenKind::SemiColon,
-    TokenKind::Keyword(Kw::Entity),
-    TokenKind::Keyword(Kw::Architecture),
-    TokenKind::Keyword(Kw::Package),
-    TokenKind::Keyword(Kw::Configuration),
-    TokenKind::Keyword(Kw::Context),
-    TokenKind::Keyword(Kw::Library),
-    TokenKind::Keyword(Kw::Use),
-];
-
-pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
-    match nk {
-        // Bottom-of-stack frame: always present, guarantees recovery
-        // terminates at the next top-level construct.
-        NodeKind::DesignFile => DESIGN_UNIT_STARTERS,
-
-        // Inside an argument/element list of a parenthesised construct,
-        // the natural recovery points are the comma separator and the
-        // closing paren.
-        NodeKind::ActualPart | NodeKind::ActualPartExpression | NodeKind::ActualPartOpen => {
-            &[TokenKind::RightPar, TokenKind::Comma]
-        }
-
-        // Everything else: no node-specific recovery yet. Falls back on
-        // ancestors via the sync stack.
-        _ => &[],
-    }
-}
-
 impl Parser {
     /// Is `tok` somewhere in the FOLLOW set of any currently-open node?
     /// Used by error recovery to decide when to stop panic-mode skipping.
@@ -51,12 +18,20 @@ impl Parser {
 
     /// Publish diagnostics and recover when expecting one of several tokens.
     pub(crate) fn expect_tokens_recover<const N: usize>(&mut self, expected: [TokenKind; N]) {
-        assert!(
+        debug_assert!(
             !expected.contains(&self.peek_token()),
             "should only be called on an error path"
         );
 
         let start = self.builder.current_pos();
+
+        // If recovery was already called at this position without making
+        // progress, force-skip a token to prevent infinite loops.
+        if self.last_recovery_pos == Some(start) {
+            self.last_recovery_pos = None;
+            self.skip();
+            return;
+        }
 
         // We're at EoF -> emit an EoF diagnostic if we haven't already
         if self.peek_token().is_eof() {
@@ -69,14 +44,21 @@ impl Parser {
             return;
         }
 
+        let initial_trivia_len = self
+            .token_stream
+            .peek_next()
+            .map(|tok| tok.leading_trivia().byte_len())
+            .unwrap_or(0);
         let mut skipped_any = false;
         loop {
             let tok = self.peek_token();
             // Expected contains the token before we hit recovery or EoF -> Assume garbage input
             if expected.contains(&tok) {
                 let end = self.builder.current_pos();
-                self.diagnostics
-                    .push(ParserDiagnostic::unexpected_input(start..end));
+                self.diagnostics.push(ParserDiagnostic::unexpected_input(
+                    start + initial_trivia_len..end,
+                ));
+                self.last_recovery_pos = None;
                 return;
             }
 
@@ -96,11 +78,13 @@ impl Parser {
                         .unwrap_or(start..start);
                     self.diagnostics
                         .push(ParserDiagnostic::missing_token(expected, start, tok, pos));
+                    self.last_recovery_pos = Some(start);
                 // skipped tokens: Garbage input before recovery token.
                 } else {
                     self.diagnostics.push(ParserDiagnostic::unexpected_input(
-                        start..self.builder.current_pos(),
+                        start + initial_trivia_len..self.builder.current_pos(),
                     ));
+                    self.last_recovery_pos = None;
                 }
                 return;
             }
@@ -367,3 +351,1117 @@ mod tests {
         assert!(text.contains("foo"));
     }
 }
+
+pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
+    use TokenKind::*;
+    match nk {
+        NodeKind::AbsolutePathname
+        | NodeKind::EntityDesignatorList
+        | NodeKind::EntityNameListAll
+        | NodeKind::EntityNameListOthers
+        | NodeKind::InstantiationListAll
+        | NodeKind::InstantiationListList
+        | NodeKind::InstantiationListOthers
+        | NodeKind::PackagePathname
+        | NodeKind::PartialPathname
+        | NodeKind::RelativePathname
+        | NodeKind::SignalListAll
+        | NodeKind::SignalListList
+        | NodeKind::SignalListOthers => &[Colon],
+        NodeKind::AccessTypeDefinition
+        | NodeKind::Assertion
+        | NodeKind::BindingIndication
+        | NodeKind::ComponentInstantiationItems
+        | NodeKind::ConditionalElseItem
+        | NodeKind::ConditionalExpressions
+        | NodeKind::ConditionalWaveformElseItem
+        | NodeKind::ConditionalWaveforms
+        | NodeKind::ConstrainedArrayDefinition
+        | NodeKind::EnumerationTypeDefinition
+        | NodeKind::FileOpenInformation
+        | NodeKind::FileTypeDefinition
+        | NodeKind::NumericTypeDefinition
+        | NodeKind::PhysicalTypeDefinition
+        | NodeKind::PhysicalTypeDefinitionEpilogue
+        | NodeKind::PortMapAspect
+        | NodeKind::ProtectedTypeBody
+        | NodeKind::ProtectedTypeBodyEpilogue
+        | NodeKind::ProtectedTypeDeclaration
+        | NodeKind::ProtectedTypeDeclarationEpilogue
+        | NodeKind::RecordTypeDefinition
+        | NodeKind::RecordTypeDefinitionEpilogue
+        | NodeKind::SelectedExpressions
+        | NodeKind::SelectedWaveforms
+        | NodeKind::TimeoutClause
+        | NodeKind::UnboundedArrayDefinition => &[SemiColon],
+        NodeKind::AllSensitivityList
+        | NodeKind::AssociationList
+        | NodeKind::ElementResolutionResolutionIndication
+        | NodeKind::EntityClassEntryList
+        | NodeKind::IndexSubtypeDefinitionList
+        | NodeKind::InterfaceList
+        | NodeKind::InterfacePackageGenericMapAspectAssociations
+        | NodeKind::InterfacePackageGenericMapAspectBox
+        | NodeKind::InterfacePackageGenericMapAspectDefault
+        | NodeKind::RecordResolution
+        | NodeKind::RecordResolutionElementResolution
+        | NodeKind::ResolutionIndicationElementResolution
+        | NodeKind::SensitivityList => &[RightPar],
+        NodeKind::ArchitectureBody
+        | NodeKind::ArchitectureEpilogue
+        | NodeKind::ConfigurationDeclaration
+        | NodeKind::ConfigurationDeclarationEpilogue
+        | NodeKind::ContextDeclaration
+        | NodeKind::ContextDeclarationEpilogue
+        | NodeKind::DesignUnit
+        | NodeKind::EntityDeclaration
+        | NodeKind::EntityDeclarationEpilogue
+        | NodeKind::PackageInstantiationDeclarationPrimaryUnit
+        | NodeKind::PrimaryUnitPackageDeclaration
+        | NodeKind::PslVerificationUnit
+        | NodeKind::SecondaryUnitPackageBody => &[Eof],
+        NodeKind::BlockConfiguration
+        | NodeKind::BlockConfigurationEpilogue
+        | NodeKind::BlockConfigurationItem
+        | NodeKind::BlockConfigurationItems
+        | NodeKind::CaseGenerateAlternative
+        | NodeKind::CaseStatementAlternative
+        | NodeKind::ComponentConfiguration
+        | NodeKind::ComponentConfigurationItems
+        | NodeKind::ComponentDeclarationItems
+        | NodeKind::CompoundConfigurationSpecificationItems
+        | NodeKind::ConfigurationDeclarationItems
+        | NodeKind::ElementDeclaration
+        | NodeKind::IfGenerateElse
+        | NodeKind::IfStatementElse
+        | NodeKind::RecordElementDeclarations
+        | NodeKind::SecondaryUnitDeclaration
+        | NodeKind::UnitDeclarations => &[Keyword(Kw::End)],
+        NodeKind::EntitySpecification => &[Keyword(Kw::Is)],
+        NodeKind::ForIterationScheme
+        | NodeKind::WhileIterationScheme => &[Keyword(Kw::Loop)],
+        NodeKind::GuardedSignalSpecification => &[Keyword(Kw::After)],
+        NodeKind::IndexConstraint => &[Keyword(Kw::Of)],
+        NodeKind::InterfacePackageDeclarationPreamble => &[Keyword(Kw::New)],
+        NodeKind::ActualPart
+        | NodeKind::ActualPartExpression
+        | NodeKind::ActualPartOpen
+        | NodeKind::ActualPartSubtypeIndication
+        | NodeKind::AssociationElement
+        | NodeKind::ElementAssociation
+        | NodeKind::EntityClassEntry
+        | NodeKind::IndexSubtypeDefinition
+        | NodeKind::RecordElementResolution => &[Comma, RightPar],
+        NodeKind::Aggregate
+        | NodeKind::AggregateTarget
+        | NodeKind::NameTarget
+        | NodeKind::CaseStatementPreamble => {
+            &[Keyword(Kw::End), Keyword(Kw::When)]
+        }
+        NodeKind::ConditionClause => &[Keyword(Kw::For), SemiColon],
+        NodeKind::ConditionalElseWhenExpression
+        | NodeKind::ConditionalExpression
+        | NodeKind::ConditionalWaveform
+        | NodeKind::ConditionalWaveformElseWhenExpression => &[Keyword(Kw::Else), SemiColon],
+        NodeKind::EntityDesignator => &[Colon, Comma],
+        NodeKind::FunctionSpecification
+        | NodeKind::ProcedureSpecification => &[Keyword(Kw::Is), SemiColon],
+        NodeKind::IdentifierList => &[Colon, SemiColon],
+        NodeKind::IfGenerateElsif | NodeKind::IfStatementElsif => {
+            &[Keyword(Kw::Else), Keyword(Kw::End)]
+        }
+        NodeKind::InterfaceConstantDeclaration
+        | NodeKind::InterfaceFileDeclaration
+        | NodeKind::InterfaceIncompleteTypeDeclaration
+        | NodeKind::InterfacePackageDeclaration
+        | NodeKind::InterfacePackageGenericMapAspect
+        | NodeKind::InterfaceSignalDeclaration
+        | NodeKind::InterfaceSubprogramDeclaration
+        | NodeKind::InterfaceSubprogramDefaultBox
+        | NodeKind::InterfaceSubprogramDefaultName
+        | NodeKind::InterfaceVariableDeclaration => &[RightPar, SemiColon],
+        NodeKind::PackageInstantiationPreamble
+        | NodeKind::SubprogramInstantiationDeclarationPreamble => {
+            &[Keyword(Kw::Generic), SemiColon]
+        }
+        NodeKind::ParameterSpecification => &[Keyword(Kw::Generate), Keyword(Kw::Loop)],
+        NodeKind::PrimaryUnitDeclaration => &[Identifier, Keyword(Kw::End)],
+        NodeKind::SelectedExpressionItem | NodeKind::SelectedWaveformItem => &[Comma, SemiColon],
+        NodeKind::UnaffectedWaveform  | NodeKind::WaveformElements => {
+            &[Keyword(Kw::When), SemiColon]
+        }
+        NodeKind::VerificationUnitBindingIndication | NodeKind::VerificationUnitList => {
+            &[Keyword(Kw::End), SemiColon]
+        }
+        NodeKind::AssertionStatement
+        | NodeKind::BlockEpilogue
+        | NodeKind::BlockStatement
+        | NodeKind::CaseGenerateStatement
+        | NodeKind::CaseGenerateStatementEpilogue
+        | NodeKind::CaseStatement
+        | NodeKind::CaseStatementEpilogue
+        | NodeKind::ComponentInstantiationStatement
+        | NodeKind::ConcurrentAssertionStatement
+        | NodeKind::ConcurrentConditionalSignalAssignment
+        | NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement
+        | NodeKind::ConcurrentSelectedSignalAssignment
+        | NodeKind::ConcurrentSimpleSignalAssignment
+        | NodeKind::ConcurrentStatements
+        | NodeKind::ConditionalForceAssignment
+        | NodeKind::ConditionalVariableAssignment
+        | NodeKind::ConditionalWaveformAssignment
+        | NodeKind::ExitStatement
+        | NodeKind::ForGenerateStatement
+        | NodeKind::ForGenerateStatementEpilogue
+        | NodeKind::GenerateStatementBody
+        | NodeKind::GenerateStatementBodyEpilogue
+        | NodeKind::IfGenerateStatement
+        | NodeKind::IfGenerateStatementEpilogue
+        | NodeKind::IfStatement
+        | NodeKind::IfStatementEpilogue
+        | NodeKind::LoopStatement
+        | NodeKind::LoopStatementEpilogue
+        | NodeKind::NextStatement
+        | NodeKind::NullStatement
+        | NodeKind::ProcedureCallStatement
+        | NodeKind::ProcessStatement
+        | NodeKind::ProcessStatementEpilogue
+        | NodeKind::PslDirective
+        | NodeKind::ReportStatement
+        | NodeKind::ReturnStatement
+        | NodeKind::SelectedForceAssignment
+        | NodeKind::SelectedVariableAssignment
+        | NodeKind::SelectedWaveformAssignment
+        | NodeKind::SequentialStatements
+        | NodeKind::SimpleForceAssignment
+        | NodeKind::SimpleReleaseAssignment
+        | NodeKind::SimpleVariableAssignment
+        | NodeKind::SimpleWaveformAssignment
+        | NodeKind::WaitStatement => &[Keyword(Kw::Else), Keyword(Kw::Elsif), Keyword(Kw::End)],
+        NodeKind::BlockConfigurationPreamble => {
+            &[Keyword(Kw::End), Keyword(Kw::For), Keyword(Kw::Use)]
+        }
+        NodeKind::ComponentDeclarationPreamble => {
+            &[Keyword(Kw::End), Keyword(Kw::Generic), Keyword(Kw::Port)]
+        }
+        NodeKind::ComponentInstantiatedUnit
+        | NodeKind::ConfigurationInstantiatedUnit
+        | NodeKind::EntityConfigurationAspect
+        | NodeKind::EntityEntityAspect
+        | NodeKind::EntityInstantiatedUnit
+        | NodeKind::EntityOpenAspect => &[Keyword(Kw::Generic), Keyword(Kw::Port), SemiColon],
+        NodeKind::NameList | NodeKind::SensitivityClause => {
+            &[Keyword(Kw::For), Keyword(Kw::Until), SemiColon]
+        }
+        NodeKind::RecordTypeDefinitionPreamble => &[Comma, Identifier, Keyword(Kw::End)],
+        NodeKind::WaveformElement => &[Comma, Keyword(Kw::When), SemiColon],
+        NodeKind::ContextDeclarationPreamble => &[
+            Keyword(Kw::Context),
+            Keyword(Kw::End),
+            Keyword(Kw::Library),
+            Keyword(Kw::Use),
+        ],
+        NodeKind::ConcurrentSelectedSignalAssignmentPreamble
+        
+        | NodeKind::SelectedAssignmentPreamble => {
+            &[CharacterLiteral, Identifier, LeftPar, LtLt, StringLiteral]
+        }
+        NodeKind::Signature => &[Colon, Comma, Keyword(Kw::Generic), SemiColon, Tick],
+        NodeKind::SubprogramHeader => &[
+            Keyword(Kw::Is),
+            Keyword(Kw::Parameter),
+            Keyword(Kw::Return),
+            LeftPar,
+            SemiColon,
+        ],
+        NodeKind::NameResolutionIndication => &[
+            CharacterLiteral,
+            Comma,
+            Identifier,
+            LtLt,
+            RightPar,
+            StringLiteral,
+        ],
+        NodeKind::SubprogramHeaderGenericClause => &[
+            Keyword(Kw::Generic),
+            Keyword(Kw::Is),
+            Keyword(Kw::Parameter),
+            Keyword(Kw::Return),
+            LeftPar,
+            SemiColon,
+        ],
+        NodeKind::ContextClause
+        | NodeKind::ContextReference
+        | NodeKind::LibraryClause
+        | NodeKind::UseClauseContextItem => &[
+            Keyword(Kw::Architecture),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Context),
+            Keyword(Kw::End),
+            Keyword(Kw::Entity),
+            Keyword(Kw::Package),
+        ],
+        NodeKind::ComponentConfigurationPreamble | NodeKind::ComponentSpecification => &[
+            Keyword(Kw::Configuration),
+            Keyword(Kw::End),
+            Keyword(Kw::Entity),
+            Keyword(Kw::For),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Open),
+            Keyword(Kw::Port),
+            Keyword(Kw::Use),
+        ],
+        NodeKind::InterfaceFunctionSpecification
+        | NodeKind::InterfaceProcedureSpecification => &[
+            BOX,
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Is),
+            LtLt,
+            RightPar,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::ParameterList => &[
+            BOX,
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Is),
+            Keyword(Kw::Return),
+            LtLt,
+            RightPar,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::CaseStatementAlternativePreamble | NodeKind::LoopStatementPreamble => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Assert),
+            Keyword(Kw::Case),
+            Keyword(Kw::End),
+            Keyword(Kw::Exit),
+            Keyword(Kw::If),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::GenericClausePreamble | NodeKind::PortClausePreamble => &[
+            Comma,
+            Identifier,
+            Keyword(Kw::Constant),
+            Keyword(Kw::File),
+            Keyword(Kw::Function),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Type),
+            Keyword(Kw::Variable),
+            RightPar,
+        ],
+        NodeKind::IfStatementPreamble => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Assert),
+            Keyword(Kw::Case),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::Exit),
+            Keyword(Kw::If),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::AliasDeclaration
+        | NodeKind::AttributeDeclaration
+        | NodeKind::AttributeSpecification
+        | NodeKind::ComponentConfigurationEpilogue
+        | NodeKind::ComponentDeclaration
+        | NodeKind::ComponentDeclarationEpilogue
+        | NodeKind::CompoundConfigurationSpecification
+        | NodeKind::ConstantDeclaration
+        | NodeKind::Declarations
+        | NodeKind::DisconnectionSpecification
+        | NodeKind::FileDeclaration
+        | NodeKind::FullTypeDeclaration
+        | NodeKind::GroupDeclaration
+        | NodeKind::GroupTemplateDeclaration
+        | NodeKind::IncompleteTypeDeclaration
+        | NodeKind::PackageBodyDeclaration
+        | NodeKind::PackageDeclaration
+        | NodeKind::PackageInstantiationDeclaration
+        | NodeKind::PslClockDeclaration
+        | NodeKind::PslPropertyDeclaration
+        | NodeKind::PslSequenceDeclaration
+        | NodeKind::SharedVariableDeclaration
+        | NodeKind::SignalDeclaration
+        | NodeKind::SimpleConfigurationSpecification
+        | NodeKind::SubprogramBody
+        | NodeKind::SubprogramBodyEpilogue
+        | NodeKind::SubprogramDeclaration
+        | NodeKind::SubprogramInstantiationDeclaration
+        | NodeKind::SubtypeDeclaration
+        | NodeKind::UseClauseDeclaration
+        | NodeKind::VariableDeclaration => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Assert),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::For),
+            Keyword(Kw::If),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Use),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::DeclarationStatementSeparator => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Assert),
+            Keyword(Kw::Case),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::Exit),
+            Keyword(Kw::For),
+            Keyword(Kw::If),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::Package
+        | NodeKind::PackageBody
+        | NodeKind::PackageBodyEpilogue
+        | NodeKind::PackageEpilogue
+        | NodeKind::PackageInstantiation => &[
+            CharacterLiteral,
+            Eof,
+            Identifier,
+            Keyword(Kw::Assert),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::For),
+            Keyword(Kw::If),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Use),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::ConfigurationDeclarationPreamble => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+        ],
+        NodeKind::ArchitecturePreamble
+        | NodeKind::BlockHeader
+        | NodeKind::ProcessStatementPreamble
+        | NodeKind::SubprogramBodyPreamble => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+        ],
+        NodeKind::PackageBodyPreamble
+        | NodeKind::PackageHeader
+        | NodeKind::ProtectedTypeBodyPreamble
+        | NodeKind::ProtectedTypeDeclarationPreamble => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+        ],
+        NodeKind::UseClause => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Architecture),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Context),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::Entity),
+            Keyword(Kw::For),
+            Keyword(Kw::If),
+            Keyword(Kw::Package),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Use),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::InertialDelayMechanism
+        | NodeKind::TransportDelayMechanism => &[
+            AbstractLiteral,
+            BitStringLiteral,
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Or),
+            Keyword(Kw::Unaffected),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::BlockPreamble => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Port),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+        ],
+        NodeKind::Choices => &[
+            AbstractLiteral,
+            BitStringLiteral,
+            CharacterLiteral,
+            Comma,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Or),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            RightArrow,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::FormalPart => &[
+            AbstractLiteral,
+            BitStringLiteral,
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Inertial),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Open),
+            Keyword(Kw::Or),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            RightArrow,
+            StringLiteral,
+        ],
+        NodeKind::PackagePreamble => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            SemiColon,
+        ],
+        NodeKind::ExpressionChoice | NodeKind::OthersChoice => &[
+            AbstractLiteral,
+            Bar,
+            BitStringLiteral,
+            CharacterLiteral,
+            Comma,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Or),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            RightArrow,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::GenericMapAspect => &[
+            Keyword(Kw::Alias),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Is),
+            Keyword(Kw::Package),
+            Keyword(Kw::Parameter),
+            Keyword(Kw::Port),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Return),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            LeftPar,
+            SemiColon,
+        ],
+        NodeKind::SubtypeIndication => &[
+            AbstractLiteral,
+            BitStringLiteral,
+            CharacterLiteral,
+            ColonEq,
+            Comma,
+            GtGt,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Bus),
+            Keyword(Kw::Is),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Open),
+            Keyword(Kw::Or),
+            Keyword(Kw::Register),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            RightPar,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::EntityHeader | NodeKind::ForGenerateStatementPreamble => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Alias),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::If),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::PortClause | NodeKind::PortClauseEpilogue => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Alias),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::If),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Port),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::EntityDeclarationPreamble => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Alias),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Group),
+            Keyword(Kw::If),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Port),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::IfGenerateStatementPreamble => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Alias),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::Else),
+            Keyword(Kw::Elsif),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Group),
+            Keyword(Kw::If),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            StringLiteral,
+        ],
+        NodeKind::GenericClause | NodeKind::GenericClauseEpilogue => &[
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Alias),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Attribute),
+            Keyword(Kw::Begin),
+            Keyword(Kw::Component),
+            Keyword(Kw::Constant),
+            Keyword(Kw::Disconnect),
+            Keyword(Kw::End),
+            Keyword(Kw::File),
+            Keyword(Kw::For),
+            Keyword(Kw::Function),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Group),
+            Keyword(Kw::If),
+            Keyword(Kw::Impure),
+            Keyword(Kw::Package),
+            Keyword(Kw::Port),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Procedure),
+            Keyword(Kw::Pure),
+            Keyword(Kw::Shared),
+            Keyword(Kw::Signal),
+            Keyword(Kw::Subtype),
+            Keyword(Kw::Type),
+            Keyword(Kw::Use),
+            Keyword(Kw::Variable),
+            Keyword(Kw::With),
+            LeftPar,
+            LtLt,
+            SemiColon,
+            StringLiteral,
+        ],
+        NodeKind::Label => &[
+            AbstractLiteral,
+            BitStringLiteral,
+            CharacterLiteral,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::And),
+            Keyword(Kw::Assert),
+            Keyword(Kw::Block),
+            Keyword(Kw::Case),
+            Keyword(Kw::Component),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Entity),
+            Keyword(Kw::Exit),
+            Keyword(Kw::For),
+            Keyword(Kw::Generate),
+            Keyword(Kw::If),
+            Keyword(Kw::Loop),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Next),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Or),
+            Keyword(Kw::Others),
+            Keyword(Kw::Postponed),
+            Keyword(Kw::Process),
+            Keyword(Kw::Report),
+            Keyword(Kw::Return),
+            Keyword(Kw::Wait),
+            Keyword(Kw::While),
+            Keyword(Kw::With),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LeftPar,
+            LtLt,
+            Minus,
+            Plus,
+            QueQue,
+            RightArrow,
+            StringLiteral,
+        ],
+        NodeKind::Allocator
+        | NodeKind::AttributeName
+        | NodeKind::BinaryExpression
+        | NodeKind::LiteralExpression
+        | NodeKind::Name
+        | NodeKind::NameExpression
+        | NodeKind::ParenthesizedExpressionOrAggregate
+        | NodeKind::ParenthesizedName
+        | NodeKind::PhysicalLiteral
+        | NodeKind::PhysicalLiteralExpression
+        | NodeKind::QualifiedExpression
+        | NodeKind::RangeConstraint
+        | NodeKind::SelectedName
+        | NodeKind::UnaryExpression => &[
+            AbstractLiteral,
+            BOX,
+            Bar,
+            BitStringLiteral,
+            CharacterLiteral,
+            Colon,
+            ColonEq,
+            Comma,
+            Concat,
+            Div,
+            EQ,
+            GT,
+            GTE,
+            GtGt,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::After),
+            Keyword(Kw::And),
+            Keyword(Kw::Bus),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Downto),
+            Keyword(Kw::Else),
+            Keyword(Kw::End),
+            Keyword(Kw::Entity),
+            Keyword(Kw::For),
+            Keyword(Kw::Generate),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Inertial),
+            Keyword(Kw::Is),
+            Keyword(Kw::Loop),
+            Keyword(Kw::Mod),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Open),
+            Keyword(Kw::Or),
+            Keyword(Kw::Port),
+            Keyword(Kw::Range),
+            Keyword(Kw::Register),
+            Keyword(Kw::Rem),
+            Keyword(Kw::Report),
+            Keyword(Kw::Return),
+            Keyword(Kw::Rol),
+            Keyword(Kw::Ror),
+            Keyword(Kw::Select),
+            Keyword(Kw::Severity),
+            Keyword(Kw::Sla),
+            Keyword(Kw::Sll),
+            Keyword(Kw::Sra),
+            Keyword(Kw::Srl),
+            Keyword(Kw::Then),
+            Keyword(Kw::To),
+            Keyword(Kw::Units),
+            Keyword(Kw::Until),
+            Keyword(Kw::Use),
+            Keyword(Kw::When),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LT,
+            LTE,
+            LeftPar,
+            LeftSquare,
+            LtLt,
+            Minus,
+            NE,
+            Plus,
+            Pow,
+            QueEQ,
+            QueGT,
+            QueGTE,
+            QueLT,
+            QueLTE,
+            QueNE,
+            QueQue,
+            RightArrow,
+            RightPar,
+            RightSquare,
+            SemiColon,
+            StringLiteral,
+            Tick,
+            Times,
+        ],
+        NodeKind::ExternalConstantName
+        | NodeKind::ExternalSignalName
+        | NodeKind::ExternalVariableName
+        | NodeKind::NameDesignatorPrefix => &[
+            AbstractLiteral,
+            BOX,
+            Bar,
+            BitStringLiteral,
+            CharacterLiteral,
+            Colon,
+            ColonEq,
+            Comma,
+            Concat,
+            Div,
+            Dot,
+            EQ,
+            GT,
+            GTE,
+            GtGt,
+            Identifier,
+            Keyword(Kw::Abs),
+            Keyword(Kw::After),
+            Keyword(Kw::And),
+            Keyword(Kw::Bus),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Downto),
+            Keyword(Kw::Else),
+            Keyword(Kw::End),
+            Keyword(Kw::Entity),
+            Keyword(Kw::For),
+            Keyword(Kw::Generate),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Inertial),
+            Keyword(Kw::Is),
+            Keyword(Kw::Loop),
+            Keyword(Kw::Mod),
+            Keyword(Kw::Nand),
+            Keyword(Kw::New),
+            Keyword(Kw::Nor),
+            Keyword(Kw::Not),
+            Keyword(Kw::Null),
+            Keyword(Kw::Open),
+            Keyword(Kw::Or),
+            Keyword(Kw::Port),
+            Keyword(Kw::Range),
+            Keyword(Kw::Register),
+            Keyword(Kw::Rem),
+            Keyword(Kw::Report),
+            Keyword(Kw::Return),
+            Keyword(Kw::Rol),
+            Keyword(Kw::Ror),
+            Keyword(Kw::Select),
+            Keyword(Kw::Severity),
+            Keyword(Kw::Sla),
+            Keyword(Kw::Sll),
+            Keyword(Kw::Sra),
+            Keyword(Kw::Srl),
+            Keyword(Kw::Then),
+            Keyword(Kw::To),
+            Keyword(Kw::Units),
+            Keyword(Kw::Until),
+            Keyword(Kw::Use),
+            Keyword(Kw::When),
+            Keyword(Kw::Xnor),
+            Keyword(Kw::Xor),
+            LT,
+            LTE,
+            LeftPar,
+            LeftSquare,
+            LtLt,
+            Minus,
+            NE,
+            Plus,
+            Pow,
+            QueEQ,
+            QueGT,
+            QueGTE,
+            QueLT,
+            QueLTE,
+            QueNE,
+            QueQue,
+            RightArrow,
+            RightPar,
+            RightSquare,
+            SemiColon,
+            StringLiteral,
+            Tick,
+            Times,
+        ],
+        _ => &[]
+    }
+}
+
