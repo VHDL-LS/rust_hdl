@@ -336,7 +336,10 @@ impl Parser {
                         self.skip();
                         self.selected_expressions();
                     }
-                    _ => self.expect_tokens_err([LTE, ColonEq]),
+                    _ => {
+                        self.start_node_at(checkpoint, SelectedWaveformAssignment);
+                        self.expect_tokens_err([LTE, ColonEq]);
+                    }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
@@ -419,7 +422,10 @@ impl Parser {
                     SemiColon => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
                     }
-                    _ => self.expect_tokens_err([LTE, ColonEq, SemiColon]),
+                    _ => {
+                        self.start_node_at(checkpoint, ProcedureCallStatement);
+                        self.expect_tokens_err([LTE, ColonEq, SemiColon]);
+                    }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();

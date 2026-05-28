@@ -6,6 +6,7 @@ use crate::parser::builder::Checkpoint;
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
 use crate::parser::diagnostics::ParserDiagnostic;
+use crate::parser::error_recovery::sync_tokens_for_node_kind;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -225,10 +226,7 @@ impl Parser {
 
     pub(crate) fn start_node(&mut self, kind: NodeKind) {
         self.builder.start_node(kind);
-        self.sync_stack
-            .push(crate::parser::error_recovery::sync_tokens_for_node_kind(
-                kind,
-            ));
+        self.sync_stack.push(sync_tokens_for_node_kind(kind));
     }
 
     pub(crate) fn end_node(&mut self) {
@@ -247,10 +245,7 @@ impl Parser {
     /// node's identity was undetermined and it had no FOLLOW to contribute.
     pub(crate) fn start_node_at(&mut self, checkpoint: Checkpoint, kind: NodeKind) {
         self.builder.start_node_at(checkpoint, kind);
-        self.sync_stack
-            .push(crate::parser::error_recovery::sync_tokens_for_node_kind(
-                kind,
-            ));
+        self.sync_stack.push(sync_tokens_for_node_kind(kind));
     }
 
     pub(crate) fn expect_tokens_err<const N: usize>(&mut self, tokens: [TokenKind; N]) {
