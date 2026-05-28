@@ -457,6 +457,15 @@ impl DesignRoot {
         }
     }
 
+    pub fn find_type_definition_of<'a>(&'a self, decl: EntRef<'a>) -> Option<EntRef<'a>> {
+        match decl.kind() {
+            AnyEntKind::Object(obj) => Some(obj.subtype.type_mark.inner()),
+            AnyEntKind::File(file) => Some(file.type_mark.inner()),
+            AnyEntKind::ElementDeclaration(elem) => Some(elem.type_mark.inner()),
+            _ => None,
+        }
+    }
+
     pub fn find_implementation<'a>(&'a self, ent: EntRef<'a>) -> Vec<EntRef<'a>> {
         if let Designator::Identifier(ident) = ent.designator() {
             if let Some(library_name) = ent.library_name() {

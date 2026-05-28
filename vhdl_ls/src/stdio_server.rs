@@ -150,6 +150,15 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
+        let request = match extract::<request::GotoTypeDefinition>(request) {
+            Ok((id, params)) => {
+                let result =
+                    server.text_document_type_definition(&params.text_document_position_params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
         let request = match extract::<request::GotoImplementation>(request) {
             Ok((id, params)) => {
                 let result =
@@ -287,6 +296,18 @@ impl ConnectionRpcChannel {
         // workspace.didChangeWatchedFiles
         let notification = match extract::<notification::DidChangeWatchedFiles>(notification) {
             Ok(params) => return server.workspace_did_change_watched_files(&params),
+            Err(notification) => notification,
+        };
+        let notification = match extract::<notification::DidCreateFiles>(notification) {
+            Ok(params) => return server.workspace_did_create_files(&params),
+            Err(notification) => notification,
+        };
+        let notification = match extract::<notification::DidRenameFiles>(notification) {
+            Ok(params) => return server.workspace_did_rename_files(&params),
+            Err(notification) => notification,
+        };
+        let notification = match extract::<notification::DidDeleteFiles>(notification) {
+            Ok(params) => return server.workspace_did_delete_files(&params),
             Err(notification) => notification,
         };
 
