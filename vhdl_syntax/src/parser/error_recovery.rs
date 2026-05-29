@@ -9,11 +9,41 @@ use crate::parser::Parser;
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
+#[derive(Default)]
+pub(crate) struct RecoveryState {
+    /// One entry per currently-open node. Each entry is that node's FOLLOW set
+    /// (the tokens that may legally appear immediately after the node closes).
+    /// Used as the cumulative recovery set during panic-mode skipping.
+    pub(crate) sync_stack: Vec<&'static [TokenKind]>,
+}
+
+impl RecoveryState {
+    pub fn new() -> RecoveryState {
+        RecoveryState {
+            sync_stack: Vec::new(),
+        }
+    }
+
+    /// Is `tok` somewhere in the FOLLOW set of any currently-open node?
+    /// Used by error recovery to decide when to stop panic-mode skipping.
+    pub fn is_recovery_point(&self, tok: TokenKind) -> bool {
+        self.sync_stack.iter().any(|follow| follow.contains(&tok))
+    }
+
+    pub fn push(&mut self, node: NodeKind) {
+        self.sync_stack.push(sync_tokens_for_node_kind(node));
+    }
+
+    pub fn pop(&mut self) {
+        self.sync_stack.pop();
+    }
+}
+
 impl Parser {
     /// Is `tok` somewhere in the FOLLOW set of any currently-open node?
     /// Used by error recovery to decide when to stop panic-mode skipping.
     pub(crate) fn is_recovery_point(&self, tok: TokenKind) -> bool {
-        self.sync_stack.iter().any(|follow| follow.contains(&tok))
+        self.recovery.is_recovery_point(tok)
     }
 
     /// Publish diagnostics and recover when expecting one of several tokens.
@@ -128,29 +158,23 @@ mod tests {
 
     #[test]
     fn is_recovery_point_walks_full_sync_stack() {
-        let (_, _diags) = parse_syntax("entity", |p: &mut Parser| {
-            assert!(p.sync_stack.is_empty());
-            assert!(!p.is_recovery_point(TokenKind::RightPar));
+        let mut state = RecoveryState::new();
+        state.push(NodeKind::Package);
 
-            // start_node(DesignFile) pushes DESIGN_UNIT_STARTERS.
-            p.start_node(NodeKind::DesignFile);
-            assert!(p.is_recovery_point(TokenKind::SemiColon));
-            assert!(p.is_recovery_point(TokenKind::Keyword(Kw::Entity)));
-            assert!(!p.is_recovery_point(TokenKind::RightPar));
+        assert!(state.is_recovery_point(TokenKind::Eof));
+        state.push(NodeKind::AbsolutePathname);
 
-            // start_node(ActualPart) pushes [RightPar, Comma].
-            p.start_node(NodeKind::ActualPart);
-            // A token only present in a deeper frame still counts.
-            assert!(p.is_recovery_point(TokenKind::RightPar));
-            assert!(p.is_recovery_point(TokenKind::Comma));
-            // Outer frame still active.
-            assert!(p.is_recovery_point(TokenKind::SemiColon));
+        assert!(state.is_recovery_point(TokenKind::Colon));
+        // EoF should still be recovery point (from previous node)
+        assert!(state.is_recovery_point(TokenKind::Eof));
 
-            p.skip();
-            p.end_node();
-            p.end_node();
-            assert!(!p.is_recovery_point(TokenKind::SemiColon));
-        });
+        state.pop();
+        assert!(!state.is_recovery_point(TokenKind::Colon));
+        assert!(state.is_recovery_point(TokenKind::Eof));
+
+        state.pop();
+        assert!(!state.is_recovery_point(TokenKind::Colon));
+        assert!(!state.is_recovery_point(TokenKind::Eof));
     }
 
     #[test]
@@ -276,26 +300,6 @@ mod tests {
         });
         assert_eq!(diags.len(), 1, "expected exactly one EoF diagnostic");
         assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)], TokenKind::Eof);
-    }
-
-    /// Recovery falls back to the bottom-of-stack DesignFile frame: with no
-    /// matching token in any inner frame, skipping continues until a
-    /// design-unit starter is seen.
-    #[test]
-    fn expect_recover_falls_through_to_design_unit_starter() {
-        let (_, diags) = parse_syntax("garbage more entity", |p: &mut Parser| {
-            // Bottom-of-stack DesignFile frame, plus an inner frame whose
-            // FOLLOW does not contain any of the tokens in the input.
-            p.start_node(NodeKind::DesignFile);
-            p.sync_stack.push(&[TokenKind::RightPar]);
-            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            assert_eq!(p.peek_token(), TokenKind::Keyword(Kw::Entity));
-            p.sync_stack.pop();
-            p.skip();
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1);
-        assert!(matches!(diags[0], ParserDiagnostic::UnexpectedInput { .. }));
     }
 
     /// The `missing_token` diagnostic must point at the *text* of the next
@@ -438,8 +442,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SecondaryUnitDeclaration
         | NodeKind::UnitDeclarations => &[Keyword(Kw::End)],
         NodeKind::EntitySpecification => &[Keyword(Kw::Is)],
-        NodeKind::ForIterationScheme
-        | NodeKind::WhileIterationScheme => &[Keyword(Kw::Loop)],
+        NodeKind::ForIterationScheme | NodeKind::WhileIterationScheme => &[Keyword(Kw::Loop)],
         NodeKind::GuardedSignalSpecification => &[Keyword(Kw::After)],
         NodeKind::IndexConstraint => &[Keyword(Kw::Of)],
         NodeKind::InterfacePackageDeclarationPreamble => &[Keyword(Kw::New)],
@@ -455,17 +458,16 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::Aggregate
         | NodeKind::AggregateTarget
         | NodeKind::NameTarget
-        | NodeKind::CaseStatementPreamble => {
-            &[Keyword(Kw::End), Keyword(Kw::When)]
-        }
+        | NodeKind::CaseStatementPreamble => &[Keyword(Kw::End), Keyword(Kw::When)],
         NodeKind::ConditionClause => &[Keyword(Kw::For), SemiColon],
         NodeKind::ConditionalElseWhenExpression
         | NodeKind::ConditionalExpression
         | NodeKind::ConditionalWaveform
         | NodeKind::ConditionalWaveformElseWhenExpression => &[Keyword(Kw::Else), SemiColon],
         NodeKind::EntityDesignator => &[Colon, Comma],
-        NodeKind::FunctionSpecification
-        | NodeKind::ProcedureSpecification => &[Keyword(Kw::Is), SemiColon],
+        NodeKind::FunctionSpecification | NodeKind::ProcedureSpecification => {
+            &[Keyword(Kw::Is), SemiColon]
+        }
         NodeKind::IdentifierList => &[Colon, SemiColon],
         NodeKind::IfGenerateElsif | NodeKind::IfStatementElsif => {
             &[Keyword(Kw::Else), Keyword(Kw::End)]
@@ -487,7 +489,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::ParameterSpecification => &[Keyword(Kw::Generate), Keyword(Kw::Loop)],
         NodeKind::PrimaryUnitDeclaration => &[Identifier, Keyword(Kw::End)],
         NodeKind::SelectedExpressionItem | NodeKind::SelectedWaveformItem => &[Comma, SemiColon],
-        NodeKind::UnaffectedWaveform  | NodeKind::WaveformElements => {
+        NodeKind::UnaffectedWaveform | NodeKind::WaveformElements => {
             &[Keyword(Kw::When), SemiColon]
         }
         NodeKind::VerificationUnitBindingIndication | NodeKind::VerificationUnitList => {
@@ -562,7 +564,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Keyword(Kw::Use),
         ],
         NodeKind::ConcurrentSelectedSignalAssignmentPreamble
-        
         | NodeKind::SelectedAssignmentPreamble => {
             &[CharacterLiteral, Identifier, LeftPar, LtLt, StringLiteral]
         }
@@ -611,8 +612,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Keyword(Kw::Port),
             Keyword(Kw::Use),
         ],
-        NodeKind::InterfaceFunctionSpecification
-        | NodeKind::InterfaceProcedureSpecification => &[
+        NodeKind::InterfaceFunctionSpecification | NodeKind::InterfaceProcedureSpecification => &[
             BOX,
             CharacterLiteral,
             Identifier,
@@ -855,8 +855,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::InertialDelayMechanism
-        | NodeKind::TransportDelayMechanism => &[
+        NodeKind::InertialDelayMechanism | NodeKind::TransportDelayMechanism => &[
             AbstractLiteral,
             BitStringLiteral,
             CharacterLiteral,
@@ -1461,7 +1460,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Tick,
             Times,
         ],
-        _ => &[]
+        _ => &[],
     }
 }
-

@@ -1,4 +1,5 @@
 //! Facilities for parsing an input file or string into a [SyntaxNode]
+use crate::parser::error_recovery::RecoveryState;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -7,8 +8,8 @@
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};
+use crate::tokens::TokenStream;
 use crate::tokens::Tokenizer;
-use crate::tokens::{TokenKind, TokenStream};
 
 pub(crate) mod builder;
 pub mod diagnostics;
@@ -30,10 +31,7 @@ pub struct Parser {
     diagnostics: Vec<diagnostics::ParserDiagnostic>,
     unexpected_eof: bool,
     standard: VHDLStandard,
-    /// One entry per currently-open node. Each entry is that node's FOLLOW set
-    /// (the tokens that may legally appear immediately after the node closes).
-    /// Used as the cumulative recovery set during panic-mode skipping.
-    pub(crate) sync_stack: Vec<&'static [TokenKind]>,
+    recovery: RecoveryState,
     /// Builder position at the last `expect_tokens_recover` call that made no
     /// progress.  When recovery is invoked a second time at the same position,
     /// we force-skip a token to guarantee forward progress.
@@ -48,7 +46,7 @@ impl Parser {
             diagnostics: Vec::default(),
             unexpected_eof: false,
             standard,
-            sync_stack: Vec::new(),
+            recovery: RecoveryState::new(),
             last_recovery_pos: None,
         }
     }
