@@ -7,7 +7,7 @@ use vhdl_syntax::{
         encoding::{Encoder, LossyUtf8Encoder},
         write::{WriteEncoded, WriteError},
     },
-    parser::diagnostics::ParserDiagnostic,
+    parser::diagnostics::{Diagnostic, SyntaxErr},
     syntax::node::SyntaxNode,
     text::source_loc::SourceLocConverter,
     tokens::{tokenizer::UnterminatedKind, TokenKind},
@@ -20,7 +20,7 @@ use vhdl_syntax::{
 fn lines<E: Encoder>(
     source: &SyntaxNode,
     cache: &SourceLocConverter,
-    byte_range: Range<usize>,
+    byte_range: &Range<usize>,
     surplus: usize,
 ) -> Result<(String, usize), E::Err>
 where
@@ -53,44 +53,37 @@ where
 }
 
 pub fn parser_diagnostic_to_report<'a>(
-    diagnostic: &ParserDiagnostic,
+    diagnostic: &Diagnostic,
     file_name: Option<Cow<'a, str>>,
     tree: &SyntaxNode,
     cache: &SourceLocConverter,
 ) -> Group<'a> {
-    match diagnostic {
-        ParserDiagnostic::ExpectedToken {
-            expected: (insertion_pos, expected),
-            found: (found_pos, found),
-        } => {
-            let (snippet, base) =
-                lines::<LossyUtf8Encoder>(tree, cache, *insertion_pos..found_pos.end, 0).unwrap();
-            let ins = cache.convert_byte_offset(*insertion_pos) - base;
-            let found_pos = cache.convert_byte_span(found_pos);
-            let found_rel = (found_pos.start - base)..(found_pos.end - base);
+    let span = diagnostic.span(cache);
+    let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, diagnostic.span_raw(), 0).unwrap();
+
+    match diagnostic.err() {
+        SyntaxErr::Expected { kinds, found } => {
             let mut annotations = vec![AnnotationKind::Primary
-                .span(ins..ins)
-                .label(format!("{} expected here", expected_message(expected)))];
+                .span(span.start..span.start)
+                .label(format!("{} expected here", expected_message(kinds)))];
             if !found.is_eof() {
+                let found_token = tree.covering_token_at_offset(diagnostic.span_raw().start);
                 annotations.push(
                     AnnotationKind::Context
-                        .span(found_rel)
+                        .span(found_token.text_range())
                         .label("unexpected token"),
                 );
             }
-
             Level::ERROR
-                .primary_title(expected_token_message(expected, *found))
+                .primary_title(expected_token_message(kinds, *found))
                 .element(
                     Snippet::source(snippet)
-                        .line_start(cache.source_loc(*insertion_pos).line + 1)
+                        .line_start(cache.source_loc(diagnostic.span_raw().start).line + 1)
                         .path(file_name)
                         .annotations(annotations),
                 )
         }
-        ParserDiagnostic::UnexpectedInput { span } => {
-            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
-            let span = cache.convert_byte_span(span);
+        SyntaxErr::Unexpected { kind: _ } => {
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR.primary_title("Unexpected input").element(
@@ -104,9 +97,7 @@ pub fn parser_diagnostic_to_report<'a>(
                     ),
             )
         }
-        ParserDiagnostic::IllegalInput { span, text: _ } => {
-            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
-            let span = cache.convert_byte_span(span);
+        SyntaxErr::Illegal { bytes: _ } => {
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR.primary_title("Illegal input").element(
@@ -120,10 +111,7 @@ pub fn parser_diagnostic_to_report<'a>(
                     ),
             )
         }
-        // TODO: For unterminated: highlight start delimiter
-        ParserDiagnostic::Unterminated { span, kind } => {
-            let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, span.clone(), 0).unwrap();
-            let span = cache.convert_byte_span(span);
+        SyntaxErr::Unterminated { kind } => {
             let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR
@@ -259,7 +247,7 @@ mod tests {
 
     fn run(src: &str, range: Range<usize>, surplus: usize) -> (String, usize) {
         let (node, cache) = setup(src);
-        lines::<Utf8Encoder>(&node, &cache, range, surplus).expect("utf-8")
+        lines::<Utf8Encoder>(&node, &cache, &range, surplus).expect("utf-8")
     }
 
     #[test]

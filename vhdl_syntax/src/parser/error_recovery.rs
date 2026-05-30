@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::diagnostics::ParserDiagnostic;
+use crate::parser::diagnostics::{Diagnostic, SyntaxErr};
 use crate::parser::Parser;
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
@@ -70,7 +70,7 @@ impl Parser {
             }
             self.unexpected_eof = true;
             self.diagnostics
-                .push(ParserDiagnostic::eof_err(expected, start));
+                .push(Diagnostic::eof_err(start..start, expected));
             return;
         }
 
@@ -85,8 +85,9 @@ impl Parser {
             // Expected contains the token before we hit recovery or EoF -> Assume garbage input
             if expected.contains(&tok) {
                 let end = self.builder.current_pos();
-                self.diagnostics.push(ParserDiagnostic::unexpected_input(
+                self.diagnostics.push(Diagnostic::new(
                     start + initial_trivia_len..end,
+                    SyntaxErr::Unexpected { kind: tok },
                 ));
                 self.last_recovery_pos = None;
                 return;
@@ -101,18 +102,23 @@ impl Parser {
                 // This means the token is simply missing.
                 // Don't consume; simply report diagnostic.
                 if !skipped_any {
-                    let pos = self
-                        .token_stream
-                        .peek_next()
-                        .map(|tok| start + tok.leading_trivia().byte_len()..start + tok.byte_len())
-                        .unwrap_or(start..start);
-                    self.diagnostics
-                        .push(ParserDiagnostic::missing_token(expected, start, tok, pos));
+                    // `start` is the insertion locus (the start of the found
+                    // token's leading trivia). The found token's own span is
+                    // recovered from the tree at render time, so we only record
+                    // its kind here.
+                    self.diagnostics.push(Diagnostic::new(
+                        start..start,
+                        SyntaxErr::Expected {
+                            kinds: expected.into(),
+                            found: tok,
+                        },
+                    ));
                     self.last_recovery_pos = Some(start);
                 // skipped tokens: Garbage input before recovery token.
                 } else {
-                    self.diagnostics.push(ParserDiagnostic::unexpected_input(
+                    self.diagnostics.push(Diagnostic::new(
                         start + initial_trivia_len..self.builder.current_pos(),
+                        SyntaxErr::Unexpected { kind: tok },
                     ));
                     self.last_recovery_pos = None;
                 }
@@ -128,29 +134,35 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
+
     use super::*;
-    use crate::parser::diagnostics::ParserDiagnostic;
+    use crate::parser::diagnostics::Diagnostic;
     use crate::parser::parse_syntax;
     use crate::parser::{parse, Parser};
 
-    fn assert_unexpected_input(diag: &ParserDiagnostic, expected_span: std::ops::Range<usize>) {
-        match diag {
-            ParserDiagnostic::UnexpectedInput { span } => {
-                assert_eq!(*span, expected_span, "wrong span on UnexpectedInput");
+    fn assert_unexpected_input(diag: &Diagnostic, expected_span: std::ops::Range<usize>) {
+        match diag.err() {
+            SyntaxErr::Unexpected { kind: _ } => {
+                assert_eq!(
+                    diag.span_raw(),
+                    &expected_span,
+                    "wrong span on UnexpectedInput"
+                );
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
     }
 
     fn assert_expected_token(
-        diag: &ParserDiagnostic,
+        diag: &Diagnostic,
         expected_kinds: &[TokenKind],
-        found_kind: TokenKind,
+        found: TokenKind,
     ) {
-        match diag {
-            ParserDiagnostic::ExpectedToken { expected, found } => {
-                assert_eq!(&*expected.1, expected_kinds, "expected kinds mismatch");
-                assert_eq!(found.1, found_kind, "found kind mismatch");
+        match diag.err() {
+            SyntaxErr::Expected { kinds, found: got } => {
+                assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
+                assert_eq!(*got, found, "found token mismatch");
             }
             other => panic!("expected ExpectedToken, got {:?}", other),
         }
@@ -175,37 +187,6 @@ mod tests {
         state.pop();
         assert!(!state.is_recovery_point(TokenKind::Colon));
         assert!(!state.is_recovery_point(TokenKind::Eof));
-    }
-
-    #[test]
-    fn diagnostic_constructors_shape() {
-        let eof = ParserDiagnostic::eof_err([TokenKind::SemiColon], 42);
-        assert_expected_token(&eof, &[TokenKind::SemiColon], TokenKind::Eof);
-        match eof {
-            ParserDiagnostic::ExpectedToken { expected, found } => {
-                assert_eq!(expected.0, 42);
-                assert_eq!(found.0, 42..42);
-            }
-            _ => unreachable!(),
-        }
-
-        assert_unexpected_input(&ParserDiagnostic::unexpected_input(3..7), 3..7);
-
-        let missing = ParserDiagnostic::missing_token(
-            [TokenKind::Keyword(Kw::Is)],
-            10,
-            TokenKind::Keyword(Kw::End),
-            10..13,
-        );
-        match missing {
-            ParserDiagnostic::ExpectedToken { expected, found } => {
-                assert_eq!(expected.0, 10);
-                assert_eq!(&*expected.1, &[TokenKind::Keyword(Kw::Is)]);
-                assert_eq!(found.0, 10..13);
-                assert_eq!(found.1, TokenKind::Keyword(Kw::End));
-            }
-            _ => unreachable!(),
-        }
     }
 
     /// Missing token: recovery token is sitting at the cursor, so nothing is
@@ -246,9 +227,9 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1, "got: {:?}", diags);
-        match &diags[0] {
-            ParserDiagnostic::UnexpectedInput { span } => {
-                assert!(span.start < span.end, "span should be non-empty");
+        match &diags[0].err() {
+            SyntaxErr::Unexpected { kind: _ } => {
+                assert!(!diags[0].span_raw().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
@@ -275,9 +256,9 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1);
-        match &diags[0] {
-            ParserDiagnostic::UnexpectedInput { span } => {
-                assert!(span.start < span.end);
+        match diags[0].err() {
+            SyntaxErr::Unexpected { kind } => {
+                assert!(diags[0].span_raw().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
@@ -302,12 +283,12 @@ mod tests {
         assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)], TokenKind::Eof);
     }
 
-    /// The `missing_token` diagnostic must point at the *text* of the next
-    /// token, not at its trivia. With multi-piece leading trivia (e.g. a
-    /// blank line: newline + newline) the start of the reported span must
-    /// be advanced by the trivia's byte length, not its piece count.
+    /// The `missing_token` diagnostic records the insertion locus (a zero-width
+    /// span at the start of the next token's leading trivia) and the found token
+    /// kind. The found token's own text span is no longer stored; it is derived
+    /// from the syntax tree at render time via the locus.
     #[test]
-    fn missing_token_span_skips_full_trivia_bytes() {
+    fn missing_token_records_locus_and_found_kind() {
         // Two newlines = two TriviaPiece entries, 2 bytes of trivia.
         let src = "\n\n;";
         let (_, diags) = parse_syntax(src, |p: &mut Parser| {
@@ -317,15 +298,16 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1);
-        match &diags[0] {
-            ParserDiagnostic::ExpectedToken { found, .. } => {
-                // The `;` token starts after both newlines (2 bytes of
-                // trivia) and is itself 1 byte long.
-                assert_eq!(found.0, 2..3, "diagnostic should point at ';' text");
-                assert_eq!(found.1, TokenKind::SemiColon);
+        // The insertion locus sits before the leading trivia of `;`, i.e. at the
+        // start of input here.
+        assert!(diags[0].span_raw().is_empty(), "locus must be zero-width");
+        assert_matches!(
+            diags[0].err(),
+            SyntaxErr::Expected {
+                found: TokenKind::SemiColon,
+                ..
             }
-            other => panic!("expected ExpectedToken, got {:?}", other),
-        }
+        );
     }
 
     // ---- End-to-end smoke tests via the public `parse` entrypoint ----

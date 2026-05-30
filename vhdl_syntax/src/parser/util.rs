@@ -5,7 +5,7 @@ use crate::parser::builder::Checkpoint;
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
-use crate::parser::diagnostics::ParserDiagnostic;
+use crate::parser::diagnostics::{Diagnostic, SyntaxErr};
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -98,17 +98,19 @@ impl Parser {
         };
 
         match err.err {
-            LexError::Unterminated(unterminated_kind) => {
-                self.diagnostics.push(ParserDiagnostic::Unterminated {
+            LexError::Unterminated(kind) => {
+                self.diagnostics.push(Diagnostic::new(
                     span,
-                    kind: unterminated_kind,
-                });
+                    SyntaxErr::Unterminated { kind },
+                ));
             }
             LexError::IllegalInput => {
-                self.diagnostics.push(ParserDiagnostic::IllegalInput {
+                self.diagnostics.push(Diagnostic::new(
                     span,
-                    text: token.text().to_latin1_string(),
-                });
+                    SyntaxErr::Illegal {
+                        bytes: token.text().as_bytes().into(),
+                    },
+                ));
             }
         }
     }
@@ -251,7 +253,7 @@ impl Parser {
         self.expect_tokens_recover(tokens);
     }
 
-    pub(crate) fn end(self) -> (GreenNode, Vec<ParserDiagnostic>) {
+    pub(crate) fn end(self) -> (GreenNode, Vec<Diagnostic>) {
         (self.builder.end(), self.diagnostics)
     }
 

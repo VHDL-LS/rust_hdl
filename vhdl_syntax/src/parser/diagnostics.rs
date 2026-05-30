@@ -7,58 +7,68 @@
 use std::ops::Range;
 
 use crate::{
-    latin_1::Latin1String,
+    text::source_loc::SourceLocConverter,
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
 
 type Span = Range<usize>;
 
-/// Errors that occur during parsing.
-/// These are not stringified so that downstream listeners
-/// can react dynamically without having to parse the message
-#[derive(Debug)]
-pub enum ParserDiagnostic {
-    /// A token was expected, but instead something else was found.
-    /// Note: `found` can be TokenKind::EoF
-    ExpectedToken {
-        expected: (usize, Box<[TokenKind]>),
-        found: (Span, TokenKind),
+#[derive(Debug, Clone)]
+pub enum SyntaxErr {
+    /// One of the tokens given by `kinds` was expected. `found` is the token
+    /// that was seen instead; it is [`TokenKind::Eof`] when end of file was
+    /// reached.
+    ///
+    /// The expected `kinds` carry no source location — they are absent from the
+    /// input. The diagnostic's span is the *insertion locus*: the zero-width
+    /// position where one of the expected tokens should be inserted. The
+    /// location of the `found` token is not stored here; it is recovered from
+    /// the syntax tree at render time (the insertion locus equals the found
+    /// token's offset, i.e. the start of its leading trivia).
+    Expected {
+        kinds: Box<[TokenKind]>,
+        found: TokenKind,
     },
-    /// Input that came unexpectedly
-    UnexpectedInput {
-        span: Span,
-    },
-    IllegalInput {
-        span: Span,
-        text: Latin1String,
-    },
-    Unterminated {
-        span: Span,
-        kind: UnterminatedKind,
-    },
+    /// A token was seen that was not expected in some context
+    Unexpected { kind: TokenKind },
+    /// Bytes that are not valid were observed
+    Illegal { bytes: Box<[u8]> },
+    /// A token that was unterminated
+    Unterminated { kind: UnterminatedKind },
 }
 
-impl ParserDiagnostic {
-    pub fn eof_err(expected: impl Into<Box<[TokenKind]>>, pos: usize) -> ParserDiagnostic {
-        ParserDiagnostic::ExpectedToken {
-            expected: (pos, expected.into()),
-            found: (pos..pos, TokenKind::Eof),
-        }
+#[derive(Debug)]
+pub struct Diagnostic {
+    /// The main span of the error.
+    span: Span,
+    /// the error that occured
+    error: SyntaxErr,
+}
+
+impl Diagnostic {
+    pub fn new(span: Span, err: SyntaxErr) -> Diagnostic {
+        Diagnostic { span, error: err }
     }
 
-    pub fn unexpected_input(span: Span) -> ParserDiagnostic {
-        ParserDiagnostic::UnexpectedInput { span }
+    pub fn eof_err(span: Span, expected: impl Into<Box<[TokenKind]>>) -> Diagnostic {
+        Diagnostic::new(
+            span,
+            SyntaxErr::Expected {
+                kinds: expected.into(),
+                found: TokenKind::Eof,
+            },
+        )
     }
 
-    pub fn missing_token(
-        expected: impl Into<Box<[TokenKind]>>,
-        insert_pos: usize,
-        found: TokenKind,
-        found_where: Span,
-    ) -> ParserDiagnostic {
-        ParserDiagnostic::ExpectedToken {
-            expected: (insert_pos, expected.into()),
-            found: (found_where, found),
-        }
+    pub fn span(&self, converter: &SourceLocConverter) -> Span {
+        converter.convert_byte_span(&self.span)
+    }
+
+    pub fn span_raw(&self) -> &Span {
+        &self.span
+    }
+
+    pub fn err(&self) -> &SyntaxErr {
+        &self.error
     }
 }

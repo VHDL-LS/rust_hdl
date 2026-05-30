@@ -28,7 +28,7 @@ pub mod productions;
 pub struct Parser {
     token_stream: TokenStream,
     builder: builder::NodeBuilder,
-    diagnostics: Vec<diagnostics::ParserDiagnostic>,
+    diagnostics: Vec<diagnostics::Diagnostic>,
     unexpected_eof: bool,
     standard: VHDLStandard,
     recovery: RecoveryState,
@@ -55,7 +55,7 @@ impl Parser {
         self.standard
     }
 
-    pub fn into_root(self) -> (SyntaxNode, Vec<diagnostics::ParserDiagnostic>) {
+    pub fn into_root(self) -> (SyntaxNode, Vec<diagnostics::Diagnostic>) {
         let (green, diagnostics) = self.end();
         (SyntaxNode::new_root(green), diagnostics)
     }
@@ -66,7 +66,7 @@ impl Parser {
 /// Use [`parse_with_standard`] to use a non-default VHDL standard.
 pub fn parse(
     token_stream: impl Into<TokenStream>,
-) -> (DesignFileSyntax, Vec<diagnostics::ParserDiagnostic>) {
+) -> (DesignFileSyntax, Vec<diagnostics::Diagnostic>) {
     let mut parser = Parser::new(token_stream.into(), VHDLStandard::default());
     parser.design_file();
     let (syntax_node, diagnostics) = parser.into_root();
@@ -78,7 +78,7 @@ pub fn parse(
 pub fn parse_with_standard(
     standard: VHDLStandard,
     input: impl IntoIterator<Item = u8>,
-) -> (DesignFileSyntax, Vec<diagnostics::ParserDiagnostic>) {
+) -> (DesignFileSyntax, Vec<diagnostics::Diagnostic>) {
     let token_stream: TokenStream = Tokenizer::with_standard(standard, input.into_iter()).collect();
     let mut parser = Parser::new(token_stream, standard);
     parser.design_file();
@@ -91,7 +91,7 @@ pub fn parse_with_standard(
 pub(crate) fn parse_syntax(
     token_stream: impl Into<TokenStream>,
     parser_fn: impl FnOnce(&mut Parser),
-) -> (SyntaxNode, Vec<diagnostics::ParserDiagnostic>) {
+) -> (SyntaxNode, Vec<diagnostics::Diagnostic>) {
     let mut parser = Parser::new(token_stream.into(), VHDLStandard::default());
     parser_fn(&mut parser);
     let (green, diagnostics) = parser.end();
@@ -103,7 +103,7 @@ pub(crate) fn parse_syntax_with_standard(
     standard: VHDLStandard,
     input: impl IntoIterator<Item = u8>,
     parser_fn: impl FnOnce(&mut Parser),
-) -> (SyntaxNode, Vec<diagnostics::ParserDiagnostic>) {
+) -> (SyntaxNode, Vec<diagnostics::Diagnostic>) {
     let token_stream: TokenStream = Tokenizer::with_standard(standard, input.into_iter()).collect();
     let mut parser = Parser::new(token_stream, standard);
     parser_fn(&mut parser);
