@@ -110,7 +110,6 @@ impl Parser {
                         start..start,
                         SyntaxErr::Expected {
                             kinds: expected.into(),
-                            found: tok,
                         },
                     ));
                     self.last_recovery_pos = Some(start);
@@ -154,11 +153,7 @@ mod tests {
         }
     }
 
-    fn assert_expected_token(
-        diag: &Diagnostic,
-        expected_kinds: &[TokenKind],
-        found: TokenKind,
-    ) {
+    fn assert_expected_token(diag: &Diagnostic, expected_kinds: &[TokenKind], found: TokenKind) {
         match diag.err() {
             SyntaxErr::Expected { kinds, found: got } => {
                 assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
@@ -405,7 +400,17 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::PackageInstantiationDeclarationPrimaryUnit
         | NodeKind::PrimaryUnitPackageDeclaration
         | NodeKind::PslVerificationUnit
-        | NodeKind::SecondaryUnitPackageBody => &[Eof],
+        | NodeKind::SecondaryUnitPackageBody => &[
+            Eof,
+            Keyword(Kw::Library),
+            Keyword(Kw::Context),
+            Keyword(Kw::Use),
+            Keyword(Kw::Entity),
+            Keyword(Kw::Configuration),
+            Keyword(Kw::Package),
+            Keyword(Kw::Architecture),
+            Keyword(Kw::Body),
+        ],
         NodeKind::BlockConfiguration
         | NodeKind::BlockConfigurationEpilogue
         | NodeKind::BlockConfigurationItem

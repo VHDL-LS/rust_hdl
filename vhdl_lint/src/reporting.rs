@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{borrow::Cow, fmt::Display, ops::Range};
 
-use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
+use annotate_snippets::{Annotation, AnnotationKind, Group, Level, OptionCow, Snippet};
 use vhdl_syntax::{
     fmt::{
         encoding::{Encoder, LossyUtf8Encoder},
@@ -9,22 +9,68 @@ use vhdl_syntax::{
     },
     parser::diagnostics::{Diagnostic, SyntaxErr},
     syntax::node::SyntaxNode,
-    text::source_loc::SourceLocConverter,
+    text::source_loc::{EncodedOffset, SourceLoc, SourceLocConverter},
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
+
+struct SnippetOffset(usize);
+
+impl SnippetOffset {
+    pub fn raw(&self) -> usize {
+        self.0
+    }
+}
+
+struct SnippetSpan {
+    start: usize,
+    end: usize,
+}
+
+impl SnippetSpan {
+    pub fn new(start: usize, end: usize) -> SnippetSpan {
+        SnippetSpan { start, end }
+    }
+
+    pub fn start(&self) -> SnippetOffset {
+        SnippetOffset(self.start)
+    }
+
+    pub fn end(&self) -> SnippetOffset {
+        SnippetOffset(self.end)
+    }
+}
+
+struct SnippetConverter<'a> {
+    base: EncodedOffset,
+    cache: &'a SourceLocConverter,
+}
+
+impl<'a> SnippetConverter<'a> {
+    pub fn new(base: EncodedOffset, cache: &'a SourceLocConverter) -> SnippetConverter<'a> {
+        SnippetConverter { base, cache }
+    }
+
+    pub fn convert_span(&self, span: &Range<usize>) -> SnippetSpan {
+        let converted = self.cache.convert_byte_span(span);
+        SnippetSpan::new(
+            converted.start().raw() - self.base.raw(),
+            converted.end().raw() - self.base.raw(),
+        )
+    }
+}
 
 /// Returns the snippet text covering `byte_range` (with `surplus` extra lines of
 /// context on each side) along with the absolute byte offset of its first
 /// character. The offset lets callers translate absolute source spans into
 /// snippet-relative ones.
-fn lines<E: Encoder>(
+fn lines<'a, E: Encoder>(
     source: &SyntaxNode,
-    cache: &SourceLocConverter,
+    cache: &'a SourceLocConverter,
     byte_range: &Range<usize>,
     surplus: usize,
-) -> Result<(String, usize), E::Err>
+) -> Result<(String, SnippetConverter<'a>), E::Err>
 where
-    for<'a> E::Str<'a>: Display,
+    for<'b> E::Str<'b>: Display,
 {
     let mut full = String::new();
     match source.fmt_to::<E>(&mut full) {
@@ -38,7 +84,7 @@ where
     let end_line = cache.source_loc(last_byte).line;
     let first = start_line.saturating_sub(surplus);
     let last = end_line.saturating_add(surplus);
-    let base = cache.convert_byte_offset(cache.line_start(first));
+    let base = cache.line_start(first);
 
     let mut result = String::new();
     for (i, line) in full.split_inclusive('\n').enumerate() {
@@ -49,7 +95,30 @@ where
             result.push_str(line);
         }
     }
-    Ok((result, base))
+    Ok((result, SnippetConverter::new(base, cache)))
+}
+
+fn annotation<'a>(
+    kind: AnnotationKind,
+    span: SnippetSpan,
+    label: impl Into<OptionCow<'a>>,
+) -> Annotation<'a> {
+    kind.span(span.start().raw()..span.end().raw()).label(label)
+}
+
+fn primary_anno<'a>(span: SnippetSpan, label: impl Into<OptionCow<'a>>) -> Annotation<'a> {
+    annotation(AnnotationKind::Primary, span, label)
+}
+
+fn context_anno<'a>(span: SnippetSpan, label: impl Into<OptionCow<'a>>) -> Annotation<'a> {
+    annotation(AnnotationKind::Context, span, label)
+}
+
+fn make_snipet<'a, T>(snippet: impl Into<Cow<'a, str>>, source_loc: SourceLoc) -> Snippet<'a, T>
+where
+    T: Clone,
+{
+    Snippet::source(snippet).line_start(source_loc.line + 1)
 }
 
 pub fn parser_diagnostic_to_report<'a>(
@@ -58,75 +127,49 @@ pub fn parser_diagnostic_to_report<'a>(
     tree: &SyntaxNode,
     cache: &SourceLocConverter,
 ) -> Group<'a> {
-    let span = diagnostic.span(cache);
-    let (snippet, base) = lines::<LossyUtf8Encoder>(tree, cache, diagnostic.span_raw(), 0).unwrap();
+    let snippet_range = match diagnostic.err() {
+        SyntaxErr::Expected { .. } => {
+            let found = tree.covering_token_at_offset(diagnostic.span_raw().end);
+            if found.kind().is_eof() {
+                diagnostic.span_raw().clone()
+            } else {
+                diagnostic.span_raw().start..found.range().end
+            }
+        }
+        _ => diagnostic.span_raw().clone(),
+    };
+
+    let (snippet, converter) = lines::<LossyUtf8Encoder>(tree, cache, &snippet_range, 0).unwrap();
+    let snippet = make_snipet(snippet, cache.source_loc(snippet_range.start)).path(file_name);
+    let span = converter.convert_span(diagnostic.span_raw());
 
     match diagnostic.err() {
-        SyntaxErr::Expected { kinds, found } => {
-            let mut annotations = vec![AnnotationKind::Primary
-                .span(span.start..span.start)
-                .label(format!("{} expected here", expected_message(kinds)))];
-            if !found.is_eof() {
-                let found_token = tree.covering_token_at_offset(diagnostic.span_raw().start);
-                annotations.push(
-                    AnnotationKind::Context
-                        .span(found_token.text_range())
-                        .label("unexpected token"),
-                );
+        SyntaxErr::Expected { kinds } => {
+            let found = tree.covering_token_at_offset(diagnostic.span_raw().end);
+            let mut annotations = vec![primary_anno(
+                span,
+                format!("{} expected here", expected_message(kinds)),
+            )];
+            if !found.kind().is_eof() {
+                annotations.push(context_anno(
+                    converter.convert_span(&found.text_range()),
+                    "unexpected token",
+                ));
             }
-            Level::ERROR
-                .primary_title(expected_token_message(kinds, *found))
-                .element(
-                    Snippet::source(snippet)
-                        .line_start(cache.source_loc(diagnostic.span_raw().start).line + 1)
-                        .path(file_name)
-                        .annotations(annotations),
-                )
-        }
-        SyntaxErr::Unexpected { kind: _ } => {
-            let rel_span = (span.start - base)..(span.end - base);
-
-            Level::ERROR.primary_title("Unexpected input").element(
-                Snippet::source(snippet)
-                    .line_start(cache.source_loc(span.start).line + 1)
-                    .path(file_name)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(rel_span)
-                            .label("This input is unexpected"),
-                    ),
-            )
-        }
-        SyntaxErr::Illegal { bytes: _ } => {
-            let rel_span = (span.start - base)..(span.end - base);
-
-            Level::ERROR.primary_title("Illegal input").element(
-                Snippet::source(snippet)
-                    .line_start(cache.source_loc(span.start).line + 1)
-                    .path(file_name)
-                    .annotation(
-                        AnnotationKind::Primary
-                            .span(rel_span)
-                            .label("This input is unexpected"),
-                    ),
-            )
-        }
-        SyntaxErr::Unterminated { kind } => {
-            let rel_span = (span.start - base)..(span.end - base);
 
             Level::ERROR
-                .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
-                .element(
-                    Snippet::source(snippet)
-                        .line_start(cache.source_loc(span.start).line + 1)
-                        .path(file_name)
-                        .annotation(
-                            AnnotationKind::Primary
-                                .span(rel_span)
-                                .label("Opening delimiter was never closed"),
-                        ),
-                )
+                .primary_title(expected_token_message(kinds, found.kind()))
+                .element(snippet.annotations(annotations))
         }
+        SyntaxErr::Unexpected { kind: _ } => Level::ERROR
+            .primary_title("Unexpected input")
+            .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
+        SyntaxErr::Illegal { bytes: _ } => Level::ERROR
+            .primary_title("Illegal input")
+            .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
+        SyntaxErr::Unterminated { kind } => Level::ERROR
+            .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
+            .element(snippet.annotation(primary_anno(span, "Opening delimiter was never closed"))),
     }
 }
 

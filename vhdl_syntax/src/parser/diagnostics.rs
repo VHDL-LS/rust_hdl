@@ -7,7 +7,7 @@
 use std::ops::Range;
 
 use crate::{
-    text::source_loc::SourceLocConverter,
+    text::source_loc::{EncodedSpan, SourceLocConverter},
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
 
@@ -25,10 +25,7 @@ pub enum SyntaxErr {
     /// location of the `found` token is not stored here; it is recovered from
     /// the syntax tree at render time (the insertion locus equals the found
     /// token's offset, i.e. the start of its leading trivia).
-    Expected {
-        kinds: Box<[TokenKind]>,
-        found: TokenKind,
-    },
+    Expected { kinds: Box<[TokenKind]> },
     /// A token was seen that was not expected in some context
     Unexpected { kind: TokenKind },
     /// Bytes that are not valid were observed
@@ -55,12 +52,11 @@ impl Diagnostic {
             span,
             SyntaxErr::Expected {
                 kinds: expected.into(),
-                found: TokenKind::Eof,
             },
         )
     }
 
-    pub fn span(&self, converter: &SourceLocConverter) -> Span {
+    pub fn span(&self, converter: &SourceLocConverter) -> EncodedSpan {
         converter.convert_byte_span(&self.span)
     }
 
