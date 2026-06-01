@@ -133,31 +133,15 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use assert_matches::assert_matches;
-
     use super::*;
     use crate::parser::diagnostics::Diagnostic;
     use crate::parser::parse_syntax;
     use crate::parser::{parse, Parser};
 
-    fn assert_unexpected_input(diag: &Diagnostic, expected_span: std::ops::Range<usize>) {
+    fn assert_expected_token(diag: &Diagnostic, expected_kinds: &[TokenKind]) {
         match diag.err() {
-            SyntaxErr::Unexpected { kind: _ } => {
-                assert_eq!(
-                    diag.span_raw(),
-                    &expected_span,
-                    "wrong span on UnexpectedInput"
-                );
-            }
-            other => panic!("expected UnexpectedInput, got {:?}", other),
-        }
-    }
-
-    fn assert_expected_token(diag: &Diagnostic, expected_kinds: &[TokenKind], found: TokenKind) {
-        match diag.err() {
-            SyntaxErr::Expected { kinds, found: got } => {
+            SyntaxErr::Expected { kinds } => {
                 assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
-                assert_eq!(*got, found, "found token mismatch");
             }
             other => panic!("expected ExpectedToken, got {:?}", other),
         }
@@ -189,8 +173,8 @@ mod tests {
     #[test]
     fn expect_recover_emits_missing_token_when_recovery_point_is_next() {
         let (_, diags) = parse_syntax(";", |p: &mut Parser| {
-            // start_node(DesignFile) opens a frame with DESIGN_UNIT_STARTERS.
-            p.start_node(NodeKind::DesignFile);
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
             p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             // The recovery token must NOT have been consumed.
             assert_eq!(p.peek_token(), TokenKind::SemiColon);
@@ -200,8 +184,7 @@ mod tests {
         assert_eq!(diags.len(), 1);
         assert_expected_token(
             &diags[0],
-            &[TokenKind::Keyword(Kw::Is)],
-            TokenKind::SemiColon,
+            &[TokenKind::Keyword(Kw::Is)]
         );
     }
 
@@ -211,7 +194,8 @@ mod tests {
     #[test]
     fn expect_recover_emits_unexpected_input_after_skipping() {
         let (root, diags) = parse_syntax("foo bar ;", |p: &mut Parser| {
-            p.start_node(NodeKind::DesignFile);
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
             p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             assert_eq!(
                 p.peek_token(),
@@ -243,7 +227,7 @@ mod tests {
     #[test]
     fn expect_recover_stops_when_expected_token_appears() {
         let (_, diags) = parse_syntax("garbage is", |p: &mut Parser| {
-            p.start_node(NodeKind::DesignFile);
+            p.start_node(NodeKind::Assertion);
             p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             // expected token kept for the caller to consume.
             assert_eq!(p.peek_token(), TokenKind::Keyword(Kw::Is));
@@ -252,8 +236,10 @@ mod tests {
         });
         assert_eq!(diags.len(), 1);
         match diags[0].err() {
-            SyntaxErr::Unexpected { kind } => {
-                assert!(diags[0].span_raw().is_empty());
+            SyntaxErr::Unexpected { kind: _ } => {
+                // The diagnostic spans the skipped `garbage`, like the
+                // garbage-before-recovery-token case above.
+                assert!(!diags[0].span_raw().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
@@ -275,7 +261,7 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1, "expected exactly one EoF diagnostic");
-        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)], TokenKind::Eof);
+        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)]);
     }
 
     /// The `missing_token` diagnostic records the insertion locus (a zero-width
@@ -287,7 +273,8 @@ mod tests {
         // Two newlines = two TriviaPiece entries, 2 bytes of trivia.
         let src = "\n\n;";
         let (_, diags) = parse_syntax(src, |p: &mut Parser| {
-            p.start_node(NodeKind::DesignFile);
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
             p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             p.skip();
             p.end_node();
@@ -296,13 +283,6 @@ mod tests {
         // The insertion locus sits before the leading trivia of `;`, i.e. at the
         // start of input here.
         assert!(diags[0].span_raw().is_empty(), "locus must be zero-width");
-        assert_matches!(
-            diags[0].err(),
-            SyntaxErr::Expected {
-                found: TokenKind::SemiColon,
-                ..
-            }
-        );
     }
 
     // ---- End-to-end smoke tests via the public `parse` entrypoint ----

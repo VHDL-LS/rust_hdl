@@ -8,7 +8,7 @@ use vhdl_syntax::{
         write::{WriteEncoded, WriteError},
     },
     parser::diagnostics::{Diagnostic, SyntaxErr},
-    syntax::node::SyntaxNode,
+    syntax::node::{SyntaxNode, SyntaxToken},
     text::source_loc::{EncodedOffset, SourceLoc, SourceLocConverter},
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
@@ -121,6 +121,10 @@ where
     Snippet::source(snippet).line_start(source_loc.line + 1)
 }
 
+fn compute_token_after_expected_pos(tree: &SyntaxNode, span: &Range<usize>) -> SyntaxToken {
+    tree.covering_token_at_offset(span.end)
+}
+
 pub fn parser_diagnostic_to_report<'a>(
     diagnostic: &Diagnostic,
     file_name: Option<Cow<'a, str>>,
@@ -129,7 +133,7 @@ pub fn parser_diagnostic_to_report<'a>(
 ) -> Group<'a> {
     let snippet_range = match diagnostic.err() {
         SyntaxErr::Expected { .. } => {
-            let found = tree.covering_token_at_offset(diagnostic.span_raw().end);
+            let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
             if found.kind().is_eof() {
                 diagnostic.span_raw().clone()
             } else {
@@ -145,7 +149,7 @@ pub fn parser_diagnostic_to_report<'a>(
 
     match diagnostic.err() {
         SyntaxErr::Expected { kinds } => {
-            let found = tree.covering_token_at_offset(diagnostic.span_raw().end);
+            let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
             let mut annotations = vec![primary_anno(
                 span,
                 format!("{} expected here", expected_message(kinds)),
