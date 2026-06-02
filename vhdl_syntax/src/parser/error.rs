@@ -14,7 +14,7 @@ use crate::{
 type Span = Range<usize>;
 
 #[derive(Debug, Clone)]
-pub enum SyntaxErr {
+pub enum SyntaxErrKind {
     /// One of the tokens given by `kinds` was expected. `found` is the token
     /// that was seen instead; it is [`TokenKind::Eof`] when end of file was
     /// reached.
@@ -35,22 +35,22 @@ pub enum SyntaxErr {
 }
 
 #[derive(Debug)]
-pub struct Diagnostic {
+pub struct SyntaxErr {
     /// The main span of the error.
     span: Span,
     /// the error that occured
-    error: SyntaxErr,
+    error: SyntaxErrKind,
 }
 
-impl Diagnostic {
-    pub fn new(span: Span, err: SyntaxErr) -> Diagnostic {
-        Diagnostic { span, error: err }
+impl SyntaxErr {
+    pub fn new(span: Span, err: SyntaxErrKind) -> SyntaxErr {
+        SyntaxErr { span, error: err }
     }
 
-    pub fn eof_err(span: Span, expected: impl Into<Box<[TokenKind]>>) -> Diagnostic {
-        Diagnostic::new(
+    pub fn eof_err(span: Span, expected: impl Into<Box<[TokenKind]>>) -> SyntaxErr {
+        SyntaxErr::new(
             span,
-            SyntaxErr::Expected {
+            SyntaxErrKind::Expected {
                 kinds: expected.into(),
             },
         )
@@ -64,7 +64,7 @@ impl Diagnostic {
         &self.span
     }
 
-    pub fn err(&self) -> &SyntaxErr {
+    pub fn err(&self) -> &SyntaxErrKind {
         &self.error
     }
 }

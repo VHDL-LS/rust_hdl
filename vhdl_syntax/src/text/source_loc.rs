@@ -225,7 +225,10 @@ impl SourceLocConverter {
     }
 
     pub fn convert_byte_span(&self, span: &Range<usize>) -> EncodedSpan {
-        EncodedSpan::new(self.convert_byte_offset(span.start).raw(), self.convert_byte_offset(span.end).raw())
+        EncodedSpan::new(
+            self.convert_byte_offset(span.start).raw(),
+            self.convert_byte_offset(span.end).raw(),
+        )
     }
 
     /// Returns the byte offset of the line at index.

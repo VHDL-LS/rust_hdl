@@ -7,13 +7,13 @@ use vhdl_syntax::{
         encoding::{Encoder, LossyUtf8Encoder},
         write::{WriteEncoded, WriteError},
     },
-    parser::diagnostics::{Diagnostic, SyntaxErr},
+    parser::error::{SyntaxErr, SyntaxErrKind},
     syntax::node::{SyntaxNode, SyntaxToken},
     text::source_loc::{EncodedOffset, SourceLoc, SourceLocConverter},
     tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
 
-struct SnippetOffset(usize);
+pub struct SnippetOffset(usize);
 
 impl SnippetOffset {
     pub fn raw(&self) -> usize {
@@ -21,7 +21,7 @@ impl SnippetOffset {
     }
 }
 
-struct SnippetSpan {
+pub struct SnippetSpan {
     start: usize,
     end: usize,
 }
@@ -126,13 +126,13 @@ fn compute_token_after_expected_pos(tree: &SyntaxNode, span: &Range<usize>) -> S
 }
 
 pub fn parser_diagnostic_to_report<'a>(
-    diagnostic: &Diagnostic,
+    diagnostic: &SyntaxErr,
     file_name: Option<Cow<'a, str>>,
     tree: &SyntaxNode,
     cache: &SourceLocConverter,
 ) -> Group<'a> {
     let snippet_range = match diagnostic.err() {
-        SyntaxErr::Expected { .. } => {
+        SyntaxErrKind::Expected { .. } => {
             let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
             if found.kind().is_eof() {
                 diagnostic.span_raw().clone()
@@ -148,7 +148,7 @@ pub fn parser_diagnostic_to_report<'a>(
     let span = converter.convert_span(diagnostic.span_raw());
 
     match diagnostic.err() {
-        SyntaxErr::Expected { kinds } => {
+        SyntaxErrKind::Expected { kinds } => {
             let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
             let mut annotations = vec![primary_anno(
                 span,
@@ -165,13 +165,13 @@ pub fn parser_diagnostic_to_report<'a>(
                 .primary_title(expected_token_message(kinds, found.kind()))
                 .element(snippet.annotations(annotations))
         }
-        SyntaxErr::Unexpected { kind: _ } => Level::ERROR
+        SyntaxErrKind::Unexpected { kind: _ } => Level::ERROR
             .primary_title("Unexpected input")
             .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
-        SyntaxErr::Illegal { bytes: _ } => Level::ERROR
+        SyntaxErrKind::Illegal { bytes: _ } => Level::ERROR
             .primary_title("Illegal input")
             .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
-        SyntaxErr::Unterminated { kind } => Level::ERROR
+        SyntaxErrKind::Unterminated { kind } => Level::ERROR
             .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
             .element(snippet.annotation(primary_anno(span, "Opening delimiter was never closed"))),
     }

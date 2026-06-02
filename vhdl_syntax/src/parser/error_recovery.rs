@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::diagnostics::{Diagnostic, SyntaxErr};
+use crate::parser::error::{SyntaxErr, SyntaxErrKind};
 use crate::parser::Parser;
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
@@ -69,8 +69,7 @@ impl Parser {
                 return;
             }
             self.unexpected_eof = true;
-            self.diagnostics
-                .push(Diagnostic::eof_err(start..start, expected));
+            self.errors.push(SyntaxErr::eof_err(start..start, expected));
             return;
         }
 
@@ -85,9 +84,9 @@ impl Parser {
             // Expected contains the token before we hit recovery or EoF -> Assume garbage input
             if expected.contains(&tok) {
                 let end = self.builder.current_pos();
-                self.diagnostics.push(Diagnostic::new(
+                self.errors.push(SyntaxErr::new(
                     start + initial_trivia_len..end,
-                    SyntaxErr::Unexpected { kind: tok },
+                    SyntaxErrKind::Unexpected { kind: tok },
                 ));
                 self.last_recovery_pos = None;
                 return;
@@ -106,18 +105,18 @@ impl Parser {
                     // token's leading trivia). The found token's own span is
                     // recovered from the tree at render time, so we only record
                     // its kind here.
-                    self.diagnostics.push(Diagnostic::new(
+                    self.errors.push(SyntaxErr::new(
                         start..start,
-                        SyntaxErr::Expected {
+                        SyntaxErrKind::Expected {
                             kinds: expected.into(),
                         },
                     ));
                     self.last_recovery_pos = Some(start);
                 // skipped tokens: Garbage input before recovery token.
                 } else {
-                    self.diagnostics.push(Diagnostic::new(
+                    self.errors.push(SyntaxErr::new(
                         start + initial_trivia_len..self.builder.current_pos(),
-                        SyntaxErr::Unexpected { kind: tok },
+                        SyntaxErrKind::Unexpected { kind: tok },
                     ));
                     self.last_recovery_pos = None;
                 }
@@ -134,13 +133,13 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::diagnostics::Diagnostic;
+    use crate::parser::error::SyntaxErr;
     use crate::parser::parse_syntax;
     use crate::parser::{parse, Parser};
 
-    fn assert_expected_token(diag: &Diagnostic, expected_kinds: &[TokenKind]) {
+    fn assert_expected_token(diag: &SyntaxErr, expected_kinds: &[TokenKind]) {
         match diag.err() {
-            SyntaxErr::Expected { kinds } => {
+            SyntaxErrKind::Expected { kinds } => {
                 assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
             }
             other => panic!("expected ExpectedToken, got {:?}", other),
@@ -182,10 +181,7 @@ mod tests {
             p.end_node();
         });
         assert_eq!(diags.len(), 1);
-        assert_expected_token(
-            &diags[0],
-            &[TokenKind::Keyword(Kw::Is)]
-        );
+        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)]);
     }
 
     /// Garbage before a recovery token: tokens are consumed up to (not
@@ -207,7 +203,7 @@ mod tests {
         });
         assert_eq!(diags.len(), 1, "got: {:?}", diags);
         match &diags[0].err() {
-            SyntaxErr::Unexpected { kind: _ } => {
+            SyntaxErrKind::Unexpected { kind: _ } => {
                 assert!(!diags[0].span_raw().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
@@ -236,7 +232,7 @@ mod tests {
         });
         assert_eq!(diags.len(), 1);
         match diags[0].err() {
-            SyntaxErr::Unexpected { kind: _ } => {
+            SyntaxErrKind::Unexpected { kind: _ } => {
                 // The diagnostic spans the skipped `garbage`, like the
                 // garbage-before-recovery-token case above.
                 assert!(!diags[0].span_raw().is_empty());
