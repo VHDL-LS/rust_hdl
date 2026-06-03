@@ -1,4 +1,3 @@
-use core::fmt;
 use std::{borrow::Cow, fmt::Display, ops::Range};
 
 use annotate_snippets::{Annotation, AnnotationKind, Group, Level, OptionCow, Snippet};
@@ -8,10 +7,11 @@ use vhdl_syntax::{
         write::{WriteEncoded, WriteError},
     },
     parser::error::{SyntaxErr, SyntaxErrKind},
-    syntax::node::{SyntaxNode, SyntaxToken},
+    syntax::node::SyntaxNode,
     text::source_loc::{EncodedOffset, SourceLoc, SourceLocConverter},
-    tokens::{tokenizer::UnterminatedKind, TokenKind},
 };
+
+use crate::syntax_err::{describe_unterminated, expected_message, expected_token_message, token_after};
 
 pub struct SnippetOffset(usize);
 
@@ -121,10 +121,6 @@ where
     Snippet::source(snippet).line_start(source_loc.line + 1)
 }
 
-fn compute_token_after_expected_pos(tree: &SyntaxNode, span: &Range<usize>) -> SyntaxToken {
-    tree.covering_token_at_offset(span.end)
-}
-
 pub fn parser_diagnostic_to_report<'a>(
     diagnostic: &SyntaxErr,
     file_name: Option<Cow<'a, str>>,
@@ -133,7 +129,7 @@ pub fn parser_diagnostic_to_report<'a>(
 ) -> Group<'a> {
     let snippet_range = match diagnostic.err() {
         SyntaxErrKind::Expected { .. } => {
-            let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
+            let found = token_after(tree, diagnostic.span_raw());
             if found.kind().is_eof() {
                 diagnostic.span_raw().clone()
             } else {
@@ -149,7 +145,7 @@ pub fn parser_diagnostic_to_report<'a>(
 
     match diagnostic.err() {
         SyntaxErrKind::Expected { kinds } => {
-            let found = compute_token_after_expected_pos(tree, diagnostic.span_raw());
+            let found = token_after(tree, diagnostic.span_raw());
             let mut annotations = vec![primary_anno(
                 span,
                 format!("{} expected here", expected_message(kinds)),
@@ -174,104 +170,6 @@ pub fn parser_diagnostic_to_report<'a>(
         SyntaxErrKind::Unterminated { kind } => Level::ERROR
             .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
             .element(snippet.annotation(primary_anno(span, "Opening delimiter was never closed"))),
-    }
-}
-
-fn describe_unterminated(kind: &UnterminatedKind) -> &'static str {
-    match kind {
-        UnterminatedKind::StringLiteral => "string literal",
-        UnterminatedKind::BasedLiteral => "based literal",
-        UnterminatedKind::ExtendedIdentifier => "extended identifier",
-        UnterminatedKind::BlockComment => "comment",
-    }
-}
-
-fn expected_message(expected: &[TokenKind]) -> String {
-    use std::fmt::Write;
-    match expected {
-        [] => unreachable!("At least one expected must be present"),
-        [only] => format!("{}", Expected(*only)),
-        [head @ .., last] => {
-            let mut out = String::new();
-            for (i, tok) in head.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                write!(out, "{}", Expected(*tok)).unwrap();
-            }
-            write!(out, ", or {}", Expected(*last)).unwrap();
-            out
-        }
-    }
-}
-
-fn expected_token_message(expected: &[TokenKind], found: TokenKind) -> String {
-    let exp_message = expected_message(expected);
-
-    if found == TokenKind::Eof {
-        format!("Expected {exp_message}")
-    } else {
-        format!("Expected {exp_message}, found {}", Expected(found))
-    }
-}
-
-/// Newtype wrapper to properly format token kinds when printing them to the user
-struct Expected(TokenKind);
-
-impl fmt::Display for Expected {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            TokenKind::Keyword(kw) => {
-                write!(f, "`{}`", kw.canonical_text())
-            }
-            TokenKind::Plus => write!(f, "`+`"),
-            TokenKind::Minus => write!(f, "`-`"),
-            TokenKind::EQ => write!(f, "`=`"),
-            TokenKind::NE => write!(f, "`/=`"),
-            TokenKind::LT => write!(f, "`<`"),
-            TokenKind::LTE => write!(f, "`<=`"),
-            TokenKind::GT => write!(f, "`>`"),
-            TokenKind::GTE => write!(f, "`>=`"),
-            TokenKind::QueEQ => write!(f, "`?=`"),
-            TokenKind::QueNE => write!(f, "`?/=`"),
-            TokenKind::QueLT => write!(f, "`?<`"),
-            TokenKind::QueLTE => write!(f, "`?<=`"),
-            TokenKind::QueGT => write!(f, "`?>`"),
-            TokenKind::QueGTE => write!(f, "`?>=`"),
-            TokenKind::Que => write!(f, "`?`"),
-            TokenKind::QueQue => write!(f, "`??`"),
-            TokenKind::Times => write!(f, "`*`"),
-            TokenKind::Pow => write!(f, "`**`"),
-            TokenKind::Div => write!(f, "`/`"),
-            TokenKind::Tick => write!(f, "`'`"),
-            TokenKind::LeftPar => write!(f, "`(`"),
-            TokenKind::RightPar => write!(f, "`)`"),
-            TokenKind::LeftSquare => write!(f, "`[`"),
-            TokenKind::RightSquare => write!(f, "`]`"),
-            TokenKind::SemiColon => write!(f, "`;`"),
-            TokenKind::Colon => write!(f, "`:`"),
-            TokenKind::Bar => write!(f, "`|`"),
-            TokenKind::Dot => write!(f, "`.`"),
-            TokenKind::BOX => write!(f, "`<>`"),
-            TokenKind::LtLt => write!(f, "`<<`"),
-            TokenKind::GtGt => write!(f, "`>>`"),
-            TokenKind::Circ => write!(f, "`^`"),
-            TokenKind::CommAt => write!(f, "`@`"),
-            TokenKind::Concat => write!(f, "`&`"),
-            TokenKind::Comma => write!(f, "`,`"),
-            TokenKind::ColonEq => write!(f, "`:=`"),
-            TokenKind::RightArrow => write!(f, "`=>`"),
-            TokenKind::Eof => write!(f, "end of input"),
-            TokenKind::Identifier => write!(f, "identifier"),
-            TokenKind::AbstractLiteral => write!(f, "abstract literal"),
-            TokenKind::StringLiteral => write!(f, "string literal"),
-            TokenKind::BitStringLiteral => write!(f, "bitstring literal"),
-            TokenKind::CharacterLiteral => write!(f, "character literal"),
-            TokenKind::ToolDirective => write!(f, "tool directive"),
-            TokenKind::Unknown => {
-                unreachable!("should never be called by 'expected'")
-            }
-        }
     }
 }
 

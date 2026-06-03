@@ -12,6 +12,8 @@ use vhdl_syntax::{
 use crate::reporting::parser_diagnostic_to_report;
 
 mod reporting;
+pub mod diagnostic;
+mod syntax_err;
 
 #[derive(Parser, Debug)]
 struct Args {
