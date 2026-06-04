@@ -55,9 +55,7 @@ impl Parser {
 /// Parse and return a VHDL file using the default VHDL standard.
 ///
 /// Use [`parse_with_standard`] to use a non-default VHDL standard.
-pub fn parse(
-    token_stream: impl Into<TokenStream>,
-) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
+pub fn parse(token_stream: impl Into<TokenStream>) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
     let mut parser = Parser::new(token_stream.into(), VHDLStandard::default());
     parser.design_file();
     let (syntax_node, diagnostics) = parser.into_root();
