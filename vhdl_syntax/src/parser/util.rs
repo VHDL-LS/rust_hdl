@@ -5,8 +5,7 @@ use crate::parser::builder::Checkpoint;
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
-use crate::parser::diagnostics::ParserDiagnostic;
-use crate::parser::diagnostics::ParserError::*;
+use crate::parser::error::{SyntaxErr, SyntaxErrKind};
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -37,7 +36,7 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
+            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err([$($($pattern_expr),+),+]),
             _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
         }
     };
@@ -57,7 +56,7 @@ macro_rules! match_next_token_consume {
                 $parser.skip();
                 $action
             }),+
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err(),
+            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err([$($($pattern_expr),+),+]),
             _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
         }
     };
@@ -194,22 +193,21 @@ impl Parser {
         self.builder.start_node_at(checkpoint, kind)
     }
 
-    pub(crate) fn eof_err(&mut self) {
+    pub(crate) fn eof_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
         if !self.unexpected_eof {
             self.unexpected_eof = true;
-            self.diagnostics
-                .push(ParserDiagnostic::new(self.builder.current_pos(), Eof))
+            self.expect_tokens_err(tokens);
         }
     }
 
     pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        self.diagnostics.push(ParserDiagnostic::new(
-            self.builder.current_pos(),
-            ExpectingTokens(tokens.into()),
+        self.diagnostics.push(SyntaxErr::new(
+            self.builder.current_pos()..self.builder.current_pos(),
+            SyntaxErrKind::Expected(tokens.into()),
         ));
     }
 
-    pub(crate) fn end(self) -> (GreenNode, Vec<ParserDiagnostic>) {
+    pub(crate) fn end(self) -> (GreenNode, Vec<SyntaxErr>) {
         (self.builder.end(), self.diagnostics)
     }
 
