@@ -1,7 +1,7 @@
 use crate::vhdl_server::{from_lsp_pos, uri_to_file_name, VHDLServer};
 use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Documentation,
-    InsertTextFormat, MarkupContent, MarkupKind,
+    CompletionItem, CompletionItemKind, CompletionList, CompletionParams, CompletionResponse,
+    Documentation, InsertTextFormat, MarkupContent, MarkupKind,
 };
 use vhdl_lang::ast::{Designator, ObjectClass};
 use vhdl_lang::{kind_str, AnyEntKind, Design, EntRef, InterfaceEnt, Overloaded};
@@ -134,15 +134,13 @@ impl VHDLServer {
 
     /// Called when the client requests a completion.
     /// This function looks in the source code to find suitable options and then returns them
-    pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
+    pub fn request_completion(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
         let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
         let file = binding.as_path();
         // 1) get source position, and source file
         let Some(source) = self.project.get_source(file) else {
             // Do not enable completions for files that are not part of the project
-            return CompletionList {
-                ..Default::default()
-            };
+            return None;
         };
         let cursor = from_lsp_pos(params.text_document_position.position);
         // 2) Optimization chance: go to last recognizable token before the cursor. For example:
@@ -157,12 +155,15 @@ impl VHDLServer {
             .list_completion_options(&source, cursor)
             .into_iter()
             .map(|item| self.completion_item_to_lsp_item(item))
-            .collect();
+            .collect::<Vec<_>>();
 
-        CompletionList {
-            items: options,
-            is_incomplete: true,
-        }
+        Some(
+            CompletionList {
+                items: options,
+                is_incomplete: true,
+            }
+            .into(),
+        )
     }
 
     pub fn resolve_completion_item(&mut self, params: &CompletionItem) -> CompletionItem {

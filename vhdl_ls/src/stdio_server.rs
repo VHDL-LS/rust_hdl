@@ -38,6 +38,85 @@ struct ConnectionRpcChannel {
     next_outgoing_request_id: Rc<RefCell<i32>>,
 }
 
+struct RequestDispatcher<'a> {
+    request: Option<lsp_server::Request>,
+    server: &'a mut VHDLServer,
+    channel: &'a ConnectionRpcChannel,
+}
+
+impl<'a> RequestDispatcher<'a> {
+    pub fn new(
+        request: lsp_server::Request,
+        server: &'a mut VHDLServer,
+        channel: &'a ConnectionRpcChannel,
+    ) -> RequestDispatcher<'a> {
+        RequestDispatcher {
+            request: Some(request),
+            server,
+            channel,
+        }
+    }
+
+    #[must_use]
+    pub fn on<R>(
+        mut self,
+        handler: impl FnOnce(&mut VHDLServer, R::Params) -> R::Result,
+    ) -> RequestDispatcher<'a>
+    where
+        R: lsp_types::request::Request,
+    {
+        let Some(request) = self.request.take() else {
+            return self;
+        };
+
+        if request.method != R::METHOD {
+            self.request = Some(request);
+            return self;
+        }
+
+        self.handle::<R>(request, handler);
+
+        self
+    }
+
+    fn handle<R>(
+        &mut self,
+        req: lsp_server::Request,
+        handler: impl FnOnce(&mut VHDLServer, R::Params) -> R::Result,
+    ) where
+        R: lsp_types::request::Request,
+    {
+        let id = req.id;
+
+        let params: R::Params = match serde_json::from_value(req.params) {
+            Ok(params) => params,
+            Err(err) => {
+                self.channel.send_response(lsp_server::Response::new_err(
+                    id,
+                    lsp_server::ErrorCode::InvalidParams as i32,
+                    err.to_string(),
+                ));
+                return;
+            }
+        };
+
+        let response = lsp_server::Response::new_ok(id, handler(self.server, params));
+
+        self.channel.send_response(response);
+    }
+
+    pub fn finish(self) {
+        if let Some(request) = self.request {
+            debug!("Unhandled request: {request:?}");
+            self.channel.send_response(lsp_server::Response::new_err(
+                request.id,
+                lsp_server::ErrorCode::MethodNotFound as i32,
+                "Unknown request".to_string(),
+            ));
+        }
+    }
+}
+
 impl RpcChannel for ConnectionRpcChannel {
     /// Send notification to the client.
     fn send_notification(&self, method: String, params: Value) {
@@ -117,152 +196,53 @@ impl ConnectionRpcChannel {
 
     /// Handle incoming requests from the client.
     fn handle_request(&self, server: &mut VHDLServer, request: lsp_server::Request) {
-        fn extract<R>(
-            request: lsp_server::Request,
-        ) -> Result<(lsp_server::RequestId, R::Params), lsp_server::Request>
-        where
-            R: request::Request,
-            R::Params: serde::de::DeserializeOwned,
-        {
-            request.extract(R::METHOD).map_err(|e| match e {
-                ExtractError::MethodMismatch(r) => r,
-                err @ ExtractError::JsonError { .. } => {
-                    panic!("{err:?}");
-                }
-            })
-        }
-
         trace!("Handling request: {request:?}");
-        let request = match extract::<request::GotoDeclaration>(request) {
-            Ok((id, params)) => {
-                let result =
-                    server.text_document_declaration(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::GotoDefinition>(request) {
-            Ok((id, params)) => {
-                let result = server.text_document_definition(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::GotoTypeDefinition>(request) {
-            Ok((id, params)) => {
-                let result =
-                    server.text_document_type_definition(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::GotoImplementation>(request) {
-            Ok((id, params)) => {
-                let result =
-                    server.text_document_implementation(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::Rename>(request) {
-            Ok((id, params)) => {
-                let result = server.rename(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::PrepareRenameRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.prepare_rename(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::WorkspaceSymbolRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.workspace_symbol(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::DocumentSymbolRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.document_symbol(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::DocumentHighlightRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.document_highlight(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::HoverRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.text_document_hover(&params.text_document_position_params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::References>(request) {
-            Ok((id, params)) => {
-                let result = server.text_document_references(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::Completion>(request) {
-            Ok((id, params)) => {
-                let res = server.request_completion(&params);
-                self.send_response(lsp_server::Response::new_ok(id, res));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::ResolveCompletionItem>(request) {
-            Ok((id, params)) => {
-                let res = server.resolve_completion_item(&params);
-                self.send_response(lsp_server::Response::new_ok(id, res));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::SemanticTokensFullRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.semantic_tokens_full(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::SemanticTokensRangeRequest>(request) {
-            Ok((id, params)) => {
-                let result = server.semantic_tokens_range(&params);
-                self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
 
-        debug!("Unhandled request: {request:?}");
-        self.send_response(lsp_server::Response::new_err(
-            request.id,
-            lsp_server::ErrorCode::MethodNotFound as i32,
-            "Unknown request".to_string(),
-        ));
+        RequestDispatcher::new(request, server, self)
+            .on::<request::GotoDeclaration>(|server, params| {
+                server
+                    .text_document_declaration(&params.text_document_position_params)
+                    .map(lsp_types::GotoDefinitionResponse::Scalar)
+            })
+            .on::<request::GotoDefinition>(|server, params| {
+                server
+                    .text_document_definition(&params.text_document_position_params)
+                    .map(lsp_types::GotoDefinitionResponse::Scalar)
+            })
+            .on::<request::GotoTypeDefinition>(|server, params| {
+                server
+                    .text_document_type_definition(&params.text_document_position_params)
+                    .map(lsp_types::GotoDefinitionResponse::Scalar)
+            })
+            .on::<request::GotoImplementation>(|server, params| {
+                server.text_document_implementation(&params.text_document_position_params)
+            })
+            .on::<request::Rename>(|server, params| server.rename(&params))
+            .on::<request::PrepareRenameRequest>(|server, params| server.prepare_rename(&params))
+            .on::<request::WorkspaceSymbolRequest>(|server, params| {
+                server.workspace_symbol(&params)
+            })
+            .on::<request::DocumentSymbolRequest>(|server, params| server.document_symbol(&params))
+            .on::<request::DocumentHighlightRequest>(|server, params| {
+                server.document_highlight(&params.text_document_position_params)
+            })
+            .on::<request::HoverRequest>(|server, params| {
+                server.text_document_hover(&params.text_document_position_params)
+            })
+            .on::<request::References>(|server, params| {
+                server.text_document_references(&params).into()
+            })
+            .on::<request::Completion>(|server, params| server.request_completion(&params))
+            .on::<request::ResolveCompletionItem>(|server, params| {
+                server.resolve_completion_item(&params)
+            })
+            .on::<request::SemanticTokensFullRequest>(|server, params| {
+                server.semantic_tokens_full(&params)
+            })
+            .on::<request::SemanticTokensRangeRequest>(|server, params| {
+                server.semantic_tokens_range(&params)
+            })
+            .finish();
     }
 
     /// Handle incoming notifications from the client.
