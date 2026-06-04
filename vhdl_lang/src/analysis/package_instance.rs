@@ -473,6 +473,14 @@ impl<'a> AnalyzeContext<'a, '_> {
                     .lookup_immediate(&typ.designator)
                     .and_then(|result| result.into_non_overloaded().ok())
                     .and_then(TypeEnt::from_any)
+                    // Only accept a same-named entity if it is genuinely the
+                    // instance of `typ`. Without this guard an external type
+                    // (e.g. `work.base_pkg.base_record`) referenced from inside
+                    // the package would be redirected to a locally declared
+                    // entity that merely shares its name, producing a
+                    // self-referential subtype and an infinite loop in
+                    // `base_type` traversal (issue #477).
+                    .filter(|entity| entity.is_instance_of(typ.into()))
                 {
                     entity
                 } else {
