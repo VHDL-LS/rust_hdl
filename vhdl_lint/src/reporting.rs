@@ -1,17 +1,145 @@
-use std::{borrow::Cow, fmt::Display, ops::Range};
+//! Rendering of [`Diagnostic`]s to a terminal
 
-use annotate_snippets::{Annotation, AnnotationKind, Group, Level, OptionCow, Snippet};
+use std::{fmt, ops::Range};
+
+use annotate_snippets::{
+    Annotation, AnnotationKind, Element, Group, Level, OptionCow, Renderer, Snippet, renderer::DecorStyle
+};
 use vhdl_syntax::{
     fmt::{
         encoding::{Encoder, LossyUtf8Encoder},
         write::{WriteEncoded, WriteError},
     },
-    parser::error::{SyntaxErr, SyntaxErrKind},
     syntax::node::SyntaxNode,
-    text::source_loc::{EncodedOffset, SourceLoc, SourceLocConverter},
+    text::source_loc::{EncodedOffset, SourceLocConverter},
 };
 
-use crate::syntax_err::{describe_unterminated, expected_message, expected_token_message, token_after};
+use crate::diagnostic::{Diagnostic, Label, LabelKind, NoteKind, Severity, SourceId};
+use crate::source::SourceProvider;
+
+/// A terminal renderer for diagnostics, bound to a [`SourceProvider`].
+///
+/// Holds the rendering context once and hands out an opaque [`Displayed`] for a
+/// batch of diagnostics, which renders them in a single pass.
+pub struct Report<'a, P: SourceProvider> {
+    provider: &'a P,
+    diagnostics: &'a [Diagnostic]
+}
+
+impl<'a, P: SourceProvider> Report<'a, P> {
+    pub fn new(provider: &'a P, diagnostics: &'a [Diagnostic]) -> Report<'a, P> {
+        Report { provider, diagnostics }
+    }
+}
+
+impl<P: SourceProvider> fmt::Display for Report<'_, P> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let groups: Vec<Group> = self
+            .diagnostics
+            .iter()
+            .filter_map(|diagnostic| diagnostic_to_group(diagnostic, self.provider))
+            .collect();
+
+        let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
+        write!(f, "{}", renderer.render(&groups))
+    }
+}
+
+/// Lower a single [`Diagnostic`] into an `annotate_snippets` [`Group`].
+///
+/// Labels are grouped by source (in first-seen order) into one snippet each, so
+/// cross-file diagnostics render naturally; notes become trailing message
+/// elements. Returns `None` if a referenced source cannot be resolved or the
+/// diagnostic has no labels.
+fn diagnostic_to_group<'a, P: SourceProvider>(
+    diagnostic: &'a Diagnostic,
+    provider: &'a P,
+) -> Option<Group<'a>> {
+    let level = match diagnostic.severity() {
+        Severity::Error => Level::ERROR,
+        Severity::Warning => Level::WARNING,
+        Severity::Info => Level::INFO,
+        Severity::Hint => Level::HELP,
+    };
+    let title = level.primary_title(diagnostic.message());
+
+    let mut elements: Vec<Element<'a>> = Vec::new();
+
+    for source_id in distinct_sources(diagnostic) {
+        let file = provider.lookup(source_id)?;
+        let labels: Vec<&Label> = diagnostic
+            .labels()
+            .iter()
+            .filter(|label| label.source() == source_id)
+            .collect();
+        let range = union_span(labels.iter().map(|label| label.span().clone()))?;
+
+        let (text, converter) =
+            lines::<LossyUtf8Encoder>(file.tree, file.converter, &range, 0).unwrap();
+        let line_start = file.converter.source_loc(range.start).line + 1;
+
+        let snippet = Snippet::source(text)
+            .line_start(line_start)
+            .path(file.name)
+            .annotations(labels.iter().map(|label| {
+                annotation(
+                    annotation_kind(label.kind()),
+                    converter.convert_span(label.span()),
+                    label.message(),
+                )
+            }));
+        elements.push(snippet.into());
+    }
+
+    for note in diagnostic.notes() {
+        let level = match note.kind() {
+            NoteKind::Note => Level::NOTE,
+            NoteKind::Help => Level::HELP,
+        };
+        elements.push(level.message(note.message()).into());
+    }
+
+    Some(title.elements(elements))
+}
+
+/// The distinct sources referenced by `diagnostic`'s labels, in first-seen order
+/// (so the primary label's source comes first).
+fn distinct_sources(diagnostic: &Diagnostic) -> Vec<SourceId> {
+    let mut sources: Vec<SourceId> = Vec::new();
+    for label in diagnostic.labels() {
+        if !sources.contains(&label.source()) {
+            sources.push(label.source());
+        }
+    }
+    sources
+}
+
+/// Smallest range covering all `spans`, or `None` if there are none.
+fn union_span(spans: impl Iterator<Item = Range<usize>>) -> Option<Range<usize>> {
+    let mut spans = spans;
+    let first = spans.next()?;
+    let (mut start, mut end) = (first.start, first.end);
+    for span in spans {
+        start = start.min(span.start);
+        end = end.max(span.end);
+    }
+    Some(start..end)
+}
+
+fn annotation_kind(kind: LabelKind) -> AnnotationKind {
+    match kind {
+        LabelKind::Primary => AnnotationKind::Primary,
+        LabelKind::Context => AnnotationKind::Context,
+    }
+}
+
+fn annotation<'a>(
+    kind: AnnotationKind,
+    span: SnippetSpan,
+    label: impl Into<OptionCow<'a>>,
+) -> Annotation<'a> {
+    kind.span(span.start().raw()..span.end().raw()).label(label)
+}
 
 pub struct SnippetOffset(usize);
 
@@ -40,6 +168,8 @@ impl SnippetSpan {
     }
 }
 
+/// Maps raw source spans into offsets relative to the start of an extracted
+/// snippet, in the render encoding.
 struct SnippetConverter<'a> {
     base: EncodedOffset,
     cache: &'a SourceLocConverter,
@@ -60,9 +190,11 @@ impl<'a> SnippetConverter<'a> {
 }
 
 /// Returns the snippet text covering `byte_range` (with `surplus` extra lines of
-/// context on each side) along with the absolute byte offset of its first
-/// character. The offset lets callers translate absolute source spans into
-/// snippet-relative ones.
+/// context on each side) along with a converter that translates absolute source
+/// spans into snippet-relative ones.
+///
+/// The text is currently rendered from the whole tree for simplicity; a future
+/// implementation can render only the relevant portion of `source`.
 fn lines<'a, E: Encoder>(
     source: &SyntaxNode,
     cache: &'a SourceLocConverter,
@@ -70,7 +202,7 @@ fn lines<'a, E: Encoder>(
     surplus: usize,
 ) -> Result<(String, SnippetConverter<'a>), E::Err>
 where
-    for<'b> E::Str<'b>: Display,
+    for<'b> E::Str<'b>: fmt::Display,
 {
     let mut full = String::new();
     match source.fmt_to::<E>(&mut full) {
@@ -98,81 +230,6 @@ where
     Ok((result, SnippetConverter::new(base, cache)))
 }
 
-fn annotation<'a>(
-    kind: AnnotationKind,
-    span: SnippetSpan,
-    label: impl Into<OptionCow<'a>>,
-) -> Annotation<'a> {
-    kind.span(span.start().raw()..span.end().raw()).label(label)
-}
-
-fn primary_anno<'a>(span: SnippetSpan, label: impl Into<OptionCow<'a>>) -> Annotation<'a> {
-    annotation(AnnotationKind::Primary, span, label)
-}
-
-fn context_anno<'a>(span: SnippetSpan, label: impl Into<OptionCow<'a>>) -> Annotation<'a> {
-    annotation(AnnotationKind::Context, span, label)
-}
-
-fn make_snipet<'a, T>(snippet: impl Into<Cow<'a, str>>, source_loc: SourceLoc) -> Snippet<'a, T>
-where
-    T: Clone,
-{
-    Snippet::source(snippet).line_start(source_loc.line + 1)
-}
-
-pub fn parser_diagnostic_to_report<'a>(
-    diagnostic: &SyntaxErr,
-    file_name: Option<Cow<'a, str>>,
-    tree: &SyntaxNode,
-    cache: &SourceLocConverter,
-) -> Group<'a> {
-    let snippet_range = match diagnostic.err() {
-        SyntaxErrKind::Expected { .. } => {
-            let found = token_after(tree, diagnostic.span_raw());
-            if found.kind().is_eof() {
-                diagnostic.span_raw().clone()
-            } else {
-                diagnostic.span_raw().start..found.range().end
-            }
-        }
-        _ => diagnostic.span_raw().clone(),
-    };
-
-    let (snippet, converter) = lines::<LossyUtf8Encoder>(tree, cache, &snippet_range, 0).unwrap();
-    let snippet = make_snipet(snippet, cache.source_loc(snippet_range.start)).path(file_name);
-    let span = converter.convert_span(diagnostic.span_raw());
-
-    match diagnostic.err() {
-        SyntaxErrKind::Expected { kinds } => {
-            let found = token_after(tree, diagnostic.span_raw());
-            let mut annotations = vec![primary_anno(
-                span,
-                format!("{} expected here", expected_message(kinds)),
-            )];
-            if !found.kind().is_eof() {
-                annotations.push(context_anno(
-                    converter.convert_span(&found.text_range()),
-                    "unexpected token",
-                ));
-            }
-
-            Level::ERROR
-                .primary_title(expected_token_message(kinds, found.kind()))
-                .element(snippet.annotations(annotations))
-        }
-        SyntaxErrKind::Unexpected { kind: _ } => Level::ERROR
-            .primary_title("Unexpected input")
-            .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
-        SyntaxErrKind::Illegal { bytes: _ } => Level::ERROR
-            .primary_title("Illegal input")
-            .element(snippet.annotation(primary_anno(span, "This input is unexpected"))),
-        SyntaxErrKind::Unterminated { kind } => Level::ERROR
-            .primary_title(format!("Unterminated {}", describe_unterminated(kind)))
-            .element(snippet.annotation(primary_anno(span, "Opening delimiter was never closed"))),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,7 +249,9 @@ mod tests {
 
     fn run(src: &str, range: Range<usize>, surplus: usize) -> (String, usize) {
         let (node, cache) = setup(src);
-        lines::<Utf8Encoder>(&node, &cache, &range, surplus).expect("utf-8")
+        let (text, converter) =
+            lines::<Utf8Encoder>(&node, &cache, &range, surplus).expect("utf-8");
+        (text, converter.base.raw())
     }
 
     #[test]

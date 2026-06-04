@@ -11,7 +11,7 @@ pub struct Diagnostic {
     code: DiagnosticCode,
     message: String,
     labels: Vec<Label>,
-    notes: Vec<Note>,
+    notes: Vec<Footer>,
 }
 
 impl Diagnostic {
@@ -42,7 +42,7 @@ impl Diagnostic {
         self
     }
 
-    pub fn with_note(mut self, note: Note) -> Diagnostic {
+    pub fn with_note(mut self, note: Footer) -> Diagnostic {
         self.notes.push(note);
         self
     }
@@ -63,7 +63,7 @@ impl Diagnostic {
         &self.labels
     }
 
-    pub fn notes(&self) -> &[Note] {
+    pub fn notes(&self) -> &[Footer] {
         &self.notes
     }
 
@@ -180,21 +180,21 @@ pub enum NoteKind {
 
 /// A footer message attached to a diagnostic, not tied to a source location.
 #[derive(Debug, Clone)]
-pub struct Note {
+pub struct Footer {
     kind: NoteKind,
     message: String,
 }
 
-impl Note {
-    pub fn note(message: impl Into<String>) -> Note {
-        Note {
+impl Footer {
+    pub fn note(message: impl Into<String>) -> Footer {
+        Footer {
             kind: NoteKind::Note,
             message: message.into(),
         }
     }
 
-    pub fn help(message: impl Into<String>) -> Note {
-        Note {
+    pub fn help(message: impl Into<String>) -> Footer {
+        Footer {
             kind: NoteKind::Help,
             message: message.into(),
         }

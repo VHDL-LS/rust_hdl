@@ -1,6 +1,5 @@
 use std::{path::PathBuf, process::ExitCode};
 
-use annotate_snippets::{renderer::DecorStyle, Renderer};
 use clap::Parser;
 use vhdl_syntax::{
     fmt::encoding::LossyUtf8Encoder,
@@ -9,10 +8,13 @@ use vhdl_syntax::{
     text::{char_encoding, source_loc::SourceLocConverter},
 };
 
-use crate::reporting::parser_diagnostic_to_report;
+use crate::diagnostic::{Diagnostic, SourceId};
+use crate::reporting::Report;
+use crate::source::SourceMap;
 
-mod reporting;
 pub mod diagnostic;
+mod reporting;
+mod source;
 mod syntax_err;
 
 #[derive(Parser, Debug)]
@@ -32,24 +34,31 @@ fn main() -> ExitCode {
         }
     };
 
-    let (ast, diagnostics) = parser::parse(content);
-    if diagnostics.is_empty() {
+    let (ast, errors) = parser::parse(content);
+    if errors.is_empty() {
         return ExitCode::SUCCESS;
     }
 
-    let cache = SourceLocConverter::new_lossy::<LossyUtf8Encoder, char_encoding::Utf8>(&ast.raw());
+    let tree = ast.raw();
+    let converter = SourceLocConverter::new_lossy::<LossyUtf8Encoder, char_encoding::Utf8>(&tree);
+    let name = args
+        .file
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned());
 
-    let fname = args.file.file_name().map(|path| path.to_string_lossy());
+    let source_id = SourceId::new(0);
+    let mut sources = SourceMap::new();
+    sources.insert(source_id, name, &tree, converter);
 
-    let report = diagnostics
-        .into_iter()
-        .map(|diag| parser_diagnostic_to_report(&diag, fname.clone(), &ast.raw(), &cache))
-        .collect::<Vec<_>>();
+    let diagnostics: Vec<Diagnostic> = errors
+        .iter()
+        .map(|error| Diagnostic::from_syntax_err(error, &tree, source_id))
+        .collect();
 
-    let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
-    anstream::eprintln!("{}", renderer.render(&report));
+    let report = Report::new(&sources, &diagnostics);
+    anstream::eprintln!("{}", report);
 
-    let count = report.len();
+    let count = diagnostics.len();
     if count == 1 {
         anstream::eprintln!("1 error emitted");
     } else {
