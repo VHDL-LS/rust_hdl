@@ -1509,7 +1509,7 @@ dependencies = [
 
 [[package]]
 name = "vhdl_lang"
-version = "0.87.0"
+version = "0.87.1"
 dependencies = [
  "assert_cmd",
  "assert_matches",
@@ -1535,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "vhdl_lang_macros"
-version = "0.87.0"
+version = "0.87.1"
 dependencies = [
  "quote",
  "syn",
@@ -1543,7 +1543,7 @@ dependencies = [
 
 [[package]]
 name = "vhdl_ls"
-version = "0.87.0"
+version = "0.87.1"
 dependencies = [
  "clap",
  "env_logger",
