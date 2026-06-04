@@ -9,11 +9,11 @@ use vhdl_syntax::{
 };
 
 use crate::diagnostic::{Diagnostic, SourceId};
-use crate::reporting::Report;
+use crate::render::Report;
 use crate::source::SourceMap;
 
 pub mod diagnostic;
-mod reporting;
+mod render;
 mod source;
 mod syntax_err;
 
