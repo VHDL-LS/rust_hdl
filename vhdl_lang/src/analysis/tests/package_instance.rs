@@ -960,3 +960,34 @@ end architecture;
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+// Regression test for https://github.com/VHDL-LS/rust_hdl/issues/477
+#[test]
+fn subtype_named_like_external_type_does_not_loop() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package base_pkg is
+    type base_record is record
+        dont_care : bit;
+    end record;
+end package;
+
+package generic_pkg is
+    generic (
+        UNUSED_GENERIC : positive := 1
+    );
+
+    subtype base_record is work.base_pkg.base_record;
+
+    type array_of_base_record is array(natural range<>) of work.base_pkg.base_record;
+end package;
+
+package my_pkg is new work.generic_pkg;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

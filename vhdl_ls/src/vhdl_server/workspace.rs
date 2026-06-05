@@ -1,8 +1,8 @@
 use crate::vhdl_server::{srcpos_to_location, to_symbol_kind, uri_to_file_name, VHDLServer};
 use fuzzy_matcher::FuzzyMatcher;
 use lsp_types::{
-    DidChangeWatchedFilesParams, OneOf, WorkspaceSymbol, WorkspaceSymbolParams,
-    WorkspaceSymbolResponse,
+    CreateFilesParams, DeleteFilesParams, DidChangeWatchedFilesParams, OneOf, RenameFilesParams,
+    WorkspaceSymbol, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -20,13 +20,7 @@ impl VHDLServer {
                 self.message(Message::log(
                     "Configuration file has changed, reloading project...",
                 ));
-                let config = self.load_config();
-                self.severity_map = *config.severities();
-                self.case_transform = config.preferred_case();
-
-                self.project
-                    .update_config(config, &mut self.message_filter());
-                self.publish_diagnostics();
+                self.reload_project();
             }
         }
     }
@@ -108,5 +102,42 @@ impl VHDLServer {
             .rev()
             .map(|wsws| wsws.symbol)
             .collect()
+    }
+
+    fn reload_project(&mut self) {
+        let config = self.load_config();
+        self.severity_map = *config.severities();
+        self.case_transform = config.preferred_case();
+
+        self.project
+            .update_config(config, &mut self.message_filter());
+        self.publish_diagnostics();
+    }
+
+    pub fn workspace_did_create_files(&mut self, params: &CreateFilesParams) {
+        self.message(Message::log(format!(
+            "Created file {:?}, reloading project",
+            params.files
+        )));
+
+        self.reload_project();
+    }
+
+    pub fn workspace_did_rename_files(&mut self, params: &RenameFilesParams) {
+        self.message(Message::log(format!(
+            "Renamed files: {:?}, reloading project",
+            params.files
+        )));
+
+        self.reload_project();
+    }
+
+    pub fn workspace_did_delete_files(&mut self, params: &DeleteFilesParams) {
+        self.message(Message::log(format!(
+            "Deleted files: {:?}, reloading project",
+            params.files
+        )));
+
+        self.reload_project();
     }
 }

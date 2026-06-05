@@ -69,7 +69,10 @@ impl Parser {
                 return;
             }
             self.unexpected_eof = true;
-            self.errors.push(SyntaxErr::eof_err(start..start, expected));
+            self.errors.push(SyntaxErr::new(
+                start..start,
+                SyntaxErrKind::Expected(expected.into()),
+            ));
             return;
         }
 
@@ -86,7 +89,7 @@ impl Parser {
                 let end = self.builder.current_pos();
                 self.errors.push(SyntaxErr::new(
                     start + initial_trivia_len..end,
-                    SyntaxErrKind::Unexpected { kind: tok },
+                    SyntaxErrKind::Unexpected(tok),
                 ));
                 self.last_recovery_pos = None;
                 return;
@@ -107,16 +110,14 @@ impl Parser {
                     // its kind here.
                     self.errors.push(SyntaxErr::new(
                         start..start,
-                        SyntaxErrKind::Expected {
-                            kinds: expected.into(),
-                        },
+                        SyntaxErrKind::Expected(expected.into()),
                     ));
                     self.last_recovery_pos = Some(start);
                 // skipped tokens: Garbage input before recovery token.
                 } else {
                     self.errors.push(SyntaxErr::new(
                         start + initial_trivia_len..self.builder.current_pos(),
-                        SyntaxErrKind::Unexpected { kind: tok },
+                        SyntaxErrKind::Unexpected(tok),
                     ));
                     self.last_recovery_pos = None;
                 }
@@ -139,7 +140,7 @@ mod tests {
 
     fn assert_expected_token(diag: &SyntaxErr, expected_kinds: &[TokenKind]) {
         match diag.err() {
-            SyntaxErrKind::Expected { kinds } => {
+            SyntaxErrKind::Expected(kinds) => {
                 assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
             }
             other => panic!("expected ExpectedToken, got {:?}", other),
@@ -203,8 +204,8 @@ mod tests {
         });
         assert_eq!(diags.len(), 1, "got: {:?}", diags);
         match &diags[0].err() {
-            SyntaxErrKind::Unexpected { kind: _ } => {
-                assert!(!diags[0].span_raw().is_empty());
+            SyntaxErrKind::Unexpected(_) => {
+                assert!(!diags[0].span().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
@@ -232,10 +233,10 @@ mod tests {
         });
         assert_eq!(diags.len(), 1);
         match diags[0].err() {
-            SyntaxErrKind::Unexpected { kind: _ } => {
+            SyntaxErrKind::Unexpected(_) => {
                 // The diagnostic spans the skipped `garbage`, like the
                 // garbage-before-recovery-token case above.
-                assert!(!diags[0].span_raw().is_empty());
+                assert!(!diags[0].span().is_empty());
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
@@ -278,7 +279,7 @@ mod tests {
         assert_eq!(diags.len(), 1);
         // The insertion locus sits before the leading trivia of `;`, i.e. at the
         // start of input here.
-        assert!(diags[0].span_raw().is_empty(), "locus must be zero-width");
+        assert!(diags[0].span().is_empty(), "locus must be zero-width");
     }
 
     // ---- End-to-end smoke tests via the public `parse` entrypoint ----

@@ -21,7 +21,7 @@ members = [
 default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast", "vhdl_lint"]
 
 [workspace.package]
-version = "0.87.0"
+version = "0.87.1"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 edition = "2021"

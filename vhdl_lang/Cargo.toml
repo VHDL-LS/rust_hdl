@@ -15,7 +15,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-vhdl_lang_macros = { version = "^0.87.0", path = "../vhdl_lang_macros" }
+vhdl_lang_macros = { version = "^0.87.1", path = "../vhdl_lang_macros" }
 fnv.workspace = true
 clap.workspace = true
 toml.workspace = true

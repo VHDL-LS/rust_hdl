@@ -83,6 +83,20 @@ impl VHDLServer {
         Some(srcpos_to_location(ent.decl_pos()?))
     }
 
+    pub fn text_document_type_definition(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .find_type_definition(&source, from_lsp_pos(params.position))?;
+        Some(srcpos_to_location(ent.decl_pos()?))
+    }
+
     pub fn text_document_implementation(
         &mut self,
         params: &TextDocumentPositionParams,

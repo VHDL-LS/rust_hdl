@@ -9,7 +9,7 @@ use crate::parser::error::{SyntaxErr, SyntaxErrKind};
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
-use crate::tokens::tokenizer::{LexDiagnostic, LexError, LexErrorPos};
+use crate::tokens::tokenizer::LexErr;
 use crate::tokens::{Keyword, Token, TokenKind};
 
 /// Allows match-style syntax for tokens.
@@ -71,45 +71,10 @@ pub enum LookaheadError {
 }
 
 impl Parser {
-    fn push_opt_lex_err(&mut self, err: Option<LexDiagnostic>, token: &Token, token_start: usize) {
+    fn push_opt_lex_err(&mut self, err: Option<LexErr>, token: &Token, token_start: usize) {
         if let Some(err) = err {
-            self.push_lex_err(err, token, token_start);
-        }
-    }
-
-    fn push_lex_err(&mut self, err: LexDiagnostic, token: &Token, token_start: usize) {
-        let span = match err.pos {
-            LexErrorPos::Token => {
-                token_start + token.leading_trivia().byte_len()
-                    ..token_start + token.leading_trivia().byte_len() + token.byte_len()
-            }
-            LexErrorPos::Trivia(index) => {
-                if index == 0 {
-                    token_start..token_start + token.leading_trivia()[0].byte_len()
-                } else {
-                    let offset: usize = token.leading_trivia()[..index - 1]
-                        .iter()
-                        .map(|piece| piece.byte_len())
-                        .sum();
-                    token_start + offset
-                        ..token_start + offset + token.leading_trivia()[index].byte_len()
-                }
-            }
-        };
-
-        match err.err {
-            LexError::Unterminated(kind) => {
-                self.errors
-                    .push(SyntaxErr::new(span, SyntaxErrKind::Unterminated { kind }));
-            }
-            LexError::IllegalInput => {
-                self.errors.push(SyntaxErr::new(
-                    span,
-                    SyntaxErrKind::Illegal {
-                        bytes: token.text().as_bytes().into(),
-                    },
-                ));
-            }
+            self.errors
+                .push(SyntaxErr::from_lex_err(err, token, token_start));
         }
     }
 
@@ -247,8 +212,11 @@ impl Parser {
         self.recovery.push(kind);
     }
 
-    pub(crate) fn expect_tokens_err<const N: usize>(&mut self, tokens: [TokenKind; N]) {
-        self.expect_tokens_recover(tokens);
+    pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
+        self.errors.push(SyntaxErr::new(
+            self.builder.current_pos()..self.builder.current_pos(),
+            SyntaxErrKind::Expected(tokens.into()),
+        ));
     }
 
     pub(crate) fn end(self) -> (GreenNode, Vec<SyntaxErr>) {

@@ -13,7 +13,8 @@ use crate::tokens::{Token, TokenKind};
 use std::iter::Peekable;
 use std::mem::replace;
 
-#[derive(Clone, Copy, Debug)]
+/// describes the kind of a token was unterminated
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnterminatedKind {
     StringLiteral,
     BasedLiteral,
@@ -21,15 +22,20 @@ pub enum UnterminatedKind {
     BlockComment,
 }
 
+/// Error kind that occurs when lexing
 #[derive(Clone, Copy, Debug)]
-pub enum LexError {
+pub enum LexErrKind {
+    /// A token (string, comment, e.t.c.) was not terminated properly
     Unterminated(UnterminatedKind),
     IllegalInput,
 }
 
-/// What does a lex error refer to?
+/// Token errors are always attached to raw tokens.
+/// Given that each token may include additional trivia, this enum
+/// defines whether the error refers to the token itself, or leading trivia
+/// of that token
 #[derive(Copy, Clone, Debug)]
-pub enum LexErrorPos {
+pub enum LexErrPos {
     /// Refers to the token
     Token,
     /// Refers to the trivia attached to the token at the given index
@@ -37,69 +43,69 @@ pub enum LexErrorPos {
 }
 
 #[derive(Debug)]
-pub struct LexDiagnostic {
-    pub err: LexError,
-    pub pos: LexErrorPos,
+pub struct LexErr {
+    pub err: LexErrKind,
+    pub pos: LexErrPos,
 }
 
-impl LexDiagnostic {
-    pub fn token(err: LexError) -> LexDiagnostic {
-        LexDiagnostic {
+impl LexErr {
+    pub fn token(err: LexErrKind) -> LexErr {
+        LexErr {
             err,
-            pos: LexErrorPos::Token,
+            pos: LexErrPos::Token,
         }
     }
 
-    pub fn trivia(index: usize, err: LexError) -> LexDiagnostic {
-        LexDiagnostic {
+    pub fn trivia(index: usize, err: LexErrKind) -> LexErr {
+        LexErr {
             err,
-            pos: LexErrorPos::Trivia(index),
+            pos: LexErrPos::Trivia(index),
         }
     }
 }
 
 pub trait Tokenize {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)>;
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)>;
 }
 
 impl Tokenize for &str {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.bytes())
     }
 }
 
 impl Tokenize for String {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.bytes())
     }
 }
 
 impl Tokenize for &Latin1Str {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.as_bytes().iter().copied())
     }
 }
 
 impl Tokenize for Latin1String {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.as_bytes().iter().copied())
     }
 }
 
 impl Tokenize for &[u8] {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.iter().copied())
     }
 }
 
 impl Tokenize for Vec<u8> {
-    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexDiagnostic>)> {
+    fn tokenize(&self) -> impl Iterator<Item = (Token, Option<LexErr>)> {
         Tokenizer::from(self.iter().copied())
     }
 }
 
 /// The Tokenizer is an iterator that consumes some char iterator (i.e., an iterator that
-/// produces u8 items) and generates tokens.
+/// produces u8 items) and generates tokens and optionally an error associated to that token.
 /// All iterators that implement `IntoIter<Item = u8>` can be used for this purpose. For example.
 /// ```
 /// use vhdl_syntax::tokens::{Keyword, TokenKind, Tokenizer};
@@ -225,11 +231,8 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
         self.fill_buffer_while(buf, |ch| !matches!(ch, b'\n' | b'\r'))
     }
 
-    /// Tokenize an identifier, keyword or Bit String Literal.
-    fn identifier_or_keyword(
-        &mut self,
-        buf: &mut Latin1String,
-    ) -> (TokenKind, Option<LexDiagnostic>) {
+    /// Tokenize an identifier or keyword.
+    fn identifier_or_keyword(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexErr>) {
         self.fill_buffer_while(
             buf,
             |ch| matches!(ch, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
@@ -282,7 +285,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     /// extended_digit ::= digit | letter
     /// bit_value ::= graphic_character { [ underline ] graphic_character }
     /// ```
-    fn abstract_literal(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexDiagnostic>) {
+    fn abstract_literal(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexErr>) {
         let mut diag = None;
         self.integer(buf);
         match self.current {
@@ -303,7 +306,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 if self.skip_if_eq(ch) {
                     buf.push(ch);
                 } else {
-                    diag = Some(LexDiagnostic::token(LexError::Unterminated(
+                    diag = Some(LexErr::token(LexErrKind::Unterminated(
                         UnterminatedKind::BasedLiteral,
                     )));
                 }
@@ -316,13 +319,13 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Parse a quoted string.
-    /// Returns [Unterminated], if the quote string was not seen at the end.
+    /// Returns [LexErr::Unterminated], if the quote string was not seen at the end.
     /// In VHDL, escaping the quotation mark is performed by repeating it.
     fn quoted(
         &mut self,
         buf: &mut Latin1String,
         quote_kind: QuoteKind,
-    ) -> (TokenKind, Option<LexDiagnostic>) {
+    ) -> (TokenKind, Option<LexErr>) {
         let quote = self.skip().expect("Input empty while tokenizing quoted");
         buf.push(quote);
         let mut found_end = false;
@@ -339,7 +342,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
             }
         }
         let err = if !found_end {
-            Some(LexDiagnostic::token(LexError::Unterminated(
+            Some(LexErr::token(LexErrKind::Unterminated(
                 quote_kind.unterminated_kind(),
             )))
         } else {
@@ -353,7 +356,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     // Instead, the comment encoding should be user-configurable to avoid
     // panicking and support different use-cases.
     // VHDL allows comments to have a different encoding (NOTE 2 in 15.9) and we should respect that.
-    fn consume_trivia_piece(&mut self) -> Option<(TriviaPiece, Option<LexError>)> {
+    fn consume_trivia_piece(&mut self) -> Option<(TriviaPiece, Option<LexErrKind>)> {
         macro_rules! count_chars {
             ($ch:literal) => {{
                 let mut count = 0;
@@ -405,7 +408,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                     let Some(ch) = self.skip() else {
                         return Some((
                             TriviaPiece::BlockComment(Comment::new(bytes)),
-                            Some(LexError::Unterminated(UnterminatedKind::BlockComment)),
+                            Some(LexErrKind::Unterminated(UnterminatedKind::BlockComment)),
                         ));
                     };
                     bytes.push(ch)
@@ -419,7 +422,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Consumes all trivia.
-    fn consume_trivia(&mut self) -> (Trivia, Option<LexDiagnostic>) {
+    fn consume_trivia(&mut self) -> (Trivia, Option<LexErr>) {
         let mut trivia = Trivia::default();
         // Note: we currently only allow one error. This is fine because an unterminated input will consume everything.
         // If we ever decide against this, the design must change.
@@ -427,7 +430,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
             trivia.push(piece);
             if let Some(err) = err {
                 let idx = trivia.len() - 1;
-                return (trivia, Some(LexDiagnostic::trivia(idx, err)));
+                return (trivia, Some(LexErr::trivia(idx, err)));
             }
         }
         (trivia, None)
@@ -435,7 +438,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
 }
 
 impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
-    type Item = (Token, Option<LexDiagnostic>);
+    type Item = (Token, Option<LexErr>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let (trivia, trivia_diag) = self.consume_trivia();
@@ -657,7 +660,7 @@ impl<T: Iterator<Item = u8>> Iterator for Tokenizer<T> {
                 (ToolDirective, buf)
             }
             ch => {
-                token_diag = Some(LexDiagnostic::token(LexError::IllegalInput));
+                token_diag = Some(LexErr::token(LexErrKind::IllegalInput));
                 self.skip();
                 (Unknown, Latin1String::from(ch))
             }

@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::latin_1::{Latin1Str, Latin1String};
-use crate::tokens::tokenizer::LexDiagnostic;
+use crate::tokens::tokenizer::LexErr;
 use crate::tokens::{Token, TokenKind, Tokenizer};
 use std::collections::VecDeque;
 
@@ -32,8 +32,8 @@ fn is_base_specifier(text: &Latin1Str) -> bool {
 ///
 /// Merging only occurs when there is no trivia (whitespace/comments) between the tokens.
 fn merge_bit_string_literals(
-    mut tokens: VecDeque<(Token, Option<LexDiagnostic>)>,
-) -> VecDeque<(Token, Option<LexDiagnostic>)> {
+    mut tokens: VecDeque<(Token, Option<LexErr>)>,
+) -> VecDeque<(Token, Option<LexErr>)> {
     let mut result = VecDeque::with_capacity(tokens.len());
 
     while let Some((tok, diag)) = tokens.pop_front() {
@@ -92,11 +92,11 @@ fn merge_bit_string_literals(
 /// lookahead by using [TokenStream::peek]
 pub struct TokenStream {
     // OPTIMIZATION: This is likely inefficient and should be replaced by a more ergonomic implementation.
-    inner: VecDeque<(Token, Option<LexDiagnostic>)>,
+    inner: VecDeque<(Token, Option<LexErr>)>,
 }
 
 impl TokenStream {
-    fn new(tokens: VecDeque<(Token, Option<LexDiagnostic>)>) -> TokenStream {
+    fn new(tokens: VecDeque<(Token, Option<LexErr>)>) -> TokenStream {
         TokenStream {
             inner: merge_bit_string_literals(tokens),
         }
@@ -123,7 +123,7 @@ impl TokenStream {
     pub fn next_if(
         &mut self,
         cond: impl FnOnce(&Token) -> bool,
-    ) -> Option<(Token, Option<LexDiagnostic>)> {
+    ) -> Option<(Token, Option<LexErr>)> {
         if cond(self.peek_next()?) {
             self.next()
         } else {
@@ -133,7 +133,7 @@ impl TokenStream {
 }
 
 impl Iterator for TokenStream {
-    type Item = (Token, Option<LexDiagnostic>);
+    type Item = (Token, Option<LexErr>);
 
     /// Consumes and returns the next token.
     /// Returns `None`, if the tokenizer is empty, i.e., there are
@@ -143,8 +143,8 @@ impl Iterator for TokenStream {
     }
 }
 
-impl FromIterator<(Token, Option<LexDiagnostic>)> for TokenStream {
-    fn from_iter<T: IntoIterator<Item = (Token, Option<LexDiagnostic>)>>(iter: T) -> Self {
+impl FromIterator<(Token, Option<LexErr>)> for TokenStream {
+    fn from_iter<T: IntoIterator<Item = (Token, Option<LexErr>)>>(iter: T) -> Self {
         TokenStream::new(iter.into_iter().collect())
     }
 }

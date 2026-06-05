@@ -282,6 +282,11 @@ impl Project {
         Some(ent.declaration())
     }
 
+    pub fn find_type_definition(&self, source: &Source, cursor: Position) -> Option<EntRef<'_>> {
+        let ent = self.root.search_reference(source, cursor)?;
+        self.root.find_type_definition_of(ent)
+    }
+
     pub fn item_at_cursor(
         &self,
         source: &Source,
