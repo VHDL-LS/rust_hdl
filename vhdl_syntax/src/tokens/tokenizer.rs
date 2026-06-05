@@ -232,10 +232,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Tokenize an identifier or keyword.
-    fn identifier_or_keyword(
-        &mut self,
-        buf: &mut Latin1String,
-    ) -> (TokenKind, Option<LexErr>) {
+    fn identifier_or_keyword(&mut self, buf: &mut Latin1String) -> (TokenKind, Option<LexErr>) {
         self.fill_buffer_while(
             buf,
             |ch| matches!(ch, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'),
