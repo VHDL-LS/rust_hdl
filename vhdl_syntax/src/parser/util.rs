@@ -9,7 +9,8 @@ use crate::parser::error::{SyntaxErr, SyntaxErrKind};
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
-use crate::tokens::{Keyword, TokenKind};
+use crate::tokens::tokenizer::LexErr;
+use crate::tokens::{Keyword, Token, TokenKind};
 
 /// Allows match-style syntax for tokens.
 /// This function does not consume the next token.
@@ -72,8 +73,17 @@ pub enum LookaheadError {
 }
 
 impl Parser {
+    fn push_opt_lex_err(&mut self, err: Option<LexErr>, token: &Token, token_start: usize) {
+        if let Some(err) = err {
+            self.errors
+                .push(SyntaxErr::from_lex_err(err, token, token_start));
+        }
+    }
+
     pub(crate) fn skip(&mut self) {
-        if let Some(token) = self.token_stream.next() {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next() {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
         }
     }
@@ -92,7 +102,9 @@ impl Parser {
     }
 
     pub(crate) fn expect_token(&mut self, kind: TokenKind) {
-        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next_if(|token| token.kind() == kind) {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
             return;
         }
@@ -153,7 +165,9 @@ impl Parser {
     }
 
     pub(crate) fn opt_token(&mut self, kind: TokenKind) -> bool {
-        if let Some(token) = self.token_stream.next_if(|token| token.kind() == kind) {
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self.token_stream.next_if(|token| token.kind() == kind) {
+            self.push_opt_lex_err(err, &token, start);
             self.builder.push(token);
             true
         } else {
@@ -165,10 +179,12 @@ impl Parser {
         &mut self,
         kinds: [TokenKind; N],
     ) -> Option<TokenKind> {
-        if let Some(token) = self
+        let start = self.builder.current_pos();
+        if let Some((token, err)) = self
             .token_stream
             .next_if(|token| kinds.contains(&token.kind()))
         {
+            self.push_opt_lex_err(err, &token, start);
             let kind = token.kind();
             self.builder.push(token);
             Some(kind)
@@ -201,14 +217,14 @@ impl Parser {
     }
 
     pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        self.diagnostics.push(SyntaxErr::new(
+        self.errors.push(SyntaxErr::new(
             self.builder.current_pos()..self.builder.current_pos(),
             SyntaxErrKind::Expected(tokens.into()),
         ));
     }
 
     pub(crate) fn end(self) -> (GreenNode, Vec<SyntaxErr>) {
-        (self.builder.end(), self.diagnostics)
+        (self.builder.end(), self.errors)
     }
 
     pub(crate) fn lookahead_max_token_index<const N: usize>(

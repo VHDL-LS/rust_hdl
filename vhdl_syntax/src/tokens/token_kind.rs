@@ -62,10 +62,6 @@ pub enum TokenKind {
     CharacterLiteral,
     ToolDirective,
 
-    // Erroneous input
-    /// String, extended identifier or based integer without final quotation char
-    Unterminated,
-
     /// Unknown input
     ///
     /// Produced, for example, when there is an unknown char or illegal bit string
