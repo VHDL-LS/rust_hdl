@@ -13,7 +13,7 @@ use crate::tokens::{Token, TokenKind};
 use std::iter::Peekable;
 use std::mem::replace;
 
-/// describes the kind if a token was unterminated
+/// describes the kind of a token was unterminated
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnterminatedKind {
     StringLiteral,
@@ -322,7 +322,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Parse a quoted string.
-    /// Returns [Unterminated], if the quote string was not seen at the end.
+    /// Returns [LexErr::Unterminated], if the quote string was not seen at the end.
     /// In VHDL, escaping the quotation mark is performed by repeating it.
     fn quoted(
         &mut self,
