@@ -1618,7 +1618,10 @@ mod tests {
 
     #[test]
     fn test_subtype_indication_with_nested_array_element_resolution_function() {
-        assert_format("((resolved)) unresolved_slv_array", Code::subtype_indication);
+        assert_format(
+            "((resolved)) unresolved_slv_array",
+            Code::subtype_indication,
+        );
     }
 
     #[test]

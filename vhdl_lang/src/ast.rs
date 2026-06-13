@@ -382,13 +382,13 @@ pub struct RecordElementResolution {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ResolutionIndication {
     FunctionName(WithTokenSpan<Name>),
-    Element(WithTokenSpan<ElementResolution>)
+    Element(WithTokenSpan<ElementResolution>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ElementResolution {
     Array(Box<ResolutionIndication>),
-    Record(Vec<RecordElementResolution>)
+    Record(Vec<RecordElementResolution>),
 }
 
 impl HasTokenSpan for ResolutionIndication {

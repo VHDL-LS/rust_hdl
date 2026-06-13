@@ -7,7 +7,8 @@
 
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    ElementAssociation, ElementResolution, Expression, Operator, ResolutionIndication, SubtypeConstraint, SubtypeIndication
+    ElementAssociation, ElementResolution, Expression, Operator, ResolutionIndication,
+    SubtypeConstraint, SubtypeIndication,
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
@@ -119,7 +120,6 @@ impl VHDLFormatter<'_> {
                     }
                 }
             }
-
         }
     }
 
