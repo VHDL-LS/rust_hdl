@@ -83,6 +83,8 @@ following snippet to your config:
 (vhdl-ext-lsp-set-server 've-rust-hdl)   ; `lsp' config
 ```
 
+A `.el` script for creating and maintaining TOML configuration files is available [in this repo](https://github.com/bjfer/hdl-toml).
+
 ## Installation for Neovim
 
 ### Automatic Installation

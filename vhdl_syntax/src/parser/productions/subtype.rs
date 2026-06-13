@@ -121,6 +121,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_subtype_indication_with_nested_array_element_resolution_function() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::subtype_indication,
+            "((resolved)) unresolved_slv_array"
+        ));
+    }
+
+    #[test]
     fn parse_subtype_indication_with_record_element_resolution_function() {
         insta::assert_snapshot!(to_test_text(
             Parser::subtype_indication,

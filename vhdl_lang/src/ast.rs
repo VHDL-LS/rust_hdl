@@ -382,24 +382,27 @@ pub struct RecordElementResolution {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ResolutionIndication {
     FunctionName(WithTokenSpan<Name>),
-    ArrayElement(WithTokenSpan<Name>),
-    Record(WithTokenSpan<Vec<RecordElementResolution>>),
+    Element(WithTokenSpan<ElementResolution>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ElementResolution {
+    Array(Box<ResolutionIndication>),
+    Record(Vec<RecordElementResolution>),
 }
 
 impl HasTokenSpan for ResolutionIndication {
     fn get_start_token(&self) -> TokenId {
         match self {
             ResolutionIndication::FunctionName(name) => name.get_start_token(),
-            ResolutionIndication::ArrayElement(name) => name.get_start_token() - 1,
-            ResolutionIndication::Record(record) => record.get_start_token(),
+            ResolutionIndication::Element(element) => element.get_start_token(),
         }
     }
 
     fn get_end_token(&self) -> TokenId {
         match self {
             ResolutionIndication::FunctionName(name) => name.get_end_token(),
-            ResolutionIndication::ArrayElement(name) => name.get_end_token() + 1,
-            ResolutionIndication::Record(record) => record.get_end_token(),
+            ResolutionIndication::Element(element) => element.get_end_token(),
         }
     }
 }

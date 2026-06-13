@@ -7,8 +7,8 @@
 
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    ElementAssociation, Expression, Operator, ResolutionIndication, SubtypeConstraint,
-    SubtypeIndication,
+    ElementAssociation, ElementResolution, Expression, Operator, ResolutionIndication,
+    SubtypeConstraint, SubtypeIndication,
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
@@ -100,26 +100,17 @@ impl VHDLFormatter<'_> {
         }
     }
 
-    pub fn format_resolution_indication(
-        &self,
-        indication: &ResolutionIndication,
-        buffer: &mut Buffer,
-    ) {
-        match &indication {
-            ResolutionIndication::FunctionName(name) => self.format_name(name.as_ref(), buffer),
-            ResolutionIndication::ArrayElement(element) => {
-                self.format_token_id(element.span.start_token - 1, buffer);
-                self.format_name(element.as_ref(), buffer);
-                self.format_token_id(element.span.end_token + 1, buffer);
+    pub fn format_element_resolution(&self, resolution: &ElementResolution, buffer: &mut Buffer) {
+        match resolution {
+            ElementResolution::Array(element) => {
+                self.format_resolution_indication(element.as_ref(), buffer);
             }
-            ResolutionIndication::Record(record) => {
-                let span = record.span;
-                self.format_token_id(span.start_token, buffer);
-                for (i, element_resolution) in record.item.iter().enumerate() {
+            ElementResolution::Record(record) => {
+                for (i, element_resolution) in record.iter().enumerate() {
                     self.format_token_id(element_resolution.ident.token, buffer);
                     buffer.push_whitespace();
                     self.format_resolution_indication(&element_resolution.resolution, buffer);
-                    if i < record.item.len() - 1 {
+                    if i < record.len() - 1 {
                         // ,
                         self.format_token_id(
                             element_resolution.resolution.get_end_token() + 1,
@@ -128,7 +119,21 @@ impl VHDLFormatter<'_> {
                         buffer.push_whitespace();
                     }
                 }
-                self.format_token_id(span.end_token, buffer);
+            }
+        }
+    }
+
+    pub fn format_resolution_indication(
+        &self,
+        indication: &ResolutionIndication,
+        buffer: &mut Buffer,
+    ) {
+        match indication {
+            ResolutionIndication::FunctionName(name) => self.format_name(name.as_ref(), buffer),
+            ResolutionIndication::Element(element) => {
+                self.format_token_id(element.span.start_token, buffer);
+                self.format_element_resolution(&element.item, buffer);
+                self.format_token_id(element.span.end_token, buffer);
             }
         }
     }
@@ -267,6 +272,7 @@ mod test {
     fn resolution_indication() {
         check_subtype_indication("resolve std_logic");
         check_subtype_indication("(resolve) integer_vector");
+        check_subtype_indication("((resolved)) unresolved_slv_array");
         check_subtype_indication("(elem resolve) rec_t");
         check_subtype_indication(
             "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",

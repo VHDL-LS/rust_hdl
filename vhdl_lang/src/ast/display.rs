@@ -556,30 +556,33 @@ impl Display for RecordElementResolution {
     }
 }
 
+impl Display for ElementResolution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            ElementResolution::Array(arr) => {
+                write!(f, "{arr}")
+            }
+            ElementResolution::Record(elem_resolutions) => {
+                for (i, elem_resolution) in elem_resolutions.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{elem_resolution}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl Display for ResolutionIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ResolutionIndication::FunctionName(ref name) => {
                 write!(f, "{name}")
             }
-            ResolutionIndication::ArrayElement(ref name) => {
-                write!(f, "({name})")
-            }
-            ResolutionIndication::Record(elem_resolutions) => {
-                let mut first = true;
-                for elem_resolution in &elem_resolutions.item {
-                    if first {
-                        write!(f, "({elem_resolution}")?;
-                    } else {
-                        write!(f, ", {elem_resolution}")?;
-                    }
-                    first = false;
-                }
-                if !first {
-                    write!(f, ")")
-                } else {
-                    Ok(())
-                }
+            ResolutionIndication::Element(ref el) => {
+                write!(f, "({el})")
             }
         }
     }
@@ -1611,6 +1614,14 @@ mod tests {
     #[test]
     fn test_subtype_indication_with_array_element_resolution_function() {
         assert_format("(resolve) integer_vector", Code::subtype_indication);
+    }
+
+    #[test]
+    fn test_subtype_indication_with_nested_array_element_resolution_function() {
+        assert_format(
+            "((resolved)) unresolved_slv_array",
+            Code::subtype_indication,
+        );
     }
 
     #[test]

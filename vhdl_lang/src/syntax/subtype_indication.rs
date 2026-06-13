@@ -11,6 +11,7 @@ use super::tokens::{kinds_error, Kind::*};
 use crate::ast::token_range::WithTokenSpan;
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
+use crate::syntax::names::parse_name;
 use crate::syntax::TokenId;
 use crate::TokenSpan;
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -147,65 +148,66 @@ pub fn parse_subtype_constraint(
     }
 }
 
-pub fn parse_element_resolution_indication(
+// resolution_indication ::= name | ( element_resolution )
+pub fn parse_resolution_indication(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<ResolutionIndication> {
+    if ctx.stream.next_kind_is(LeftPar) {
+        parse_parenthesized_element_resolution(ctx)
+    } else {
+        parse_name(ctx).map(ResolutionIndication::FunctionName)
+    }
+}
+
+pub fn parse_parenthesized_element_resolution(
     ctx: &mut ParsingContext<'_>,
 ) -> ParseResult<ResolutionIndication> {
     let start_token = ctx.stream.expect_kind(LeftPar)?;
 
-    let first_ident = ctx.stream.expect_ident()?;
+    let element = parse_element_resolution(ctx)?;
 
-    Ok(peek_token!(
-        ctx.stream, token,
-        Dot | RightPar => {
-            let selected_name = first_ident.map_into_span(|sym| Name::Designator(Designator::Identifier(sym).into_ref()));
-            ctx.stream.expect_kind(RightPar)?;
-            ResolutionIndication::ArrayElement(selected_name)
-        },
-        Identifier | LeftPar => {
-            // Record
+    let end_token = ctx.stream.get_last_token_id();
+    Ok(ResolutionIndication::Element(WithTokenSpan::new(
+        element,
+        TokenSpan::new(start_token, end_token),
+    )))
+}
 
+pub fn parse_element_resolution(ctx: &mut ParsingContext<'_>) -> ParseResult<ElementResolution> {
+    Ok(
+        if ctx.stream.next_kind_is(Identifier)
+            && (ctx.stream.nth_kind_is(1, Identifier) || ctx.stream.nth_kind_is(1, LeftPar))
+        {
+            // record_resolution
             let mut element_resolutions = Vec::new();
             loop {
-                let ident = {
-                    if element_resolutions.is_empty() {
-                        first_ident.clone()
-                    } else {
-                        ctx.stream.expect_ident()?
-                    }
-                };
-
-                let resolution = {
-                    if ctx.stream.peek_kind() == Some(LeftPar) {
-                        parse_element_resolution_indication(ctx)?
-                    } else {
-                        ResolutionIndication::FunctionName(parse_selected_name(ctx)?)
-                    }
-                };
-
+                let ident = ctx.stream.expect_ident()?;
+                let resolution = parse_resolution_indication(ctx)?;
                 element_resolutions.push(RecordElementResolution {
                     ident,
                     resolution: Box::new(resolution),
                 });
-
                 expect_token!(
                     ctx.stream,
                     token,
                     RightPar => break,
                     Comma => {}
                 );
-
             }
-            let last_token = ctx.stream.get_last_token_id();
-
-            ResolutionIndication::Record(WithTokenSpan::new(element_resolutions, TokenSpan::new(start_token, last_token)))
-        }
-    ))
+            ElementResolution::Record(element_resolutions)
+        } else {
+            // array_element_resolution ::= resolution_indication
+            let resolution = parse_resolution_indication(ctx)?;
+            ctx.stream.expect_kind(RightPar)?;
+            ElementResolution::Array(Box::new(resolution))
+        },
+    )
 }
 
 pub fn parse_subtype_indication(ctx: &mut ParsingContext<'_>) -> ParseResult<SubtypeIndication> {
     let (resolution, type_mark) = {
         if ctx.stream.peek_kind() == Some(LeftPar) {
-            let resolution = parse_element_resolution_indication(ctx)?;
+            let resolution = parse_parenthesized_element_resolution(ctx)?;
             let type_mark = parse_type_mark(ctx)?;
             (Some(resolution), type_mark)
         } else {
@@ -237,6 +239,7 @@ mod tests {
     use super::*;
 
     use crate::syntax::test::Code;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn parse_subtype_indication_without_constraint() {
@@ -272,10 +275,37 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: Some(ResolutionIndication::ArrayElement(
-                    code.s1("resolve").name()
-                )),
+                resolution: Some(ResolutionIndication::Element(WithTokenSpan::new(
+                    ElementResolution::Array(Box::new(ResolutionIndication::FunctionName(
+                        code.s1("resolve").name()
+                    ))),
+                    code.s1("(resolve)").token_span()
+                ))),
                 type_mark: code.s1("integer_vector").type_mark(),
+                constraint: None
+            }
+        );
+    }
+
+    // https://github.com/VHDL-LS/rust_hdl/issues/481
+    #[test]
+    fn parse_subtype_indication_with_nested_array_element_resolution_function() {
+        let code = Code::new("((resolved)) unresolved_slv_array");
+        assert_eq!(
+            code.with_stream(parse_subtype_indication),
+            SubtypeIndication {
+                resolution: Some(ResolutionIndication::Element(WithTokenSpan::new(
+                    ElementResolution::Array(Box::new(ResolutionIndication::Element(
+                        WithTokenSpan::new(
+                            ElementResolution::Array(Box::new(ResolutionIndication::FunctionName(
+                                code.s1("resolved").name()
+                            ))),
+                            code.s1("(resolved)").token_span()
+                        )
+                    ))),
+                    code.s1("((resolved))").token_span()
+                ))),
+                type_mark: code.s1("unresolved_slv_array").type_mark(),
                 constraint: None
             }
         );
@@ -295,9 +325,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: Some(ResolutionIndication::Record(WithTokenSpan::new(
-                    vec![elem_resolution],
-                    code.between("(", ")").token_span()
+                resolution: Some(ResolutionIndication::Element(WithTokenSpan::new(
+                    ElementResolution::Record(vec![elem_resolution]),
+                    code.s1("(elem resolve)").token_span()
                 ))),
                 type_mark: code.s1("rec_t").type_mark(),
                 constraint: None
@@ -312,9 +342,12 @@ mod tests {
 
         let elem1_resolution = RecordElementResolution {
             ident: code.s1("elem1").ident(),
-            resolution: Box::new(ResolutionIndication::ArrayElement(
-                code.s1("resolve1").name(),
-            )),
+            resolution: Box::new(ResolutionIndication::Element(WithTokenSpan::new(
+                ElementResolution::Array(Box::new(ResolutionIndication::FunctionName(
+                    code.s1("resolve1").name(),
+                ))),
+                code.s1("(resolve1)").token_span(),
+            ))),
         };
 
         let elem2_resolution = RecordElementResolution {
@@ -333,8 +366,8 @@ mod tests {
 
         let elem3_resolution = RecordElementResolution {
             ident: code.s1("elem3").ident(),
-            resolution: Box::new(ResolutionIndication::Record(WithTokenSpan::new(
-                vec![sub_elem_resolution],
+            resolution: Box::new(ResolutionIndication::Element(WithTokenSpan::new(
+                ElementResolution::Record(vec![sub_elem_resolution]),
                 code.s1("(sub_elem sub_resolve)").token_span(),
             ))),
         };
@@ -342,8 +375,12 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: Some(ResolutionIndication::Record(WithTokenSpan::new(
-                    vec![elem1_resolution, elem2_resolution, elem3_resolution],
+                resolution: Some(ResolutionIndication::Element(WithTokenSpan::new(
+                    ElementResolution::Record(vec![
+                        elem1_resolution,
+                        elem2_resolution,
+                        elem3_resolution
+                    ]),
                     code.s1("(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve))")
                         .token_span()
                 ))),
