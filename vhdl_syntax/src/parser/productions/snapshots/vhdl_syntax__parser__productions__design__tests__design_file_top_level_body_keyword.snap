@@ -1,0 +1,15 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+body
+
+== tree ==
+DesignFile
+  DesignUnit
+    Keyword(Body)
+  Eof
+
+== diagnostics ==
+1:1..1:5 Unexpected(Eof)

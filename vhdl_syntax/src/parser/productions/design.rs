@@ -241,4 +241,9 @@ context my_ctx is
             Parser::design_file
         );
     }
+
+    #[test]
+    fn design_file_top_level_body_keyword() {
+        assert_recovery_snapshot!("body", Parser::design_file);
+    }
 }

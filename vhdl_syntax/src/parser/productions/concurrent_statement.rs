@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::error_recovery::Progress;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -72,7 +73,11 @@ impl Parser {
                 Keyword(Kw::End | Kw::Elsif | Kw::Else | Kw::When) | Eof => {
                     break;
                 }
-                _ => self.concurrent_statement(),
+                _ => {
+                    if self.concurrent_statement().stalled() {
+                        break;
+                    }
+                }
             }
         }
         self.end_node();
@@ -138,7 +143,7 @@ impl Parser {
         self.end_node();
     }
 
-    pub(crate) fn concurrent_statement(&mut self) {
+    pub(crate) fn concurrent_statement(&mut self) -> Progress {
         match self.peek_concurrent_statement_kind() {
             Keyword(Kw::Block) => self.block_statement(),
             Keyword(Kw::Process) => self.process_statement(),
@@ -191,7 +196,7 @@ impl Parser {
                 self.end_node();
             }
             _ => {
-                let _ = self.expect_tokens_recover([
+                return self.expect_tokens_recover([
                     Keyword(Kw::Block),
                     Keyword(Kw::Process),
                     Keyword(Kw::Component),
@@ -208,7 +213,8 @@ impl Parser {
                     CharacterLiteral,
                 ]);
             }
-        }
+        };
+        Progress::Advanced
     }
 
     /// Parse conditional waveforms, assuming the first `waveform when` is already parsed
@@ -490,7 +496,12 @@ mod tests {
     use crate::parser::Parser;
 
     fn stmt_to_test_text(input: &str) -> String {
-        to_test_text(Parser::concurrent_statement, input)
+        to_test_text(
+            |parser| {
+                parser.concurrent_statement();
+            },
+            input,
+        )
     }
 
     #[test]
@@ -966,6 +977,19 @@ u_cpu: entity work.cpu
     clk => clk
   )",
             Parser::component_instantiation_statement
+        );
+    }
+
+    // concurrent statement loop. Could loop endlessly
+    #[test]
+    fn architecture_misplaced_use() {
+        assert_recovery_snapshot!(
+            "\
+architecture a of e is
+  begin
+    use work.all;
+  end architecture;",
+            Parser::architecture
         );
     }
 }

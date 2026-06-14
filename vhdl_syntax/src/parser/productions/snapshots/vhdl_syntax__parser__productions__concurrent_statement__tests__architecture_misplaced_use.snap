@@ -1,0 +1,26 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+architecture a of e is
+  begin
+    use work.all;
+  end architecture;
+
+== tree ==
+ArchitectureBody
+  ArchitecturePreamble
+    Keyword(Architecture)
+    Identifier 'a'
+    Keyword(Of)
+    Name
+      Identifier 'e'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+
+== diagnostics ==
+2:8 Expected([Keyword(Block), Keyword(Process), Keyword(Component), Keyword(Configuration), Keyword(Entity), Keyword(For), Keyword(If), Keyword(Case), Keyword(Assert), Keyword(With), Identifier, LtLt, StringLiteral, CharacterLiteral])
+2:8 Expected([Keyword(End)])
+2:8 Expected([SemiColon])
