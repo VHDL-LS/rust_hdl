@@ -32,10 +32,6 @@ pub struct Parser {
     errors: Vec<error::SyntaxErr>,
     standard: VHDLStandard,
     recovery: RecoveryState,
-    /// Builder position at the last `expect_tokens_recover` call that made no
-    /// progress.  When recovery is invoked a second time at the same position,
-    /// we force-skip a token to guarantee forward progress.
-    last_recovery_pos: Option<usize>,
 }
 
 impl Parser {
@@ -46,7 +42,6 @@ impl Parser {
             errors: Vec::default(),
             standard,
             recovery: RecoveryState::new(),
-            last_recovery_pos: None,
         }
     }
 

@@ -1,0 +1,48 @@
+---
+source: vhdl_syntax/src/parser/productions/entity_declaration.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+entity uart is
+  port (
+    clk : in std_logic;
+    rst : in std_logic
+end entity;
+
+== tree ==
+EntityDeclaration
+  EntityDeclarationPreamble
+    Keyword(Entity)
+    Identifier 'uart'
+    Keyword(Is)
+  EntityHeader
+    PortClause
+      PortClausePreamble
+        Keyword(Port)
+        LeftPar
+      InterfaceList
+        InterfaceConstantDeclaration
+          IdentifierList
+            Identifier 'clk'
+          Colon
+          Keyword(In)
+          SubtypeIndication
+            Name
+              Identifier 'std_logic'
+        SemiColon
+        InterfaceConstantDeclaration
+          IdentifierList
+            Identifier 'rst'
+          Colon
+          Keyword(In)
+          SubtypeIndication
+            Name
+              Identifier 'std_logic'
+  EntityDeclarationEpilogue
+    Keyword(End)
+    Keyword(Entity)
+    SemiColon
+
+== diagnostics ==
+4:23 Expected([RightPar])
+4:23 Expected([SemiColon])

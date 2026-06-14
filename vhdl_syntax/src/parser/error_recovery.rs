@@ -71,14 +71,6 @@ impl Parser {
 
         let start = self.builder.current_pos();
 
-        // If recovery was already called at this position without making
-        // progress, force-skip a token to prevent infinite loops.
-        if self.last_recovery_pos == Some(start) {
-            self.last_recovery_pos = None;
-            self.skip();
-            return;
-        }
-
         // We're at EoF -> emit an EoF diagnostic if we haven't already
         if self.peek_token().is_eof() {
             self.errors.push(SyntaxErr::new(
@@ -104,7 +96,6 @@ impl Parser {
                     start + initial_trivia_len..end,
                     SyntaxErrKind::Unexpected(tok),
                 ));
-                self.last_recovery_pos = None;
                 return;
             }
 
@@ -128,14 +119,12 @@ impl Parser {
                         start..start,
                         SyntaxErrKind::Expected(expected.into()),
                     ));
-                    self.last_recovery_pos = Some(start);
                 // skipped tokens: Garbage input before recovery token.
                 } else {
                     self.errors.push(SyntaxErr::new(
                         start + initial_trivia_len..self.builder.current_pos(),
                         SyntaxErrKind::Unexpected(tok),
                     ));
-                    self.last_recovery_pos = None;
                 }
                 return;
             }
