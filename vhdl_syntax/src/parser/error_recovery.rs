@@ -81,10 +81,6 @@ impl Parser {
 
         // We're at EoF -> emit an EoF diagnostic if we haven't already
         if self.peek_token().is_eof() {
-            if self.unexpected_eof {
-                return;
-            }
-            self.unexpected_eof = true;
             self.errors.push(SyntaxErr::new(
                 start..start,
                 SyntaxErrKind::Expected(expected.into()),
@@ -330,25 +326,6 @@ mod tests {
             }
             other => panic!("expected UnexpectedInput, got {:?}", other),
         }
-    }
-
-    /// EOF path: a single EOF diagnostic is emitted, and a subsequent call
-    /// is idempotent (the `unexpected_eof` flag suppresses duplicates).
-    #[test]
-    fn expect_recover_at_eof_emits_once() {
-        // Non-empty input so the wrapper node has at least one child;
-        // we consume the lone token before calling expect_tokens_recover.
-        let (_, diags) = parse_syntax("x", |p: &mut Parser| {
-            p.start_node(NodeKind::DesignFile);
-            p.skip();
-            assert_eq!(p.peek_token(), TokenKind::Eof);
-            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            // Second call must NOT push another diagnostic.
-            p.expect_tokens_recover([TokenKind::Keyword(Kw::End)]);
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1, "expected exactly one EoF diagnostic");
-        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)]);
     }
 
     /// The `missing_token` diagnostic records the insertion locus (a zero-width

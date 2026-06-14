@@ -21,3 +21,4 @@ GenericClause
 
 == diagnostics ==
 1:25 Expected([RightPar])
+1:25 Expected([SemiColon])

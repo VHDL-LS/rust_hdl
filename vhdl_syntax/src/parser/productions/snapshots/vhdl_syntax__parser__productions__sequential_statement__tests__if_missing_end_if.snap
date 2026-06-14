@@ -1,0 +1,30 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+if cond then
+  x := 1;
+
+== tree ==
+IfStatement
+  IfStatementPreamble
+    Keyword(If)
+    NameExpression
+      Name
+        Identifier 'cond'
+    Keyword(Then)
+  SequentialStatements
+    SimpleVariableAssignment
+      NameTarget
+        Name
+          Identifier 'x'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '1'
+      SemiColon
+
+== diagnostics ==
+2:10 Expected([Keyword(End)])
+2:10 Expected([Keyword(If)])
+2:10 Expected([SemiColon])

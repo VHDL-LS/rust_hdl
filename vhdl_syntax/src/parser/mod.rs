@@ -30,7 +30,6 @@ pub struct Parser {
     token_stream: TokenStream,
     builder: builder::NodeBuilder,
     errors: Vec<error::SyntaxErr>,
-    unexpected_eof: bool,
     standard: VHDLStandard,
     recovery: RecoveryState,
     /// Builder position at the last `expect_tokens_recover` call that made no
@@ -45,7 +44,6 @@ impl Parser {
             token_stream,
             builder: builder::NodeBuilder::new(),
             errors: Vec::default(),
-            unexpected_eof: false,
             standard,
             recovery: RecoveryState::new(),
             last_recovery_pos: None,

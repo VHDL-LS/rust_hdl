@@ -17,3 +17,4 @@ DesignFile
 
 == diagnostics ==
 1:13 Expected([SemiColon])
+1:13 Expected([Keyword(Architecture), Keyword(Package), Keyword(Entity), Keyword(Configuration), Keyword(Context)])
