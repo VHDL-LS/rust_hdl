@@ -1,6 +1,5 @@
 ---
 source: vhdl_syntax/src/parser/productions/architecture.rs
-assertion_line: 80
 expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
 ---
 == source ==
@@ -13,7 +12,8 @@ ArchitectureBody
   ArchitecturePreamble
     Keyword(Architecture)
     Identifier 'rtl'
-    Identifier 'myent'
+    Name
+      Identifier 'myent'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)
@@ -22,6 +22,4 @@ ArchitectureBody
     SemiColon
 
 == diagnostics ==
-1:18..1:26 Unexpected(Keyword(Begin))
-1:26 Expected([Identifier, StringLiteral, CharacterLiteral])
-1:26 Expected([Keyword(Is)])
+1:17 Expected([Keyword(Of)])

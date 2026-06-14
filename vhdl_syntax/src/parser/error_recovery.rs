@@ -6,15 +6,24 @@
 
 use crate::parser::error::{SyntaxErr, SyntaxErrKind};
 use crate::parser::Parser;
+use crate::syntax::layout_of;
+use crate::syntax::meta::{Layout, LayoutItem, LayoutItemKind};
 use crate::syntax::NodeKind;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
 #[derive(Default)]
 pub(crate) struct RecoveryState {
-    /// One entry per currently-open node. Each entry is that node's FOLLOW set
-    /// (the tokens that may legally appear immediately after the node closes).
-    /// Used as the cumulative recovery set during panic-mode skipping.
-    pub(crate) sync_stack: Vec<&'static [TokenKind]>,
+    sync_stack: Vec<SyncFrame>,
+}
+
+struct SyncFrame {
+    node: NodeKind,
+}
+
+impl SyncFrame {
+    pub fn new(node: NodeKind) -> SyncFrame {
+        SyncFrame { node }
+    }
 }
 
 impl RecoveryState {
@@ -24,14 +33,27 @@ impl RecoveryState {
         }
     }
 
-    /// Is `tok` somewhere in the FOLLOW set of any currently-open node?
-    /// Used by error recovery to decide when to stop panic-mode skipping.
-    pub fn is_recovery_point(&self, tok: TokenKind) -> bool {
-        self.sync_stack.iter().any(|follow| follow.contains(&tok))
+    /// Does `tok` follow any of the continuations of `tokens`?
+    pub fn is_in_continuation_set(&self, tokens: &[TokenKind], tok: TokenKind) -> bool {
+        self.current_node()
+            .map(|node| continuation_first(node, &tokens))
+            .is_some_and(|continuations| continuations.contains(&tok))
+    }
+
+    /// Is `tok` somewhere in the follow set of any currently-open node?
+    pub fn is_in_follow_set(&self, tok: TokenKind) -> bool {
+        self.sync_stack
+            .iter()
+            .any(|frame| sync_tokens_for_node_kind(frame.node).contains(&tok))
+    }
+
+    /// The innermost currently-open node, i.e. the production being parsed.
+    pub fn current_node(&self) -> Option<NodeKind> {
+        self.sync_stack.last().map(|frame| frame.node)
     }
 
     pub fn push(&mut self, node: NodeKind) {
-        self.sync_stack.push(sync_tokens_for_node_kind(node));
+        self.sync_stack.push(SyncFrame::new(node));
     }
 
     pub fn pop(&mut self) {
@@ -40,12 +62,6 @@ impl RecoveryState {
 }
 
 impl Parser {
-    /// Is `tok` somewhere in the FOLLOW set of any currently-open node?
-    /// Used by error recovery to decide when to stop panic-mode skipping.
-    pub(crate) fn is_recovery_point(&self, tok: TokenKind) -> bool {
-        self.recovery.is_recovery_point(tok)
-    }
-
     /// Publish diagnostics and recover when expecting one of several tokens.
     pub(crate) fn expect_tokens_recover<const N: usize>(&mut self, expected: [TokenKind; N]) {
         debug_assert!(
@@ -81,6 +97,7 @@ impl Parser {
             .peek_next()
             .map(|tok| tok.leading_trivia().byte_len())
             .unwrap_or(0);
+
         let mut skipped_any = false;
         loop {
             let tok = self.peek_token();
@@ -99,7 +116,10 @@ impl Parser {
             //
             // recovery should in theory always include EoF; this is simply a cheap safeguard
             // to avoid infinte looping.
-            if self.is_recovery_point(tok) || tok.is_eof() {
+            if tok.is_eof()
+                || self.recovery.is_in_follow_set(tok)
+                || self.recovery.is_in_continuation_set(&expected, tok)
+            {
                 // We found a recovery token at the next position.
                 // This means the token is simply missing.
                 // Don't consume; simply report diagnostic.
@@ -131,6 +151,76 @@ impl Parser {
     }
 }
 
+/// FIRST set of whatever follows the `expected` slot inside `node`'s layout.
+///
+/// Returns the tokens that may legally begin the element directly after the
+/// expected token within the production `node`. Empty when `node` is not a fixed
+/// sequence, when the expected token is not part of its layout, or when it is the
+/// last element (in which case the node's FOLLOW set, tracked on the sync stack,
+/// already covers the continuation).
+fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> {
+    let Layout::Sequence(seq) = layout_of(node) else {
+        return Vec::new();
+    };
+
+    let Some(pos) = seq.items.iter().position(|item| match item.kind {
+        LayoutItemKind::Token(k) => expected.contains(&k),
+        LayoutItemKind::TokenChoice(ks) => ks.iter().any(|k| expected.contains(k)),
+        _ => false,
+    }) else {
+        return Vec::new();
+    };
+
+    let mut acc = Vec::new();
+    let mut visited = Vec::new();
+    for item in &seq.items[pos + 1..] {
+        first_of_item(item, &mut acc, &mut visited);
+        // A mandatory item bounds the continuation: nothing past it can come next.
+        if !item.optional {
+            break;
+        }
+    }
+    acc
+}
+
+/// Accumulate the FIRST tokens of a single layout item into `acc`.
+fn first_of_item(item: &LayoutItem, acc: &mut Vec<TokenKind>, visited: &mut Vec<NodeKind>) {
+    match item.kind {
+        LayoutItemKind::Token(k) => acc.push(k),
+        LayoutItemKind::TokenChoice(ks) => acc.extend_from_slice(ks),
+        LayoutItemKind::Node(n) => first_of_node(n, acc, visited),
+        LayoutItemKind::NodeChoice(ns) => {
+            for &n in ns {
+                first_of_node(n, acc, visited);
+            }
+        }
+    }
+}
+
+/// Accumulate the first tokens of `node` into `acc`.
+fn first_of_node(node: NodeKind, acc: &mut Vec<TokenKind>, visited: &mut Vec<NodeKind>) {
+    if visited.contains(&node) {
+        return;
+    }
+    visited.push(node);
+    match layout_of(node) {
+        Layout::Choice(choice) => {
+            for &option in choice.options {
+                first_of_node(option, acc, visited);
+            }
+        }
+        Layout::Sequence(seq) => {
+            for item in seq.items {
+                first_of_item(item, acc, visited);
+                // FIRST stops at the first item that must be present.
+                if !item.optional {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,20 +242,20 @@ mod tests {
         let mut state = RecoveryState::new();
         state.push(NodeKind::Package);
 
-        assert!(state.is_recovery_point(TokenKind::Eof));
+        assert!(state.is_in_follow_set(TokenKind::Eof));
         state.push(NodeKind::AbsolutePathname);
 
-        assert!(state.is_recovery_point(TokenKind::Colon));
+        assert!(state.is_in_follow_set(TokenKind::Colon));
         // EoF should still be recovery point (from previous node)
-        assert!(state.is_recovery_point(TokenKind::Eof));
+        assert!(state.is_in_follow_set(TokenKind::Eof));
 
         state.pop();
-        assert!(!state.is_recovery_point(TokenKind::Colon));
-        assert!(state.is_recovery_point(TokenKind::Eof));
+        assert!(!state.is_in_follow_set(TokenKind::Colon));
+        assert!(state.is_in_follow_set(TokenKind::Eof));
 
         state.pop();
-        assert!(!state.is_recovery_point(TokenKind::Colon));
-        assert!(!state.is_recovery_point(TokenKind::Eof));
+        assert!(!state.is_in_follow_set(TokenKind::Colon));
+        assert!(!state.is_in_follow_set(TokenKind::Eof));
     }
 
     /// Missing token: recovery token is sitting at the cursor, so nothing is
