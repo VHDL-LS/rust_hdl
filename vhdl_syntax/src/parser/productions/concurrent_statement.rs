@@ -190,7 +190,7 @@ impl Parser {
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => self.expect_tokens_err([
+            _ => self.expect_tokens_recover([
                 Keyword(Kw::Block),
                 Keyword(Kw::Process),
                 Keyword(Kw::Component),

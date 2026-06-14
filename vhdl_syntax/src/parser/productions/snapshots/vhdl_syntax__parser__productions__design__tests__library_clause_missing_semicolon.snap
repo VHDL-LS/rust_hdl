@@ -1,0 +1,19 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+library ieee
+
+== tree ==
+DesignFile
+  DesignUnit
+    ContextClause
+      LibraryClause
+        Keyword(Library)
+        IdentifierList
+          Identifier 'ieee'
+  Eof
+
+== diagnostics ==
+1:13 Expected([SemiColon])

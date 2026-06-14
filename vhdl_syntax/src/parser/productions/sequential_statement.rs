@@ -252,7 +252,7 @@ impl Parser {
 
     pub fn iteration_scheme(&mut self) {
         if !self.next_is_one_of([Keyword(Kw::While), Keyword(Kw::For)]) {
-            self.expect_tokens_err([Keyword(Kw::While), Keyword(Kw::For)]);
+            self.expect_tokens_recover([Keyword(Kw::While), Keyword(Kw::For)]);
             return;
         }
         self.opt_iteration_scheme();
@@ -338,7 +338,7 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, SelectedWaveformAssignment);
-                        self.expect_tokens_err([LTE, ColonEq]);
+                        self.expect_tokens_recover([LTE, ColonEq]);
                     }
                 }
                 self.expect_token(SemiColon);
@@ -424,13 +424,13 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
-                        self.expect_tokens_err([LTE, ColonEq, SemiColon]);
+                        self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
                     }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => self.expect_tokens_err([
+            _ => self.expect_tokens_recover([
                 Keyword(Kw::Wait),
                 Keyword(Kw::Assert),
                 Keyword(Kw::Report),
@@ -938,5 +938,54 @@ with x(0) + 1 select
             Parser::sequential_statement,
             "foo(l, string'(\"L: \"));"
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn if_missing_then() {
+        assert_recovery_snapshot!(
+            "\
+if cond
+  x := 1;
+end if;",
+            Parser::if_statement
+        );
+    }
+
+    #[test]
+    fn if_missing_end_if() {
+        assert_recovery_snapshot!(
+            "\
+if cond then
+  x := 1;",
+            Parser::if_statement
+        );
+    }
+
+    #[test]
+    fn case_missing_is() {
+        assert_recovery_snapshot!(
+            "\
+case sel
+  when 0 => null;
+end case;",
+            Parser::case_statement
+        );
+    }
+
+    #[test]
+    fn loop_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+loop
+  x := 1;",
+            Parser::loop_statement
+        );
+    }
+
+    #[test]
+    fn wait_missing_semicolon() {
+        assert_recovery_snapshot!("wait", Parser::wait_statement);
     }
 }

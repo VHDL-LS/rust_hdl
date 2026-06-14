@@ -68,7 +68,7 @@ impl Parser {
                 Keyword(Kw::Attribute) => self.attribute_declaration_or_specification(),
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
-                _ => self.expect_tokens_err([
+                _ => self.expect_tokens_recover([
                     Keyword(Kw::Type),
                     Keyword(Kw::Subtype),
                     Keyword(Kw::Component),
@@ -154,7 +154,7 @@ impl Parser {
                 }
                 self.end_node();
             }
-            _ => self.expect_tokens_err([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
+            _ => self.expect_tokens_recover([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
         }
         self.expect_token(Colon);
         self.name();

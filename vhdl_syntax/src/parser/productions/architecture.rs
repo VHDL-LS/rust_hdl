@@ -28,7 +28,7 @@ impl Parser {
 
     pub fn architecture_epilogue(&mut self) {
         self.start_node(ArchitectureEpilogue);
-        self.opt_token(Keyword(Kw::End));
+        self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Architecture));
         self.opt_identifier();
         self.expect_token(SemiColon);
@@ -71,5 +71,39 @@ architecture arch_name of myent is
 begin
 end;"
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn architecture_missing_of() {
+        assert_recovery_snapshot!(
+            "\
+architecture rtl myent is
+begin
+end;",
+            Parser::architecture
+        );
+    }
+
+    #[test]
+    fn architecture_missing_is() {
+        assert_recovery_snapshot!(
+            "\
+architecture rtl of myent
+begin
+end;",
+            Parser::architecture
+        );
+    }
+
+    #[test]
+    fn architecture_missing_begin() {
+        assert_recovery_snapshot!(
+            "\
+architecture rtl of myent is
+end;",
+            Parser::architecture
+        );
     }
 }

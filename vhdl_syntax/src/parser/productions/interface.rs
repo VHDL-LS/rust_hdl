@@ -69,7 +69,7 @@ impl Parser {
                 self.interface_subprogram_declaration()
             }
             Keyword(Kw::Package) => self.interface_package_declaration(),
-            _ => self.expect_tokens_err([
+            _ => self.expect_tokens_recover([
                 Keyword(Kw::Signal),
                 Keyword(Kw::Constant),
                 Keyword(Kw::Variable),
@@ -600,5 +600,30 @@ package foo is new lib.pkg
 package foo is new lib.pkg
      generic map (default)"
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn port_missing_colon() {
+        assert_recovery_snapshot!("port (clk in std_logic);", Parser::port_clause);
+    }
+
+    #[test]
+    fn port_clause_unclosed_paren() {
+        assert_recovery_snapshot!("port (clk : in std_logic;", Parser::port_clause);
+    }
+
+    #[test]
+    fn generic_clause_unclosed_paren() {
+        assert_recovery_snapshot!("generic (width : integer", Parser::generic_clause);
+    }
+
+    #[test]
+    fn interface_list_missing_separator() {
+        assert_recovery_snapshot!(
+            "clk : in std_logic rst : in std_logic",
+            Parser::interface_list
+        );
     }
 }

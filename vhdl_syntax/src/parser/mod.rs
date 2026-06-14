@@ -14,6 +14,7 @@ use crate::tokens::Tokenizer;
 pub(crate) mod builder;
 pub mod error;
 #[cfg(test)]
+#[macro_use]
 mod test_utils;
 #[macro_use]
 mod util;

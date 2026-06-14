@@ -1,0 +1,35 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+case sel
+  when 0 => null;
+end case;
+
+== tree ==
+CaseStatement
+  CaseStatementPreamble
+    Keyword(Case)
+    NameExpression
+      Name
+        Identifier 'sel'
+  CaseStatementAlternative
+    CaseStatementAlternativePreamble
+      Keyword(When)
+      Choices
+        ExpressionChoice
+          LiteralExpression
+            AbstractLiteral '0'
+      RightArrow
+    SequentialStatements
+      NullStatement
+        Keyword(Null)
+        SemiColon
+  CaseStatementEpilogue
+    Keyword(End)
+    Keyword(Case)
+    SemiColon
+
+== diagnostics ==
+1:9 Expected([Keyword(Is)])

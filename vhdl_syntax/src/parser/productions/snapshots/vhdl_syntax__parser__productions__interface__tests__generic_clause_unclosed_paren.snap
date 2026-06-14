@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/interface.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+generic (width : integer
+
+== tree ==
+GenericClause
+  GenericClausePreamble
+    Keyword(Generic)
+    LeftPar
+  InterfaceList
+    InterfaceConstantDeclaration
+      IdentifierList
+        Identifier 'width'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'integer'
+
+== diagnostics ==
+1:25 Expected([RightPar])

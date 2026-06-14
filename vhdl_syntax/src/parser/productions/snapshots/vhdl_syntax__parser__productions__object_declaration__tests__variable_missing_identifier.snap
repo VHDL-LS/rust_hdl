@@ -1,0 +1,18 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+variable : integer;
+
+== tree ==
+VariableDeclaration
+  Keyword(Variable)
+  Colon
+  SubtypeIndication
+    Name
+      Identifier 'integer'
+  SemiColon
+
+== diagnostics ==
+1:9 Expected([Identifier])

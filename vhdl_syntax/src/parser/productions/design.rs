@@ -219,4 +219,26 @@ entity myent is
 end entity;"
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn library_clause_missing_semicolon() {
+        assert_recovery_snapshot!("library ieee", Parser::design_file);
+    }
+
+    #[test]
+    fn use_clause_missing_name() {
+        assert_recovery_snapshot!("use ;", Parser::design_file);
+    }
+
+    #[test]
+    fn context_declaration_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+context my_ctx is
+  library ieee;",
+            Parser::design_file
+        );
+    }
 }
