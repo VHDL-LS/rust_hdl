@@ -1,0 +1,14 @@
+---
+source: vhdl_syntax/src/parser/productions/context.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+library ;
+
+== tree ==
+LibraryClause
+  Keyword(Library)
+  SemiColon
+
+== diagnostics ==
+1:8 Expected([Identifier])

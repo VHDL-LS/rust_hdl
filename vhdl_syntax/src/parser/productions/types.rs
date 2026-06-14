@@ -179,4 +179,24 @@ end protected body;"
             "subtype vec_t is integer_vector(2-1 downto 0);"
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn type_missing_is() {
+        assert_recovery_snapshot!(
+            "type state_t (idle, running, done);",
+            Parser::type_declaration
+        );
+    }
+
+    #[test]
+    fn type_missing_definition() {
+        assert_recovery_snapshot!("type state_t is ;", Parser::type_declaration);
+    }
+
+    #[test]
+    fn subtype_missing_indication() {
+        assert_recovery_snapshot!("subtype small_int is ;", Parser::subtype_declaration);
+    }
 }

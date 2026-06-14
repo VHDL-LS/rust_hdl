@@ -1,0 +1,36 @@
+---
+source: vhdl_syntax/src/parser/productions/package.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+package math_pkg is
+  constant pi : real := 3.14;
+end package body;
+
+== tree ==
+PackageBody
+  PackageBodyPreamble
+    Keyword(Package)
+    Identifier 'math_pkg'
+    Keyword(Is)
+  Declarations
+    ConstantDeclaration
+      Keyword(Constant)
+      IdentifierList
+        Identifier 'pi'
+      Colon
+      SubtypeIndication
+        Name
+          Identifier 'real'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '3.14'
+      SemiColon
+  PackageBodyEpilogue
+    Keyword(End)
+    Keyword(Package)
+    Keyword(Body)
+    SemiColon
+
+== diagnostics ==
+1:8 Expected([Keyword(Body)])

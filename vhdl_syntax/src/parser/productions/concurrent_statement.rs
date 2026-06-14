@@ -918,4 +918,52 @@ gen1: case expr(0) + 2 generate
 end generate gen1;",
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    #[ignore = "currently produces spurious error messages since declarations and statements are not clearly separated"]
+    fn process_missing_begin() {
+        assert_recovery_snapshot!(
+            "\
+process (clk)
+  variable count : integer := 0;
+  count := count + 1;
+end process;",
+            Parser::process_statement
+        );
+    }
+
+    #[test]
+    fn process_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+process (clk)
+begin
+  q <= d;",
+            Parser::process_statement
+        );
+    }
+
+    #[test]
+    fn for_generate_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+gen: for i in 0 to 7 generate
+  buf(i) <= data(i);",
+            Parser::for_generate_statement
+        );
+    }
+
+    #[test]
+    fn instantiation_missing_semicolon() {
+        assert_recovery_snapshot!(
+            "\
+u_cpu: entity work.cpu
+  port map (
+    clk => clk
+  )",
+            Parser::component_instantiation_statement
+        );
+    }
 }

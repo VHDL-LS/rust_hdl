@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+type state_t is ;
+
+== tree ==
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'state_t'
+  Keyword(Is)
+  SemiColon
+
+== diagnostics ==
+1:16 Expected([Keyword(Range), Keyword(Access), Keyword(Protected), Keyword(File), Keyword(Array), Keyword(Record), LeftPar])

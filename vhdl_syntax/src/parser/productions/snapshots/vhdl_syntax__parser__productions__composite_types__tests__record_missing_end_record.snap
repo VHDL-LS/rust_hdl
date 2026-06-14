@@ -1,0 +1,48 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+type pixel_t is record
+  r : integer;
+  g : integer;
+  b : integer;
+
+== tree ==
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'pixel_t'
+  Keyword(Is)
+  RecordTypeDefinition
+    RecordTypeDefinitionPreamble
+      Keyword(Record)
+    RecordElementDeclarations
+      ElementDeclaration
+        IdentifierList
+          Identifier 'r'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'integer'
+        SemiColon
+      ElementDeclaration
+        IdentifierList
+          Identifier 'g'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'integer'
+        SemiColon
+      ElementDeclaration
+        IdentifierList
+          Identifier 'b'
+        Colon
+        SubtypeIndication
+          Name
+            Identifier 'integer'
+        SemiColon
+
+== diagnostics ==
+4:15 Expected([Keyword(End)])
+4:15 Expected([Keyword(Record)])
+4:15 Expected([SemiColon])

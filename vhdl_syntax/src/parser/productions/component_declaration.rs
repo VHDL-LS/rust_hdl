@@ -138,4 +138,32 @@ end foo;
             "expected a diagnostic for missing 'component' keyword under VHDL-2008"
         );
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn component_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+component fifo is
+  port (
+    clk : in std_logic;
+    data : out std_logic_vector(7 downto 0)
+  );",
+            Parser::component_declaration
+        );
+    }
+
+    #[test]
+    fn component_unclosed_port_list() {
+        assert_recovery_snapshot!(
+            "\
+component fifo is
+  port (
+    clk : in std_logic;
+    data : out std_logic_vector(7 downto 0)
+end component;",
+            Parser::component_declaration
+        );
+    }
 }
