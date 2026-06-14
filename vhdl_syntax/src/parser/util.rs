@@ -37,7 +37,9 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+])
+            _ => {
+                let _ = $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
+            }
         }
     };
 }
@@ -56,7 +58,9 @@ macro_rules! match_next_token_consume {
                 $parser.skip();
                 $action
             }),+
-            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+])
+            _ => {
+                let _ = $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
+            }
         }
     };
 }
@@ -107,7 +111,7 @@ impl Parser {
             return;
         }
 
-        self.expect_tokens_recover([kind]);
+        let _ = self.expect_tokens_recover([kind]);
     }
 
     pub(crate) fn expect_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) {

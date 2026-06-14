@@ -251,8 +251,10 @@ impl Parser {
     }
 
     pub fn iteration_scheme(&mut self) {
-        if !self.next_is_one_of([Keyword(Kw::While), Keyword(Kw::For)]) {
-            self.expect_tokens_recover([Keyword(Kw::While), Keyword(Kw::For)]);
+        if self
+            .opt_tokens([Keyword(Kw::While), Keyword(Kw::For)])
+            .is_none()
+        {
             return;
         }
         self.opt_iteration_scheme();
@@ -338,7 +340,7 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, SelectedWaveformAssignment);
-                        self.expect_tokens_recover([LTE, ColonEq]);
+                        let _ = self.expect_tokens_recover([LTE, ColonEq]);
                     }
                 }
                 self.expect_token(SemiColon);
@@ -424,30 +426,32 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
-                        self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
+                        let _ = self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
                     }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => self.expect_tokens_recover([
-                Keyword(Kw::Wait),
-                Keyword(Kw::Assert),
-                Keyword(Kw::Report),
-                Keyword(Kw::If),
-                Keyword(Kw::Case),
-                Keyword(Kw::For),
-                Keyword(Kw::Loop),
-                Keyword(Kw::While),
-                Keyword(Kw::Next),
-                Keyword(Kw::Exit),
-                Keyword(Kw::Return),
-                Keyword(Kw::Null),
-                Keyword(Kw::With),
-                Identifier,
-                LeftPar,
-                LtLt,
-            ]),
+            _ => {
+                let _ = self.expect_tokens_recover([
+                    Keyword(Kw::Wait),
+                    Keyword(Kw::Assert),
+                    Keyword(Kw::Report),
+                    Keyword(Kw::If),
+                    Keyword(Kw::Case),
+                    Keyword(Kw::For),
+                    Keyword(Kw::Loop),
+                    Keyword(Kw::While),
+                    Keyword(Kw::Next),
+                    Keyword(Kw::Exit),
+                    Keyword(Kw::Return),
+                    Keyword(Kw::Null),
+                    Keyword(Kw::With),
+                    Identifier,
+                    LeftPar,
+                    LtLt,
+                ]);
+            }
         }
     }
 

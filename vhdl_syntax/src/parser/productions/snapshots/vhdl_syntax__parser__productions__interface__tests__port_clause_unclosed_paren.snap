@@ -22,6 +22,6 @@ PortClause
     SemiColon
 
 == diagnostics ==
-1:26 Expected([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure)])
+1:26 Expected([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure), Keyword(Package)])
 1:26 Expected([RightPar])
 1:26 Expected([SemiColon])

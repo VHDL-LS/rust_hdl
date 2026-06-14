@@ -69,30 +69,28 @@ impl Parser {
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
                 _ => {
-                    let before = self.token_index();
-                    self.expect_tokens_recover([
-                        Keyword(Kw::Type),
-                        Keyword(Kw::Subtype),
-                        Keyword(Kw::Component),
-                        Keyword(Kw::Impure),
-                        Keyword(Kw::Pure),
-                        Keyword(Kw::Function),
-                        Keyword(Kw::Procedure),
-                        Keyword(Kw::Package),
-                        Keyword(Kw::For),
-                        Keyword(Kw::File),
-                        Keyword(Kw::Shared),
-                        Keyword(Kw::Variable),
-                        Keyword(Kw::Constant),
-                        Keyword(Kw::Signal),
-                        Keyword(Kw::Attribute),
-                        Keyword(Kw::Use),
-                        Keyword(Kw::Alias),
-                    ]);
-                    // `expect_tokens_recover` consumes nothing when the current
-                    // token is a recovery point for an enclosing production.
-                    // Yield to the caller instead of spinning forever on the same token.
-                    if self.token_index() == before {
+                    if self
+                        .expect_tokens_recover([
+                            Keyword(Kw::Type),
+                            Keyword(Kw::Subtype),
+                            Keyword(Kw::Component),
+                            Keyword(Kw::Impure),
+                            Keyword(Kw::Pure),
+                            Keyword(Kw::Function),
+                            Keyword(Kw::Procedure),
+                            Keyword(Kw::Package),
+                            Keyword(Kw::For),
+                            Keyword(Kw::File),
+                            Keyword(Kw::Shared),
+                            Keyword(Kw::Variable),
+                            Keyword(Kw::Constant),
+                            Keyword(Kw::Signal),
+                            Keyword(Kw::Attribute),
+                            Keyword(Kw::Use),
+                            Keyword(Kw::Alias),
+                        ])
+                        .stalled()
+                    {
                         break;
                     }
                 }
@@ -147,13 +145,13 @@ impl Parser {
 
     pub fn component_specification(&mut self) {
         self.start_node(NodeKind::ComponentSpecification);
-        match self.peek_token() {
+        match_next_token!(self,
             Keyword(Kw::All) => {
                 self.skip_into_node(NodeKind::InstantiationListAll);
-            }
+            },
             Keyword(Kw::Others) => {
                 self.skip_into_node(NodeKind::InstantiationListOthers);
-            }
+            },
             Identifier => {
                 self.start_node(NodeKind::InstantiationListList);
                 self.skip();
@@ -163,8 +161,7 @@ impl Parser {
                 }
                 self.end_node();
             }
-            _ => self.expect_tokens_recover([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
-        }
+        );
         self.expect_token(Colon);
         self.name();
         self.end_node();

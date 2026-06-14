@@ -190,22 +190,24 @@ impl Parser {
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => self.expect_tokens_recover([
-                Keyword(Kw::Block),
-                Keyword(Kw::Process),
-                Keyword(Kw::Component),
-                Keyword(Kw::Configuration),
-                Keyword(Kw::Entity),
-                Keyword(Kw::For),
-                Keyword(Kw::If),
-                Keyword(Kw::Case),
-                Keyword(Kw::Assert),
-                Keyword(Kw::With),
-                Identifier,
-                LtLt,
-                StringLiteral,
-                CharacterLiteral,
-            ]),
+            _ => {
+                let _ = self.expect_tokens_recover([
+                    Keyword(Kw::Block),
+                    Keyword(Kw::Process),
+                    Keyword(Kw::Component),
+                    Keyword(Kw::Configuration),
+                    Keyword(Kw::Entity),
+                    Keyword(Kw::For),
+                    Keyword(Kw::If),
+                    Keyword(Kw::Case),
+                    Keyword(Kw::Assert),
+                    Keyword(Kw::With),
+                    Identifier,
+                    LtLt,
+                    StringLiteral,
+                    CharacterLiteral,
+                ]);
+            }
         }
     }
 

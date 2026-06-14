@@ -59,29 +59,17 @@ impl Parser {
     }
 
     pub fn interface_declaration(&mut self) {
-        match self.peek_token() {
-            Keyword(Kw::Signal | Kw::Constant | Kw::Variable) | Identifier => {
+        match_next_token!(self,
+            Keyword(Kw::Signal), Keyword(Kw::Constant), Keyword(Kw::Variable), Identifier => {
                 self.interface_object_declaration();
-            }
+            },
             Keyword(Kw::File) => self.interface_file_declaration(),
             Keyword(Kw::Type) => self.interface_type_declaration(),
-            Keyword(Kw::Function | Kw::Procedure | Kw::Impure | Kw::Pure) => {
+            Keyword(Kw::Function), Keyword(Kw::Procedure), Keyword(Kw::Impure), Keyword(Kw::Pure) => {
                 self.interface_subprogram_declaration()
-            }
+            },
             Keyword(Kw::Package) => self.interface_package_declaration(),
-            _ => self.expect_tokens_recover([
-                Keyword(Kw::Signal),
-                Keyword(Kw::Constant),
-                Keyword(Kw::Variable),
-                Identifier,
-                Keyword(Kw::File),
-                Keyword(Kw::Type),
-                Keyword(Kw::Function),
-                Keyword(Kw::Procedure),
-                Keyword(Kw::Impure),
-                Keyword(Kw::Pure),
-            ]),
-        }
+        );
     }
 
     pub fn interface_file_declaration(&mut self) {
