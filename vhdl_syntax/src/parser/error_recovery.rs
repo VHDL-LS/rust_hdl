@@ -136,13 +136,7 @@ impl Parser {
     }
 }
 
-/// FIRST set of whatever follows the `expected` slot inside `node`'s layout.
-///
-/// Returns the tokens that may legally begin the element directly after the
-/// expected token within the production `node`. Empty when `node` is not a fixed
-/// sequence, when the expected token is not part of its layout, or when it is the
-/// last element (in which case the node's FOLLOW set, tracked on the sync stack,
-/// already covers the continuation).
+/// set of whatever follows the `expected` slot inside `node`'s layout.
 fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> {
     let Layout::Sequence(seq) = layout_of(node) else {
         return Vec::new();
@@ -151,7 +145,12 @@ fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> 
     let Some(pos) = seq.items.iter().position(|item| match item.kind {
         LayoutItemKind::Token(k) => expected.contains(&k),
         LayoutItemKind::TokenChoice(ks) => ks.iter().any(|k| expected.contains(k)),
-        _ => false,
+        LayoutItemKind::Node(_) | LayoutItemKind::NodeChoice(_) => {
+            let mut first = Vec::new();
+            let mut visited = Vec::new();
+            first_of_item(item, &mut first, &mut visited);
+            !expected.is_empty() && expected.iter().all(|k| first.contains(k))
+        }
     }) else {
         return Vec::new();
     };
