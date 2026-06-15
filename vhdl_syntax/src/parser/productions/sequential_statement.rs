@@ -4,8 +4,8 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::Parser;
 use crate::parser::error_recovery::Progress;
+use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -270,7 +270,7 @@ impl Parser {
                     if self.sequential_statement().stalled() {
                         break;
                     }
-                },
+                }
             }
         }
         self.end_node();
@@ -769,23 +769,17 @@ end loop;"
 
     #[test]
     fn simple_signal_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(0) <= bar(1,2) after 2 ns;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= bar(1,2) after 2 ns;"));
     }
 
     #[test]
     fn simple_signal_force_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(0) <= force bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= force bar(1,2);"));
     }
 
     #[test]
     fn simple_signal_release_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(0) <= release;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= release;"));
     }
 
     #[test]
@@ -797,16 +791,12 @@ end loop;"
 
     #[test]
     fn simple_signal_assignment_delay_mechanism() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(0) <= transport bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= transport bar(1,2);"));
     }
 
     #[test]
     fn simple_variable_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(0) := bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) := bar(1,2);"));
     }
 
     #[test]
@@ -818,23 +808,17 @@ end loop;"
 
     #[test]
     fn simple_aggregate_variable_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "(foo, 1 => bar) := bar;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("(foo, 1 => bar) := bar;"));
     }
 
     #[test]
     fn labeled_aggregate_variable_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "name: (foo, 1 => bar) := bar;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("name: (foo, 1 => bar) := bar;"));
     }
 
     #[test]
     fn labeled_simple_variable_assignment() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "name: foo(0) := bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("name: foo(0) := bar(1,2);"));
     }
 
     #[test]
@@ -934,9 +918,7 @@ with x(0) + 1 select
 
     #[test]
     fn procedure_call_with_qualified_expression() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "foo(l, string'(\"L: \"));"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(l, string'(\"L: \"));"));
     }
 
     // MARK: Error recovery
@@ -990,11 +972,14 @@ loop
 
     #[test]
     fn sequential_statement_stall() {
-        assert_recovery_snapshot!("\
+        assert_recovery_snapshot!(
+            "\
 function f return integer is
 begin
     use work.all;      -- `use` in SubprogramBody follow
 end;
-        ", Parser::subprogram_body);
+        ",
+            Parser::subprogram_body
+        );
     }
 }

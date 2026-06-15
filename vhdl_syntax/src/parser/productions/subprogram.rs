@@ -349,10 +349,7 @@ end procedure swap;"
 
     #[test]
     fn function_missing_return_clause() {
-        assert_recovery_snapshot!(
-            "function f(a : integer);",
-            Parser::subprogram_declaration
-        );
+        assert_recovery_snapshot!("function f(a : integer);", Parser::subprogram_declaration);
     }
 
     #[test]
