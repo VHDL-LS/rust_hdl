@@ -227,166 +227,6 @@ fn first_of_node(node: NodeKind, acc: &mut Vec<TokenKind>, visited: &mut Vec<Nod
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::parser::error::SyntaxErr;
-    use crate::parser::parse_syntax;
-    use crate::parser::{parse, Parser};
-
-    fn assert_expected_token(diag: &SyntaxErr, expected_kinds: &[TokenKind]) {
-        match diag.err() {
-            SyntaxErrKind::Expected(kinds) => {
-                assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
-            }
-            other => panic!("expected ExpectedToken, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn is_recovery_point_walks_full_sync_stack() {
-        let mut state = RecoveryState::new();
-        state.push(NodeKind::Package);
-
-        assert!(state.is_in_follow_set(TokenKind::Eof));
-        state.push(NodeKind::AbsolutePathname);
-
-        assert!(state.is_in_follow_set(TokenKind::Colon));
-        // EoF should still be recovery point (from previous node)
-        assert!(state.is_in_follow_set(TokenKind::Eof));
-
-        state.pop();
-        assert!(!state.is_in_follow_set(TokenKind::Colon));
-        assert!(state.is_in_follow_set(TokenKind::Eof));
-
-        state.pop();
-        assert!(!state.is_in_follow_set(TokenKind::Colon));
-        assert!(!state.is_in_follow_set(TokenKind::Eof));
-    }
-
-    /// Missing token: recovery token is sitting at the cursor, so nothing is
-    /// skipped and a single ExpectedToken diagnostic is produced.
-    #[test]
-    fn expect_recover_emits_missing_token_when_recovery_point_is_next() {
-        let (_, diags) = parse_syntax(";", |p: &mut Parser| {
-            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
-            p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            // The recovery token must NOT have been consumed.
-            assert_eq!(p.peek_token(), TokenKind::SemiColon);
-            p.skip(); // consume so the tree is non-empty
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1);
-        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)]);
-    }
-
-    /// Garbage before a recovery token: tokens are consumed up to (not
-    /// including) the recovery token, and exactly one UnexpectedInput is
-    /// reported covering the skipped range.
-    #[test]
-    fn expect_recover_emits_unexpected_input_after_skipping() {
-        let (root, diags) = parse_syntax("foo bar ;", |p: &mut Parser| {
-            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
-            p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            assert_eq!(
-                p.peek_token(),
-                TokenKind::SemiColon,
-                "recovery token must remain unconsumed"
-            );
-            p.skip();
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1, "got: {:?}", diags);
-        match &diags[0].err() {
-            SyntaxErrKind::Unexpected(_) => {
-                assert!(!diags[0].span().is_empty());
-            }
-            other => panic!("expected UnexpectedInput, got {:?}", other),
-        }
-        // The skipped tokens must be attached to the green tree (not dropped).
-        let mut buf = Vec::new();
-        root.write_to(&mut buf).unwrap();
-        let text = String::from_utf8(buf).unwrap();
-        assert!(text.contains("foo"));
-        assert!(text.contains("bar"));
-    }
-
-    /// Expected token shows up after garbage (not a recovery token):
-    /// skipping stops once the expected token is reached, an
-    /// UnexpectedInput diagnostic is reported, and the expected token
-    /// remains unconsumed for the caller.
-    #[test]
-    fn expect_recover_stops_when_expected_token_appears() {
-        let (_, diags) = parse_syntax("garbage is", |p: &mut Parser| {
-            p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            // expected token kept for the caller to consume.
-            assert_eq!(p.peek_token(), TokenKind::Keyword(Kw::Is));
-            p.skip();
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1);
-        match diags[0].err() {
-            SyntaxErrKind::Unexpected(_) => {
-                // The diagnostic spans the skipped `garbage`, like the
-                // garbage-before-recovery-token case above.
-                assert!(!diags[0].span().is_empty());
-            }
-            other => panic!("expected UnexpectedInput, got {:?}", other),
-        }
-    }
-
-    /// The `missing_token` diagnostic records the insertion locus (a zero-width
-    /// span at the start of the next token's leading trivia) and the found token
-    /// kind. The found token's own text span is no longer stored; it is derived
-    /// from the syntax tree at render time via the locus.
-    #[test]
-    fn missing_token_records_locus_and_found_kind() {
-        // Two newlines = two TriviaPiece entries, 2 bytes of trivia.
-        let src = "\n\n;";
-        let (_, diags) = parse_syntax(src, |p: &mut Parser| {
-            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
-            p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
-            p.skip();
-            p.end_node();
-        });
-        assert_eq!(diags.len(), 1);
-        // The insertion locus sits before the leading trivia of `;`, i.e. at the
-        // start of input here.
-        assert!(diags[0].span().is_empty(), "locus must be zero-width");
-    }
-
-    // ---- End-to-end smoke tests via the public `parse` entrypoint ----
-
-    /// Top-level garbage triggers `expect_tokens_recover` from `design_unit`;
-    /// the DesignFile frame guarantees the parser terminates rather than
-    /// looping on the bad input.
-    #[test]
-    fn parse_garbage_at_top_level_terminates_with_diagnostic() {
-        let (_, diags) = parse("xyz");
-        assert!(!diags.is_empty(), "expected at least one diagnostic");
-    }
-
-    /// Garbage between two design units must not consume the second unit's
-    /// starter keyword — recovery should leave `entity` in place so the
-    /// next iteration of `design_file` picks it up.
-    #[test]
-    fn parse_recovers_to_next_design_unit() {
-        let src = "garbage entity foo is end entity foo;";
-        let (file, diags) = parse(src);
-        assert!(!diags.is_empty(), "expected diagnostics for garbage prefix");
-        // The recovered tree must still contain the second unit's text.
-        let mut buf = Vec::new();
-        file.0.write_to(&mut buf).unwrap();
-        let text = String::from_utf8(buf).unwrap();
-        assert!(text.contains("entity"));
-        assert!(text.contains("foo"));
-    }
-}
-
 pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
     use TokenKind::*;
     match nk {
@@ -1501,5 +1341,165 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Times,
         ],
         _ => &[],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::error::SyntaxErr;
+    use crate::parser::parse_syntax;
+    use crate::parser::{parse, Parser};
+
+    fn assert_expected_token(diag: &SyntaxErr, expected_kinds: &[TokenKind]) {
+        match diag.err() {
+            SyntaxErrKind::Expected(kinds) => {
+                assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
+            }
+            other => panic!("expected ExpectedToken, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn is_recovery_point_walks_full_sync_stack() {
+        let mut state = RecoveryState::new();
+        state.push(NodeKind::Package);
+
+        assert!(state.is_in_follow_set(TokenKind::Eof));
+        state.push(NodeKind::AbsolutePathname);
+
+        assert!(state.is_in_follow_set(TokenKind::Colon));
+        // EoF should still be recovery point (from previous node)
+        assert!(state.is_in_follow_set(TokenKind::Eof));
+
+        state.pop();
+        assert!(!state.is_in_follow_set(TokenKind::Colon));
+        assert!(state.is_in_follow_set(TokenKind::Eof));
+
+        state.pop();
+        assert!(!state.is_in_follow_set(TokenKind::Colon));
+        assert!(!state.is_in_follow_set(TokenKind::Eof));
+    }
+
+    /// Missing token: recovery token is sitting at the cursor, so nothing is
+    /// skipped and a single ExpectedToken diagnostic is produced.
+    #[test]
+    fn expect_recover_emits_missing_token_when_recovery_point_is_next() {
+        let (_, diags) = parse_syntax(";", |p: &mut Parser| {
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
+            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            // The recovery token must NOT have been consumed.
+            assert_eq!(p.peek_token(), TokenKind::SemiColon);
+            p.skip(); // consume so the tree is non-empty
+            p.end_node();
+        });
+        assert_eq!(diags.len(), 1);
+        assert_expected_token(&diags[0], &[TokenKind::Keyword(Kw::Is)]);
+    }
+
+    /// Garbage before a recovery token: tokens are consumed up to (not
+    /// including) the recovery token, and exactly one UnexpectedInput is
+    /// reported covering the skipped range.
+    #[test]
+    fn expect_recover_emits_unexpected_input_after_skipping() {
+        let (root, diags) = parse_syntax("foo bar ;", |p: &mut Parser| {
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
+            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            assert_eq!(
+                p.peek_token(),
+                TokenKind::SemiColon,
+                "recovery token must remain unconsumed"
+            );
+            p.skip();
+            p.end_node();
+        });
+        assert_eq!(diags.len(), 1, "got: {:?}", diags);
+        match &diags[0].err() {
+            SyntaxErrKind::Unexpected(_) => {
+                assert!(!diags[0].span().is_empty());
+            }
+            other => panic!("expected UnexpectedInput, got {:?}", other),
+        }
+        // The skipped tokens must be attached to the green tree (not dropped).
+        let mut buf = Vec::new();
+        root.write_to(&mut buf).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("foo"));
+        assert!(text.contains("bar"));
+    }
+
+    /// Expected token shows up after garbage (not a recovery token):
+    /// skipping stops once the expected token is reached, an
+    /// UnexpectedInput diagnostic is reported, and the expected token
+    /// remains unconsumed for the caller.
+    #[test]
+    fn expect_recover_stops_when_expected_token_appears() {
+        let (_, diags) = parse_syntax("garbage is", |p: &mut Parser| {
+            p.start_node(NodeKind::Assertion);
+            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            // expected token kept for the caller to consume.
+            assert_eq!(p.peek_token(), TokenKind::Keyword(Kw::Is));
+            p.skip();
+            p.end_node();
+        });
+        assert_eq!(diags.len(), 1);
+        match diags[0].err() {
+            SyntaxErrKind::Unexpected(_) => {
+                // The diagnostic spans the skipped `garbage`, like the
+                // garbage-before-recovery-token case above.
+                assert!(!diags[0].span().is_empty());
+            }
+            other => panic!("expected UnexpectedInput, got {:?}", other),
+        }
+    }
+
+    /// The `missing_token` diagnostic records the insertion locus (a zero-width
+    /// span at the start of the next token's leading trivia) and the found token
+    /// kind. The found token's own text span is no longer stored; it is derived
+    /// from the syntax tree at render time via the locus.
+    #[test]
+    fn missing_token_records_locus_and_found_kind() {
+        // Two newlines = two TriviaPiece entries, 2 bytes of trivia.
+        let src = "\n\n;";
+        let (_, diags) = parse_syntax(src, |p: &mut Parser| {
+            // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
+            p.start_node(NodeKind::Assertion);
+            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            p.skip();
+            p.end_node();
+        });
+        assert_eq!(diags.len(), 1);
+        // The insertion locus sits before the leading trivia of `;`, i.e. at the
+        // start of input here.
+        assert!(diags[0].span().is_empty(), "locus must be zero-width");
+    }
+
+    // ---- End-to-end smoke tests via the public `parse` entrypoint ----
+
+    /// Top-level garbage triggers `expect_tokens_recover` from `design_unit`;
+    /// the DesignFile frame guarantees the parser terminates rather than
+    /// looping on the bad input.
+    #[test]
+    fn parse_garbage_at_top_level_terminates_with_diagnostic() {
+        let (_, diags) = parse("xyz");
+        assert!(!diags.is_empty(), "expected at least one diagnostic");
+    }
+
+    /// Garbage between two design units must not consume the second unit's
+    /// starter keyword — recovery should leave `entity` in place so the
+    /// next iteration of `design_file` picks it up.
+    #[test]
+    fn parse_recovers_to_next_design_unit() {
+        let src = "garbage entity foo is end entity foo;";
+        let (file, diags) = parse(src);
+        assert!(!diags.is_empty(), "expected diagnostics for garbage prefix");
+        // The recovered tree must still contain the second unit's text.
+        let mut buf = Vec::new();
+        file.0.write_to(&mut buf).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("entity"));
+        assert!(text.contains("foo"));
     }
 }
