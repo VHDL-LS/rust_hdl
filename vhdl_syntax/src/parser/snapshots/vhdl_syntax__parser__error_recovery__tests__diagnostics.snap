@@ -1,5 +1,0 @@
----
-source: vhdl_syntax/src/parser/error_recovery.rs
-expression: use foo.bar
----
-1:12 Expected([SemiColon])
