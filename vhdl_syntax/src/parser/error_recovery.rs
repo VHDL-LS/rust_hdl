@@ -13,17 +13,7 @@ use crate::tokens::{Keyword as Kw, TokenKind};
 
 #[derive(Default)]
 pub(crate) struct RecoveryState {
-    sync_stack: Vec<SyncFrame>,
-}
-
-struct SyncFrame {
-    node: NodeKind,
-}
-
-impl SyncFrame {
-    pub fn new(node: NodeKind) -> SyncFrame {
-        SyncFrame { node }
-    }
+    sync_stack: Vec<NodeKind>,
 }
 
 impl RecoveryState {
@@ -44,16 +34,16 @@ impl RecoveryState {
     pub fn is_in_follow_set(&self, tok: TokenKind) -> bool {
         self.sync_stack
             .iter()
-            .any(|frame| sync_tokens_for_node_kind(frame.node).contains(&tok))
+            .any(|kind| sync_tokens_for_node_kind(*kind).contains(&tok))
     }
 
     /// The innermost currently-open node, i.e. the production being parsed.
     pub fn current_node(&self) -> Option<NodeKind> {
-        self.sync_stack.last().map(|frame| frame.node)
+        self.sync_stack.last().map(|kind| *kind)
     }
 
     pub fn push(&mut self, node: NodeKind) {
-        self.sync_stack.push(SyncFrame::new(node));
+        self.sync_stack.push(node);
     }
 
     pub fn pop(&mut self) {
