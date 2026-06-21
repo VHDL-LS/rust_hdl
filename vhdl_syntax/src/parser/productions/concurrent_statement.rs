@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::error_recovery::Progress;
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -68,16 +68,13 @@ impl Parser {
 
     pub fn concurrent_statements(&mut self) {
         self.start_node(ConcurrentStatements);
-        loop {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) {
             match self.peek_token() {
                 Keyword(Kw::End | Kw::Elsif | Kw::Else | Kw::When) | Eof => {
                     break;
                 }
-                _ => {
-                    if self.concurrent_statement().stalled() {
-                        break;
-                    }
-                }
+                _ => self.concurrent_statement(),
             }
         }
         self.end_node();
@@ -143,7 +140,7 @@ impl Parser {
         self.end_node();
     }
 
-    pub(crate) fn concurrent_statement(&mut self) -> Progress {
+    pub(crate) fn concurrent_statement(&mut self) {
         match self.peek_concurrent_statement_kind() {
             Keyword(Kw::Block) => self.block_statement(),
             Keyword(Kw::Process) => self.process_statement(),
@@ -196,7 +193,7 @@ impl Parser {
                 self.end_node();
             }
             _ => {
-                return self.expect_tokens_recover([
+                self.expect_tokens_recover([
                     Keyword(Kw::Block),
                     Keyword(Kw::Process),
                     Keyword(Kw::Component),
@@ -214,7 +211,6 @@ impl Parser {
                 ]);
             }
         };
-        Progress::Advanced
     }
 
     /// Parse conditional waveforms, assuming the first `waveform when` is already parsed

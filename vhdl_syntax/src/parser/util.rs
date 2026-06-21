@@ -74,6 +74,32 @@ pub enum LookaheadError {
     TokenKindNotFound,
 }
 
+/// Guards a parsing loop against hangs by detecting lack of forward progress.
+///
+/// Call [`StallGuard::should_continue`] at the top of the loop. It returns
+/// `false` once an entire iteration consumed no input (the parser position did
+/// not advance), which means the loop is stalled and must stop. The first call
+/// always returns `true` to prime the guard before the loop body has run.
+pub(crate) struct StallGuard {
+    last_pos: Option<usize>,
+}
+
+impl StallGuard {
+    pub(crate) fn new() -> StallGuard {
+        StallGuard { last_pos: None }
+    }
+
+    pub(crate) fn should_continue(&mut self, parser: &mut Parser) -> bool {
+        let current_pos = parser.builder.current_pos();
+        let Some(last_pos) = self.last_pos else {
+            self.last_pos = Some(current_pos);
+            return true;
+        };
+        self.last_pos = Some(current_pos);
+        current_pos > last_pos
+    }
+}
+
 impl Parser {
     fn push_opt_lex_err(&mut self, err: Option<LexErr>, token: &Token, token_start: usize) {
         if let Some(err) = err {
@@ -111,7 +137,7 @@ impl Parser {
             return;
         }
 
-        let _ = self.expect_tokens_recover([kind]);
+        self.expect_tokens_recover([kind]);
     }
 
     pub(crate) fn expect_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) {

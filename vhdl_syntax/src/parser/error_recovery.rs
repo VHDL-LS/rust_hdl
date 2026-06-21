@@ -51,26 +51,9 @@ impl RecoveryState {
     }
 }
 
-pub(crate) enum Progress {
-    // One or more tokens were skipped
-    Advanced,
-    // No progress was made
-    Stalled,
-}
-
-impl Progress {
-    pub(crate) fn stalled(self) -> bool {
-        matches!(self, Progress::Stalled)
-    }
-}
-
 impl Parser {
     /// Publish diagnostics and recover when expecting one of several tokens.
-    #[must_use]
-    pub(crate) fn expect_tokens_recover<const N: usize>(
-        &mut self,
-        expected: [TokenKind; N],
-    ) -> Progress {
+    pub(crate) fn expect_tokens_recover<const N: usize>(&mut self, expected: [TokenKind; N]) {
         debug_assert!(
             !expected.contains(&self.peek_token()),
             "should only be called on an error path"
@@ -84,7 +67,7 @@ impl Parser {
                 start..start,
                 SyntaxErrKind::Expected(expected.into()),
             ));
-            return Progress::Stalled;
+            return;
         }
 
         let initial_trivia_len = self
@@ -103,11 +86,7 @@ impl Parser {
                     start + initial_trivia_len..end,
                     SyntaxErrKind::Unexpected(tok),
                 ));
-                return if skipped_any {
-                    Progress::Advanced
-                } else {
-                    Progress::Stalled
-                };
+                return;
             }
 
             // We have hit a recovery or EoF token. This means that it was likely only this token that's erroneous
@@ -120,20 +99,19 @@ impl Parser {
             {
                 // We found a recovery token at the next position.
                 // This means the token is simply missing.
-                return if !skipped_any {
+                if !skipped_any {
                     self.errors.push(SyntaxErr::new(
                         start..start,
                         SyntaxErrKind::Expected(expected.into()),
                     ));
-                    Progress::Stalled
                 // skipped tokens: Garbage input before recovery token.
                 } else {
                     self.errors.push(SyntaxErr::new(
                         start + initial_trivia_len..self.builder.current_pos(),
                         SyntaxErrKind::Unexpected(tok),
                     ));
-                    Progress::Advanced
                 };
+                return;
             }
 
             // inconclusive. Skip and look at the next token.

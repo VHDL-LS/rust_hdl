@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::error_recovery::Progress;
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
@@ -263,14 +263,11 @@ impl Parser {
 
     pub fn sequential_statements(&mut self) {
         self.start_node(SequentialStatements);
-        loop {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) {
             match self.peek_token() {
                 Eof | Keyword(Kw::End | Kw::Else | Kw::Elsif | Kw::When) => break,
-                _ => {
-                    if self.sequential_statement().stalled() {
-                        break;
-                    }
-                }
+                _ => self.sequential_statement(),
             }
         }
         self.end_node();
@@ -302,7 +299,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn sequential_statement(&mut self) -> Progress {
+    pub(crate) fn sequential_statement(&mut self) {
         match self.sequential_statement_start() {
             Keyword(Kw::Wait) => self.wait_statement(),
             Keyword(Kw::Assert) => self.assert_statement(),
@@ -345,7 +342,7 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, SelectedWaveformAssignment);
-                        let _ = self.expect_tokens_recover([LTE, ColonEq]);
+                        self.expect_tokens_recover([LTE, ColonEq]);
                     }
                 }
                 self.expect_token(SemiColon);
@@ -431,34 +428,31 @@ impl Parser {
                     }
                     _ => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
-                        let _ = self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
+                        self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
                     }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => {
-                return self.expect_tokens_recover([
-                    Keyword(Kw::Wait),
-                    Keyword(Kw::Assert),
-                    Keyword(Kw::Report),
-                    Keyword(Kw::If),
-                    Keyword(Kw::Case),
-                    Keyword(Kw::For),
-                    Keyword(Kw::Loop),
-                    Keyword(Kw::While),
-                    Keyword(Kw::Next),
-                    Keyword(Kw::Exit),
-                    Keyword(Kw::Return),
-                    Keyword(Kw::Null),
-                    Keyword(Kw::With),
-                    Identifier,
-                    LeftPar,
-                    LtLt,
-                ]);
-            }
+            _ => self.expect_tokens_recover([
+                Keyword(Kw::Wait),
+                Keyword(Kw::Assert),
+                Keyword(Kw::Report),
+                Keyword(Kw::If),
+                Keyword(Kw::Case),
+                Keyword(Kw::For),
+                Keyword(Kw::Loop),
+                Keyword(Kw::While),
+                Keyword(Kw::Next),
+                Keyword(Kw::Exit),
+                Keyword(Kw::Return),
+                Keyword(Kw::Null),
+                Keyword(Kw::With),
+                Identifier,
+                LeftPar,
+                LtLt,
+            ]),
         };
-        Progress::Advanced
     }
 
     fn conditional_else(

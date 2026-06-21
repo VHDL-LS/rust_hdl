@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::NodeKind::{self, *};
 use crate::tokens::TokenKind::*;
@@ -45,7 +46,8 @@ impl Parser {
 
     pub(crate) fn declarations(&mut self) {
         self.start_node(Declarations);
-        loop {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) {
             match self.peek_token() {
                 Keyword(Kw::Begin | Kw::End) | Eof => break,
                 Keyword(Kw::Type) => self.type_declaration(),
@@ -69,30 +71,25 @@ impl Parser {
                 Keyword(Kw::Use) => self.use_clause_declaration(),
                 Keyword(Kw::Alias) => self.alias_declaration(),
                 _ => {
-                    if self
-                        .expect_tokens_recover([
-                            Keyword(Kw::Type),
-                            Keyword(Kw::Subtype),
-                            Keyword(Kw::Component),
-                            Keyword(Kw::Impure),
-                            Keyword(Kw::Pure),
-                            Keyword(Kw::Function),
-                            Keyword(Kw::Procedure),
-                            Keyword(Kw::Package),
-                            Keyword(Kw::For),
-                            Keyword(Kw::File),
-                            Keyword(Kw::Shared),
-                            Keyword(Kw::Variable),
-                            Keyword(Kw::Constant),
-                            Keyword(Kw::Signal),
-                            Keyword(Kw::Attribute),
-                            Keyword(Kw::Use),
-                            Keyword(Kw::Alias),
-                        ])
-                        .stalled()
-                    {
-                        break;
-                    }
+                    self.expect_tokens_recover([
+                        Keyword(Kw::Type),
+                        Keyword(Kw::Subtype),
+                        Keyword(Kw::Component),
+                        Keyword(Kw::Impure),
+                        Keyword(Kw::Pure),
+                        Keyword(Kw::Function),
+                        Keyword(Kw::Procedure),
+                        Keyword(Kw::Package),
+                        Keyword(Kw::For),
+                        Keyword(Kw::File),
+                        Keyword(Kw::Shared),
+                        Keyword(Kw::Variable),
+                        Keyword(Kw::Constant),
+                        Keyword(Kw::Signal),
+                        Keyword(Kw::Attribute),
+                        Keyword(Kw::Use),
+                        Keyword(Kw::Alias),
+                    ]);
                 }
             }
         }

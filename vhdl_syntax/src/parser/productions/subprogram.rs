@@ -51,7 +51,7 @@ impl Parser {
             self.start_node(ProcedureSpecification);
             false
         } else {
-            let _ = self.expect_tokens_recover([
+            self.expect_tokens_recover([
                 Keyword(Kw::Pure),
                 Keyword(Kw::Impure),
                 Keyword(Kw::Function),
