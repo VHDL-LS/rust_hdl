@@ -24,9 +24,13 @@ pub struct SourceLoc {
 /// A byte-offset expressed in some encoding.
 /// This is the return type of conversion methods of [SourceLocConverter].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct EncodedOffset(pub(crate) usize);
+pub struct EncodedOffset(usize);
 
 impl EncodedOffset {
+    pub(crate) fn new(inner: usize) -> EncodedOffset {
+        EncodedOffset(inner)
+    }
+
     pub fn raw(&self) -> usize {
         self.0
     }
@@ -44,11 +48,11 @@ impl EncodedSpan {
     }
 
     pub fn start(&self) -> EncodedOffset {
-        EncodedOffset(self.start)
+        EncodedOffset::new(self.start)
     }
 
     pub fn end(&self) -> EncodedOffset {
-        EncodedOffset(self.end)
+        EncodedOffset::new(self.end)
     }
 }
 
@@ -221,7 +225,7 @@ impl SourceLocConverter {
                 delta += wide.target_len - wide.byte_len;
             }
         }
-        EncodedOffset(offset + delta)
+        EncodedOffset::new(offset + delta)
     }
 
     pub fn convert_byte_span(&self, span: &Range<usize>) -> EncodedSpan {
@@ -233,7 +237,7 @@ impl SourceLocConverter {
 
     /// Returns the byte offset of the line at index.
     pub fn line_start(&self, index: usize) -> EncodedOffset {
-        EncodedOffset(self.line_starts[index])
+        EncodedOffset::new(self.line_starts[index])
     }
 }
 

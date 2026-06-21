@@ -299,7 +299,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn sequential_statement(&mut self) {
+    pub fn sequential_statement(&mut self) {
         match self.sequential_statement_start() {
             Keyword(Kw::Wait) => self.wait_statement(),
             Keyword(Kw::Assert) => self.assert_statement(),
@@ -452,7 +452,7 @@ impl Parser {
                 LeftPar,
                 LtLt,
             ]),
-        };
+        }
     }
 
     fn conditional_else(
@@ -753,12 +753,7 @@ end loop;"
     }
 
     fn stmt_to_test_text(input: &str) -> String {
-        to_test_text(
-            |parser| {
-                parser.sequential_statement();
-            },
-            input,
-        )
+        to_test_text(Parser::sequential_statement, input)
     }
 
     #[test]
