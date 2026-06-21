@@ -1351,7 +1351,7 @@ mod tests {
         let (_, diags) = parse_syntax(";", |p: &mut Parser| {
             // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
             p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             // The recovery token must NOT have been consumed.
             assert_eq!(p.peek_token(), TokenKind::SemiColon);
             p.skip(); // consume so the tree is non-empty
@@ -1369,7 +1369,7 @@ mod tests {
         let (root, diags) = parse_syntax("foo bar ;", |p: &mut Parser| {
             // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
             p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             assert_eq!(
                 p.peek_token(),
                 TokenKind::SemiColon,
@@ -1401,7 +1401,7 @@ mod tests {
     fn expect_recover_stops_when_expected_token_appears() {
         let (_, diags) = parse_syntax("garbage is", |p: &mut Parser| {
             p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             // expected token kept for the caller to consume.
             assert_eq!(p.peek_token(), TokenKind::Keyword(Kw::Is));
             p.skip();
@@ -1429,7 +1429,7 @@ mod tests {
         let (_, diags) = parse_syntax(src, |p: &mut Parser| {
             // Assertion's FOLLOW set is `[SemiColon]`, so `;` is a recovery point.
             p.start_node(NodeKind::Assertion);
-            let _ = p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
+            p.expect_tokens_recover([TokenKind::Keyword(Kw::Is)]);
             p.skip();
             p.end_node();
         });

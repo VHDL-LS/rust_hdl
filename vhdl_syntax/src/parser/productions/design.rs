@@ -7,6 +7,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::parser::Parser;
+use crate::parser::util::StallGuard;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
@@ -14,7 +15,8 @@ use crate::tokens::token_kind::TokenKind::*;
 impl Parser {
     pub fn design_file(&mut self) {
         self.start_node(NodeKind::DesignFile);
-        while self.peek_token() != Eof {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) && self.peek_token() != Eof {
             self.design_unit();
         }
         assert!(self.next_is(Eof), "No EoF token in design file");
