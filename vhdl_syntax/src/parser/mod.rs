@@ -1,10 +1,10 @@
 //! Facilities for parsing an input file or string into a [SyntaxNode]
-use crate::parser::error_recovery::RecoveryState;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+use crate::parser::error_recovery::RecoveryState;
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};

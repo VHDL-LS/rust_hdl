@@ -39,7 +39,7 @@ impl RecoveryState {
 
     /// The innermost currently-open node, i.e. the production being parsed.
     pub fn current_node(&self) -> Option<NodeKind> {
-        self.sync_stack.last().map(|kind| *kind)
+        self.sync_stack.last().copied()
     }
 
     pub fn push(&mut self, node: NodeKind) {
@@ -120,12 +120,7 @@ impl Parser {
             {
                 // We found a recovery token at the next position.
                 // This means the token is simply missing.
-                // Don't consume; simply report diagnostic.
                 return if !skipped_any {
-                    // `start` is the insertion locus (the start of the found
-                    // token's leading trivia). The found token's own span is
-                    // recovered from the tree at render time, so we only record
-                    // its kind here.
                     self.errors.push(SyntaxErr::new(
                         start..start,
                         SyntaxErrKind::Expected(expected.into()),
