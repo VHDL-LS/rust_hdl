@@ -492,12 +492,7 @@ mod tests {
     use crate::parser::Parser;
 
     fn stmt_to_test_text(input: &str) -> String {
-        to_test_text(
-            |parser| {
-                parser.concurrent_statement();
-            },
-            input,
-        )
+        to_test_text(Parser::concurrent_statement, input)
     }
 
     #[test]

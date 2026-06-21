@@ -161,9 +161,7 @@ impl Parser {
                     }
                 }
             }
-            _ => {
-                self.expect_tokens_recover([Keyword(Kw::All), Keyword(Kw::Others), Identifier]);
-            }
+            _ => self.expect_tokens_recover([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),
         }
     }
 
