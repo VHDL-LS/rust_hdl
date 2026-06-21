@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
 use crate::parser::builder::Checkpoint;
-use crate::parser::error::{SyntaxErr, SyntaxErrKind};
+use crate::parser::error::SyntaxErr;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -155,7 +155,7 @@ impl Parser {
                 return Some(kind);
             }
         }
-        self.expect_tokens_err(kinds);
+        self.expect_tokens_recover(kinds);
         None
     }
 
@@ -240,13 +240,6 @@ impl Parser {
     pub(crate) fn start_node_at(&mut self, checkpoint: Checkpoint, kind: NodeKind) {
         self.builder.start_node_at(checkpoint, kind);
         self.recovery.push(kind);
-    }
-
-    pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        self.errors.push(SyntaxErr::new(
-            self.builder.current_pos()..self.builder.current_pos(),
-            SyntaxErrKind::Expected(tokens.into()),
-        ));
     }
 
     pub(crate) fn end(self) -> (GreenNode, Vec<SyntaxErr>) {
