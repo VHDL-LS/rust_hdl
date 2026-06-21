@@ -1,0 +1,29 @@
+---
+source: vhdl_syntax/src/parser/productions/subprogram.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+function f(a : integer);
+
+== tree ==
+SubprogramDeclaration
+  FunctionSpecification
+    Keyword(Function)
+    Identifier 'f'
+    ParameterList
+      ParenthesizedInterfaceList
+        LeftPar
+        InterfaceList
+          InterfaceConstantDeclaration
+            IdentifierList
+              Identifier 'a'
+            Colon
+            SubtypeIndication
+              Name
+                Identifier 'integer'
+        RightPar
+  SemiColon
+
+== diagnostics ==
+1:24 Expected([Keyword(Return)])
+1:24 Expected([Identifier, StringLiteral, CharacterLiteral])

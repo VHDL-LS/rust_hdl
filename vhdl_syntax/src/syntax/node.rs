@@ -57,6 +57,7 @@ use crate::tokens::{Token, TokenKind, Trivia};
 use std::fmt::Debug;
 use std::io::{self, Write};
 use std::iter;
+use std::ops::Range;
 use std::sync::Arc;
 
 pub type SyntaxElement = Child<SyntaxNode, SyntaxToken>;
@@ -130,6 +131,27 @@ impl SyntaxToken {
         self.0.offset
     }
 
+    pub fn text_offset(&self) -> usize {
+        self.offset() + self.leading_trivia().byte_len()
+    }
+
+    /// Returns the full byte range covered by this token, including its leading trivia.
+    ///
+    /// Use this for tree traversal, where every byte must belong to exactly one token.
+    /// For user-facing spans (diagnostics, highlights, hover), prefer [`text_range`](Self::text_range).
+    pub fn range(&self) -> Range<usize> {
+        self.offset()..self.offset() + self.byte_len()
+    }
+
+    /// Returns the byte range of this token's text, excluding leading trivia.
+    ///
+    /// This is the span a user perceives as "the token" — what to point at in diagnostics
+    /// or highlight on hover. Gaps between successive `text_range`s contain trivia
+    /// (whitespace and comments). For the full extent including trivia, see [`range`](Self::range).
+    pub fn text_range(&self) -> Range<usize> {
+        self.text_offset()..self.offset() + self.byte_len()
+    }
+
     pub fn token(&self) -> &Token {
         self.green().token()
     }
@@ -163,10 +185,6 @@ impl SyntaxToken {
 
     pub fn parent(&self) -> SyntaxNode {
         self.0.parent.clone()
-    }
-
-    pub fn text_pos(&self) -> usize {
-        self.0.offset
     }
 
     pub fn ancestors(&self) -> impl Iterator<Item = SyntaxNode> {
@@ -250,6 +268,18 @@ impl SyntaxToken {
     /// Returns `true` when this token is the last child of its parent
     pub fn is_last_sibling(&self) -> bool {
         self.next_sibling_or_token().is_none()
+    }
+
+    /// Returns `true` if `offset` lies within [`range`](Self::range), i.e. within this
+    /// token or its leading trivia. Use when descending the tree.
+    pub fn contains_offset(&self, offset: usize) -> bool {
+        self.range().contains(&offset)
+    }
+
+    /// Returns `true` if `offset` lies within [`text_range`](Self::text_range), i.e. on
+    /// the token's text and not in surrounding trivia. Use for cursor-on-token queries.
+    pub fn text_contains_offset(&self, offset: usize) -> bool {
+        self.text_range().contains(&offset)
     }
 }
 
@@ -444,6 +474,83 @@ impl SyntaxNode {
     pub fn write_to(&self, writer: &mut impl Write) -> io::Result<()> {
         self.green().write_to(writer)
     }
+
+    /// Returns the full byte range covered by this node.
+    pub fn range(&self) -> Range<usize> {
+        self.offset()..self.offset() + self.byte_len()
+    }
+
+    /// Returns `true` if `offset` lies within [`range`](Self::range).
+    pub fn contains_offset(&self, offset: usize) -> bool {
+        self.range().contains(&offset)
+    }
+
+    // TODO: Add binary search capabilitiy.
+    // children are ordered by their text position.
+    // We can make use of this to make finding a token more efficiently.
+
+    /// Descends from this node, at each level taking the first child matching
+    /// `predicate`, and returns the token reached at the leaf.
+    ///
+    /// Returns `None` if no child matches at some level along the descent.
+    pub fn find_token(&self, predicate: impl Fn(&SyntaxElement) -> bool) -> Option<SyntaxToken> {
+        let mut current: SyntaxNode = self.clone();
+        loop {
+            let child = current.children_with_tokens().find(&predicate)?;
+            match child {
+                Child::Token(tok) => return Some(tok),
+                Child::Node(node) => current = node,
+            }
+        }
+    }
+
+    /// Returns the token whose [`text_range`](SyntaxToken::text_range) contains `offset`.
+    ///
+    /// Returns `None` if `offset` lies in trivia (whitespace or comments) or
+    /// outside this subtree. For a total variant that always returns a token,
+    /// see [`covering_token_at_offset`](Self::covering_token_at_offset).
+    ///
+    /// At a token/token boundary with no trivia between, `offset` is attributed
+    /// to the following token (half-open ranges).
+    pub fn token_at_offset(&self, offset: usize) -> Option<SyntaxToken> {
+        self.find_token(|child| match child {
+            Child::Node(node) => node.contains_offset(offset),
+            Child::Token(tok) => tok.text_contains_offset(offset),
+        })
+    }
+
+    /// Returns the token whose [`range`](SyntaxToken::range) (including leading
+    /// trivia) contains `offset`, clamping to the first or last token when
+    /// `offset` lies outside this subtree.
+    ///
+    /// Unlike [`token_at_offset`](Self::token_at_offset), an offset inside
+    /// trivia is attributed to the following token rather than returning
+    /// `None`. Useful when a caller needs some token to anchor an action on
+    /// (e.g. a cursor position in an editor).
+    ///
+    /// # Panics
+    ///
+    /// Panics if this node contains no tokens. The builder API guarantees that
+    /// every `SyntaxNode` contains at least one token transitively.
+    pub fn covering_token_at_offset(&self, offset: usize) -> SyntaxToken {
+        match self.find_token(|child| match child {
+            Child::Node(node) => node.contains_offset(offset),
+            Child::Token(tok) => tok.contains_offset(offset),
+        }) {
+            Some(token) => token,
+            None => {
+                let first_tok = self
+                    .first_token()
+                    .expect("every SyntaxNode must contain at least one token");
+                if offset < first_tok.offset() {
+                    first_tok
+                } else {
+                    self.last_token()
+                        .expect("every SyntaxNode must contain at least one token")
+                }
+            }
+        }
+    }
 }
 
 impl SyntaxElement {
@@ -463,7 +570,7 @@ impl SyntaxElement {
 
     pub fn offset(&self) -> usize {
         match self {
-            Child::Token(token) => token.text_pos(),
+            Child::Token(token) => token.offset(),
             Child::Node(node) => node.offset(),
         }
     }

@@ -705,47 +705,71 @@ def compute_follow_sets(
         A dictionary mapping non-terminal names to their FOLLOW sets
     """
     follow_sets: dict[str, set[str]] = {name: set() for name in rules}
-    
+
     # The top-level non-terminal can be followed by end-of-input
     follow_sets[top_level].add("$")
-    
+
+    def can_derive_empty(prod: Production) -> bool:
+        if isinstance(prod, Optional | Repetition):
+            return True
+        elif isinstance(prod, Concatenation):
+            return all(can_derive_empty(el) for el in prod.elements)
+        elif isinstance(prod, Alternative):
+            return any(can_derive_empty(el) for el in prod.elements)
+        else:
+            return False
+
+    def first_of(prod: Production) -> set[str]:
+        if isinstance(prod, Terminal):
+            return {prod.value}
+        if isinstance(prod, NonTerminal):
+            return set(first_sets.get(prod.value, ()))
+        if isinstance(prod, ResolvedNonTerminal):
+            return set(first_sets.get(prod.name, ()))
+        if isinstance(prod, Optional | Repetition):
+            return first_of(prod.value)
+        if isinstance(prod, Alternative):
+            out: set[str] = set()
+            for e in prod.elements:
+                out |= first_of(e)
+            return out
+        if isinstance(prod, Concatenation):
+            out = set()
+            for e in prod.elements:
+                out |= first_of(e)
+                if not can_derive_empty(e):
+                    break
+            return out
+        return set()
+
     def add_follows_from_production(
         nt_name: str, prod: Production, following: set[str]
     ) -> bool:
         """Recursively process a production and add FOLLOW information.
-        
+
         Args:
             nt_name: Non-terminal being analyzed
             prod: Production to process
             following: Terminals that can follow this production
-            
+
         Returns:
             True if any FOLLOW set was modified
         """
         added = False
-        
+
         if isinstance(prod, Concatenation):
             for i, element in enumerate(prod.elements):
-                element_follow = following.copy()
-                # Add FIRST of everything after this element
-                for next_elem in prod.elements[i + 1 :]:
-                    if isinstance(next_elem, Terminal):
-                        element_follow.add(next_elem.value)
-                    elif isinstance(next_elem, NonTerminal):
-                        if next_elem.value in first_sets:
-                            element_follow.update(first_sets[next_elem.value])
-                    elif isinstance(next_elem, ResolvedNonTerminal):
-                        if next_elem.name in first_sets:
-                            element_follow.update(first_sets[next_elem.name])
-                    
-                    # If this element can't derive empty, stop
-                    if isinstance(next_elem, Optional | Repetition):
-                        continue
-                    elif isinstance(next_elem, Terminal | NonTerminal | ResolvedNonTerminal):
+                rest = prod.elements[i + 1 :]
+                element_follow: set[str] = set()
+                all_nullable = True
+                for next_elem in rest:
+                    element_follow |= first_of(next_elem)
+                    if not can_derive_empty(next_elem):
+                        all_nullable = False
                         break
-                    elif isinstance(next_elem, Alternative):
-                        break
-                
+                if all_nullable:
+                    element_follow |= following
+
                 if add_follows_from_production(nt_name, element, element_follow):
                     added = True
                     
@@ -848,4 +872,9 @@ if __name__ == "__main__":
     rules = insert_builtins(rules)
     rules = remove_dead_productions(rules, "design_file")
     rules = resolve_non_terminals(rules)
-    print_rules(rules)
+    # print_rules(rules)
+
+    first = compute_first_sets(rules)
+    f = compute_follow_sets(rules, first, "design_file")
+    for rule in rules:
+        print(f"rule {rule}: follow = {f[rule]}")

@@ -1,0 +1,16 @@
+---
+source: vhdl_syntax/src/parser/productions/types.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+subtype small_int is ;
+
+== tree ==
+SubtypeDeclaration
+  Keyword(Subtype)
+  Identifier 'small_int'
+  Keyword(Is)
+  SemiColon
+
+== diagnostics ==
+1:21 Expected([Identifier, StringLiteral, CharacterLiteral])

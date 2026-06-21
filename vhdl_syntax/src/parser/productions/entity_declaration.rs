@@ -161,4 +161,39 @@ begin
 end entity;",
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn entity_missing_is() {
+        assert_recovery_snapshot!(
+            "\
+entity uart
+end entity;",
+            Parser::entity_declaration
+        );
+    }
+
+    #[test]
+    fn entity_unclosed_port_list() {
+        assert_recovery_snapshot!(
+            "\
+entity uart is
+  port (
+    clk : in std_logic;
+    rst : in std_logic
+end entity;",
+            Parser::entity_declaration
+        );
+    }
+
+    #[test]
+    fn entity_missing_trailing_semicolon() {
+        assert_recovery_snapshot!(
+            "\
+entity uart is
+end entity",
+            Parser::entity_declaration
+        );
+    }
 }

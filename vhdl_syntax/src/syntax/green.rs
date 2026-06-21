@@ -1,10 +1,10 @@
 //! Private API for the underlying Green Tree
-use crate::latin_1::Latin1Str;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+use crate::latin_1::Latin1Str;
 use crate::syntax::child::Child;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};

@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/object_declaration.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+signal clk : ;
+
+== tree ==
+SignalDeclaration
+  Keyword(Signal)
+  IdentifierList
+    Identifier 'clk'
+  Colon
+  SemiColon
+
+== diagnostics ==
+1:13 Expected([Identifier, StringLiteral, CharacterLiteral])

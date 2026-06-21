@@ -1,0 +1,63 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+gen: for i in 0 to 7 generate
+  buf(i) <= data(i);
+
+== tree ==
+ForGenerateStatement
+  ForGenerateStatementPreamble
+    Label
+      Identifier 'gen'
+      Colon
+    Keyword(For)
+    ParameterSpecification
+      Identifier 'i'
+      Keyword(In)
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '7'
+    Keyword(Generate)
+  GenerateStatementBody
+    ConcurrentStatements
+      ConcurrentSimpleSignalAssignment
+        NameTarget
+          Name
+            Identifier 'buf'
+            ParenthesizedName
+              LeftPar
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      NameExpression
+                        Name
+                          Identifier 'i'
+              RightPar
+        LTE
+        WaveformElements
+          WaveformElement
+            NameExpression
+              Name
+                Identifier 'data'
+                ParenthesizedName
+                  LeftPar
+                  AssociationList
+                    AssociationElement
+                      ActualPart
+                        ActualPartExpression
+                          NameExpression
+                            Name
+                              Identifier 'i'
+                  RightPar
+        SemiColon
+
+== diagnostics ==
+2:21 Expected([Keyword(End)])
+2:21 Expected([Keyword(Generate)])
+2:21 Expected([SemiColon])

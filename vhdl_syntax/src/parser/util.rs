@@ -1,11 +1,11 @@
-use crate::parser::builder::Checkpoint;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 /// (private) utility functions used when parsing
-use crate::parser::error::{SyntaxErr, SyntaxErrKind};
+use crate::parser::builder::Checkpoint;
+use crate::parser::error::SyntaxErr;
 use crate::parser::Parser;
 use crate::syntax::green::GreenNode;
 use crate::syntax::node_kind::NodeKind;
@@ -37,8 +37,7 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err([$($($pattern_expr),+),+]),
-            _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+]),
         }
     };
 }
@@ -57,8 +56,7 @@ macro_rules! match_next_token_consume {
                 $parser.skip();
                 $action
             }),+
-            $crate::tokens::token_kind::TokenKind::Eof => $parser.eof_err([$($($pattern_expr),+),+]),
-            _ => $parser.expect_tokens_err([$($($pattern_expr),+),+])
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+]),
         }
     };
 }
@@ -70,6 +68,32 @@ pub enum LookaheadError {
     MaxIndexReached,
     /// None of the desired `TokenKind`s was found withing the current parenthesis
     TokenKindNotFound,
+}
+
+/// Guards a parsing loop against hangs by detecting lack of forward progress.
+///
+/// Call [`StallGuard::should_continue`] at the top of the loop. It returns
+/// `false` once an entire iteration consumed no input (the parser position did
+/// not advance), which means the loop is stalled and must stop. The first call
+/// always returns `true` to prime the guard before the loop body has run.
+pub(crate) struct StallGuard {
+    last_pos: Option<usize>,
+}
+
+impl StallGuard {
+    pub(crate) fn new() -> StallGuard {
+        StallGuard { last_pos: None }
+    }
+
+    pub(crate) fn should_continue(&mut self, parser: &mut Parser) -> bool {
+        let current_pos = parser.builder.current_pos();
+        let Some(last_pos) = self.last_pos else {
+            self.last_pos = Some(current_pos);
+            return true;
+        };
+        self.last_pos = Some(current_pos);
+        current_pos > last_pos
+    }
 }
 
 impl Parser {
@@ -108,11 +132,8 @@ impl Parser {
             self.builder.push(token);
             return;
         }
-        // TODO: what are possible recovery strategies?
-        // - Leave as is
-        // - Insert pseudo-token
-        self.skip();
-        self.expect_tokens_err([kind]);
+
+        self.expect_tokens_recover([kind]);
     }
 
     pub(crate) fn expect_tokens<const N: usize>(&mut self, kinds: [TokenKind; N]) {
@@ -130,7 +151,7 @@ impl Parser {
                 return Some(kind);
             }
         }
-        self.expect_tokens_err(kinds);
+        self.expect_tokens_recover(kinds);
         None
     }
 
@@ -194,10 +215,12 @@ impl Parser {
     }
 
     pub(crate) fn start_node(&mut self, kind: NodeKind) {
-        self.builder.start_node(kind)
+        self.builder.start_node(kind);
+        self.recovery.push(kind);
     }
 
     pub(crate) fn end_node(&mut self) {
+        self.recovery.pop();
         self.builder.end_node()
     }
 
@@ -205,22 +228,11 @@ impl Parser {
         self.builder.checkpoint()
     }
 
+    /// Retroactively wrap children from `checkpoint` onward in a node of the
+    /// given kind.
     pub(crate) fn start_node_at(&mut self, checkpoint: Checkpoint, kind: NodeKind) {
-        self.builder.start_node_at(checkpoint, kind)
-    }
-
-    pub(crate) fn eof_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        if !self.unexpected_eof {
-            self.unexpected_eof = true;
-            self.expect_tokens_err(tokens);
-        }
-    }
-
-    pub(crate) fn expect_tokens_err(&mut self, tokens: impl Into<Box<[TokenKind]>>) {
-        self.errors.push(SyntaxErr::new(
-            self.builder.current_pos()..self.builder.current_pos(),
-            SyntaxErrKind::Expected(tokens.into()),
-        ));
+        self.builder.start_node_at(checkpoint, kind);
+        self.recovery.push(kind);
     }
 
     pub(crate) fn end(self) -> (GreenNode, Vec<SyntaxErr>) {

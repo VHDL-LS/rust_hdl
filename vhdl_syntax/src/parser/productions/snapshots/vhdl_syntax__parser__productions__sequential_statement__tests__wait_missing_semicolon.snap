@@ -1,0 +1,13 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+wait
+
+== tree ==
+WaitStatement
+  Keyword(Wait)
+
+== diagnostics ==
+1:5 Expected([SemiColon])

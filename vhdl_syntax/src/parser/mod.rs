@@ -4,6 +4,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+use crate::parser::error_recovery::RecoveryState;
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::{DesignFileSyntax, NodeKind};
@@ -13,9 +14,11 @@ use crate::tokens::Tokenizer;
 pub(crate) mod builder;
 pub mod error;
 #[cfg(test)]
+#[macro_use]
 mod test_utils;
 #[macro_use]
 mod util;
+mod error_recovery;
 mod list;
 pub mod productions;
 
@@ -27,8 +30,8 @@ pub struct Parser {
     token_stream: TokenStream,
     builder: builder::NodeBuilder,
     errors: Vec<error::SyntaxErr>,
-    unexpected_eof: bool,
     standard: VHDLStandard,
+    recovery: RecoveryState,
 }
 
 impl Parser {
@@ -37,8 +40,8 @@ impl Parser {
             token_stream,
             builder: builder::NodeBuilder::new(),
             errors: Vec::default(),
-            unexpected_eof: false,
             standard,
+            recovery: RecoveryState::new(),
         }
     }
 

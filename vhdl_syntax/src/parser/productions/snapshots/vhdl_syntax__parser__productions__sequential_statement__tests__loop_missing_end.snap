@@ -1,0 +1,26 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+loop
+  x := 1;
+
+== tree ==
+LoopStatement
+  LoopStatementPreamble
+    Keyword(Loop)
+  SequentialStatements
+    SimpleVariableAssignment
+      NameTarget
+        Name
+          Identifier 'x'
+      ColonEq
+      LiteralExpression
+        AbstractLiteral '1'
+      SemiColon
+
+== diagnostics ==
+2:10 Expected([Keyword(End)])
+2:10 Expected([Keyword(Loop)])
+2:10 Expected([SemiColon])

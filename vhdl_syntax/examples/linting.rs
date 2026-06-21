@@ -42,9 +42,9 @@ end entity bar;
                     println!(
                         "Identifier mismatch. First: {}@{}, second: {}@{}",
                         first_ident.text(),
-                        first_ident.text_pos(),
+                        first_ident.text_offset(),
                         second_ident.text(),
-                        second_ident.text_pos()
+                        second_ident.text_offset()
                     );
                 }
             }

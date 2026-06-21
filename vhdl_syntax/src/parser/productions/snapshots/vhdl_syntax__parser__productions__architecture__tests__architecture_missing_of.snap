@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/architecture.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+architecture rtl myent is
+begin
+end;
+
+== tree ==
+ArchitectureBody
+  ArchitecturePreamble
+    Keyword(Architecture)
+    Identifier 'rtl'
+    Name
+      Identifier 'myent'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ArchitectureEpilogue
+    Keyword(End)
+    SemiColon
+
+== diagnostics ==
+1:17 Expected([Keyword(Of)])

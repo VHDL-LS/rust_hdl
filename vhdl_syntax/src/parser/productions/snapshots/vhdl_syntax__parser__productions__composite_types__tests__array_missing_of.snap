@@ -1,0 +1,30 @@
+---
+source: vhdl_syntax/src/parser/productions/composite_types.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+type mem_t is array (0 to 255) integer;
+
+== tree ==
+FullTypeDeclaration
+  Keyword(Type)
+  Identifier 'mem_t'
+  Keyword(Is)
+  ConstrainedArrayDefinition
+    Keyword(Array)
+    IndexConstraint
+      LeftPar
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        LiteralExpression
+          AbstractLiteral '255'
+      RightPar
+    SubtypeIndication
+      Name
+        Identifier 'integer'
+  SemiColon
+
+== diagnostics ==
+1:31 Expected([Keyword(Of)])

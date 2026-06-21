@@ -6,6 +6,7 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -14,7 +15,8 @@ use crate::tokens::token_kind::TokenKind::*;
 impl Parser {
     pub fn design_file(&mut self) {
         self.start_node(NodeKind::DesignFile);
-        while self.peek_token() != Eof {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) && self.peek_token() != Eof {
             self.design_unit();
         }
         assert!(self.next_is(Eof), "No EoF token in design file");
@@ -26,7 +28,7 @@ impl Parser {
         self.start_node(NodeKind::DesignUnit);
 
         self.context_clause();
-        match self.peek_token() {
+        match_next_token!(self,
             Keyword(Kw::Architecture) => self.architecture(),
             Keyword(Kw::Package) => {
                 if self.next_nth_is(Keyword(Kw::Body), 1) {
@@ -38,18 +40,11 @@ impl Parser {
                 } else {
                     self.package_declaration();
                 }
-            }
+            },
             Keyword(Kw::Entity) => self.entity_declaration(),
             Keyword(Kw::Configuration) => self.configuration_declaration(),
             Keyword(Kw::Context) => self.context_declaration(),
-            _ => self.expect_tokens_err([
-                Keyword(Kw::Architecture),
-                Keyword(Kw::Package),
-                Keyword(Kw::Entity),
-                Keyword(Kw::Configuration),
-                Keyword(Kw::Context),
-            ]),
-        }
+        );
         self.end_node();
     }
 
@@ -225,5 +220,32 @@ use lib.foo;
 entity myent is
 end entity;"
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn library_clause_missing_semicolon() {
+        assert_recovery_snapshot!("library ieee", Parser::design_file);
+    }
+
+    #[test]
+    fn use_clause_missing_name() {
+        assert_recovery_snapshot!("use ;", Parser::design_file);
+    }
+
+    #[test]
+    fn context_declaration_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+context my_ctx is
+  library ieee;",
+            Parser::design_file
+        );
+    }
+
+    #[test]
+    fn design_file_top_level_body_keyword() {
+        assert_recovery_snapshot!("body", Parser::design_file);
     }
 }

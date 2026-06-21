@@ -21,6 +21,41 @@ pub struct SourceLoc {
     pub col: usize,
 }
 
+/// A byte-offset expressed in some encoding.
+/// This is the return type of conversion methods of [SourceLocConverter].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EncodedOffset(usize);
+
+impl EncodedOffset {
+    pub(crate) fn new(inner: usize) -> EncodedOffset {
+        EncodedOffset(inner)
+    }
+
+    pub fn raw(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EncodedSpan {
+    start: usize,
+    end: usize,
+}
+
+impl EncodedSpan {
+    pub(crate) fn new(start: usize, end: usize) -> EncodedSpan {
+        EncodedSpan { start, end }
+    }
+
+    pub fn start(&self) -> EncodedOffset {
+        EncodedOffset::new(self.start)
+    }
+
+    pub fn end(&self) -> EncodedOffset {
+        EncodedOffset::new(self.end)
+    }
+}
+
 #[derive(Debug)]
 struct WideChar {
     // Byte offset relative to line start
@@ -179,7 +214,7 @@ impl SourceLocConverter {
     /// For example, a Latin-1 "ä" character occupies one byte but it occupies two bytes
     /// using UTF-8. This function correctly returns the beginning of the UTF-8 offset
     /// (if the encoder was constructed using a UTF-8 char encoding)
-    pub fn convert_byte_offset(&self, offset: usize) -> usize {
+    pub fn convert_byte_offset(&self, offset: usize) -> EncodedOffset {
         let mut delta = 0usize;
         for (line, wide_chars) in &self.wide_char_lines {
             let line_start = self.line_starts[*line];
@@ -190,16 +225,19 @@ impl SourceLocConverter {
                 delta += wide.target_len - wide.byte_len;
             }
         }
-        offset + delta
+        EncodedOffset::new(offset + delta)
     }
 
-    pub fn convert_byte_span(&self, span: &Range<usize>) -> Range<usize> {
-        self.convert_byte_offset(span.start)..self.convert_byte_offset(span.end)
+    pub fn convert_byte_span(&self, span: &Range<usize>) -> EncodedSpan {
+        EncodedSpan::new(
+            self.convert_byte_offset(span.start).raw(),
+            self.convert_byte_offset(span.end).raw(),
+        )
     }
 
     /// Returns the byte offset of the line at index.
-    pub fn line_start(&self, index: usize) -> usize {
-        self.line_starts[index]
+    pub fn line_start(&self, index: usize) -> EncodedOffset {
+        EncodedOffset::new(self.line_starts[index])
     }
 }
 
@@ -570,10 +608,10 @@ mod tests {
         // Layout: "--" (2) + "\xE4" (1) + "\n" (1) + "entity e is end;" (16)
         let input: &[u8] = b"--\xE4\nentity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0);
-        assert_eq!(conv.convert_byte_offset(2), 2); // start of ä
-        assert_eq!(conv.convert_byte_offset(3), 4); // \n (after ä: delta +1)
-        assert_eq!(conv.convert_byte_offset(4), 5); // 'e' in entity
+        assert_eq!(conv.convert_byte_offset(0).raw(), 0);
+        assert_eq!(conv.convert_byte_offset(2).raw(), 2); // start of ä
+        assert_eq!(conv.convert_byte_offset(3).raw(), 4); // \n (after ä: delta +1)
+        assert_eq!(conv.convert_byte_offset(4).raw(), 5); // 'e' in entity
     }
 
     #[test]
@@ -582,11 +620,11 @@ mod tests {
         // Layout: "--" (2) + "\xE4\xE4" (2) + "\n" (1) + "entity e is end;" (16)
         let input: &[u8] = b"--\xE4\xE4\nentity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0);
-        assert_eq!(conv.convert_byte_offset(2), 2); // start of first ä
-        assert_eq!(conv.convert_byte_offset(3), 4); // start of second ä (delta +1)
-        assert_eq!(conv.convert_byte_offset(4), 6); // \n (delta +2)
-        assert_eq!(conv.convert_byte_offset(5), 7); // 'e' in entity
+        assert_eq!(conv.convert_byte_offset(0).raw(), 0);
+        assert_eq!(conv.convert_byte_offset(2).raw(), 2); // start of first ä
+        assert_eq!(conv.convert_byte_offset(3).raw(), 4); // start of second ä (delta +1)
+        assert_eq!(conv.convert_byte_offset(4).raw(), 6); // \n (delta +2)
+        assert_eq!(conv.convert_byte_offset(5).raw(), 7); // 'e' in entity
     }
 
     #[test]
@@ -595,13 +633,13 @@ mod tests {
         // Layout: "/*" (2) + "\xE4\xE4" (2) + "*/" (2) + "entity e is end;" (16)
         let input: &[u8] = b"/*\xE4\xE4*/entity e is end;";
         let conv = lossy_converter::<LossyUtf8Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0); // '/'
-        assert_eq!(conv.convert_byte_offset(1), 1); // '*'
-        assert_eq!(conv.convert_byte_offset(2), 2); // first \xE4 → FFFD start
-        assert_eq!(conv.convert_byte_offset(3), 5); // second \xE4 → FFFD start (delta +2)
-        assert_eq!(conv.convert_byte_offset(4), 8); // '*' of */ (delta +4)
-        assert_eq!(conv.convert_byte_offset(5), 9); // '/' of */
-        assert_eq!(conv.convert_byte_offset(6), 10); // 'e' in entity
+        assert_eq!(conv.convert_byte_offset(0).raw(), 0); // '/'
+        assert_eq!(conv.convert_byte_offset(1).raw(), 1); // '*'
+        assert_eq!(conv.convert_byte_offset(2).raw(), 2); // first \xE4 → FFFD start
+        assert_eq!(conv.convert_byte_offset(3).raw(), 5); // second \xE4 → FFFD start (delta +2)
+        assert_eq!(conv.convert_byte_offset(4).raw(), 8); // '*' of */ (delta +4)
+        assert_eq!(conv.convert_byte_offset(5).raw(), 9); // '/' of */
+        assert_eq!(conv.convert_byte_offset(6).raw(), 10); // 'e' in entity
     }
 
     // Multiple wide chars on the same line
@@ -635,8 +673,8 @@ mod tests {
         // Layout: "\xA0" (1) + "entity e is end;" (16)
         let input: &[u8] = b"\xA0entity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0); // start of NBSP
-        assert_eq!(conv.convert_byte_offset(1), 2); // 'e' in entity (delta +1)
+        assert_eq!(conv.convert_byte_offset(0).raw(), 0); // start of NBSP
+        assert_eq!(conv.convert_byte_offset(1).raw(), 2); // 'e' in entity (delta +1)
     }
 
     #[test]
@@ -653,8 +691,8 @@ mod tests {
         // Two consecutive NBSPs before a token
         let input: &[u8] = b"\xA0\xA0entity e is end;";
         let conv = converter::<Latin1Encoder, Utf8>(input);
-        assert_eq!(conv.convert_byte_offset(0), 0); // first NBSP
-        assert_eq!(conv.convert_byte_offset(1), 2); // second NBSP (delta +1)
-        assert_eq!(conv.convert_byte_offset(2), 4); // 'e' in entity (delta +2)
+        assert_eq!(conv.convert_byte_offset(0).raw(), 0); // first NBSP
+        assert_eq!(conv.convert_byte_offset(1).raw(), 2); // second NBSP (delta +1)
+        assert_eq!(conv.convert_byte_offset(2).raw(), 4); // 'e' in entity (delta +2)
     }
 }

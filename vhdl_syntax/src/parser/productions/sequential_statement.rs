@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
@@ -251,8 +252,10 @@ impl Parser {
     }
 
     pub fn iteration_scheme(&mut self) {
-        if !self.next_is_one_of([Keyword(Kw::While), Keyword(Kw::For)]) {
-            self.expect_tokens_err([Keyword(Kw::While), Keyword(Kw::For)]);
+        if self
+            .opt_tokens([Keyword(Kw::While), Keyword(Kw::For)])
+            .is_none()
+        {
             return;
         }
         self.opt_iteration_scheme();
@@ -260,7 +263,8 @@ impl Parser {
 
     pub fn sequential_statements(&mut self) {
         self.start_node(SequentialStatements);
-        loop {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) {
             match self.peek_token() {
                 Eof | Keyword(Kw::End | Kw::Else | Kw::Elsif | Kw::When) => break,
                 _ => self.sequential_statement(),
@@ -336,7 +340,10 @@ impl Parser {
                         self.skip();
                         self.selected_expressions();
                     }
-                    _ => self.expect_tokens_err([LTE, ColonEq]),
+                    _ => {
+                        self.start_node_at(checkpoint, SelectedWaveformAssignment);
+                        self.expect_tokens_recover([LTE, ColonEq]);
+                    }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
@@ -419,12 +426,15 @@ impl Parser {
                     SemiColon => {
                         self.start_node_at(checkpoint, ProcedureCallStatement);
                     }
-                    _ => self.expect_tokens_err([LTE, ColonEq, SemiColon]),
+                    _ => {
+                        self.start_node_at(checkpoint, ProcedureCallStatement);
+                        self.expect_tokens_recover([LTE, ColonEq, SemiColon]);
+                    }
                 }
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            _ => self.expect_tokens_err([
+            _ => self.expect_tokens_recover([
                 Keyword(Kw::Wait),
                 Keyword(Kw::Assert),
                 Keyword(Kw::Report),
@@ -742,90 +752,67 @@ end loop;"
         ));
     }
 
+    fn stmt_to_test_text(input: &str) -> String {
+        to_test_text(Parser::sequential_statement, input)
+    }
+
     #[test]
     fn simple_signal_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(0) <= bar(1,2) after 2 ns;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= bar(1,2) after 2 ns;"));
     }
 
     #[test]
     fn simple_signal_force_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(0) <= force bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= force bar(1,2);"));
     }
 
     #[test]
     fn simple_signal_release_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(0) <= release;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= release;"));
     }
 
     #[test]
     fn signal_assignment_external_name() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "<< signal dut.foo : boolean  >> <= bar(1,2);"
         ));
     }
 
     #[test]
     fn simple_signal_assignment_delay_mechanism() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(0) <= transport bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) <= transport bar(1,2);"));
     }
 
     #[test]
     fn simple_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(0) := bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(0) := bar(1,2);"));
     }
 
     #[test]
     fn variable_assignment_external_name() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "<< variable dut.foo : boolean >> := bar(1,2);"
         ));
     }
 
     #[test]
     fn simple_aggregate_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "(foo, 1 => bar) := bar;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("(foo, 1 => bar) := bar;"));
     }
 
     #[test]
     fn labeled_aggregate_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "name: (foo, 1 => bar) := bar;"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("name: (foo, 1 => bar) := bar;"));
     }
 
     #[test]
     fn labeled_simple_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "name: foo(0) := bar(1,2);"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("name: foo(0) := bar(1,2);"));
     }
 
     #[test]
     fn selected_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 with x(0) + 1 select
    foo(0) := bar(1,2) when 0|1,
@@ -836,8 +823,7 @@ with x(0) + 1 select
 
     #[test]
     fn conditional_variable_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 foo(0) := bar(1,2) when cond = true;
         "
@@ -846,8 +832,7 @@ foo(0) := bar(1,2) when cond = true;
 
     #[test]
     fn conditional_signal_force_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 foo(0) <= force bar(1,2) when cond;
         "
@@ -856,8 +841,7 @@ foo(0) <= force bar(1,2) when cond;
 
     #[test]
     fn conditional_variable_assignment_several() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 foo(0) := bar(1,2) when cond = true else expr2 when cond2;
         "
@@ -866,8 +850,7 @@ foo(0) := bar(1,2) when cond = true else expr2 when cond2;
 
     #[test]
     fn conditional_variable_assignment_else() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 foo(0) := bar(1,2) when cond = true else expr2;
         "
@@ -876,8 +859,7 @@ foo(0) := bar(1,2) when cond = true else expr2;
 
     #[test]
     fn conditional_signal_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 foo(0) <= bar(1,2) after 2 ns when cond;
         "
@@ -886,8 +868,7 @@ foo(0) <= bar(1,2) after 2 ns when cond;
 
     #[test]
     fn conditional_waveform_assignment_else() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 data_processing_state <= processing when processing_data else idle;"
         ));
@@ -895,8 +876,7 @@ data_processing_state <= processing when processing_data else idle;"
 
     #[test]
     fn selected_signal_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 with x(0) + 1 select
    foo(0) <= transport bar(1,2) after 2 ns when 0|1,
@@ -907,8 +887,7 @@ with x(0) + 1 select
 
     #[test]
     fn selected_signal_force_assignment() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
+        insta::assert_snapshot!(stmt_to_test_text(
             "\
 with x(0) + 1 select
    foo(0) <= force bar(1,2) when 0|1,
@@ -918,19 +897,78 @@ with x(0) + 1 select
 
     #[test]
     fn procedure_call_statement() {
-        insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo(1, 2);"));
+        insta::assert_snapshot!(stmt_to_test_text("foo(1, 2);"));
     }
 
     #[test]
     fn procedure_call_statement_no_args() {
-        insta::assert_snapshot!(to_test_text(Parser::sequential_statement, "foo;"));
+        insta::assert_snapshot!(stmt_to_test_text("foo;"));
     }
 
     #[test]
     fn procedure_call_with_qualified_expression() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::sequential_statement,
-            "foo(l, string'(\"L: \"));"
-        ));
+        insta::assert_snapshot!(stmt_to_test_text("foo(l, string'(\"L: \"));"));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn if_missing_then() {
+        assert_recovery_snapshot!(
+            "\
+if cond
+  x := 1;
+end if;",
+            Parser::if_statement
+        );
+    }
+
+    #[test]
+    fn if_missing_end_if() {
+        assert_recovery_snapshot!(
+            "\
+if cond then
+  x := 1;",
+            Parser::if_statement
+        );
+    }
+
+    #[test]
+    fn case_missing_is() {
+        assert_recovery_snapshot!(
+            "\
+case sel
+  when 0 => null;
+end case;",
+            Parser::case_statement
+        );
+    }
+
+    #[test]
+    fn loop_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+loop
+  x := 1;",
+            Parser::loop_statement
+        );
+    }
+
+    #[test]
+    fn wait_missing_semicolon() {
+        assert_recovery_snapshot!("wait", Parser::wait_statement);
+    }
+
+    #[test]
+    fn sequential_statement_stall() {
+        assert_recovery_snapshot!(
+            "\
+function f return integer is
+begin
+    use work.all;      -- `use` in SubprogramBody follow
+end;
+        ",
+            Parser::subprogram_body
+        );
     }
 }

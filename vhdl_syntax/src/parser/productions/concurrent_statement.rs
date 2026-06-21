@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::tokens::token_kind::Keyword as Kw;
@@ -67,7 +68,8 @@ impl Parser {
 
     pub fn concurrent_statements(&mut self) {
         self.start_node(ConcurrentStatements);
-        loop {
+        let mut guard = StallGuard::new();
+        while guard.should_continue(self) {
             match self.peek_token() {
                 Keyword(Kw::End | Kw::Elsif | Kw::Else | Kw::When) | Eof => {
                     break;
@@ -191,10 +193,24 @@ impl Parser {
                 self.end_node();
             }
             _ => {
-                self.skip();
-                self.expect_tokens_err([Keyword(Kw::Block)])
+                self.expect_tokens_recover([
+                    Keyword(Kw::Block),
+                    Keyword(Kw::Process),
+                    Keyword(Kw::Component),
+                    Keyword(Kw::Configuration),
+                    Keyword(Kw::Entity),
+                    Keyword(Kw::For),
+                    Keyword(Kw::If),
+                    Keyword(Kw::Case),
+                    Keyword(Kw::Assert),
+                    Keyword(Kw::With),
+                    Identifier,
+                    LtLt,
+                    StringLiteral,
+                    CharacterLiteral,
+                ]);
             }
-        }
+        };
     }
 
     /// Parse conditional waveforms, assuming the first `waveform when` is already parsed
@@ -905,5 +921,66 @@ gen1: case expr(0) + 2 generate
     foo(clk);
 end generate gen1;",
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    #[ignore = "currently produces spurious error messages since declarations and statements are not clearly separated"]
+    fn process_missing_begin() {
+        assert_recovery_snapshot!(
+            "\
+process (clk)
+  variable count : integer := 0;
+  count := count + 1;
+end process;",
+            Parser::process_statement
+        );
+    }
+
+    #[test]
+    fn process_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+process (clk)
+begin
+  q <= d;",
+            Parser::process_statement
+        );
+    }
+
+    #[test]
+    fn for_generate_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+gen: for i in 0 to 7 generate
+  buf(i) <= data(i);",
+            Parser::for_generate_statement
+        );
+    }
+
+    #[test]
+    fn instantiation_missing_semicolon() {
+        assert_recovery_snapshot!(
+            "\
+u_cpu: entity work.cpu
+  port map (
+    clk => clk
+  )",
+            Parser::component_instantiation_statement
+        );
+    }
+
+    // concurrent statement loop. Could loop endlessly
+    #[test]
+    fn architecture_misplaced_use() {
+        assert_recovery_snapshot!(
+            "\
+architecture a of e is
+  begin
+    use work.all;
+  end architecture;",
+            Parser::architecture
+        );
     }
 }

@@ -83,4 +83,16 @@ mod tests {
     fn test_context_reference_single_name() {
         insta::assert_snapshot!(to_test_text(Parser::context_reference, "context lib.foo;",));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn context_reference_missing_semicolon() {
+        assert_recovery_snapshot!("context lib.foo", Parser::context_reference);
+    }
+
+    #[test]
+    fn library_clause_missing_name() {
+        assert_recovery_snapshot!("library ;", Parser::library_clause);
+    }
 }

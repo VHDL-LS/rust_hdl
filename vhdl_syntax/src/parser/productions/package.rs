@@ -128,4 +128,38 @@ package body pkg_name is
 end package body;"
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn package_missing_is() {
+        assert_recovery_snapshot!(
+            "\
+package math_pkg
+  constant pi : real := 3.14;
+end package;",
+            Parser::package
+        );
+    }
+
+    #[test]
+    fn package_missing_end() {
+        assert_recovery_snapshot!(
+            "\
+package math_pkg is
+  constant pi : real := 3.14;",
+            Parser::package
+        );
+    }
+
+    #[test]
+    fn package_body_missing_body_keyword() {
+        assert_recovery_snapshot!(
+            "\
+package math_pkg is
+  constant pi : real := 3.14;
+end package body;",
+            Parser::package_body
+        );
+    }
 }

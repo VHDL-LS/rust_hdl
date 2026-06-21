@@ -38,7 +38,7 @@ impl Parser {
         self.end_node();
 
         self.start_node(RecordElementDeclarations);
-        while !self.next_is(Keyword(Kw::End)) {
+        while self.next_is(Identifier) {
             self.element_declaration();
         }
         self.end_node();
@@ -146,5 +146,41 @@ mod tests {
             Parser::type_declaration,
             "type foo is array (arr_t'range) of boolean;"
         ));
+    }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn record_missing_end_record() {
+        assert_recovery_snapshot!(
+            "\
+type pixel_t is record
+  r : integer;
+  g : integer;
+  b : integer;",
+            Parser::type_declaration
+        );
+    }
+
+    #[test]
+    #[ignore = "currently produces many spurious errors, likely due to name after `integer` parsing as subtype_indication."]
+    fn record_element_missing_semicolon() {
+        assert_recovery_snapshot!(
+            "\
+type pixel_t is record
+  r : integer
+  g : integer;
+  b : integer;
+end record;",
+            Parser::type_declaration
+        );
+    }
+
+    #[test]
+    fn array_missing_of() {
+        assert_recovery_snapshot!(
+            "type mem_t is array (0 to 255) integer;",
+            Parser::type_declaration
+        );
     }
 }

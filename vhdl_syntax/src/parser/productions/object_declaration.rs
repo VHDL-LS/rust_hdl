@@ -155,4 +155,34 @@ mod tests {
             "constant foo : natural := 0;"
         ));
     }
+
+    // MARK: Error recovery
+
+    #[test]
+    fn signal_missing_colon() {
+        assert_recovery_snapshot!("signal clk std_logic;", Parser::signal_declaration);
+    }
+
+    #[test]
+    fn signal_missing_type() {
+        assert_recovery_snapshot!("signal clk : ;", Parser::signal_declaration);
+    }
+
+    #[test]
+    fn signal_missing_trailing_semicolon() {
+        assert_recovery_snapshot!("signal clk : std_logic", Parser::signal_declaration);
+    }
+
+    #[test]
+    fn constant_missing_default_expression() {
+        assert_recovery_snapshot!(
+            "constant width : integer := ;",
+            Parser::constant_declaration
+        );
+    }
+
+    #[test]
+    fn variable_missing_identifier() {
+        assert_recovery_snapshot!("variable : integer;", Parser::variable_declaration);
+    }
 }
