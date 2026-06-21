@@ -233,10 +233,7 @@ impl Parser {
     }
 
     /// Retroactively wrap children from `checkpoint` onward in a node of the
-    /// given kind. Pushes the node's FOLLOW set onto the sync stack — the
-    /// pre-checkpoint span was already parsed under the parent's recovery
-    /// context, which is the right behaviour: until this commit point, the
-    /// node's identity was undetermined and it had no FOLLOW to contribute.
+    /// given kind.
     pub(crate) fn start_node_at(&mut self, checkpoint: Checkpoint, kind: NodeKind) {
         self.builder.start_node_at(checkpoint, kind);
         self.recovery.push(kind);
