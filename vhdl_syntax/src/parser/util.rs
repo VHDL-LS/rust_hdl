@@ -37,9 +37,7 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            _ => {
-                let _ = $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
-            }
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+]),
         }
     };
 }
@@ -58,9 +56,7 @@ macro_rules! match_next_token_consume {
                 $parser.skip();
                 $action
             }),+
-            _ => {
-                let _ = $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
-            }
+            _ => $parser.expect_tokens_recover([$($($pattern_expr),+),+]),
         }
     };
 }
