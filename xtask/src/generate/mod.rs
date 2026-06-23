@@ -5,10 +5,12 @@
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
 pub mod builders;
-pub mod naming;
 pub use builders::BuilderGenerator;
+pub mod checked_nodes;
+pub use checked_nodes::CheckedNodeGenerator;
 pub mod meta;
 pub use meta::MetaGenerator;
+pub mod naming;
 pub mod syntax_nodes;
 pub use syntax_nodes::SyntaxNodeGenerator;
 

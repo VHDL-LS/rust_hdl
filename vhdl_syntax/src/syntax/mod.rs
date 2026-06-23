@@ -11,7 +11,9 @@ pub(crate) mod green;
 pub mod meta;
 pub mod node;
 pub mod rewrite;
+pub mod validate;
 pub mod visitor;
+pub mod checked;
 
 use crate::syntax::meta::Layout;
 use crate::syntax::node::{SyntaxElement, SyntaxNode};
@@ -27,6 +29,7 @@ where
     const META: &'static Layout;
 
     /// Cast without a kind check — caller must ensure `can_cast` is true.
+    /// Panics for Choice nodes (although this might change in the future)
     fn cast_unchecked(node: SyntaxNode) -> Self;
 
     /// Return the underlying Syntax Node.

@@ -29,6 +29,11 @@ pub fn token_type_ident(name: &str) -> Ident {
     format_ident!("{}Token", name.to_case(Case::UpperCamel))
 }
 
+/// `CheckedFoo`
+pub fn checked_type_ident(name: &str) -> Ident {
+    format_ident!("Checked{}", name.to_case(Case::UpperCamel))
+}
+
 /// `Foo`  (used for enum variant names — merges the two identical functions)
 pub fn variant_ident(name: &str) -> Ident {
     format_ident!("{}", name.to_case(Case::UpperCamel))

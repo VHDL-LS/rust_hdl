@@ -6,8 +6,8 @@
 
 use clap::{Parser, Subcommand};
 use generate::{
-    check_generators, run_generators, BuilderGenerator, Generator, MetaGenerator,
-    SyntaxNodeGenerator,
+    check_generators, run_generators, BuilderGenerator, CheckedNodeGenerator, Generator,
+    MetaGenerator, SyntaxNodeGenerator,
 };
 use model::load_model;
 use std::path::Path;
@@ -43,14 +43,21 @@ fn main() {
     match cli.command {
         Commands::Codegen { check } => {
             let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
+            let checked_output_dir =
+                workspace_root.join("vhdl_syntax/src/syntax/checked/generated");
             let definitions_dir = workspace_root.join("xtask/src/syntax_definitions");
             let model = load_model(&definitions_dir);
             let generators: &[&dyn Generator] =
                 &[&SyntaxNodeGenerator, &BuilderGenerator, &MetaGenerator];
+            let checked_generators: &[&dyn Generator] = &[&CheckedNodeGenerator];
 
             if check {
-                let stale = check_generators(generators, &model, &output_dir)
+                let mut stale = check_generators(generators, &model, &output_dir)
                     .expect("failed to check generators");
+                stale.extend(
+                    check_generators(checked_generators, &model, &checked_output_dir)
+                        .expect("failed to check checked generators"),
+                );
                 if stale.is_empty() {
                     println!("All generated files are up-to-date.");
                 } else {
@@ -63,7 +70,13 @@ fn main() {
                 }
             } else {
                 run_generators(generators, &model, &output_dir).expect("failed to run generators");
+                run_generators(checked_generators, &model, &checked_output_dir)
+                    .expect("failed to run checked generators");
                 println!("Generated files written to {}", output_dir.display());
+                println!(
+                    "Checked generated files written to {}",
+                    checked_output_dir.display()
+                );
             }
         }
     }
