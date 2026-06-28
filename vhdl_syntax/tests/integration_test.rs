@@ -1,7 +1,10 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
 use similar::{ChangeTag, TextDiff};
-use vhdl_syntax::{self, parser, syntax::{AstNode, node::SyntaxElement}};
+use vhdl_syntax::{
+    self, parser,
+    syntax::{node::SyntaxElement, AstNode},
+};
 
 // PSL is not supported yet by vhdl_syntax
 const EXCLUDED_FILES: [&str; 1] =

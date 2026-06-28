@@ -20,8 +20,6 @@ pub mod validator;
 
 pub use error::{Missing, ValidationError};
 
-
-
 impl SyntaxNode {
     /// Validate a node and its entire subtree for missing and extraneous elements.
     ///
@@ -261,7 +259,10 @@ end entity foo;
             LayoutItemKind::Token(TokenKind::Keyword(Keyword::Is))
         ));
         assert_eq!(second.parent().kind(), NodeKind::EntityDeclarationPreamble);
-        match second.previous().expect("previous should be the identifier token") {
+        match second
+            .previous()
+            .expect("previous should be the identifier token")
+        {
             SyntaxElement::Token(t) => assert_eq!(t.kind(), TokenKind::Identifier),
             other => panic!("expected the identifier token, got {other:?}"),
         }
