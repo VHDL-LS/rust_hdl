@@ -4,4 +4,5 @@ expression: "to_test_text(Parser::subtype_indication, \"std_logic\")"
 ---
 SubtypeIndication
   Name
-    Identifier 'std_logic'
+    NameDesignatorPrefix
+      Identifier 'std_logic'

@@ -8,49 +8,54 @@ IfStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'foo'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '1'
-              Comma
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '2'
-            RightPar
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '1'
+            Comma
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '2'
+          RightPar
       SemiColon
   IfStatementElsif
     Keyword(Elsif)
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond2'
+          NameDesignatorPrefix
+            Identifier 'cond2'
       EQ
       NameExpression
         Name
-          Identifier 'false'
+          NameDesignatorPrefix
+            Identifier 'false'
     Keyword(Then)
     SequentialStatements
       SimpleVariableAssignment
         NameTarget
           Name
-            Identifier 'y'
+            NameDesignatorPrefix
+              Identifier 'y'
         ColonEq
         LiteralExpression
           AbstractLiteral '2'
@@ -61,7 +66,8 @@ IfStatement
       SimpleVariableAssignment
         NameTarget
           Name
-            Identifier 'x'
+            NameDesignatorPrefix
+              Identifier 'x'
         ColonEq
         LiteralExpression
           AbstractLiteral '1'

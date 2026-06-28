@@ -7,12 +7,29 @@
 use crate::parser::error::SyntaxErr;
 use crate::parser::{parse_syntax, parse_syntax_with_standard, Parser};
 use crate::standard::VHDLStandard;
-use crate::syntax::node::SyntaxNode;
+use crate::syntax::node::{SyntaxElement, SyntaxNode};
 
 /// Returns the AST text for snapshot assertions.
 pub fn to_test_text(func: impl FnOnce(&mut Parser), input: &str) -> String {
     let (entity, diagnostics) = parse_syntax(input, func);
     assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
+    if let Err(err) = entity.validate() {
+        println!("Parser <-> AST validation failed: {err}");
+        for missing in err.missing() {
+            println!(
+                "  missing {:?} in {:?}",
+                missing.kind(),
+                missing.parent().kind()
+            );
+        }
+        for extraneous in err.extraneous() {
+            match extraneous {
+                SyntaxElement::Node(node) => println!("  extraneous node {:?}", node.kind()),
+                SyntaxElement::Token(token) => println!("  extraneous token {:?}", token.kind()),
+            }
+        }
+        panic!();
+    }
     entity.test_text()
 }
 

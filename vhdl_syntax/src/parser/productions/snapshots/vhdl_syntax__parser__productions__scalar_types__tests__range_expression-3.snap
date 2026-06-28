@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::expression, \"slv32_t'range\")"
 ---
 NameExpression
   Name
-    Identifier 'slv32_t'
+    NameDesignatorPrefix
+      Identifier 'slv32_t'
     AttributeName
       Tick
       Keyword(Range)

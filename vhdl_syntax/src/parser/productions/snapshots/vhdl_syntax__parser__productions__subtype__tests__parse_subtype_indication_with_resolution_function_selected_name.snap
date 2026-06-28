@@ -5,7 +5,8 @@ expression: "to_test_text(Parser::subtype_indication, \"lib.foo.resolve std_logi
 SubtypeIndication
   NameResolutionIndication
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'
@@ -13,4 +14,5 @@ SubtypeIndication
         Dot
         Identifier 'resolve'
   Name
-    Identifier 'std_logic'
+    NameDesignatorPrefix
+      Identifier 'std_logic'

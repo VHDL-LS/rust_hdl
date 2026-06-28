@@ -6,7 +6,8 @@ WaveformElements
   WaveformElement
     NameExpression
       Name
-        Identifier 'bar'
+        NameDesignatorPrefix
+          Identifier 'bar'
         ParenthesizedName
           LeftPar
           AssociationList

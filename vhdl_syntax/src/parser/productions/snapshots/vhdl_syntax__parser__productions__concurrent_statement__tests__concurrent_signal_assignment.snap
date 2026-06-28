@@ -5,13 +5,15 @@ expression: "stmt_to_test_text(\"foo <= bar(2 to 3);\",)"
 ConcurrentSimpleSignalAssignment
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
   LTE
   WaveformElements
     WaveformElement
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList

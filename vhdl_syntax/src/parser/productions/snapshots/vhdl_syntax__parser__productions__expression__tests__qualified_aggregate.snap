@@ -4,7 +4,8 @@ expression: "expr_to_test_text(\"foo'(others => '1')\")"
 ---
 QualifiedExpression
   Name
-    Identifier 'foo'
+    NameDesignatorPrefix
+      Identifier 'foo'
   Tick
   ParenthesizedExpressionOrAggregate
     LeftPar

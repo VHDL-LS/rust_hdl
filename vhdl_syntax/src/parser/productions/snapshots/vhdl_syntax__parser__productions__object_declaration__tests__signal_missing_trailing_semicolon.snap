@@ -13,7 +13,8 @@ SignalDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'std_logic'
+      NameDesignatorPrefix
+        Identifier 'std_logic'
 
 == diagnostics ==
 1:23 Expected([SemiColon])

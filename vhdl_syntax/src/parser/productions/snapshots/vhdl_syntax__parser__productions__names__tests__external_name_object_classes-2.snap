@@ -14,5 +14,6 @@ Name
     Colon
     SubtypeIndication
       Name
-        Identifier 'std_logic'
+        NameDesignatorPrefix
+          Identifier 'std_logic'
     GtGt

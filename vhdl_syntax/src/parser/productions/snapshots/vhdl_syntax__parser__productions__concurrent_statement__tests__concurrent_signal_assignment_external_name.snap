@@ -16,14 +16,16 @@ ConcurrentSimpleSignalAssignment
         Colon
         SubtypeIndication
           Name
-            Identifier 'std_logic'
+            NameDesignatorPrefix
+              Identifier 'std_logic'
         GtGt
   LTE
   WaveformElements
     WaveformElement
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList

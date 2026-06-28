@@ -7,8 +7,9 @@ FullTypeDeclaration
   Identifier 'foo'
   Keyword(Is)
   ProtectedTypeBody
-    Keyword(Protected)
-    Keyword(Body)
+    ProtectedTypeBodyPreamble
+      Keyword(Protected)
+      Keyword(Body)
     Declarations
       VariableDeclaration
         Keyword(Variable)
@@ -17,12 +18,13 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'natural'
+            NameDesignatorPrefix
+              Identifier 'natural'
         SemiColon
       SubprogramBody
         SubprogramBodyPreamble
-          Keyword(Procedure)
           ProcedureSpecification
+            Keyword(Procedure)
             Identifier 'proc'
           Keyword(Is)
         DeclarationStatementSeparator
@@ -30,7 +32,7 @@ FullTypeDeclaration
         SubprogramBodyEpilogue
           Keyword(End)
           SemiColon
-    ProtectedTypeDeclarationEpilogue
+    ProtectedTypeBodyEpilogue
       Keyword(End)
       Keyword(Protected)
       Keyword(Body)

@@ -7,22 +7,24 @@ SubprogramHeader
     Keyword(Generic)
     LeftPar
     InterfaceList
-      InterfaceConstantDeclaration
+      InterfaceObjectDeclaration
         IdentifierList
           Identifier 'x'
         Colon
         SubtypeIndication
           Name
-            Identifier 'natural'
+            NameDesignatorPrefix
+              Identifier 'natural'
         ColonEq
         LiteralExpression
           AbstractLiteral '1'
       SemiColon
-      InterfaceConstantDeclaration
+      InterfaceObjectDeclaration
         IdentifierList
           Identifier 'y'
         Colon
         SubtypeIndication
           Name
-            Identifier 'real'
+            NameDesignatorPrefix
+              Identifier 'real'
     RightPar

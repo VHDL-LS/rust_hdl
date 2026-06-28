@@ -10,5 +10,6 @@ FullTypeDeclaration
     Keyword(Access)
     SubtypeIndication
       Name
-        Identifier 'string'
+        NameDesignatorPrefix
+          Identifier 'string'
   SemiColon

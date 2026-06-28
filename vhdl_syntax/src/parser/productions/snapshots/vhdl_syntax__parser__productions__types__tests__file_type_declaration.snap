@@ -10,5 +10,6 @@ FullTypeDeclaration
     Keyword(File)
     Keyword(Of)
     Name
-      Identifier 'integer'
+      NameDesignatorPrefix
+        Identifier 'integer'
   SemiColon

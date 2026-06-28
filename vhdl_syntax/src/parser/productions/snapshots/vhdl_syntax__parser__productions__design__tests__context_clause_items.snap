@@ -18,7 +18,8 @@ ContextDeclaration
         Keyword(Use)
         NameList
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
             SelectedName
               Dot
               Identifier 'bar'
@@ -27,7 +28,8 @@ ContextDeclaration
       Keyword(Context)
       NameList
         Name
-          Identifier 'foo'
+          NameDesignatorPrefix
+            Identifier 'foo'
           SelectedName
             Dot
             Identifier 'ctx'

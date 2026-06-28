@@ -13,12 +13,14 @@ IfStatement
     Keyword(If)
     NameExpression
       Name
-        Identifier 'cond'
+        NameDesignatorPrefix
+          Identifier 'cond'
   SequentialStatements
     SimpleVariableAssignment
       NameTarget
         Name
-          Identifier 'x'
+          NameDesignatorPrefix
+            Identifier 'x'
       ColonEq
       LiteralExpression
         AbstractLiteral '1'

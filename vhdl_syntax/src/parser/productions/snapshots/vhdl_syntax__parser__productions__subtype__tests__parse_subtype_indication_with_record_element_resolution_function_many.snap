@@ -16,14 +16,16 @@ SubtypeIndication
                 ResolutionIndicationElementResolution
                   NameResolutionIndication
                     Name
-                      Identifier 'resolve1'
+                      NameDesignatorPrefix
+                        Identifier 'resolve1'
               RightPar
           Comma
           RecordElementResolution
             Identifier 'elem2'
             NameResolutionIndication
               Name
-                Identifier 'resolve2'
+                NameDesignatorPrefix
+                  Identifier 'resolve2'
           Comma
           RecordElementResolution
             Identifier 'elem3'
@@ -36,8 +38,10 @@ SubtypeIndication
                       Identifier 'sub_elem'
                       NameResolutionIndication
                         Name
-                          Identifier 'sub_resolve'
+                          NameDesignatorPrefix
+                            Identifier 'sub_resolve'
               RightPar
     RightPar
   Name
-    Identifier 'rec_t'
+    NameDesignatorPrefix
+      Identifier 'rec_t'

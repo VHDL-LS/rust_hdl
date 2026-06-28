@@ -11,7 +11,8 @@ CaseGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'expr'
+          NameDesignatorPrefix
+            Identifier 'expr'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -41,13 +42,15 @@ CaseGenerateStatement
         ConcurrentSimpleSignalAssignment
           NameTarget
             Name
-              Identifier 'sig'
+              NameDesignatorPrefix
+                Identifier 'sig'
           LTE
           WaveformElements
             WaveformElement
               NameExpression
                 Name
-                  Identifier 'value'
+                  NameDesignatorPrefix
+                    Identifier 'value'
           SemiColon
   CaseGenerateAlternative
     Keyword(When)
@@ -59,7 +62,8 @@ CaseGenerateStatement
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
             ParenthesizedName
               LeftPar
               AssociationList
@@ -68,7 +72,8 @@ CaseGenerateStatement
                     ActualPartExpression
                       NameExpression
                         Name
-                          Identifier 'clk'
+                          NameDesignatorPrefix
+                            Identifier 'clk'
               RightPar
           SemiColon
   CaseGenerateStatementEpilogue

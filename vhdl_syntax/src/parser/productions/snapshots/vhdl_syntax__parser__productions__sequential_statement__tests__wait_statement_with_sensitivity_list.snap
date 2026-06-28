@@ -8,8 +8,10 @@ WaitStatement
     Keyword(On)
     NameList
       Name
-        Identifier 'foo'
+        NameDesignatorPrefix
+          Identifier 'foo'
       Comma
       Name
-        Identifier 'bar'
+        NameDesignatorPrefix
+          Identifier 'bar'
   SemiColon

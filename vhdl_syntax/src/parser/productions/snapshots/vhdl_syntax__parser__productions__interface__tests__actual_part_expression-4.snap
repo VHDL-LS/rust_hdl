@@ -8,4 +8,5 @@ ActualPart
       Minus
       NameExpression
         Name
-          Identifier 'foo'
+          NameDesignatorPrefix
+            Identifier 'foo'

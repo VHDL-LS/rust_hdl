@@ -12,7 +12,8 @@ EntityDeclaration
   ConcurrentStatements
     ConcurrentProcedureCallOrComponentInstantiationStatement
       Name
-        Identifier 'check'
+        NameDesignatorPrefix
+          Identifier 'check'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -21,14 +22,16 @@ EntityDeclaration
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'clk'
+                      NameDesignatorPrefix
+                        Identifier 'clk'
             Comma
             AssociationElement
               ActualPart
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'valid'
+                      NameDesignatorPrefix
+                        Identifier 'valid'
           RightPar
       SemiColon
   EntityDeclarationEpilogue

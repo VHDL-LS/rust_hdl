@@ -8,14 +8,16 @@ ConfigurationDeclaration
     Identifier 'cfg'
     Keyword(Of)
     Name
-      Identifier 'entity_name'
+      NameDesignatorPrefix
+        Identifier 'entity_name'
     Keyword(Is)
   ConfigurationDeclarationItems
     BlockConfiguration
       BlockConfigurationPreamble
         Keyword(For)
         Name
-          Identifier 'rtl'
+          NameDesignatorPrefix
+            Identifier 'rtl'
           ParenthesizedName
             LeftPar
             AssociationList

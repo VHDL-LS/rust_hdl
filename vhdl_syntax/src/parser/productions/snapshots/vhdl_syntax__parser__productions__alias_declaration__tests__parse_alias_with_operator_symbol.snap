@@ -7,5 +7,6 @@ AliasDeclaration
   StringLiteral '"and"'
   Keyword(Is)
   Name
-    Identifier 'name'
+    NameDesignatorPrefix
+      Identifier 'name'
   SemiColon

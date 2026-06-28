@@ -6,7 +6,8 @@ ActualPart
   ActualPartExpression
     NameExpression
       Name
-        Identifier 'lib'
+        NameDesignatorPrefix
+          Identifier 'lib'
         SelectedName
           Dot
           Identifier 'pkg'

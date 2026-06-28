@@ -4,8 +4,8 @@ expression: "to_test_text(Parser::subprogram_body,\n\"\\\nprocedure swap\n  gene
 ---
 SubprogramBody
   SubprogramBodyPreamble
-    Keyword(Procedure)
     ProcedureSpecification
+      Keyword(Procedure)
       Identifier 'swap'
       SubprogramHeader
         SubprogramHeaderGenericClause
@@ -21,7 +21,7 @@ SubprogramBody
         ParenthesizedInterfaceList
           LeftPar
           InterfaceList
-            InterfaceConstantDeclaration
+            InterfaceObjectDeclaration
               IdentifierList
                 Identifier 'a'
                 Comma
@@ -30,7 +30,8 @@ SubprogramBody
               Keyword(Inout)
               SubtypeIndication
                 Name
-                  Identifier 'T'
+                  NameDesignatorPrefix
+                    Identifier 'T'
           RightPar
     Keyword(Is)
   Declarations
@@ -41,7 +42,8 @@ SubprogramBody
       Colon
       SubtypeIndication
         Name
-          Identifier 'T'
+          NameDesignatorPrefix
+            Identifier 'T'
       SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)
@@ -49,29 +51,35 @@ SubprogramBody
     SimpleVariableAssignment
       NameTarget
         Name
-          Identifier 'temp'
+          NameDesignatorPrefix
+            Identifier 'temp'
       ColonEq
       NameExpression
         Name
-          Identifier 'a'
+          NameDesignatorPrefix
+            Identifier 'a'
       SemiColon
     SimpleVariableAssignment
       NameTarget
         Name
-          Identifier 'a'
+          NameDesignatorPrefix
+            Identifier 'a'
       ColonEq
       NameExpression
         Name
-          Identifier 'b'
+          NameDesignatorPrefix
+            Identifier 'b'
       SemiColon
     SimpleVariableAssignment
       NameTarget
         Name
-          Identifier 'b'
+          NameDesignatorPrefix
+            Identifier 'b'
       ColonEq
       NameExpression
         Name
-          Identifier 'temp'
+          NameDesignatorPrefix
+            Identifier 'temp'
       SemiColon
   SubprogramBodyEpilogue
     Keyword(End)

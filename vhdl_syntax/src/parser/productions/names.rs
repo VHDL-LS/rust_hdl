@@ -52,7 +52,9 @@ impl Parser {
         if self.next_is(LtLt) {
             self.external_name();
         } else {
+            self.start_node(NameDesignatorPrefix);
             self.expect_one_of_tokens([Identifier, StringLiteral, CharacterLiteral]);
+            self.end_node();
         }
 
         while self.opt_name_tail() {}

@@ -5,7 +5,8 @@ expression: "to_test_text(Parser::entity_aspect, \"entity lib.foo.name\",)"
 EntityEntityAspect
   Keyword(Entity)
   Name
-    Identifier 'lib'
+    NameDesignatorPrefix
+      Identifier 'lib'
     SelectedName
       Dot
       Identifier 'foo'

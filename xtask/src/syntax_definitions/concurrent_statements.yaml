@@ -297,6 +297,7 @@ ProcessStatement: !Sequence
 
 ProcessStatementPreamble: !Sequence
   - node: Label
+    optional: true
   - keyword: Postponed
     optional: true
   - keyword: Process

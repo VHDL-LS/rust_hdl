@@ -6,5 +6,6 @@ Signature
   LeftSquare
   Keyword(Return)
   Name
-    Identifier 'ret_t'
+    NameDesignatorPrefix
+      Identifier 'ret_t'
   RightSquare

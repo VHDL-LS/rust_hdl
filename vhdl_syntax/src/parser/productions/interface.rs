@@ -174,19 +174,15 @@ impl Parser {
     }
 
     pub fn interface_object_declaration(&mut self) {
-        let checkpoint = self.checkpoint();
-        let tok = self.opt_tokens([
+        // The object class (constant/signal/variable) is optional and not
+        // reliably distinguishable here, so a single node covers all three; the
+        // explicit class keyword, when present, is kept as a child.
+        self.start_node(InterfaceObjectDeclaration);
+        self.opt_tokens([
             Keyword(Kw::Signal),
             Keyword(Kw::Constant),
             Keyword(Kw::Variable),
         ]);
-        match tok {
-            Some(Keyword(Kw::Signal)) => self.start_node_at(checkpoint, InterfaceSignalDeclaration),
-            Some(Keyword(Kw::Variable)) => {
-                self.start_node_at(checkpoint, InterfaceVariableDeclaration)
-            }
-            _ => self.start_node_at(checkpoint, InterfaceConstantDeclaration),
-        }
         self.identifier_list();
         self.expect_token(Colon);
         self.opt_mode();

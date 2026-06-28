@@ -8,4 +8,5 @@ InterfaceSubprogramDeclaration
     Identifier 'foo'
     Keyword(Return)
     Name
-      Identifier 'bar'
+      NameDesignatorPrefix
+        Identifier 'bar'

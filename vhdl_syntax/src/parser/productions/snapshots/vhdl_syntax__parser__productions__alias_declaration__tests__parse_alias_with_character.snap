@@ -7,5 +7,6 @@ AliasDeclaration
   CharacterLiteral ''c''
   Keyword(Is)
   Name
-    CharacterLiteral ''b''
+    NameDesignatorPrefix
+      CharacterLiteral ''b''
   SemiColon

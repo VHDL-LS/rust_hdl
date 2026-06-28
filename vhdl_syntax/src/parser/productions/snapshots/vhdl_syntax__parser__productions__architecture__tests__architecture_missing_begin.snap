@@ -13,7 +13,8 @@ ArchitectureBody
     Identifier 'rtl'
     Keyword(Of)
     Name
-      Identifier 'myent'
+      NameDesignatorPrefix
+        Identifier 'myent'
     Keyword(Is)
   ArchitectureEpilogue
     Keyword(End)

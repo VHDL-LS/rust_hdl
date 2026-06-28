@@ -12,6 +12,7 @@ pub mod meta;
 pub mod node;
 pub mod rewrite;
 pub mod visitor;
+pub mod validate;
 
 use crate::syntax::meta::Layout;
 use crate::syntax::node::{SyntaxElement, SyntaxNode};

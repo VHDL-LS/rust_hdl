@@ -1,11 +1,12 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement,\n\"\\\nfoo(0) <= force bar(1,2) when cond;\n        \")"
+expression: "stmt_to_test_text(\"\\\nfoo(0) <= force bar(1,2) when cond;\n        \")"
 ---
 ConditionalForceAssignment
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -17,11 +18,12 @@ ConditionalForceAssignment
         RightPar
   LTE
   Keyword(Force)
-  ConditionalWaveforms
-    ConditionalWaveform
+  ConditionalExpressions
+    ConditionalExpression
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -40,5 +42,6 @@ ConditionalForceAssignment
       Keyword(When)
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
   SemiColon

@@ -9,4 +9,5 @@ InterfaceFileDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'text'
+      NameDesignatorPrefix
+        Identifier 'text'

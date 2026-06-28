@@ -14,7 +14,8 @@ LoopStatement
     SimpleVariableAssignment
       NameTarget
         Name
-          Identifier 'x'
+          NameDesignatorPrefix
+            Identifier 'x'
       ColonEq
       LiteralExpression
         AbstractLiteral '1'

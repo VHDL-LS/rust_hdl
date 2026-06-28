@@ -57,7 +57,7 @@ SubprogramBody: !Sequence
   - node: Declarations
     optional: true
   - node: DeclarationStatementSeparator
-  - node: ConcurrentStatements
+  - node: SequentialStatements
     optional: true
   - node: SubprogramBodyEpilogue
 
@@ -162,11 +162,7 @@ PackageInstantiationPreamble: !Sequence
 
 Signature: !Sequence
   - token: LeftSquare
-  - node: Name
-    repeated: true
-    optional: true
-  - token: Comma
-    repeated: true
+  - node: NameList
     optional: true
   - keyword: Return
     optional: true

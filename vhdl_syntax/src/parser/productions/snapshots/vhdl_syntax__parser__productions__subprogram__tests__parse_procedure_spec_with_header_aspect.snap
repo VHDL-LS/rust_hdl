@@ -3,32 +3,34 @@ source: vhdl_syntax/src/parser/productions/subprogram.rs
 expression: "to_test_text(Parser::subprogram_declaration,\n\"\\\nprocedure my_proc\n    generic (x: natural := 4; y: real := 4)\n    generic map (x => 42);\")"
 ---
 SubprogramDeclaration
-  Keyword(Procedure)
   ProcedureSpecification
+    Keyword(Procedure)
     Identifier 'my_proc'
     SubprogramHeader
       SubprogramHeaderGenericClause
         Keyword(Generic)
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'x'
             Colon
             SubtypeIndication
               Name
-                Identifier 'natural'
+                NameDesignatorPrefix
+                  Identifier 'natural'
             ColonEq
             LiteralExpression
               AbstractLiteral '4'
           SemiColon
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'y'
             Colon
             SubtypeIndication
               Name
-                Identifier 'real'
+                NameDesignatorPrefix
+                  Identifier 'real'
             ColonEq
             LiteralExpression
               AbstractLiteral '4'
@@ -41,7 +43,8 @@ SubprogramDeclaration
           AssociationElement
             FormalPart
               Name
-                Identifier 'x'
+                NameDesignatorPrefix
+                  Identifier 'x'
             RightArrow
             ActualPart
               ActualPartExpression

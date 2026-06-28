@@ -8,32 +8,34 @@ IfStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Then)
   SequentialStatements
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'foo'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '1'
-              Comma
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '2'
-            RightPar
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '1'
+            Comma
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '2'
+          RightPar
       SemiColon
   IfStatementElse
     Keyword(Else)
@@ -41,7 +43,8 @@ IfStatement
       SimpleVariableAssignment
         NameTarget
           Name
-            Identifier 'x'
+            NameDesignatorPrefix
+              Identifier 'x'
         ColonEq
         LiteralExpression
           AbstractLiteral '1'

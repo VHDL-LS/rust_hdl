@@ -2,7 +2,9 @@
 source: vhdl_syntax/src/parser/productions/expression.rs
 expression: "expr_to_test_text(\"1.0 ns\")"
 ---
-PhysicalLiteral
-  AbstractLiteral '1.0'
-  Name
-    Identifier 'ns'
+PhysicalLiteralExpression
+  PhysicalLiteral
+    AbstractLiteral '1.0'
+    Name
+      NameDesignatorPrefix
+        Identifier 'ns'

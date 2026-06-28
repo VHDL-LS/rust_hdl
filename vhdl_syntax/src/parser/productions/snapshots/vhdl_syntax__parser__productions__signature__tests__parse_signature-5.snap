@@ -6,5 +6,6 @@ Signature
   LeftSquare
   NameList
     Name
-      Identifier 'arg1_t'
+      NameDesignatorPrefix
+        Identifier 'arg1_t'
   RightSquare

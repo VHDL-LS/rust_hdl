@@ -694,7 +694,7 @@ impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Units)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
@@ -888,7 +888,7 @@ impl AstNode for ProtectedTypeBodyEpilogueSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
@@ -1031,7 +1031,7 @@ impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
@@ -1270,7 +1270,7 @@ impl AstNode for RecordTypeDefinitionEpilogueSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Record)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),

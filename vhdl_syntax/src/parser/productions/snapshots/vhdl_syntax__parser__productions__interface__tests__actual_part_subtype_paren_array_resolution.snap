@@ -11,7 +11,9 @@ ActualPart
           ResolutionIndicationElementResolution
             NameResolutionIndication
               Name
-                Identifier 'resolve'
+                NameDesignatorPrefix
+                  Identifier 'resolve'
         RightPar
       Name
-        Identifier 'bit_vector'
+        NameDesignatorPrefix
+          Identifier 'bit_vector'

@@ -193,7 +193,7 @@ impl AstNode for ComponentSpecificationSyntax {
         kind: NodeKind::ComponentSpecification,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "instantiation_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -695,7 +695,7 @@ impl AstNode for EntityDesignatorSyntax {
                 ]),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "signature",
                 kind: LayoutItemKind::Node(NodeKind::Signature),
@@ -858,7 +858,7 @@ impl AstNode for EntitySpecificationSyntax {
         kind: NodeKind::EntitySpecification,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "entity_name_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -955,7 +955,7 @@ impl AstNode for GuardedSignalSpecificationSyntax {
         kind: NodeKind::GuardedSignalSpecification,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "signal_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1278,10 +1278,10 @@ impl AstNode for SimpleConfigurationSpecificationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::ComponentConfigurationPreamble),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
-                name: "semi_colon_terminated_binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
+                name: "binding_indication",
+                kind: LayoutItemKind::Node(NodeKind::BindingIndication),
             },
             LayoutItem {
                 optional: false,
@@ -1311,12 +1311,10 @@ impl SimpleConfigurationSpecificationSyntax {
             .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn semi_colon_terminated_binding_indication(
-        &self,
-    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
+    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
         self.0
             .children()
-            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
+            .filter_map(BindingIndicationSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {

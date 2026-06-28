@@ -6,7 +6,8 @@ WaveformElements
   WaveformElement
     NameExpression
       Name
-        Identifier 'bar'
+        NameDesignatorPrefix
+          Identifier 'bar'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -21,7 +22,9 @@ WaveformElements
                       AbstractLiteral '3'
           RightPar
     Keyword(After)
-    PhysicalLiteral
-      AbstractLiteral '2'
-      Name
-        Identifier 'ns'
+    PhysicalLiteralExpression
+      PhysicalLiteral
+        AbstractLiteral '2'
+        Name
+          NameDesignatorPrefix
+            Identifier 'ns'

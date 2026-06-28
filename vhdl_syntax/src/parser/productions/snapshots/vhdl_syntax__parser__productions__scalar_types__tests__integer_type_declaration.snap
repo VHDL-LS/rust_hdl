@@ -6,13 +6,15 @@ FullTypeDeclaration
   Keyword(Type)
   Identifier 'positive_t'
   Keyword(Is)
-  RangeConstraint
-    Keyword(Range)
-    BinaryExpression
-      LiteralExpression
-        AbstractLiteral '0'
-      Keyword(To)
-      NameExpression
-        Name
-          Identifier 'C_MAX'
+  NumericTypeDefinition
+    RangeConstraint
+      Keyword(Range)
+      BinaryExpression
+        LiteralExpression
+          AbstractLiteral '0'
+        Keyword(To)
+        NameExpression
+          Name
+            NameDesignatorPrefix
+              Identifier 'C_MAX'
   SemiColon

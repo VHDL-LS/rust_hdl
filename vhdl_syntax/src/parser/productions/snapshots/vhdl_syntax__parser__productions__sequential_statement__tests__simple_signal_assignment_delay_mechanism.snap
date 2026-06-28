@@ -1,11 +1,12 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement, \"foo(0) <= transport bar(1,2);\")"
+expression: "stmt_to_test_text(\"foo(0) <= transport bar(1,2);\")"
 ---
 SimpleWaveformAssignment
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -22,7 +23,8 @@ SimpleWaveformAssignment
     WaveformElement
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList

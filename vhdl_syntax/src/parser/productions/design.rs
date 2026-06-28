@@ -36,9 +36,13 @@ impl Parser {
                     self.package_body();
                     self.end_node();
                 } else if self.next_nth_is(Keyword(Kw::New), 3) {
-                    self.package_instantiation_declaration();
+                    self.start_node(NodeKind::PackageInstantiationDeclarationPrimaryUnit);
+                    self.package_instantiation();
+                    self.end_node();
                 } else {
-                    self.package_declaration();
+                    self.start_node(NodeKind::PrimaryUnitPackageDeclaration);
+                    self.package();
+                    self.end_node();
                 }
             },
             Keyword(Kw::Entity) => self.entity_declaration(),
@@ -219,6 +223,25 @@ use lib.foo;
 
 entity myent is
 end entity;"
+        ));
+    }
+
+    #[test]
+    fn parse_package_primary_units() {
+        // A top-level package declaration / instantiation must be wrapped in the
+        // design-unit variants (`PrimaryUnitPackageDeclaration` /
+        // `PackageInstantiationDeclarationPrimaryUnit`), not the declaration
+        // variants, so they conform to `DesignUnit`'s `library_unit` choice.
+        insta::assert_snapshot!(to_test_text(
+            Parser::design_file,
+            "\
+package pkg is
+end package;
+
+package body pkg is
+end package body;
+
+package inst is new lib.gen generic map (g => 1);"
         ));
     }
 

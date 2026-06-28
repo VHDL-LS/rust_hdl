@@ -13,9 +13,10 @@ ProcessStatement
     Keyword(Process)
     ParenthesizedProcessSensitivityList
       LeftPar
-      NameList
+      SensitivityList
         Name
-          Identifier 'clk'
+          NameDesignatorPrefix
+            Identifier 'clk'
       RightPar
   DeclarationStatementSeparator
     Keyword(Begin)
@@ -23,13 +24,15 @@ ProcessStatement
     SimpleWaveformAssignment
       NameTarget
         Name
-          Identifier 'q'
+          NameDesignatorPrefix
+            Identifier 'q'
       LTE
       WaveformElements
         WaveformElement
           NameExpression
             Name
-              Identifier 'd'
+              NameDesignatorPrefix
+                Identifier 'd'
       SemiColon
 
 == diagnostics ==

@@ -14,11 +14,13 @@ IfGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
   GenerateStatementBody
     GenerateStatementBodyEpilogue
@@ -33,11 +35,13 @@ IfGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond2'
+          NameDesignatorPrefix
+            Identifier 'cond2'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
       GenerateStatementBodyEpilogue

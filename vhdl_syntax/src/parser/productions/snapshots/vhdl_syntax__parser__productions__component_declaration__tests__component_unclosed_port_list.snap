@@ -21,23 +21,25 @@ ComponentDeclaration
         Keyword(Port)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'clk'
           Colon
           Keyword(In)
           SubtypeIndication
             Name
-              Identifier 'std_logic'
+              NameDesignatorPrefix
+                Identifier 'std_logic'
         SemiColon
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'data'
           Colon
           Keyword(Out)
           SubtypeIndication
             Name
-              Identifier 'std_logic_vector'
+              NameDesignatorPrefix
+                Identifier 'std_logic_vector'
               ParenthesizedName
                 LeftPar
                 AssociationList

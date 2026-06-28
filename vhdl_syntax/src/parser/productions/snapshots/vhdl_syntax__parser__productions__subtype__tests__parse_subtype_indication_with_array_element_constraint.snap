@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication,\n\"integer_vector(2-1 down
 ---
 SubtypeIndication
   Name
-    Identifier 'integer_vector'
+    NameDesignatorPrefix
+      Identifier 'integer_vector'
     ParenthesizedName
       LeftPar
       AssociationList
@@ -41,9 +42,11 @@ SubtypeIndication
               BinaryExpression
                 NameExpression
                   Name
-                    Identifier 'foo'
+                    NameDesignatorPrefix
+                      Identifier 'foo'
                 Keyword(To)
                 NameExpression
                   Name
-                    Identifier 'bar'
+                    NameDesignatorPrefix
+                      Identifier 'bar'
       RightPar

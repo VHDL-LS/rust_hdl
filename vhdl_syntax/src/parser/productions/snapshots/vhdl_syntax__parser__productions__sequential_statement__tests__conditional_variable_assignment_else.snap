@@ -1,11 +1,12 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement,\n\"\\\nfoo(0) := bar(1,2) when cond = true else expr2;\n        \")"
+expression: "stmt_to_test_text(\"\\\nfoo(0) := bar(1,2) when cond = true else expr2;\n        \")"
 ---
 ConditionalVariableAssignment
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -20,7 +21,8 @@ ConditionalVariableAssignment
     ConditionalExpression
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -40,14 +42,17 @@ ConditionalVariableAssignment
       BinaryExpression
         NameExpression
           Name
-            Identifier 'cond'
+            NameDesignatorPrefix
+              Identifier 'cond'
         EQ
         NameExpression
           Name
-            Identifier 'true'
+            NameDesignatorPrefix
+              Identifier 'true'
     ConditionalElseItem
       Keyword(Else)
       NameExpression
         Name
-          Identifier 'expr2'
+          NameDesignatorPrefix
+            Identifier 'expr2'
   SemiColon
