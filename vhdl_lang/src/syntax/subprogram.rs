@@ -11,12 +11,12 @@ use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
 use super::tokens::{kinds_error, Kind::*, TokenId, TokenSpan};
 use crate::ast::token_range::{WithToken, WithTokenSpan};
-use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::interface_declaration::parse_generic_interface_list;
 use crate::syntax::names::parse_name;
 use crate::syntax::recover::expect_semicolon_or_last;
+use crate::{ast::*, VHDLStandard};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_signature(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Signature>> {
@@ -180,6 +180,15 @@ pub fn parse_subprogram_specification(
 
     if is_function {
         ctx.stream.expect_kind(Return)?;
+        let return_identifier = if ctx.standard >= VHDLStandard::VHDL2019
+            && ctx.stream.next_kinds_are(&[Identifier, Of])
+        {
+            let ident = ctx.stream.expect_ident()?;
+            ctx.stream.expect_kind(Of)?;
+            Some(WithDecl::new(ident))
+        } else {
+            None
+        };
         let return_type = parse_type_mark(ctx)?;
         let end_token = ctx.stream.get_last_token_id();
         Ok(SubprogramSpecification::Function(FunctionSpecification {
@@ -188,6 +197,7 @@ pub fn parse_subprogram_specification(
             header,
             parameter_list,
             return_type,
+            return_identifier,
             span: TokenSpan::new(start_token, end_token),
         }))
     } else {
@@ -349,6 +359,7 @@ function foo return lib.foo.natural;
                     header: None,
                     parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("function", ".natural").token_span(),
                 })
             }
@@ -376,6 +387,7 @@ function \"+\" return lib.foo.natural;
                     header: None,
                     parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("function", ".natural").token_span(),
                 })
             }
@@ -403,6 +415,7 @@ impure function foo return lib.foo.natural;
                     header: None,
                     parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("impure", ".natural").token_span(),
                 })
             }
@@ -429,6 +442,7 @@ pure function foo return lib.foo.natural;
                     header: None,
                     parameter_list: None,
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("pure", ".natural").token_span(),
                 })
             }
@@ -491,6 +505,7 @@ function foo(foo : natural) return lib.foo.natural;
                         span: code.between("(", ")").token_span()
                     }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("function", ".natural").token_span(),
                 })
             }
@@ -522,6 +537,7 @@ function foo parameter (foo : natural) return lib.foo.natural;
                         span: code.between("parameter (", ")").token_span()
                     }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("function", ".natural").token_span(),
                 })
             }
@@ -560,10 +576,57 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
                         span: code.s1("parameter (foo : natural)").token_span()
                     }),
                     return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: None,
                     span: code.between("function", ".natural").token_span(),
                 })
             }
         );
+    }
+
+    #[test]
+    pub fn parses_function_specification_with_return_identifier() {
+        let code = Code::with_standard(
+            "\
+function foo return retval of lib.foo.natural;
+",
+            VHDLStandard::VHDL2019,
+        );
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
+            SubprogramDeclaration {
+                span: code.token_span(),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    parameter_list: None,
+                    return_type: code.s1("lib.foo.natural").type_mark(),
+                    return_identifier: Some(code.s1("retval").decl_ident()),
+                    span: code.between("function", ".natural").token_span(),
+                })
+            }
+        );
+    }
+
+    #[test]
+    pub fn return_identifier_is_not_parsed_before_vhdl2019() {
+        let code = Code::with_standard(
+            "\
+function foo return retval of lib.foo.natural;
+",
+            VHDLStandard::VHDL2008,
+        );
+        let spec = code
+            .with_partial_stream(parse_subprogram_specification)
+            .expect("Expected successful parse");
+        let SubprogramSpecification::Function(spec) = spec else {
+            panic!("Expected function specification");
+        };
+        assert_eq!(spec.return_identifier, None);
     }
 
     #[test]

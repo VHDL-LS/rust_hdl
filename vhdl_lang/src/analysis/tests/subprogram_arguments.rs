@@ -6,6 +6,7 @@
 
 use super::*;
 use vhdl_lang::data::error_codes::ErrorCode;
+use vhdl_lang::VHDLStandard;
 
 #[test]
 fn wrong_number_of_arguments() {
@@ -428,5 +429,53 @@ end procedure;
             ErrorCode::AlreadyAssociated,
         )
         .related(code.s1("arg(0)"), "Previously associated here")],
+    );
+}
+
+#[test]
+fn function_return_identifier_declares_subtype_in_scope() {
+    let mut builder = LibraryBuilder::with_standard(VHDLStandard::VHDL2019);
+    builder.in_declarative_region(
+        "\
+function foo return ret of bit is
+    variable x : ret;
+begin
+end function;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn function_return_identifier_find_all_references() {
+    let decl_name = "result_subtype";
+    let mut builder = LibraryBuilder::with_standard(VHDLStandard::VHDL2019);
+    let code = builder.in_declarative_region(
+        "\
+function foo return result_subtype of bit is
+    variable x : result_subtype;
+begin
+end function;
+",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // The declaration itself and the use in the variable subtype indication.
+    let occurences = 2;
+    let mut references = Vec::new();
+    for idx in 1..=occurences {
+        assert_eq!(
+            root.search_reference(code.source(), code.s(decl_name, idx).end())
+                .and_then(|ent| ent.declaration().decl_pos().cloned()),
+            Some(code.s(decl_name, 1).pos()),
+            "occurence {idx}"
+        );
+        references.push(code.s(decl_name, idx).pos());
+    }
+    assert_eq!(
+        root.find_all_references_pos(&code.s(decl_name, 1).pos()),
+        references,
     );
 }
