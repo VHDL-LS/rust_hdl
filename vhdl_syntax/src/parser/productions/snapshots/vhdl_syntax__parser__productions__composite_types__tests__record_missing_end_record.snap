@@ -23,7 +23,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'integer'
+            NameDesignatorPrefix
+              Identifier 'integer'
         SemiColon
       ElementDeclaration
         IdentifierList
@@ -31,7 +32,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'integer'
+            NameDesignatorPrefix
+              Identifier 'integer'
         SemiColon
       ElementDeclaration
         IdentifierList
@@ -39,7 +41,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'integer'
+            NameDesignatorPrefix
+              Identifier 'integer'
         SemiColon
 
 == diagnostics ==

@@ -12,12 +12,14 @@ FullTypeDeclaration
     IndexSubtypeDefinitionList
       IndexSubtypeDefinition
         Name
-          Identifier 'natural'
+          NameDesignatorPrefix
+            Identifier 'natural'
         Keyword(Range)
         BOX
     RightPar
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'integer'
+        NameDesignatorPrefix
+          Identifier 'integer'
   SemiColon

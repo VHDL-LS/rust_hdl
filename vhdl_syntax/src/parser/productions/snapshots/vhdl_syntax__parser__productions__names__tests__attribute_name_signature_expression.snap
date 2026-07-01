@@ -3,13 +3,15 @@ source: vhdl_syntax/src/parser/productions/names.rs
 expression: "name_to_test_text(\"prefix[return natural]'foo(expr+1)\")"
 ---
 Name
-  Identifier 'prefix'
+  NameDesignatorPrefix
+    Identifier 'prefix'
   AttributeName
     Signature
       LeftSquare
       Keyword(Return)
       Name
-        Identifier 'natural'
+        NameDesignatorPrefix
+          Identifier 'natural'
       RightSquare
     Tick
     Identifier 'foo'
@@ -22,7 +24,8 @@ Name
             BinaryExpression
               NameExpression
                 Name
-                  Identifier 'expr'
+                  NameDesignatorPrefix
+                    Identifier 'expr'
               Plus
               LiteralExpression
                 AbstractLiteral '1'

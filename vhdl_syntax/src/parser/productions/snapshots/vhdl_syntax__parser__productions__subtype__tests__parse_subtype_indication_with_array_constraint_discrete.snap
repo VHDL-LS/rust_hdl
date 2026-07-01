@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication, \"integer_vector(lib.foo.b
 ---
 SubtypeIndication
   Name
-    Identifier 'integer_vector'
+    NameDesignatorPrefix
+      Identifier 'integer_vector'
     ParenthesizedName
       LeftPar
       AssociationList
@@ -13,7 +14,8 @@ SubtypeIndication
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'lib'
+                  NameDesignatorPrefix
+                    Identifier 'lib'
                   SelectedName
                     Dot
                     Identifier 'foo'

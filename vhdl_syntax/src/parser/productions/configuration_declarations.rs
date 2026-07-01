@@ -15,7 +15,9 @@ impl Parser {
         self.start_node(NodeKind::ConfigurationDeclaration);
         self.configuration_declaration_preamble();
         self.start_node(NodeKind::ConfigurationDeclarationItems);
+        self.start_node(NodeKind::Declarations);
         self.configuration_declarative_part();
+        self.end_node();
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
             self.verification_unit_binding_indication();
@@ -120,7 +122,12 @@ impl Parser {
                 self.end_node();
             }
             Identifier => {
-                if self.next_nth_is(Comma, 1) {
+                // A component configuration's instantiation list is
+                // `identifier {, identifier} :`; a block configuration is a block
+                // specification (a name) that is never followed by `:`. So a
+                // leading identifier followed by `,` or `:` is a component
+                // configuration, otherwise it is a block configuration.
+                if self.next_nth_is(Comma, 1) || self.next_nth_is(Colon, 1) {
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
                     self.start_node(NodeKind::ComponentSpecification);
@@ -134,31 +141,17 @@ impl Parser {
                     self.component_configuration_known_spec();
                     self.end_node();
                 } else {
-                    let checkpoint = self.checkpoint();
+                    // A nested block configuration: wrap the `for <name>` in a
+                    // `BlockConfiguration`/preamble, matching
+                    // `BlockConfigurationItem ::= BlockConfiguration`.
                     self.name();
-                    match self.peek_token() {
-                        Colon => {
-                            self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
-                            self.start_node_at(
-                                item_checkpoint,
-                                NodeKind::ComponentConfigurationPreamble,
-                            );
-                            self.start_node_at(checkpoint, NodeKind::ComponentSpecification);
-                            self.start_node_at(checkpoint, NodeKind::InstantiationListList);
-                            self.end_node();
-                            self.skip();
-                            self.name();
-                            self.end_node();
-                            self.end_node();
-                            self.component_configuration_known_spec();
-                            self.end_node();
-                        }
-                        _ => {
-                            self.start_node_at(item_checkpoint, NodeKind::BlockConfigurationItem);
-                            self.block_configuration_known_spec();
-                            self.end_node();
-                        }
-                    }
+                    self.start_node_at(item_checkpoint, NodeKind::BlockConfigurationItem);
+                    self.start_node_at(item_checkpoint, NodeKind::BlockConfiguration);
+                    self.start_node_at(item_checkpoint, NodeKind::BlockConfigurationPreamble);
+                    self.end_node();
+                    self.block_configuration_known_spec();
+                    self.end_node();
+                    self.end_node();
                 }
             }
             _ => self.expect_tokens_recover([Keyword(Kw::All), Keyword(Kw::Others), Identifier]),

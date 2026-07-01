@@ -8,14 +8,16 @@ ConfigurationDeclaration
     Identifier 'cfg'
     Keyword(Of)
     Name
-      Identifier 'entity_name'
+      NameDesignatorPrefix
+        Identifier 'entity_name'
     Keyword(Is)
   ConfigurationDeclarationItems
     BlockConfiguration
       BlockConfigurationPreamble
         Keyword(For)
         Name
-          Identifier 'rtl'
+          NameDesignatorPrefix
+            Identifier 'rtl'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -31,11 +33,11 @@ ConfigurationDeclaration
             Keyword(For)
             ComponentSpecification
               InstantiationListList
-                Name
-                  Identifier 'inst'
+                Identifier 'inst'
               Colon
               Name
-                Identifier 'lib'
+                NameDesignatorPrefix
+                  Identifier 'lib'
                 SelectedName
                   Dot
                   Identifier 'pkg'
@@ -47,7 +49,8 @@ ConfigurationDeclaration
               BlockConfigurationPreamble
                 Keyword(For)
                 Name
-                  Identifier 'arch'
+                  NameDesignatorPrefix
+                    Identifier 'arch'
               BlockConfigurationEpilogue
                 Keyword(End)
                 Keyword(For)

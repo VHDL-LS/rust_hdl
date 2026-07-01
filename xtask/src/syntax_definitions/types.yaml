@@ -89,6 +89,7 @@ PhysicalTypeDefinitionEpilogue: !Sequence
   - keyword: Units
   - token: Identifier
     name: name
+    optional: true
 
 PrimaryUnitDeclaration: !Sequence
   - token: Identifier
@@ -110,6 +111,7 @@ ProtectedTypeBodyEpilogue: !Sequence
   - keyword: Body
   - token: Identifier
     name: name
+    optional: true
 
 ProtectedTypeDeclaration: !Sequence
   - node: ProtectedTypeDeclarationPreamble
@@ -125,6 +127,7 @@ ProtectedTypeDeclarationEpilogue: !Sequence
   - keyword: Protected
   - token: Identifier
     name: name
+    optional: true
 
 ProtectedTypeDefinition: !Choice
   - node: ProtectedTypeDeclaration
@@ -153,6 +156,7 @@ RecordTypeDefinitionEpilogue: !Sequence
   - keyword: End
   - keyword: Record
   - token: Identifier
+    optional: true
 
 NumericTypeDefinition: !Sequence
   - node: RangeConstraint

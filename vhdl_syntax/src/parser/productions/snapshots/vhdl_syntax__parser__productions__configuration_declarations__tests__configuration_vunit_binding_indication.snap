@@ -8,29 +8,33 @@ ConfigurationDeclaration
     Identifier 'cfg'
     Keyword(Of)
     Name
-      Identifier 'entity_name'
+      NameDesignatorPrefix
+        Identifier 'entity_name'
     Keyword(Is)
   ConfigurationDeclarationItems
-    UseClauseDeclaration
-      UseClause
-        Keyword(Use)
-        NameList
-          Name
-            Identifier 'lib'
-            SelectedName
-              Dot
-              Identifier 'foo'
-            SelectedName
-              Dot
-              Identifier 'bar'
-        SemiColon
+    Declarations
+      UseClauseDeclaration
+        UseClause
+          Keyword(Use)
+          NameList
+            Name
+              NameDesignatorPrefix
+                Identifier 'lib'
+              SelectedName
+                Dot
+                Identifier 'foo'
+              SelectedName
+                Dot
+                Identifier 'bar'
+          SemiColon
     SemiColonTerminatedVerificationUnitBindingIndication
       VerificationUnitBindingIndication
         Keyword(Use)
         Keyword(Vunit)
         VerificationUnitList
           Name
-            Identifier 'baz'
+            NameDesignatorPrefix
+              Identifier 'baz'
             SelectedName
               Dot
               Identifier 'foobar'
@@ -39,7 +43,8 @@ ConfigurationDeclaration
       BlockConfigurationPreamble
         Keyword(For)
         Name
-          Identifier 'rtl'
+          NameDesignatorPrefix
+            Identifier 'rtl'
           ParenthesizedName
             LeftPar
             AssociationList

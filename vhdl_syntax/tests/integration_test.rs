@@ -1,7 +1,10 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
 use similar::{ChangeTag, TextDiff};
-use vhdl_syntax::{self, parser, syntax::AstNode};
+use vhdl_syntax::{
+    self, parser,
+    syntax::{node::SyntaxElement, AstNode},
+};
 
 // PSL is not supported yet by vhdl_syntax
 const EXCLUDED_FILES: [&str; 1] =
@@ -45,6 +48,23 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
             }
         }
         panic!()
+    }
+    if let Err(err) = file.raw().validate() {
+        println!("Parser <-> AST validation failed: {err}");
+        for missing in err.missing() {
+            println!(
+                "  missing {:?} in {:?}",
+                missing.kind(),
+                missing.parent().kind()
+            );
+        }
+        for extraneous in err.extraneous() {
+            match extraneous {
+                SyntaxElement::Node(node) => println!("  extraneous node {:?}", node.kind()),
+                SyntaxElement::Token(token) => println!("  extraneous token {:?}", token.kind()),
+            }
+        }
+        panic!();
     }
 }
 

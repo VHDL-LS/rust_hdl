@@ -9,21 +9,23 @@ LoopStatement
       BinaryExpression
         NameExpression
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
         EQ
         NameExpression
           Name
-            Identifier 'true'
+            NameDesignatorPrefix
+              Identifier 'true'
     Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'stmt1'
       SemiColon
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'stmt2'
       SemiColon
   LoopStatementEpilogue

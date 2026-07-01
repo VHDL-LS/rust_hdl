@@ -26,7 +26,8 @@ FullTypeDeclaration
       Comma
       NameExpression
         Name
-          Identifier 'enum_t'
+          NameDesignatorPrefix
+            Identifier 'enum_t'
           AttributeName
             Tick
             Keyword(Range)
@@ -34,5 +35,6 @@ FullTypeDeclaration
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'bit'
+        NameDesignatorPrefix
+          Identifier 'bit'
   SemiColon

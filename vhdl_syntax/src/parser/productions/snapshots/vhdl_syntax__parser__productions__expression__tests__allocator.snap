@@ -6,7 +6,8 @@ Allocator
   Keyword(New)
   QualifiedExpression
     Name
-      Identifier 'integer_vector'
+      NameDesignatorPrefix
+        Identifier 'integer_vector'
     Tick
     ParenthesizedExpressionOrAggregate
       LeftPar

@@ -7,5 +7,6 @@ AssertionStatement
     Keyword(Assert)
     NameExpression
       Name
-        Identifier 'false'
+        NameDesignatorPrefix
+          Identifier 'false'
   SemiColon

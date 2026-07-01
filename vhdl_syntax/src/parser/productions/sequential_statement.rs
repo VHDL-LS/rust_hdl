@@ -351,7 +351,24 @@ impl Parser {
             Identifier | LeftPar | LtLt => {
                 let checkpoint = self.checkpoint();
                 self.opt_label();
-                self.target();
+                // A procedure call's callee is a plain `Name`; an assignment's
+                // left-hand side is a `Target`. They are told apart by the
+                // operator that follows (`:=`/`<=` assign, `;` call), and an
+                // aggregate is only ever an assignment target. So parse the name
+                // bare and wrap it in `NameTarget` only when an assignment
+                // operator follows.
+                if self.next_is(LeftPar) {
+                    self.start_node(AggregateTarget);
+                    self.aggregate();
+                    self.end_node();
+                } else {
+                    let target_checkpoint = self.checkpoint();
+                    self.name();
+                    if self.next_is_one_of([ColonEq, LTE]) {
+                        self.start_node_at(target_checkpoint, NameTarget);
+                        self.end_node();
+                    }
+                }
                 match self.peek_token() {
                     ColonEq => {
                         self.skip();
@@ -382,13 +399,13 @@ impl Parser {
                             self.expression();
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalForceAssignment);
-                                self.start_node_at(cond_expr_checkpoint, ConditionalWaveforms);
-                                self.start_node_at(cond_expr_checkpoint, ConditionalWaveform);
+                                self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
+                                self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
                                 self.skip();
                                 self.expression();
                                 self.end_node();
                                 self.conditional_else(
-                                    Parser::waveform,
+                                    Parser::expression,
                                     ConditionalElseWhenExpression,
                                     ConditionalElseItem,
                                 );
@@ -455,7 +472,7 @@ impl Parser {
         }
     }
 
-    fn conditional_else(
+    pub(crate) fn conditional_else(
         &mut self,
         item: impl Fn(&mut Parser),
         else_when_node: NodeKind,

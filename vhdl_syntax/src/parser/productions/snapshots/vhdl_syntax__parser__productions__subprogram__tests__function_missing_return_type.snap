@@ -14,13 +14,14 @@ SubprogramDeclaration
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'a'
             Colon
             SubtypeIndication
               Name
-                Identifier 'integer'
+                NameDesignatorPrefix
+                  Identifier 'integer'
         RightPar
     Keyword(Return)
   SemiColon

@@ -89,6 +89,7 @@ EntityClass: !Choice
 EntityDesignator: !Sequence
   - node: EntityTag
   - node: Signature
+    optional: true
 
 EntityDesignatorList: !Sequence
   - node: EntityDesignator
@@ -159,7 +160,6 @@ SignalList: !Choice
 SimpleConfigurationSpecification: !Sequence
   - node: ComponentConfigurationPreamble
   - node: BindingIndication
-    terminated: SemiColon
   - token: SemiColon
   - node: ComponentConfigurationEpilogue
     optional: true

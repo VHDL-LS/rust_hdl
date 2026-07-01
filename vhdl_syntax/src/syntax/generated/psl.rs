@@ -75,7 +75,12 @@ pub struct PslVerificationUnitSyntax(pub(crate) SyntaxNode);
 impl AstNode for PslVerificationUnitSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::PslVerificationUnit,
-        items: &[],
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "vunit",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Vunit)),
+        }],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PslVerificationUnitSyntax(node)
@@ -84,4 +89,11 @@ impl AstNode for PslVerificationUnitSyntax {
         self.0.clone()
     }
 }
-impl PslVerificationUnitSyntax {}
+impl PslVerificationUnitSyntax {
+    pub fn vunit_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Vunit))
+            .nth(0)
+    }
+}

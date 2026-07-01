@@ -3,7 +3,8 @@ source: vhdl_syntax/src/parser/productions/names.rs
 expression: "name_to_test_text(\"prefix(0, 1)(3).suffix\")"
 ---
 Name
-  Identifier 'prefix'
+  NameDesignatorPrefix
+    Identifier 'prefix'
   ParenthesizedName
     LeftPar
     AssociationList

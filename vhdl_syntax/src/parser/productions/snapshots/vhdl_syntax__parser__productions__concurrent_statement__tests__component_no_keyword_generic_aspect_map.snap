@@ -8,7 +8,8 @@ ComponentInstantiationStatement
     Colon
   ComponentInstantiatedUnit
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'
@@ -24,7 +25,8 @@ ComponentInstantiationStatement
         AssociationElement
           FormalPart
             Name
-              Identifier 'const'
+              NameDesignatorPrefix
+                Identifier 'const'
           RightArrow
           ActualPart
             ActualPartExpression

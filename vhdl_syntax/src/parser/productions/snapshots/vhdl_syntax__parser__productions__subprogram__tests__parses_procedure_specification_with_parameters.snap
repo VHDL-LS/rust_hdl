@@ -3,19 +3,20 @@ source: vhdl_syntax/src/parser/productions/subprogram.rs
 expression: "to_test_text(Parser::subprogram_declaration, \"procedure foo(foo : natural);\")"
 ---
 SubprogramDeclaration
-  Keyword(Procedure)
   ProcedureSpecification
+    Keyword(Procedure)
     Identifier 'foo'
     ParameterList
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'foo'
             Colon
             SubtypeIndication
               Name
-                Identifier 'natural'
+                NameDesignatorPrefix
+                  Identifier 'natural'
         RightPar
   SemiColon

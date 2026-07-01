@@ -2,7 +2,7 @@
 source: vhdl_syntax/src/parser/productions/interface.rs
 expression: "to_test_text(Parser::interface_declaration, \"signal a : out std_logic\")"
 ---
-InterfaceSignalDeclaration
+InterfaceObjectDeclaration
   Keyword(Signal)
   IdentifierList
     Identifier 'a'
@@ -10,4 +10,5 @@ InterfaceSignalDeclaration
   Keyword(Out)
   SubtypeIndication
     Name
-      Identifier 'std_logic'
+      NameDesignatorPrefix
+        Identifier 'std_logic'

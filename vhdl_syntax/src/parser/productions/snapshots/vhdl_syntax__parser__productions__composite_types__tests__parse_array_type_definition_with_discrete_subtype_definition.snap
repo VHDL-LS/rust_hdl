@@ -12,10 +12,12 @@ FullTypeDeclaration
       LeftPar
       NameExpression
         Name
-          Identifier 'natural'
+          NameDesignatorPrefix
+            Identifier 'natural'
       RightPar
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'boolean'
+        NameDesignatorPrefix
+          Identifier 'boolean'
   SemiColon

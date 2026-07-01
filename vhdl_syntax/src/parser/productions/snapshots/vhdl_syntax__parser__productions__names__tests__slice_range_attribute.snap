@@ -3,7 +3,8 @@ source: vhdl_syntax/src/parser/productions/names.rs
 expression: "name_to_test_text(\"prefix(foo(0)'range)\")"
 ---
 Name
-  Identifier 'prefix'
+  NameDesignatorPrefix
+    Identifier 'prefix'
   ParenthesizedName
     LeftPar
     AssociationList
@@ -12,7 +13,8 @@ Name
           ActualPartExpression
             NameExpression
               Name
-                Identifier 'foo'
+                NameDesignatorPrefix
+                  Identifier 'foo'
                 ParenthesizedName
                   LeftPar
                   AssociationList

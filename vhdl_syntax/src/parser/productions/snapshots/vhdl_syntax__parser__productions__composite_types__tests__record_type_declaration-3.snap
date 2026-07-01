@@ -16,7 +16,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'bit'
+            NameDesignatorPrefix
+              Identifier 'bit'
         SemiColon
       ElementDeclaration
         IdentifierList
@@ -26,7 +27,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'std_ulogic'
+            NameDesignatorPrefix
+              Identifier 'std_ulogic'
         SemiColon
     RecordTypeDefinitionEpilogue
       Keyword(End)

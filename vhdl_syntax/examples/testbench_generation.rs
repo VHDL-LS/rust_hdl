@@ -17,7 +17,6 @@ use vhdl_syntax::syntax::node::SyntaxNode;
 use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::{
     AstNode, EntityDeclarationSyntax, InterfaceDeclarationSyntax, InterfaceListSyntax,
-    InterfaceObjectDeclarationSyntax,
 };
 
 fn main() {
@@ -94,19 +93,10 @@ fn extract_ports(entity: &EntityDeclarationSyntax) -> Vec<String> {
 fn interface_names(list: &InterfaceListSyntax) -> Vec<String> {
     let mut names = Vec::new();
     for decl in list.interface_declarations() {
-        let object = match decl {
-            InterfaceDeclarationSyntax::InterfaceObjectDeclaration(o) => o,
+        let id_list = match decl {
+            InterfaceDeclarationSyntax::InterfaceObjectDeclaration(d) => d.identifier_list(),
+            InterfaceDeclarationSyntax::InterfaceFileDeclaration(d) => d.identifier_list(),
             _ => continue,
-        };
-        let id_list = match object {
-            InterfaceObjectDeclarationSyntax::InterfaceConstantDeclaration(d) => {
-                d.identifier_list()
-            }
-            InterfaceObjectDeclarationSyntax::InterfaceSignalDeclaration(d) => d.identifier_list(),
-            InterfaceObjectDeclarationSyntax::InterfaceVariableDeclaration(d) => {
-                d.identifier_list()
-            }
-            InterfaceObjectDeclarationSyntax::InterfaceFileDeclaration(d) => d.identifier_list(),
         };
         if let Some(id_list) = id_list {
             for token in id_list.identifier_token() {

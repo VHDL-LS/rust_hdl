@@ -9,5 +9,6 @@ SubprogramInstantiationDeclaration
     Keyword(Is)
     Keyword(New)
     Name
-      Identifier 'proc'
+      NameDesignatorPrefix
+        Identifier 'proc'
   SemiColon

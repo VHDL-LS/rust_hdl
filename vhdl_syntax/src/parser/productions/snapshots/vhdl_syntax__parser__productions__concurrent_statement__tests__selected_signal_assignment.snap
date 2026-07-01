@@ -8,7 +8,8 @@ ConcurrentSelectedSignalAssignment
     BinaryExpression
       NameExpression
         Name
-          Identifier 'x'
+          NameDesignatorPrefix
+            Identifier 'x'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -24,7 +25,8 @@ ConcurrentSelectedSignalAssignment
     Keyword(Select)
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -43,7 +45,8 @@ ConcurrentSelectedSignalAssignment
         WaveformElement
           NameExpression
             Name
-              Identifier 'bar'
+              NameDesignatorPrefix
+                Identifier 'bar'
               ParenthesizedName
                 LeftPar
                 AssociationList
@@ -60,10 +63,12 @@ ConcurrentSelectedSignalAssignment
                           AbstractLiteral '2'
                 RightPar
           Keyword(After)
-          PhysicalLiteral
-            AbstractLiteral '2'
-            Name
-              Identifier 'ns'
+          PhysicalLiteralExpression
+            PhysicalLiteral
+              AbstractLiteral '2'
+              Name
+                NameDesignatorPrefix
+                  Identifier 'ns'
       Keyword(When)
       Choices
         ExpressionChoice

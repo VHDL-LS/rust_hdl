@@ -7,11 +7,12 @@ FullTypeDeclaration
   Identifier 'foo'
   Keyword(Is)
   ProtectedTypeDeclaration
-    Keyword(Protected)
+    ProtectedTypeDeclarationPreamble
+      Keyword(Protected)
     Declarations
       SubprogramDeclaration
-        Keyword(Procedure)
         ProcedureSpecification
+          Keyword(Procedure)
           Identifier 'proc'
         SemiColon
       SubprogramDeclaration
@@ -20,9 +21,10 @@ FullTypeDeclaration
           Identifier 'fun'
           Keyword(Return)
           Name
-            Identifier 'ret'
+            NameDesignatorPrefix
+              Identifier 'ret'
         SemiColon
-    ProtectedTypeBodyEpilogue
+    ProtectedTypeDeclarationEpilogue
       Keyword(End)
       Keyword(Protected)
   SemiColon

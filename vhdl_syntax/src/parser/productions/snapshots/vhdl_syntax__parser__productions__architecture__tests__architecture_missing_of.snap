@@ -13,7 +13,8 @@ ArchitectureBody
     Keyword(Architecture)
     Identifier 'rtl'
     Name
-      Identifier 'myent'
+      NameDesignatorPrefix
+        Identifier 'myent'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)

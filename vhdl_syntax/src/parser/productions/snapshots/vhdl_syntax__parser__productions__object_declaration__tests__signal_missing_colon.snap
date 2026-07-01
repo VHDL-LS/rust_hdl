@@ -12,7 +12,8 @@ SignalDeclaration
     Identifier 'clk'
   SubtypeIndication
     Name
-      Identifier 'std_logic'
+      NameDesignatorPrefix
+        Identifier 'std_logic'
   SemiColon
 
 == diagnostics ==

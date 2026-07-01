@@ -11,14 +11,15 @@ PortClause
     Keyword(Port)
     LeftPar
   InterfaceList
-    InterfaceConstantDeclaration
+    InterfaceObjectDeclaration
       IdentifierList
         Identifier 'clk'
       Colon
       Keyword(In)
       SubtypeIndication
         Name
-          Identifier 'std_logic'
+          NameDesignatorPrefix
+            Identifier 'std_logic'
     SemiColon
 
 == diagnostics ==

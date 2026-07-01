@@ -10,11 +10,12 @@ PackageInstantiationDeclaration
       Keyword(Is)
       Keyword(New)
       Name
-        Identifier 'lib'
+        NameDesignatorPrefix
+          Identifier 'lib'
         SelectedName
           Dot
           Identifier 'foo'
         SelectedName
           Dot
           Identifier 'bar'
-  SemiColon
+    SemiColon

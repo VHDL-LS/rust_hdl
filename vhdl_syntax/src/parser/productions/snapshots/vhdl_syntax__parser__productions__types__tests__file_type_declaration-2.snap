@@ -10,7 +10,8 @@ FullTypeDeclaration
     Keyword(File)
     Keyword(Of)
     Name
-      Identifier 'ieee'
+      NameDesignatorPrefix
+        Identifier 'ieee'
       SelectedName
         Dot
         Identifier 'std_logic_1164'

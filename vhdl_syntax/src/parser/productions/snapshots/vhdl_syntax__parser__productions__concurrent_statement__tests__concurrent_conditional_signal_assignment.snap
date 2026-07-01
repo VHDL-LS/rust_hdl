@@ -1,0 +1,32 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"foo <= a when sel else b;\",)"
+---
+ConcurrentConditionalSignalAssignment
+  NameTarget
+    Name
+      NameDesignatorPrefix
+        Identifier 'foo'
+  LTE
+  ConditionalWaveforms
+    ConditionalWaveform
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'a'
+      Keyword(When)
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'sel'
+    ConditionalWaveformElseItem
+      Keyword(Else)
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'b'
+  SemiColon

@@ -1,0 +1,61 @@
+---
+source: vhdl_syntax/src/parser/productions/design.rs
+expression: "to_test_text(Parser::design_file,\n\"\\\npackage pkg is\nend package;\n\npackage body pkg is\nend package body;\n\npackage inst is new lib.gen generic map (g => 1);\")"
+---
+DesignFile
+  DesignUnit
+    PrimaryUnitPackageDeclaration
+      Package
+        PackagePreamble
+          Keyword(Package)
+          Identifier 'pkg'
+          Keyword(Is)
+        PackageEpilogue
+          Keyword(End)
+          Keyword(Package)
+          SemiColon
+  DesignUnit
+    SecondaryUnitPackageBody
+      PackageBody
+        PackageBodyPreamble
+          Keyword(Package)
+          Keyword(Body)
+          Identifier 'pkg'
+          Keyword(Is)
+        PackageBodyEpilogue
+          Keyword(End)
+          Keyword(Package)
+          Keyword(Body)
+          SemiColon
+  DesignUnit
+    PackageInstantiationDeclarationPrimaryUnit
+      PackageInstantiation
+        PackageInstantiationPreamble
+          Keyword(Package)
+          Identifier 'inst'
+          Keyword(Is)
+          Keyword(New)
+          Name
+            NameDesignatorPrefix
+              Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'gen'
+        GenericMapAspect
+          Keyword(Generic)
+          Keyword(Map)
+          LeftPar
+          AssociationList
+            AssociationElement
+              FormalPart
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'g'
+              RightArrow
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '1'
+          RightPar
+        SemiColon
+  Eof

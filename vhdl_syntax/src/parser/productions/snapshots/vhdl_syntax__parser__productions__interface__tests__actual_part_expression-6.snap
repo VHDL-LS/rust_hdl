@@ -9,15 +9,18 @@ ActualPart
       ElementAssociation
         NameExpression
           Name
-            Identifier 'a'
+            NameDesignatorPrefix
+              Identifier 'a'
       Comma
       ElementAssociation
         NameExpression
           Name
-            Identifier 'b'
+            NameDesignatorPrefix
+              Identifier 'b'
       Comma
       ElementAssociation
         NameExpression
           Name
-            Identifier 'c'
+            NameDesignatorPrefix
+              Identifier 'c'
       RightPar

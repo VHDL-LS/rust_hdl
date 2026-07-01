@@ -9,7 +9,9 @@ SubtypeIndication
       ResolutionIndicationElementResolution
         NameResolutionIndication
           Name
-            Identifier 'resolve'
+            NameDesignatorPrefix
+              Identifier 'resolve'
     RightPar
   Name
-    Identifier 'integer_vector'
+    NameDesignatorPrefix
+      Identifier 'integer_vector'

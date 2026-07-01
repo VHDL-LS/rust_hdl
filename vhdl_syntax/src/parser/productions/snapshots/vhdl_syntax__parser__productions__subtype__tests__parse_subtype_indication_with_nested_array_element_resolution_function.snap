@@ -13,8 +13,10 @@ SubtypeIndication
             ResolutionIndicationElementResolution
               NameResolutionIndication
                 Name
-                  Identifier 'resolved'
+                  NameDesignatorPrefix
+                    Identifier 'resolved'
           RightPar
     RightPar
   Name
-    Identifier 'unresolved_slv_array'
+    NameDesignatorPrefix
+      Identifier 'unresolved_slv_array'

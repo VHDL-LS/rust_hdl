@@ -6,4 +6,5 @@ Allocator
   Keyword(New)
   NameExpression
     Name
-      Identifier 'integer_vector'
+      NameDesignatorPrefix
+        Identifier 'integer_vector'

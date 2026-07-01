@@ -1,6 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement,\n\"<< signal dut.foo : boolean  >> <= bar(1,2);\")"
+expression: "stmt_to_test_text(\"<< signal dut.foo : boolean  >> <= bar(1,2);\")"
 ---
 SimpleWaveformAssignment
   NameTarget
@@ -16,14 +16,16 @@ SimpleWaveformAssignment
         Colon
         SubtypeIndication
           Name
-            Identifier 'boolean'
+            NameDesignatorPrefix
+              Identifier 'boolean'
         GtGt
   LTE
   WaveformElements
     WaveformElement
       NameExpression
         Name
-          Identifier 'bar'
+          NameDesignatorPrefix
+            Identifier 'bar'
           ParenthesizedName
             LeftPar
             AssociationList

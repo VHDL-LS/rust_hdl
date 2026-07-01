@@ -9,7 +9,8 @@ SubprogramDeclaration
     Identifier 'foo'
     Keyword(Return)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'

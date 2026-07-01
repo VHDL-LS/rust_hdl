@@ -19,7 +19,8 @@ ProcessStatement
       Colon
       SubtypeIndication
         Name
-          Identifier 'boolean'
+          NameDesignatorPrefix
+            Identifier 'boolean'
       SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)
@@ -27,13 +28,15 @@ ProcessStatement
     SimpleWaveformAssignment
       NameTarget
         Name
-          Identifier 'foo'
+          NameDesignatorPrefix
+            Identifier 'foo'
       LTE
       WaveformElements
         WaveformElement
           NameExpression
             Name
-              Identifier 'true'
+              NameDesignatorPrefix
+                Identifier 'true'
       SemiColon
     WaitStatement
       Keyword(Wait)

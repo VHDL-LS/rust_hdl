@@ -1,6 +1,6 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement,\n\"<< variable dut.foo : boolean >> := bar(1,2);\")"
+expression: "stmt_to_test_text(\"<< variable dut.foo : boolean >> := bar(1,2);\")"
 ---
 SimpleVariableAssignment
   NameTarget
@@ -16,12 +16,14 @@ SimpleVariableAssignment
         Colon
         SubtypeIndication
           Name
-            Identifier 'boolean'
+            NameDesignatorPrefix
+              Identifier 'boolean'
         GtGt
   ColonEq
   NameExpression
     Name
-      Identifier 'bar'
+      NameDesignatorPrefix
+        Identifier 'bar'
       ParenthesizedName
         LeftPar
         AssociationList

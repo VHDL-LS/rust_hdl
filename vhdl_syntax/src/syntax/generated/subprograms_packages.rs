@@ -502,8 +502,8 @@ impl AstNode for SubprogramBodySyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                name: "sequential_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
             },
             LayoutItem {
                 optional: false,
@@ -539,10 +539,10 @@ impl SubprogramBodySyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
+            .filter_map(SequentialStatementsSyntax::cast)
             .nth(0)
     }
     pub fn subprogram_body_epilogue(&self) -> Option<SubprogramBodyEpilogueSyntax> {
@@ -1397,15 +1397,9 @@ impl AstNode for SignatureSyntax {
             },
             LayoutItem {
                 optional: true,
-                repeated: true,
-                name: "names",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
+                repeated: false,
+                name: "name_list",
+                kind: LayoutItemKind::Node(NodeKind::NameList),
             },
             LayoutItem {
                 optional: true,
@@ -1441,13 +1435,8 @@ impl SignatureSyntax {
             .filter(|token| token.kind() == TokenKind::LeftSquare)
             .nth(0)
     }
-    pub fn names(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
-        self.0.children().filter_map(NameSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
+    pub fn name_list(&self) -> Option<NameListSyntax> {
+        self.0.children().filter_map(NameListSyntax::cast).nth(0)
     }
     pub fn return_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -1456,7 +1445,7 @@ impl SignatureSyntax {
             .nth(0)
     }
     pub fn return_type(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(1)
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn right_square_token(&self) -> Option<SyntaxToken> {
         self.0

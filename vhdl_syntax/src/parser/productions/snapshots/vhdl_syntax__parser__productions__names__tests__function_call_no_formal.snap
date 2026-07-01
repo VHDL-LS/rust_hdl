@@ -3,7 +3,8 @@ source: vhdl_syntax/src/parser/productions/names.rs
 expression: "name_to_test_text(\"foo(0)\")"
 ---
 Name
-  Identifier 'foo'
+  NameDesignatorPrefix
+    Identifier 'foo'
   ParenthesizedName
     LeftPar
     AssociationList

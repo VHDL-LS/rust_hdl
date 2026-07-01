@@ -2,13 +2,14 @@
 source: vhdl_syntax/src/parser/productions/interface.rs
 expression: "to_test_text(Parser::interface_declaration,\n\"a : std_ulogic_vector(31 downto 0)\",)"
 ---
-InterfaceConstantDeclaration
+InterfaceObjectDeclaration
   IdentifierList
     Identifier 'a'
   Colon
   SubtypeIndication
     Name
-      Identifier 'std_ulogic_vector'
+      NameDesignatorPrefix
+        Identifier 'std_ulogic_vector'
       ParenthesizedName
         LeftPar
         AssociationList

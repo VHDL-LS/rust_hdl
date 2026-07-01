@@ -16,7 +16,8 @@ ComponentInstantiationStatement
   EntityInstantiatedUnit
     Keyword(Entity)
     Name
-      Identifier 'work'
+      NameDesignatorPrefix
+        Identifier 'work'
       SelectedName
         Dot
         Identifier 'cpu'
@@ -29,13 +30,15 @@ ComponentInstantiationStatement
         AssociationElement
           FormalPart
             Name
-              Identifier 'clk'
+              NameDesignatorPrefix
+                Identifier 'clk'
           RightArrow
           ActualPart
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'clk'
+                  NameDesignatorPrefix
+                    Identifier 'clk'
       RightPar
 
 == diagnostics ==

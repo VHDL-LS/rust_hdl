@@ -173,12 +173,15 @@ FileDeclaration: !Sequence
   - token: Colon
   - node: SubtypeIndication
   - node: FileOpenInformation
+    optional: true
   - token: SemiColon
 
 FileOpenInformation: !Sequence
   - keyword: Open
+    optional: true
   - node: Expression
     name: file_open_kind
+    optional: true
   - keyword: Is
   - node: Expression
     name: file_logical_name
@@ -238,17 +241,9 @@ GroupTemplateDeclaration: !Sequence
   - token: RightPar
   - token: SemiColon
 
-InterfaceConstantDeclaration: !Sequence
-  - keyword: Constant
-  - node: IdentifierList
-  - token: Colon
-  - keyword: In
-  - node: SubtypeIndication
-  - token: ColonEq
-  - node: Expression
-
 InterfaceDeclaration: !Choice
   - node: InterfaceObjectDeclaration
+  - node: InterfaceFileDeclaration
   - node: InterfaceIncompleteTypeDeclaration
   - node: InterfaceSubprogramDeclaration
   - node: InterfacePackageDeclaration
@@ -279,11 +274,26 @@ InterfaceList: !Sequence
   - token: SemiColon
     repeated: true
 
-InterfaceObjectDeclaration: !Choice
-  - node: InterfaceConstantDeclaration
-  - node: InterfaceSignalDeclaration
-  - node: InterfaceVariableDeclaration
-  - node: InterfaceFileDeclaration
+# A non-file interface object (constant/signal/variable)
+InterfaceObjectDeclaration: !Sequence
+  - node: InterfaceObjectClass
+    optional: true
+  - node: IdentifierList
+  - token: Colon
+  - node: Mode
+    optional: true
+  - node: SubtypeIndication
+  - keyword: Bus
+    optional: true
+  - token: ColonEq
+    optional: true
+  - node: Expression
+    optional: true
+
+InterfaceObjectClass: !Choice
+  - keyword: Constant
+  - keyword: Signal
+  - keyword: Variable
 
 InterfacePackageDeclaration: !Sequence
   - node: InterfacePackageDeclarationPreamble
@@ -324,21 +334,6 @@ InterfaceProcedureSpecification: !Sequence
   - node: ParameterList
     optional: true
 
-InterfaceSignalDeclaration: !Sequence
-  - keyword: Signal
-    optional: true
-  - node: IdentifierList
-  - token: Colon
-  - node: Mode
-    optional: true
-  - node: SubtypeIndication
-  - keyword: Bus
-    optional: true
-  - token: ColonEq
-    optional: true
-  - node: Expression
-    optional: true
-
 InterfaceSubprogramDeclaration: !Sequence
   - node: InterfaceSubprogramSpecification
   - keyword: Is
@@ -359,19 +354,6 @@ InterfaceSubprogramDefault: !Choice
 InterfaceSubprogramSpecification: !Choice
   - node: InterfaceProcedureSpecification
   - node: InterfaceFunctionSpecification
-
-InterfaceVariableDeclaration: !Sequence
-  - keyword: Variable
-    optional: true
-  - node: IdentifierList
-  - token: Colon
-  - node: Mode
-    optional: true
-  - node: SubtypeIndication
-  - token: ColonEq
-    optional: true
-  - node: Expression
-    optional: true
 
 Mode: !Choice
   - keyword: In

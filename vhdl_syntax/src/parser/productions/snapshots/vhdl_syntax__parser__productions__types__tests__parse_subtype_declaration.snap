@@ -8,7 +8,8 @@ SubtypeDeclaration
   Keyword(Is)
   SubtypeIndication
     Name
-      Identifier 'integer_vector'
+      NameDesignatorPrefix
+        Identifier 'integer_vector'
       ParenthesizedName
         LeftPar
         AssociationList

@@ -85,6 +85,8 @@ ConditionalExpression: !Sequence
     name: condition
 
 ConditionalForceAssignment: !Sequence
+  - node: Label
+    optional: true
   - node: Target
   - token: LTE
   - keyword: Force
@@ -221,6 +223,7 @@ LoopStatement: !Sequence
 
 LoopStatementPreamble: !Sequence
   - node: Label
+    optional: true
   - node: IterationScheme
     optional: true
   - keyword: Loop
@@ -234,6 +237,7 @@ LoopStatementEpilogue: !Sequence
 
 NextStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Next
   - token: Identifier
     name: loop_label
@@ -246,6 +250,7 @@ NextStatement: !Sequence
 
 NullStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: "Null"
   - token: SemiColon
 
@@ -256,11 +261,13 @@ ParameterSpecification: !Sequence
 
 ProcedureCallStatement: !Sequence
   - node: Label
+    optional: true
   - node: Name
   - token: SemiColon
 
 ReportStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Report
   - node: Expression
     name: report
@@ -273,6 +280,7 @@ ReportStatement: !Sequence
 
 ReturnStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Return
   - node: Expression
     optional: true
@@ -404,6 +412,8 @@ SimpleSignalAssignment: !Choice
   - node: SimpleReleaseAssignment
 
 SimpleVariableAssignment: !Sequence
+  - node: Label
+    optional: true
   - node: Target
   - token: ColonEq
   - node: Expression
@@ -430,6 +440,7 @@ VariableAssignmentStatement: !Choice
 
 WaitStatement: !Sequence
   - node: Label
+    optional: true
   - keyword: Wait
   - node: SensitivityClause
     optional: true

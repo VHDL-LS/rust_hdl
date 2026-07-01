@@ -765,6 +765,12 @@ impl AstNode for ConditionalForceAssignmentSyntax {
         kind: NodeKind::ConditionalForceAssignment,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "target",
@@ -816,6 +822,9 @@ impl AstNode for ConditionalForceAssignmentSyntax {
     }
 }
 impl ConditionalForceAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
@@ -1040,7 +1049,7 @@ impl AstNode for ConditionalWaveformElseWhenExpressionSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1111,7 +1120,7 @@ impl AstNode for ConditionalWaveformElseItemSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1200,7 +1209,7 @@ impl AstNode for ConditionalWaveformSyntax {
         kind: NodeKind::ConditionalWaveform,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1984,7 +1993,7 @@ impl AstNode for LoopStatementPreambleSyntax {
         kind: NodeKind::LoopStatementPreamble,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2102,7 +2111,7 @@ impl AstNode for NextStatementSyntax {
         kind: NodeKind::NextStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2194,7 +2203,7 @@ impl AstNode for NullStatementSyntax {
         kind: NodeKind::NullStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2303,7 +2312,7 @@ impl AstNode for ProcedureCallStatementSyntax {
         kind: NodeKind::ProcedureCallStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2350,7 +2359,7 @@ impl AstNode for ReportStatementSyntax {
         kind: NodeKind::ReportStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2448,7 +2457,7 @@ impl AstNode for ReturnStatementSyntax {
         kind: NodeKind::ReturnStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),
@@ -2714,7 +2723,7 @@ impl AstNode for SelectedWaveformItemSyntax {
         kind: NodeKind::SelectedWaveformItem,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -3514,7 +3523,7 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -3616,6 +3625,12 @@ impl AstNode for SimpleVariableAssignmentSyntax {
         kind: NodeKind::SimpleVariableAssignment,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "target",
@@ -3661,6 +3676,9 @@ impl AstNode for SimpleVariableAssignmentSyntax {
     }
 }
 impl SimpleVariableAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
     }
@@ -3853,7 +3871,7 @@ impl AstNode for WaitStatementSyntax {
         kind: NodeKind::WaitStatement,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),

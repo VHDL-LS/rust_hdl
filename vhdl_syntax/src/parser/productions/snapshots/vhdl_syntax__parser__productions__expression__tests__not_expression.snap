@@ -6,4 +6,5 @@ UnaryExpression
   Keyword(Not)
   NameExpression
     Name
-      Identifier 'false'
+      NameDesignatorPrefix
+        Identifier 'false'

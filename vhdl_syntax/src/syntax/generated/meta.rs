@@ -180,13 +180,13 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::InstantiationListAll => InstantiationListAllSyntax::META,
         NodeKind::InstantiationListList => InstantiationListListSyntax::META,
         NodeKind::InstantiationListOthers => InstantiationListOthersSyntax::META,
-        NodeKind::InterfaceConstantDeclaration => InterfaceConstantDeclarationSyntax::META,
         NodeKind::InterfaceFileDeclaration => InterfaceFileDeclarationSyntax::META,
         NodeKind::InterfaceFunctionSpecification => InterfaceFunctionSpecificationSyntax::META,
         NodeKind::InterfaceIncompleteTypeDeclaration => {
             InterfaceIncompleteTypeDeclarationSyntax::META
         }
         NodeKind::InterfaceList => InterfaceListSyntax::META,
+        NodeKind::InterfaceObjectDeclaration => InterfaceObjectDeclarationSyntax::META,
         NodeKind::InterfacePackageDeclaration => InterfacePackageDeclarationSyntax::META,
         NodeKind::InterfacePackageDeclarationPreamble => {
             InterfacePackageDeclarationPreambleSyntax::META
@@ -202,11 +202,9 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             InterfacePackageGenericMapAspectDefaultSyntax::META
         }
         NodeKind::InterfaceProcedureSpecification => InterfaceProcedureSpecificationSyntax::META,
-        NodeKind::InterfaceSignalDeclaration => InterfaceSignalDeclarationSyntax::META,
         NodeKind::InterfaceSubprogramDeclaration => InterfaceSubprogramDeclarationSyntax::META,
         NodeKind::InterfaceSubprogramDefaultBox => InterfaceSubprogramDefaultBoxSyntax::META,
         NodeKind::InterfaceSubprogramDefaultName => InterfaceSubprogramDefaultNameSyntax::META,
-        NodeKind::InterfaceVariableDeclaration => InterfaceVariableDeclarationSyntax::META,
         NodeKind::Label => LabelSyntax::META,
         NodeKind::LibraryClause => LibraryClauseSyntax::META,
         NodeKind::LiteralExpression => LiteralExpressionSyntax::META,

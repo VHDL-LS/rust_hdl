@@ -7,12 +7,14 @@ ActualPart
     BinaryExpression
       NameExpression
         Name
-          Identifier 'a'
+          NameDesignatorPrefix
+            Identifier 'a'
       Plus
       BinaryExpression
         NameExpression
           Name
-            Identifier 'b'
+            NameDesignatorPrefix
+              Identifier 'b'
         Times
         LiteralExpression
           AbstractLiteral '2'

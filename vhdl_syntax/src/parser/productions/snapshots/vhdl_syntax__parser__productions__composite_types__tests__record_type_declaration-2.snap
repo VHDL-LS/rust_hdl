@@ -16,7 +16,8 @@ FullTypeDeclaration
         Colon
         SubtypeIndication
           Name
-            Identifier 'enum_t'
+            NameDesignatorPrefix
+              Identifier 'enum_t'
         SemiColon
     RecordTypeDefinitionEpilogue
       Keyword(End)

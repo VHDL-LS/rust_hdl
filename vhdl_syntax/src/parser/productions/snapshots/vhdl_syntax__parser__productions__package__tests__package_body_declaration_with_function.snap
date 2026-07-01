@@ -11,8 +11,8 @@ PackageBody
   Declarations
     SubprogramBody
       SubprogramBodyPreamble
-        Keyword(Procedure)
         ProcedureSpecification
+          Keyword(Procedure)
           Identifier 'foo'
         Keyword(Is)
       DeclarationStatementSeparator

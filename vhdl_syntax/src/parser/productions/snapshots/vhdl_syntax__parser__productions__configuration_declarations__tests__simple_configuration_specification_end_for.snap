@@ -10,7 +10,8 @@ SimpleConfigurationSpecification
         Keyword(All)
       Colon
       Name
-        Identifier 'lib'
+        NameDesignatorPrefix
+          Identifier 'lib'
         SelectedName
           Dot
           Identifier 'pkg'
@@ -22,7 +23,8 @@ SimpleConfigurationSpecification
     EntityEntityAspect
       Keyword(Entity)
       Name
-        Identifier 'work'
+        NameDesignatorPrefix
+          Identifier 'work'
         SelectedName
           Dot
           Identifier 'foo'
@@ -34,7 +36,8 @@ SimpleConfigurationSpecification
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'rtl'
+                      NameDesignatorPrefix
+                        Identifier 'rtl'
           RightPar
   SemiColon
   ComponentConfigurationEpilogue

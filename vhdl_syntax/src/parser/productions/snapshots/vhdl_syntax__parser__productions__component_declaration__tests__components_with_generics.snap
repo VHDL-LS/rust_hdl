@@ -13,13 +13,14 @@ ComponentDeclaration
         Keyword(Generic)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'foo'
           Colon
           SubtypeIndication
             Name
-              Identifier 'natural'
+              NameDesignatorPrefix
+                Identifier 'natural'
       GenericClauseEpilogue
         RightPar
         SemiColon

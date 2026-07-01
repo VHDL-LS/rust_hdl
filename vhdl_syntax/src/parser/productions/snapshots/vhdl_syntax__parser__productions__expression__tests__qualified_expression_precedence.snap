@@ -5,7 +5,8 @@ expression: "expr_to_test_text(\"mark0'(0) < mark1'(1)\")"
 BinaryExpression
   QualifiedExpression
     Name
-      Identifier 'mark0'
+      NameDesignatorPrefix
+        Identifier 'mark0'
     Tick
     ParenthesizedExpressionOrAggregate
       LeftPar
@@ -16,7 +17,8 @@ BinaryExpression
   LT
   QualifiedExpression
     Name
-      Identifier 'mark1'
+      NameDesignatorPrefix
+        Identifier 'mark1'
     Tick
     ParenthesizedExpressionOrAggregate
       LeftPar

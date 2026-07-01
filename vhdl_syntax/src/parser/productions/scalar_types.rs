@@ -13,15 +13,19 @@ impl Parser {
     pub fn numeric_type_definition(&mut self) {
         let checkpoint = self.checkpoint();
         self.range_constraint();
-        if self.opt_token(Keyword(Kw::Units)) {
+        if self.next_is(Keyword(Kw::Units)) {
             self.start_node_at(checkpoint, PhysicalTypeDefinition);
             self.start_node(UnitDeclarations);
+            self.expect_token(Keyword(Kw::Units));
             self.primary_unit_declaration();
             while self.next_is(Identifier) {
                 self.secondary_unit_declaration()
             }
             self.end_node();
             self.physical_type_definition_epilogue();
+            self.end_node();
+        } else {
+            self.start_node_at(checkpoint, NumericTypeDefinition);
             self.end_node();
         }
     }
@@ -62,8 +66,10 @@ impl Parser {
     }
 
     pub fn physical_literal(&mut self) {
+        self.start_node(PhysicalLiteral);
         self.opt_token(AbstractLiteral);
         self.name();
+        self.end_node();
     }
 }
 

@@ -6,7 +6,9 @@ BinaryExpression
   LiteralExpression
     AbstractLiteral '2'
   Times
-  PhysicalLiteral
-    AbstractLiteral '1'
-    Name
-      Identifier 'ns'
+  PhysicalLiteralExpression
+    PhysicalLiteral
+      AbstractLiteral '1'
+      Name
+        NameDesignatorPrefix
+          Identifier 'ns'

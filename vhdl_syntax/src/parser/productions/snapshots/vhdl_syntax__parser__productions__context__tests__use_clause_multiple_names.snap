@@ -6,13 +6,15 @@ UseClause
   Keyword(Use)
   NameList
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       SelectedName
         Dot
         CharacterLiteral ''a''
     Comma
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'bar'
