@@ -721,6 +721,7 @@ pub struct FunctionSpecification {
     pub designator: WithDecl<WithToken<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
     pub parameter_list: Option<InterfaceList>,
+    pub return_identifier: Option<WithDecl<Ident>>,
     pub return_type: WithTokenSpan<Name>,
 }
 

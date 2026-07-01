@@ -53,6 +53,7 @@ pub enum DeclarationItem<'a> {
     Attribute(&'a AttributeDeclaration),
     Alias(&'a AliasDeclaration),
     SubprogramDecl(&'a SubprogramSpecification),
+    ReturnIdentifier(&'a WithDecl<Ident>),
     Subprogram(&'a SubprogramBody),
     SubprogramInstantiation(&'a SubprogramInstantiation),
     Package(&'a PackageDeclaration),
@@ -1376,6 +1377,17 @@ fn search_subpgm_inner(
         SubprogramSpecification::Function(ref decl) => {
             return_if_found!(decl.header.search(ctx, searcher));
             return_if_found!(decl.parameter_list.search(ctx, searcher));
+            if let Some(return_identifier) = &decl.return_identifier {
+                return_if_found!(searcher
+                    .search_decl(
+                        ctx,
+                        FoundDeclaration::new(
+                            &return_identifier.decl,
+                            DeclarationItem::ReturnIdentifier(return_identifier)
+                        )
+                    )
+                    .or_not_found());
+            }
             decl.return_type.search(ctx, searcher)
         }
         SubprogramSpecification::Procedure(ref decl) => {
@@ -1830,6 +1842,7 @@ impl FoundDeclaration<'_> {
             DeclarationItem::ForGenerateIndex(..) => None,
             DeclarationItem::Subprogram(value) => value.end_ident_pos,
             DeclarationItem::SubprogramDecl(..) => None,
+            DeclarationItem::ReturnIdentifier(..) => None,
             DeclarationItem::Object(..) => None,
             DeclarationItem::ElementDeclaration(..) => None,
             DeclarationItem::EnumerationLiteral(..) => None,
@@ -1898,6 +1911,9 @@ impl std::fmt::Display for DeclarationItem<'_> {
             }
             DeclarationItem::SubprogramDecl(ref value) => {
                 write!(f, "{value}")
+            }
+            DeclarationItem::ReturnIdentifier(value) => {
+                write!(f, "subtype {}", value.tree)
             }
             DeclarationItem::SubprogramInstantiation(ref value) => {
                 write!(f, "{value};")

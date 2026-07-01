@@ -853,7 +853,15 @@ impl Display for FunctionSpecification {
                 write!(f, "\n)")?;
             }
         }
-        write!(f, " return {}", self.return_type)
+        if let Some(return_identifier) = &self.return_identifier {
+            write!(
+                f,
+                " return {} of {}",
+                return_identifier.tree, self.return_type
+            )
+        } else {
+            write!(f, " return {}", self.return_type)
+        }
     }
 }
 
@@ -1272,6 +1280,19 @@ mod tests {
         F: FnOnce(&Code) -> R,
     {
         assert_format_eq(code, code, code_fun);
+    }
+
+    pub fn assert_format_with_standard<F, R: Display>(
+        code: &str,
+        standard: crate::VHDLStandard,
+        code_fun: F,
+    ) where
+        F: FnOnce(&Code) -> R,
+    {
+        assert_eq!(
+            format!("{}", code_fun(&Code::with_standard(code, standard))),
+            code
+        );
     }
 
     #[test]
@@ -1946,6 +1967,15 @@ end units;",
     pub fn test_function_specification() {
         assert_format(
             "function foo return lib.foo.natural",
+            Code::subprogram_specification,
+        );
+    }
+
+    #[test]
+    pub fn test_function_specification_with_return_identifier() {
+        assert_format_with_standard(
+            "function foo return ret of lib.foo.natural",
+            crate::VHDLStandard::VHDL2019,
             Code::subprogram_specification,
         );
     }

@@ -1136,6 +1136,7 @@ function foo() return bit;
                         span: code.s1("()").token_span()
                     }),
                     return_type: code.s1("bit").type_mark(),
+                    return_identifier: None,
                     span: code.s1("function foo() return bit").token_span()
                 })
             }

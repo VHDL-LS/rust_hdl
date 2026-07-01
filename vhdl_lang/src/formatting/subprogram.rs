@@ -89,8 +89,19 @@ impl VHDLFormatter<'_> {
             self.format_interface_list(parameter, buffer);
         }
         buffer.push_whitespace();
-        // return
-        self.format_token_id(specification.return_type.span.start_token - 1, buffer);
+        if let Some(return_identifier) = &specification.return_identifier {
+            // return <identifier> of
+            self.format_token_span(
+                TokenSpan::new(
+                    return_identifier.tree.token - 1,
+                    specification.return_type.span.start_token - 1,
+                ),
+                buffer,
+            );
+        } else {
+            // return
+            self.format_token_id(specification.return_type.span.start_token - 1, buffer);
+        }
         buffer.push_whitespace();
         self.format_name(specification.return_type.as_ref(), buffer);
     }

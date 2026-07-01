@@ -136,6 +136,23 @@ impl<'a> AnalyzeContext<'a, '_> {
                     &mut fun.return_type.item,
                     diagnostics,
                 );
+                if let (Some(return_identifier), Ok(return_type)) =
+                    (&mut fun.return_identifier, return_type.as_ref())
+                {
+                    let return_id_token = return_identifier.tree.token;
+                    let return_subtype = TypeEnt::define_with_opt_id(
+                        self.ctx,
+                        self.arena,
+                        None,
+                        return_identifier,
+                        ent,
+                        None,
+                        Type::Subtype(Subtype::new(*return_type)),
+                        TokenSpan::new(return_id_token, return_id_token),
+                        self.source(),
+                    );
+                    subpgm_region.add(return_subtype.into(), diagnostics);
+                }
                 match ParameterRegion::from_formal_region(params?) {
                     Ok(params) => (Signature::new(params, Some(return_type?)), generic_map),
                     Err(invalid_formals) => {
