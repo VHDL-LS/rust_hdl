@@ -5,7 +5,6 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::common::ParseResult;
-use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
 use super::tokens::{Kind::*, TokenSpan};
@@ -14,6 +13,7 @@ use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
 };
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -99,7 +99,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
             let colon_token = ctx.stream.expect_kind(Colon)?;
             let entity_class = parse_entity_class(ctx)?;
             ctx.stream.expect_kind(Is)?;
-            let expr = parse_expression(ctx)?;
+            let expr = parse_conditional_expression(ctx)?;
             let end_token = expect_semicolon_or_last(ctx);
 
             entity_names
@@ -123,7 +123,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::test::Code;
+    use crate::{ast::ConditionalExpression, syntax::test::Code};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -155,7 +155,10 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code
+                        .s1("0+1")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
                 }),
                 code.token_span()
             )]
@@ -176,7 +179,10 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code.s1("0+1").expr()
+                    expr: code
+                        .s1("0+1")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
                 }),
                 code.token_span()
             )]
@@ -198,7 +204,10 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code.s1("0+1").expr()
+                        expr: code
+                            .s1("0+1")
+                            .expr()
+                            .map_into(ConditionalExpression::Simple)
                     }),
                     code.token_span()
                 ),
@@ -211,7 +220,10 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code.s1("0+1").expr()
+                        expr: code
+                            .s1("0+1")
+                            .expr()
+                            .map_into(ConditionalExpression::Simple)
                     }),
                     code.token_span()
                 )
@@ -230,7 +242,10 @@ mod tests {
                     entity_name: EntityName::All,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code
+                        .s1("0+1")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
                 }),
                 code.token_span()
             )]
@@ -248,7 +263,10 @@ mod tests {
                     entity_name: EntityName::Others,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code
+                        .s1("0+1")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
                 }),
                 code.token_span()
             )]
@@ -269,7 +287,10 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code.s1("0+1").expr()
+                    expr: code
+                        .s1("0+1")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
                 }),
                 code.token_span()
             )]

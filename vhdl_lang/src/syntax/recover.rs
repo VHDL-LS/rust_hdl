@@ -57,7 +57,7 @@ mod tests {
     use crate::ast::Declaration;
     use crate::syntax::declarative_part::parse_declarative_part;
     use crate::syntax::test::check_diagnostics;
-    use vhdl_lang::ast::{ObjectClass, ObjectDeclaration};
+    use vhdl_lang::ast::{ConditionalExpression, ObjectClass, ObjectDeclaration};
     use vhdl_lang::Diagnostic;
 
     #[test]
@@ -78,7 +78,12 @@ signal y: bit;
                         idents: vec![code.s1("x").decl_ident()],
                         colon_token: code.s1(":").token(),
                         subtype_indication: code.s1("std_logic").subtype_indication(),
-                        expression: Some(code.s1("a.").s1("a").expr())
+                        expression: Some(
+                            code.s1("a.")
+                                .s1("a")
+                                .expr()
+                                .map_into(ConditionalExpression::Simple)
+                        )
                     }),
                     code.s1("signal x : std_logic := a.").token_span()
                 ),

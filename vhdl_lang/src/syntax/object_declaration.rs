@@ -12,15 +12,16 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::recover::expect_semicolon_or_last;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_optional_assignment(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<WithTokenSpan<Expression>>> {
+) -> ParseResult<Option<WithTokenSpan<ConditionalExpression>>> {
     if ctx.stream.pop_if_kind(ColonEq).is_some() {
-        let expr = parse_expression(ctx)?;
+        let expr = parse_conditional_expression(ctx)?;
         Ok(Some(expr))
     } else {
         Ok(None)
@@ -292,7 +293,7 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr())
+                    expression: Some(code.s1("0").expr().map_into(ConditionalExpression::Simple))
                 },
                 code.token_span()
             )
@@ -311,7 +312,7 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr()),
+                    expression: Some(code.s1("0").expr().map_into(ConditionalExpression::Simple)),
                 },
                 code.token_span(),
             )

@@ -7,6 +7,7 @@
 use super::*;
 use std::vec;
 use vhdl_lang::data::error_codes::ErrorCode;
+use vhdl_lang::VHDLStandard::VHDL2019;
 
 #[test]
 fn test_integer_literal_expression_typecheck() {
@@ -1990,6 +1991,41 @@ end package;",
         vec![Diagnostic::new(
             code.s1("true"),
             "'true' does not match array type 'BIT_VECTOR'",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn conditional_expression_is_typechecked() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant good : integer := 1 when cond else 2;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn conditional_expression_candidates_must_match_target_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant bad : integer := 1 when cond else true;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("else true").s1("true"),
+            "'true' does not match integer type 'INTEGER'",
             ErrorCode::TypeMismatch,
         )],
     );

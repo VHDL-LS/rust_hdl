@@ -528,7 +528,12 @@ impl<'a> AnalyzeContext<'a, '_> {
             match &mut actual.item {
                 ActualPart::Expression(expr) => {
                     let Some(resolved_formal) = resolved_formal else {
-                        self.expr_pos_unknown_ttyp(scope, actual.span, expr, &mut NullDiagnostics)?;
+                        self.cond_expr_pos_unknown_ttyp(
+                            scope,
+                            actual.span,
+                            expr,
+                            &mut NullDiagnostics,
+                        )?;
                         continue;
                     };
                     if formal_region.typ == InterfaceType::Parameter {
@@ -542,7 +547,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                     }
                     match &resolved_formal.iface {
                         InterfaceEnt::Type(uninst_typ) => {
-                            let typ = if let Expression::Name(name) = expr {
+                            let typ = if let ConditionalExpression::Simple(Expression::Name(name)) =
+                                expr
+                            {
                                 match name.as_mut() {
                                     // Could be an array constraint such as integer_vector(0 to 3)
                                     // @TODO we ignore the suffix for now
@@ -598,7 +605,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                             mapping.insert(uninst_typ.id(), typ);
                         }
                         InterfaceEnt::Subprogram(target) => match expr {
-                            Expression::Name(name) => {
+                            ConditionalExpression::Simple(Expression::Name(name)) => {
                                 let resolved =
                                     self.name_resolve(scope, actual.span, name, diagnostics)?;
                                 if let ResolvedName::Overloaded(des, overloaded) = resolved {
@@ -637,7 +644,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                                     )
                                 }
                             }
-                            Expression::Literal(Literal::String(string)) => {
+                            ConditionalExpression::Simple(Expression::Literal(
+                                Literal::String(string),
+                            )) => {
                                 if Operator::from_latin1(string.clone()).is_none() {
                                     diagnostics.add(
                                         actual.pos(self.ctx),
@@ -653,7 +662,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                             ),
                         },
                         InterfaceEnt::Package(_) => match expr {
-                            Expression::Name(name) => {
+                            ConditionalExpression::Simple(Expression::Name(name)) => {
                                 let resolved =
                                     self.name_resolve(scope, actual.span, name, diagnostics)?;
                                 // When a formal generic package is mapped to an actual package,
@@ -693,7 +702,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                             let typ = resolved_formal
                                 .require_type_mark()
                                 .expect("Object or file interface without type");
-                            self.expr_pos_with_ttyp(
+                            self.cond_expr_pos_with_ttyp(
                                 scope,
                                 self.map_type_ent(mapping, typ, scope),
                                 actual.span,
@@ -717,7 +726,7 @@ impl<'a> AnalyzeContext<'a, '_> {
     fn check_interface_mode_mismatch(
         &self,
         resolved_formal: &ResolvedFormal<'a>,
-        expr: &mut Expression,
+        expr: &mut ConditionalExpression,
         scope: &Scope<'a>,
         actual_pos: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -799,13 +808,13 @@ impl<'a> AnalyzeContext<'a, '_> {
 
     fn expression_as_name(
         &self,
-        expr: &mut Expression,
+        expr: &mut ConditionalExpression,
         scope: &Scope<'a>,
         span: TokenSpan,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ResolvedName<'_>> {
         match expr {
-            Expression::Name(name) => {
+            ConditionalExpression::Simple(Expression::Name(name)) => {
                 let resolved = self.name_resolve(scope, span, name, diagnostics)?;
                 Ok(resolved)
             }
@@ -824,7 +833,10 @@ fn to_formal_conversion_argument(
     {
         if formal.is_some() {
             return None;
-        } else if let ActualPart::Expression(Expression::Name(ref mut actual_name)) = actual.item {
+        } else if let ActualPart::Expression(ConditionalExpression::Simple(Expression::Name(
+            ref mut actual_name,
+        ))) = actual.item
+        {
             return Some((actual.span, actual_name));
         }
     }

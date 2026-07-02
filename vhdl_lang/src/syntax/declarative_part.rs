@@ -189,7 +189,7 @@ pub fn parse_declarative_part(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{ObjectClass, ObjectDeclaration};
+    use crate::ast::{ConditionalExpression, ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, Code};
     use crate::VHDLStandard::VHDL2019;
@@ -257,7 +257,7 @@ constant x: natural := 5;
                     idents: vec![code.s1("x").decl_ident()],
                     colon_token: code.s(":", 2).token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("5").expr())
+                    expression: Some(code.s1("5").expr().map_into(ConditionalExpression::Simple))
                 }),
                 code.s1("constant x: natural := 5;").token_span()
             )])

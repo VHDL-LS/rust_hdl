@@ -949,8 +949,35 @@ fn search_pos_expr(
             _ => NotFound,
         },
         Expression::Parenthesized(expr) => {
-            search_pos_expr(ctx, &expr.span.pos(ctx), &expr.item, searcher)
+            search_pos_conditional_expr(ctx, &expr.span.pos(ctx), &expr.item, searcher)
         }
+    }
+}
+
+fn search_pos_conditional_expr(
+    ctx: &dyn TokenAccess,
+    pos: &SrcPos,
+    expr: &ConditionalExpression,
+    searcher: &mut impl Searcher,
+) -> SearchResult {
+    match expr {
+        ConditionalExpression::Simple(expr) => search_pos_expr(ctx, pos, expr, searcher),
+        ConditionalExpression::Conditional(conditionals) => {
+            for conditional in &conditionals.conditionals {
+                return_if_found!(conditional.item.search(ctx, searcher));
+                return_if_found!(conditional.condition.search(ctx, searcher));
+            }
+            if let Some((else_item, _)) = &conditionals.else_item {
+                return_if_found!(else_item.search(ctx, searcher));
+            }
+            NotFound
+        }
+    }
+}
+
+impl Search for WithTokenSpan<ConditionalExpression> {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        search_pos_conditional_expr(ctx, &self.span.pos(ctx), &self.item, searcher)
     }
 }
 
@@ -992,7 +1019,12 @@ impl Search for AssociationElement {
 
         match actual.item {
             ActualPart::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(ctx, &actual.pos(ctx), expr, searcher));
+                return_if_found!(search_pos_conditional_expr(
+                    ctx,
+                    &actual.pos(ctx),
+                    expr,
+                    searcher
+                ));
             }
             ActualPart::Open => {}
         }

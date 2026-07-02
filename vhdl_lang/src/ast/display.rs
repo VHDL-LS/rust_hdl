@@ -457,6 +457,26 @@ impl Display for Expression {
     }
 }
 
+impl Display for ConditionalExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            ConditionalExpression::Simple(expr) => write!(f, "{expr}"),
+            ConditionalExpression::Conditional(conditionals) => {
+                for (i, conditional) in conditionals.conditionals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " else ")?;
+                    }
+                    write!(f, "{} when {}", conditional.item, conditional.condition)?;
+                }
+                if let Some((else_item, _)) = &conditionals.else_item {
+                    write!(f, " else {else_item}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl Display for Direction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

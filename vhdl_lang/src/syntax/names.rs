@@ -15,6 +15,7 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
 use crate::data::error_codes::ErrorCode;
 use crate::data::Diagnostic;
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
 use vhdl_lang::syntax::parser::ParsingContext;
@@ -160,7 +161,9 @@ fn actual_to_expression(
     actual: WithTokenSpan<ActualPart>,
 ) -> ParseResult<WithTokenSpan<Expression>> {
     match actual.item {
-        ActualPart::Expression(expr) => Ok(WithTokenSpan::from(expr, actual.span)),
+        ActualPart::Expression(ConditionalExpression::Simple(expr)) => {
+            Ok(WithTokenSpan::from(expr, actual.span))
+        }
         _ => Err(Diagnostic::syntax_error(
             actual.pos(ctx),
             "Expected expression",
@@ -173,7 +176,7 @@ fn actual_part_to_name(
     actual: WithTokenSpan<ActualPart>,
 ) -> ParseResult<WithTokenSpan<Name>> {
     match actual.item {
-        ActualPart::Expression(expr) => {
+        ActualPart::Expression(ConditionalExpression::Simple(expr)) => {
             expression_to_name(ctx, WithTokenSpan::from(expr, actual.span))
         }
         _ => Err(Diagnostic::syntax_error(actual.pos(ctx), "Expected name")),
@@ -197,7 +200,7 @@ fn parse_actual_part(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<
     if let Some(token) = ctx.stream.pop_if_kind(Open) {
         Ok(WithTokenSpan::from(ActualPart::Open, token))
     } else {
-        Ok(parse_expression(ctx)?.map_into(ActualPart::Expression))
+        Ok(parse_conditional_expression(ctx)?.map_into(ActualPart::Expression))
     }
 }
 
@@ -528,10 +531,15 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
         return Err(assoc);
     }
 
-    if let ActualPart::Expression(Expression::Name(ref name)) = &assoc.actual.item {
+    if let ActualPart::Expression(ConditionalExpression::Simple(Expression::Name(ref name))) =
+        &assoc.actual.item
+    {
         if let Name::Attribute(attr) = name.as_ref() {
             if attr.as_range().is_some() {
-                if let ActualPart::Expression(Expression::Name(name)) = assoc.actual.item {
+                if let ActualPart::Expression(ConditionalExpression::Simple(Expression::Name(
+                    name,
+                ))) = assoc.actual.item
+                {
                     if let Name::Attribute(attr) = *name {
                         return Ok(ast::Range::Attribute(attr));
                     }
@@ -983,7 +991,11 @@ mod tests {
                 name: foo,
                 parameters: SeparatedList::single(AssociationElement {
                     formal: None,
-                    actual: code.s1("0").expr().map_into(ActualPart::Expression),
+                    actual: code
+                        .s1("0")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
+                        .map_into(ActualPart::Expression),
                 }),
             })),
             span: code.s1("foo(0)").token_span(),
@@ -1008,11 +1020,19 @@ mod tests {
                     items: vec![
                         AssociationElement {
                             formal: None,
-                            actual: code.s1("0").expr().map_into(ActualPart::Expression),
+                            actual: code
+                                .s1("0")
+                                .expr()
+                                .map_into(ConditionalExpression::Simple)
+                                .map_into(ActualPart::Expression),
                         },
                         AssociationElement {
                             formal: None,
-                            actual: code.s1("1").expr().map_into(ActualPart::Expression),
+                            actual: code
+                                .s1("1")
+                                .expr()
+                                .map_into(ConditionalExpression::Simple)
+                                .map_into(ActualPart::Expression),
                         },
                     ],
                     tokens: vec![code.s1(",").token()],
@@ -1026,7 +1046,11 @@ mod tests {
                 name: prefix_index,
                 parameters: SeparatedList::single(AssociationElement {
                     formal: None,
-                    actual: code.s1("3").expr().map_into(ActualPart::Expression),
+                    actual: code
+                        .s1("3")
+                        .expr()
+                        .map_into(ConditionalExpression::Simple)
+                        .map_into(ActualPart::Expression),
                 }),
             })),
             span: code.s1("prefix(0, 1)(3)").token_span(),
@@ -1061,7 +1085,11 @@ mod tests {
 
         let assoc_elem = AssociationElement {
             formal: Some(arg),
-            actual: code.s1("0").expr().map_into(ActualPart::Expression),
+            actual: code
+                .s1("0")
+                .expr()
+                .map_into(ConditionalExpression::Simple)
+                .map_into(ActualPart::Expression),
         };
 
         let foo_call = WithTokenSpan {

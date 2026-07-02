@@ -391,7 +391,9 @@ impl CallOrIndexed {
         let mut indexes: Vec<Index<'_>> = Vec::with_capacity(parameters.items.len());
 
         for elem in parameters.items.iter_mut() {
-            if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {
+            if let ActualPart::Expression(ConditionalExpression::Simple(ref mut expr)) =
+                &mut elem.actual.item
+            {
                 indexes.push(Index {
                     pos: elem.actual.span,
                     expr,

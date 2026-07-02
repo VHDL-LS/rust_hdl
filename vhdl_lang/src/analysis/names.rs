@@ -466,7 +466,9 @@ pub fn as_type_conversion(
     assocs: &mut [AssociationElement],
 ) -> Option<(TokenSpan, &mut Expression)> {
     if assocs.len() == 1 && could_be_indexed_name(assocs) {
-        if let ActualPart::Expression(ref mut expr) = assocs[0].actual.item {
+        if let ActualPart::Expression(ConditionalExpression::Simple(ref mut expr)) =
+            assocs[0].actual.item
+        {
             return Some((assocs[0].actual.span, expr));
         }
     }
@@ -591,7 +593,9 @@ impl<'a> AnalyzeContext<'a, '_> {
         }
 
         if let [ref mut assoc] = assocs {
-            if let ActualPart::Expression(expr) = &mut assoc.actual.item {
+            if let ActualPart::Expression(ConditionalExpression::Simple(expr)) =
+                &mut assoc.actual.item
+            {
                 return self.expr_as_discrete_range_type(
                     scope,
                     assoc.actual.span,
@@ -718,7 +722,11 @@ impl<'a> AnalyzeContext<'a, '_> {
                         for (idx, AssociationElement { actual, .. }) in
                             assocs.iter_mut().enumerate()
                         {
-                            if let ActualPart::Expression(ref mut expr) = actual.item {
+                            // LRM 8.5: `indexed_name ::= prefix ( expression { , expression } )`.
+                            if let ActualPart::Expression(ConditionalExpression::Simple(
+                                ref mut expr,
+                            )) = actual.item
+                            {
                                 if let Some(ttyp) = indexes.get(idx) {
                                     if let Some(ttyp) = *ttyp {
                                         self.expr_pos_with_ttyp(

@@ -87,7 +87,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         for AssociationElement { actual, .. } in elems.iter_mut() {
             match actual.item {
                 ActualPart::Expression(ref mut expr) => {
-                    self.expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
+                    self.cond_expr_pos_unknown_ttyp(scope, actual.span, expr, diagnostics)?;
                 }
                 ActualPart::Open => {}
             }
