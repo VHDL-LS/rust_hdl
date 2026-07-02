@@ -1127,6 +1127,31 @@ mod tests {
     }
 
     #[test]
+    fn parses_conditional_expression_as_actual() {
+        let code = Code::with_standard("(0 when cond else 1)", crate::VHDLStandard::VHDL2019);
+        let actual = WithTokenSpan::new(
+            ActualPart::Expression(ConditionalExpression::Conditional(Conditionals {
+                conditionals: vec![Conditional {
+                    condition: code.s1("cond").expr(),
+                    item: code.s1("0").expr(),
+                }],
+                else_item: Some((code.s1("1").expr(), code.s1("else").token())),
+            })),
+            code.s1("0 when cond else 1").token_span(),
+        );
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_association_list),
+            (
+                SeparatedList::single(AssociationElement {
+                    formal: None,
+                    actual,
+                }),
+                code.s1(")").token()
+            )
+        );
+    }
+
+    #[test]
     fn test_external_name_implicit_relative() {
         let code = Code::new("<< signal dut.foo : std_logic >>");
         let external_name = ExternalName {

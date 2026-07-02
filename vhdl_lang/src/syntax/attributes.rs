@@ -123,7 +123,9 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ast::ConditionalExpression, syntax::test::Code};
+    use crate::ast::{Conditional, ConditionalExpression, Conditionals};
+    use crate::syntax::test::Code;
+    use crate::VHDLStandard;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -159,6 +161,39 @@ mod tests {
                         .s1("0+1")
                         .expr()
                         .map_into(ConditionalExpression::Simple)
+                }),
+                code.token_span()
+            )]
+        )
+    }
+
+    #[test]
+    fn parse_attribute_specification_with_conditional_expression() {
+        let code = Code::with_standard(
+            "attribute attr_name of foo : signal is 0 when cond else 1;",
+            VHDLStandard::VHDL2019,
+        );
+        assert_eq!(
+            code.with_stream(parse_attribute),
+            vec![WithTokenSpan::new(
+                Attribute::Specification(AttributeSpecification {
+                    ident: WithRef::new(code.s1("attr_name").ident()),
+                    entity_name: EntityName::Name(EntityTag {
+                        designator: code.s1("foo").ref_designator(),
+                        signature: None
+                    }),
+                    colon_token: code.s1(":").token(),
+                    entity_class: EntityClass::Signal,
+                    expr: WithTokenSpan::new(
+                        ConditionalExpression::Conditional(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond").expr(),
+                                item: code.s1("0").expr(),
+                            }],
+                            else_item: Some((code.s1("1").expr(), code.s1("else").token())),
+                        }),
+                        code.s1("0 when cond else 1").token_span(),
+                    )
                 }),
                 code.token_span()
             )]

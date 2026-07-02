@@ -143,6 +143,7 @@ mod tests {
     use super::*;
     use crate::syntax::test::{token_to_string, Code};
     use crate::HasTokenSpan;
+    use crate::VHDLStandard;
 
     #[test]
     fn parses_constant() {
@@ -298,6 +299,50 @@ mod tests {
                 code.token_span()
             )
         );
+    }
+
+    #[test]
+    fn parses_conditional_expression() {
+        let code = Code::with_standard(
+            "constant foo : natural := 0 when cond else 1;",
+            VHDLStandard::VHDL2019,
+        );
+        assert_eq!(
+            code.with_stream(parse_object_declaration),
+            WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(WithTokenSpan::new(
+                        ConditionalExpression::Conditional(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond").expr(),
+                                item: code.s1("0").expr(),
+                            }],
+                            else_item: Some((code.s1("1").expr(), code.s1("else").token())),
+                        }),
+                        code.s1("0 when cond else 1").token_span(),
+                    )),
+                },
+                code.token_span()
+            )
+        );
+    }
+
+    #[test]
+    fn conditional_expression_is_not_parsed_before_2019() {
+        let code = Code::with_standard(
+            "constant foo : natural := 0 when cond else 1;",
+            VHDLStandard::VHDL2008,
+        );
+        let (decl, diagnostics) = code.with_partial_stream_diagnostics(parse_object_declaration);
+        assert_eq!(
+            decl.unwrap().item.expression,
+            Some(code.s1("0").expr().map_into(ConditionalExpression::Simple))
+        );
+        assert!(!diagnostics.is_empty());
     }
 
     #[test]

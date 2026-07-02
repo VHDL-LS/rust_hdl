@@ -1559,4 +1559,28 @@ mod tests {
             Ok(code.s1("1").expr().map_into(ConditionalExpression::Simple))
         );
     }
+
+    #[test]
+    fn parse_conditional_expression_with_alternatives() {
+        let code = Code::with_standard("1 when a else 2 when b else 3", VHDLStandard::VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_conditional_expression),
+            WithTokenSpan::new(
+                ConditionalExpression::Conditional(Conditionals {
+                    conditionals: vec![
+                        Conditional {
+                            condition: code.s1("a").expr(),
+                            item: code.s1("1").expr(),
+                        },
+                        Conditional {
+                            condition: code.s1("b").expr(),
+                            item: code.s1("2").expr(),
+                        },
+                    ],
+                    else_item: Some((code.s1("3").expr(), code.s("else", 2).token())),
+                }),
+                code.token_span(),
+            )
+        );
+    }
 }
