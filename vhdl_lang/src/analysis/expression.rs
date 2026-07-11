@@ -81,7 +81,7 @@ fn combine_expression_types<'a>(types: Vec<ExpressionType<'a>>) -> Option<Expres
                 base_types.extend(set.iter().copied());
             }
             // TODO: String / aggregate / null
-            _ => continue,
+            _ => return None,
         }
     }
     // A union that collapses to a single base type is unambiguous.
