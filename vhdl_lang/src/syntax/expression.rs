@@ -619,7 +619,7 @@ fn parse_conditional_expression_continuation(
         else_item,
     };
     Ok(WithTokenSpan::new(
-        ConditionalExpression::Conditional(conditionals),
+        ConditionalExpression::Conditional(Box::new(conditionals)),
         TokenSpan::new(start_token, ctx.stream.get_last_token_id()),
     ))
 }
@@ -1566,7 +1566,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_conditional_expression),
             WithTokenSpan::new(
-                ConditionalExpression::Conditional(Conditionals {
+                ConditionalExpression::Conditional(Box::new(Conditionals {
                     conditionals: vec![
                         Conditional {
                             condition: code.s1("a").expr(),
@@ -1578,7 +1578,7 @@ mod tests {
                         },
                     ],
                     else_item: Some((code.s1("3").expr(), code.s("else", 2).token())),
-                }),
+                })),
                 code.token_span(),
             )
         );

@@ -464,11 +464,9 @@ fn could_be_indexed_name(assocs: &[AssociationElement]) -> bool {
 
 pub fn as_type_conversion(
     assocs: &mut [AssociationElement],
-) -> Option<(TokenSpan, &mut Expression)> {
+) -> Option<(TokenSpan, &mut ConditionalExpression)> {
     if assocs.len() == 1 && could_be_indexed_name(assocs) {
-        if let ActualPart::Expression(ConditionalExpression::Simple(ref mut expr)) =
-            assocs[0].actual.item
-        {
+        if let ActualPart::Expression(ref mut expr) = assocs[0].actual.item {
             return Some((assocs[0].actual.span, expr));
         }
     }
@@ -722,25 +720,40 @@ impl<'a> AnalyzeContext<'a, '_> {
                         for (idx, AssociationElement { actual, .. }) in
                             assocs.iter_mut().enumerate()
                         {
-                            // LRM 8.5: `indexed_name ::= prefix ( expression { , expression } )`.
-                            if let ActualPart::Expression(ConditionalExpression::Simple(
-                                ref mut expr,
-                            )) = actual.item
-                            {
-                                if let Some(ttyp) = indexes.get(idx) {
-                                    if let Some(ttyp) = *ttyp {
-                                        self.expr_pos_with_ttyp(
+                            if let ActualPart::Expression(ref mut index_expr) = actual.item {
+                                match index_expr {
+                                    ConditionalExpression::Simple(expr) => {
+                                        if let Some(ttyp) = indexes.get(idx) {
+                                            if let Some(ttyp) = *ttyp {
+                                                self.expr_pos_with_ttyp(
+                                                    scope,
+                                                    ttyp.into(),
+                                                    actual.span,
+                                                    expr,
+                                                    diagnostics,
+                                                )?;
+                                            } else {
+                                                self.expr_pos_unknown_ttyp(
+                                                    scope,
+                                                    actual.span,
+                                                    expr,
+                                                    diagnostics,
+                                                )?;
+                                            }
+                                        }
+                                    }
+                                    // LRM 8.4: `indexed_name ::= prefix ( expression { , expression } )`,
+                                    // i.e., a conditional expression is not a valid index.
+                                    conditional => {
+                                        diagnostics.add(
+                                            actual.span.pos(self.ctx),
+                                            "Conditional expression cannot be used as an index",
+                                            ErrorCode::SyntaxError,
+                                        );
+                                        self.cond_expr_pos_unknown_ttyp(
                                             scope,
-                                            ttyp.into(),
                                             actual.span,
-                                            expr,
-                                            diagnostics,
-                                        )?;
-                                    } else {
-                                        self.expr_pos_unknown_ttyp(
-                                            scope,
-                                            actual.span,
-                                            expr,
+                                            conditional,
                                             diagnostics,
                                         )?;
                                     }
@@ -1706,9 +1719,22 @@ impl<'a> AnalyzeContext<'a, '_> {
         scope: &Scope<'a>,
         typ: TypeEnt<'a>,
         pos: TokenSpan,
-        expr: &mut Expression,
+        expr: &mut ConditionalExpression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let expr = match expr {
+            ConditionalExpression::Simple(expr) => expr,
+            // LRM 9.3.6: `type_conversion ::= type_mark ( expression )`,
+            // i.e., a conditional expression is not a valid operand.
+            conditional => {
+                diagnostics.add(
+                    pos.pos(self.ctx),
+                    "Conditional expression cannot be the argument of type conversion",
+                    ErrorCode::SyntaxError,
+                );
+                return self.cond_expr_pos_unknown_ttyp(scope, pos, conditional, diagnostics);
+            }
+        };
         if let Some(types) = as_fatal(self.expr_pos_type(scope, pos, expr, diagnostics))? {
             match types {
                 ExpressionType::Unambiguous(ctyp) => {

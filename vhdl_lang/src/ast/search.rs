@@ -963,14 +963,7 @@ fn search_pos_conditional_expr(
     match expr {
         ConditionalExpression::Simple(expr) => search_pos_expr(ctx, pos, expr, searcher),
         ConditionalExpression::Conditional(conditionals) => {
-            for conditional in &conditionals.conditionals {
-                return_if_found!(conditional.item.search(ctx, searcher));
-                return_if_found!(conditional.condition.search(ctx, searcher));
-            }
-            if let Some((else_item, _)) = &conditionals.else_item {
-                return_if_found!(else_item.search(ctx, searcher));
-            }
-            NotFound
+            search_conditionals(conditionals, true, searcher, ctx)
         }
     }
 }

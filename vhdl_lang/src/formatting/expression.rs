@@ -65,27 +65,11 @@ impl VHDLFormatter<'_> {
                 self.format_expression(WithTokenSpan::new(expr, span), buffer);
             }
             ConditionalExpression::Conditional(conditionals) => {
-                for (i, conditional) in conditionals.conditionals.iter().enumerate() {
-                    if i > 0 {
-                        buffer.push_whitespace();
-                        // else
-                        self.format_token_id(conditional.item.span.start_token - 1, buffer);
-                        buffer.push_whitespace();
-                    }
-                    self.format_expression(conditional.item.as_ref(), buffer);
-                    buffer.push_whitespace();
-                    // when
-                    self.format_token_id(conditional.condition.span.start_token - 1, buffer);
-                    buffer.push_whitespace();
-                    self.format_expression(conditional.condition.as_ref(), buffer);
-                }
-                if let Some((else_item, else_token)) = &conditionals.else_item {
-                    buffer.push_whitespace();
-                    // else
-                    self.format_token_id(*else_token, buffer);
-                    buffer.push_whitespace();
-                    self.format_expression(else_item.as_ref(), buffer);
-                }
+                self.format_assignment_right_hand_conditionals(
+                    conditionals,
+                    |formatter, item, buffer| formatter.format_expression(item.as_ref(), buffer),
+                    buffer,
+                );
             }
         }
     }

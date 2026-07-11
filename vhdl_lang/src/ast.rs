@@ -288,9 +288,9 @@ pub struct QualifiedExpression {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum ConditionalExpression<E = Expression> {
-    Simple(E),
-    Conditional(Conditionals<WithTokenSpan<E>>),
+pub enum ConditionalExpression {
+    Simple(Expression),
+    Conditional(Box<Conditionals<WithTokenSpan<Expression>>>),
 }
 
 /// LRM 9. Expressions

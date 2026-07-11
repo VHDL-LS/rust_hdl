@@ -316,13 +316,13 @@ mod tests {
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: Some(WithTokenSpan::new(
-                        ConditionalExpression::Conditional(Conditionals {
+                        ConditionalExpression::Conditional(Box::new(Conditionals {
                             conditionals: vec![Conditional {
                                 condition: code.s1("cond").expr(),
                                 item: code.s1("0").expr(),
                             }],
                             else_item: Some((code.s1("1").expr(), code.s1("else").token())),
-                        }),
+                        })),
                         code.s1("0 when cond else 1").token_span(),
                     )),
                 },
