@@ -60,6 +60,38 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
+/// Combine the types of all branches of a conditional expression into a single
+/// [ExpressionType]. Since every branch must ultimately share one type, the set
+/// of types presented to overload resolution is the union of the branches'
+/// possible base types
+fn combine_expression_types<'a>(types: Vec<ExpressionType<'a>>) -> Option<ExpressionType<'a>> {
+    if types.is_empty() {
+        return None;
+    }
+    if types.iter().all(|typ| *typ == types[0]) {
+        return types.into_iter().next();
+    }
+    let mut base_types: FnvHashSet<BaseType<'a>> = FnvHashSet::default();
+    for typ in &types {
+        match typ {
+            ExpressionType::Unambiguous(typ) => {
+                base_types.insert(typ.base());
+            }
+            ExpressionType::Ambiguous(set) => {
+                base_types.extend(set.iter().copied());
+            }
+            // TODO: String / aggregate / null
+            _ => continue,
+        }
+    }
+    // A union that collapses to a single base type is unambiguous.
+    Some(if base_types.len() == 1 {
+        ExpressionType::Unambiguous(base_types.into_iter().next().unwrap().into())
+    } else {
+        ExpressionType::Ambiguous(base_types)
+    })
+}
+
 pub(super) struct TypeMatcher<'c, 'a, 't> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
@@ -668,17 +700,21 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.expr_pos_type(scope, span, inner, diagnostics)
             }
             ConditionalExpression::Conditional(conditionals) => {
-                let mut result = None;
+                let mut types = Vec::new();
                 for conditional in &mut conditionals.conditionals {
-                    let typ = as_fatal(self.expr_type(scope, &mut conditional.item, diagnostics))?;
+                    if let Some(typ) =
+                        as_fatal(self.expr_type(scope, &mut conditional.item, diagnostics))?
+                    {
+                        types.push(typ);
+                    }
                     self.boolean_expr(scope, &mut conditional.condition, diagnostics)?;
-                    result = result.or(typ);
                 }
                 if let Some((else_item, _)) = &mut conditionals.else_item {
-                    let typ = as_fatal(self.expr_type(scope, else_item, diagnostics))?;
-                    result = result.or(typ);
+                    if let Some(typ) = as_fatal(self.expr_type(scope, else_item, diagnostics))? {
+                        types.push(typ);
+                    }
                 }
-                result.ok_or(EvalError::Unknown)
+                combine_expression_types(types).ok_or(EvalError::Unknown)
             }
         }
     }
