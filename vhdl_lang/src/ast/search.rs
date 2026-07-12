@@ -519,7 +519,6 @@ impl Search for ProcessStatement {
             sensitivity_list,
             decl,
             statements,
-            end_label_pos: _,
             ..
         } = self;
         if let Some(sensitivity_list) = sensitivity_list {
@@ -561,7 +560,6 @@ impl Search for LabeledConcurrentStatement {
                     index_name: _,
                     discrete_range,
                     body,
-                    end_label_pos: _,
                     ..
                 } = gen;
                 return_if_found!(discrete_range.search(ctx, searcher));

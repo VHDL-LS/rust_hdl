@@ -149,7 +149,7 @@ pub fn describe_signature<'a>(
     result.push('[');
     let num_formals = formals.len();
     for (i, formal) in formals.enumerate() {
-        write!(result, "{}", &formal).unwrap();
+        write!(result, "{}", formal).unwrap();
 
         if i + 1 < num_formals {
             result.push_str(", ");
@@ -161,7 +161,7 @@ pub fn describe_signature<'a>(
     }
 
     if let Some(ref return_type) = return_type {
-        write!(result, "return {}", &return_type).unwrap();
+        write!(result, "return {}", return_type).unwrap();
     }
 
     result.push(']');

@@ -123,7 +123,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                     sensitivity_list,
                     decl,
                     statements,
-                    end_label_pos: _,
                     ..
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
@@ -151,7 +150,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                     index_name,
                     discrete_range,
                     body,
-                    end_label_pos: _,
                     ..
                 } = gen;
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
@@ -200,7 +198,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                             is_matching: _,
                             ref mut alternatives,
                         },
-                    end_label_pos: _,
                     ..
                 } = gen;
 

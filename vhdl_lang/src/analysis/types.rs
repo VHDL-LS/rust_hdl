@@ -158,7 +158,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         if !is_ok {
                             diagnostics.add(
                                 type_decl.ident.pos(self.ctx),
-                                format!("'{}' is not a protected type", &type_decl.ident),
+                                format!("'{}' is not a protected type", type_decl.ident),
                                 ErrorCode::TypeMismatch,
                             );
                         }
@@ -166,7 +166,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     None => {
                         diagnostics.add(
                             type_decl.ident.pos(self.ctx),
-                            format!("No declaration of protected type '{}'", &type_decl.ident),
+                            format!("No declaration of protected type '{}'", type_decl.ident),
                             ErrorCode::Unresolved,
                         );
                     }

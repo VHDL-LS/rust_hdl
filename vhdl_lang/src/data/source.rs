@@ -417,7 +417,7 @@ impl SrcPos {
         let mut result = String::new();
 
         let lineno = self.range.start.line;
-        writeln!(result, "{}", &message).unwrap();
+        writeln!(result, "{}", message).unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }

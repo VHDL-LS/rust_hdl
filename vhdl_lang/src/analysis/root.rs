@@ -182,7 +182,7 @@ impl Library {
                     unit.ident_pos(tokens),
                     format!(
                         "A primary unit has already been declared with name '{}' in library '{}'",
-                        primary_name, &self.name
+                        primary_name, self.name
                     ),
                     ErrorCode::Duplicate,
                 ),

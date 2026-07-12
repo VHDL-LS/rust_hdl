@@ -12,13 +12,13 @@ use std::fmt::{Display, Formatter, Result};
 
 impl<T: Display> Display for WithTokenSpan<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", &self.item)
+        write!(f, "{}", self.item)
     }
 }
 
 impl<T: Display> Display for WithDecl<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", &self.tree)
+        write!(f, "{}", self.tree)
     }
 }
 
@@ -27,7 +27,7 @@ where
     T: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", &self.item)
+        write!(f, "{}", self.item)
     }
 }
 
@@ -658,7 +658,7 @@ impl Display for Designator {
 
 impl<T: Display> Display for WithRef<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", &self.item)
+        write!(f, "{}", self.item)
     }
 }
 

@@ -39,7 +39,7 @@ impl Diagnostic {
 
     pub fn when(self, message: impl AsRef<str>) -> Diagnostic {
         Diagnostic {
-            message: format!("{}, when {}", &self.message, message.as_ref()),
+            message: format!("{}, when {}", self.message, message.as_ref()),
             pos: self.pos,
             related: vec![],
             code: self.code,
