@@ -309,7 +309,7 @@ impl Config {
 
                 messages.push(Message::warning(format!(
                     "Re-defined library {}",
-                    &library.name
+                    library.name
                 )));
             } else {
                 self.libraries.insert(library.name.clone(), library.clone());

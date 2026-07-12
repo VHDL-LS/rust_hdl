@@ -359,7 +359,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                 label.item.pos(self.ctx),
                 format!(
                     "Expected loop label, got overloaded name {}",
-                    &label.item.item
+                    label.item.item
                 ),
                 ErrorCode::MismatchedKinds,
             ),

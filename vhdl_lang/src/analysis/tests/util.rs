@@ -172,7 +172,7 @@ pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
 pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
     Diagnostic::new(
         code.s(name, occ2),
-        format!("Duplicate declaration of '{}'", &name),
+        format!("Duplicate declaration of '{}'", name),
         ErrorCode::Duplicate,
     )
     .related(code.s(name, occ1), "Previously defined here")
@@ -192,7 +192,7 @@ pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec
         diagnostics.push(
             Diagnostic::new(
                 code2.s1(name),
-                format!("Duplicate declaration of '{}'", &name),
+                format!("Duplicate declaration of '{}'", name),
                 ErrorCode::Duplicate,
             )
             .related(code1.s1(name), "Previously defined here"),

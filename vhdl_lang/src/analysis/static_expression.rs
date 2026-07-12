@@ -229,10 +229,7 @@ pub(crate) fn bit_string_to_string(
     let mut extended_value = Vec::new();
 
     if bit_string.base == BaseSpecifier::D {
-        match decimal_str_to_binary_str(&simplified_value) {
-            Err(e) => return Err(e),
-            Ok(binary_string) => extended_value = binary_string.bytes,
-        }
+        extended_value = decimal_str_to_binary_str(&simplified_value)?.bytes;
     } else {
         for ch in simplified_value {
             extended_value.append(&mut bit_string.base.get_extended_digits(ch));
