@@ -157,10 +157,7 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code
-                        .s1("0+1")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -214,10 +211,7 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code
-                        .s1("0+1")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -239,10 +233,7 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code
-                            .s1("0+1")
-                            .expr()
-                            .map_into(ConditionalExpression::Simple)
+                        expr: code.s1("0+1").cond_expr()
                     }),
                     code.token_span()
                 ),
@@ -255,10 +246,7 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code
-                            .s1("0+1")
-                            .expr()
-                            .map_into(ConditionalExpression::Simple)
+                        expr: code.s1("0+1").cond_expr()
                     }),
                     code.token_span()
                 )
@@ -277,10 +265,7 @@ mod tests {
                     entity_name: EntityName::All,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code
-                        .s1("0+1")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -298,10 +283,7 @@ mod tests {
                     entity_name: EntityName::Others,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code
-                        .s1("0+1")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -322,10 +304,7 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code
-                        .s1("0+1")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]

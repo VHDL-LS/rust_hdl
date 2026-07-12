@@ -294,7 +294,7 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr().map_into(ConditionalExpression::Simple))
+                    expression: Some(code.s1("0").cond_expr())
                 },
                 code.token_span()
             )
@@ -340,7 +340,7 @@ mod tests {
         let (decl, diagnostics) = code.with_partial_stream_diagnostics(parse_object_declaration);
         assert_eq!(
             decl.unwrap().item.expression,
-            Some(code.s1("0").expr().map_into(ConditionalExpression::Simple))
+            Some(code.s1("0").cond_expr())
         );
         assert!(!diagnostics.is_empty());
     }
@@ -357,7 +357,7 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr().map_into(ConditionalExpression::Simple)),
+                    expression: Some(code.s1("0").cond_expr()),
                 },
                 code.token_span(),
             )

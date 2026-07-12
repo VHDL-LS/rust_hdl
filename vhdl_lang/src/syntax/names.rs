@@ -991,11 +991,7 @@ mod tests {
                 name: foo,
                 parameters: SeparatedList::single(AssociationElement {
                     formal: None,
-                    actual: code
-                        .s1("0")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
-                        .map_into(ActualPart::Expression),
+                    actual: code.s1("0").cond_expr().map_into(ActualPart::Expression),
                 }),
             })),
             span: code.s1("foo(0)").token_span(),
@@ -1020,19 +1016,11 @@ mod tests {
                     items: vec![
                         AssociationElement {
                             formal: None,
-                            actual: code
-                                .s1("0")
-                                .expr()
-                                .map_into(ConditionalExpression::Simple)
-                                .map_into(ActualPart::Expression),
+                            actual: code.s1("0").cond_expr().map_into(ActualPart::Expression),
                         },
                         AssociationElement {
                             formal: None,
-                            actual: code
-                                .s1("1")
-                                .expr()
-                                .map_into(ConditionalExpression::Simple)
-                                .map_into(ActualPart::Expression),
+                            actual: code.s1("1").cond_expr().map_into(ActualPart::Expression),
                         },
                     ],
                     tokens: vec![code.s1(",").token()],
@@ -1046,11 +1034,7 @@ mod tests {
                 name: prefix_index,
                 parameters: SeparatedList::single(AssociationElement {
                     formal: None,
-                    actual: code
-                        .s1("3")
-                        .expr()
-                        .map_into(ConditionalExpression::Simple)
-                        .map_into(ActualPart::Expression),
+                    actual: code.s1("3").cond_expr().map_into(ActualPart::Expression),
                 }),
             })),
             span: code.s1("prefix(0, 1)(3)").token_span(),
@@ -1085,11 +1069,7 @@ mod tests {
 
         let assoc_elem = AssociationElement {
             formal: Some(arg),
-            actual: code
-                .s1("0")
-                .expr()
-                .map_into(ConditionalExpression::Simple)
-                .map_into(ActualPart::Expression),
+            actual: code.s1("0").cond_expr().map_into(ActualPart::Expression),
         };
 
         let foo_call = WithTokenSpan {

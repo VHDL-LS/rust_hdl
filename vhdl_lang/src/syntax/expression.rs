@@ -1543,9 +1543,7 @@ mod tests {
         let code = Code::with_standard("1 + 2", VHDLStandard::VHDL2019);
         assert_eq!(
             code.with_stream(parse_conditional_expression),
-            code.s1("1 + 2")
-                .expr()
-                .map_into(ConditionalExpression::Simple)
+            code.s1("1 + 2").cond_expr()
         );
     }
 
@@ -1556,7 +1554,7 @@ mod tests {
         let code = Code::with_standard("1 when 0 else 2", VHDLStandard::VHDL2008);
         assert_eq!(
             code.with_partial_stream(parse_conditional_expression),
-            Ok(code.s1("1").expr().map_into(ConditionalExpression::Simple))
+            Ok(code.s1("1").cond_expr())
         );
     }
 
