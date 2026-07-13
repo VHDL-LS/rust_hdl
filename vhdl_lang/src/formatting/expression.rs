@@ -7,8 +7,8 @@
 
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
-    ElementAssociation, ElementResolution, Expression, Operator, ResolutionIndication,
-    SubtypeConstraint, SubtypeIndication,
+    ConditionalExpression, ElementAssociation, ElementResolution, Expression, Operator,
+    ResolutionIndication, SubtypeConstraint, SubtypeIndication,
 };
 use crate::formatting::buffer::Buffer;
 use crate::formatting::VHDLFormatter;
@@ -48,8 +48,28 @@ impl VHDLFormatter<'_> {
             New(allocator) => self.format_allocator(allocator, buffer),
             Parenthesized(expression) => {
                 self.format_token_id(span.start_token, buffer);
-                self.format_expression(expression.as_ref().as_ref(), buffer);
+                self.format_conditional_expression(expression.as_ref().as_ref(), buffer);
                 self.format_token_id(span.end_token, buffer);
+            }
+        }
+    }
+
+    pub fn format_conditional_expression(
+        &self,
+        expression: WithTokenSpan<&ConditionalExpression>,
+        buffer: &mut Buffer,
+    ) {
+        let span = expression.span;
+        match expression.item {
+            ConditionalExpression::Simple(expr) => {
+                self.format_expression(WithTokenSpan::new(expr, span), buffer);
+            }
+            ConditionalExpression::Conditional(conditionals) => {
+                self.format_assignment_right_hand_conditionals(
+                    conditionals,
+                    |formatter, item, buffer| formatter.format_expression(item.as_ref(), buffer),
+                    buffer,
+                );
             }
         }
     }
@@ -141,14 +161,14 @@ impl VHDLFormatter<'_> {
     // Helper to format ` := <expression>`
     pub(crate) fn format_default_expression(
         &self,
-        expression: Option<&WithTokenSpan<Expression>>,
+        expression: Option<&WithTokenSpan<ConditionalExpression>>,
         buffer: &mut Buffer,
     ) {
         if let Some(expr) = expression {
             buffer.push_whitespace();
             self.format_token_id(expr.span.start_token - 1, buffer);
             buffer.push_whitespace();
-            self.format_expression(expr.as_ref(), buffer);
+            self.format_conditional_expression(expr.as_ref(), buffer);
         }
     }
 

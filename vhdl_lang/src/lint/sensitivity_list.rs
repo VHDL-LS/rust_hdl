@@ -26,9 +26,10 @@ use crate::ast::search::{
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     ActualPart, Allocator, AssignmentRightHand, AttributeDesignator, AttributeName,
-    ConcurrentStatement, Conditionals, Designator, DiscreteRange, ElementAssociation, Expression,
-    HasUnitId, IterationScheme, LabeledConcurrentStatement, Name, ProcessStatement, Range,
-    SensitivityList, SequentialStatement, SignalAttribute, UnitId, UnitKey, Waveform, WithRef,
+    ConcurrentStatement, ConditionalExpression, Conditionals, Designator, DiscreteRange,
+    ElementAssociation, Expression, HasUnitId, IterationScheme, LabeledConcurrentStatement, Name,
+    ProcessStatement, Range, SensitivityList, SequentialStatement, SignalAttribute, UnitId,
+    UnitKey, Waveform, WithRef,
 };
 use crate::data::{DiagnosticHandler, ErrorCode, Symbol};
 use crate::{
@@ -285,8 +286,34 @@ impl SensitivityListChecker<'_> {
                 }
                 Allocator::Subtype(_) => {}
             },
-            Expression::Parenthesized(expr) => self.analyze_expression(&expr.item, expr.span, ctx),
+            Expression::Parenthesized(expr) => {
+                self.analyze_conditional_expression(&expr.item, expr.span, ctx)
+            }
             Expression::Literal(_) => {}
+        }
+    }
+
+    fn analyze_conditional_expression(
+        &mut self,
+        expr: &ConditionalExpression,
+        span: TokenSpan,
+        ctx: &dyn TokenAccess,
+    ) {
+        match expr {
+            ConditionalExpression::Simple(expr) => self.analyze_expression(expr, span, ctx),
+            ConditionalExpression::Conditional(conditionals) => {
+                for conditional in &conditionals.conditionals {
+                    self.analyze_expression(&conditional.item.item, conditional.item.span, ctx);
+                    self.analyze_expression(
+                        &conditional.condition.item,
+                        conditional.condition.span,
+                        ctx,
+                    );
+                }
+                if let Some((else_item, _)) = &conditionals.else_item {
+                    self.analyze_expression(&else_item.item, else_item.span, ctx);
+                }
+            }
         }
     }
 
@@ -314,7 +341,7 @@ impl SensitivityListChecker<'_> {
                 for item in &coi.parameters.items {
                     match &item.actual.item {
                         ActualPart::Expression(expr) => {
-                            self.analyze_expression(expr, item.actual.span, ctx)
+                            self.analyze_conditional_expression(expr, item.actual.span, ctx)
                         }
                         ActualPart::Open => {}
                     }
@@ -516,7 +543,7 @@ impl Searcher for SensitivityListChecker<'_> {
                     for item in &call_or_indexed.item.parameters.items {
                         match &item.actual.item {
                             ActualPart::Expression(expr) => {
-                                self.analyze_expression(expr, call_or_indexed.span, ctx)
+                                self.analyze_conditional_expression(expr, call_or_indexed.span, ctx)
                             }
                             ActualPart::Open => {}
                         }
@@ -624,7 +651,22 @@ fn is_likely_clocked(root: &DesignRoot, expression: &Expression) -> bool {
         },
         Expression::Literal(_) => false,
         Expression::New(_) => false,
-        Expression::Parenthesized(expr) => is_likely_clocked(root, &expr.item),
+        Expression::Parenthesized(expr) => is_likely_clocked_conditional(root, &expr.item),
+    }
+}
+
+fn is_likely_clocked_conditional(root: &DesignRoot, expression: &ConditionalExpression) -> bool {
+    match expression {
+        ConditionalExpression::Simple(expr) => is_likely_clocked(root, expr),
+        ConditionalExpression::Conditional(conditionals) => {
+            conditionals.conditionals.iter().any(|conditional| {
+                is_likely_clocked(root, &conditional.item.item)
+                    || is_likely_clocked(root, &conditional.condition.item)
+            }) || conditionals
+                .else_item
+                .as_ref()
+                .is_some_and(|(else_item, _)| is_likely_clocked(root, &else_item.item))
+        }
     }
 }
 

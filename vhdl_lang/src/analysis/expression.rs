@@ -60,6 +60,38 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
+/// Combine the types of all branches of a conditional expression into a single
+/// [ExpressionType]. Since every branch must ultimately share one type, the set
+/// of types presented to overload resolution is the union of the branches'
+/// possible base types
+fn combine_expression_types<'a>(types: Vec<ExpressionType<'a>>) -> Option<ExpressionType<'a>> {
+    if types.is_empty() {
+        return None;
+    }
+    if types.iter().all(|typ| *typ == types[0]) {
+        return types.into_iter().next();
+    }
+    let mut base_types: FnvHashSet<BaseType<'a>> = FnvHashSet::default();
+    for typ in &types {
+        match typ {
+            ExpressionType::Unambiguous(typ) => {
+                base_types.insert(typ.base());
+            }
+            ExpressionType::Ambiguous(set) => {
+                base_types.extend(set.iter().copied());
+            }
+            // TODO: String / aggregate / null
+            _ => return None,
+        }
+    }
+    // A union that collapses to a single base type is unambiguous.
+    Some(if base_types.len() == 1 {
+        ExpressionType::Unambiguous(base_types.into_iter().next().unwrap().into())
+    } else {
+        ExpressionType::Ambiguous(base_types)
+    })
+}
+
 pub(super) struct TypeMatcher<'c, 'a, 't> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
@@ -505,7 +537,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                     .map(|typ| ExpressionType::Unambiguous(typ.type_mark())),
             },
             Expression::Parenthesized(expr) => {
-                self.expr_pos_type(scope, expr.span, &mut expr.item, diagnostics)
+                self.cond_expr_pos_type(scope, expr.span, &mut expr.item, diagnostics)
             }
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
@@ -586,6 +618,105 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> FatalResult {
         as_fatal(self.expr_pos_type(scope, span, expr, diagnostics))?;
         Ok(())
+    }
+
+    pub fn cond_expr_with_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
+        expr: &mut WithTokenSpan<ConditionalExpression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        self.cond_expr_pos_with_ttyp(scope, target_type, expr.span, &mut expr.item, diagnostics)
+    }
+
+    pub fn cond_expr_pos_with_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
+        span: TokenSpan,
+        expr: &mut ConditionalExpression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        match expr {
+            ConditionalExpression::Simple(inner) => {
+                self.expr_pos_with_ttyp(scope, target_type, span, inner, diagnostics)
+            }
+            ConditionalExpression::Conditional(conditionals) => {
+                for conditional in &mut conditionals.conditionals {
+                    self.expr_with_ttyp(scope, target_type, &mut conditional.item, diagnostics)?;
+                    self.boolean_expr(scope, &mut conditional.condition, diagnostics)?;
+                }
+                if let Some((else_item, _)) = &mut conditionals.else_item {
+                    self.expr_with_ttyp(scope, target_type, else_item, diagnostics)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub fn cond_expr_unknown_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        expr: &mut WithTokenSpan<ConditionalExpression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        self.cond_expr_pos_unknown_ttyp(scope, expr.span, &mut expr.item, diagnostics)
+    }
+
+    pub fn cond_expr_pos_unknown_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        span: TokenSpan,
+        expr: &mut ConditionalExpression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        match expr {
+            ConditionalExpression::Simple(inner) => {
+                self.expr_pos_unknown_ttyp(scope, span, inner, diagnostics)
+            }
+            ConditionalExpression::Conditional(conditionals) => {
+                for conditional in &mut conditionals.conditionals {
+                    self.expr_unknown_ttyp(scope, &mut conditional.item, diagnostics)?;
+                    self.boolean_expr(scope, &mut conditional.condition, diagnostics)?;
+                }
+                if let Some((else_item, _)) = &mut conditionals.else_item {
+                    self.expr_unknown_ttyp(scope, else_item, diagnostics)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub fn cond_expr_pos_type(
+        &self,
+        scope: &Scope<'a>,
+        span: TokenSpan,
+        expr: &mut ConditionalExpression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<ExpressionType<'a>> {
+        match expr {
+            ConditionalExpression::Simple(inner) => {
+                self.expr_pos_type(scope, span, inner, diagnostics)
+            }
+            ConditionalExpression::Conditional(conditionals) => {
+                let mut types = Vec::new();
+                for conditional in &mut conditionals.conditionals {
+                    if let Some(typ) =
+                        as_fatal(self.expr_type(scope, &mut conditional.item, diagnostics))?
+                    {
+                        types.push(typ);
+                    }
+                    self.boolean_expr(scope, &mut conditional.condition, diagnostics)?;
+                }
+                if let Some((else_item, _)) = &mut conditionals.else_item {
+                    if let Some(typ) = as_fatal(self.expr_type(scope, else_item, diagnostics))? {
+                        types.push(typ);
+                    }
+                }
+                combine_expression_types(types).ok_or(EvalError::Unknown)
+            }
+        }
     }
 
     fn analyze_qualified_expression(
@@ -869,13 +1000,7 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                 self.analyze_allocation(scope, alloc, diagnostics)?;
             }
             Expression::Parenthesized(ref mut expr) => {
-                self.expr_pos_with_ttyp(
-                    scope,
-                    target_type,
-                    expr.span,
-                    &mut expr.item,
-                    diagnostics,
-                )?;
+                self.cond_expr_with_ttyp(scope, target_type, expr, diagnostics)?;
             }
         }
 

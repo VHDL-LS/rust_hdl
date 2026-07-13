@@ -36,6 +36,7 @@ use crate::data::*;
 use crate::standard::VHDLStandard;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::names::parse_association_element;
 use crate::syntax::parser::ParsingContext;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
@@ -586,6 +587,10 @@ impl Code {
     /// Can be used to test all but expression parsing
     pub fn expr(&self) -> WithTokenSpan<Expression> {
         self.parse_ok_no_diagnostics(parse_expression)
+    }
+
+    pub fn cond_expr(&self) -> WithTokenSpan<ConditionalExpression> {
+        self.parse_ok_no_diagnostics(parse_conditional_expression)
     }
 
     pub fn name(&self) -> WithTokenSpan<Name> {

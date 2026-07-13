@@ -12,15 +12,16 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenSpan};
 use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::recover::expect_semicolon_or_last;
 use crate::Diagnostic;
 use vhdl_lang::syntax::parser::ParsingContext;
 
 pub fn parse_optional_assignment(
     ctx: &mut ParsingContext<'_>,
-) -> ParseResult<Option<WithTokenSpan<Expression>>> {
+) -> ParseResult<Option<WithTokenSpan<ConditionalExpression>>> {
     if ctx.stream.pop_if_kind(ColonEq).is_some() {
-        let expr = parse_expression(ctx)?;
+        let expr = parse_conditional_expression(ctx)?;
         Ok(Some(expr))
     } else {
         Ok(None)
@@ -142,6 +143,7 @@ mod tests {
     use super::*;
     use crate::syntax::test::{token_to_string, Code};
     use crate::HasTokenSpan;
+    use crate::VHDLStandard;
 
     #[test]
     fn parses_constant() {
@@ -292,11 +294,55 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr())
+                    expression: Some(code.s1("0").cond_expr())
                 },
                 code.token_span()
             )
         );
+    }
+
+    #[test]
+    fn parses_conditional_expression() {
+        let code = Code::with_standard(
+            "constant foo : natural := 0 when cond else 1;",
+            VHDLStandard::VHDL2019,
+        );
+        assert_eq!(
+            code.with_stream(parse_object_declaration),
+            WithTokenSpan::new(
+                ObjectDeclaration {
+                    class: ObjectClass::Constant,
+                    idents: vec![code.s1("foo").decl_ident()],
+                    colon_token: code.s1(":").token(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
+                    expression: Some(WithTokenSpan::new(
+                        ConditionalExpression::Conditional(Box::new(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond").expr(),
+                                item: code.s1("0").expr(),
+                            }],
+                            else_item: Some((code.s1("1").expr(), code.s1("else").token())),
+                        })),
+                        code.s1("0 when cond else 1").token_span(),
+                    )),
+                },
+                code.token_span()
+            )
+        );
+    }
+
+    #[test]
+    fn conditional_expression_is_not_parsed_before_2019() {
+        let code = Code::with_standard(
+            "constant foo : natural := 0 when cond else 1;",
+            VHDLStandard::VHDL2008,
+        );
+        let (decl, diagnostics) = code.with_partial_stream_diagnostics(parse_object_declaration);
+        assert_eq!(
+            decl.unwrap().item.expression,
+            Some(code.s1("0").cond_expr())
+        );
+        assert!(!diagnostics.is_empty());
     }
 
     #[test]
@@ -311,7 +357,7 @@ mod tests {
                     idents: vec![code.s1("foo").decl_ident(), code.s1("bar").decl_ident()],
                     colon_token: code.s1(":").token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("0").expr()),
+                    expression: Some(code.s1("0").cond_expr()),
                 },
                 code.token_span(),
             )

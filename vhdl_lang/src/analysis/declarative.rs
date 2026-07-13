@@ -413,15 +413,9 @@ impl<'a> AnalyzeContext<'a, '_> {
 
                 if let Some(ref mut expr) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.expr_pos_with_ttyp(
-                            scope,
-                            subtype.type_mark(),
-                            expr.span,
-                            &mut expr.item,
-                            diagnostics,
-                        )?;
+                        self.cond_expr_with_ttyp(scope, subtype.type_mark(), expr, diagnostics)?;
                     } else {
-                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                        self.cond_expr_unknown_ttyp(scope, expr, diagnostics)?;
                     }
                 }
 
@@ -749,13 +743,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             Ok(NamedEntities::Single(ent)) => {
                 ident.set_unique_reference(ent);
                 if let Some(attr_ent) = AttributeEnt::from_any(ent) {
-                    self.expr_pos_with_ttyp(
-                        scope,
-                        attr_ent.typ(),
-                        expr.span,
-                        &mut expr.item,
-                        diagnostics,
-                    )?;
+                    self.cond_expr_with_ttyp(scope, attr_ent.typ(), expr, diagnostics)?;
                     attr_ent
                 } else {
                     diagnostics.add(
@@ -1151,15 +1139,9 @@ impl<'a> AnalyzeContext<'a, '_> {
 
         if let Some(ref mut expression) = mode.expression {
             if let Ok(ref subtype) = subtype {
-                self.expr_pos_with_ttyp(
-                    scope,
-                    subtype.type_mark(),
-                    expression.span,
-                    &mut expression.item,
-                    diagnostics,
-                )?;
+                self.cond_expr_with_ttyp(scope, subtype.type_mark(), expression, diagnostics)?;
             } else {
-                self.expr_unknown_ttyp(scope, expression, diagnostics)?
+                self.cond_expr_unknown_ttyp(scope, expression, diagnostics)?
             }
         }
 

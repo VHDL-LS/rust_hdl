@@ -260,7 +260,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             match &mut assoc.actual.item {
                 ActualPart::Expression(expr) => {
                     let actual_type =
-                        self.expr_pos_type(scope, assoc.actual.span, expr, diagnostics)?;
+                        self.cond_expr_pos_type(scope, assoc.actual.span, expr, diagnostics)?;
                     actual_types.push(Some(actual_type));
                 }
                 ActualPart::Open => {

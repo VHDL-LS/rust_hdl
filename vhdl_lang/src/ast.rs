@@ -230,7 +230,7 @@ pub enum ElementAssociation {
 /// LRM 6.5.7 Association Lists
 #[derive(PartialEq, Debug, Clone)]
 pub enum ActualPart {
-    Expression(Expression),
+    Expression(ConditionalExpression),
     Open,
 }
 
@@ -287,6 +287,12 @@ pub struct QualifiedExpression {
     pub expr: WithTokenSpan<Expression>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum ConditionalExpression {
+    Simple(Expression),
+    Conditional(Box<Conditionals<WithTokenSpan<Expression>>>),
+}
+
 /// LRM 9. Expressions
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
@@ -311,7 +317,7 @@ pub enum Expression {
 
     /// LRM 9.3.7 Allocators
     New(Box<WithTokenSpan<Allocator>>),
-    Parenthesized(Box<WithTokenSpan<Expression>>),
+    Parenthesized(Box<WithTokenSpan<ConditionalExpression>>),
 }
 
 /// An identifier together with the lexical source location it occurs in.
@@ -569,7 +575,7 @@ pub struct AttributeSpecification {
     pub entity_name: EntityName,
     pub colon_token: TokenId,
     pub entity_class: EntityClass,
-    pub expr: WithTokenSpan<Expression>,
+    pub expr: WithTokenSpan<ConditionalExpression>,
 }
 
 /// LRM 7.2 Attribute specification
@@ -679,7 +685,7 @@ pub struct ObjectDeclaration {
     pub colon_token: TokenId,
     pub idents: Vec<WithDecl<Ident>>,
     pub subtype_indication: SubtypeIndication,
-    pub expression: Option<WithTokenSpan<Expression>>,
+    pub expression: Option<WithTokenSpan<ConditionalExpression>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -814,7 +820,7 @@ pub struct SimpleModeIndication {
     pub class: ObjectClass,
     pub subtype_indication: SubtypeIndication,
     pub bus: bool,
-    pub expression: Option<WithTokenSpan<Expression>>,
+    pub expression: Option<WithTokenSpan<ConditionalExpression>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

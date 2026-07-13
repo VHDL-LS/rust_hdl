@@ -462,7 +462,7 @@ impl VHDLFormatter<'_> {
             buffer,
         );
         buffer.push_whitespace();
-        self.format_expression(attribute.expr.as_ref(), buffer);
+        self.format_conditional_expression(attribute.expr.as_ref(), buffer);
         self.format_token_id(span.end_token, buffer);
     }
 

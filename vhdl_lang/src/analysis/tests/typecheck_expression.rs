@@ -7,6 +7,7 @@
 use super::*;
 use std::vec;
 use vhdl_lang::data::error_codes::ErrorCode;
+use vhdl_lang::VHDLStandard::VHDL2019;
 
 #[test]
 fn test_integer_literal_expression_typecheck() {
@@ -1991,6 +1992,152 @@ end package;",
             code.s1("true"),
             "'true' does not match array type 'BIT_VECTOR'",
             ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn conditional_expression_is_typechecked() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant good : integer := 1 when cond else 2;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn conditional_expression_candidates_must_match_target_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant bad : integer := 1 when cond else true;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("else true").s1("true"),
+            "'true' does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn conditional_expression_cannot_be_used_as_index() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant arr : integer_vector(0 to 3) := (others => 0);
+constant bad : integer := arr(0 when cond else 1);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("0 when cond else 1"),
+            "Conditional expression cannot be used as an index",
+            ErrorCode::SyntaxError,
+        )],
+    );
+}
+
+#[test]
+fn conditional_expression_index_contents_are_analyzed() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant arr : integer_vector(0 to 3) := (others => 0);
+constant bad : integer := arr(missing when cond else 1);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::new(
+                code.s1("missing when cond else 1"),
+                "Conditional expression cannot be used as an index",
+                ErrorCode::SyntaxError,
+            ),
+            Diagnostic::new(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+                ErrorCode::Unresolved,
+            ),
+        ],
+    );
+}
+
+#[test]
+fn conditional_expression_cannot_be_type_conversion_argument() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+constant cond : boolean := true;
+constant bad : integer := integer(1.0 when cond else 2.0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("1.0 when cond else 2.0"),
+            "Conditional expression cannot be the argument of type conversion",
+            ErrorCode::SyntaxError,
+        )],
+    );
+}
+
+#[test]
+fn conditional_expression_all_branches_disambiguate_overloaded_calls() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    let code = builder.in_declarative_region(
+        "
+function fun1(arg : integer) return natural is
+begin
+    return 0;
+end function;
+
+function fun1(arg : real) return natural is
+begin
+    return 0;
+end function;
+
+constant cond : boolean := true;
+constant bad : natural := fun1(1 when cond else 1.0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1(":= fun1").s1("fun1"),
+            "Ambiguous call to 'fun1'",
+            ErrorCode::AmbiguousCall,
+        )
+        .related(
+            code.s("fun1", 1),
+            "Might be function fun1[INTEGER return NATURAL]",
+        )
+        .related(
+            code.s("fun1", 2),
+            "Might be function fun1[REAL return NATURAL]",
         )],
     );
 }

@@ -100,9 +100,10 @@ impl VHDLFormatter<'_> {
 
     pub fn format_actual_part(&self, actual_part: &WithTokenSpan<ActualPart>, buffer: &mut Buffer) {
         match &actual_part.item {
-            ActualPart::Expression(expression) => {
-                self.format_expression(WithTokenSpan::new(expression, actual_part.span), buffer)
-            }
+            ActualPart::Expression(expression) => self.format_conditional_expression(
+                WithTokenSpan::new(expression, actual_part.span),
+                buffer,
+            ),
             ActualPart::Open => self.format_token_span(actual_part.span, buffer),
         }
     }

@@ -5,7 +5,6 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::common::ParseResult;
-use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
 use super::tokens::{Kind::*, TokenSpan};
@@ -14,6 +13,7 @@ use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
 };
+use crate::syntax::expression::parse_conditional_expression;
 use crate::syntax::recover::expect_semicolon_or_last;
 use vhdl_lang::syntax::parser::ParsingContext;
 
@@ -99,7 +99,7 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
             let colon_token = ctx.stream.expect_kind(Colon)?;
             let entity_class = parse_entity_class(ctx)?;
             ctx.stream.expect_kind(Is)?;
-            let expr = parse_expression(ctx)?;
+            let expr = parse_conditional_expression(ctx)?;
             let end_token = expect_semicolon_or_last(ctx);
 
             entity_names
@@ -123,7 +123,9 @@ pub fn parse_attribute(ctx: &mut ParsingContext<'_>) -> ParseResult<Vec<WithToke
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{Conditional, ConditionalExpression, Conditionals};
     use crate::syntax::test::Code;
+    use crate::VHDLStandard;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -155,7 +157,40 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code.s1("0+1").cond_expr()
+                }),
+                code.token_span()
+            )]
+        )
+    }
+
+    #[test]
+    fn parse_attribute_specification_with_conditional_expression() {
+        let code = Code::with_standard(
+            "attribute attr_name of foo : signal is 0 when cond else 1;",
+            VHDLStandard::VHDL2019,
+        );
+        assert_eq!(
+            code.with_stream(parse_attribute),
+            vec![WithTokenSpan::new(
+                Attribute::Specification(AttributeSpecification {
+                    ident: WithRef::new(code.s1("attr_name").ident()),
+                    entity_name: EntityName::Name(EntityTag {
+                        designator: code.s1("foo").ref_designator(),
+                        signature: None
+                    }),
+                    colon_token: code.s1(":").token(),
+                    entity_class: EntityClass::Signal,
+                    expr: WithTokenSpan::new(
+                        ConditionalExpression::Conditional(Box::new(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond").expr(),
+                                item: code.s1("0").expr(),
+                            }],
+                            else_item: Some((code.s1("1").expr(), code.s1("else").token())),
+                        })),
+                        code.s1("0 when cond else 1").token_span(),
+                    )
                 }),
                 code.token_span()
             )]
@@ -176,7 +211,7 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code.s1("0+1").expr()
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -198,7 +233,7 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code.s1("0+1").expr()
+                        expr: code.s1("0+1").cond_expr()
                     }),
                     code.token_span()
                 ),
@@ -211,7 +246,7 @@ mod tests {
                         }),
                         colon_token: code.s1(":").token(),
                         entity_class: EntityClass::Signal,
-                        expr: code.s1("0+1").expr()
+                        expr: code.s1("0+1").cond_expr()
                     }),
                     code.token_span()
                 )
@@ -230,7 +265,7 @@ mod tests {
                     entity_name: EntityName::All,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -248,7 +283,7 @@ mod tests {
                     entity_name: EntityName::Others,
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Signal,
-                    expr: code.s1("0+1").expr()
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]
@@ -269,7 +304,7 @@ mod tests {
                     }),
                     colon_token: code.s1(":").token(),
                     entity_class: EntityClass::Function,
-                    expr: code.s1("0+1").expr()
+                    expr: code.s1("0+1").cond_expr()
                 }),
                 code.token_span()
             )]

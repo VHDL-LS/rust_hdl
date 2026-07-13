@@ -257,7 +257,7 @@ constant x: natural := 5;
                     idents: vec![code.s1("x").decl_ident()],
                     colon_token: code.s(":", 2).token(),
                     subtype_indication: code.s1("natural").subtype_indication(),
-                    expression: Some(code.s1("5").expr())
+                    expression: Some(code.s1("5").cond_expr())
                 }),
                 code.s1("constant x: natural := 5;").token_span()
             )])

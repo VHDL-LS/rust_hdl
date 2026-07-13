@@ -12,7 +12,7 @@ use crate::ast::token_range::{WithToken, WithTokenSpan};
 use crate::ast::{Literal, *};
 use crate::data::Diagnostic;
 use crate::syntax::TokenAccess;
-use crate::{ast, HasTokenSpan, TokenId, TokenSpan};
+use crate::{ast, HasTokenSpan, TokenId, TokenSpan, VHDLStandard};
 use vhdl_lang::syntax::parser::ParsingContext;
 
 impl WithTokenSpan<Name> {
@@ -337,7 +337,7 @@ fn name_to_selected_name(name: Name) -> Option<Name> {
 
 fn parse_expression_or_aggregate(
     ctx: &mut ParsingContext<'_>,
-    start_token: TokenId,
+    start_token: TokenId, // LeftPar
 ) -> ParseResult<WithTokenSpan<Expression>> {
     let mut choices = parse_choices(ctx)?;
 
@@ -373,8 +373,19 @@ fn parse_expression_or_aggregate(
             // Was expression with parenthesis
             RightPar => {
                 ctx.stream.skip();
-                let expr = WithTokenSpan::new(Expression::Parenthesized(Box::new(WithTokenSpan::new(expr, span))), TokenSpan::new(start_token, token_id));
+                let expr = WithTokenSpan::new(Expression::Parenthesized(Box::new(WithTokenSpan::new(ConditionalExpression::Simple(expr), span))), TokenSpan::new(start_token, token_id));
                 Ok(expr)
+            },
+
+            // Was conditional expression (primary)
+            When => {
+                let conditional =
+                    parse_conditional_expression_continuation(ctx, WithTokenSpan::new(expr, span))?;
+                let right_par = ctx.stream.expect_kind(RightPar)?;
+                Ok(WithTokenSpan::new(
+                    Expression::Parenthesized(Box::new(conditional)),
+                    TokenSpan::new(start_token, right_par),
+                ))
             }
         )
     } else {
@@ -555,6 +566,62 @@ fn parse_expr(
 pub fn parse_expression(ctx: &mut ParsingContext<'_>) -> ParseResult<WithTokenSpan<Expression>> {
     let state = ctx.stream.state();
     parse_expr(ctx, 0).inspect_err(|_| ctx.stream.set_state(state))
+}
+
+pub fn parse_conditional_expression(
+    ctx: &mut ParsingContext<'_>,
+) -> ParseResult<WithTokenSpan<ConditionalExpression>> {
+    let expr = parse_expression(ctx)?;
+    if ctx.stream.next_kind_is(When) {
+        parse_conditional_expression_continuation(ctx, expr)
+    } else {
+        Ok(expr.map_into(ConditionalExpression::Simple))
+    }
+}
+
+/// Parse the remainder of a conditional expression, assuming the first item
+/// expression has already been parsed and that the next token is `when`.
+fn parse_conditional_expression_continuation(
+    ctx: &mut ParsingContext<'_>,
+    expr: WithTokenSpan<Expression>,
+) -> ParseResult<WithTokenSpan<ConditionalExpression>> {
+    if ctx.standard < VHDLStandard::VHDL2019 {
+        return Ok(expr.map_into(ConditionalExpression::Simple));
+    }
+    let start_token = expr.get_start_token();
+    // When
+    ctx.stream.skip();
+    let condition = parse_expression(ctx)?;
+    let mut conditionals = vec![Conditional {
+        condition,
+        item: expr,
+    }];
+    let mut else_item = None;
+    while ctx.stream.next_kind_is(Else) {
+        let else_id = ctx.stream.get_current_token_id();
+        ctx.stream.skip();
+        let expr = parse_expression(ctx)?;
+        if ctx.stream.next_kind_is(When) {
+            ctx.stream.expect_kind(When)?;
+            let condition = parse_expression(ctx)?;
+            conditionals.push(Conditional {
+                condition,
+                item: expr,
+            });
+        } else {
+            else_item = Some((expr, else_id));
+            break;
+        }
+    }
+
+    let conditionals = Conditionals {
+        conditionals,
+        else_item,
+    };
+    Ok(WithTokenSpan::new(
+        ConditionalExpression::Conditional(Box::new(conditionals)),
+        TokenSpan::new(start_token, ctx.stream.get_last_token_id()),
+    ))
 }
 
 #[cfg(test)]
@@ -1228,11 +1295,11 @@ mod tests {
         };
 
         let expr_add0 = WithTokenSpan {
-            item: Expression::Binary(
+            item: ConditionalExpression::Simple(Expression::Binary(
                 WithToken::new(WithRef::new(Operator::Plus), code.s("+", 2).token()),
                 Box::new(two),
                 Box::new(three),
-            ),
+            )),
             span: code.s1("2 + 3").token_span(),
         };
 
@@ -1273,11 +1340,11 @@ mod tests {
         };
 
         let expr_add0 = WithTokenSpan {
-            item: Expression::Binary(
+            item: ConditionalExpression::Simple(Expression::Binary(
                 WithToken::new(WithRef::new(Operator::Plus), code.s("+", 1).token()),
                 Box::new(one),
                 Box::new(two),
-            ),
+            )),
             span: code.s1("1 + 2").token_span(),
         };
 
@@ -1328,11 +1395,37 @@ mod tests {
                 }
             },
             Expression::Parenthesized(ref expr) => {
-                format!("({})", fmt(ctx, expr))
+                format!("({})", fmt_conditional(ctx, expr))
             }
             _ => {
                 println!("{}", expr.pos(ctx).code_context());
                 panic!("Cannot format {expr:?}");
+            }
+        }
+    }
+
+    fn fmt_conditional(
+        ctx: &dyn TokenAccess,
+        expr: &WithTokenSpan<ConditionalExpression>,
+    ) -> String {
+        match &expr.item {
+            ConditionalExpression::Simple(inner) => {
+                fmt(ctx, &WithTokenSpan::new(inner.clone(), expr.span))
+            }
+            ConditionalExpression::Conditional(conditionals) => {
+                let mut parts = Vec::new();
+                for conditional in &conditionals.conditionals {
+                    parts.push(format!(
+                        "{} when {}",
+                        fmt(ctx, &conditional.item),
+                        fmt(ctx, &conditional.condition)
+                    ));
+                }
+                let mut result = parts.join(" else ");
+                if let Some((else_item, _)) = &conditionals.else_item {
+                    result = format!("{result} else {}", fmt(ctx, else_item));
+                }
+                result
             }
         }
     }
@@ -1420,5 +1513,72 @@ mod tests {
         );
 
         assert_expression_is("and 1 + 2", "((And Integer(1)) Plus Integer(2))");
+    }
+
+    /// Like [assert_expression_is] but parses using the VHDL 2019 standard
+    fn assert_expression_is_2019(code: &str, expr_str: &str) {
+        let code = Code::with_standard(code, VHDLStandard::VHDL2019);
+        let ctx = code.tokenize();
+        assert_eq!(fmt(&ctx, &code.with_stream(parse_expression)), expr_str);
+    }
+
+    #[test]
+    fn parses_parenthesized_conditional_expression() {
+        assert_expression_is_2019(
+            "(1 when 0 else 2)",
+            "(Integer(1) when Integer(0) else Integer(2))",
+        );
+    }
+
+    #[test]
+    fn parses_parenthesized_conditional_expression_multiple_alternatives() {
+        assert_expression_is_2019(
+            "(1 when 0 else 2 when 3 else 4)",
+            "(Integer(1) when Integer(0) else Integer(2) when Integer(3) else Integer(4))",
+        );
+    }
+
+    #[test]
+    fn parse_conditional_expression_is_simple_without_when() {
+        let code = Code::with_standard("1 + 2", VHDLStandard::VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_conditional_expression),
+            code.s1("1 + 2").cond_expr()
+        );
+    }
+
+    #[test]
+    fn parse_conditional_expression_before_2019_does_not_consume_when() {
+        // Before VHDL 2019 the `when` is not part of a conditional expression, so only the
+        // leading expression is consumed and the `when ...` tail is left in the stream.
+        let code = Code::with_standard("1 when 0 else 2", VHDLStandard::VHDL2008);
+        assert_eq!(
+            code.with_partial_stream(parse_conditional_expression),
+            Ok(code.s1("1").cond_expr())
+        );
+    }
+
+    #[test]
+    fn parse_conditional_expression_with_alternatives() {
+        let code = Code::with_standard("1 when a else 2 when b else 3", VHDLStandard::VHDL2019);
+        assert_eq!(
+            code.with_stream(parse_conditional_expression),
+            WithTokenSpan::new(
+                ConditionalExpression::Conditional(Box::new(Conditionals {
+                    conditionals: vec![
+                        Conditional {
+                            condition: code.s1("a").expr(),
+                            item: code.s1("1").expr(),
+                        },
+                        Conditional {
+                            condition: code.s1("b").expr(),
+                            item: code.s1("2").expr(),
+                        },
+                    ],
+                    else_item: Some((code.s1("3").expr(), code.s("else", 2).token())),
+                })),
+                code.token_span(),
+            )
+        );
     }
 }
