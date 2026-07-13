@@ -57,7 +57,7 @@ mod tests {
     use crate::ast::Declaration;
     use crate::syntax::declarative_part::parse_declarative_part;
     use crate::syntax::test::check_diagnostics;
-    use vhdl_lang::ast::{ConditionalExpression, ObjectClass, ObjectDeclaration};
+    use vhdl_lang::ast::{ObjectClass, ObjectDeclaration};
     use vhdl_lang::Diagnostic;
 
     #[test]

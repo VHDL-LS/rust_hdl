@@ -189,7 +189,7 @@ pub fn parse_declarative_part(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{ConditionalExpression, ObjectClass, ObjectDeclaration};
+    use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, Code};
     use crate::VHDLStandard::VHDL2019;
