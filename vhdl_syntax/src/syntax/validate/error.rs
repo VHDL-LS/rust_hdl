@@ -4,41 +4,74 @@
 //
 // Copyright (c)  2026, Lukas Scheller lukasscheller@icloud.com
 
-//! Error types produced by [structural validation](super::check).
+//! Error types produced by [structural validation](super::validator).
 
 use crate::syntax::meta::{LayoutItem, LayoutItemKind};
 use crate::syntax::node::{SyntaxElement, SyntaxNode};
 use std::fmt;
 
+#[derive(Clone, Debug)]
+pub enum Validation {
+    Missing(Missing),
+    Extraneous(SyntaxElement),
+}
+
+fn format_expected(expected: &LayoutItem, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match expected.kind {
+        LayoutItemKind::Token(token_kind) => write!(f, "{token_kind:?}"),
+        LayoutItemKind::Node(node_kind) => write!(f, "{node_kind:?}"),
+        LayoutItemKind::NodeChoice(node_kinds) => write!(f, "one of {node_kinds:?}"),
+        LayoutItemKind::TokenChoice(token_kinds) => write!(f, "one of {token_kinds:?}"),
+    }
+}
+
+impl fmt::Display for Validation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Validation::Missing(missing) => {
+                write!(f, "{}: missing ", missing.offset(),)?;
+                format_expected(&missing.expected, f)
+            }
+            Validation::Extraneous(child) => {
+                write!(
+                    f,
+                    "{}-{}: extraneous element",
+                    child.offset(),
+                    child.offset() + child.byte_len()
+                )
+            }
+        }
+    }
+}
+
 /// The ways in which a tree diverges from its declared [`Layout`](crate::syntax::meta::Layout).
 ///
-/// A non-empty `ValidationError` always has at least one missing or extraneous
-/// element. The two categories are kept apart because they call for different
-/// fixes: a `missing` item wants something inserted, an `extraneous` element
-/// wants something removed.
+/// A non-empty `ValidationError` holds at least one [`Validation`] finding.
+/// Each finding is either a `Missing` item (something the layout expected but
+/// the tree did not provide — wants an insertion) or an `Extraneous` element
+/// (a child no layout item accepts — wants a removal).
 #[derive(Clone, Debug, Default)]
-pub struct ValidationError {
-    /// Required items that were expected by the layout but never matched a child.
-    missing: Vec<Missing>,
-    /// Children present in the tree that no layout item accepts.
-    extraneous: Vec<SyntaxElement>,
-}
+pub struct ValidationError(Vec<Validation>);
 
 impl ValidationError {
     pub(crate) fn new() -> ValidationError {
         ValidationError::default()
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.missing.is_empty() && self.extraneous.is_empty()
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     pub(crate) fn push_missing(&mut self, missing: Missing) {
-        self.missing.push(missing);
+        self.0.push(Validation::Missing(missing));
     }
 
     pub(crate) fn push_extraneous(&mut self, extraneous: SyntaxElement) {
-        self.extraneous.push(extraneous);
+        self.0.push(Validation::Extraneous(extraneous));
     }
 
     pub(crate) fn into_result(self) -> Result<(), Self> {
@@ -49,24 +82,14 @@ impl ValidationError {
         }
     }
 
-    /// Items expected by the layout but missing from the tree.
-    pub fn missing(&self) -> &[Missing] {
-        &self.missing
-    }
-
-    /// Children present in the tree that no layout item accepts.
-    pub fn extraneous(&self) -> &[SyntaxElement] {
-        &self.extraneous
+    pub fn items(&self) -> &[Validation] {
+        &self.0
     }
 }
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.missing.len(), self.extraneous.len()) {
-            (m, 0) => write!(f, "{m} missing element(s)"),
-            (0, e) => write!(f, "{e} extraneous element(s)"),
-            (m, e) => write!(f, "{m} missing and {e} extraneous element(s)"),
-        }
+        write!(f, "{} validation error(s)", self.0.len())
     }
 }
 
@@ -115,5 +138,11 @@ impl Missing {
     /// The layout item's declared name (a human-readable field label).
     pub fn name(&self) -> &'static str {
         self.expected.name
+    }
+
+    pub fn offset(&self) -> usize {
+        self.previous
+            .as_ref()
+            .map_or(0, |el| el.offset() + el.byte_len())
     }
 }

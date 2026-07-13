@@ -7,9 +7,9 @@
 //! Structural validation of a syntax tree against the generated
 //! [`Layout`](crate::syntax::meta::Layout) meta.
 //!
-//! [`check`] walks the tree and reports, per node, any child that no layout
-//! item accepts ([`extraneous`](ValidationError::extraneous)) and any required
-//! item that no child satisfied ([`missing`](ValidationError::missing)).
+//! [`SyntaxNode::validate`] walks the tree and reports, per node, any child that no layout
+//! item accepts ([`Extraneous`](error::Validation::Extraneous)) and any required
+//! item that no child satisfied ([`Missing`](error::Validation::Missing)).
 
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::validate::validator::check_node;
@@ -45,6 +45,7 @@ mod tests {
     use crate::syntax::meta::LayoutItemKind;
     use crate::syntax::node::{SyntaxElement, SyntaxNode};
     use crate::syntax::node_kind::NodeKind;
+    use crate::syntax::validate::error::Validation;
     use crate::syntax::AstNode;
     use crate::tokens::{Keyword, Token, TokenKind, Trivia};
 
@@ -133,30 +134,30 @@ end entity foo;
         let node = build_preamble([tok(TokenKind::Keyword(Keyword::Entity), b"entity")]);
         let err = node.validate().unwrap_err();
 
-        assert_eq!(err.missing().len(), 2);
-        assert_eq!(err.extraneous().len(), 0);
+        assert_eq!(err.len(), 2);
 
-        // First missing: the entity-name identifier.
-        assert!(matches!(
-            err.missing()[0].kind(),
-            LayoutItemKind::Token(TokenKind::Identifier)
-        ));
-        // The entity keyword was the last consumed element before the gap.
-        assert!(err.missing()[0].previous().is_some());
-        assert_eq!(
-            err.missing()[0].parent().kind(),
-            NodeKind::EntityDeclarationPreamble
-        );
+        match &err.items()[0] {
+            Validation::Missing(missing) => {
+                assert!(matches!(
+                    missing.kind(),
+                    LayoutItemKind::Token(TokenKind::Identifier)
+                ));
+                assert!(missing.previous().is_some());
+                assert_eq!(missing.parent().kind(), NodeKind::EntityDeclarationPreamble);
+            }
+            _ => panic!("Expected missing"),
+        };
 
-        // Second missing: the 'is' keyword.
-        assert!(matches!(
-            err.missing()[1].kind(),
-            LayoutItemKind::Token(TokenKind::Keyword(Keyword::Is))
-        ));
-        assert_eq!(
-            err.missing()[1].parent().kind(),
-            NodeKind::EntityDeclarationPreamble
-        );
+        match &err.items()[1] {
+            Validation::Missing(missing) => {
+                assert!(matches!(
+                    missing.kind(),
+                    LayoutItemKind::Token(TokenKind::Keyword(Keyword::Is))
+                ));
+                assert_eq!(missing.parent().kind(), NodeKind::EntityDeclarationPreamble);
+            }
+            _ => panic!("Expected missing"),
+        };
     }
 
     #[test]
@@ -170,13 +171,18 @@ end entity foo;
 
         let err = node.validate().unwrap_err();
 
-        assert_eq!(err.missing().len(), 1);
-        assert!(matches!(
-            err.missing()[0].kind(),
-            LayoutItemKind::Token(TokenKind::SemiColon)
-        ));
-        // 'end' was consumed before the missing ';'.
-        assert!(err.missing()[0].previous().is_some());
+        assert_eq!(err.len(), 1);
+        match &err.items()[0] {
+            Validation::Missing(missing) => {
+                assert!(matches!(
+                    missing.kind(),
+                    LayoutItemKind::Token(TokenKind::SemiColon)
+                ));
+                // 'end' was consumed before the missing ';'.
+                assert!(missing.previous().is_some());
+            }
+            _ => panic!("Expected missing"),
+        }
     }
 
     // --- extraneous-element test ---
@@ -192,9 +198,13 @@ end entity foo;
         ]);
         let err = node.validate().unwrap_err();
 
-        assert_eq!(err.missing().len(), 0);
-        assert_eq!(err.extraneous().len(), 1);
-        assert!(matches!(err.extraneous()[0], SyntaxElement::Token(_)));
+        assert_eq!(err.len(), 1);
+        match &err.items()[0] {
+            Validation::Extraneous(extraneous) => {
+                assert!(matches!(extraneous, SyntaxElement::Token(_)));
+            }
+            _ => panic!("Expected extraneous"),
+        }
     }
 
     // --- recursive propagation test ---
@@ -224,13 +234,20 @@ end entity foo;
         let err = entity.validate().unwrap_err();
 
         // The two missing items from the preamble must bubble up through the walk.
-        assert_eq!(err.missing().len(), 2);
-        assert_eq!(err.extraneous().len(), 0);
-        // The errors are attributed to the child (preamble), not the entity root.
-        assert_eq!(
-            err.missing()[0].parent().kind(),
-            NodeKind::EntityDeclarationPreamble
-        );
+        assert_eq!(err.len(), 2);
+        match &err.items()[0] {
+            Validation::Missing(missing) => {
+                // The errors are attributed to the child (preamble), not the entity root.
+                assert_eq!(missing.parent().kind(), NodeKind::EntityDeclarationPreamble);
+            }
+            _ => panic!("Expected missing"),
+        }
+        match &err.items()[1] {
+            Validation::Missing(missing) => {
+                assert_eq!(missing.parent().kind(), NodeKind::EntityDeclarationPreamble);
+            }
+            _ => panic!("Expected missing"),
+        }
     }
 
     #[test]
@@ -241,30 +258,38 @@ end entity foo;
         let node = build_preamble([tok(TokenKind::Identifier, b"foo")]);
         let err = node.validate().unwrap_err();
 
-        assert_eq!(err.missing().len(), 2);
+        assert_eq!(err.len(), 2);
 
         // First gap: 'entity' keyword, nothing consumed before it.
-        let first = &err.missing()[0];
-        assert!(matches!(
-            first.kind(),
-            LayoutItemKind::Token(TokenKind::Keyword(Keyword::Entity))
-        ));
-        assert_eq!(first.parent().kind(), NodeKind::EntityDeclarationPreamble);
-        assert!(first.previous().is_none());
+        match &err.items()[0] {
+            Validation::Missing(first) => {
+                assert!(matches!(
+                    first.kind(),
+                    LayoutItemKind::Token(TokenKind::Keyword(Keyword::Entity))
+                ));
+                assert_eq!(first.parent().kind(), NodeKind::EntityDeclarationPreamble);
+                assert!(first.previous().is_none());
+            }
+            _ => panic!("Expected missing"),
+        }
 
         // Second gap: 'is' keyword, the identifier was the last consumed token.
-        let second = &err.missing()[1];
-        assert!(matches!(
-            second.kind(),
-            LayoutItemKind::Token(TokenKind::Keyword(Keyword::Is))
-        ));
-        assert_eq!(second.parent().kind(), NodeKind::EntityDeclarationPreamble);
-        match second
-            .previous()
-            .expect("previous should be the identifier token")
-        {
-            SyntaxElement::Token(t) => assert_eq!(t.kind(), TokenKind::Identifier),
-            other => panic!("expected the identifier token, got {other:?}"),
+        match &err.items()[1] {
+            Validation::Missing(second) => {
+                assert!(matches!(
+                    second.kind(),
+                    LayoutItemKind::Token(TokenKind::Keyword(Keyword::Is))
+                ));
+                assert_eq!(second.parent().kind(), NodeKind::EntityDeclarationPreamble);
+                match second
+                    .previous()
+                    .expect("previous should be the identifier token")
+                {
+                    SyntaxElement::Token(t) => assert_eq!(t.kind(), TokenKind::Identifier),
+                    other => panic!("expected the identifier token, got {other:?}"),
+                }
+            }
+            _ => panic!("Expected missing"),
         }
     }
 }

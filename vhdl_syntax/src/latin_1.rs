@@ -603,7 +603,7 @@ impl Latin1Str {
     /// The caller must guarantee that every byte in `self` is < 0x80
     /// (i.e. pure ASCII).
     ///
-    /// In safe code, guard the call with [`Latin1Str::is_ascii`].
+    /// In safe code, guard the call with [`Latin1Str::is_utf8`].
     pub unsafe fn to_str_unchecked(&self) -> &str {
         debug_assert!(
             self.is_utf8(),

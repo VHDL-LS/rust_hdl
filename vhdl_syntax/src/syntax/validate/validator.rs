@@ -13,7 +13,7 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::validate::error::{Missing, ValidationError};
 
 /// Check a single node against its declared layout, recording any divergence in
-/// `err`. Does not recurse; [`super::check`] walks the whole tree.
+/// `err`. Does not recurse; [`SyntaxNode::validate`] walks the whole tree.
 pub(crate) fn check_node(node: &SyntaxNode, err: &mut ValidationError) {
     match layout_of(node.kind()) {
         Layout::Sequence(seq) => {
