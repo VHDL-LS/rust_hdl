@@ -25,7 +25,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate AST node code from YAML grammar definitions
+    /// Generate AST node code from the ungrammar grammar definition
     Codegen {
         /// Check that generated files are up-to-date; exit 1 if any differ
         #[arg(long)]

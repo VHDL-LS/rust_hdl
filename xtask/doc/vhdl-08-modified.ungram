@@ -1,8 +1,8 @@
 // The VHDL syntax as actually modelled by `vhdl_syntax`, in ungrammar form.
 //
-// Migrated verbatim from the YAML syntax definitions in
-// `xtask/src/syntax_definitions/*.yaml`. Where ungrammar would allow a more
-// succinct formulation, the YAML shape is preserved instead.
+// This is the input to `cargo xtask codegen`, which generates
+// `vhdl_syntax/src/syntax/generated/` from it. `vhdl-08.ungram` next to this
+// file is the unmodified LRM grammar, kept for comparison.
 //
 // Legend:
 //
@@ -15,7 +15,7 @@
 // A*            -- zero or more repetition
 // A?            -- zero or one repetition
 // (A)           -- same as A
-// label:A       -- named occurrence (`name:` in the YAML)
+// label:A       -- named occurrence (renames the generated accessor)
 //==============================================================================
 // § 11: Concurrent Statements
 //==============================================================================
@@ -867,10 +867,10 @@ NameTail =
 //==============================================================================
 // Currently, PSL is not supported, but will produce some tokens.
 //
-// The following nodes are empty sequences (`!Sequence [ ]`) in the YAML. An
-// ungrammar rule body must contain at least one item, so they cannot be written
-// here; `add_empty_psl_nodes` in `xtask/src/model/mod.rs` patches them into the
-// model instead, together with the choice alternatives referencing them.
+// The following nodes are empty sequences. An ungrammar rule body must contain
+// at least one item, so they cannot be written here; `add_empty_psl_nodes` in
+// `xtask/src/model/mod.rs` patches them into the model instead, together with
+// the choice alternatives referencing them.
 //
 //   PslDirective           = <empty>   -- alternative of ConcurrentStatement
 //   PslPropertyDeclaration = <empty>   -- alternative of Declaration

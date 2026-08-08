@@ -262,7 +262,7 @@ impl Model {
         empty_capable
     }
 
-    /// Checks that every sequence node that can produce empty output is marked `optional: true`
+    /// Checks that every sequence node that can produce empty output is marked optional (`?`)
     /// at every non-repeated use site.
     ///
     /// The syntax tree silently drops empty nodes, so a required reference to an empty-capable
@@ -270,11 +270,11 @@ impl Model {
     /// declare it as optional.
     pub fn check_empty_capable_nodes_marked_optional(&self) {
         // Known limitation: the model has no "one-or-more" (required-non-empty list) concept.
-        // A node whose items are all `repeated: true` (e.g. NameList, PartialPathname) is
-        // structurally empty-capable even when the VHDL grammar guarantees ≥1 element at that
-        // use site. Such nodes must still be marked `optional: true` in the YAML so that their
-        // accessor returns `Option<T>` rather than causing a model inconsistency. The semantic
-        // "must be present" constraint is enforced by the parser and the analysis layer.
+        // A node whose items are all repeated (e.g. NameList, PartialPathname) is structurally
+        // empty-capable even when the VHDL grammar guarantees ≥1 element at that use site. Such
+        // nodes must still be marked optional (`?`) in the grammar so that their accessor returns
+        // `Option<T>` rather than causing a model inconsistency. The semantic "must be present"
+        // constraint is enforced by the parser and the analysis layer.
         let empty_capable = self.compute_empty_capable_nodes();
         let mut violations: Vec<(String, String)> = vec![];
         for node in self.all_nodes() {
@@ -292,13 +292,11 @@ impl Model {
             }
         }
         if !violations.is_empty() {
-            println!(
-                "The following nodes can produce empty output but are used without `optional: true`:"
-            );
+            println!("The following nodes can produce empty output but are used without `?`:");
             for (parent, child) in &violations {
                 println!("  {child} in {parent}");
             }
-            panic!("fix the violations above by adding `optional: true` to each listed node reference in the YAML definitions");
+            panic!("fix the violations above by appending `?` to each listed node reference in the grammar definition");
         }
     }
 
@@ -434,11 +432,11 @@ impl Model {
     /// Automatically marks required (non-optional, non-repeated) inner node references as
     /// `optional` when the referenced node is empty-capable.
     ///
-    /// This is needed for auto-generated wrapper nodes (e.g. `SemiColonTerminatedBindingIndication`
-    /// from `terminated: SemiColon`, or `ParenthesizedInterfaceList` from `parenthesized: true`)
-    /// that are created programmatically without knowledge of whether their inner node is
-    /// empty-capable. These wrappers always have a canonical delimiter token, so marking the inner
-    /// node as optional does not make the wrapper itself empty-capable.
+    /// This spares the grammar from spelling out `?` on wrapper nodes whose sole purpose is to
+    /// attach a delimiter to an inner node (e.g. `SemiColonTerminatedBindingIndication` or
+    /// `ParenthesizedInterfaceList`), where whether the inner node is empty-capable is a
+    /// non-local property. These wrappers always have a canonical delimiter token, so marking the
+    /// inner node as optional does not make the wrapper itself empty-capable.
     pub fn fixup_empty_capable_optional_markers(&mut self) {
         let empty_capable = self.compute_empty_capable_nodes();
         for node in self.nodes.iter_mut() {
@@ -609,7 +607,7 @@ mod tests {
 
     /// A required use of an empty-capable node must trigger the check.
     #[test]
-    #[should_panic(expected = "optional: true")]
+    #[should_panic(expected = "appending `?`")]
     fn check_empty_capable_required_use_panics() {
         let mut model = Model::default();
         // Leaf: all-optional → empty-capable

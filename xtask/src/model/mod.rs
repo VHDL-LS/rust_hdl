@@ -47,9 +47,9 @@ const EMPTY_PSL_NODES: [(&str, &str); 4] = [
 
 /// Adds the empty PSL placeholder nodes and their use sites to the model.
 ///
-/// These are `!Sequence [ ]` in the YAML definitions, but an ungrammar rule body must contain
-/// at least one item, so they cannot be written in the `.ungram` file and are patched in here
-/// instead. Every other PSL node is expressible in ungrammar and lives in the grammar file.
+/// These are empty sequences, but an ungrammar rule body must contain at least one item, so
+/// they cannot be written in the `.ungram` file and are patched in here instead. Every other
+/// PSL node is expressible in ungrammar and lives in the grammar file.
 ///
 /// Must run before [`Model::fixup_empty_capable_optional_markers`]: an empty node is
 /// empty-capable, which makes the choice nodes above empty-capable too.
