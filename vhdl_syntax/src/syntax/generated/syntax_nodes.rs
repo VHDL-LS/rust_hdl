@@ -3428,7 +3428,7 @@ impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
                 kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: true,
                 name: "semi_colon_terminated_verification_unit_binding_indications",
                 kind: LayoutItemKind::Node(
