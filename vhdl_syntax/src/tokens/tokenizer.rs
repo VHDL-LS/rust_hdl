@@ -301,7 +301,7 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
                 self.based_integer(buf);
                 if self.skip_if_eq(b'.') {
                     buf.push(b'.');
-                    self.integer(buf);
+                    self.based_integer(buf);
                 }
                 if self.skip_if_eq(ch) {
                     buf.push(ch);
@@ -1032,6 +1032,23 @@ my_other_ident"
         assert_eq!(
             "3#3#".tokenize_kind_value_one(),
             (AbstractLiteral, "3#3#".to_string())
+        );
+    }
+
+    #[test]
+    fn tokenize_based_real() {
+        // The fractional part may contain extended digits (letters), not only 0-9
+        assert_eq!(
+            "16#ff.ff#E1".tokenize_kind_value_one(),
+            (AbstractLiteral, "16#ff.ff#E1".to_string())
+        );
+        assert_eq!(
+            "2#1.1#".tokenize_kind_value_one(),
+            (AbstractLiteral, "2#1.1#".to_string())
+        );
+        assert_eq!(
+            "16#F.8#e-1".tokenize_kind_value_one(),
+            (AbstractLiteral, "16#F.8#e-1".to_string())
         );
     }
 

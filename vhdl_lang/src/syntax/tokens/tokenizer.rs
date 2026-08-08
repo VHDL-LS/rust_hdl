@@ -1397,18 +1397,41 @@ fn parse_abstract_literal(
             }
         }
 
-        // Based integer
+        // Based integer or based real
+        // based_literal ::= base # based_integer [ . based_integer ] # [ exponent ]
         Some(b'#') => {
             let (base, mut base_text) = initial?;
             base_text.push(b'#');
             reader.skip();
             let base_result = parse_integer(reader, base, false);
 
+            // An optional fractional part turns this into a based real literal
+            let fraction_result = if let Some(b'.') = reader.peek()? {
+                reader.skip();
+                Some(parse_integer(reader, base, false))
+            } else {
+                None
+            };
+
             if let Some(b'#') = reader.peek()? {
                 reader.skip();
                 let (integer, mut int_text) = base_result?;
                 base_text.append(&mut int_text);
+
+                let fraction = match fraction_result {
+                    Some(res) => {
+                        let (frac, mut frac_text) = res?;
+                        // The scale is the number of extended digits (underlines excluded)
+                        let ndigits =
+                            frac_text.bytes.iter().filter(|&&b| b != b'_').count() as i32;
+                        base_text.push(b'.');
+                        base_text.append(&mut frac_text);
+                        Some((frac, ndigits))
+                    }
+                    None => None,
+                };
                 base_text.push(b'#');
+
                 if !(2..=16).contains(&base) {
                     return Err(TokenError::range(
                         state.pos(),
@@ -1416,39 +1439,59 @@ fn parse_abstract_literal(
                         format!("Base must be at least 2 and at most 16, got {base}"),
                     ));
                 }
-                // Optional exponent: value is base ** exp, per LRM 15.5.3
-                let value = if matches!(reader.peek()?, Some(b'e' | b'E')) {
+
+                // Optional exponent: value is multiplied by base ** exp, per LRM 15.5.3
+                let exponent = if matches!(reader.peek()?, Some(b'e' | b'E')) {
                     base_text.push(reader.peek()?.unwrap());
                     reader.skip();
                     let (exp, mut exp_text) = parse_exponent(reader)?;
                     base_text.append(&mut exp_text);
-                    if exp < 0 {
-                        return Err(TokenError::range(
-                            state.pos(),
-                            reader.pos(),
-                            "Integer literals may not have negative exponent",
-                        ));
-                    }
-                    match base
-                        .checked_pow(exp as u32)
-                        .and_then(|x| x.checked_mul(integer))
-                    {
-                        Some(v) => v,
-                        None => {
-                            return Err(TokenError::range(
-                                state.pos(),
-                                reader.pos(),
-                                "Integer too large for 64-bit unsigned",
-                            ));
-                        }
-                    }
+                    Some(exp)
                 } else {
-                    integer
+                    None
                 };
-                Ok((
-                    AbstractLiteral,
-                    Value::AbstractLiteral(base_text, ast::AbstractLiteral::Integer(value)),
-                ))
+
+                if let Some((frac, ndigits)) = fraction {
+                    // Based real literal
+                    let mantissa = integer as f64 + frac as f64 / (base as f64).powi(ndigits);
+                    let real = mantissa * (base as f64).powi(exponent.unwrap_or(0));
+                    Ok((
+                        AbstractLiteral,
+                        Value::AbstractLiteral(base_text, ast::AbstractLiteral::Real(real)),
+                    ))
+                } else {
+                    // Based integer literal; a fractional part is required for a
+                    // negative exponent (LRM 15.5.3)
+                    let value = match exponent {
+                        Some(exp) => {
+                            if exp < 0 {
+                                return Err(TokenError::range(
+                                    state.pos(),
+                                    reader.pos(),
+                                    "Integer literals may not have negative exponent",
+                                ));
+                            }
+                            match base
+                                .checked_pow(exp as u32)
+                                .and_then(|x| x.checked_mul(integer))
+                            {
+                                Some(v) => v,
+                                None => {
+                                    return Err(TokenError::range(
+                                        state.pos(),
+                                        reader.pos(),
+                                        "Integer too large for 64-bit unsigned",
+                                    ));
+                                }
+                            }
+                        }
+                        None => integer,
+                    };
+                    Ok((
+                        AbstractLiteral,
+                        Value::AbstractLiteral(base_text, ast::AbstractLiteral::Integer(value)),
+                    ))
+                }
             } else {
                 Err(TokenError::range(
                     state.pos(),
@@ -2828,6 +2871,68 @@ my_other_ident",
                 Value::AbstractLiteral(
                     Latin1String::new(b"16#FF#E0"),
                     ast::AbstractLiteral::Integer(255)
+                )
+            ),]
+        );
+    }
+
+    #[test]
+    fn tokenize_based_real() {
+        // LRM 15.5.3 based_literal ::= base # based_integer [ . based_integer ] # [ exponent ]
+        assert_eq!(
+            kind_value_tokenize("2#1.1#"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2#1.1#"),
+                    ast::AbstractLiteral::Real(1.5)
+                )
+            ),]
+        );
+        assert_eq!(
+            kind_value_tokenize("16#F.8#"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"16#F.8#"),
+                    ast::AbstractLiteral::Real(15.5)
+                )
+            ),]
+        );
+        // Example from the issue / LRM: 16#ff.ff#E1 == 4095.9375
+        assert_eq!(
+            kind_value_tokenize("16#ff.ff#E1"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"16#ff.ff#E1"),
+                    ast::AbstractLiteral::Real(4095.9375)
+                )
+            ),]
+        );
+    }
+
+    #[test]
+    fn tokenize_based_real_with_exponent() {
+        // Exponent is a power of the base (LRM 15.5.3)
+        assert_eq!(
+            kind_value_tokenize("2#0.1#e2"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2#0.1#e2"),
+                    ast::AbstractLiteral::Real(2.0)
+                )
+            ),]
+        );
+        // Unlike based integers, based reals may have a negative exponent
+        assert_eq!(
+            kind_value_tokenize("2#1.0#e-1"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(
+                    Latin1String::new(b"2#1.0#e-1"),
+                    ast::AbstractLiteral::Real(0.5)
                 )
             ),]
         );
