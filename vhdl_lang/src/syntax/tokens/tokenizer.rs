@@ -1422,8 +1422,7 @@ fn parse_abstract_literal(
                     Some(res) => {
                         let (frac, mut frac_text) = res?;
                         // The scale is the number of extended digits (underlines excluded)
-                        let ndigits =
-                            frac_text.bytes.iter().filter(|&&b| b != b'_').count() as i32;
+                        let ndigits = frac_text.bytes.iter().filter(|&&b| b != b'_').count() as i32;
                         base_text.push(b'.');
                         base_text.append(&mut frac_text);
                         Some((frac, ndigits))
