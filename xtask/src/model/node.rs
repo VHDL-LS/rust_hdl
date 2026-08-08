@@ -6,7 +6,7 @@
 
 use crate::model::token::Token;
 use convert_case::{Case, Casing};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TokenOrNode {
@@ -150,14 +150,14 @@ pub struct ChoiceNode {
 
 #[derive(Debug, Default)]
 pub struct Model {
-    pub(crate) sections: HashMap<String, Vec<Node>>,
+    pub(crate) nodes: Vec<Node>,
     pub(crate) builtins: HashSet<String>,
     /// Set of node kinds whose choices are all tokens.
     pub(crate) token_choice_kinds: HashSet<String>,
 }
 
 impl Model {
-    pub fn push_node(&mut self, section: String, node: impl Into<Node>) {
+    pub fn push_node(&mut self, node: impl Into<Node>) {
         let new_node = node.into();
         if let Some(old_node) = self.all_nodes().find(|node| node.name() == new_node.name()) {
             assert_eq!(
@@ -168,15 +168,15 @@ impl Model {
             );
             return;
         }
-        self.sections.entry(section).or_default().push(new_node);
+        self.nodes.push(new_node);
     }
 
     pub fn push_builtin(&mut self, node: String) {
         self.builtins.insert(node);
     }
 
-    pub fn sections(&self) -> &HashMap<String, Vec<Node>> {
-        &self.sections
+    pub fn nodes(&self) -> &[Node] {
+        &self.nodes
     }
 
     /// Returns true if the given node kind is a choice node whose choices are all tokens.
@@ -291,45 +291,38 @@ impl Model {
     }
 
     pub fn check_no_duplicates(&self) {
-        for (section, nodes) in &self.sections {
-            for node in nodes {
-                let mut seen = HashSet::new();
-                match node {
-                    Node::Items(seq_node) => {
-                        for item in &seq_node.items {
+        for node in self.all_nodes() {
+            let mut seen = HashSet::new();
+            match node {
+                Node::Items(seq_node) => {
+                    for item in &seq_node.items {
+                        let name = item.getter_name();
+                        if seen.contains(&name) {
+                            panic!("Duplicate node {} in node {}", name, node.name())
+                        }
+                        seen.insert(name);
+                    }
+                }
+                Node::Choices(choices_node) => match &choices_node.items {
+                    NodesOrTokens::Nodes(nodes) => {
+                        for item in nodes {
                             let name = item.getter_name();
                             if seen.contains(&name) {
-                                panic!(
-                                    "Duplicate node {} in node {} (section {})",
-                                    name,
-                                    node.name(),
-                                    section
-                                )
+                                panic!("Duplicate node {} in node {}", name, node.name())
                             }
                             seen.insert(name);
                         }
                     }
-                    Node::Choices(choices_node) => match &choices_node.items {
-                        NodesOrTokens::Nodes(nodes) => {
-                            for item in nodes {
-                                let name = item.getter_name();
-                                if seen.contains(&name) {
-                                    panic!("Duplicate node {} in node {}", name, node.name())
-                                }
-                                seen.insert(name);
+                    NodesOrTokens::Tokens(tokens) => {
+                        for item in tokens {
+                            let name = item.getter_name();
+                            if seen.contains(&name) {
+                                panic!("Duplicate node {} in node {}", name, node.name())
                             }
+                            seen.insert(name);
                         }
-                        NodesOrTokens::Tokens(tokens) => {
-                            for item in tokens {
-                                let name = item.getter_name();
-                                if seen.contains(&name) {
-                                    panic!("Duplicate node {} in node {}", name, node.name())
-                                }
-                                seen.insert(name);
-                            }
-                        }
-                    },
-                }
+                    }
+                },
             }
         }
     }
@@ -436,17 +429,15 @@ impl Model {
     /// node as optional does not make the wrapper itself empty-capable.
     pub fn fixup_empty_capable_optional_markers(&mut self) {
         let empty_capable = self.compute_empty_capable_nodes();
-        for section in self.sections.values_mut() {
-            for node in section.iter_mut() {
-                if let Node::Items(seq) = node {
-                    for item in &mut seq.items {
-                        if let TokenOrNode::Node(node_ref) = item {
-                            if !node_ref.optional
-                                && !node_ref.repeated
-                                && empty_capable.contains(&node_ref.kind)
-                            {
-                                node_ref.optional = true;
-                            }
+        for node in self.nodes.iter_mut() {
+            if let Node::Items(seq) = node {
+                for item in &mut seq.items {
+                    if let TokenOrNode::Node(node_ref) = item {
+                        if !node_ref.optional
+                            && !node_ref.repeated
+                            && empty_capable.contains(&node_ref.kind)
+                        {
+                            node_ref.optional = true;
                         }
                     }
                 }
@@ -456,7 +447,7 @@ impl Model {
 
     fn collect_referenced_nodes(&self) -> HashSet<String> {
         let mut referenced = HashSet::new();
-        for node in self.sections.values().flatten() {
+        for node in self.all_nodes() {
             match node {
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
@@ -489,7 +480,7 @@ impl Model {
     }
 
     pub fn all_nodes(&self) -> impl Iterator<Item = &Node> {
-        self.sections.values().flatten()
+        self.nodes.iter()
     }
 }
 
@@ -507,7 +498,7 @@ mod tests {
                 Token::from(crate::model::token::TokenKind::NE),
             ]),
         };
-        model.push_node("test".to_string(), Node::Choices(choice));
+        model.push_node(Node::Choices(choice));
         // Add a sequence node that references the choice node
         let seq = SequenceNode::new(
             "DesignFile",
@@ -520,7 +511,7 @@ mod tests {
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model
     }
@@ -571,8 +562,8 @@ mod tests {
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(list));
-        model.push_node("test".to_string(), Node::Items(root));
+        model.push_node(Node::Items(list));
+        model.push_node(Node::Items(root));
         model.do_postprocessing();
 
         let empty_capable = model.compute_empty_capable_nodes();
@@ -597,7 +588,7 @@ mod tests {
             "DesignFile",
             vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
         let empty_capable = model.compute_empty_capable_nodes();
@@ -636,8 +627,8 @@ mod tests {
                 optional: false, // ← violation
             })],
         );
-        model.push_node("test".to_string(), Node::Items(leaf));
-        model.push_node("test".to_string(), Node::Items(root));
+        model.push_node(Node::Items(leaf));
+        model.push_node(Node::Items(root));
         model.do_postprocessing();
         model.check_empty_capable_nodes_marked_optional();
     }
@@ -668,8 +659,8 @@ mod tests {
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(leaf));
-        model.push_node("test".to_string(), Node::Items(root));
+        model.push_node(Node::Items(leaf));
+        model.push_node(Node::Items(root));
         model.do_postprocessing();
         model.check_empty_capable_nodes_marked_optional(); // must not panic
     }
@@ -686,7 +677,7 @@ mod tests {
                 TokenOrNode::Token(Token::from(crate::model::token::TokenKind::EQ)),
             ],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.check_no_duplicates();
     }
 }

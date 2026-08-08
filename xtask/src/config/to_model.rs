@@ -9,39 +9,35 @@ use crate::model::token::Keyword;
 use crate::model::{ChoiceNode, Model, Node, NodeRef, SequenceNode, Token, TokenKind, TokenOrNode};
 
 impl Model {
-    pub fn insert_ser_nodes(&mut self, category: &str, nodes: crate::config::yaml::Nodes) {
+    pub fn insert_ser_nodes(&mut self, nodes: crate::config::yaml::Nodes) {
         for node in nodes {
-            self.insert_ser_node(category, node)
+            self.insert_ser_node(node)
         }
     }
 
-    pub fn insert_ser_node(&mut self, category: &str, node: crate::config::yaml::Node) {
+    pub fn insert_ser_node(&mut self, node: crate::config::yaml::Node) {
         match node.contents {
             NodeContents::Sequence(seq) => {
-                self.insert_ser_seq(category, node.name, seq);
+                self.insert_ser_seq(node.name, seq);
             }
-            NodeContents::Choice(choice) => self.insert_ser_choice(category, node.name, choice),
+            NodeContents::Choice(choice) => self.insert_ser_choice(node.name, choice),
             NodeContents::Builtin => self.push_builtin(node.name),
         }
     }
 
     pub fn node_to_parenthesized_node(
         &mut self,
-        category: &str,
         node: crate::config::yaml::NodeRef,
     ) -> crate::config::yaml::NodeRef {
         let node_name = format!("Parenthesized{}", node.kind());
-        self.push_node(
-            category.to_owned(),
-            SequenceNode::new(
-                node_name.clone(),
-                vec![
-                    TokenKind::LeftPar.into(),
-                    TokenOrNode::Node(node.kind().into()),
-                    TokenKind::RightPar.into(),
-                ],
-            ),
-        );
+        self.push_node(SequenceNode::new(
+            node_name.clone(),
+            vec![
+                TokenKind::LeftPar.into(),
+                TokenOrNode::Node(node.kind().into()),
+                TokenKind::RightPar.into(),
+            ],
+        ));
         crate::config::yaml::NodeRef {
             node: node_name,
             parenthesized: false,
@@ -51,21 +47,17 @@ impl Model {
 
     pub fn node_to_terminated_node(
         &mut self,
-        category: &str,
         node: crate::config::yaml::NodeRef,
     ) -> crate::config::yaml::NodeRef {
         let terminator = node.terminated.clone().unwrap();
         let node_name = format!("{}Terminated{}", terminator, node.kind());
-        self.push_node(
-            category.to_owned(),
-            SequenceNode::new(
-                node_name.clone(),
-                vec![
-                    TokenOrNode::Node(node.kind().into()),
-                    TokenKind::from_str_expect(&terminator).into(),
-                ],
-            ),
-        );
+        self.push_node(SequenceNode::new(
+            node_name.clone(),
+            vec![
+                TokenOrNode::Node(node.kind().into()),
+                TokenKind::from_str_expect(&terminator).into(),
+            ],
+        ));
         crate::config::yaml::NodeRef {
             node: node_name,
             terminated: None,
@@ -75,16 +67,15 @@ impl Model {
 
     fn ser_node_to_node(
         &mut self,
-        category: &str,
         items: &[TokenOrNode],
         mut node: crate::config::yaml::NodeRef,
     ) -> NodeRef {
         // Terminated takes precedence over repeated
         if node.terminated.is_some() {
-            node = self.node_to_terminated_node(category, node)
+            node = self.node_to_terminated_node(node)
         }
         if node.parenthesized {
-            node = self.node_to_parenthesized_node(category, node)
+            node = self.node_to_parenthesized_node(node)
         }
         let nth = items
             .iter()
@@ -149,14 +140,11 @@ impl Model {
 
     fn ser_token_or_node_to_node_or_token(
         &mut self,
-        category: &str,
         items: &[TokenOrNode],
         node_or_token: NodeOrToken,
     ) -> TokenOrNode {
         match node_or_token {
-            NodeOrToken::Node(node) => {
-                TokenOrNode::Node(self.ser_node_to_node(category, items, node))
-            }
+            NodeOrToken::Node(node) => TokenOrNode::Node(self.ser_node_to_node(items, node)),
             NodeOrToken::Token(token) => TokenOrNode::Token(self.ser_token_to_token(items, token)),
             NodeOrToken::Keyword(keyword) => {
                 TokenOrNode::Token(self.ser_keyword_to_token(items, keyword))
@@ -164,24 +152,22 @@ impl Model {
         }
     }
 
-    pub fn insert_ser_seq(&mut self, category: &str, name: String, seq: Vec<NodeOrToken>) {
+    pub fn insert_ser_seq(&mut self, name: String, seq: Vec<NodeOrToken>) {
         let mut items = Vec::new();
         for node_or_token in seq {
-            items.push(self.ser_token_or_node_to_node_or_token(category, &items, node_or_token));
+            items.push(self.ser_token_or_node_to_node_or_token(&items, node_or_token));
         }
         let node = Node::Items(SequenceNode::new(name, items));
-        self.push_node(category.to_owned(), node);
+        self.push_node(node);
     }
 
-    pub fn insert_ser_choice(&mut self, category: &str, name: String, choices: Vec<NodeOrToken>) {
+    pub fn insert_ser_choice(&mut self, name: String, choices: Vec<NodeOrToken>) {
         let mut nodes = Vec::new();
         let mut tokens = Vec::new();
         for node_or_token in choices {
             match node_or_token {
                 NodeOrToken::Node(node) => {
-                    nodes.push(TokenOrNode::Node(
-                        self.ser_node_to_node(category, &nodes, node),
-                    ));
+                    nodes.push(TokenOrNode::Node(self.ser_node_to_node(&nodes, node)));
                 }
                 NodeOrToken::Token(token) => {
                     tokens.push(TokenOrNode::Token(self.ser_token_to_token(&tokens, token)));
@@ -216,6 +202,6 @@ impl Model {
         } else {
             panic!("Heterogeneous Tokens / Nodes not allowed (node {name})");
         };
-        self.push_node(category.to_owned(), node);
+        self.push_node(node);
     }
 }

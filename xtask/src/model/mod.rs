@@ -44,8 +44,7 @@ pub fn load_model(definitions_dir: &Path) -> Model {
             File::open(&path).unwrap_or_else(|err| panic!("cannot open {}: {err}", path.display()));
         let nodes: yaml::Nodes = serde_yml::from_reader(file)
             .unwrap_or_else(|err| panic!("{err} while processing {}", path.display()));
-        let section = path.file_stem().unwrap().to_str().unwrap().to_owned();
-        model.insert_ser_nodes(&section, nodes);
+        model.insert_ser_nodes(nodes);
     }
 
     model.fixup_empty_capable_optional_markers();
