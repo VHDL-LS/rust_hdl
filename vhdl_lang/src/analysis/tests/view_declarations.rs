@@ -670,3 +670,96 @@ end package;
         )],
     )
 }
+
+#[test]
+pub fn view_may_be_declared_for_a_subtype() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package pkg is
+    type generic_t is record
+        a: bit;
+        b: bit_vector;
+    end record;
+
+    subtype concrete_t is generic_t(b(7 downto 0));
+
+    view vone of concrete_t is
+        a: in;
+        b: out;
+    end view;
+end package pkg;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+pub fn view_interface_declaration_may_use_a_subtype_of_the_view_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package pkg is
+    type generic_t is record
+        a: bit;
+        b: bit_vector;
+    end record;
+
+    subtype concrete_t is generic_t(b(7 downto 0));
+
+    view vone of generic_t is
+        a: in;
+        b: out;
+    end view;
+end package pkg;
+
+use work.pkg.all;
+
+entity sub is
+    port (
+        x: view vone of concrete_t;
+        y: view vone of generic_t(b(7 downto 0))
+    );
+end entity sub;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+pub fn array_view_interface_declaration_may_use_a_subtype_of_the_element_type() {
+    let mut builder = LibraryBuilder::with_standard(VHDL2019);
+    builder.code(
+        "libname",
+        "\
+package pkg is
+    type generic_t is record
+        a: bit;
+        b: bit_vector;
+    end record;
+
+    subtype concrete_t is generic_t(b(7 downto 0));
+
+    type concrete_arr_t is array (natural range <>) of concrete_t;
+    subtype concrete_arr_4_t is concrete_arr_t(0 to 3);
+
+    view vone of generic_t is
+        a: in;
+        b: out;
+    end view;
+end package pkg;
+
+use work.pkg.all;
+
+entity sub is
+    port (
+        x: view (vone) of concrete_arr_t(0 to 3);
+        y: view (vone) of concrete_arr_4_t
+    );
+end entity sub;
+    ",
+    );
+    check_no_diagnostics(&builder.analyze());
+}

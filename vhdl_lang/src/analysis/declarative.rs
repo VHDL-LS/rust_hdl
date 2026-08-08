@@ -638,7 +638,9 @@ impl<'a> AnalyzeContext<'a, '_> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
         let typ = self.resolve_subtype_indication(scope, &mut view.typ, diagnostics)?;
-        let record_region = match typ.type_mark().kind() {
+        // LRM 6.5.2: The subtype indication of a mode view declaration shall denote an
+        // unresolved record type or subtype, hence resolve to the base type before checking.
+        let record_region = match typ.type_mark().base_type().kind() {
             Type::Record(region) => region,
             _ => {
                 let diag = Diagnostic::new(
@@ -1068,7 +1070,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     let Type::Array {
                         indexes: _,
                         elem_type,
-                    } = declared_subtype.type_mark().kind()
+                    } = declared_subtype.type_mark().base_type().kind()
                     else {
                         bail!(
                             diagnostics,
@@ -1079,7 +1081,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                             )
                         );
                     };
-                    if *elem_type != view_ent.subtype().type_mark() {
+                    // The element type only has to be of the same type as the view,
+                    // it may be an arbitrary subtype thereof.
+                    if elem_type.base_type() != view_ent.subtype().base_type() {
                         bail!(
                             diagnostics,
                             Diagnostic::new(
@@ -1095,7 +1099,9 @@ impl<'a> AnalyzeContext<'a, '_> {
                     }
                 }
                 ModeViewIndicationKind::Record => {
-                    if declared_subtype.type_mark() != view_ent.subtype().type_mark() {
+                    // LRM 6.5.2: the subtype indication only has to denote the same type as
+                    // the view; any subtype of that type is legal here.
+                    if declared_subtype.base_type() != view_ent.subtype().base_type() {
                         bail!(
                             diagnostics,
                             Diagnostic::new(
