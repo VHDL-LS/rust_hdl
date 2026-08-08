@@ -13,7 +13,6 @@ use model::load_model;
 use std::path::Path;
 use std::process;
 
-mod config;
 mod generate;
 mod model;
 
@@ -26,7 +25,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate AST node code from YAML grammar definitions
+    /// Generate AST node code from the ungrammar grammar definition
     Codegen {
         /// Check that generated files are up-to-date; exit 1 if any differ
         #[arg(long)]
@@ -43,8 +42,8 @@ fn main() {
     match cli.command {
         Commands::Codegen { check } => {
             let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
-            let definitions_dir = workspace_root.join("xtask/src/syntax_definitions");
-            let model = load_model(&definitions_dir);
+            let file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
+            let model = load_model(&file);
             let generators: &[&dyn Generator] =
                 &[&SyntaxNodeGenerator, &BuilderGenerator, &MetaGenerator];
 

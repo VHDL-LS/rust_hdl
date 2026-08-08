@@ -22,37 +22,31 @@ impl Generator for SyntaxNodeGenerator {
     }
 
     fn generate_files(&self, model: &Model) -> Vec<(String, TokenStream)> {
-        let mut files = Vec::new();
+        let mut stream = quote! {
+            use super::*;
+            use crate::syntax::node::{SyntaxNode, SyntaxToken};
+            use crate::syntax::node_kind::NodeKind;
+            use crate::syntax::AstNode;
+            use crate::syntax::meta::{Layout, Sequence, Choice, LayoutItem, LayoutItemKind};
+            use crate::tokens::Keyword as Kw;
+            use crate::tokens::TokenKind;
+        };
 
-        // Per-section files (sorted for determinism)
-        let mut sections: Vec<(&String, &Vec<Node>)> = model.sections().iter().collect();
-        sections.sort_by_key(|(name, _)| *name);
+        // Sorted by node name for deterministic output
+        let mut nodes: Vec<&Node> = model.nodes().iter().collect();
+        nodes.sort_by_key(|node| node.name());
 
-        for (category, nodes) in sections {
-            let mut stream = quote! {
-                use super::*;
-                use crate::syntax::node::{SyntaxNode, SyntaxToken};
-                use crate::syntax::node_kind::NodeKind;
-                use crate::syntax::AstNode;
-                use crate::syntax::meta::{Layout, Sequence, Choice, LayoutItem, LayoutItemKind};
-                use crate::tokens::Keyword as Kw;
-                use crate::tokens::TokenKind;
-            };
-            for node in nodes {
-                stream.extend(generate_rust_struct(node));
-                stream.extend(generate_ast_node_rust_impl(node, model));
-                stream.extend(generate_rust_impl_getters(node, model));
-            }
-            files.push((category.clone(), stream));
+        for node in nodes {
+            stream.extend(generate_rust_struct(node));
+            stream.extend(generate_ast_node_rust_impl(node, model));
+            stream.extend(generate_rust_impl_getters(node, model));
         }
 
-        // node_kind.rs
-        files.push(("node_kind".to_string(), generate_node_kind_enum(model)));
-
-        // mod.rs
-        files.push(("mod".to_string(), generate_mod(model)));
-
-        files
+        vec![
+            ("syntax_nodes".to_string(), stream),
+            ("node_kind".to_string(), generate_node_kind_enum(model)),
+            ("mod".to_string(), generate_mod()),
+        ]
     }
 }
 
@@ -417,24 +411,13 @@ fn generate_node_kind_enum(model: &Model) -> TokenStream {
     }
 }
 
-fn generate_mod(model: &Model) -> TokenStream {
-    let mut sections = model.sections().keys().collect::<Vec<_>>();
-    sections.sort();
-    let sections = sections
-        .into_iter()
-        .map(|section| {
-            let mod_ident = format_ident!("{}", section);
-            quote! {
-                pub mod #mod_ident;
-                pub use #mod_ident::*;
-            }
-        })
-        .collect::<TokenStream>();
+fn generate_mod() -> TokenStream {
     quote! {
         pub mod node_kind;
         pub use node_kind::*;
 
-        #sections
+        pub mod syntax_nodes;
+        pub use syntax_nodes::*;
 
         pub mod builders;
         pub use builders::*;
@@ -463,7 +446,7 @@ mod tests {
                 Token::from(TokenKind::NE),
             ]),
         };
-        model.push_node("test".to_string(), Node::Choices(choice));
+        model.push_node(Node::Choices(choice));
 
         // A sequence node: DesignFile -> [RelOp]
         let seq = SequenceNode::new(
@@ -471,13 +454,12 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "RelOp".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "rel_op".to_string(),
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model
     }
@@ -487,9 +469,12 @@ mod tests {
         let model = make_test_model();
         let gen = SyntaxNodeGenerator;
         let files = gen.generate_files(&model);
-        // Should produce at least: "test", "node_kind", "mod"
+        // Should produce exactly: "syntax_nodes", "node_kind", "mod"
         let stems: Vec<&str> = files.iter().map(|(s, _)| s.as_str()).collect();
-        assert!(stems.contains(&"test"), "missing 'test' file");
+        assert!(
+            stems.contains(&"syntax_nodes"),
+            "missing 'syntax_nodes' file"
+        );
         assert!(stems.contains(&"node_kind"), "missing 'node_kind' file");
         assert!(stems.contains(&"mod"), "missing 'mod' file");
     }
@@ -499,7 +484,7 @@ mod tests {
         let model = make_test_model();
         let gen = SyntaxNodeGenerator;
         let files = gen.generate_files(&model);
-        let test_file = files.iter().find(|(s, _)| s == "test").unwrap();
+        let test_file = files.iter().find(|(s, _)| s == "syntax_nodes").unwrap();
         let code = test_file.1.to_string();
         // The getter for RelOp (a token choice) should use .tokens()
         assert!(
@@ -529,7 +514,7 @@ mod tests {
         let model = make_test_model();
         let gen = SyntaxNodeGenerator;
         let files = gen.generate_files(&model);
-        let test_file = files.iter().find(|(s, _)| s == "test").unwrap();
+        let test_file = files.iter().find(|(s, _)| s == "syntax_nodes").unwrap();
         insta::assert_snapshot!(test_file.1.to_string());
     }
 }

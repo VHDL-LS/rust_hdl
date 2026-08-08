@@ -595,7 +595,7 @@ mod tests {
                 Token::from(TokenKind::NE),
             ]),
         };
-        model.push_node("test".to_string(), Node::Choices(choice));
+        model.push_node(Node::Choices(choice));
 
         // A simple sequence node: DesignFile -> [RelOp]
         let seq = SequenceNode::new(
@@ -603,13 +603,12 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "RelOp".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "rel_op".to_string(),
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model
     }
@@ -627,7 +626,7 @@ mod tests {
                 TokenOrNode::Token(Token::from(TokenKind::EQ)),
             ],
         );
-        model.push_node("test".to_string(), Node::Items(leaf));
+        model.push_node(Node::Items(leaf));
 
         // Parent: requires DesignFile (defaultable) plus an Identifier (not defaultable)
         let parent = SequenceNode::new(
@@ -636,7 +635,6 @@ mod tests {
                 TokenOrNode::Node(NodeRef {
                     kind: "DesignFile".to_string(),
                     nth: 0,
-                    builtin: false,
                     repeated: false,
                     name: "design_file".to_string(),
                     optional: false,
@@ -650,7 +648,7 @@ mod tests {
                 }),
             ],
         );
-        model.push_node("test".to_string(), Node::Items(parent));
+        model.push_node(Node::Items(parent));
         model.do_postprocessing();
         model
     }
@@ -722,7 +720,7 @@ mod tests {
             "DesignFile",
             vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
         let gen = BuilderGenerator;
@@ -747,7 +745,7 @@ mod tests {
                 optional: true,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
         let gen = BuilderGenerator;
@@ -776,7 +774,7 @@ mod tests {
                 optional: false,
             })],
         );
-        model.push_node("test".to_string(), Node::Items(seq));
+        model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
         let gen = BuilderGenerator;

@@ -1,0 +1,1730 @@
+// VHDL-2008 syntax, in ungrammar form.
+//
+// Migrated from the LRM Annex C syntax summary.
+//
+// Legend:
+//
+// //            -- comment
+// // § X.Y.Z    -- LRM Chapter of the production
+// 'ident'       -- keyword or punct token (terminal)
+// '#ident'      -- generic token (terminal)
+// A B           -- sequence
+// A | B         -- alternation
+// A*            -- zero or more repetition
+// A?            -- zero or one repetition
+// (A)           -- same as A
+// § 8.7
+
+AbsolutePathname =
+  '.' PartialPathname
+
+// § 5.4.1
+AccessTypeDefinition =
+  'access' SubtypeIndication
+
+// § 6.5.7.1
+ActualDesignator =
+  'inertial'? Expression | Name | SubtypeIndication | 'open'
+
+// § 9.3.4
+ActualParameterPart =
+  AssociationList
+
+// § 6.5.7.1
+ActualPart =
+  ActualDesignator
+| Name '(' ActualDesignator ')'
+| TypeMark '(' ActualDesignator ')'
+
+// § 9.2
+AddingOperator =
+  '+' | '-'
+
+// § 9.3.3.1
+Aggregate =
+  '(' ElementAssociation (',' ElementAssociation)* ')'
+
+// § 6.6.1
+AliasDeclaration =
+  'alias' AliasDesignator (':' SubtypeIndication)? 'is' Name Signature? ';'
+
+// § 6.6.1
+AliasDesignator =
+  '#identifier' | '#character_literal' | OperatorSymbol
+
+// § 9.3.7
+Allocator =
+  'new' SubtypeIndication | 'new' QualifiedExpression
+
+// § 3.3.1
+ArchitectureBody =
+  'architecture'
+  '#identifier'
+  'of'
+  Name
+  'is'
+  ArchitectureDeclarativePart
+  'begin'
+  ArchitectureStatementPart
+  'end'
+  'architecture'?
+  SimpleName?
+  ';'
+
+// § 3.3.2
+ArchitectureDeclarativePart =
+  BlockDeclarativeItem*
+
+// § 3.3.3
+ArchitectureStatementPart =
+  ConcurrentStatement*
+
+// § 5.3.2.1
+ArrayConstraint =
+  IndexConstraint ArrayElementConstraint?
+| '(' 'open' ')' ArrayElementConstraint?
+
+// § 5.3.2.1
+ArrayElementConstraint =
+  ElementConstraint
+
+// § 6.3
+ArrayElementResolution =
+  ResolutionIndication
+
+// § 5.3.2.1
+ArrayTypeDefinition =
+  UnboundedArrayDefinition | ConstrainedArrayDefinition
+
+// § 10.3
+Assertion =
+  'assert' Condition ('report' Expression)? ('severity' Expression)?
+
+// § 10.3
+AssertionStatement =
+  (Label ':')? Assertion ';'
+
+// § 6.5.7.1
+AssociationElement =
+  (FormalPart '=>')? ActualPart
+
+// § 6.5.7.1
+AssociationList =
+  AssociationElement (',' AssociationElement)*
+
+// § 6.7
+AttributeDeclaration =
+  'attribute' '#identifier' ':' TypeMark ';'
+
+// § 8.6
+AttributeDesignator =
+  SimpleName
+
+// § 8.6
+AttributeName =
+  Prefix Signature? '\'' AttributeDesignator ('(' Expression ')')?
+
+// § 7.2
+AttributeSpecification =
+  'attribute' AttributeDesignator 'of' EntitySpecification 'is' Expression ';'
+
+// § 7.3.2.1
+BindingIndication =
+  ('use' EntityAspect)? GenericMapAspect? PortMapAspect?
+
+// § 3.4.2
+BlockConfiguration =
+  'for' BlockSpecification UseClause* ConfigurationItem* 'end' 'for' ';'
+
+// § 3.3.2
+BlockDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| SignalDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| ComponentDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| ConfigurationSpecification
+| DisconnectionSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// | PSL_Property_Declaration
+// | PSL_Sequence_Declaration
+// | PSL_Clock_Declaration
+// § 11.2
+BlockDeclarativePart =
+  BlockDeclarativeItem*
+
+// § 11.2
+BlockHeader =
+  (GenericClause (GenericMapAspect ';')?)? (PortClause (PortMapAspect ';')?)?
+
+// § 3.4.2
+// LRM: architecture_name | block_statement_label
+//    | generate_statement_label [ "(" generate_specification ")" ]
+BlockSpecification =
+  Name | Label ('(' GenerateSpecification ')')?
+
+// § 11.2
+BlockStatement =
+  Label
+  ':'
+  'block'
+  ('(' Condition ')')?
+  'is'?
+  BlockHeader
+  BlockDeclarativePart
+  'begin'
+  BlockStatementPart
+  'end'
+  'block'
+  Label?
+  ';'
+
+// § 11.2
+BlockStatementPart =
+  ConcurrentStatement*
+
+// § 11.8
+CaseGenerateAlternative =
+  'when' (Label ':')? Choices '=>' GenerateStatementBody
+
+// § 11.8
+CaseGenerateStatement =
+  Label
+  ':'
+  'case'
+  Expression
+  'generate'
+  CaseGenerateAlternative
+  CaseGenerateAlternative*
+  'end'
+  'generate'
+  Label?
+  ';'
+
+// § 10.9
+CaseStatement =
+  (Label ':')?
+  'case'
+  '?'?
+  Expression
+  'is'
+  CaseStatementAlternative
+  CaseStatementAlternative*
+  'end'
+  'case'
+  '?'?
+  Label?
+  ';'
+
+// § 10.9
+CaseStatementAlternative =
+  'when' Choices '=>' SequenceOfStatements
+
+// § 9.3.3.1
+Choice =
+  SimpleExpression | DiscreteRange | SimpleName | 'others'
+
+// § 9.3.3.1
+Choices =
+  Choice ('|' Choice)*
+
+// § 3.4.3
+ComponentConfiguration =
+  'for'
+  ComponentSpecification
+  (BindingIndication ';')?
+  (VerificationUnitBindingIndication ';')*
+  BlockConfiguration?
+  'end'
+  'for'
+  ';'
+
+// § 6.8
+ComponentDeclaration =
+  'component'
+  '#identifier'
+  'is'?
+  GenericClause?
+  PortClause?
+  'end'
+  'component'
+  SimpleName?
+  ';'
+
+// § 11.7.1
+ComponentInstantiationStatement =
+  Label ':' InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
+
+// § 7.3.1
+ComponentSpecification =
+  InstantiationList ':' Name
+
+// § 5.3.1
+CompositeTypeDefinition =
+  ArrayTypeDefinition | RecordTypeDefinition
+
+// § 7.3.1
+CompoundConfigurationSpecification =
+  'for'
+  ComponentSpecification
+  BindingIndication
+  ';'
+  VerificationUnitBindingIndication
+  ';'
+  (VerificationUnitBindingIndication ';')*
+  'end'
+  'for'
+  ';'
+
+// § 11.5
+ConcurrentAssertionStatement =
+  (Label ':')? 'postponed'? Assertion ';'
+
+// § 11.6
+ConcurrentConditionalSignalAssignment =
+  Target '<=' 'guarded'? DelayMechanism? ConditionalWaveforms ';'
+
+// § 11.4
+ConcurrentProcedureCallStatement =
+  (Label ':')? 'postponed'? ProcedureCall ';'
+
+// § 11.6
+ConcurrentSelectedSignalAssignment =
+  'with'
+  Expression
+  'select'
+  '?'?
+  Target
+  '<='
+  'guarded'?
+  DelayMechanism?
+  SelectedWaveforms
+  ';'
+
+// § 11.6
+ConcurrentSignalAssignmentStatement =
+  (Label ':')? 'postponed'? ConcurrentSimpleSignalAssignment
+| (Label ':')? 'postponed'? ConcurrentConditionalSignalAssignment
+| (Label ':')? 'postponed'? ConcurrentSelectedSignalAssignment
+
+// § 11.6
+ConcurrentSimpleSignalAssignment =
+  Target '<=' 'guarded'? DelayMechanism? Waveform ';'
+
+// § 11.1
+ConcurrentStatement =
+  BlockStatement
+| ProcessStatement
+| ConcurrentProcedureCallStatement
+| ConcurrentAssertionStatement
+| ConcurrentSignalAssignmentStatement
+| ComponentInstantiationStatement
+| GenerateStatement
+
+// | PSL_PSL_Directive
+// § 10.2
+Condition =
+  Expression
+
+// § 10.2
+ConditionClause =
+  'until' Condition
+
+// § 9.2.1
+ConditionOperator =
+  '??'
+
+// § 10.5.3
+ConditionalExpressions =
+  Expression
+  'when'
+  Condition
+  ('else' Expression 'when' Condition)*
+  ('else' Expression)?
+
+// § 10.5.3
+ConditionalForceAssignment =
+  Target '<=' 'force' ForceMode? ConditionalExpressions ';'
+
+// § 10.5.3
+ConditionalSignalAssignment =
+  ConditionalWaveformAssignment | ConditionalForceAssignment
+
+// § 10.6.3
+ConditionalVariableAssignment =
+  Target ':=' ConditionalExpressions ';'
+
+// § 10.5.3
+ConditionalWaveformAssignment =
+  Target '<=' DelayMechanism? ConditionalWaveforms ';'
+
+// § 10.5.3
+ConditionalWaveforms =
+  Waveform
+  'when'
+  Condition
+  ('else' Waveform 'when' Condition)*
+  ('else' Waveform)?
+
+// § 3.4.1
+ConfigurationDeclaration =
+  'configuration'
+  '#identifier'
+  'of'
+  Name
+  'is'
+  ConfigurationDeclarativePart
+  (VerificationUnitBindingIndication ';')*
+  BlockConfiguration
+  'end'
+  'configuration'?
+  SimpleName?
+  ';'
+
+// § 3.4.1
+ConfigurationDeclarativeItem =
+  UseClause | AttributeSpecification | GroupDeclaration
+
+// § 3.4.1
+ConfigurationDeclarativePart =
+  ConfigurationDeclarativeItem*
+
+// § 3.4.2
+ConfigurationItem =
+  BlockConfiguration | ComponentConfiguration
+
+// § 7.3.1
+ConfigurationSpecification =
+  SimpleConfigurationSpecification | CompoundConfigurationSpecification
+
+// § 6.4.2.2
+ConstantDeclaration =
+  'constant' IdentifierList ':' SubtypeIndication (':=' Expression)? ';'
+
+// § 5.3.2.1
+ConstrainedArrayDefinition =
+  'array' IndexConstraint 'of' SubtypeIndication
+
+// § 6.3
+Constraint =
+  RangeConstraint | ArrayConstraint | RecordConstraint
+
+// § 13.4
+ContextClause =
+  ContextItem*
+
+// § 13.3
+ContextDeclaration =
+  'context' '#identifier' 'is' ContextClause 'end' 'context'? SimpleName? ';'
+
+// § 13.4
+ContextItem =
+  LibraryClause | UseClause | ContextReference
+
+// § 13.4
+ContextReference =
+  'context' SelectedName (',' SelectedName)* ';'
+
+// § 10.5.2.1
+DelayMechanism =
+  'transport' | ('reject' Expression)? 'inertial'
+
+// § 13.1
+DesignFile =
+  DesignUnit DesignUnit*
+
+// § 13.1
+DesignUnit =
+  ContextClause LibraryUnit
+
+// § 4.2.1
+Designator =
+  '#identifier' | OperatorSymbol
+
+// § 5.2.1
+Direction =
+  'to' | 'downto'
+
+// § 7.4
+DisconnectionSpecification =
+  'disconnect' GuardedSignalSpecification 'after' Expression ';'
+
+// § 5.3.2.1
+DiscreteRange =
+  SubtypeIndication | Range
+
+// § 9.3.3.1
+ElementAssociation =
+  (Choices '=>')? Expression
+
+// § 6.3
+ElementConstraint =
+  ArrayConstraint | RecordConstraint
+
+// § 5.3.3
+ElementDeclaration =
+  IdentifierList ':' ElementSubtypeDefinition ';'
+
+// § 6.3
+ElementResolution =
+  ArrayElementResolution | RecordResolution
+
+// § 5.3.3
+ElementSubtypeDefinition =
+  SubtypeIndication
+
+// § 7.3.2.2
+EntityAspect =
+  'entity' Name ('(' '#identifier' ')')? | 'configuration' Name | 'open'
+
+// § 7.2
+EntityClass =
+  'entity'
+| 'architecture'
+| 'configuration'
+| 'procedure'
+| 'function'
+| 'package'
+| 'type'
+| 'subtype'
+| 'constant'
+| 'signal'
+| 'variable'
+| 'component'
+| 'label'
+| 'literal'
+| 'units'
+| 'group'
+| 'file'
+| 'property'
+| 'sequence'
+
+// § 6.9
+EntityClassEntry =
+  EntityClass '<>'?
+
+// § 6.9
+EntityClassEntryList =
+  EntityClassEntry (',' EntityClassEntry)*
+
+// § 3.2.1
+EntityDeclaration =
+  'entity'
+  '#identifier'
+  'is'
+  EntityHeader
+  EntityDeclarativePart
+  ('begin' EntityStatementPart)?
+  'end'
+  'entity'?
+  SimpleName?
+  ';'
+
+// § 3.2.3
+EntityDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| SignalDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| DisconnectionSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// | PSL_Property_Declaration
+// | PSL_Sequence_Declaration
+// | PSL_Clock_Declaration
+// § 3.2.3
+EntityDeclarativePart =
+  EntityDeclarativeItem*
+
+// § 7.2
+EntityDesignator =
+  EntityTag Signature?
+
+// § 3.2.3
+EntityHeader =
+  GenericClause? PortClause?
+
+// § 7.2
+EntityNameList =
+  EntityDesignator (',' EntityDesignator)* | 'others' | 'all'
+
+// § 7.2
+EntitySpecification =
+  EntityNameList ':' EntityClass
+
+// § 3.2.4
+EntityStatement =
+  ConcurrentAssertionStatement
+| ConcurrentProcedureCallStatement
+| ProcessStatement
+
+// | PSL_PSL_Directive
+// § 3.2.4
+EntityStatementPart =
+  EntityStatement*
+
+// § 7.2
+EntityTag =
+  SimpleName | '#character_literal' | OperatorSymbol
+
+// § 5.2.2.1
+EnumerationLiteral =
+  '#identifier' | '#character_literal'
+
+// § 5.2.2.1
+EnumerationTypeDefinition =
+  '(' EnumerationLiteral (',' EnumerationLiteral)* ')'
+
+// § 10.2
+ExitStatement =
+  (Label ':')? 'exit' Label? ('when' Condition)? ';'
+
+// § 9.1
+Expression =
+  ConditionOperator Primary | LogicalExpression
+
+// § 8.7
+ExternalName =
+  ExternalConstantName | ExternalSignalName | ExternalVariableName
+
+// § 8.7
+ExternalConstantName =
+  '<<' 'constant' ExternalPathname ':' SubtypeIndication '>>'
+
+// § 8.7
+ExternalSignalName =
+  '<<' 'signal' ExternalPathname ':' SubtypeIndication '>>'
+
+// § 8.7
+ExternalVariableName =
+  '<<' 'variable' ExternalPathname ':' SubtypeIndication '>>'
+
+// § 8.7
+ExternalPathname =
+  PackagePathname | AbsolutePathname | RelativePathname
+
+// § 9.1
+Factor =
+  Primary ('**' Primary)?
+| 'abs' Primary
+| 'not' Primary
+| LogicalOperator Primary
+
+// § 6.4.2.5
+FileDeclaration =
+  'file' IdentifierList ':' SubtypeIndication FileOpenInformation? ';'
+
+// § 6.4.2.5
+FileLogicalName =
+  Expression
+
+// § 6.4.2.5
+FileOpenInformation =
+  ('open' Expression)? 'is' FileLogicalName
+
+// § 5.5.1
+FileTypeDefinition =
+  'file' 'of' TypeMark
+
+// § 5.2.5.1
+FloatingTypeDefinition =
+  RangeConstraint
+
+// § 11.8
+ForGenerateStatement =
+  Label
+  ':'
+  'for'
+  ParameterSpecification
+  'generate'
+  GenerateStatementBody
+  'end'
+  'generate'
+  Label?
+  ';'
+
+// § 10.5.2.1
+ForceMode =
+  'in' | 'out'
+
+// § 6.5.7.1
+// LRM: generic_name | port_name | parameter_name
+FormalDesignator =
+  Name
+
+// § 4.2.2.1
+FormalParameterList =
+  InterfaceList
+
+// § 6.5.7.1
+FormalPart =
+  FormalDesignator
+| Name '(' FormalDesignator ')'
+| TypeMark '(' FormalDesignator ')'
+
+// § 6.2
+FullTypeDeclaration =
+  'type' '#identifier' 'is' TypeDefinition ';'
+
+// § 9.3.4
+FunctionCall =
+  Name ('(' ActualParameterPart ')')?
+
+// § 4.2.1
+FunctionSpecification =
+  ('pure' | 'impure')?
+  'function'
+  Designator
+  SubprogramHeader
+  ('parameter'? '(' FormalParameterList ')')?
+  'return'
+  TypeMark
+
+// § 3.4.2
+GenerateSpecification =
+  DiscreteRange | Expression | Label
+
+// § 11.8
+GenerateStatement =
+  ForGenerateStatement | IfGenerateStatement | CaseGenerateStatement
+
+// § 11.8
+GenerateStatementBody =
+  (BlockDeclarativePart 'begin')? ConcurrentStatement* ('end' Label? ';')?
+
+// § 6.5.6.2
+GenericClause =
+  'generic' '(' GenericList ')' ';'
+
+// § 6.5.6.2
+GenericList =
+  InterfaceList
+
+// § 6.5.6.2
+GenericMapAspect =
+  'generic' 'map' '(' AssociationList ')'
+
+// § 6.10
+GroupConstituent =
+  Name | '#character_literal'
+
+// § 6.10
+GroupConstituentList =
+  GroupConstituent (',' GroupConstituent)*
+
+// § 6.10
+GroupDeclaration =
+  'group' '#identifier' ':' Name '(' GroupConstituentList ')' ';'
+
+// § 6.9
+GroupTemplateDeclaration =
+  'group' '#identifier' 'is' '(' EntityClassEntryList ')' ';'
+
+// § 7.4
+GuardedSignalSpecification =
+  SignalList ':' TypeMark
+
+// § 5.3.3
+IdentifierList =
+  '#identifier' (',' '#identifier')*
+
+// § 11.8
+IfGenerateStatement =
+  Label
+  ':'
+  'if'
+  (Label ':')?
+  Condition
+  'generate'
+  GenerateStatementBody
+  ('elsif' (Label ':')? Condition 'generate' GenerateStatementBody)*
+  ('else' (Label ':')? 'generate' GenerateStatementBody)?
+  'end'
+  'generate'
+  Label?
+  ';'
+
+// § 10.8
+IfStatement =
+  (Label ':')?
+  'if'
+  Condition
+  'then'
+  SequenceOfStatements
+  ('elsif' Condition 'then' SequenceOfStatements)*
+  ('else' SequenceOfStatements)?
+  'end'
+  'if'
+  Label?
+  ';'
+
+// § 5.4.2
+IncompleteTypeDeclaration =
+  'type' '#identifier' ';'
+
+// § 5.3.2.1
+IndexConstraint =
+  '(' DiscreteRange (',' DiscreteRange)* ')'
+
+// § 5.3.2.1
+IndexSubtypeDefinition =
+  TypeMark 'range' '<>'
+
+// § 8.4
+IndexedName =
+  Prefix '(' Expression (',' Expression)* ')'
+
+// § 11.7.1
+InstantiatedUnit =
+  'component'? Name
+| 'entity' Name ('(' '#identifier' ')')?
+| 'configuration' Name
+
+// § 7.3.1
+InstantiationList =
+  Label (',' Label)* | 'others' | 'all'
+
+// § 5.2.3.1
+IntegerTypeDefinition =
+  RangeConstraint
+
+// § 6.5.2
+InterfaceConstantDeclaration =
+  'constant'? IdentifierList ':' 'in'? SubtypeIndication (':=' Expression)?
+
+// § 6.5.1
+InterfaceDeclaration =
+  InterfaceObjectDeclaration
+| InterfaceTypeDeclaration
+| InterfaceSubprogramDeclaration
+| InterfacePackageDeclaration
+
+// § 6.5.6.1
+InterfaceElement =
+  InterfaceDeclaration
+
+// § 6.5.2
+InterfaceFileDeclaration =
+  'file' IdentifierList ':' SubtypeIndication
+
+// § 6.5.4
+InterfaceFunctionSpecification =
+  ('pure' | 'impure')?
+  'function'
+  Designator
+  ('parameter'? '(' FormalParameterList ')')?
+  'return'
+  TypeMark
+
+// § 6.5.3
+InterfaceIncompleteTypeDeclaration =
+  'type' '#identifier'
+
+// § 6.5.6.1
+InterfaceList =
+  InterfaceElement (';' InterfaceElement)*
+
+// § 6.5.2
+InterfaceObjectDeclaration =
+  InterfaceConstantDeclaration
+| InterfaceSignalDeclaration
+| InterfaceVariableDeclaration
+| InterfaceFileDeclaration
+
+// § 6.5.5
+InterfacePackageDeclaration =
+  'package' '#identifier' 'is' 'new' Name InterfacePackageGenericMapAspect
+
+// § 6.5.5
+InterfacePackageGenericMapAspect =
+  GenericMapAspect
+| 'generic' 'map' '(' '<>' ')'
+| 'generic' 'map' '(' 'default' ')'
+
+// § 6.5.4
+InterfaceProcedureSpecification =
+  'procedure' Designator ('parameter'? '(' FormalParameterList ')')?
+
+// § 6.5.2
+InterfaceSignalDeclaration =
+  'signal'?
+  IdentifierList
+  ':'
+  Mode?
+  SubtypeIndication
+  'bus'?
+  (':=' Expression)?
+
+// § 6.5.4
+InterfaceSubprogramDeclaration =
+  InterfaceSubprogramSpecification ('is' InterfaceSubprogramDefault)?
+
+// § 6.5.4
+InterfaceSubprogramDefault =
+  Name | '<>'
+
+// § 6.5.4
+InterfaceSubprogramSpecification =
+  InterfaceProcedureSpecification | InterfaceFunctionSpecification
+
+// § 6.5.3
+InterfaceTypeDeclaration =
+  InterfaceIncompleteTypeDeclaration
+
+// § 6.5.2
+InterfaceVariableDeclaration =
+  'variable'? IdentifierList ':' Mode? SubtypeIndication (':=' Expression)?
+
+// § 10.10
+IterationScheme =
+  'while' Condition | 'for' ParameterSpecification
+
+// § 11.8
+Label =
+  '#identifier'
+
+// § 13.2
+LibraryClause =
+  'library' LogicalNameList ';'
+
+// § 13.1
+LibraryUnit =
+  PrimaryUnit | SecondaryUnit
+
+// § 9.3.2
+Literal =
+  NumericLiteral
+| EnumerationLiteral
+| '#string_literal'
+| '#bit_string_literal'
+| 'null'
+
+// § 9.1
+LogicalExpression =
+  Relation ('and' Relation)*
+| Relation ('or' Relation)*
+| Relation ('xor' Relation)*
+| Relation ('nand' Relation)?
+| Relation ('nor' Relation)?
+| Relation ('xnor' Relation)*
+
+// § 13.2
+LogicalName =
+  '#identifier'
+
+// § 13.2
+LogicalNameList =
+  LogicalName (',' LogicalName)*
+
+// § 9.2.1
+LogicalOperator =
+  'and' | 'or' | 'nand' | 'nor' | 'xor' | 'xnor'
+
+// § 10.10
+LoopStatement =
+  (Label ':')?
+  IterationScheme?
+  'loop'
+  SequenceOfStatements
+  'end'
+  'loop'
+  Label?
+  ';'
+
+// § 9.2.1
+MiscellaneousOperator =
+  '**' | 'abs' | 'not'
+
+// § 6.5.2
+Mode =
+  'in' | 'out' | 'inout' | 'buffer' | 'linkage'
+
+// § 9.2.1
+MultiplyingOperator =
+  '*' | '/' | 'mod' | 'rem'
+
+// § 8.1
+Name =
+  SimpleName
+| OperatorSymbol
+| '#character_literal'
+| SelectedName
+| IndexedName
+| SliceName
+| AttributeName
+| ExternalName
+
+// § 10.11
+NextStatement =
+  (Label ':')? 'next' Label? ('when' Condition)? ';'
+
+// § 10.14
+NullStatement =
+  (Label ':')? 'null' ';'
+
+// § 9.3.2
+NumericLiteral =
+  '#abstract_literal' | PhysicalLiteral
+
+// § 6.4.2.1
+ObjectDeclaration =
+  ConstantDeclaration
+| SignalDeclaration
+| VariableDeclaration
+| FileDeclaration
+
+// § 4.2.1
+OperatorSymbol =
+  '#string_literal'
+
+// § 4.8
+PackageBody =
+  'package'
+  'body'
+  SimpleName
+  'is'
+  PackageBodyDeclarativePart
+  'end'
+  ('package' 'body')?
+  SimpleName?
+  ';'
+
+// § 4.8
+PackageBodyDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// § 4.8
+PackageBodyDeclarativePart =
+  PackageBodyDeclarativeItem*
+
+// § 4.7
+PackageDeclaration =
+  'package'
+  '#identifier'
+  'is'
+  PackageHeader
+  PackageDeclarativePart
+  'end'
+  'package'?
+  SimpleName?
+  ';'
+
+// § 4.7
+PackageDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| SignalDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| ComponentDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| DisconnectionSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// | PSL_Property_Declaration
+// | PSL_Sequence_Declaration
+// § 4.7
+PackageDeclarativePart =
+  PackageDeclarativeItem*
+
+// § 4.7
+PackageHeader =
+  (GenericClause (GenericMapAspect ';')?)?
+
+// § 4.9
+PackageInstantiationDeclaration =
+  'package' '#identifier' 'is' 'new' Name GenericMapAspect? ';'
+
+// § 8.7
+PackagePathname =
+  '@' LogicalName '.' (SimpleName '.')* SimpleName
+
+// § 10.10
+ParameterSpecification =
+  '#identifier' 'in' DiscreteRange
+
+// § 8.7
+PartialPathname =
+  (PathnameElement '.')* SimpleName
+
+// § 8.7
+// LRM: entity_simple_name | component_instantiation_label | block_label
+//    | generate_statement_label [ "(" static_expression ")" ] | package_simple_name
+PathnameElement =
+  SimpleName | Label ('(' Expression ')')?
+
+// § 5.2.4.1
+PhysicalLiteral =
+  '#abstract_literal'? Name
+
+// § 5.2.4.1
+PhysicalTypeDefinition =
+  RangeConstraint
+  'units'
+  PrimaryUnitDeclaration
+  SecondaryUnitDeclaration*
+  'end'
+  'units'
+  SimpleName?
+
+// § 6.5.6.3
+PortClause =
+  'port' '(' PortList ')' ';'
+
+// § 6.5.6.3
+PortList =
+  InterfaceList
+
+// § 6.5.7.3
+PortMapAspect =
+  'port' 'map' '(' AssociationList ')'
+
+// § 8.1
+Prefix =
+  Name | FunctionCall
+
+// § 9.1
+Primary =
+  Name
+| Literal
+| Aggregate
+| FunctionCall
+| QualifiedExpression
+| TypeConversion
+| Allocator
+| '(' Expression ')'
+
+// § 13.1
+PrimaryUnit =
+  EntityDeclaration
+| ConfigurationDeclaration
+| PackageDeclaration
+| PackageInstantiationDeclaration
+| ContextDeclaration
+
+// | PSL_Verification_Unit
+// § 5.2.4.1
+PrimaryUnitDeclaration =
+  '#identifier' ';'
+
+// § 10.7
+ProcedureCall =
+  Name ('(' ActualParameterPart ')')?
+
+// § 10.7
+ProcedureCallStatement =
+  (Label ':')? ProcedureCall ';'
+
+// § 4.2.1
+ProcedureSpecification =
+  'procedure'
+  Designator
+  SubprogramHeader
+  ('parameter'? '(' FormalParameterList ')')?
+
+// § 11.3
+ProcessDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// § 11.3
+ProcessDeclarativePart =
+  ProcessDeclarativeItem*
+
+// § 11.3
+ProcessSensitivityList =
+  'all' | SensitivityList
+
+// § 11.3
+ProcessStatement =
+  (Label ':')?
+  'postponed'?
+  'process'
+  ('(' ProcessSensitivityList ')')?
+  'is'?
+  ProcessDeclarativePart
+  'begin'
+  ProcessStatementPart
+  'end'
+  'postponed'?
+  'process'
+  Label?
+  ';'
+
+// § 11.3
+ProcessStatementPart =
+  SequentialStatement*
+
+// § 5.6.3
+ProtectedTypeBody =
+  'protected'
+  'body'
+  ProtectedTypeBodyDeclarativePart
+  'end'
+  'protected'
+  'body'
+  SimpleName?
+
+// § 5.6.3
+ProtectedTypeBodyDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| AttributeDeclaration
+
+// § 5.6.3
+ProtectedTypeBodyDeclarativePart =
+  ProtectedTypeBodyDeclarativeItem*
+
+// § 5.6.2
+ProtectedTypeDeclaration =
+  'protected' ProtectedTypeDeclarativePart 'end' 'protected' SimpleName?
+
+// § 5.6.2
+ProtectedTypeDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramInstantiationDeclaration
+| AttributeSpecification
+| UseClause
+
+// § 5.6.2
+ProtectedTypeDeclarativePart =
+  ProtectedTypeDeclarativeItem*
+
+// § 5.6.1
+ProtectedTypeDefinition =
+  ProtectedTypeDeclaration | ProtectedTypeBody
+
+// § 9.3.5
+QualifiedExpression =
+  TypeMark '\'' '(' Expression ')' | TypeMark '\'' Aggregate
+
+// § 5.2.1
+Range =
+  AttributeName | SimpleExpression Direction SimpleExpression
+
+// § 5.2.1
+RangeConstraint =
+  'range' Range
+
+// § 5.3.3
+RecordConstraint =
+  '(' RecordElementConstraint (',' RecordElementConstraint)* ')'
+
+// § 5.3.3
+RecordElementConstraint =
+  SimpleName ElementConstraint
+
+// § 6.3
+RecordElementResolution =
+  SimpleName ResolutionIndication
+
+// § 6.3
+RecordResolution =
+  RecordElementResolution (',' RecordElementResolution)*
+
+// § 5.3.3
+RecordTypeDefinition =
+  'record' ElementDeclaration ElementDeclaration* 'end' 'record' SimpleName?
+
+// § 9.1
+Relation =
+  ShiftExpression (RelationalOperator ShiftExpression)?
+
+// § 9.2.1
+RelationalOperator =
+  '='
+| '/='
+| '<'
+| '<='
+| '>'
+| '>='
+| '?='
+| '?/='
+| '?<'
+| '?<='
+| '?>'
+| '?>='
+
+// § 8.7
+RelativePathname =
+  ('^' '.')* PartialPathname
+
+// § 10.4
+ReportStatement =
+  (Label ':')? 'report' Expression ('severity' Expression)? ';'
+
+// § 6.3
+ResolutionIndication =
+  Name | '(' ElementResolution ')'
+
+// § 10.13
+ReturnStatement =
+  (Label ':')? 'return' Expression? ';'
+
+// § 5.2.1
+ScalarTypeDefinition =
+  EnumerationTypeDefinition
+| IntegerTypeDefinition
+| FloatingTypeDefinition
+| PhysicalTypeDefinition
+
+// § 13.1
+SecondaryUnit =
+  ArchitectureBody | PackageBody
+
+// § 5.2.4.1
+SecondaryUnitDeclaration =
+  '#identifier' '=' PhysicalLiteral ';'
+
+// § 10.5.4
+SelectedExpressions =
+  (Expression 'when' Choices ',')* Expression 'when' Choices
+
+// § 10.5.4
+SelectedForceAssignment =
+  'with'
+  Expression
+  'select'
+  '?'?
+  Target
+  '<='
+  'force'
+  ForceMode?
+  SelectedExpressions
+  ';'
+
+// § 8.3
+SelectedName =
+  Prefix '.' Suffix
+
+// § 10.5.4
+SelectedSignalAssignment =
+  SelectedWaveformAssignment | SelectedForceAssignment
+
+// § 10.6.4
+SelectedVariableAssignment =
+  'with' Expression 'select' '?'? Target ':=' SelectedExpressions ';'
+
+// § 10.5.4
+SelectedWaveformAssignment =
+  'with'
+  Expression
+  'select'
+  '?'?
+  Target
+  '<='
+  DelayMechanism?
+  SelectedWaveforms
+  ';'
+
+// § 10.5.4
+SelectedWaveforms =
+  (Waveform 'when' Choices ',')* Waveform 'when' Choices
+
+// § 10.2
+SensitivityClause =
+  'on' SensitivityList
+
+// § 10.2
+SensitivityList =
+  Name (',' Name)*
+
+// § 10.1
+SequenceOfStatements =
+  SequentialStatement*
+
+// § 10.1
+SequentialStatement =
+  WaitStatement
+| AssertionStatement
+| ReportStatement
+| SignalAssignmentStatement
+| VariableAssignmentStatement
+| ProcedureCallStatement
+| IfStatement
+| CaseStatement
+| LoopStatement
+| NextStatement
+| ExitStatement
+| ReturnStatement
+| NullStatement
+
+// § 9.1
+ShiftExpression =
+  SimpleExpression (ShiftOperator SimpleExpression)?
+
+// § 9.2.1
+ShiftOperator =
+  'sll' | 'srl' | 'sla' | 'sra' | 'rol' | 'ror'
+
+// § 9.2.1
+Sign =
+  '+' | '-'
+
+// § 10.5.1
+SignalAssignmentStatement =
+  (Label ':')? SimpleSignalAssignment
+| (Label ':')? ConditionalSignalAssignment
+| (Label ':')? SelectedSignalAssignment
+
+// § 6.4.2.3
+SignalDeclaration =
+  'signal' IdentifierList ':' SubtypeIndication SignalKind? (':=' Expression)?
+
+// § 6.4.2.3
+SignalKind =
+  'register' | 'bus'
+
+// § 7.4
+SignalList =
+  Name (',' Name)* | 'others' | 'all'
+
+// § 4.5.3
+Signature =
+  '[' (TypeMark (',' TypeMark)*)? ('return' TypeMark)? ']'
+
+// § 7.3.1
+SimpleConfigurationSpecification =
+  'for' ComponentSpecification BindingIndication ';' ('end' 'for' ';')?
+
+// § 9.1
+SimpleExpression =
+  Sign? Term (AddingOperator Term)*
+
+// § 10.5.2.1
+SimpleForceAssignment =
+  Target '<=' 'force' ForceMode? Expression ';'
+
+// § 8.2
+SimpleName =
+  '#identifier'
+
+// § 10.5.2.1
+SimpleReleaseAssignment =
+  Target '<=' 'release' ForceMode? ';'
+
+// § 10.5.2.1
+SimpleSignalAssignment =
+  SimpleWaveformAssignment | SimpleForceAssignment | SimpleReleaseAssignment
+
+// § 10.5.2.1
+SimpleWaveformAssignment =
+  Target '<=' DelayMechanism? Waveform ';'
+
+// § 10.6.2.1
+SimpleVariableAssignment =
+  Target ':=' Expression ';'
+
+// § 8.5
+SliceName =
+  Prefix '(' DiscreteRange ')'
+
+// § 4.3
+SubprogramBody =
+  SubprogramSpecification
+  'is'
+  SubprogramDeclarativePart
+  'begin'
+  SubprogramStatementPart
+  'end'
+  SubprogramKind?
+  Designator?
+  ';'
+
+// § 4.2.1
+SubprogramDeclaration =
+  SubprogramSpecification ';'
+
+// § 4.3
+SubprogramDeclarativeItem =
+  SubprogramDeclaration
+| SubprogramBody
+| SubprogramInstantiationDeclaration
+| PackageDeclaration
+| PackageBody
+| PackageInstantiationDeclaration
+| TypeDeclaration
+| SubtypeDeclaration
+| ConstantDeclaration
+| VariableDeclaration
+| FileDeclaration
+| AliasDeclaration
+| AttributeDeclaration
+| AttributeSpecification
+| UseClause
+| GroupTemplateDeclaration
+| GroupDeclaration
+
+// § 4.3
+SubprogramDeclarativePart =
+  SubprogramDeclarativeItem*
+
+// § 4.2.1
+SubprogramHeader =
+  ('generic' '(' GenericList ')' GenericMapAspect?)?
+
+// § 4.4
+SubprogramInstantiationDeclaration =
+  SubprogramKind
+  '#identifier'
+  'is'
+  'new'
+  Name
+  Signature?
+  GenericMapAspect?
+  ';'
+
+// § 4.3
+SubprogramKind =
+  'procedure' | 'function'
+
+// § 4.2.1
+SubprogramSpecification =
+  ProcedureSpecification | FunctionSpecification
+
+// § 4.3
+SubprogramStatementPart =
+  SequentialStatement*
+
+// § 6.3
+SubtypeDeclaration =
+  'subtype' '#identifier' 'is' SubtypeIndication ';'
+
+// § 6.3
+SubtypeIndication =
+  ResolutionIndication? TypeMark Constraint?
+
+// § 8.3
+Suffix =
+  SimpleName | '#character_literal' | OperatorSymbol | 'all'
+
+// § 10.5.2.1
+Target =
+  Name | Aggregate
+
+// § 9.1
+Term =
+  Factor (MultiplyingOperator Factor)*
+
+// § 10.2
+TimeoutClause =
+  'for' Expression
+
+// § 9.3.6
+TypeConversion =
+  TypeMark '(' Expression ')'
+
+// § 6.2
+TypeDeclaration =
+  FullTypeDeclaration | IncompleteTypeDeclaration
+
+// § 6.2
+TypeDefinition =
+  ScalarTypeDefinition
+| CompositeTypeDefinition
+| AccessTypeDefinition
+| FileTypeDefinition
+| ProtectedTypeDefinition
+
+// § 6.3
+// LRM: type_name | subtype_name
+TypeMark =
+  Name
+
+// § 5.3.2.1
+UnboundedArrayDefinition =
+  'array'
+  '('
+  IndexSubtypeDefinition
+  (',' IndexSubtypeDefinition)*
+  ')'
+  'of'
+  SubtypeIndication
+
+// § 12.4
+UseClause =
+  'use' SelectedName (',' SelectedName)* ';'
+
+// § 10.6.1
+VariableAssignmentStatement =
+  (Label ':')? SimpleVariableAssignment
+| (Label ':')? ConditionalVariableAssignment
+| (Label ':')? SelectedVariableAssignment
+
+// § 6.4.2.4
+VariableDeclaration =
+  'shared'?
+  'variable'
+  IdentifierList
+  ':'
+  SubtypeIndication
+  (':=' Expression)?
+  ';'
+
+// § 7.3.4
+VerificationUnitBindingIndication =
+  'use' 'vunit' VerificationUnitList
+
+// § 7.3.4
+VerificationUnitList =
+  Name (',' Name)*
+
+// § 10.2
+WaitStatement =
+  (Label ':')? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
+
+// § 10.5.2.1
+Waveform =
+  WaveformElement (',' WaveformElement)* | 'unaffected'
+
+// § 10.5.2.2
+WaveformElement =
+  Expression ('after' Expression)? | 'null' ('after' Expression)?
+
+// ---------------------------------------------------------------------------
+// Lexical productions (§ 15)
+//
+// Token productions as per the LRM
+//
+//   // § 15.5.1
+//   abstract_literal ::= decimal_literal | based_literal
+//
+//   // § 15.5.3
+//   base ::= integer
+//
+//   // § 15.8
+//   base_specifier ::= "B" | "O" | "X" | "UB" | "UO" | "UX" | "SB" | "SO" | "SX" | "D"
+//
+//   // § 15.5.3
+//   based_integer ::= extended_digit { [ underline ] extended_digit }
+//
+//   // § 15.5.3
+//   based_literal ::= base "#" based_integer [ "." based_integer ] "#" [ exponent ]
+//
+//   // § 15.2
+//   basic_character ::= basic_graphic_character | format_effector
+//
+//   // § 15.2
+//   basic_graphic_character ::= upper_case_letter | digit | special_character | space_character
+//
+//   // § 15.4.2
+//   basic_identifier ::= letter { [ underline ] letter_or_digit }
+//
+//   // § 15.8
+//   bit_string_literal ::= [ integer ] base_specifier """ [ bit_value ] """
+//
+//   // § 15.8
+//   bit_value ::= graphic_character { [ underline ] graphic_character }
+//
+//   // § 15.6
+//   character_literal ::= "'" graphic_character "'"
+//
+//   // § 15.5.2
+//   decimal_literal ::= integer [ "." integer ] [ exponent ]
+//
+//   // § 15.5.2
+//   exponent ::= E [ "+" ] integer | E "-" integer
+//
+//   // § 15.5.3
+//   extended_digit ::= digit | letter
+//
+//   // § 15.4.3
+//   extended_identifier ::= "\" graphic_character { graphic_character } "\"
+//
+//   // § 15.2
+//   graphic_character ::= basic_graphic_character | lower_case_letter | other_special_character
+//
+//   // § 15.4.1
+//   identifier ::= basic_identifier | extended_identifier
+//
+//   // § 15.5.2
+//   integer ::= digit { [ underline ] digit }
+//
+//   // § 15.4.2
+//   letter ::= upper_case_letter | lower_case_letter
+//
+//   // § 15.4.2
+//   letter_or_digit ::= letter | digit
+//
+//   // § 15.7
+//   string_literal ::= """ { graphic_character } """
+//
+//   // § 15.11
+//   tool_directive ::= "`" identifier { graphic_character }

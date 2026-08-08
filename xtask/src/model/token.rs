@@ -11,6 +11,50 @@
 use convert_case::{Case, Casing};
 use std::str::FromStr;
 
+pub fn str_to_token_kind(s: &str) -> Result<TokenKind, strum::ParseError> {
+    use TokenKind::*;
+    Ok(match s {
+        "+" => Plus,
+        "-" => Minus,
+        "=" => EQ,
+        "/=" => NE,
+        "<" => LT,
+        ">" => GT,
+        "<=" => LTE,
+        ">=" => GTE,
+        "?=" => QueEQ,
+        "?/=" => QueNE,
+        "?<" => QueLT,
+        "?>" => QueGT,
+        "?<=" => QueLTE,
+        "?>=" => QueGTE,
+        "?" => Que,
+        "??" => QueQue,
+        "*" => Times,
+        "**" => Pow,
+        "/" => Div,
+        "'" => Tick,
+        "(" => LeftPar,
+        ")" => RightPar,
+        "[" => LeftSquare,
+        "]" => RightSquare,
+        ";" => SemiColon,
+        ":" => Colon,
+        "|" => Bar,
+        "." => Dot,
+        "<>" => BOX,
+        "<<" => LtLt,
+        ">>" => GtGt,
+        "^" => Circ,
+        "@" => CommAt,
+        "&" => Concat,
+        "," => Comma,
+        ":=" => ColonEq,
+        "=>" => RightArrow,
+        _ => return TokenKind::from_str(&s.to_case(Case::UpperCamel)),
+    })
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, strum::Display, strum::EnumString)]
 pub enum TokenKind {
@@ -77,12 +121,6 @@ pub enum TokenKind {
     Unknown,
 
     Eof,
-}
-
-impl TokenKind {
-    pub fn from_str_expect(s: &str) -> TokenKind {
-        TokenKind::from_str(s).unwrap_or_else(|_| panic!("Token kind {s} not valid"))
-    }
 }
 
 /// All available keywords in the latest (VHDL 2019) edition of VHDL
@@ -204,12 +242,6 @@ pub enum Keyword {
     With,
     Xnor,
     Xor,
-}
-
-impl Keyword {
-    pub fn from_str_expect(s: &str) -> Keyword {
-        Keyword::from_str(s).unwrap_or_else(|_| panic!("Keyword {s} not valid"))
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
