@@ -513,7 +513,9 @@ mod tests {
     use super::*;
     use crate::{
         rpc_channel::test_support::*,
-        vhdl_server::semantic_tokens::{ENUM_MEMBER, FUNCTION, MOD_READONLY, PARAMETER, VARIABLE},
+        vhdl_server::semantic_tokens::{
+            ENUM_MEMBER, FUNCTION, MOD_READONLY, OPERATOR, PARAMETER, VARIABLE,
+        },
     };
 
     pub(crate) fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
@@ -1237,5 +1239,51 @@ end package body;
             token_at(&decoded, 5, "  function add_one(".len() as u32),
             Some((PARAMETER, 0))
         ); // parameter
+    }
+
+    #[test]
+    fn semantic_tokens_operators_are_not_functions() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let uri = write_file(
+            &root_uri,
+            "test.vhd",
+            "\
+package pkg is
+  function my_and(a : boolean; b : boolean) return boolean;
+end package;
+
+use work.pkg.all;
+entity ent is
+  port (a, b : in boolean; o1, o2 : out boolean; o3 : out integer);
+end entity;
+
+architecture rtl of ent is
+begin
+  o1 <= a and b;
+  o2 <= my_and(a, b);
+  o3 <= 7 mod 2;
+end architecture;
+",
+        );
+        let config_uri = write_config(&root_uri, std_lib_config());
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri);
+
+        let decoded = get_semantic_tokens(&mut server, &uri);
+        // Infix operators are operators, not functions
+        assert_eq!(
+            token_at(&decoded, 11, "  o1 <= a ".len() as u32),
+            Some((OPERATOR, 0))
+        );
+        assert_eq!(
+            token_at(&decoded, 13, "  o3 <= 7 ".len() as u32),
+            Some((OPERATOR, 0))
+        );
+        // An ordinary subprogram call is still a function
+        assert_eq!(
+            token_at(&decoded, 12, "  o2 <= ".len() as u32),
+            Some((FUNCTION, 0))
+        );
     }
 }

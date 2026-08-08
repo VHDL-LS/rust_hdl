@@ -1,7 +1,7 @@
 use crate::vhdl_server::{from_lsp_range, uri_to_file_name, VHDLServer};
 use lsp_types::*;
-use vhdl_lang::ast::ExternalObjectClass;
-use vhdl_lang::{AnyEntKind, Concurrent, Object, Overloaded, Type};
+use vhdl_lang::ast::{Designator, ExternalObjectClass};
+use vhdl_lang::{AnyEntKind, Concurrent, EntRef, Object, Overloaded, Type};
 
 /// Generates token type index constants and the TOKEN_TYPES legend array
 /// from a single declaration, keeping the two in sync automatically.
@@ -34,6 +34,7 @@ define_token_types! {
     (NAMESPACE   = SemanticTokenType::NAMESPACE),    // libraries, design units, labels
     (STRUCT      = SemanticTokenType::STRUCT),        // record types
     (ENUM        = SemanticTokenType::ENUM),          // enum types
+    (OPERATOR    = SemanticTokenType::OPERATOR),     // operator symbols, e.g. `and`, `mod`, `+`
 }
 
 // Semantic token modifier bits
@@ -75,13 +76,19 @@ fn object_token(obj: &Object) -> TokenClassification {
     }
 }
 
-fn overloaded_token(o: &Overloaded) -> TokenClassification {
+/// `designator` is the name written at the reference site, which decides whether a
+/// subprogram is an operator (`a and b`) or an ordinary call (`my_and(a, b)`).
+fn overloaded_token(designator: &Designator, o: &Overloaded) -> TokenClassification {
     match o {
         Overloaded::EnumLiteral(_) => TokenClassification {
             token_type: ENUM_MEMBER,
             modifiers: 0,
         },
-        Overloaded::Alias(inner) => overloaded_token(inner.kind()),
+        Overloaded::Alias(inner) => overloaded_token(designator, inner.kind()),
+        _ if matches!(designator, Designator::OperatorSymbol(_)) => TokenClassification {
+            token_type: OPERATOR,
+            modifiers: 0,
+        },
         _ => TokenClassification {
             token_type: FUNCTION,
             modifiers: 0,
@@ -112,8 +119,8 @@ fn type_token(t: &Type) -> TokenClassification {
     }
 }
 
-fn classify(kind: &AnyEntKind) -> Option<TokenClassification> {
-    let result = match kind {
+fn classify(ent: EntRef<'_>) -> Option<TokenClassification> {
+    let result = match ent.kind() {
         AnyEntKind::Object(obj) => object_token(obj),
         AnyEntKind::DeferredConstant(_)
         | AnyEntKind::LoopParameter(_)
@@ -121,7 +128,7 @@ fn classify(kind: &AnyEntKind) -> Option<TokenClassification> {
             token_type: VARIABLE,
             modifiers: MOD_READONLY,
         },
-        AnyEntKind::Overloaded(o) => overloaded_token(o),
+        AnyEntKind::Overloaded(o) => overloaded_token(ent.designator(), o),
         AnyEntKind::Type(t) => type_token(t),
         AnyEntKind::Component(_) => TokenClassification {
             token_type: CLASS,
@@ -175,7 +182,7 @@ fn map_and_sort(
     raw_tokens
         .into_iter()
         .filter_map(|(pos, ent)| {
-            let cls = classify(ent.kind())?;
+            let cls = classify(ent)?;
             Some(CachedToken {
                 range: pos.range(),
                 token_type: cls.token_type,
