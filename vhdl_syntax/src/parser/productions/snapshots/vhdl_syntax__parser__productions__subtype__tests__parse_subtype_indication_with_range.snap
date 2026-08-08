@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication, \"integer range 0 to 2-1\"
 ---
 SubtypeIndication
   Name
-    Identifier 'integer'
+    NameDesignatorPrefix
+      Identifier 'integer'
     RangeConstraint
       Keyword(Range)
       BinaryExpression

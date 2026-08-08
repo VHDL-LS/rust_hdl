@@ -8,7 +8,8 @@ ArchitectureBody
     Identifier 'arch_name'
     Keyword(Of)
     Name
-      Identifier 'myent'
+      NameDesignatorPrefix
+        Identifier 'myent'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)

@@ -4,8 +4,10 @@ expression: "to_test_text(Parser::delay_mechanism, \"reject 2 ns inertial\")"
 ---
 InertialDelayMechanism
   Keyword(Reject)
-  PhysicalLiteral
-    AbstractLiteral '2'
-    Name
-      Identifier 'ns'
+  PhysicalLiteralExpression
+    PhysicalLiteral
+      AbstractLiteral '2'
+      Name
+        NameDesignatorPrefix
+          Identifier 'ns'
   Keyword(Inertial)

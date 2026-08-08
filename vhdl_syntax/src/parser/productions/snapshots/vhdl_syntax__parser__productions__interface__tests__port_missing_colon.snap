@@ -11,13 +11,14 @@ PortClause
     Keyword(Port)
     LeftPar
   InterfaceList
-    InterfaceConstantDeclaration
+    InterfaceObjectDeclaration
       IdentifierList
         Identifier 'clk'
       Keyword(In)
       SubtypeIndication
         Name
-          Identifier 'std_logic'
+          NameDesignatorPrefix
+            Identifier 'std_logic'
   PortClauseEpilogue
     RightPar
     SemiColon

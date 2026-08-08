@@ -13,13 +13,14 @@ ComponentDeclaration
         Keyword(Port)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'foo'
           Colon
           SubtypeIndication
             Name
-              Identifier 'natural'
+              NameDesignatorPrefix
+                Identifier 'natural'
       PortClauseEpilogue
         RightPar
         SemiColon

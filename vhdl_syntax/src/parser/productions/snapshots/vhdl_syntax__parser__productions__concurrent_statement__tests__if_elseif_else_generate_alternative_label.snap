@@ -14,22 +14,26 @@ IfGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond2'
+          NameDesignatorPrefix
+            Identifier 'cond2'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
       GenerateStatementBodyEpilogue

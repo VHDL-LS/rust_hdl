@@ -20,5 +20,6 @@ FullTypeDeclaration
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'positive'
+        NameDesignatorPrefix
+          Identifier 'positive'
   SemiColon

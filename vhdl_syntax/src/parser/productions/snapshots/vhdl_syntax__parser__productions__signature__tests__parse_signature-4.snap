@@ -6,8 +6,10 @@ Signature
   LeftSquare
   NameList
     Name
-      Identifier 'arg1_t'
+      NameDesignatorPrefix
+        Identifier 'arg1_t'
     Comma
     Name
-      Identifier 'arg2_t'
+      NameDesignatorPrefix
+        Identifier 'arg2_t'
   RightSquare

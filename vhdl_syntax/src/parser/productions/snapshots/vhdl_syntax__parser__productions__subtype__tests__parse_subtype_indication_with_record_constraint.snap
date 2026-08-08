@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication,\n\"axi_m2s_t(tdata(2-1 dow
 ---
 SubtypeIndication
   Name
-    Identifier 'axi_m2s_t'
+    NameDesignatorPrefix
+      Identifier 'axi_m2s_t'
     ParenthesizedName
       LeftPar
       AssociationList
@@ -13,7 +14,8 @@ SubtypeIndication
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'tdata'
+                  NameDesignatorPrefix
+                    Identifier 'tdata'
                   ParenthesizedName
                     LeftPar
                     AssociationList
@@ -37,7 +39,8 @@ SubtypeIndication
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'tuser'
+                  NameDesignatorPrefix
+                    Identifier 'tuser'
                   ParenthesizedName
                     LeftPar
                     AssociationList

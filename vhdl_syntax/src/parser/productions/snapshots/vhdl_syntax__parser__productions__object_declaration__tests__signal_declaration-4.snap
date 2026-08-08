@@ -9,7 +9,8 @@ SignalDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'bit'
+      NameDesignatorPrefix
+        Identifier 'bit'
   Keyword(Bus)
   ColonEq
   LiteralExpression

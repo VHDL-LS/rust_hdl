@@ -6,7 +6,8 @@ UseClause
   Keyword(Use)
   NameList
     Name
-      Identifier 'lib1'
+      NameDesignatorPrefix
+        Identifier 'lib1'
       SelectedName
         Dot
         Identifier 'lib2'

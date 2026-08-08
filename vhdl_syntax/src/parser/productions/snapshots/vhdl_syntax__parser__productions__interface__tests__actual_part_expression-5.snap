@@ -10,7 +10,8 @@ ActualPart
         ElementAssociation
           NameExpression
             Name
-              Identifier 'foo'
+              NameDesignatorPrefix
+                Identifier 'foo'
         RightPar
       Plus
       LiteralExpression

@@ -989,7 +989,7 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -2521,7 +2521,7 @@ impl AstNode for ParenthesizedProcessSensitivityListSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "process_sensitivity_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -2571,7 +2571,7 @@ impl AstNode for ProcessStatementPreambleSyntax {
         kind: NodeKind::ProcessStatementPreamble,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "label",
                 kind: LayoutItemKind::Node(NodeKind::Label),

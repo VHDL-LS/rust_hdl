@@ -2,7 +2,7 @@
 source: vhdl_syntax/src/parser/productions/interface.rs
 expression: "to_test_text(Parser::interface_declaration, \"a, b, c : in std_logic\")"
 ---
-InterfaceConstantDeclaration
+InterfaceObjectDeclaration
   IdentifierList
     Identifier 'a'
     Comma
@@ -13,4 +13,5 @@ InterfaceConstantDeclaration
   Keyword(In)
   SubtypeIndication
     Name
-      Identifier 'std_logic'
+      NameDesignatorPrefix
+        Identifier 'std_logic'

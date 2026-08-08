@@ -10,7 +10,8 @@ ContextReference
   Keyword(Context)
   NameList
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'

@@ -56,10 +56,13 @@ impl Parser {
                 if self.next_is(Identifier) {
                     self.start_node_at(checkpoint, PhysicalLiteral);
                     self.name();
+                    self.end_node();
+                    self.start_node_at(checkpoint, PhysicalLiteralExpression);
+                    self.end_node();
                 } else {
                     self.start_node_at(checkpoint, LiteralExpression);
+                    self.end_node();
                 }
-                self.end_node();
             },
             LeftPar => {
                 self.parenthesized_expression_or_aggregate();

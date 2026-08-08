@@ -21,7 +21,8 @@ PackageBody
       Colon
       SubtypeIndication
         Name
-          Identifier 'real'
+          NameDesignatorPrefix
+            Identifier 'real'
       ColonEq
       LiteralExpression
         AbstractLiteral '3.14'

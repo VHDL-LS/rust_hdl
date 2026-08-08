@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication, \"obj'subtype\")"
 ---
 SubtypeIndication
   Name
-    Identifier 'obj'
+    NameDesignatorPrefix
+      Identifier 'obj'
     AttributeName
       Tick
       Keyword(Subtype)

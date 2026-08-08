@@ -6,7 +6,8 @@ ActualPart
   ActualPartExpression
     NameExpression
       Name
-        Identifier 'integer'
+        NameDesignatorPrefix
+          Identifier 'integer'
         RangeConstraint
           Keyword(Range)
           BinaryExpression

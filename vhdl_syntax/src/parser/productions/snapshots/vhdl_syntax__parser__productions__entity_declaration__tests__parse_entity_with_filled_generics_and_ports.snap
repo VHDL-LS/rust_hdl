@@ -13,7 +13,7 @@ EntityDeclaration
         Keyword(Generic)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           Keyword(Constant)
           IdentifierList
             Identifier 'a'
@@ -21,7 +21,8 @@ EntityDeclaration
           Keyword(In)
           SubtypeIndication
             Name
-              Identifier 'bit'
+              NameDesignatorPrefix
+                Identifier 'bit'
       GenericClauseEpilogue
         RightPar
         SemiColon
@@ -30,7 +31,7 @@ EntityDeclaration
         Keyword(Port)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'b'
             Comma
@@ -39,9 +40,10 @@ EntityDeclaration
           Keyword(Out)
           SubtypeIndication
             Name
-              Identifier 'std_logic'
+              NameDesignatorPrefix
+                Identifier 'std_logic'
         SemiColon
-        InterfaceSignalDeclaration
+        InterfaceObjectDeclaration
           Keyword(Signal)
           IdentifierList
             Identifier 'd'
@@ -49,7 +51,8 @@ EntityDeclaration
           Keyword(Linkage)
           SubtypeIndication
             Name
-              Identifier 'boolean'
+              NameDesignatorPrefix
+                Identifier 'boolean'
       PortClauseEpilogue
         RightPar
         SemiColon

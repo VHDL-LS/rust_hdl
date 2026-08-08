@@ -18,13 +18,13 @@ LoopStatement
     Keyword(Loop)
   SequentialStatements
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'stmt1'
       SemiColon
     ProcedureCallStatement
-      NameTarget
-        Name
+      Name
+        NameDesignatorPrefix
           Identifier 'stmt2'
       SemiColon
   LoopStatementEpilogue

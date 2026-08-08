@@ -9,7 +9,8 @@ ComponentInstantiationStatement
   EntityInstantiatedUnit
     Keyword(Entity)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'
@@ -24,6 +25,7 @@ ComponentInstantiationStatement
               ActualPartExpression
                 NameExpression
                   Name
-                    Identifier 'arch'
+                    NameDesignatorPrefix
+                      Identifier 'arch'
         RightPar
   SemiColon

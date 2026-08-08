@@ -11,17 +11,19 @@ SubprogramBody
         ParenthesizedInterfaceList
           LeftPar
           InterfaceList
-            InterfaceConstantDeclaration
+            InterfaceObjectDeclaration
               IdentifierList
                 Identifier 'arg'
               Colon
               SubtypeIndication
                 Name
-                  Identifier 'natural'
+                  NameDesignatorPrefix
+                    Identifier 'natural'
           RightPar
       Keyword(Return)
       Name
-        Identifier 'natural'
+        NameDesignatorPrefix
+          Identifier 'natural'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)

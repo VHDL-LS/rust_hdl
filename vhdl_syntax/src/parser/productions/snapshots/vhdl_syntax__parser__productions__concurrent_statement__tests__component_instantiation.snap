@@ -9,7 +9,8 @@ ComponentInstantiationStatement
   ComponentInstantiatedUnit
     Keyword(Component)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'

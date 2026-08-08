@@ -315,16 +315,14 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::IfGenerateElsif | NodeKind::IfStatementElsif => {
             &[Keyword(Kw::Else), Keyword(Kw::End)]
         }
-        NodeKind::InterfaceConstantDeclaration
+        NodeKind::InterfaceObjectDeclaration
         | NodeKind::InterfaceFileDeclaration
         | NodeKind::InterfaceIncompleteTypeDeclaration
         | NodeKind::InterfacePackageDeclaration
         | NodeKind::InterfacePackageGenericMapAspect
-        | NodeKind::InterfaceSignalDeclaration
         | NodeKind::InterfaceSubprogramDeclaration
         | NodeKind::InterfaceSubprogramDefaultBox
-        | NodeKind::InterfaceSubprogramDefaultName
-        | NodeKind::InterfaceVariableDeclaration => &[RightPar, SemiColon],
+        | NodeKind::InterfaceSubprogramDefaultName => &[RightPar, SemiColon],
         NodeKind::PackageInstantiationPreamble
         | NodeKind::SubprogramInstantiationDeclarationPreamble => {
             &[Keyword(Kw::Generic), SemiColon]

@@ -11,11 +11,13 @@ IfGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond'
+          NameDesignatorPrefix
+            Identifier 'cond'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
   GenerateStatementBody
     Declarations
@@ -26,14 +28,16 @@ IfGenerateStatement
         Colon
         SubtypeIndication
           Name
-            Identifier 'boolean'
+            NameDesignatorPrefix
+              Identifier 'boolean'
         SemiColon
     DeclarationStatementSeparator
       Keyword(Begin)
     ConcurrentStatements
       ConcurrentProcedureCallOrComponentInstantiationStatement
         Name
-          Identifier 'foo1'
+          NameDesignatorPrefix
+            Identifier 'foo1'
           ParenthesizedName
             LeftPar
             AssociationList
@@ -42,7 +46,8 @@ IfGenerateStatement
                   ActualPartExpression
                     NameExpression
                       Name
-                        Identifier 'clk'
+                        NameDesignatorPrefix
+                          Identifier 'clk'
             RightPar
         SemiColon
   IfGenerateElsif
@@ -50,11 +55,13 @@ IfGenerateStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'cond2'
+          NameDesignatorPrefix
+            Identifier 'cond2'
       EQ
       NameExpression
         Name
-          Identifier 'true'
+          NameDesignatorPrefix
+            Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
       Declarations
@@ -65,14 +72,16 @@ IfGenerateStatement
           Colon
           SubtypeIndication
             Name
-              Identifier 'boolean'
+              NameDesignatorPrefix
+                Identifier 'boolean'
           SemiColon
       DeclarationStatementSeparator
         Keyword(Begin)
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
-            Identifier 'foo2'
+            NameDesignatorPrefix
+              Identifier 'foo2'
             ParenthesizedName
               LeftPar
               AssociationList
@@ -81,7 +90,8 @@ IfGenerateStatement
                     ActualPartExpression
                       NameExpression
                         Name
-                          Identifier 'clk'
+                          NameDesignatorPrefix
+                            Identifier 'clk'
               RightPar
           SemiColon
   IfGenerateElse
@@ -96,14 +106,16 @@ IfGenerateStatement
           Colon
           SubtypeIndication
             Name
-              Identifier 'boolean'
+              NameDesignatorPrefix
+                Identifier 'boolean'
           SemiColon
       DeclarationStatementSeparator
         Keyword(Begin)
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
-            Identifier 'foo3'
+            NameDesignatorPrefix
+              Identifier 'foo3'
             ParenthesizedName
               LeftPar
               AssociationList
@@ -112,7 +124,8 @@ IfGenerateStatement
                     ActualPartExpression
                       NameExpression
                         Name
-                          Identifier 'clk'
+                          NameDesignatorPrefix
+                            Identifier 'clk'
               RightPar
           SemiColon
   IfGenerateStatementEpilogue

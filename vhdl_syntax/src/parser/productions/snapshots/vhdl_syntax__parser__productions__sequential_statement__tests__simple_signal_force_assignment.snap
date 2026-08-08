@@ -1,11 +1,12 @@
 ---
 source: vhdl_syntax/src/parser/productions/sequential_statement.rs
-expression: "to_test_text(Parser::sequential_statement, \"foo(0) <= force bar(1,2);\")"
+expression: "stmt_to_test_text(\"foo(0) <= force bar(1,2);\")"
 ---
 SimpleForceAssignment
   NameTarget
     Name
-      Identifier 'foo'
+      NameDesignatorPrefix
+        Identifier 'foo'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -19,7 +20,8 @@ SimpleForceAssignment
   Keyword(Force)
   NameExpression
     Name
-      Identifier 'bar'
+      NameDesignatorPrefix
+        Identifier 'bar'
       ParenthesizedName
         LeftPar
         AssociationList

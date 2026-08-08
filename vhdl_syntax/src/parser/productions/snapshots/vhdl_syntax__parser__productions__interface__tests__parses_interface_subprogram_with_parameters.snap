@@ -10,14 +10,16 @@ InterfaceSubprogramDeclaration
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'Actual'
             Colon
             SubtypeIndication
               Name
-                Identifier 'ActualType'
+                NameDesignatorPrefix
+                  Identifier 'ActualType'
         RightPar
     Keyword(Return)
     Name
-      Identifier 'boolean'
+      NameDesignatorPrefix
+        Identifier 'boolean'

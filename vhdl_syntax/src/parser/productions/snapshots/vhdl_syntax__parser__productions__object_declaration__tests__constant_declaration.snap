@@ -9,5 +9,6 @@ ConstantDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'std_ulogic'
+      NameDesignatorPrefix
+        Identifier 'std_ulogic'
   SemiColon

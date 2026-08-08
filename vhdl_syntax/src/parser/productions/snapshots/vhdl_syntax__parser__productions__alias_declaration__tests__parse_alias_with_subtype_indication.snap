@@ -8,7 +8,8 @@ AliasDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'vector'
+      NameDesignatorPrefix
+        Identifier 'vector'
       ParenthesizedName
         LeftPar
         AssociationList
@@ -24,5 +25,6 @@ AliasDeclaration
         RightPar
   Keyword(Is)
   Name
-    Identifier 'name'
+    NameDesignatorPrefix
+      Identifier 'name'
   SemiColon

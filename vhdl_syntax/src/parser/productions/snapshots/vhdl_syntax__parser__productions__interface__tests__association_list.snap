@@ -8,11 +8,13 @@ AssociationList
       ActualPartExpression
         NameExpression
           Name
-            Identifier 'arg1'
+            NameDesignatorPrefix
+              Identifier 'arg1'
   Comma
   AssociationElement
     ActualPart
       ActualPartExpression
         NameExpression
           Name
-            Identifier 'arg2'
+            NameDesignatorPrefix
+              Identifier 'arg2'

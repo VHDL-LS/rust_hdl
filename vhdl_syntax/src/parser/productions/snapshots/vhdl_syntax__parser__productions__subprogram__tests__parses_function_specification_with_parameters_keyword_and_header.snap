@@ -11,30 +11,33 @@ SubprogramDeclaration
         Keyword(Generic)
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'abc_def'
             Colon
             SubtypeIndication
               Name
-                Identifier 'natural'
+                NameDesignatorPrefix
+                  Identifier 'natural'
         RightPar
     ParameterList
       Keyword(Parameter)
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'foo'
             Colon
             SubtypeIndication
               Name
-                Identifier 'natural'
+                NameDesignatorPrefix
+                  Identifier 'natural'
         RightPar
     Keyword(Return)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'

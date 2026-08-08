@@ -25,13 +25,15 @@ ForGenerateStatement
       ConcurrentSimpleSignalAssignment
         NameTarget
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
         LTE
         WaveformElements
           WaveformElement
             NameExpression
               Name
-                Identifier 'bar'
+                NameDesignatorPrefix
+                  Identifier 'bar'
         SemiColon
   ForGenerateStatementEpilogue
     Keyword(End)

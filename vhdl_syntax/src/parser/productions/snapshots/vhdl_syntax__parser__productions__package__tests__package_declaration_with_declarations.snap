@@ -19,7 +19,8 @@ Package
       Colon
       SubtypeIndication
         Name
-          Identifier 'natural'
+          NameDesignatorPrefix
+            Identifier 'natural'
       ColonEq
       LiteralExpression
         AbstractLiteral '0'

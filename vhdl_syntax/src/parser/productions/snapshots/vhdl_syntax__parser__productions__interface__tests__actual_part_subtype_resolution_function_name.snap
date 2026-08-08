@@ -7,6 +7,8 @@ ActualPart
     SubtypeIndication
       NameResolutionIndication
         Name
-          Identifier 'resolve'
+          NameDesignatorPrefix
+            Identifier 'resolve'
       Name
-        Identifier 'std_logic'
+        NameDesignatorPrefix
+          Identifier 'std_logic'

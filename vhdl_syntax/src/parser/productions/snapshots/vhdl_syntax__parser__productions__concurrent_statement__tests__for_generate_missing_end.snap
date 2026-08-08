@@ -28,7 +28,8 @@ ForGenerateStatement
       ConcurrentSimpleSignalAssignment
         NameTarget
           Name
-            Identifier 'buf'
+            NameDesignatorPrefix
+              Identifier 'buf'
             ParenthesizedName
               LeftPar
               AssociationList
@@ -37,14 +38,16 @@ ForGenerateStatement
                     ActualPartExpression
                       NameExpression
                         Name
-                          Identifier 'i'
+                          NameDesignatorPrefix
+                            Identifier 'i'
               RightPar
         LTE
         WaveformElements
           WaveformElement
             NameExpression
               Name
-                Identifier 'data'
+                NameDesignatorPrefix
+                  Identifier 'data'
                 ParenthesizedName
                   LeftPar
                   AssociationList
@@ -53,7 +56,8 @@ ForGenerateStatement
                         ActualPartExpression
                           NameExpression
                             Name
-                              Identifier 'i'
+                              NameDesignatorPrefix
+                                Identifier 'i'
                   RightPar
         SemiColon
 

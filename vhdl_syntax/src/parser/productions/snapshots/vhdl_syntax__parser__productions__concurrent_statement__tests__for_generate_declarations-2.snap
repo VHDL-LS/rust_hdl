@@ -27,7 +27,8 @@ ForGenerateStatement
         Colon
         SubtypeIndication
           Name
-            Identifier 'natural'
+            NameDesignatorPrefix
+              Identifier 'natural'
         SemiColon
     DeclarationStatementSeparator
       Keyword(Begin)
@@ -35,13 +36,15 @@ ForGenerateStatement
       ConcurrentSimpleSignalAssignment
         NameTarget
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
         LTE
         WaveformElements
           WaveformElement
             NameExpression
               Name
-                Identifier 'bar'
+                NameDesignatorPrefix
+                  Identifier 'bar'
         SemiColon
     GenerateStatementBodyEpilogue
       Keyword(End)

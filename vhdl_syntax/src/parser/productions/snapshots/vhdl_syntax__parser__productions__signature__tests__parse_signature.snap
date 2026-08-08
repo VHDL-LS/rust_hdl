@@ -6,11 +6,14 @@ Signature
   LeftSquare
   NameList
     Name
-      Identifier 'natural'
+      NameDesignatorPrefix
+        Identifier 'natural'
     Comma
     Name
-      Identifier 'bit'
+      NameDesignatorPrefix
+        Identifier 'bit'
   Keyword(Return)
   Name
-    Identifier 'unsigned'
+    NameDesignatorPrefix
+      Identifier 'unsigned'
   RightSquare

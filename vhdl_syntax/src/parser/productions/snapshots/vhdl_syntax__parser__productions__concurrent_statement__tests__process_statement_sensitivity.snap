@@ -7,12 +7,14 @@ ProcessStatement
     Keyword(Process)
     ParenthesizedProcessSensitivityList
       LeftPar
-      NameList
+      SensitivityList
         Name
-          Identifier 'clk'
+          NameDesignatorPrefix
+            Identifier 'clk'
         Comma
         Name
-          Identifier 'vec'
+          NameDesignatorPrefix
+            Identifier 'vec'
           ParenthesizedName
             LeftPar
             AssociationList

@@ -9,5 +9,6 @@ FileDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'bit'
+      NameDesignatorPrefix
+        Identifier 'bit'
   SemiColon

@@ -12,7 +12,8 @@ FullTypeDeclaration
       LeftPar
       NameExpression
         Name
-          Identifier 'arr_t'
+          NameDesignatorPrefix
+            Identifier 'arr_t'
           AttributeName
             Tick
             Keyword(Range)
@@ -20,5 +21,6 @@ FullTypeDeclaration
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'boolean'
+        NameDesignatorPrefix
+          Identifier 'boolean'
   SemiColon

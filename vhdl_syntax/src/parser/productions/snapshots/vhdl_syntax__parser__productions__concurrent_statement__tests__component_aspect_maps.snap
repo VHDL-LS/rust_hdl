@@ -9,7 +9,8 @@ ComponentInstantiationStatement
   ComponentInstantiatedUnit
     Keyword(Component)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'
@@ -25,7 +26,8 @@ ComponentInstantiationStatement
         AssociationElement
           FormalPart
             Name
-              Identifier 'const'
+              NameDesignatorPrefix
+                Identifier 'const'
           RightArrow
           ActualPart
             ActualPartExpression
@@ -40,12 +42,14 @@ ComponentInstantiationStatement
         AssociationElement
           FormalPart
             Name
-              Identifier 'clk'
+              NameDesignatorPrefix
+                Identifier 'clk'
           RightArrow
           ActualPart
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'clk_foo'
+                  NameDesignatorPrefix
+                    Identifier 'clk_foo'
       RightPar
   SemiColon

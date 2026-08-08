@@ -13,7 +13,8 @@ ConstantDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'integer'
+      NameDesignatorPrefix
+        Identifier 'integer'
   ColonEq
   SemiColon
 

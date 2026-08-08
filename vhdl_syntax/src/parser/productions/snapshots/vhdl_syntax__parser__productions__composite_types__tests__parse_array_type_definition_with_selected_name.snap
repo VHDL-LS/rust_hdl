@@ -12,7 +12,8 @@ FullTypeDeclaration
       LeftPar
       NameExpression
         Name
-          Identifier 'lib'
+          NameDesignatorPrefix
+            Identifier 'lib'
           SelectedName
             Dot
             Identifier 'pkg'
@@ -23,5 +24,6 @@ FullTypeDeclaration
     Keyword(Of)
     SubtypeIndication
       Name
-        Identifier 'boolean'
+        NameDesignatorPrefix
+          Identifier 'boolean'
   SemiColon

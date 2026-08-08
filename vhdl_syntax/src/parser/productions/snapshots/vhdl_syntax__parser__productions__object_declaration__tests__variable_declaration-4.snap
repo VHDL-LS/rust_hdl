@@ -2,7 +2,7 @@
 source: vhdl_syntax/src/parser/productions/object_declaration.rs
 expression: "to_test_text(Parser::variable_declaration,\n\"shared variable shared_v, shared_vv: natural;\")"
 ---
-VariableDeclaration
+SharedVariableDeclaration
   Keyword(Shared)
   Keyword(Variable)
   IdentifierList
@@ -12,5 +12,6 @@ VariableDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'natural'
+      NameDesignatorPrefix
+        Identifier 'natural'
   SemiColon

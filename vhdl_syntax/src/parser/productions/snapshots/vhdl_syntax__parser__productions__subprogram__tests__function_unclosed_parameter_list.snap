@@ -14,16 +14,18 @@ SubprogramDeclaration
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'a'
             Colon
             SubtypeIndication
               Name
-                Identifier 'integer'
+                NameDesignatorPrefix
+                  Identifier 'integer'
     Keyword(Return)
     Name
-      Identifier 'integer'
+      NameDesignatorPrefix
+        Identifier 'integer'
   SemiColon
 
 == diagnostics ==

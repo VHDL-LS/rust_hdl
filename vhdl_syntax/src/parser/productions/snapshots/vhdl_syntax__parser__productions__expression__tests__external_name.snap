@@ -15,5 +15,6 @@ NameExpression
       Colon
       SubtypeIndication
         Name
-          Identifier 'boolean'
+          NameDesignatorPrefix
+            Identifier 'boolean'
       GtGt

@@ -4,5 +4,6 @@ expression: "stmt_to_test_text(\"foo;\",)"
 ---
 ConcurrentProcedureCallOrComponentInstantiationStatement
   Name
-    Identifier 'foo'
+    NameDesignatorPrefix
+      Identifier 'foo'
   SemiColon

@@ -9,7 +9,8 @@ InterfacePackageDeclaration
     Keyword(Is)
   Keyword(New)
   Name
-    Identifier 'lib'
+    NameDesignatorPrefix
+      Identifier 'lib'
     SelectedName
       Dot
       Identifier 'pkg'

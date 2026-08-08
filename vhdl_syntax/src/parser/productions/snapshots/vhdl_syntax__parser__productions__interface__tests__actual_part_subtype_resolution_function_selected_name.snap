@@ -7,7 +7,8 @@ ActualPart
     SubtypeIndication
       NameResolutionIndication
         Name
-          Identifier 'lib'
+          NameDesignatorPrefix
+            Identifier 'lib'
           SelectedName
             Dot
             Identifier 'pkg'
@@ -15,4 +16,5 @@ ActualPart
             Dot
             Identifier 'resolve'
       Name
-        Identifier 'std_logic'
+        NameDesignatorPrefix
+          Identifier 'std_logic'

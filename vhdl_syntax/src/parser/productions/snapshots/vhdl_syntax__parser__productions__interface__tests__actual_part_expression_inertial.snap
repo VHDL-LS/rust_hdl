@@ -8,7 +8,8 @@ ActualPart
     BinaryExpression
       NameExpression
         Name
-          Identifier 'a'
+          NameDesignatorPrefix
+            Identifier 'a'
       Plus
       LiteralExpression
         AbstractLiteral '1'

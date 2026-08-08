@@ -194,9 +194,11 @@ impl Model {
 
     /// Computes the set of sequence nodes that can produce a completely empty green tree node.
     ///
-    /// A node is empty-capable when every item in its sequence is either:
+    /// A sequence node is empty-capable when every item is either:
     /// - an optional or repeated token/node, or
     /// - a required node reference whose target is itself empty-capable.
+    ///
+    /// A choice node is empty-capable when any of its alternatives is.
     ///
     /// Nodes with canonical-text tokens (keywords, symbols) are **not** empty-capable because
     /// those tokens are always emitted. The computation is a fixed-point iteration to handle
@@ -206,20 +208,38 @@ impl Model {
         loop {
             let prev_size = empty_capable.len();
             for node in self.all_nodes() {
-                if let Node::Items(seq) = node {
-                    if empty_capable.contains(&seq.name) {
-                        continue;
-                    }
-                    let is_empty_capable = seq.items.iter().all(|item| match item {
-                        TokenOrNode::Token(token) => token.optional || token.repeated,
-                        TokenOrNode::Node(node_ref) => {
-                            node_ref.optional
-                                || node_ref.repeated
-                                || empty_capable.contains(&node_ref.kind)
+                match node {
+                    Node::Items(seq) => {
+                        if empty_capable.contains(&seq.name) {
+                            continue;
                         }
-                    });
-                    if is_empty_capable {
-                        empty_capable.insert(seq.name.clone());
+                        let is_empty_capable = seq.items.iter().all(|item| match item {
+                            TokenOrNode::Token(token) => token.optional || token.repeated,
+                            TokenOrNode::Node(node_ref) => {
+                                node_ref.optional
+                                    || node_ref.repeated
+                                    || empty_capable.contains(&node_ref.kind)
+                            }
+                        });
+                        if is_empty_capable {
+                            empty_capable.insert(seq.name.clone());
+                        }
+                    }
+                    // A choice is empty-capable when any alternative is: the parser
+                    // can select that alternative, emit nothing, and the empty node
+                    // is dropped — leaving the choice reference absent in the parent.
+                    Node::Choices(choice) => {
+                        if empty_capable.contains(&choice.name) {
+                            continue;
+                        }
+                        if let NodesOrTokens::Nodes(options) = &choice.items {
+                            if options
+                                .iter()
+                                .any(|option| empty_capable.contains(&option.kind))
+                            {
+                                empty_capable.insert(choice.name.clone());
+                            }
+                        }
                     }
                 }
             }

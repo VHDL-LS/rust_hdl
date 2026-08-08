@@ -11,17 +11,19 @@ SubprogramBody
         ParenthesizedInterfaceList
           LeftPar
           InterfaceList
-            InterfaceConstantDeclaration
+            InterfaceObjectDeclaration
               IdentifierList
                 Identifier 'arg'
               Colon
               SubtypeIndication
                 Name
-                  Identifier 'natural'
+                  NameDesignatorPrefix
+                    Identifier 'natural'
           RightPar
       Keyword(Return)
       Name
-        Identifier 'natural'
+        NameDesignatorPrefix
+          Identifier 'natural'
     Keyword(Is)
   Declarations
     ConstantDeclaration
@@ -31,7 +33,8 @@ SubprogramBody
       Colon
       SubtypeIndication
         Name
-          Identifier 'natural'
+          NameDesignatorPrefix
+            Identifier 'natural'
       ColonEq
       LiteralExpression
         AbstractLiteral '0'
@@ -44,11 +47,13 @@ SubprogramBody
       BinaryExpression
         NameExpression
           Name
-            Identifier 'foo'
+            NameDesignatorPrefix
+              Identifier 'foo'
         Plus
         NameExpression
           Name
-            Identifier 'arg'
+            NameDesignatorPrefix
+              Identifier 'arg'
       SemiColon
   SubprogramBodyEpilogue
     Keyword(End)

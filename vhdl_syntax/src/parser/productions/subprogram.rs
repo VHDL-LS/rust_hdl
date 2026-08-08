@@ -47,8 +47,9 @@ impl Parser {
             self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);
             self.expect_token(Keyword(Kw::Function));
             true
-        } else if self.opt_token(Keyword(Kw::Procedure)) {
+        } else if self.next_is(Keyword(Kw::Procedure)) {
             self.start_node(ProcedureSpecification);
+            self.expect_token(Keyword(Kw::Procedure));
             false
         } else {
             self.expect_tokens_recover([

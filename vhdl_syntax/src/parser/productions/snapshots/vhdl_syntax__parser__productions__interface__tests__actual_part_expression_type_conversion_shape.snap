@@ -6,7 +6,8 @@ ActualPart
   ActualPartExpression
     NameExpression
       Name
-        Identifier 'std_ulogic'
+        NameDesignatorPrefix
+          Identifier 'std_ulogic'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -15,5 +16,6 @@ ActualPart
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'p'
+                      NameDesignatorPrefix
+                        Identifier 'p'
           RightPar

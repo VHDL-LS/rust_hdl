@@ -13,7 +13,8 @@ CaseStatement
     Keyword(Case)
     NameExpression
       Name
-        Identifier 'sel'
+        NameDesignatorPrefix
+          Identifier 'sel'
   CaseStatementAlternative
     CaseStatementAlternativePreamble
       Keyword(When)

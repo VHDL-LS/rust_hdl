@@ -11,17 +11,19 @@ SubprogramDeclaration
       ParenthesizedInterfaceList
         LeftPar
         InterfaceList
-          InterfaceConstantDeclaration
+          InterfaceObjectDeclaration
             IdentifierList
               Identifier 'foo'
             Colon
             SubtypeIndication
               Name
-                Identifier 'natural'
+                NameDesignatorPrefix
+                  Identifier 'natural'
         RightPar
     Keyword(Return)
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'foo'

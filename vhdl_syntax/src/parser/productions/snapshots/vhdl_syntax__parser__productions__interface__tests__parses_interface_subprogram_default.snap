@@ -8,11 +8,13 @@ InterfaceSubprogramDeclaration
     Identifier 'foo'
     Keyword(Return)
     Name
-      Identifier 'bar'
+      NameDesignatorPrefix
+        Identifier 'bar'
   Keyword(Is)
   InterfaceSubprogramDefaultName
     Name
-      Identifier 'lib'
+      NameDesignatorPrefix
+        Identifier 'lib'
       SelectedName
         Dot
         Identifier 'name'

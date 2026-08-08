@@ -23,7 +23,8 @@ FullTypeDeclaration
       RightPar
     SubtypeIndication
       Name
-        Identifier 'integer'
+        NameDesignatorPrefix
+          Identifier 'integer'
   SemiColon
 
 == diagnostics ==

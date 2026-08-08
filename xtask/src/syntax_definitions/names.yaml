@@ -11,8 +11,14 @@ AttributeName: !Sequence
   - node: Signature
     optional: true
   - token: Tick
-  - token: Identifier
+  - node: AttributeDesignator
     name: attribute_designator_token
+
+# `range` and `subtype` are reserved words yet are valid attribute designators.
+AttributeDesignator: !Choice
+  - token: Identifier
+  - keyword: Range
+  - keyword: Subtype
 
 ExternalName: !Choice
   - node: ExternalConstantName

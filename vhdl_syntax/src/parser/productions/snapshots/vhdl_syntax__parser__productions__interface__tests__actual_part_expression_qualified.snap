@@ -6,7 +6,8 @@ ActualPart
   ActualPartExpression
     QualifiedExpression
       Name
-        Identifier 'T'
+        NameDesignatorPrefix
+          Identifier 'T'
       Tick
       ParenthesizedExpressionOrAggregate
         LeftPar

@@ -38,7 +38,12 @@ impl Parser {
     }
 
     pub fn variable_declaration(&mut self) {
-        self.start_node(VariableDeclaration);
+        let kind = if self.next_is(Keyword(Kw::Shared)) {
+            SharedVariableDeclaration
+        } else {
+            VariableDeclaration
+        };
+        self.start_node(kind);
         self.opt_token(Keyword(Kw::Shared));
         self.expect_token(Keyword(Kw::Variable));
         self.identifier_list();

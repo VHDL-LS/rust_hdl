@@ -14,7 +14,8 @@ ArchitectureBody
     Identifier 'rtl'
     Keyword(Of)
     Name
-      Identifier 'myent'
+      NameDesignatorPrefix
+        Identifier 'myent'
   DeclarationStatementSeparator
     Keyword(Begin)
   ArchitectureEpilogue

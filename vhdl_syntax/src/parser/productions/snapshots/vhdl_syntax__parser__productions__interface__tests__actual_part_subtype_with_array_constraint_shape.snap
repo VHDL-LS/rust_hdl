@@ -6,7 +6,8 @@ ActualPart
   ActualPartExpression
     NameExpression
       Name
-        Identifier 'bit_vector'
+        NameDesignatorPrefix
+          Identifier 'bit_vector'
         ParenthesizedName
           LeftPar
           AssociationList

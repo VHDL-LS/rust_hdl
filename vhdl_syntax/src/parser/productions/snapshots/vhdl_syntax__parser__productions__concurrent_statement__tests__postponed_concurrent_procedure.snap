@@ -5,7 +5,8 @@ expression: "stmt_to_test_text(\"postponed foo(clk);\",)"
 ConcurrentProcedureCallOrComponentInstantiationStatement
   Keyword(Postponed)
   Name
-    Identifier 'foo'
+    NameDesignatorPrefix
+      Identifier 'foo'
     ParenthesizedName
       LeftPar
       AssociationList
@@ -14,6 +15,7 @@ ConcurrentProcedureCallOrComponentInstantiationStatement
             ActualPartExpression
               NameExpression
                 Name
-                  Identifier 'clk'
+                  NameDesignatorPrefix
+                    Identifier 'clk'
       RightPar
   SemiColon

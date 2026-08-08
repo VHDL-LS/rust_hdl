@@ -17,7 +17,8 @@ SubprogramBody
       Identifier 'f'
       Keyword(Return)
       Name
-        Identifier 'integer'
+        NameDesignatorPrefix
+          Identifier 'integer'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)

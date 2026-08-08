@@ -9,7 +9,8 @@ FileDeclaration
   Colon
   SubtypeIndication
     Name
-      Identifier 'bit'
+      NameDesignatorPrefix
+        Identifier 'bit'
   FileOpenInformation
     Keyword(Is)
     LiteralExpression

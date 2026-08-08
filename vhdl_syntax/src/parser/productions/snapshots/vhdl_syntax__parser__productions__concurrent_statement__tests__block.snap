@@ -16,7 +16,8 @@ BlockStatement
       Colon
       SubtypeIndication
         Name
-          Identifier 'natural'
+          NameDesignatorPrefix
+            Identifier 'natural'
       ColonEq
       LiteralExpression
         AbstractLiteral '0'
@@ -29,7 +30,8 @@ BlockStatement
         Identifier 'name2'
         Colon
       Name
-        Identifier 'foo'
+        NameDesignatorPrefix
+          Identifier 'foo'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -38,7 +40,8 @@ BlockStatement
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'clk'
+                      NameDesignatorPrefix
+                        Identifier 'clk'
           RightPar
       SemiColon
   BlockEpilogue

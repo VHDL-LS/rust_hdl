@@ -73,7 +73,11 @@ impl AstNode for AttributeNameSyntax {
                 optional: false,
                 repeated: false,
                 name: "attribute_designator_token",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Identifier,
+                    TokenKind::Keyword(Kw::Range),
+                    TokenKind::Keyword(Kw::Subtype),
+                ]),
             },
         ],
     });
@@ -94,11 +98,34 @@ impl AttributeNameSyntax {
             .filter(|token| token.kind() == TokenKind::Tick)
             .nth(0)
     }
-    pub fn attribute_designator_token_token(&self) -> Option<SyntaxToken> {
+    pub fn attribute_designator_token(&self) -> Option<AttributeDesignatorSyntax> {
         self.0
             .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
+            .filter_map(AttributeDesignatorSyntax::cast)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum AttributeDesignatorSyntax {
+    Identifier(SyntaxToken),
+    Range(SyntaxToken),
+    Subtype(SyntaxToken),
+}
+impl AttributeDesignatorSyntax {
+    pub fn cast(token: SyntaxToken) -> Option<Self> {
+        match token.kind() {
+            TokenKind::Identifier => Some(AttributeDesignatorSyntax::Identifier(token)),
+            TokenKind::Keyword(Kw::Range) => Some(AttributeDesignatorSyntax::Range(token)),
+            TokenKind::Keyword(Kw::Subtype) => Some(AttributeDesignatorSyntax::Subtype(token)),
+            _ => None,
+        }
+    }
+    pub fn raw(&self) -> SyntaxToken {
+        match self {
+            AttributeDesignatorSyntax::Identifier(token) => token.clone(),
+            AttributeDesignatorSyntax::Range(token) => token.clone(),
+            AttributeDesignatorSyntax::Subtype(token) => token.clone(),
+        }
     }
 }
 #[derive(Debug, Clone)]
@@ -163,7 +190,7 @@ impl AstNode for ExternalConstantNameSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "external_path_name",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -256,7 +283,7 @@ impl AstNode for ExternalSignalNameSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "external_path_name",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -349,7 +376,7 @@ impl AstNode for ExternalVariableNameSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "external_path_name",
                 kind: LayoutItemKind::NodeChoice(&[

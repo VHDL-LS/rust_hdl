@@ -4,7 +4,9 @@ expression: "expr_to_test_text(\"- 1 ns\")"
 ---
 UnaryExpression
   Minus
-  PhysicalLiteral
-    AbstractLiteral '1'
-    Name
-      Identifier 'ns'
+  PhysicalLiteralExpression
+    PhysicalLiteral
+      AbstractLiteral '1'
+      Name
+        NameDesignatorPrefix
+          Identifier 'ns'

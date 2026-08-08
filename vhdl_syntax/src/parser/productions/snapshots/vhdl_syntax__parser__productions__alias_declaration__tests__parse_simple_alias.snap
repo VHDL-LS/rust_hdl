@@ -7,5 +7,6 @@ AliasDeclaration
   Identifier 'foo'
   Keyword(Is)
   Name
-    Identifier 'name'
+    NameDesignatorPrefix
+      Identifier 'name'
   SemiColon

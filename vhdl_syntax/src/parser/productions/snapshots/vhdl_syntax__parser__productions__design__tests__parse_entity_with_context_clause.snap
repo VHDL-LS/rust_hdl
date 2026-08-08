@@ -15,7 +15,8 @@ DesignFile
           Keyword(Use)
           NameList
             Name
-              Identifier 'ieee'
+              NameDesignatorPrefix
+                Identifier 'ieee'
               SelectedName
                 Dot
                 Identifier 'std_logic_1164'

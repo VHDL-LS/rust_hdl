@@ -15,8 +15,8 @@ FullTypeDeclaration
         Keyword(To)
         LiteralExpression
           AbstractLiteral '10'
-    Keyword(Units)
     UnitDeclarations
+      Keyword(Units)
       PrimaryUnitDeclaration
         Identifier 'm'
         SemiColon

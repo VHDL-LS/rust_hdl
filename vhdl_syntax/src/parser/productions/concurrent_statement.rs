@@ -167,10 +167,18 @@ impl Parser {
                         self.opt_delay_mechanism();
                         let waveform_checkpoint = self.checkpoint();
                         self.waveform();
-                        if self.opt_token(Keyword(Kw::When)) {
+                        if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConcurrentConditionalSignalAssignment);
                             self.start_node_at(waveform_checkpoint, ConditionalWaveforms);
-                            self.conditional_waveforms_after_first_when();
+                            self.start_node_at(waveform_checkpoint, ConditionalWaveform);
+                            self.skip();
+                            self.expression();
+                            self.end_node();
+                            self.conditional_else(
+                                Parser::waveform,
+                                ConditionalWaveformElseWhenExpression,
+                                ConditionalWaveformElseItem,
+                            );
                             self.end_node();
                         } else {
                             self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
@@ -211,25 +219,6 @@ impl Parser {
                 ]);
             }
         };
-    }
-
-    /// Parse conditional waveforms, assuming the first `waveform when` is already parsed
-    fn conditional_waveforms_after_first_when(&mut self) {
-        self.expression();
-        while self.next_is(Keyword(Kw::Else)) {
-            let checkpoint = self.checkpoint();
-            self.expect_kw(Kw::Else);
-            self.waveform();
-            if self.opt_token(Keyword(Kw::When)) {
-                self.start_node_at(checkpoint, ConditionalWaveformElseWhenExpression);
-                self.expression();
-                self.end_node();
-            } else {
-                self.start_node_at(checkpoint, ConditionalWaveformElseItem);
-                self.end_node();
-                break;
-            }
-        }
     }
 
     pub fn concurrent_selected_signal_assignment(&mut self) {
@@ -475,14 +464,16 @@ impl Parser {
         if self.next_is(Keyword(Kw::All)) {
             self.skip_into_node(AllSensitivityList);
         } else {
-            self.name_list();
+            self.sensitivity_list();
         }
         self.expect_token(RightPar);
         self.end_node();
     }
 
     pub fn sensitivity_list(&mut self) {
+        self.start_node(SensitivityList);
         self.separated_list(Parser::name, Comma);
+        self.end_node();
     }
 }
 
@@ -685,6 +676,14 @@ end process main;",
         insta::assert_snapshot!(stmt_to_test_text(
             "<< signal dut.foo : std_logic >> <= bar(2 to 3);",
         ));
+    }
+
+    #[test]
+    fn concurrent_conditional_signal_assignment() {
+        // The first `waveform when condition` must be wrapped in a
+        // `ConditionalWaveform` inside `ConditionalWaveforms`, like the
+        // sequential form.
+        insta::assert_snapshot!(stmt_to_test_text("foo <= a when sel else b;",));
     }
 
     #[test]

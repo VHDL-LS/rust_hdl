@@ -1325,7 +1325,7 @@ impl AstNode for FileDeclarationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "file_open_information",
                 kind: LayoutItemKind::Node(NodeKind::FileOpenInformation),
@@ -1390,13 +1390,13 @@ impl AstNode for FileOpenInformationSyntax {
         kind: NodeKind::FileOpenInformation,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "open",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "file_open_kind",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1960,115 +1960,9 @@ impl GroupTemplateDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct InterfaceConstantDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for InterfaceConstantDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::InterfaceConstantDeclaration,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "constant",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Constant)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier_list",
-                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "in",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::In)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        InterfaceConstantDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl InterfaceConstantDeclarationSyntax {
-    pub fn constant_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Constant))
-            .nth(0)
-    }
-    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
-        self.0
-            .children()
-            .filter_map(IdentifierListSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-    pub fn in_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::In))
-            .nth(0)
-    }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum InterfaceDeclarationSyntax {
     InterfaceObjectDeclaration(InterfaceObjectDeclarationSyntax),
+    InterfaceFileDeclaration(InterfaceFileDeclarationSyntax),
     InterfaceIncompleteTypeDeclaration(InterfaceIncompleteTypeDeclarationSyntax),
     InterfaceSubprogramDeclaration(InterfaceSubprogramDeclarationSyntax),
     InterfacePackageDeclaration(InterfacePackageDeclarationSyntax),
@@ -2076,9 +1970,7 @@ pub enum InterfaceDeclarationSyntax {
 impl AstNode for InterfaceDeclarationSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
-            NodeKind::InterfaceConstantDeclaration,
-            NodeKind::InterfaceSignalDeclaration,
-            NodeKind::InterfaceVariableDeclaration,
+            NodeKind::InterfaceObjectDeclaration,
             NodeKind::InterfaceFileDeclaration,
             NodeKind::InterfaceIncompleteTypeDeclaration,
             NodeKind::InterfaceSubprogramDeclaration,
@@ -2089,6 +1981,11 @@ impl AstNode for InterfaceDeclarationSyntax {
         if InterfaceObjectDeclarationSyntax::can_cast(&node) {
             return InterfaceDeclarationSyntax::InterfaceObjectDeclaration(
                 InterfaceObjectDeclarationSyntax::cast_unchecked(node),
+            );
+        }
+        if InterfaceFileDeclarationSyntax::can_cast(&node) {
+            return InterfaceDeclarationSyntax::InterfaceFileDeclaration(
+                InterfaceFileDeclarationSyntax::cast_unchecked(node),
             );
         }
         if InterfaceIncompleteTypeDeclarationSyntax::can_cast(&node) {
@@ -2114,6 +2011,7 @@ impl AstNode for InterfaceDeclarationSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             InterfaceDeclarationSyntax::InterfaceObjectDeclaration(inner) => inner.raw(),
+            InterfaceDeclarationSyntax::InterfaceFileDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfaceIncompleteTypeDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfacePackageDeclaration(inner) => inner.raw(),
@@ -2326,9 +2224,7 @@ impl AstNode for InterfaceListSyntax {
                 repeated: true,
                 name: "interface_declarations",
                 kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::InterfaceConstantDeclaration,
-                    NodeKind::InterfaceSignalDeclaration,
-                    NodeKind::InterfaceVariableDeclaration,
+                    NodeKind::InterfaceObjectDeclaration,
                     NodeKind::InterfaceFileDeclaration,
                     NodeKind::InterfaceIncompleteTypeDeclaration,
                     NodeKind::InterfaceSubprogramDeclaration,
@@ -2365,53 +2261,151 @@ impl InterfaceListSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum InterfaceObjectDeclarationSyntax {
-    InterfaceConstantDeclaration(InterfaceConstantDeclarationSyntax),
-    InterfaceSignalDeclaration(InterfaceSignalDeclarationSyntax),
-    InterfaceVariableDeclaration(InterfaceVariableDeclarationSyntax),
-    InterfaceFileDeclaration(InterfaceFileDeclarationSyntax),
-}
+pub struct InterfaceObjectDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceObjectDeclarationSyntax {
-    const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[
-            NodeKind::InterfaceConstantDeclaration,
-            NodeKind::InterfaceSignalDeclaration,
-            NodeKind::InterfaceVariableDeclaration,
-            NodeKind::InterfaceFileDeclaration,
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::InterfaceObjectDeclaration,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "interface_object_class",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Keyword(Kw::Constant),
+                    TokenKind::Keyword(Kw::Signal),
+                    TokenKind::Keyword(Kw::Variable),
+                ]),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "identifier_list",
+                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "mode",
+                kind: LayoutItemKind::TokenChoice(&[
+                    TokenKind::Keyword(Kw::In),
+                    TokenKind::Keyword(Kw::Out),
+                    TokenKind::Keyword(Kw::Inout),
+                    TokenKind::Keyword(Kw::Buffer),
+                    TokenKind::Keyword(Kw::Linkage),
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "bus",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Bus)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "colon_eq",
+                kind: LayoutItemKind::Token(TokenKind::ColonEq),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        if InterfaceConstantDeclarationSyntax::can_cast(&node) {
-            return InterfaceObjectDeclarationSyntax::InterfaceConstantDeclaration(
-                InterfaceConstantDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        if InterfaceSignalDeclarationSyntax::can_cast(&node) {
-            return InterfaceObjectDeclarationSyntax::InterfaceSignalDeclaration(
-                InterfaceSignalDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        if InterfaceVariableDeclarationSyntax::can_cast(&node) {
-            return InterfaceObjectDeclarationSyntax::InterfaceVariableDeclaration(
-                InterfaceVariableDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        if InterfaceFileDeclarationSyntax::can_cast(&node) {
-            return InterfaceObjectDeclarationSyntax::InterfaceFileDeclaration(
-                InterfaceFileDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        unreachable!(
-            "cast_unchecked called with unexpected node kind {:?}",
-            node.kind()
-        )
+        InterfaceObjectDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InterfaceObjectDeclarationSyntax {
+    pub fn interface_object_class(&self) -> Option<InterfaceObjectClassSyntax> {
+        self.0
+            .tokens()
+            .filter_map(InterfaceObjectClassSyntax::cast)
+            .nth(0)
+    }
+    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
+        self.0
+            .children()
+            .filter_map(IdentifierListSyntax::cast)
+            .nth(0)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
+    }
+    pub fn mode(&self) -> Option<ModeSyntax> {
+        self.0.tokens().filter_map(ModeSyntax::cast).nth(0)
+    }
+    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(SubtypeIndicationSyntax::cast)
+            .nth(0)
+    }
+    pub fn bus_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Bus))
+            .nth(0)
+    }
+    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub enum InterfaceObjectClassSyntax {
+    Constant(SyntaxToken),
+    Signal(SyntaxToken),
+    Variable(SyntaxToken),
+}
+impl InterfaceObjectClassSyntax {
+    pub fn cast(token: SyntaxToken) -> Option<Self> {
+        match token.kind() {
+            TokenKind::Keyword(Kw::Constant) => Some(InterfaceObjectClassSyntax::Constant(token)),
+            TokenKind::Keyword(Kw::Signal) => Some(InterfaceObjectClassSyntax::Signal(token)),
+            TokenKind::Keyword(Kw::Variable) => Some(InterfaceObjectClassSyntax::Variable(token)),
+            _ => None,
+        }
+    }
+    pub fn raw(&self) -> SyntaxToken {
         match self {
-            InterfaceObjectDeclarationSyntax::InterfaceConstantDeclaration(inner) => inner.raw(),
-            InterfaceObjectDeclarationSyntax::InterfaceSignalDeclaration(inner) => inner.raw(),
-            InterfaceObjectDeclarationSyntax::InterfaceVariableDeclaration(inner) => inner.raw(),
-            InterfaceObjectDeclarationSyntax::InterfaceFileDeclaration(inner) => inner.raw(),
+            InterfaceObjectClassSyntax::Constant(token) => token.clone(),
+            InterfaceObjectClassSyntax::Signal(token) => token.clone(),
+            InterfaceObjectClassSyntax::Variable(token) => token.clone(),
         }
     }
 }
@@ -2559,7 +2553,7 @@ impl AstNode for InterfacePackageGenericMapAspectSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "interface_package_generic_map_aspect_inner",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -2787,128 +2781,6 @@ impl InterfaceProcedureSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct InterfaceSignalDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for InterfaceSignalDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::InterfaceSignalDeclaration,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "signal",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Signal)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier_list",
-                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "mode",
-                kind: LayoutItemKind::TokenChoice(&[
-                    TokenKind::Keyword(Kw::In),
-                    TokenKind::Keyword(Kw::Out),
-                    TokenKind::Keyword(Kw::Inout),
-                    TokenKind::Keyword(Kw::Buffer),
-                    TokenKind::Keyword(Kw::Linkage),
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "bus",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Bus)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        InterfaceSignalDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl InterfaceSignalDeclarationSyntax {
-    pub fn signal_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Signal))
-            .nth(0)
-    }
-    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
-        self.0
-            .children()
-            .filter_map(IdentifierListSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-    pub fn mode(&self) -> Option<ModeSyntax> {
-        self.0.tokens().filter_map(ModeSyntax::cast).nth(0)
-    }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn bus_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Bus))
-            .nth(0)
-    }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct InterfaceSubprogramDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceSubprogramDeclarationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -3092,116 +2964,6 @@ impl AstNode for InterfaceSubprogramSpecificationSyntax {
                 inner.raw()
             }
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct InterfaceVariableDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for InterfaceVariableDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::InterfaceVariableDeclaration,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "variable",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier_list",
-                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "mode",
-                kind: LayoutItemKind::TokenChoice(&[
-                    TokenKind::Keyword(Kw::In),
-                    TokenKind::Keyword(Kw::Out),
-                    TokenKind::Keyword(Kw::Inout),
-                    TokenKind::Keyword(Kw::Buffer),
-                    TokenKind::Keyword(Kw::Linkage),
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        InterfaceVariableDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl InterfaceVariableDeclarationSyntax {
-    pub fn variable_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
-            .nth(0)
-    }
-    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
-        self.0
-            .children()
-            .filter_map(IdentifierListSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-    pub fn mode(&self) -> Option<ModeSyntax> {
-        self.0.tokens().filter_map(ModeSyntax::cast).nth(0)
-    }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -3560,7 +3322,7 @@ impl AstNode for ElementResolutionResolutionIndicationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::ElementResolutionResolutionIndication,
         items: &[LayoutItem {
-            optional: false,
+            optional: true,
             repeated: false,
             name: "element_resolution",
             kind: LayoutItemKind::NodeChoice(&[
@@ -3597,7 +3359,7 @@ impl AstNode for ParenthesizedElementResolutionResolutionIndicationSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "element_resolution_resolution_indication",
                 kind: LayoutItemKind::Node(NodeKind::ElementResolutionResolutionIndication),

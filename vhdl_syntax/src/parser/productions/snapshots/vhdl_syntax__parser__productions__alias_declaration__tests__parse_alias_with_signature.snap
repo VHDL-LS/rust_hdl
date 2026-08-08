@@ -7,11 +7,13 @@ AliasDeclaration
   Identifier 'foo'
   Keyword(Is)
   Name
-    Identifier 'name'
+    NameDesignatorPrefix
+      Identifier 'name'
   Signature
     LeftSquare
     Keyword(Return)
     Name
-      Identifier 'natural'
+      NameDesignatorPrefix
+        Identifier 'natural'
     RightSquare
   SemiColon

@@ -13,11 +13,13 @@ BlockStatement
       BinaryExpression
         NameExpression
           Name
-            Identifier 'cond'
+            NameDesignatorPrefix
+              Identifier 'cond'
         EQ
         NameExpression
           Name
-            Identifier 'true'
+            NameDesignatorPrefix
+              Identifier 'true'
       RightPar
   DeclarationStatementSeparator
     Keyword(Begin)

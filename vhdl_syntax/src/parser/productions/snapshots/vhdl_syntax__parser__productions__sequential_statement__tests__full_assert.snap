@@ -7,12 +7,14 @@ AssertionStatement
     Keyword(Assert)
     NameExpression
       Name
-        Identifier 'false'
+        NameDesignatorPrefix
+          Identifier 'false'
     Keyword(Report)
     LiteralExpression
       StringLiteral '"message"'
     Keyword(Severity)
     NameExpression
       Name
-        Identifier 'error'
+        NameDesignatorPrefix
+          Identifier 'error'
   SemiColon

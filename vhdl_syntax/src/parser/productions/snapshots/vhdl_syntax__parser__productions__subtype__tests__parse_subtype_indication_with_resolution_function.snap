@@ -5,6 +5,8 @@ expression: "to_test_text(Parser::subtype_indication, \"resolve std_logic\")"
 SubtypeIndication
   NameResolutionIndication
     Name
-      Identifier 'resolve'
+      NameDesignatorPrefix
+        Identifier 'resolve'
   Name
-    Identifier 'std_logic'
+    NameDesignatorPrefix
+      Identifier 'std_logic'

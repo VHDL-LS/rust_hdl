@@ -3,19 +3,21 @@ source: vhdl_syntax/src/parser/productions/interface.rs
 expression: "to_test_text(Parser::interface_list,\n\"\\\nconstant foo : std_logic;\nbar : natural\")"
 ---
 InterfaceList
-  InterfaceConstantDeclaration
+  InterfaceObjectDeclaration
     Keyword(Constant)
     IdentifierList
       Identifier 'foo'
     Colon
     SubtypeIndication
       Name
-        Identifier 'std_logic'
+        NameDesignatorPrefix
+          Identifier 'std_logic'
   SemiColon
-  InterfaceConstantDeclaration
+  InterfaceObjectDeclaration
     IdentifierList
       Identifier 'bar'
     Colon
     SubtypeIndication
       Name
-        Identifier 'natural'
+        NameDesignatorPrefix
+          Identifier 'natural'

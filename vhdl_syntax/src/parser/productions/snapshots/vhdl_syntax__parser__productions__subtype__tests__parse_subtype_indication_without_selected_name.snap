@@ -4,7 +4,8 @@ expression: "to_test_text(Parser::subtype_indication, \"lib.foo.bar\")"
 ---
 SubtypeIndication
   Name
-    Identifier 'lib'
+    NameDesignatorPrefix
+      Identifier 'lib'
     SelectedName
       Dot
       Identifier 'foo'

@@ -7,7 +7,8 @@ CaseStatement
     Keyword(Case)
     NameExpression
       Name
-        Identifier 'foo'
+        NameDesignatorPrefix
+          Identifier 'foo'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -32,13 +33,13 @@ CaseStatement
       RightArrow
     SequentialStatements
       ProcedureCallStatement
-        NameTarget
-          Name
+        Name
+          NameDesignatorPrefix
             Identifier 'stmt1'
         SemiColon
       ProcedureCallStatement
-        NameTarget
-          Name
+        Name
+          NameDesignatorPrefix
             Identifier 'stmt2'
         SemiColon
   CaseStatementAlternative
@@ -50,13 +51,13 @@ CaseStatement
       RightArrow
     SequentialStatements
       ProcedureCallStatement
-        NameTarget
-          Name
+        Name
+          NameDesignatorPrefix
             Identifier 'stmt3'
         SemiColon
       ProcedureCallStatement
-        NameTarget
-          Name
+        Name
+          NameDesignatorPrefix
             Identifier 'stmt4'
         SemiColon
   CaseStatementEpilogue

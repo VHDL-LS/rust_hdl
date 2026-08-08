@@ -11,6 +11,7 @@ pub(crate) mod green;
 pub mod meta;
 pub mod node;
 pub mod rewrite;
+pub mod validate;
 pub mod visitor;
 
 use crate::syntax::meta::Layout;

@@ -15,16 +15,18 @@ FullTypeDeclaration
         Keyword(To)
         LiteralExpression
           AbstractLiteral '15'
-    Keyword(Units)
     UnitDeclarations
+      Keyword(Units)
       PrimaryUnitDeclaration
         Identifier 'primary_unit'
         SemiColon
       SecondaryUnitDeclaration
         Identifier 'secondary_unit'
         EQ
-        Name
-          Identifier 'primary_unit'
+        PhysicalLiteral
+          Name
+            NameDesignatorPrefix
+              Identifier 'primary_unit'
         SemiColon
     PhysicalTypeDefinitionEpilogue
       Keyword(End)

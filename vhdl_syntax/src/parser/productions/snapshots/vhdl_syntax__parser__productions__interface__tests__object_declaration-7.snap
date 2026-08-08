@@ -2,11 +2,12 @@
 source: vhdl_syntax/src/parser/productions/interface.rs
 expression: "to_test_text(Parser::interface_declaration, \"a : buffer std_logic\")"
 ---
-InterfaceConstantDeclaration
+InterfaceObjectDeclaration
   IdentifierList
     Identifier 'a'
   Colon
   Keyword(Buffer)
   SubtypeIndication
     Name
-      Identifier 'std_logic'
+      NameDesignatorPrefix
+        Identifier 'std_logic'

@@ -15,7 +15,8 @@ ArchitectureBody
     Identifier 'a'
     Keyword(Of)
     Name
-      Identifier 'e'
+      NameDesignatorPrefix
+        Identifier 'e'
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)

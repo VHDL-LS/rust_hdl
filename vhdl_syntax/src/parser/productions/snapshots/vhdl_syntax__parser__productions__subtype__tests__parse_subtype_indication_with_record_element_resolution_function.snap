@@ -12,7 +12,9 @@ SubtypeIndication
             Identifier 'elem'
             NameResolutionIndication
               Name
-                Identifier 'resolve'
+                NameDesignatorPrefix
+                  Identifier 'resolve'
     RightPar
   Name
-    Identifier 'rec_t'
+    NameDesignatorPrefix
+      Identifier 'rec_t'

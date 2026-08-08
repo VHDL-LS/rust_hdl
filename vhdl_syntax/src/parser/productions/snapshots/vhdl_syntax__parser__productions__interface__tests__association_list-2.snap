@@ -6,7 +6,8 @@ AssociationList
   AssociationElement
     FormalPart
       Name
-        Identifier 'p1'
+        NameDesignatorPrefix
+          Identifier 'p1'
     RightArrow
     ActualPart
       ActualPartExpression
@@ -16,7 +17,8 @@ AssociationList
   AssociationElement
     FormalPart
       Name
-        Identifier 'std_ulogic'
+        NameDesignatorPrefix
+          Identifier 'std_ulogic'
         ParenthesizedName
           LeftPar
           AssociationList
@@ -25,11 +27,13 @@ AssociationList
                 ActualPartExpression
                   NameExpression
                     Name
-                      Identifier 'p2'
+                      NameDesignatorPrefix
+                        Identifier 'p2'
           RightPar
     RightArrow
     ActualPart
       ActualPartExpression
         NameExpression
           Name
-            Identifier 'sl_sig'
+            NameDesignatorPrefix
+              Identifier 'sl_sig'

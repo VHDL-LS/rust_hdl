@@ -15,7 +15,8 @@ ProcessStatement
     ConditionalWaveformAssignment
       NameTarget
         Name
-          Identifier 'data_processing_state'
+          NameDesignatorPrefix
+            Identifier 'data_processing_state'
       LTE
       ConditionalWaveforms
         ConditionalWaveform
@@ -23,18 +24,21 @@ ProcessStatement
             WaveformElement
               NameExpression
                 Name
-                  Identifier 'processing'
+                  NameDesignatorPrefix
+                    Identifier 'processing'
           Keyword(When)
           NameExpression
             Name
-              Identifier 'processing_data'
+              NameDesignatorPrefix
+                Identifier 'processing_data'
         ConditionalWaveformElseItem
           Keyword(Else)
           WaveformElements
             WaveformElement
               NameExpression
                 Name
-                  Identifier 'idle'
+                  NameDesignatorPrefix
+                    Identifier 'idle'
       SemiColon
   ProcessStatementEpilogue
     Keyword(End)

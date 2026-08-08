@@ -8,5 +8,6 @@ ExitStatement
   Keyword(When)
   NameExpression
     Name
-      Identifier 'condition'
+      NameDesignatorPrefix
+        Identifier 'condition'
   SemiColon

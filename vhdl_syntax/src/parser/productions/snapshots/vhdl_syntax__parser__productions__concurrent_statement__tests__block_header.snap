@@ -15,13 +15,14 @@ BlockStatement
         Keyword(Generic)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'gen'
           Colon
           SubtypeIndication
             Name
-              Identifier 'integer'
+              NameDesignatorPrefix
+                Identifier 'integer'
           ColonEq
           LiteralExpression
             AbstractLiteral '1'
@@ -37,7 +38,8 @@ BlockStatement
           AssociationElement
             FormalPart
               Name
-                Identifier 'gen'
+                NameDesignatorPrefix
+                  Identifier 'gen'
             RightArrow
             ActualPart
               ActualPartExpression
@@ -50,13 +52,14 @@ BlockStatement
         Keyword(Port)
         LeftPar
       InterfaceList
-        InterfaceConstantDeclaration
+        InterfaceObjectDeclaration
           IdentifierList
             Identifier 'prt'
           Colon
           SubtypeIndication
             Name
-              Identifier 'integer'
+              NameDesignatorPrefix
+                Identifier 'integer'
           ColonEq
           LiteralExpression
             AbstractLiteral '1'
@@ -72,7 +75,8 @@ BlockStatement
           AssociationElement
             FormalPart
               Name
-                Identifier 'prt'
+                NameDesignatorPrefix
+                  Identifier 'prt'
             RightArrow
             ActualPart
               ActualPartExpression

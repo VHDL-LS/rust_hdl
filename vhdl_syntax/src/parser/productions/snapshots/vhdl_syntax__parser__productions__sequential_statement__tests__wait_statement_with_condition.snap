@@ -9,9 +9,11 @@ WaitStatement
     BinaryExpression
       NameExpression
         Name
-          Identifier 'a'
+          NameDesignatorPrefix
+            Identifier 'a'
       EQ
       NameExpression
         Name
-          Identifier 'b'
+          NameDesignatorPrefix
+            Identifier 'b'
   SemiColon

@@ -9,4 +9,8 @@ PslSequenceDeclaration: !Sequence [ ]
 
 PslClockDeclaration: !Sequence [ ]
 
-PslVerificationUnit: !Sequence [ ]
+# Mock placeholder until PSL is supported. The leading `vunit` keyword keeps the
+# node non-empty-capable (a real verification unit is never empty), so it does
+# not spuriously make `library_unit` and its wrappers optional.
+PslVerificationUnit: !Sequence
+  - keyword: Vunit

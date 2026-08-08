@@ -14,7 +14,8 @@ AttributeSpecification
           LeftSquare
           Keyword(Return)
           Name
-            Identifier 'natural'
+            NameDesignatorPrefix
+              Identifier 'natural'
           RightSquare
     Colon
     Keyword(Function)
