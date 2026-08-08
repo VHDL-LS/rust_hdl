@@ -3149,7 +3149,8 @@ impl From<CompoundConfigurationSpecificationBuilder> for CompoundConfigurationSp
 }
 pub struct CompoundConfigurationSpecificationItemsBuilder {
     semi_colon_terminated_binding_indication: SemiColonTerminatedBindingIndicationSyntax,
-    verification_unit_binding_indications: Vec<VerificationUnitBindingIndicationSyntax>,
+    semi_colon_terminated_verification_unit_binding_indications:
+        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
 }
 impl Default for CompoundConfigurationSpecificationItemsBuilder {
     fn default() -> Self {
@@ -3161,7 +3162,7 @@ impl CompoundConfigurationSpecificationItemsBuilder {
         Self {
             semi_colon_terminated_binding_indication:
                 SemiColonTerminatedBindingIndicationBuilder::default().build(),
-            verification_unit_binding_indications: Vec::new(),
+            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
         }
     }
     pub fn with_semi_colon_terminated_binding_indication(
@@ -3171,11 +3172,12 @@ impl CompoundConfigurationSpecificationItemsBuilder {
         self.semi_colon_terminated_binding_indication = n.into();
         self
     }
-    pub fn add_verification_unit_binding_indications(
+    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
         mut self,
-        n: impl Into<VerificationUnitBindingIndicationSyntax>,
+        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
     ) -> Self {
-        self.verification_unit_binding_indications.push(n.into());
+        self.semi_colon_terminated_verification_unit_binding_indications
+            .push(n.into());
         self
     }
     pub fn build(self) -> CompoundConfigurationSpecificationItemsSyntax {
@@ -3187,7 +3189,7 @@ impl CompoundConfigurationSpecificationItemsBuilder {
                 .green()
                 .clone(),
         );
-        for n in self.verification_unit_binding_indications {
+        for n in self.semi_colon_terminated_verification_unit_binding_indications {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
