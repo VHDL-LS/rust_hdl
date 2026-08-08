@@ -11,6 +11,50 @@
 use convert_case::{Case, Casing};
 use std::str::FromStr;
 
+pub fn str_to_token_kind(s: &str) -> Result<TokenKind, strum::ParseError> {
+    use TokenKind::*;
+    Ok(match s {
+        "+" => Plus,
+        "-" => Minus,
+        "=" => EQ,
+        "/=" => NE,
+        "<" => LT,
+        ">" => GT,
+        "<=" => LTE,
+        ">=" => GTE,
+        "?=" => QueEQ,
+        "?/=" => QueNE,
+        "?<" => QueLT,
+        "?>" => QueGT,
+        "?<=" => QueLTE,
+        "?>=" => QueGTE,
+        "?" => Que,
+        "??" => QueQue,
+        "*" => Times,
+        "**" => Pow,
+        "/" => Div,
+        "'" => Tick,
+        "(" => LeftPar,
+        ")" => RightPar,
+        "[" => LeftSquare,
+        "]" => RightSquare,
+        ";" => SemiColon,
+        ":" => Colon,
+        "|" => Bar,
+        "." => Dot,
+        "<>" => BOX,
+        "<<" => LtLt,
+        ">>" => GtGt,
+        "^" => Circ,
+        "@" => CommAt,
+        "&" => Concat,
+        "," => Comma,
+        ":=" => ColonEq,
+        "=>" => RightArrow,
+        _ => return TokenKind::from_str(&s.to_case(Case::UpperCamel)),
+    })
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, strum::Display, strum::EnumString)]
 pub enum TokenKind {
