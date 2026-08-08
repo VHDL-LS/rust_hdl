@@ -310,8 +310,10 @@ impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
             LayoutItem {
                 optional: true,
                 repeated: true,
-                name: "verification_unit_binding_indications",
-                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBindingIndication),
+                name: "semi_colon_terminated_verification_unit_binding_indications",
+                kind: LayoutItemKind::Node(
+                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
+                ),
             },
         ],
     });
@@ -331,12 +333,13 @@ impl CompoundConfigurationSpecificationItemsSyntax {
             .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn verification_unit_binding_indications(
+    pub fn semi_colon_terminated_verification_unit_binding_indications(
         &self,
-    ) -> impl Iterator<Item = VerificationUnitBindingIndicationSyntax> + use<'_> {
+    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
+    {
         self.0
             .children()
-            .filter_map(VerificationUnitBindingIndicationSyntax::cast)
+            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]

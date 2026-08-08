@@ -34,7 +34,7 @@ CompoundConfigurationSpecificationItems: !Sequence
   - node: BindingIndication
     terminated: SemiColon
   - node: VerificationUnitBindingIndication
-    trailing: SemiColon
+    terminated: SemiColon
     repeated: true
     optional: true
 
