@@ -79,7 +79,6 @@ fn map_single(rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> TokenOrNo
             TokenOrNode::Node(NodeRef {
                 kind: name.clone(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: name.clone(),
                 optional: false,

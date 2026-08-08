@@ -454,7 +454,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "RelOp".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "rel_op".to_string(),
                 optional: false,

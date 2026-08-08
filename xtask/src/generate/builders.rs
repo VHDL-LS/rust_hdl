@@ -603,7 +603,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "RelOp".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "rel_op".to_string(),
                 optional: false,
@@ -636,7 +635,6 @@ mod tests {
                 TokenOrNode::Node(NodeRef {
                     kind: "DesignFile".to_string(),
                     nth: 0,
-                    builtin: false,
                     repeated: false,
                     name: "design_file".to_string(),
                     optional: false,

@@ -39,7 +39,6 @@ impl TokenOrNode {
 pub struct NodeRef {
     pub kind: String,
     pub nth: usize,
-    pub builtin: bool,
     pub repeated: bool,
     pub name: String,
     /// whether this node is optional in the grammar
@@ -51,7 +50,6 @@ impl From<String> for NodeRef {
         NodeRef {
             kind: value.clone(),
             nth: 0,
-            builtin: false,
             repeated: false,
             name: value,
             optional: false,
@@ -519,7 +517,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "RelationalOperator".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "relational_operator".to_string(),
                 optional: false,
@@ -558,7 +555,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "DesignFile".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: true,
                 name: "items".to_string(),
                 optional: false,
@@ -570,7 +566,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "InterfaceList".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "interface_list".to_string(),
                 optional: false,
@@ -623,7 +618,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "DesignFile".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: true,
                 name: "items".to_string(),
                 optional: false,
@@ -635,7 +629,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "Leaf".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: false,
                 name: "leaf".to_string(),
                 optional: false, // ← violation
@@ -656,7 +649,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "DesignFile".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: true,
                 name: "items".to_string(),
                 optional: false,
@@ -667,7 +659,6 @@ mod tests {
             vec![TokenOrNode::Node(NodeRef {
                 kind: "Leaf".to_string(),
                 nth: 0,
-                builtin: false,
                 repeated: true, // repeated → fine
                 name: "leaf".to_string(),
                 optional: false,
