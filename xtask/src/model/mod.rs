@@ -28,38 +28,11 @@ pub fn load_model(file: &Path) -> Model {
         model.push_node(node);
     }
 
-    add_empty_psl_nodes(&mut model);
-
     model.fixup_empty_capable_optional_markers();
     model.do_checks();
     model.do_postprocessing();
 
     model
-}
-
-/// The empty PSL placeholder nodes, paired with the choice node each is an alternative of.
-///
-/// PSL is not supported yet; the parser only produces placeholder nodes for it.
-const EMPTY_PSL_NODES: [(&str, &str); 4] = [
-    ("PslDirective", "ConcurrentStatement"),
-    ("PslPropertyDeclaration", "Declaration"),
-    ("PslSequenceDeclaration", "Declaration"),
-    ("PslClockDeclaration", "Declaration"),
-];
-
-/// Adds the empty PSL placeholder nodes and their use sites to the model.
-///
-/// These are empty sequences, but an ungrammar rule body must contain at least one item, so
-/// they cannot be written in the `.ungram` file and are patched in here instead. Every other
-/// PSL node is expressible in ungrammar and lives in the grammar file.
-///
-/// Must run before [`Model::fixup_empty_capable_optional_markers`]: an empty node is
-/// empty-capable, which makes the choice nodes above empty-capable too.
-fn add_empty_psl_nodes(model: &mut Model) {
-    for (name, choice) in EMPTY_PSL_NODES {
-        model.push_node(SequenceNode::new(name, vec![]));
-        model.push_choice_alternative(choice, NodeRef::from(name.to_owned()));
-    }
 }
 
 /// Maps a single grammar item (a node or token reference, possibly labelled, optional or

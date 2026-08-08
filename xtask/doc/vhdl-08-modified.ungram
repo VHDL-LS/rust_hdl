@@ -117,7 +117,7 @@ ConcurrentStatement =
 | IfGenerateStatement
 | CaseGenerateStatement
 
-// | PslDirective  -- empty node, added by `add_empty_psl_nodes`; see § PSL directives
+// | PslDirective  -- add here if PSL is supported
 ConcurrentStatements =
   ConcurrentStatement*
 
@@ -228,9 +228,9 @@ Declaration =
 | VariableDeclaration
 | SharedVariableDeclaration
 
-// | PslPropertyDeclaration  -- empty node, added by `add_empty_psl_nodes`; see § PSL directives
-// | PslSequenceDeclaration  -- empty node, added by `add_empty_psl_nodes`; see § PSL directives
-// | PslClockDeclaration     -- empty node, added by `add_empty_psl_nodes`; see § PSL directives
+// | PslPropertyDeclaration  -- add here if PSL is supported
+// | PslSequenceDeclaration  -- add here if PSL is supported
+// | PslClockDeclaration     -- add here if PSL is supported
 PackageDeclaration =
   Package
 
@@ -652,7 +652,7 @@ PrimaryUnit =
 | PrimaryUnitPackageDeclaration
 | PackageInstantiationDeclarationPrimaryUnit
 | ContextDeclaration
-| PslVerificationUnit
+// PslVerificationUnit -- add here if PSL is supported
 
 SecondaryUnitPackageBody =
   PackageBody
@@ -861,27 +861,6 @@ ParenthesizedName =
 
 NameTail =
   SelectedName | ParenthesizedName | AttributeName
-
-//==============================================================================
-// PSL directives
-//==============================================================================
-// Currently, PSL is not supported, but will produce some tokens.
-//
-// The following nodes are empty sequences. An ungrammar rule body must contain
-// at least one item, so they cannot be written here; `add_empty_psl_nodes` in
-// `xtask/src/model/mod.rs` patches them into the model instead, together with
-// the choice alternatives referencing them.
-//
-//   PslDirective           = <empty>   -- alternative of ConcurrentStatement
-//   PslPropertyDeclaration = <empty>   -- alternative of Declaration
-//   PslSequenceDeclaration = <empty>   -- alternative of Declaration
-//   PslClockDeclaration    = <empty>   -- alternative of Declaration
-
-// Mock placeholder until PSL is supported. The leading `vunit` keyword keeps the
-// node non-empty-capable (a real verification unit is never empty), so it does
-// not spuriously make PrimaryUnit and its wrappers optional.
-PslVerificationUnit =
-  'vunit'
 
 //==============================================================================
 // § 12: Scope and Visibility

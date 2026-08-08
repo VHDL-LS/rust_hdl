@@ -4019,7 +4019,6 @@ pub enum ConcurrentStatementSyntax {
     ForGenerateStatement(ForGenerateStatementSyntax),
     IfGenerateStatement(IfGenerateStatementSyntax),
     CaseGenerateStatement(CaseGenerateStatementSyntax),
-    PslDirective(PslDirectiveSyntax),
 }
 impl AstNode for ConcurrentStatementSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -4035,7 +4034,6 @@ impl AstNode for ConcurrentStatementSyntax {
             NodeKind::ForGenerateStatement,
             NodeKind::IfGenerateStatement,
             NodeKind::CaseGenerateStatement,
-            NodeKind::PslDirective,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -4092,11 +4090,6 @@ impl AstNode for ConcurrentStatementSyntax {
                 CaseGenerateStatementSyntax::cast_unchecked(node),
             );
         }
-        if PslDirectiveSyntax::can_cast(&node) {
-            return ConcurrentStatementSyntax::PslDirective(PslDirectiveSyntax::cast_unchecked(
-                node,
-            ));
-        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -4117,7 +4110,6 @@ impl AstNode for ConcurrentStatementSyntax {
             ConcurrentStatementSyntax::ForGenerateStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::IfGenerateStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::CaseGenerateStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::PslDirective(inner) => inner.raw(),
         }
     }
 }
@@ -4142,7 +4134,6 @@ impl AstNode for ConcurrentStatementsSyntax {
                 NodeKind::ForGenerateStatement,
                 NodeKind::IfGenerateStatement,
                 NodeKind::CaseGenerateStatement,
-                NodeKind::PslDirective,
             ]),
         }],
     });
@@ -5806,9 +5797,6 @@ pub enum DeclarationSyntax {
     SignalDeclaration(SignalDeclarationSyntax),
     VariableDeclaration(VariableDeclarationSyntax),
     SharedVariableDeclaration(SharedVariableDeclarationSyntax),
-    PslPropertyDeclaration(PslPropertyDeclarationSyntax),
-    PslSequenceDeclaration(PslSequenceDeclarationSyntax),
-    PslClockDeclaration(PslClockDeclarationSyntax),
 }
 impl AstNode for DeclarationSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -5837,9 +5825,6 @@ impl AstNode for DeclarationSyntax {
             NodeKind::SignalDeclaration,
             NodeKind::VariableDeclaration,
             NodeKind::SharedVariableDeclaration,
-            NodeKind::PslPropertyDeclaration,
-            NodeKind::PslSequenceDeclaration,
-            NodeKind::PslClockDeclaration,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -5947,21 +5932,6 @@ impl AstNode for DeclarationSyntax {
                 SharedVariableDeclarationSyntax::cast_unchecked(node),
             );
         }
-        if PslPropertyDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::PslPropertyDeclaration(
-                PslPropertyDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        if PslSequenceDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::PslSequenceDeclaration(
-                PslSequenceDeclarationSyntax::cast_unchecked(node),
-            );
-        }
-        if PslClockDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::PslClockDeclaration(
-                PslClockDeclarationSyntax::cast_unchecked(node),
-            );
-        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -5991,9 +5961,6 @@ impl AstNode for DeclarationSyntax {
             DeclarationSyntax::SignalDeclaration(inner) => inner.raw(),
             DeclarationSyntax::VariableDeclaration(inner) => inner.raw(),
             DeclarationSyntax::SharedVariableDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PslPropertyDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PslSequenceDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PslClockDeclaration(inner) => inner.raw(),
         }
     }
 }
@@ -6058,9 +6025,6 @@ impl AstNode for DeclarationsSyntax {
                 NodeKind::SignalDeclaration,
                 NodeKind::VariableDeclaration,
                 NodeKind::SharedVariableDeclaration,
-                NodeKind::PslPropertyDeclaration,
-                NodeKind::PslSequenceDeclaration,
-                NodeKind::PslClockDeclaration,
             ]),
         }],
     });
@@ -6171,7 +6135,6 @@ impl AstNode for DesignUnitSyntax {
                     NodeKind::PrimaryUnitPackageDeclaration,
                     NodeKind::PackageInstantiationDeclarationPrimaryUnit,
                     NodeKind::ContextDeclaration,
-                    NodeKind::PslVerificationUnit,
                     NodeKind::ArchitectureBody,
                     NodeKind::SecondaryUnitPackageBody,
                 ]),
@@ -11561,7 +11524,6 @@ impl AstNode for LibraryUnitSyntax {
             NodeKind::PrimaryUnitPackageDeclaration,
             NodeKind::PackageInstantiationDeclarationPrimaryUnit,
             NodeKind::ContextDeclaration,
-            NodeKind::PslVerificationUnit,
             NodeKind::ArchitectureBody,
             NodeKind::SecondaryUnitPackageBody,
         ],
@@ -13912,7 +13874,6 @@ pub enum PrimaryUnitSyntax {
     PrimaryUnitPackageDeclaration(PrimaryUnitPackageDeclarationSyntax),
     PackageInstantiationDeclarationPrimaryUnit(PackageInstantiationDeclarationPrimaryUnitSyntax),
     ContextDeclaration(ContextDeclarationSyntax),
-    PslVerificationUnit(PslVerificationUnitSyntax),
 }
 impl AstNode for PrimaryUnitSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -13922,7 +13883,6 @@ impl AstNode for PrimaryUnitSyntax {
             NodeKind::PrimaryUnitPackageDeclaration,
             NodeKind::PackageInstantiationDeclarationPrimaryUnit,
             NodeKind::ContextDeclaration,
-            NodeKind::PslVerificationUnit,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -13951,11 +13911,6 @@ impl AstNode for PrimaryUnitSyntax {
                 ContextDeclarationSyntax::cast_unchecked(node),
             );
         }
-        if PslVerificationUnitSyntax::can_cast(&node) {
-            return PrimaryUnitSyntax::PslVerificationUnit(
-                PslVerificationUnitSyntax::cast_unchecked(node),
-            );
-        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -13968,7 +13923,6 @@ impl AstNode for PrimaryUnitSyntax {
             PrimaryUnitSyntax::PrimaryUnitPackageDeclaration(inner) => inner.raw(),
             PrimaryUnitSyntax::PackageInstantiationDeclarationPrimaryUnit(inner) => inner.raw(),
             PrimaryUnitSyntax::ContextDeclaration(inner) => inner.raw(),
-            PrimaryUnitSyntax::PslVerificationUnit(inner) => inner.raw(),
         }
     }
 }
@@ -14740,93 +14694,6 @@ impl AstNode for ProtectedTypeDefinitionSyntax {
             ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(inner) => inner.raw(),
             ProtectedTypeDefinitionSyntax::ProtectedTypeBody(inner) => inner.raw(),
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct PslClockDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PslClockDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PslClockDeclaration,
-        items: &[],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PslClockDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PslClockDeclarationSyntax {}
-#[derive(Debug, Clone)]
-pub struct PslDirectiveSyntax(pub(crate) SyntaxNode);
-impl AstNode for PslDirectiveSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PslDirective,
-        items: &[],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PslDirectiveSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PslDirectiveSyntax {}
-#[derive(Debug, Clone)]
-pub struct PslPropertyDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PslPropertyDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PslPropertyDeclaration,
-        items: &[],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PslPropertyDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PslPropertyDeclarationSyntax {}
-#[derive(Debug, Clone)]
-pub struct PslSequenceDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PslSequenceDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PslSequenceDeclaration,
-        items: &[],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PslSequenceDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PslSequenceDeclarationSyntax {}
-#[derive(Debug, Clone)]
-pub struct PslVerificationUnitSyntax(pub(crate) SyntaxNode);
-impl AstNode for PslVerificationUnitSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PslVerificationUnit,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "vunit",
-            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Vunit)),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PslVerificationUnitSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PslVerificationUnitSyntax {
-    pub fn vunit_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Vunit))
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

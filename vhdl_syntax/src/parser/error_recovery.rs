@@ -256,7 +256,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::EntityDeclarationEpilogue
         | NodeKind::PackageInstantiationDeclarationPrimaryUnit
         | NodeKind::PrimaryUnitPackageDeclaration
-        | NodeKind::PslVerificationUnit
         | NodeKind::SecondaryUnitPackageBody => &[
             Eof,
             Keyword(Kw::Library),
@@ -369,7 +368,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::ProcedureCallStatement
         | NodeKind::ProcessStatement
         | NodeKind::ProcessStatementEpilogue
-        | NodeKind::PslDirective
         | NodeKind::ReportStatement
         | NodeKind::ReturnStatement
         | NodeKind::SelectedForceAssignment
@@ -535,9 +533,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::PackageBodyDeclaration
         | NodeKind::PackageDeclaration
         | NodeKind::PackageInstantiationDeclaration
-        | NodeKind::PslClockDeclaration
-        | NodeKind::PslPropertyDeclaration
-        | NodeKind::PslSequenceDeclaration
         | NodeKind::SharedVariableDeclaration
         | NodeKind::SignalDeclaration
         | NodeKind::SimpleConfigurationSpecification

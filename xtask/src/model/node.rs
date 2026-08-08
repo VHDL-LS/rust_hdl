@@ -113,15 +113,6 @@ pub struct SequenceNode {
     pub items: Vec<TokenOrNode>,
 }
 
-impl SequenceNode {
-    pub fn new(name: impl Into<String>, items: Vec<TokenOrNode>) -> SequenceNode {
-        SequenceNode {
-            name: name.into().to_case(Case::UpperCamel),
-            items,
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodesOrTokens {
     Nodes(Vec<NodeRef>),
@@ -166,25 +157,6 @@ impl Model {
             return;
         }
         self.nodes.push(new_node);
-    }
-
-    /// Appends `alternative` to the choice node named `choice`.
-    ///
-    /// Panics when no such node exists, when it is a sequence node, or when its alternatives
-    /// are tokens rather than nodes.
-    pub fn push_choice_alternative(&mut self, choice: &str, alternative: NodeRef) {
-        let node = self
-            .nodes
-            .iter_mut()
-            .find(|node| node.name() == choice)
-            .unwrap_or_else(|| panic!("No node named {choice}"));
-        match node {
-            Node::Choices(ChoiceNode {
-                items: NodesOrTokens::Nodes(alternatives),
-                ..
-            }) => alternatives.push(alternative),
-            _ => panic!("Node {choice} is not a choice node with node alternatives"),
-        }
     }
 
     pub fn nodes(&self) -> &[Node] {
