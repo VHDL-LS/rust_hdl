@@ -14,7 +14,7 @@ use convert_case::{Case, Casing};
 use std::path::Path;
 use std::str::FromStr;
 
-pub fn load_model_ungramar(file: &Path) -> Model {
+pub fn load_model(file: &Path) -> Model {
     let mut model = Model::default();
 
     let grammar_str = std::fs::read_to_string(file).unwrap();
@@ -93,14 +93,14 @@ fn map_single(rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> TokenOrNo
                 .or_else(|_| {
                     Keyword::from_str(&name.to_case(Case::UpperCamel)).map(TokenKind::Keyword)
                 })
-                .expect(&format!("Invalid token kind {}", name));
+                .unwrap_or_else(|_| panic!("Invalid token kind {}", name));
             let name = match kind {
                 TokenKind::Keyword(kw) => kw.to_string(),
                 other => other.to_string(),
             };
             TokenOrNode::Token(Token {
                 kind,
-                name: name,
+                name,
                 nth: 0,
                 repeated: false,
                 optional: false,

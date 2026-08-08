@@ -9,7 +9,7 @@ use generate::{
     check_generators, run_generators, BuilderGenerator, Generator, MetaGenerator,
     SyntaxNodeGenerator,
 };
-use model::load_model_ungramar;
+use model::load_model;
 use std::path::Path;
 use std::process;
 
@@ -43,7 +43,7 @@ fn main() {
         Commands::Codegen { check } => {
             let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
             let file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
-            let model = load_model_ungramar(&file);
+            let model = load_model(&file);
             let generators: &[&dyn Generator] =
                 &[&SyntaxNodeGenerator, &BuilderGenerator, &MetaGenerator];
 
