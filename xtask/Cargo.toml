@@ -17,6 +17,7 @@ serde = { version = "1.0.217", features = ["derive"] }
 clap = { workspace = true }
 similar = "3"
 anyhow = "1"
+ungrammar = "1.16.1"
 
 [dev-dependencies]
 insta = "1"
