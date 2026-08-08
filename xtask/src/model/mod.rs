@@ -10,50 +10,9 @@ pub mod token;
 pub use node::*;
 pub use token::*;
 
-use crate::config::yaml;
 use convert_case::{Case, Casing};
-use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
-
-/// Read all `.yaml` files from `definitions_dir`, deserialize, convert, validate,
-/// postprocess, and return a [Model].
-pub fn load_model(definitions_dir: &Path) -> Model {
-    let mut model = Model::default();
-
-    let mut entries: Vec<_> = std::fs::read_dir(definitions_dir)
-        .unwrap_or_else(|err| {
-            panic!(
-                "cannot read definitions dir {}: {err}",
-                definitions_dir.display()
-            )
-        })
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map(|ext| ext == "yaml")
-                .unwrap_or(false)
-        })
-        .collect();
-
-    // Sort for deterministic section ordering
-    entries.sort_by_key(|e| e.path());
-
-    for entry in entries {
-        let path = entry.path();
-        let file =
-            File::open(&path).unwrap_or_else(|err| panic!("cannot open {}: {err}", path.display()));
-        let nodes: yaml::Nodes = serde_yml::from_reader(file)
-            .unwrap_or_else(|err| panic!("{err} while processing {}", path.display()));
-        model.insert_ser_nodes(nodes);
-    }
-
-    model.fixup_empty_capable_optional_markers();
-    model.do_checks();
-    model.do_postprocessing();
-    model
-}
 
 pub fn load_model_ungramar(file: &Path) -> Model {
     let mut model = Model::default();

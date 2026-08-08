@@ -123,12 +123,6 @@ pub enum TokenKind {
     Eof,
 }
 
-impl TokenKind {
-    pub fn from_str_expect(s: &str) -> TokenKind {
-        TokenKind::from_str(s).unwrap_or_else(|_| panic!("Token kind {s} not valid"))
-    }
-}
-
 /// All available keywords in the latest (VHDL 2019) edition of VHDL
 #[derive(PartialEq, Eq, Clone, Copy, Debug, strum::Display, strum::EnumString)]
 pub enum Keyword {
@@ -248,12 +242,6 @@ pub enum Keyword {
     With,
     Xnor,
     Xor,
-}
-
-impl Keyword {
-    pub fn from_str_expect(s: &str) -> Keyword {
-        Keyword::from_str(s).unwrap_or_else(|_| panic!("Keyword {s} not valid"))
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

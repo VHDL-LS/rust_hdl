@@ -9,11 +9,10 @@ use generate::{
     check_generators, run_generators, BuilderGenerator, Generator, MetaGenerator,
     SyntaxNodeGenerator,
 };
-use model::{load_model, load_model_ungramar};
+use model::load_model_ungramar;
 use std::path::Path;
-use std::process::{self, exit};
+use std::process;
 
-mod config;
 mod generate;
 mod model;
 

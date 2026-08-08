@@ -151,7 +151,6 @@ pub struct ChoiceNode {
 #[derive(Debug, Default)]
 pub struct Model {
     pub(crate) nodes: Vec<Node>,
-    pub(crate) builtins: HashSet<String>,
     /// Set of node kinds whose choices are all tokens.
     pub(crate) token_choice_kinds: HashSet<String>,
 }
@@ -188,10 +187,6 @@ impl Model {
             }) => alternatives.push(alternative),
             _ => panic!("Node {choice} is not a choice node with node alternatives"),
         }
-    }
-
-    pub fn push_builtin(&mut self, node: String) {
-        self.builtins.insert(node);
     }
 
     pub fn nodes(&self) -> &[Node] {
