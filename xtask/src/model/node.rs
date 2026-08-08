@@ -113,6 +113,18 @@ pub struct SequenceNode {
     pub items: Vec<TokenOrNode>,
 }
 
+#[cfg(test)]
+impl SequenceNode {
+    /// Test-only convenience constructor. Production code builds `SequenceNode`s in
+    /// [`crate::model::load_model`], which takes the name verbatim from the ungrammar.
+    pub fn new(name: impl Into<String>, items: Vec<TokenOrNode>) -> SequenceNode {
+        SequenceNode {
+            name: name.into(),
+            items,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodesOrTokens {
     Nodes(Vec<NodeRef>),

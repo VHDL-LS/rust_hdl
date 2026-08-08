@@ -109,6 +109,37 @@ jobs:
       - name: Check generated code is up-to-date
         run: cargo xtask codegen --check
 
+  xtask:
+    name: Build, test & lint xtask
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-xtask-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --manifest-path xtask/Cargo.toml
+
+      - name: Test
+        run: cargo test --manifest-path xtask/Cargo.toml
+
+      - name: rustfmt
+        run: cargo fmt --manifest-path xtask/Cargo.toml -- --check
+
+      - name: clippy
+        run: cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
