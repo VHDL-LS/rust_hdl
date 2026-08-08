@@ -20,7 +20,7 @@ members = [
 default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast"]
 
 [workspace.package]
-version = "0.87.1"
+version = "0.88.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 edition = "2021"
@@ -32,15 +32,15 @@ readme = "README.md"
 clap = { version = "4", features = ["derive"] }
 dirs = "6.0.0"
 dunce = "1"
-enum-map = "2.7.3"
+enum-map = "3.1.0"
 env_logger = "0.11.8"
 fnv = "1"
 fuzzy-matcher = "0.3.7"
 glob = "0.3.2"
-itertools = "0.14.0"
+itertools = "0.15.0"
 log = "0.4.27"
 lsp-types = "^0.95.1"
-lsp-server = "0.7.8"
+lsp-server = "0.10.0"
 parking_lot = "0.12.3"
 pinned_vec = "0.1.1"
 quote = "1"
@@ -49,7 +49,7 @@ serde = "1"
 serde_json = "1"
 strum = { version = "0.28", features = ["derive"] }
 subst = "0.3.8"
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 toml = "0.8.23"
 
 
