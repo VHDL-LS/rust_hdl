@@ -76,9 +76,14 @@ impl<'de> Deserialize<'de> for Nodes {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+// `serde_yml` hands the YAML tag to the enum deserializer verbatim, i.e. including the leading
+// `!`, so every variant needs an alias with that prefix to be recognized.
 pub enum NodeContents {
+    #[serde(alias = "!Sequence")]
     Sequence(Vec<NodeOrToken>),
+    #[serde(alias = "!Choice")]
     Choice(Vec<NodeOrToken>),
+    #[serde(alias = "!Builtin")]
     Builtin,
 }
 
