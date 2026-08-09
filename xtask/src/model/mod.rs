@@ -40,23 +40,23 @@ pub fn load_model(file: &Path) -> Model {
     model
 }
 
-/// Rejects an inlined group that carries a `?` or `*`, e.g. `epilogue:('end' ';')?`.
-///
-/// Such a group becomes a node of its own, so the marker would have to apply to the reference
-/// the parent holds — which the mapping does not do. Without this check the group is mapped as
-/// a bare nested sequence and reported as one, which is misleading: the group *is* named.
-fn assert_inlineable_group(production: &str, label: &str, rule: &ungrammar::Rule) {
-    let (inner, marker) = match rule {
-        ungrammar::Rule::Opt(inner) => (inner, '?'),
-        ungrammar::Rule::Rep(inner) => (inner, '*'),
-        _ => return,
-    };
-    if matches!(**inner, ungrammar::Rule::Seq(_) | ungrammar::Rule::Alt(_)) {
-        panic!(
-            "Group {label} of production {production} is marked `{marker}`. An inlined group \
-             cannot be optional or repeated; give it its own named production and mark the \
-             reference to it instead."
-        )
+/// The `?` / `*` that a labelled group carries
+#[derive(Clone, Copy)]
+enum GroupMarker {
+    None,
+    Optional,
+    Repeated,
+}
+
+impl GroupMarker {
+
+    /// Applies the marker to the field
+    fn apply(self, field: Field) -> Field {
+        match self {
+            GroupMarker::None => field,
+            GroupMarker::Optional => field.make_optional(),
+            GroupMarker::Repeated => field.make_repeated(),
+        }
     }
 }
 
@@ -70,17 +70,21 @@ fn map_single(
 ) -> Field {
     match rule {
         ungrammar::Rule::Labeled { label, rule } => {
-            assert_inlineable_group(production, label, rule);
-            let mut node = map_rule(label.to_case(Case::Pascal).into(), rule, grammar, model);
-            // A label on a single item just renames the field; only a group becomes a node of
-            // its own. `map_rule` collapses a one-item sequence, and so does the ungrammar
-            // parser, so a one-item sequence here can only have come from a single item.
+            let (inner, marker) = match rule.as_ref() {
+                ungrammar::Rule::Opt(inner) => (inner, GroupMarker::Optional),
+                ungrammar::Rule::Rep(inner) => (inner, GroupMarker::Repeated),
+                _ => (rule, GroupMarker::None),
+            };
+            let mut node = map_rule(label.to_case(Case::Pascal).into(), inner, grammar, model);
+            // Collapse single items `name:Production`
+            // TODO: revisit this decision
             if let Node::Items(sequence_node) = &mut node {
                 if sequence_node.items.len() == 1 {
-                    return sequence_node.items.pop().unwrap().with_name(label);
+                    let field = sequence_node.items.pop().unwrap();
+                    return marker.apply(field).with_name(label);
                 }
             }
-            let field = Field::node(node.name());
+            let field = marker.apply(Field::node(node.name()));
             model.push_node(node);
             field
         }

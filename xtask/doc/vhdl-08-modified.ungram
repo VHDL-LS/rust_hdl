@@ -24,15 +24,9 @@ DeclarationStatementSeparator =
 
 BlockHeader =
   GenericClause?
-  SemiColonTerminatedGenericMapAspect?
+  semi_colon_terminated_generic_map_aspect:(GenericMapAspect ';')?
   PortClause?
-  SemiColonTerminatedPortMapAspect?
-
-SemiColonTerminatedGenericMapAspect =
-  GenericMapAspect ';'
-
-SemiColonTerminatedPortMapAspect =
-  PortMapAspect ';'
+  semi_colon_terminated_port_map_aspect:(PortMapAspect ';')?
 
 BlockStatement =
   block_preamble:(Label 'block' condition:ParenthesizedExpression? 'is'?)
@@ -54,10 +48,10 @@ CaseGenerateStatement =
   case_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 ComponentInstantiationStatement =
-  Label InstantiatedUnit ComponentInstantiationItems? ';'
-
-ComponentInstantiationItems =
-  GenericMapAspect? PortMapAspect?
+  Label
+  InstantiatedUnit
+  component_instantiation_items:(GenericMapAspect? PortMapAspect?)?
+  ';'
 
 // A procedure with zero arguments (`proc_call: foo;`) and a component instantiation (`inst: cmp;`) without generic / port
 // maps are indistinguishable.
@@ -119,24 +113,17 @@ GenerateStatementBody =
   Declarations?
   DeclarationStatementSeparator?
   ConcurrentStatements?
-  GenerateStatementBodyEpilogue?
-
-GenerateStatementBodyEpilogue =
-  'end' '#identifier'? ';'
-
-IfGenerateElsif =
-  'elsif' Label? Expression 'generate' GenerateStatementBody?
-
-IfGenerateElse =
-  'else' Label? 'generate' GenerateStatementBody?
+  generate_statement_body_epilogue:('end' '#identifier'? ';')?
 
 IfGenerateStatement =
   if_generate_statement_preamble:(
     Label? 'if' alternative_label:Label? condition:Expression 'generate'
   )
   GenerateStatementBody?
-  IfGenerateElsif*
-  IfGenerateElse?
+  if_generate_elsif:(
+    'elsif' Label? Expression 'generate' GenerateStatementBody?
+  )*
+  if_generate_else:('else' Label? 'generate' GenerateStatementBody?)?
   if_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
@@ -166,15 +153,16 @@ ProcessSensitivityList =
 
 ProcessStatement =
   process_statement_preamble:(
-    Label? 'postponed'? 'process' ParenthesizedProcessSensitivityList? 'is'?
+    Label?
+    'postponed'?
+    'process'
+    parenthesized_process_sensitivity_list:('(' ProcessSensitivityList ')')?
+    'is'?
   )
   Declarations?
   DeclarationStatementSeparator
   SequentialStatements?
   process_statement_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
-
-ParenthesizedProcessSensitivityList =
-  '(' ProcessSensitivityList ')'
 
 //==============================================================================
 // § 6: Declarations
@@ -262,11 +250,8 @@ AttributeDeclaration =
 
 ComponentDeclaration =
   component_declaration_preamble:('component' name:'#identifier' 'is'?)
-  ComponentDeclarationItems?
+  component_declaration_items:(GenericClause? PortClause?)?
   component_declaration_epilogue:('end' 'component' '#identifier'? ';')
-
-ComponentDeclarationItems =
-  GenericClause? PortClause?
 
 ConstantDeclaration =
   'constant' IdentifierList ':' SubtypeIndication ':='? Expression? ';'
@@ -491,21 +476,17 @@ ConfigurationItem =
 
 BlockConfiguration =
   block_configuration_preamble:('for' Name)
-  BlockConfigurationItems?
+  block_configuration_items:(UseClause* ConfigurationItem*)?
   block_configuration_epilogue:('end' 'for' ';')
-
-BlockConfigurationItems =
-  UseClause* ConfigurationItem*
 
 ComponentConfiguration =
   ComponentConfigurationPreamble
-  ComponentConfigurationItems?
+  component_configuration_items:(
+    SemiColonTerminatedBindingIndication?
+    SemiColonTerminatedVerificationUnitBindingIndication*
+    BlockConfiguration?
+  )?
   ComponentConfigurationEpilogue
-
-ComponentConfigurationItems =
-  SemiColonTerminatedBindingIndication?
-  SemiColonTerminatedVerificationUnitBindingIndication*
-  BlockConfiguration?
 
 SemiColonTerminatedBindingIndication =
   BindingIndication ';'
@@ -827,16 +808,12 @@ CaseStatement =
 ConditionClause =
   'until' Expression
 
-ConditionalElseWhenExpression =
-  'else' Expression 'when' condition:Expression
-
-ConditionalElseItem =
-  'else' Expression
-
 ConditionalExpressions =
   conditional_expression:(Expression 'when' condition:Expression)
-  ConditionalElseWhenExpression*
-  ConditionalElseItem?
+  conditional_else_when_expression:(
+    'else' Expression 'when' condition:Expression
+  )*
+  conditional_else_item:('else' Expression)?
 
 ConditionalForceAssignment =
   Label? Target '<=' 'force' ForceMode? ConditionalExpressions ';'
@@ -850,16 +827,12 @@ ConditionalVariableAssignment =
 ConditionalWaveformAssignment =
   Target '<=' DelayMechanism? ConditionalWaveforms ';'
 
-ConditionalWaveformElseWhenExpression =
-  'else' Waveform 'when' condition:Expression
-
-ConditionalWaveformElseItem =
-  'else' Waveform
-
 ConditionalWaveforms =
   conditional_waveform:(Waveform 'when' Expression)
-  ConditionalWaveformElseWhenExpression*
-  ConditionalWaveformElseItem?
+  conditional_waveform_else_when_expression:(
+    'else' Waveform 'when' condition:Expression
+  )*
+  conditional_waveform_else_item:('else' Waveform)?
 
 TransportDelayMechanism =
   'transport'
@@ -876,17 +849,11 @@ ExitStatement =
 ForceMode =
   'in' | 'out'
 
-IfStatementElsif =
-  'elsif' Expression 'then' SequentialStatements?
-
-IfStatementElse =
-  'else' SequentialStatements?
-
 IfStatement =
   if_statement_preamble:(Label? 'if' Expression 'then')
   SequentialStatements?
-  IfStatementElsif*
-  IfStatementElse?
+  if_statement_elsif:('elsif' Expression 'then' SequentialStatements?)*
+  if_statement_else:('else' SequentialStatements?)?
   if_statement_epilogue:('end' 'if' '#identifier'? ';')
 
 WhileIterationScheme =
@@ -921,11 +888,8 @@ ReportStatement =
 ReturnStatement =
   Label? 'return' Expression? ';'
 
-SelectedExpressionItem =
-  Expression 'when' Choices?
-
 SelectedExpressions =
-  SelectedExpressionItem* ','*
+  selected_expression_item:(Expression 'when' Choices?)* ','*
 
 SelectedForceAssignment =
   SelectedAssignmentPreamble
@@ -936,11 +900,8 @@ SelectedForceAssignment =
   SelectedExpressions?
   ';'
 
-SelectedWaveformItem =
-  Waveform 'when' Choices?
-
 SelectedWaveforms =
-  SelectedWaveformItem* ','*
+  selected_waveform_item:(Waveform 'when' Choices?)* ','*
 
 SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
@@ -1179,19 +1140,14 @@ FunctionSpecification =
   Name
 
 ParameterList =
-  'parameter'? ParenthesizedInterfaceList?
-
-ParenthesizedInterfaceList =
-  '(' InterfaceList ')'
+  'parameter'? parenthesized_interface_list:('(' InterfaceList ')')?
 
 FunctionPurity =
   'pure' | 'impure'
 
 SubprogramHeader =
-  SubprogramHeaderGenericClause? GenericMapAspect?
-
-SubprogramHeaderGenericClause =
-  'generic' '(' InterfaceList? ')'
+  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')?
+  GenericMapAspect?
 
 SubprogramBody =
   subprogram_body_preamble:(SubprogramSpecification 'is')
@@ -1334,8 +1290,10 @@ SecondaryUnitDeclaration =
 IndexConstraint =
   '(' Expression* ','* ')'
 
-IndexSubtypeDefinitionList =
-  IndexSubtypeDefinition* ','*
-
 UnboundedArrayDefinition =
-  'array' '(' IndexSubtypeDefinitionList? ')' 'of' SubtypeIndication
+  'array'
+  '('
+  index_subtype_definition_list:(IndexSubtypeDefinition* ','*)?
+  ')'
+  'of'
+  SubtypeIndication
