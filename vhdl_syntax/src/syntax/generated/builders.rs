@@ -12295,94 +12295,19 @@ impl From<ProcedureSpecificationBuilder> for ProcedureSpecificationSyntax {
         value.build()
     }
 }
-pub struct ProcessStatementBuilder {
-    process_statement_preamble: ProcessStatementPreambleSyntax,
-    declarations: Option<DeclarationsSyntax>,
-    declaration_statement_separator: DeclarationStatementSeparatorSyntax,
-    sequential_statements: Option<SequentialStatementsSyntax>,
-    process_statement_epilogue: ProcessStatementEpilogueSyntax,
-}
-impl Default for ProcessStatementBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ProcessStatementBuilder {
-    pub fn new() -> Self {
-        Self {
-            process_statement_preamble: ProcessStatementPreambleBuilder::default().build(),
-            declarations: None,
-            declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
-                .build(),
-            sequential_statements: None,
-            process_statement_epilogue: ProcessStatementEpilogueBuilder::default().build(),
-        }
-    }
-    pub fn with_process_statement_preamble(
-        mut self,
-        n: impl Into<ProcessStatementPreambleSyntax>,
-    ) -> Self {
-        self.process_statement_preamble = n.into();
-        self
-    }
-    pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
-        self.declarations = Some(n.into());
-        self
-    }
-    pub fn with_declaration_statement_separator(
-        mut self,
-        n: impl Into<DeclarationStatementSeparatorSyntax>,
-    ) -> Self {
-        self.declaration_statement_separator = n.into();
-        self
-    }
-    pub fn with_sequential_statements(mut self, n: impl Into<SequentialStatementsSyntax>) -> Self {
-        self.sequential_statements = Some(n.into());
-        self
-    }
-    pub fn with_process_statement_epilogue(
-        mut self,
-        n: impl Into<ProcessStatementEpilogueSyntax>,
-    ) -> Self {
-        self.process_statement_epilogue = n.into();
-        self
-    }
-    pub fn build(self) -> ProcessStatementSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ProcessStatement);
-        builder.push_node(self.process_statement_preamble.raw().green().clone());
-        if let Some(n) = self.declarations {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.declaration_statement_separator.raw().green().clone());
-        if let Some(n) = self.sequential_statements {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.process_statement_epilogue.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ProcessStatementSyntax::cast(node).unwrap()
-    }
-}
-impl From<ProcessStatementBuilder> for ProcessStatementSyntax {
-    fn from(value: ProcessStatementBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ProcessStatementEpilogueBuilder {
+pub struct ProcessEpilogueBuilder {
     end_token: Token,
     postponed_token: Option<Token>,
     process_token: Token,
     identifier_token: Option<Token>,
     semi_colon_token: Token,
 }
-impl Default for ProcessStatementEpilogueBuilder {
+impl Default for ProcessEpilogueBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
-impl ProcessStatementEpilogueBuilder {
+impl ProcessEpilogueBuilder {
     pub fn new() -> Self {
         Self {
             end_token: Kw::End.canonical_token(),
@@ -12437,9 +12362,9 @@ impl ProcessStatementEpilogueBuilder {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> ProcessStatementEpilogueSyntax {
+    pub fn build(self) -> ProcessEpilogueSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ProcessStatementEpilogue);
+        builder.start_node(NodeKind::ProcessEpilogue);
         builder.push(self.end_token);
         if let Some(t) = self.postponed_token {
             builder.push(t);
@@ -12452,39 +12377,33 @@ impl ProcessStatementEpilogueBuilder {
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ProcessStatementEpilogueSyntax::cast(node).unwrap()
+        ProcessEpilogueSyntax::cast(node).unwrap()
     }
 }
-impl From<ProcessStatementEpilogueBuilder> for ProcessStatementEpilogueSyntax {
-    fn from(value: ProcessStatementEpilogueBuilder) -> Self {
+impl From<ProcessEpilogueBuilder> for ProcessEpilogueSyntax {
+    fn from(value: ProcessEpilogueBuilder) -> Self {
         value.build()
     }
 }
-pub struct ProcessStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
+pub struct ProcessPreambleBuilder {
     postponed_token: Option<Token>,
     process_token: Token,
     parenthesized_process_sensitivity_list: Option<ParenthesizedProcessSensitivityListSyntax>,
     is_token: Option<Token>,
 }
-impl Default for ProcessStatementPreambleBuilder {
+impl Default for ProcessPreambleBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
-impl ProcessStatementPreambleBuilder {
+impl ProcessPreambleBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
             postponed_token: None,
             process_token: Kw::Process.canonical_token(),
             parenthesized_process_sensitivity_list: None,
             is_token: None,
         }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
-        self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
         self.postponed_token = Some(t.into());
@@ -12523,12 +12442,9 @@ impl ProcessStatementPreambleBuilder {
         tok.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> ProcessStatementPreambleSyntax {
+    pub fn build(self) -> ProcessPreambleSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ProcessStatementPreamble);
-        if let Some(n) = self.label {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.start_node(NodeKind::ProcessPreamble);
         if let Some(t) = self.postponed_token {
             builder.push(t);
         }
@@ -12542,11 +12458,89 @@ impl ProcessStatementPreambleBuilder {
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ProcessStatementPreambleSyntax::cast(node).unwrap()
+        ProcessPreambleSyntax::cast(node).unwrap()
     }
 }
-impl From<ProcessStatementPreambleBuilder> for ProcessStatementPreambleSyntax {
-    fn from(value: ProcessStatementPreambleBuilder) -> Self {
+impl From<ProcessPreambleBuilder> for ProcessPreambleSyntax {
+    fn from(value: ProcessPreambleBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ProcessStatementBuilder {
+    label: Option<LabelSyntax>,
+    process_preamble: ProcessPreambleSyntax,
+    declarations: Option<DeclarationsSyntax>,
+    declaration_statement_separator: DeclarationStatementSeparatorSyntax,
+    sequential_statements: Option<SequentialStatementsSyntax>,
+    process_epilogue: ProcessEpilogueSyntax,
+}
+impl Default for ProcessStatementBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ProcessStatementBuilder {
+    pub fn new() -> Self {
+        Self {
+            label: None,
+            process_preamble: ProcessPreambleBuilder::default().build(),
+            declarations: None,
+            declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
+                .build(),
+            sequential_statements: None,
+            process_epilogue: ProcessEpilogueBuilder::default().build(),
+        }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
+    }
+    pub fn with_process_preamble(mut self, n: impl Into<ProcessPreambleSyntax>) -> Self {
+        self.process_preamble = n.into();
+        self
+    }
+    pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
+        self.declarations = Some(n.into());
+        self
+    }
+    pub fn with_declaration_statement_separator(
+        mut self,
+        n: impl Into<DeclarationStatementSeparatorSyntax>,
+    ) -> Self {
+        self.declaration_statement_separator = n.into();
+        self
+    }
+    pub fn with_sequential_statements(mut self, n: impl Into<SequentialStatementsSyntax>) -> Self {
+        self.sequential_statements = Some(n.into());
+        self
+    }
+    pub fn with_process_epilogue(mut self, n: impl Into<ProcessEpilogueSyntax>) -> Self {
+        self.process_epilogue = n.into();
+        self
+    }
+    pub fn build(self) -> ProcessStatementSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ProcessStatement);
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.process_preamble.raw().green().clone());
+        if let Some(n) = self.declarations {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.declaration_statement_separator.raw().green().clone());
+        if let Some(n) = self.sequential_statements {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.process_epilogue.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ProcessStatementSyntax::cast(node).unwrap()
+    }
+}
+impl From<ProcessStatementBuilder> for ProcessStatementSyntax {
+    fn from(value: ProcessStatementBuilder) -> Self {
         value.build()
     }
 }

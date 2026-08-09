@@ -424,19 +424,19 @@ impl Parser {
 
     pub fn process_statement(&mut self) {
         self.start_node(ProcessStatement);
-        self.process_statement_preamble();
+        self.opt_label();
+        self.process_preamble();
         self.declarations();
         self.start_node(DeclarationStatementSeparator);
         self.expect_kw(Kw::Begin);
         self.end_node();
         self.sequential_statements();
-        self.process_statement_epilogue();
+        self.process_epilogue();
         self.end_node();
     }
 
-    pub fn process_statement_preamble(&mut self) {
-        self.start_node(ProcessStatementPreamble);
-        self.opt_label();
+    pub fn process_preamble(&mut self) {
+        self.start_node(ProcessPreamble);
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_token(Keyword(Kw::Process));
         if self.next_is(LeftPar) {
@@ -446,8 +446,8 @@ impl Parser {
         self.end_node();
     }
 
-    pub fn process_statement_epilogue(&mut self) {
-        self.start_node(ProcessStatementEpilogue);
+    pub fn process_epilogue(&mut self) {
+        self.start_node(ProcessEpilogue);
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_token(Keyword(Kw::Process));

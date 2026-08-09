@@ -131,17 +131,17 @@ ProcessSensitivityList =
   AllSensitivityList | SensitivityList
 
 ProcessStatement =
-  process_statement_preamble:(
-    Label?
+  Label?
+  process_preamble:(
     'postponed'?
     'process'
     parenthesized_process_sensitivity_list:('(' ProcessSensitivityList ')')?
     'is'?
   )
-  Declarations?
+  Declarations
   DeclarationStatementSeparator
-  SequentialStatements?
-  process_statement_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
+  SequentialStatements
+  process_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
 
 //==============================================================================
 // § 6: Declarations

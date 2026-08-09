@@ -3,12 +3,12 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nprocess is\nbegin\nend postponed process;\",)"
 ---
 ProcessStatement
-  ProcessStatementPreamble
+  ProcessPreamble
     Keyword(Process)
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)
-  ProcessStatementEpilogue
+  ProcessEpilogue
     Keyword(End)
     Keyword(Postponed)
     Keyword(Process)

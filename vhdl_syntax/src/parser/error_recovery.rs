@@ -364,7 +364,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::NullStatement
         | NodeKind::ProcedureCallStatement
         | NodeKind::ProcessStatement
-        | NodeKind::ProcessStatementEpilogue
+        | NodeKind::ProcessEpilogue
         | NodeKind::ReportStatement
         | NodeKind::ReturnStatement
         | NodeKind::SelectedForceAssignment
@@ -617,7 +617,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         ],
         NodeKind::ArchitecturePreamble
         | NodeKind::BlockHeader
-        | NodeKind::ProcessStatementPreamble
+        | NodeKind::ProcessPreamble
         | NodeKind::SubprogramBodyPreamble => &[
             Keyword(Kw::Alias),
             Keyword(Kw::Attribute),

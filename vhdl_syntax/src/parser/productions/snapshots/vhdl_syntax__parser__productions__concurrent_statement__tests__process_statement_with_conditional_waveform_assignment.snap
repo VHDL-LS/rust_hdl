@@ -3,10 +3,10 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nmain: process is\nbegin\n    data_processing_state <= processing when processing_data else idle;\nend process main;\",)"
 ---
 ProcessStatement
-  ProcessStatementPreamble
-    Label
-      Identifier 'main'
-      Colon
+  Label
+    Identifier 'main'
+    Colon
+  ProcessPreamble
     Keyword(Process)
     Keyword(Is)
   DeclarationStatementSeparator
@@ -40,7 +40,7 @@ ProcessStatement
                   NameDesignatorPrefix
                     Identifier 'idle'
       SemiColon
-  ProcessStatementEpilogue
+  ProcessEpilogue
     Keyword(End)
     Keyword(Process)
     Identifier 'main'

@@ -9,7 +9,7 @@ begin
 
 == tree ==
 ProcessStatement
-  ProcessStatementPreamble
+  ProcessPreamble
     Keyword(Process)
     ParenthesizedProcessSensitivityList
       LeftPar

@@ -14018,6 +14018,150 @@ impl ProcedureSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ProcessEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProcessEpilogueSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProcessEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "postponed",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "process",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Process)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProcessEpilogueSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProcessEpilogueSyntax {
+    pub fn end_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
+            .nth(0)
+    }
+    pub fn postponed_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
+            .nth(0)
+    }
+    pub fn process_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Process))
+            .nth(0)
+    }
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ProcessPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProcessPreambleSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProcessPreamble,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "postponed",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "process",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Process)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "parenthesized_process_sensitivity_list",
+                kind: LayoutItemKind::Node(NodeKind::ParenthesizedProcessSensitivityList),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "is",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProcessPreambleSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProcessPreambleSyntax {
+    pub fn postponed_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
+            .nth(0)
+    }
+    pub fn process_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Process))
+            .nth(0)
+    }
+    pub fn parenthesized_process_sensitivity_list(
+        &self,
+    ) -> Option<ParenthesizedProcessSensitivityListSyntax> {
+        self.0
+            .children()
+            .filter_map(ParenthesizedProcessSensitivityListSyntax::cast)
+            .nth(0)
+    }
+    pub fn is_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ProcessSensitivityListSyntax {
     AllSensitivityList(AllSensitivityListSyntax),
     SensitivityList(SensitivityListSyntax),
@@ -14056,10 +14200,16 @@ impl AstNode for ProcessStatementSyntax {
         kind: NodeKind::ProcessStatement,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "process_statement_preamble",
-                kind: LayoutItemKind::Node(NodeKind::ProcessStatementPreamble),
+                name: "process_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ProcessPreamble),
             },
             LayoutItem {
                 optional: true,
@@ -14082,8 +14232,8 @@ impl AstNode for ProcessStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "process_statement_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::ProcessStatementEpilogue),
+                name: "process_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::ProcessEpilogue),
             },
         ],
     });
@@ -14095,10 +14245,13 @@ impl AstNode for ProcessStatementSyntax {
     }
 }
 impl ProcessStatementSyntax {
-    pub fn process_statement_preamble(&self) -> Option<ProcessStatementPreambleSyntax> {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn process_preamble(&self) -> Option<ProcessPreambleSyntax> {
         self.0
             .children()
-            .filter_map(ProcessStatementPreambleSyntax::cast)
+            .filter_map(ProcessPreambleSyntax::cast)
             .nth(0)
     }
     pub fn declarations(&self) -> Option<DeclarationsSyntax> {
@@ -14119,163 +14272,10 @@ impl ProcessStatementSyntax {
             .filter_map(SequentialStatementsSyntax::cast)
             .nth(0)
     }
-    pub fn process_statement_epilogue(&self) -> Option<ProcessStatementEpilogueSyntax> {
+    pub fn process_epilogue(&self) -> Option<ProcessEpilogueSyntax> {
         self.0
             .children()
-            .filter_map(ProcessStatementEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ProcessStatementEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for ProcessStatementEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ProcessStatementEpilogue,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "end",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "postponed",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "process",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Process)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ProcessStatementEpilogueSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ProcessStatementEpilogueSyntax {
-    pub fn end_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
-            .nth(0)
-    }
-    pub fn postponed_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
-            .nth(0)
-    }
-    pub fn process_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Process))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ProcessStatementPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for ProcessStatementPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ProcessStatementPreamble,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "postponed",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "process",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Process)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "parenthesized_process_sensitivity_list",
-                kind: LayoutItemKind::Node(NodeKind::ParenthesizedProcessSensitivityList),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "is",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ProcessStatementPreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ProcessStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn postponed_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
-            .nth(0)
-    }
-    pub fn process_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Process))
-            .nth(0)
-    }
-    pub fn parenthesized_process_sensitivity_list(
-        &self,
-    ) -> Option<ParenthesizedProcessSensitivityListSyntax> {
-        self.0
-            .children()
-            .filter_map(ParenthesizedProcessSensitivityListSyntax::cast)
-            .nth(0)
-    }
-    pub fn is_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
+            .filter_map(ProcessEpilogueSyntax::cast)
             .nth(0)
     }
 }
