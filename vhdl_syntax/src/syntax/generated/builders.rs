@@ -1835,72 +1835,12 @@ impl From<CaseGenerateAlternativeBuilder> for CaseGenerateAlternativeSyntax {
         value.build()
     }
 }
-pub struct CaseGenerateStatementBuilder {
-    label: LabelSyntax,
-    case_generate_statement_preamble: CaseGenerateStatementPreambleSyntax,
-    case_generate_alternatives: Vec<CaseGenerateAlternativeSyntax>,
-    generate_epilogue: GenerateEpilogueSyntax,
-}
-impl CaseGenerateStatementBuilder {
-    pub fn new(
-        label: impl Into<LabelSyntax>,
-        case_generate_statement_preamble: impl Into<CaseGenerateStatementPreambleSyntax>,
-    ) -> Self {
-        Self {
-            label: label.into(),
-            case_generate_statement_preamble: case_generate_statement_preamble.into(),
-            case_generate_alternatives: Vec::new(),
-            generate_epilogue: GenerateEpilogueBuilder::default().build(),
-        }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
-        self
-    }
-    pub fn with_case_generate_statement_preamble(
-        mut self,
-        n: impl Into<CaseGenerateStatementPreambleSyntax>,
-    ) -> Self {
-        self.case_generate_statement_preamble = n.into();
-        self
-    }
-    pub fn add_case_generate_alternatives(
-        mut self,
-        n: impl Into<CaseGenerateAlternativeSyntax>,
-    ) -> Self {
-        self.case_generate_alternatives.push(n.into());
-        self
-    }
-    pub fn with_generate_epilogue(mut self, n: impl Into<GenerateEpilogueSyntax>) -> Self {
-        self.generate_epilogue = n.into();
-        self
-    }
-    pub fn build(self) -> CaseGenerateStatementSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::CaseGenerateStatement);
-        builder.push_node(self.label.raw().green().clone());
-        builder.push_node(self.case_generate_statement_preamble.raw().green().clone());
-        for n in self.case_generate_alternatives {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.generate_epilogue.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        CaseGenerateStatementSyntax::cast(node).unwrap()
-    }
-}
-impl From<CaseGenerateStatementBuilder> for CaseGenerateStatementSyntax {
-    fn from(value: CaseGenerateStatementBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct CaseGenerateStatementPreambleBuilder {
+pub struct CaseGeneratePreambleBuilder {
     case_token: Token,
     expression: ExpressionSyntax,
     generate_token: Token,
 }
-impl CaseGenerateStatementPreambleBuilder {
+impl CaseGeneratePreambleBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             case_token: Kw::Case.canonical_token(),
@@ -1928,20 +1868,77 @@ impl CaseGenerateStatementPreambleBuilder {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> CaseGenerateStatementPreambleSyntax {
+    pub fn build(self) -> CaseGeneratePreambleSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::CaseGenerateStatementPreamble);
+        builder.start_node(NodeKind::CaseGeneratePreamble);
         builder.push(self.case_token);
         builder.push_node(self.expression.raw().green().clone());
         builder.push(self.generate_token);
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        CaseGenerateStatementPreambleSyntax::cast(node).unwrap()
+        CaseGeneratePreambleSyntax::cast(node).unwrap()
     }
 }
-impl From<CaseGenerateStatementPreambleBuilder> for CaseGenerateStatementPreambleSyntax {
-    fn from(value: CaseGenerateStatementPreambleBuilder) -> Self {
+impl From<CaseGeneratePreambleBuilder> for CaseGeneratePreambleSyntax {
+    fn from(value: CaseGeneratePreambleBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct CaseGenerateStatementBuilder {
+    label: LabelSyntax,
+    case_generate_preamble: CaseGeneratePreambleSyntax,
+    case_generate_alternatives: Vec<CaseGenerateAlternativeSyntax>,
+    generate_epilogue: GenerateEpilogueSyntax,
+}
+impl CaseGenerateStatementBuilder {
+    pub fn new(
+        label: impl Into<LabelSyntax>,
+        case_generate_preamble: impl Into<CaseGeneratePreambleSyntax>,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            case_generate_preamble: case_generate_preamble.into(),
+            case_generate_alternatives: Vec::new(),
+            generate_epilogue: GenerateEpilogueBuilder::default().build(),
+        }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
+    }
+    pub fn with_case_generate_preamble(mut self, n: impl Into<CaseGeneratePreambleSyntax>) -> Self {
+        self.case_generate_preamble = n.into();
+        self
+    }
+    pub fn add_case_generate_alternatives(
+        mut self,
+        n: impl Into<CaseGenerateAlternativeSyntax>,
+    ) -> Self {
+        self.case_generate_alternatives.push(n.into());
+        self
+    }
+    pub fn with_generate_epilogue(mut self, n: impl Into<GenerateEpilogueSyntax>) -> Self {
+        self.generate_epilogue = n.into();
+        self
+    }
+    pub fn build(self) -> CaseGenerateStatementSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::CaseGenerateStatement);
+        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.case_generate_preamble.raw().green().clone());
+        for n in self.case_generate_alternatives {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.generate_epilogue.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        CaseGenerateStatementSyntax::cast(node).unwrap()
+    }
+}
+impl From<CaseGenerateStatementBuilder> for CaseGenerateStatementSyntax {
+    fn from(value: CaseGenerateStatementBuilder) -> Self {
         value.build()
     }
 }

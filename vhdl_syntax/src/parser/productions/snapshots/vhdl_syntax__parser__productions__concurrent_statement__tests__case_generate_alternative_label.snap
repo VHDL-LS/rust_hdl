@@ -6,7 +6,7 @@ CaseGenerateStatement
   Label
     Identifier 'gen1'
     Colon
-  CaseGenerateStatementPreamble
+  CaseGeneratePreamble
     Keyword(Case)
     BinaryExpression
       NameExpression

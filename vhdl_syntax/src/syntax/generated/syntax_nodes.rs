@@ -2085,73 +2085,10 @@ impl CaseGenerateAlternativeSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct CaseGenerateStatementSyntax(pub(crate) SyntaxNode);
-impl AstNode for CaseGenerateStatementSyntax {
+pub struct CaseGeneratePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseGeneratePreambleSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::CaseGenerateStatement,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "case_generate_statement_preamble",
-                kind: LayoutItemKind::Node(NodeKind::CaseGenerateStatementPreamble),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "case_generate_alternatives",
-                kind: LayoutItemKind::Node(NodeKind::CaseGenerateAlternative),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generate_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::GenerateEpilogue),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        CaseGenerateStatementSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl CaseGenerateStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn case_generate_statement_preamble(&self) -> Option<CaseGenerateStatementPreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(CaseGenerateStatementPreambleSyntax::cast)
-            .nth(0)
-    }
-    pub fn case_generate_alternatives(
-        &self,
-    ) -> impl Iterator<Item = CaseGenerateAlternativeSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(CaseGenerateAlternativeSyntax::cast)
-    }
-    pub fn generate_epilogue(&self) -> Option<GenerateEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(GenerateEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct CaseGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for CaseGenerateStatementPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::CaseGenerateStatementPreamble,
+        kind: NodeKind::CaseGeneratePreamble,
         items: &[
             LayoutItem {
                 optional: false,
@@ -2183,13 +2120,13 @@ impl AstNode for CaseGenerateStatementPreambleSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        CaseGenerateStatementPreambleSyntax(node)
+        CaseGeneratePreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl CaseGenerateStatementPreambleSyntax {
+impl CaseGeneratePreambleSyntax {
     pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -2203,6 +2140,69 @@ impl CaseGenerateStatementPreambleSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct CaseGenerateStatementSyntax(pub(crate) SyntaxNode);
+impl AstNode for CaseGenerateStatementSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::CaseGenerateStatement,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "case_generate_preamble",
+                kind: LayoutItemKind::Node(NodeKind::CaseGeneratePreamble),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "case_generate_alternatives",
+                kind: LayoutItemKind::Node(NodeKind::CaseGenerateAlternative),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generate_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::GenerateEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        CaseGenerateStatementSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl CaseGenerateStatementSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn case_generate_preamble(&self) -> Option<CaseGeneratePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(CaseGeneratePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn case_generate_alternatives(
+        &self,
+    ) -> impl Iterator<Item = CaseGenerateAlternativeSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(CaseGenerateAlternativeSyntax::cast)
+    }
+    pub fn generate_epilogue(&self) -> Option<GenerateEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateEpilogueSyntax::cast)
             .nth(0)
     }
 }

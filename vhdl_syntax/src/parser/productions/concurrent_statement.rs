@@ -299,7 +299,7 @@ impl Parser {
     }
 
     pub fn case_generate_preamble(&mut self) {
-        self.start_node(CaseGenerateStatementPreamble);
+        self.start_node(CaseGeneratePreamble);
         self.expect_kw(Kw::Case);
         self.expression();
         self.expect_kw(Kw::Generate);

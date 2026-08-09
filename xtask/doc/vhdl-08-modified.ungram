@@ -40,7 +40,7 @@ CaseGenerateAlternative =
 
 CaseGenerateStatement =
   Label
-  case_generate_statement_preamble:('case' Expression 'generate')
+  case_generate_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
   generate_epilogue:('end' 'generate' '#identifier'? ';')
 
