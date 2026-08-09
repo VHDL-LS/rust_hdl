@@ -17,39 +17,38 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-  ComponentInstantiationItems
-    GenericMapAspect
-      Keyword(Generic)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'const'
-          RightArrow
-          ActualPart
-            ActualPartExpression
-              LiteralExpression
-                AbstractLiteral '1'
-      RightPar
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
-          RightArrow
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'clk_foo'
-      RightPar
+  GenericMapAspect
+    Keyword(Generic)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            NameDesignatorPrefix
+              Identifier 'const'
+        RightArrow
+        ActualPart
+          ActualPartExpression
+            LiteralExpression
+              AbstractLiteral '1'
+    RightPar
+  PortMapAspect
+    Keyword(Port)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
+        RightArrow
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'clk_foo'
+    RightPar
   SemiColon

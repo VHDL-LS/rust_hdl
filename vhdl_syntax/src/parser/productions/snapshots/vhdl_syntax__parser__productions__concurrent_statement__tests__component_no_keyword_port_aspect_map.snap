@@ -16,23 +16,22 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-  ComponentInstantiationItems
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
-          RightArrow
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'clk_foo'
-      RightPar
+  PortMapAspect
+    Keyword(Port)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
+        RightArrow
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'clk_foo'
+    RightPar
   SemiColon

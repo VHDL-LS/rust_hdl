@@ -209,7 +209,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::AccessTypeDefinition
         | NodeKind::Assertion
         | NodeKind::BindingIndication
-        | NodeKind::ComponentInstantiationItems
         | NodeKind::ConditionalElseItem
         | NodeKind::ConditionalExpressions
         | NodeKind::ConditionalWaveformElseItem

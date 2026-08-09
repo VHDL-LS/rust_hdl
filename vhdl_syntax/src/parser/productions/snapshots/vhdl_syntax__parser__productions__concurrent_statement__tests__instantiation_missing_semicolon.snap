@@ -21,25 +21,24 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'cpu'
-  ComponentInstantiationItems
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
-          RightArrow
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'clk'
-      RightPar
+  PortMapAspect
+    Keyword(Port)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        FormalPart
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
+        RightArrow
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'clk'
+    RightPar
 
 == diagnostics ==
 4:4 Expected([SemiColon])

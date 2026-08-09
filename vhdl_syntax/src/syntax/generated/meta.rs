@@ -61,7 +61,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ComponentDeclarationItems => ComponentDeclarationItemsSyntax::META,
         NodeKind::ComponentDeclarationPreamble => ComponentDeclarationPreambleSyntax::META,
         NodeKind::ComponentInstantiatedUnit => ComponentInstantiatedUnitSyntax::META,
-        NodeKind::ComponentInstantiationItems => ComponentInstantiationItemsSyntax::META,
         NodeKind::ComponentInstantiationStatement => ComponentInstantiationStatementSyntax::META,
         NodeKind::ComponentSpecification => ComponentSpecificationSyntax::META,
         NodeKind::CompoundConfigurationSpecification => {

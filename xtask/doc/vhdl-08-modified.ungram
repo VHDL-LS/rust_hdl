@@ -45,10 +45,7 @@ CaseGenerateStatement =
   case_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 ComponentInstantiationStatement =
-  Label
-  InstantiatedUnit
-  component_instantiation_items:(GenericMapAspect? PortMapAspect?)?
-  ';'
+  Label InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
 
 // A procedure with zero arguments (`proc_call: foo;`) and a component instantiation (`inst: cmp;`) without generic / port
 // maps are indistinguishable.

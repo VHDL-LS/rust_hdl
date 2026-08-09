@@ -2887,54 +2887,11 @@ impl From<ComponentInstantiatedUnitBuilder> for ComponentInstantiatedUnitSyntax 
         value.build()
     }
 }
-pub struct ComponentInstantiationItemsBuilder {
-    generic_map_aspect: Option<GenericMapAspectSyntax>,
-    port_map_aspect: Option<PortMapAspectSyntax>,
-}
-impl Default for ComponentInstantiationItemsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ComponentInstantiationItemsBuilder {
-    pub fn new() -> Self {
-        Self {
-            generic_map_aspect: None,
-            port_map_aspect: None,
-        }
-    }
-    pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
-        self.generic_map_aspect = Some(n.into());
-        self
-    }
-    pub fn with_port_map_aspect(mut self, n: impl Into<PortMapAspectSyntax>) -> Self {
-        self.port_map_aspect = Some(n.into());
-        self
-    }
-    pub fn build(self) -> ComponentInstantiationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ComponentInstantiationItems);
-        if let Some(n) = self.generic_map_aspect {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.port_map_aspect {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ComponentInstantiationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<ComponentInstantiationItemsBuilder> for ComponentInstantiationItemsSyntax {
-    fn from(value: ComponentInstantiationItemsBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ComponentInstantiationStatementBuilder {
     label: LabelSyntax,
     instantiated_unit: InstantiatedUnitSyntax,
-    component_instantiation_items: Option<ComponentInstantiationItemsSyntax>,
+    generic_map_aspect: Option<GenericMapAspectSyntax>,
+    port_map_aspect: Option<PortMapAspectSyntax>,
     semi_colon_token: Token,
 }
 impl ComponentInstantiationStatementBuilder {
@@ -2945,7 +2902,8 @@ impl ComponentInstantiationStatementBuilder {
         Self {
             label: label.into(),
             instantiated_unit: instantiated_unit.into(),
-            component_instantiation_items: None,
+            generic_map_aspect: None,
+            port_map_aspect: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -2957,11 +2915,12 @@ impl ComponentInstantiationStatementBuilder {
         self.instantiated_unit = n.into();
         self
     }
-    pub fn with_component_instantiation_items(
-        mut self,
-        n: impl Into<ComponentInstantiationItemsSyntax>,
-    ) -> Self {
-        self.component_instantiation_items = Some(n.into());
+    pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
+        self.generic_map_aspect = Some(n.into());
+        self
+    }
+    pub fn with_port_map_aspect(mut self, n: impl Into<PortMapAspectSyntax>) -> Self {
+        self.port_map_aspect = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -2977,7 +2936,10 @@ impl ComponentInstantiationStatementBuilder {
         builder.start_node(NodeKind::ComponentInstantiationStatement);
         builder.push_node(self.label.raw().green().clone());
         builder.push_node(self.instantiated_unit.raw().green().clone());
-        if let Some(n) = self.component_instantiation_items {
+        if let Some(n) = self.generic_map_aspect {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.port_map_aspect {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);

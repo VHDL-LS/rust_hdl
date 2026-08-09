@@ -3097,47 +3097,6 @@ impl ComponentInstantiatedUnitSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ComponentInstantiationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for ComponentInstantiationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ComponentInstantiationItems,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "generic_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::GenericMapAspect),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "port_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::PortMapAspect),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ComponentInstantiationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ComponentInstantiationItemsSyntax {
-    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn port_map_aspect(&self) -> Option<PortMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(PortMapAspectSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ComponentInstantiationStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ComponentInstantiationStatementSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -3162,8 +3121,14 @@ impl AstNode for ComponentInstantiationStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "component_instantiation_items",
-                kind: LayoutItemKind::Node(NodeKind::ComponentInstantiationItems),
+                name: "generic_map_aspect",
+                kind: LayoutItemKind::Node(NodeKind::GenericMapAspect),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "port_map_aspect",
+                kind: LayoutItemKind::Node(NodeKind::PortMapAspect),
             },
             LayoutItem {
                 optional: false,
@@ -3190,10 +3155,16 @@ impl ComponentInstantiationStatementSyntax {
             .filter_map(InstantiatedUnitSyntax::cast)
             .nth(0)
     }
-    pub fn component_instantiation_items(&self) -> Option<ComponentInstantiationItemsSyntax> {
+    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
         self.0
             .children()
-            .filter_map(ComponentInstantiationItemsSyntax::cast)
+            .filter_map(GenericMapAspectSyntax::cast)
+            .nth(0)
+    }
+    pub fn port_map_aspect(&self) -> Option<PortMapAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(PortMapAspectSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {

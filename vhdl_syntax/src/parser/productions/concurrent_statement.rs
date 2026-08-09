@@ -135,7 +135,7 @@ impl Parser {
 
     pub fn component_instantiation_statement(&mut self) {
         self.start_node(ComponentInstantiationStatement);
-        self.opt_label();
+        self.label();
         self.instantiated_unit();
         self.instantiation_statement_inner();
         self.expect_token(SemiColon);
@@ -429,10 +429,8 @@ impl Parser {
     }
 
     fn instantiation_statement_inner(&mut self) {
-        self.start_node(ComponentInstantiationItems);
         self.opt_generic_map_aspect();
         self.opt_port_map_aspect();
-        self.end_node();
     }
 
     pub fn process_statement(&mut self) {
