@@ -24,7 +24,12 @@ pub fn load_model(file: &Path) -> Model {
 
     for node in grammar.iter() {
         let data = &grammar[node];
-        let node = map_rule(NodeKind::from(data.name.clone()), &data.rule, &grammar);
+        let node = map_rule(
+            NodeKind::from(data.name.clone()),
+            &data.rule,
+            &grammar,
+            &mut model,
+        );
         model.push_node(node);
     }
 
@@ -35,12 +40,49 @@ pub fn load_model(file: &Path) -> Model {
     model
 }
 
+/// Rejects an inlined group that carries a `?` or `*`, e.g. `epilogue:('end' ';')?`.
+///
+/// Such a group becomes a node of its own, so the marker would have to apply to the reference
+/// the parent holds — which the mapping does not do. Without this check the group is mapped as
+/// a bare nested sequence and reported as one, which is misleading: the group *is* named.
+fn assert_inlineable_group(production: &str, label: &str, rule: &ungrammar::Rule) {
+    let (inner, marker) = match rule {
+        ungrammar::Rule::Opt(inner) => (inner, '?'),
+        ungrammar::Rule::Rep(inner) => (inner, '*'),
+        _ => return,
+    };
+    if matches!(**inner, ungrammar::Rule::Seq(_) | ungrammar::Rule::Alt(_)) {
+        panic!(
+            "Group {label} of production {production} is marked `{marker}`. An inlined group \
+             cannot be optional or repeated; give it its own named production and mark the \
+             reference to it instead."
+        )
+    }
+}
+
 /// Maps a single grammar item (a node or token reference, possibly labelled, optional or
 /// repeated) onto the model.
-fn map_single(production: &str, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Field {
+fn map_single(
+    production: &str,
+    rule: &ungrammar::Rule,
+    grammar: &ungrammar::Grammar,
+    model: &mut Model,
+) -> Field {
     match rule {
         ungrammar::Rule::Labeled { label, rule } => {
-            map_single(production, rule, grammar).with_name(label)
+            assert_inlineable_group(production, label, rule);
+            let mut node = map_rule(label.to_case(Case::Pascal).into(), rule, grammar, model);
+            // A label on a single item just renames the field; only a group becomes a node of
+            // its own. `map_rule` collapses a one-item sequence, and so does the ungrammar
+            // parser, so a one-item sequence here can only have come from a single item.
+            if let Node::Items(sequence_node) = &mut node {
+                if sequence_node.items.len() == 1 {
+                    return sequence_node.items.pop().unwrap().with_name(label);
+                }
+            }
+            let field = Field::node(node.name());
+            model.push_node(node);
+            field
         }
         ungrammar::Rule::Node(node) => Field::node(grammar[*node].name.clone()),
         ungrammar::Rule::Token(token) => {
@@ -55,8 +97,8 @@ fn map_single(production: &str, rule: &ungrammar::Rule, grammar: &ungrammar::Gra
                 .unwrap_or_else(|_| panic!("Invalid token kind {name} in production {production}"));
             Field::token(kind)
         }
-        ungrammar::Rule::Opt(rule) => map_single(production, rule, grammar).make_optional(),
-        ungrammar::Rule::Rep(rule) => map_single(production, rule, grammar).make_repeated(),
+        ungrammar::Rule::Opt(rule) => map_single(production, rule, grammar, model).make_optional(),
+        ungrammar::Rule::Rep(rule) => map_single(production, rule, grammar, model).make_repeated(),
         // A group is a `Seq` or `Alt` nested inside another rule, which the model cannot
         // represent: every item of a production is a single node or token reference.
         ungrammar::Rule::Seq(_) => panic!(
@@ -82,7 +124,12 @@ fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
     );
 }
 
-fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Node {
+fn map_rule(
+    name: NodeKind,
+    rule: &ungrammar::Rule,
+    grammar: &ungrammar::Grammar,
+    model: &mut Model,
+) -> Node {
     match rule {
         ungrammar::Rule::Labeled { .. } => {
             panic!("Production {name} is a single labelled item; drop the label, the production name is the label")
@@ -91,7 +138,7 @@ fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar
         | ungrammar::Rule::Token(_)
         | ungrammar::Rule::Rep(_)
         | ungrammar::Rule::Opt(_) => {
-            let mapped = map_single(name.as_str(), rule, grammar);
+            let mapped = map_single(name.as_str(), rule, grammar, model);
             Node::Items(SequenceNode {
                 name,
                 items: vec![mapped],
@@ -100,7 +147,7 @@ fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar
         ungrammar::Rule::Seq(rules) => {
             let mut mapped = Vec::new();
             for rule in rules {
-                let next = map_single(name.as_str(), rule, grammar);
+                let next = map_single(name.as_str(), rule, grammar, model);
                 let nth = mapped
                     .iter()
                     .filter(|el: &&Field| el.kind == next.kind)
@@ -115,7 +162,7 @@ fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar
         ungrammar::Rule::Alt(rules) => {
             let mapped = rules
                 .iter()
-                .map(|rule| map_single(name.as_str(), rule, grammar))
+                .map(|rule| map_single(name.as_str(), rule, grammar, model))
                 .collect::<Vec<_>>();
             let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped

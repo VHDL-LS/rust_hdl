@@ -7,7 +7,7 @@
 use crate::model::TokenKind;
 use convert_case::{Case, Casing};
 use std::borrow::Borrow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
 /// The name of a production in the grammar, i.e. the kind of a syntax node.
@@ -17,6 +17,12 @@ pub struct NodeKind(String);
 impl NodeKind {
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl From<&NodeKind> for NodeKind {
+    fn from(val: &NodeKind) -> Self {
+        NodeKind(val.0.clone())
     }
 }
 
@@ -290,18 +296,26 @@ pub struct ChoiceNode {
 
 #[derive(Debug, Default)]
 pub struct Model {
-    pub(crate) nodes: Vec<Node>,
+    pub(crate) nodes: HashMap<NodeKind, Node>,
     /// Set of node kinds whose choices are all tokens.
     pub(crate) token_choice_kinds: HashSet<NodeKind>,
 }
 
 impl Model {
     pub fn push_node(&mut self, node: impl Into<Node>) {
-        self.nodes.push(node.into());
+        let node = node.into();
+        if let Some(previous) = self.nodes.insert(node.name().clone(), node) {
+            panic!(
+                "Node {} is defined twice. A production name and the label of an inlined group \
+                 share one namespace, so both must be unique across the whole grammar.",
+                previous.name()
+            );
+        }
     }
 
-    pub fn nodes(&self) -> &[Node] {
-        &self.nodes
+    /// The node of the given kind, or `None` when the grammar defines no such production.
+    pub fn node(&self, kind: &NodeKind) -> Option<&Node> {
+        self.nodes.get(kind)
     }
 
     /// Returns true if the given node kind is a choice node whose choices are all tokens.
@@ -526,7 +540,7 @@ impl Model {
     /// inner node as optional does not make the wrapper itself empty-capable.
     pub fn fixup_empty_capable_optional_markers(&mut self) {
         let empty_capable = self.compute_empty_capable_nodes();
-        for node in self.nodes.iter_mut() {
+        for node in self.nodes.values_mut() {
             if let Node::Items(seq) = node {
                 for item in &mut seq.items {
                     if let NodeOrTokenKind::Node(node_ref) = &item.kind {
@@ -571,8 +585,9 @@ impl Model {
             .collect()
     }
 
+    /// Iterates the nodes in unspecified order
     pub fn all_nodes(&self) -> impl Iterator<Item = &Node> {
-        self.nodes.iter()
+        self.nodes.values()
     }
 }
 

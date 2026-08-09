@@ -34,7 +34,7 @@ impl Generator for SyntaxNodeGenerator {
         };
 
         // Sorted by node name for deterministic output
-        let mut nodes: Vec<&Node> = model.nodes().iter().collect();
+        let mut nodes: Vec<&Node> = model.all_nodes().collect();
         nodes.sort_by_key(|node| node.name());
 
         for node in nodes {
@@ -230,8 +230,7 @@ fn collect_concrete_node_kinds(
         return vec![];
     }
     let node = model
-        .all_nodes()
-        .find(|n| n.name() == name)
+        .node(name)
         .unwrap_or_else(|| panic!("node '{}' not found in model", name));
     match node {
         Node::Items(_) => {
@@ -275,8 +274,7 @@ fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
 /// Produce the `LayoutItemKind::…` expression for a node reference.
 fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenStream {
     let target = model
-        .all_nodes()
-        .find(|n| n.name() == node_kind)
+        .node(node_kind)
         .unwrap_or_else(|| panic!("node '{node_kind}' not found in model"));
 
     match target {
