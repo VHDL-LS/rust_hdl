@@ -10,32 +10,38 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 
 /// `FooSyntax`
-pub fn syntax_type_ident(name: &str) -> Ident {
+pub fn syntax_type_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     format_ident!("{}Syntax", name.to_case(Case::UpperCamel))
 }
 
 /// `FooBuilder`
-pub fn builder_ident(name: &str) -> Ident {
+pub fn builder_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     format_ident!("{}Builder", name.to_case(Case::UpperCamel))
 }
 
 /// `Foo`  (used for NodeKind variants)
-pub fn node_kind_ident(name: &str) -> Ident {
+pub fn node_kind_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     format_ident!("{}", name.to_case(Case::UpperCamel))
 }
 
 /// `FooToken`
-pub fn token_type_ident(name: &str) -> Ident {
+pub fn token_type_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     format_ident!("{}Token", name.to_case(Case::UpperCamel))
 }
 
 /// `Foo`  (used for enum variant names — merges the two identical functions)
-pub fn variant_ident(name: &str) -> Ident {
+pub fn variant_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     format_ident!("{}", name.to_case(Case::UpperCamel))
 }
 
 /// Snake-case method identifier, escaping Rust reserved keywords via `r#name`.
-pub fn method_ident(name: &str) -> Ident {
+pub fn method_ident(name: impl AsRef<str>) -> Ident {
+    let name = name.as_ref();
     let snake = name.to_case(Case::Snake);
     match snake.as_str() {
         "as" | "async" | "await" | "break" | "const" | "continue" | "crate" | "dyn" | "else"
