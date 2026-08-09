@@ -119,7 +119,15 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
             let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
                     .into_iter()
-                    .map(|rule| rule.into_node_ref().expect("checked above"))
+                    .map(|rule| {
+                        let kind = rule.as_node_kind().expect("checked above");
+                        assert!(
+                            rule.name == kind && !rule.optional && !rule.repeated,
+                            "Alternative {kind} of production {name} is labelled, optional or \
+                             repeated; an alternative must be a bare node reference."
+                        );
+                        kind.to_owned()
+                    })
                     .collect()
             } else if mapped.iter().all(|rule| rule.as_token_kind().is_some()) {
                 mapped

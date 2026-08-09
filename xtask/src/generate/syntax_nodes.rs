@@ -85,9 +85,9 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
     match &node.items {
         NodesOrTokens::Nodes(nodes) => nodes
             .iter()
-            .map(|item| {
-                let variant = variant_ident(&item.kind);
-                let syntax = syntax_type_ident(&item.kind);
+            .map(|kind| {
+                let variant = variant_ident(kind);
+                let syntax = syntax_type_ident(kind);
                 quote! { #variant(#syntax) }
             })
             .collect(),
@@ -142,15 +142,13 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
         NodesOrTokens::Nodes(nodes) => {
             let node_kinds: Vec<TokenStream> = nodes
                 .iter()
-                .flat_map(|item| {
-                    collect_concrete_node_kinds(&item.kind, model, &mut HashSet::new())
-                })
+                .flat_map(|kind| collect_concrete_node_kinds(kind, model, &mut HashSet::new()))
                 .collect();
             let cast_unchecked_branches: Vec<TokenStream> = nodes
                 .iter()
-                .map(|item| {
-                    let variant = variant_ident(&item.kind);
-                    let syntax = syntax_type_ident(&item.kind);
+                .map(|kind| {
+                    let variant = variant_ident(kind);
+                    let syntax = syntax_type_ident(kind);
                     quote! {
                         if #syntax::can_cast(&node) {
                             return #enum_name::#variant(#syntax::cast_unchecked(node));
@@ -160,8 +158,8 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                 .collect();
             let raw_branches: Vec<TokenStream> = nodes
                 .iter()
-                .map(|item| {
-                    let variant = variant_ident(&item.kind);
+                .map(|kind| {
+                    let variant = variant_ident(kind);
                     quote! { #enum_name::#variant(inner) => inner.raw() }
                 })
                 .collect();
@@ -242,7 +240,7 @@ fn collect_concrete_node_kinds(
         Node::Choices(choice) => match &choice.items {
             NodesOrTokens::Nodes(alts) => alts
                 .iter()
-                .flat_map(|a| collect_concrete_node_kinds(&a.kind, model, visited))
+                .flat_map(|alt| collect_concrete_node_kinds(alt, model, visited))
                 .collect(),
             NodesOrTokens::Tokens(_) => vec![], // token-choices don't produce NodeKind entries
         },

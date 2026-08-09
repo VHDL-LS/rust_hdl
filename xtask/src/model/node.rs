@@ -98,20 +98,6 @@ impl Field {
         }
     }
 
-    /// Converts into a standalone [`NodeRef`], or `None` when this item references a token.
-    pub fn into_node_ref(self) -> Option<NodeRef> {
-        match self.kind {
-            NodeOrTokenKind::Node(kind) => Some(NodeRef {
-                kind,
-                nth: self.nth,
-                repeated: self.repeated,
-                name: self.name,
-                optional: self.optional,
-            }),
-            NodeOrTokenKind::Token(_) => None,
-        }
-    }
-
     /// Converts into a standalone [`Token`], or `None` when this item references a node.
     pub fn into_token(self) -> Option<Token> {
         match self.kind {
@@ -142,46 +128,6 @@ impl From<Token> for Field {
             name: value.name,
             optional: value.optional,
         }
-    }
-}
-
-impl From<NodeRef> for Field {
-    fn from(value: NodeRef) -> Self {
-        Field {
-            kind: NodeOrTokenKind::Node(value.kind),
-            nth: value.nth,
-            repeated: value.repeated,
-            name: value.name,
-            optional: value.optional,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NodeRef {
-    pub kind: String,
-    pub nth: usize,
-    pub repeated: bool,
-    pub name: String,
-    /// whether this node is optional in the grammar
-    pub optional: bool,
-}
-
-impl From<String> for NodeRef {
-    fn from(value: String) -> Self {
-        NodeRef {
-            kind: value.clone(),
-            nth: 0,
-            repeated: false,
-            name: value,
-            optional: false,
-        }
-    }
-}
-
-impl NodeRef {
-    pub fn getter_name(&self) -> String {
-        self.name.to_case(Case::Snake)
     }
 }
 
@@ -249,12 +195,13 @@ impl SequenceNode {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodesOrTokens {
-    Nodes(Vec<NodeRef>),
+    /// The alternatives of a node choice, as node kinds.
+    Nodes(Vec<String>),
     Tokens(Vec<Token>),
 }
 
-impl FromIterator<NodeRef> for NodesOrTokens {
-    fn from_iter<T: IntoIterator<Item = NodeRef>>(iter: T) -> Self {
+impl FromIterator<String> for NodesOrTokens {
+    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
         NodesOrTokens::Nodes(iter.into_iter().collect())
     }
 }
@@ -349,10 +296,7 @@ impl Model {
                             continue;
                         }
                         if let NodesOrTokens::Nodes(options) = &choice.items {
-                            if options
-                                .iter()
-                                .any(|option| empty_capable.contains(&option.kind))
-                            {
+                            if options.iter().any(|option| empty_capable.contains(option)) {
                                 empty_capable.insert(choice.name.clone());
                             }
                         }
@@ -417,7 +361,7 @@ impl Model {
                 Node::Choices(choices_node) => match &choices_node.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for item in nodes {
-                            let name = item.getter_name();
+                            let name = item.to_case(Case::Snake);
                             if seen.contains(&name) {
                                 panic!("Duplicate node {} in node {}", name, node.name())
                             }
@@ -476,10 +420,9 @@ impl Model {
                 Node::Choices(choice) => match &choice.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for node in nodes {
-                            let used_sites = self.check_where_node_is_used(node);
-                            if used_sites.len() > 1 && !found_nodes.contains(&node.name) {
-                                found_nodes.insert(node.name.clone());
-                                println!("Node {} is used multiple times, but must only be used in a single choice node", node.name);
+                            if self.count_uses_of_node(node) > 1 && !found_nodes.contains(node) {
+                                found_nodes.insert(node.clone());
+                                println!("Node {node} is used multiple times, but must only be used in a single choice node");
                             }
                         }
                     }
@@ -489,35 +432,27 @@ impl Model {
         }
     }
 
-    pub fn check_where_node_is_used(&self, orig_node: &NodeRef) -> Vec<Field> {
-        let mut referenced_nodes = vec![];
+    /// The number of places (sequence items and choice alternatives) that reference `kind`.
+    pub fn count_uses_of_node(&self, kind: &str) -> usize {
+        let mut uses = 0;
         for node in self.all_nodes() {
             match node {
                 Node::Items(items) => {
-                    for item in &items.items {
-                        match &item.kind {
-                            NodeOrTokenKind::Node(node) => {
-                                if node == &orig_node.kind {
-                                    referenced_nodes.push(item.clone());
-                                }
-                            }
-                            NodeOrTokenKind::Token(_) => {}
-                        }
-                    }
+                    uses += items
+                        .items
+                        .iter()
+                        .filter(|item| item.as_node_kind() == Some(kind))
+                        .count();
                 }
                 Node::Choices(choices) => match &choices.items {
                     NodesOrTokens::Nodes(nodes) => {
-                        for node in nodes {
-                            if node == orig_node {
-                                referenced_nodes.push(Field::from(node.clone()));
-                            }
-                        }
+                        uses += nodes.iter().filter(|node| *node == kind).count();
                     }
                     NodesOrTokens::Tokens(_) => {}
                 },
             }
         }
-        referenced_nodes
+        uses
     }
 
     // MARK: Postprocessing
@@ -566,9 +501,7 @@ impl Model {
                 }
                 Node::Choices(choices_node) => {
                     if let NodesOrTokens::Nodes(nodes) = &choices_node.items {
-                        for node_ref in nodes {
-                            referenced.insert(node_ref.kind.clone());
-                        }
+                        referenced.extend(nodes.iter().cloned());
                     }
                 }
             }
