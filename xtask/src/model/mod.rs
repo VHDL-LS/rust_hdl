@@ -49,7 +49,6 @@ enum GroupMarker {
 }
 
 impl GroupMarker {
-
     /// Applies the marker to the field
     fn apply(self, field: Field) -> Field {
         match self {
