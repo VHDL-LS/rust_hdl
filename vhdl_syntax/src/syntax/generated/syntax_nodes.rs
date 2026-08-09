@@ -1874,19 +1874,13 @@ impl AstNode for BlockPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
                 name: "block",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Block)),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "condition",
+                name: "parenthesized_expression",
                 kind: LayoutItemKind::Node(NodeKind::ParenthesizedExpression),
             },
             LayoutItem {
@@ -1905,16 +1899,13 @@ impl AstNode for BlockPreambleSyntax {
     }
 }
 impl BlockPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
     pub fn block_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Block))
             .nth(0)
     }
-    pub fn condition(&self) -> Option<ParenthesizedExpressionSyntax> {
+    pub fn parenthesized_expression(&self) -> Option<ParenthesizedExpressionSyntax> {
         self.0
             .children()
             .filter_map(ParenthesizedExpressionSyntax::cast)
@@ -1933,6 +1924,12 @@ impl AstNode for BlockStatementSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::BlockStatement,
         items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
             LayoutItem {
                 optional: false,
                 repeated: false,
@@ -1979,6 +1976,9 @@ impl AstNode for BlockStatementSyntax {
     }
 }
 impl BlockStatementSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn block_preamble(&self) -> Option<BlockPreambleSyntax> {
         self.0
             .children()

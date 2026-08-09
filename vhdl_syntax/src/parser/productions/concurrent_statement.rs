@@ -13,6 +13,7 @@ use crate::tokens::TokenKind::{self, *};
 impl Parser {
     pub fn block_statement(&mut self) {
         self.start_node(BlockStatement);
+        self.label();
         self.block_preamble();
         self.block_header();
         self.declarations();
@@ -26,11 +27,10 @@ impl Parser {
 
     pub fn block_preamble(&mut self) {
         self.start_node(BlockPreamble);
-        self.opt_label();
         self.expect_kw(Kw::Block);
         if self.next_is(LeftPar) {
             self.start_node(ParenthesizedExpression);
-            self.skip();
+            self.skip(); // LeftPar
             self.expression();
             self.expect_token(RightPar);
             self.end_node();

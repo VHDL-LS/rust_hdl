@@ -27,15 +27,13 @@ BlockHeader =
   port_part:(PortClause port_map:(PortMapAspect ';')?)?
 
 BlockStatement =
-  block_preamble:(Label 'block' condition:ParenthesizedExpression? 'is'?)
-  BlockHeader?
-  Declarations?
+  Label
+  block_preamble:('block' parenthesized_expression:('(' Expression ')')? 'is'?)
+  BlockHeader
+  Declarations
   DeclarationStatementSeparator
-  ConcurrentStatements?
+  ConcurrentStatements
   block_epilogue:('end' 'block' '#identifier'? ';')
-
-ParenthesizedExpression =
-  '(' Expression ')'
 
 CaseGenerateAlternative =
   'when' Label? Choices? '=>' GenerateStatementBody?

@@ -1613,23 +1613,22 @@ impl From<BlockHeaderBuilder> for BlockHeaderSyntax {
     }
 }
 pub struct BlockPreambleBuilder {
-    label: LabelSyntax,
     block_token: Token,
-    condition: Option<ParenthesizedExpressionSyntax>,
+    parenthesized_expression: Option<ParenthesizedExpressionSyntax>,
     is_token: Option<Token>,
 }
+impl Default for BlockPreambleBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl BlockPreambleBuilder {
-    pub fn new(label: impl Into<LabelSyntax>) -> Self {
+    pub fn new() -> Self {
         Self {
-            label: label.into(),
             block_token: Kw::Block.canonical_token(),
-            condition: None,
+            parenthesized_expression: None,
             is_token: None,
         }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
-        self
     }
     pub fn with_block_token(mut self, t: impl Into<Token>) -> Self {
         self.block_token = t.into();
@@ -1639,8 +1638,11 @@ impl BlockPreambleBuilder {
         self.block_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_condition(mut self, n: impl Into<ParenthesizedExpressionSyntax>) -> Self {
-        self.condition = Some(n.into());
+    pub fn with_parenthesized_expression(
+        mut self,
+        n: impl Into<ParenthesizedExpressionSyntax>,
+    ) -> Self {
+        self.parenthesized_expression = Some(n.into());
         self
     }
     pub fn with_is_token(mut self, t: impl Into<Token>) -> Self {
@@ -1657,9 +1659,8 @@ impl BlockPreambleBuilder {
     pub fn build(self) -> BlockPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockPreamble);
-        builder.push_node(self.label.raw().green().clone());
         builder.push(self.block_token);
-        if let Some(n) = self.condition {
+        if let Some(n) = self.parenthesized_expression {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.is_token {
@@ -1677,6 +1678,7 @@ impl From<BlockPreambleBuilder> for BlockPreambleSyntax {
     }
 }
 pub struct BlockStatementBuilder {
+    label: LabelSyntax,
     block_preamble: BlockPreambleSyntax,
     block_header: Option<BlockHeaderSyntax>,
     declarations: Option<DeclarationsSyntax>,
@@ -1685,9 +1687,10 @@ pub struct BlockStatementBuilder {
     block_epilogue: BlockEpilogueSyntax,
 }
 impl BlockStatementBuilder {
-    pub fn new(block_preamble: impl Into<BlockPreambleSyntax>) -> Self {
+    pub fn new(label: impl Into<LabelSyntax>) -> Self {
         Self {
-            block_preamble: block_preamble.into(),
+            label: label.into(),
+            block_preamble: BlockPreambleBuilder::default().build(),
             block_header: None,
             declarations: None,
             declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
@@ -1695,6 +1698,10 @@ impl BlockStatementBuilder {
             concurrent_statements: None,
             block_epilogue: BlockEpilogueBuilder::default().build(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
     }
     pub fn with_block_preamble(mut self, n: impl Into<BlockPreambleSyntax>) -> Self {
         self.block_preamble = n.into();
@@ -1726,6 +1733,7 @@ impl BlockStatementBuilder {
     pub fn build(self) -> BlockStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockStatement);
+        builder.push_node(self.label.raw().green().clone());
         builder.push_node(self.block_preamble.raw().green().clone());
         if let Some(n) = self.block_header {
             builder.push_node(n.raw().green().clone());
