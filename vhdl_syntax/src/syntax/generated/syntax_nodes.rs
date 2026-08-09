@@ -3059,44 +3059,6 @@ impl ComponentDeclarationPreambleSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ComponentInstantiatedUnitSyntax(pub(crate) SyntaxNode);
-impl AstNode for ComponentInstantiatedUnitSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ComponentInstantiatedUnit,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "component",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Component)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ComponentInstantiatedUnitSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ComponentInstantiatedUnitSyntax {
-    pub fn component_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
-            .nth(0)
-    }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ComponentInstantiationStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ComponentInstantiationStatementSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -3113,9 +3075,9 @@ impl AstNode for ComponentInstantiationStatementSyntax {
                 repeated: false,
                 name: "instantiated_unit",
                 kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::ComponentInstantiatedUnit,
-                    NodeKind::EntityInstantiatedUnit,
-                    NodeKind::ConfigurationInstantiatedUnit,
+                    NodeKind::InstantiatedComponent,
+                    NodeKind::InstantiatedEntity,
+                    NodeKind::InstantiatedConfiguration,
                 ]),
             },
             LayoutItem {
@@ -5031,44 +4993,6 @@ impl ConfigurationDeclarationPreambleSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConfigurationInstantiatedUnitSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConfigurationInstantiatedUnitSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConfigurationInstantiatedUnit,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "configuration",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Configuration)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConfigurationInstantiatedUnitSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConfigurationInstantiatedUnitSyntax {
-    pub fn configuration_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Configuration))
-            .nth(0)
-    }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum ConfigurationItemSyntax {
     BlockConfigurationItem(BlockConfigurationItemSyntax),
     ComponentConfiguration(ComponentConfigurationSyntax),
@@ -6886,44 +6810,6 @@ impl EntityHeaderSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct EntityInstantiatedUnitSyntax(pub(crate) SyntaxNode);
-impl AstNode for EntityInstantiatedUnitSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::EntityInstantiatedUnit,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "entity",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Entity)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "name",
-                kind: LayoutItemKind::Node(NodeKind::Name),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        EntityInstantiatedUnitSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl EntityInstantiatedUnitSyntax {
-    pub fn entity_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Entity))
-            .nth(0)
-    }
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum EntityNameListSyntax {
     EntityDesignatorList(EntityDesignatorListSyntax),
     EntityNameListAll(EntityNameListAllSyntax),
@@ -8041,137 +7927,10 @@ impl FileTypeDefinitionSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ForGenerateStatementSyntax(pub(crate) SyntaxNode);
-impl AstNode for ForGenerateStatementSyntax {
+pub struct ForGeneratePreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ForGeneratePreambleSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ForGenerateStatement,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "for_generate_statement_preamble",
-                kind: LayoutItemKind::Node(NodeKind::ForGenerateStatementPreamble),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "generate_statement_body",
-                kind: LayoutItemKind::Node(NodeKind::GenerateStatementBody),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "for_generate_statement_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::ForGenerateStatementEpilogue),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ForGenerateStatementSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ForGenerateStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn for_generate_statement_preamble(&self) -> Option<ForGenerateStatementPreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(ForGenerateStatementPreambleSyntax::cast)
-            .nth(0)
-    }
-    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
-        self.0
-            .children()
-            .filter_map(GenerateStatementBodySyntax::cast)
-            .nth(0)
-    }
-    pub fn for_generate_statement_epilogue(&self) -> Option<ForGenerateStatementEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(ForGenerateStatementEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ForGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for ForGenerateStatementEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ForGenerateStatementEpilogue,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "end",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generate",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ForGenerateStatementEpilogueSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ForGenerateStatementEpilogueSyntax {
-    pub fn end_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
-            .nth(0)
-    }
-    pub fn generate_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ForGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for ForGenerateStatementPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ForGenerateStatementPreamble,
+        kind: NodeKind::ForGeneratePreamble,
         items: &[
             LayoutItem {
                 optional: false,
@@ -8194,13 +7953,13 @@ impl AstNode for ForGenerateStatementPreambleSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        ForGenerateStatementPreambleSyntax(node)
+        ForGeneratePreambleSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ForGenerateStatementPreambleSyntax {
+impl ForGeneratePreambleSyntax {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -8217,6 +7976,68 @@ impl ForGenerateStatementPreambleSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ForGenerateStatementSyntax(pub(crate) SyntaxNode);
+impl AstNode for ForGenerateStatementSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ForGenerateStatement,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "for_generate_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ForGeneratePreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "generate_statement_body",
+                kind: LayoutItemKind::Node(NodeKind::GenerateStatementBody),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generate_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::GenerateEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ForGenerateStatementSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ForGenerateStatementSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn for_generate_preamble(&self) -> Option<ForGeneratePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(ForGeneratePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateStatementBodySyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_epilogue(&self) -> Option<GenerateEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateEpilogueSyntax::cast)
             .nth(0)
     }
 }
@@ -8515,10 +8336,10 @@ impl FunctionSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct GenerateStatementBodySyntax(pub(crate) SyntaxNode);
-impl AstNode for GenerateStatementBodySyntax {
+pub struct GenerateBodyDeclarationsSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenerateBodyDeclarationsSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::GenerateStatementBody,
+        kind: NodeKind::GenerateBodyDeclarations,
         items: &[
             LayoutItem {
                 optional: true,
@@ -8527,33 +8348,21 @@ impl AstNode for GenerateStatementBodySyntax {
                 kind: LayoutItemKind::Node(NodeKind::Declarations),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "declaration_statement_separator",
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "generate_statement_body_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::GenerateStatementBodyEpilogue),
-            },
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        GenerateStatementBodySyntax(node)
+        GenerateBodyDeclarationsSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl GenerateStatementBodySyntax {
+impl GenerateBodyDeclarationsSyntax {
     pub fn declarations(&self) -> Option<DeclarationsSyntax> {
         self.0
             .children()
@@ -8566,24 +8375,12 @@ impl GenerateStatementBodySyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
-            .nth(0)
-    }
-    pub fn generate_statement_body_epilogue(&self) -> Option<GenerateStatementBodyEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(GenerateStatementBodyEpilogueSyntax::cast)
-            .nth(0)
-    }
 }
 #[derive(Debug, Clone)]
-pub struct GenerateStatementBodyEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for GenerateStatementBodyEpilogueSyntax {
+pub struct GenerateBodyEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenerateBodyEpilogueSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::GenerateStatementBodyEpilogue,
+        kind: NodeKind::GenerateBodyEpilogue,
         items: &[
             LayoutItem {
                 optional: false,
@@ -8606,13 +8403,13 @@ impl AstNode for GenerateStatementBodyEpilogueSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        GenerateStatementBodyEpilogueSyntax(node)
+        GenerateBodyEpilogueSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl GenerateStatementBodyEpilogueSyntax {
+impl GenerateBodyEpilogueSyntax {
     pub fn end_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -8629,6 +8426,124 @@ impl GenerateStatementBodyEpilogueSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GenerateEpilogueSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenerateEpilogueSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::GenerateEpilogue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "end",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generate",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        GenerateEpilogueSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenerateEpilogueSyntax {
+    pub fn end_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
+            .nth(0)
+    }
+    pub fn generate_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
+            .nth(0)
+    }
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GenerateStatementBodySyntax(pub(crate) SyntaxNode);
+impl AstNode for GenerateStatementBodySyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::GenerateStatementBody,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "generate_body_declarations",
+                kind: LayoutItemKind::Node(NodeKind::GenerateBodyDeclarations),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "concurrent_statements",
+                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "generate_body_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::GenerateBodyEpilogue),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        GenerateStatementBodySyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenerateStatementBodySyntax {
+    pub fn generate_body_declarations(&self) -> Option<GenerateBodyDeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateBodyDeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
+    }
+    pub fn generate_body_epilogue(&self) -> Option<GenerateBodyEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateBodyEpilogueSyntax::cast)
             .nth(0)
     }
 }
@@ -10139,33 +10054,147 @@ impl InertialDelayMechanismSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct InstantiatedComponentSyntax(pub(crate) SyntaxNode);
+impl AstNode for InstantiatedComponentSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::InstantiatedComponent,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "component",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Component)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        InstantiatedComponentSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InstantiatedComponentSyntax {
+    pub fn component_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
+            .nth(0)
+    }
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InstantiatedConfigurationSyntax(pub(crate) SyntaxNode);
+impl AstNode for InstantiatedConfigurationSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::InstantiatedConfiguration,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "configuration",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Configuration)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        InstantiatedConfigurationSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InstantiatedConfigurationSyntax {
+    pub fn configuration_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Configuration))
+            .nth(0)
+    }
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InstantiatedEntitySyntax(pub(crate) SyntaxNode);
+impl AstNode for InstantiatedEntitySyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::InstantiatedEntity,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "entity",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Entity)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        InstantiatedEntitySyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InstantiatedEntitySyntax {
+    pub fn entity_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Entity))
+            .nth(0)
+    }
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum InstantiatedUnitSyntax {
-    ComponentInstantiatedUnit(ComponentInstantiatedUnitSyntax),
-    EntityInstantiatedUnit(EntityInstantiatedUnitSyntax),
-    ConfigurationInstantiatedUnit(ConfigurationInstantiatedUnitSyntax),
+    InstantiatedComponent(InstantiatedComponentSyntax),
+    InstantiatedEntity(InstantiatedEntitySyntax),
+    InstantiatedConfiguration(InstantiatedConfigurationSyntax),
 }
 impl AstNode for InstantiatedUnitSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
-            NodeKind::ComponentInstantiatedUnit,
-            NodeKind::EntityInstantiatedUnit,
-            NodeKind::ConfigurationInstantiatedUnit,
+            NodeKind::InstantiatedComponent,
+            NodeKind::InstantiatedEntity,
+            NodeKind::InstantiatedConfiguration,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        if ComponentInstantiatedUnitSyntax::can_cast(&node) {
-            return InstantiatedUnitSyntax::ComponentInstantiatedUnit(
-                ComponentInstantiatedUnitSyntax::cast_unchecked(node),
+        if InstantiatedComponentSyntax::can_cast(&node) {
+            return InstantiatedUnitSyntax::InstantiatedComponent(
+                InstantiatedComponentSyntax::cast_unchecked(node),
             );
         }
-        if EntityInstantiatedUnitSyntax::can_cast(&node) {
-            return InstantiatedUnitSyntax::EntityInstantiatedUnit(
-                EntityInstantiatedUnitSyntax::cast_unchecked(node),
+        if InstantiatedEntitySyntax::can_cast(&node) {
+            return InstantiatedUnitSyntax::InstantiatedEntity(
+                InstantiatedEntitySyntax::cast_unchecked(node),
             );
         }
-        if ConfigurationInstantiatedUnitSyntax::can_cast(&node) {
-            return InstantiatedUnitSyntax::ConfigurationInstantiatedUnit(
-                ConfigurationInstantiatedUnitSyntax::cast_unchecked(node),
+        if InstantiatedConfigurationSyntax::can_cast(&node) {
+            return InstantiatedUnitSyntax::InstantiatedConfiguration(
+                InstantiatedConfigurationSyntax::cast_unchecked(node),
             );
         }
         unreachable!(
@@ -10175,9 +10204,9 @@ impl AstNode for InstantiatedUnitSyntax {
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            InstantiatedUnitSyntax::ComponentInstantiatedUnit(inner) => inner.raw(),
-            InstantiatedUnitSyntax::EntityInstantiatedUnit(inner) => inner.raw(),
-            InstantiatedUnitSyntax::ConfigurationInstantiatedUnit(inner) => inner.raw(),
+            InstantiatedUnitSyntax::InstantiatedComponent(inner) => inner.raw(),
+            InstantiatedUnitSyntax::InstantiatedEntity(inner) => inner.raw(),
+            InstantiatedUnitSyntax::InstantiatedConfiguration(inner) => inner.raw(),
         }
     }
 }

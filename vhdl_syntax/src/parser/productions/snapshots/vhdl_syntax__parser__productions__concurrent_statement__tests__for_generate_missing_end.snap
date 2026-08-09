@@ -11,7 +11,7 @@ ForGenerateStatement
   Label
     Identifier 'gen'
     Colon
-  ForGenerateStatementPreamble
+  ForGeneratePreamble
     Keyword(For)
     ParameterSpecification
       Identifier 'i'

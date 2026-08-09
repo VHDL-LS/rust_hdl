@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::productions::declarations::is_start_of_declarative_part;
 use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
@@ -92,21 +93,21 @@ impl Parser {
     }
 
     pub fn component_instantiated_unit(&mut self) {
-        self.start_node(ComponentInstantiatedUnit);
+        self.start_node(InstantiatedComponent);
         self.opt_token(Keyword(Kw::Component));
         self.name();
         self.end_node();
     }
 
     pub fn entity_instantiated_unit(&mut self) {
-        self.start_node(EntityInstantiatedUnit);
+        self.start_node(InstantiatedEntity);
         self.expect_kw(Kw::Entity);
         self.name();
         self.end_node();
     }
 
     pub fn configuration_instantiated_unit(&mut self) {
-        self.start_node(ConfigurationInstantiatedUnit);
+        self.start_node(InstantiatedConfiguration);
         self.expect_kw(Kw::Configuration);
         self.name();
         self.end_node();
@@ -196,7 +197,7 @@ impl Parser {
                         }
                     }
                     Keyword(Kw::Port | Kw::Generic) => {
-                        self.start_node_at(checkpoint2, ComponentInstantiatedUnit);
+                        self.start_node_at(checkpoint2, InstantiatedComponent);
                         self.end_node();
                         self.start_node_at(checkpoint, ComponentInstantiationStatement);
                         self.instantiation_statement_inner();
@@ -328,20 +329,20 @@ impl Parser {
         self.label();
         self.for_generate_preamble();
         self.generate_statement_body();
-        self.for_generate_epilogue();
+        self.generate_epilogue();
         self.end_node();
     }
 
     pub fn for_generate_preamble(&mut self) {
-        self.start_node(ForGenerateStatementPreamble);
+        self.start_node(ForGeneratePreamble);
         self.expect_kw(Kw::For);
         self.parameter_specification();
         self.expect_kw(Kw::Generate);
         self.end_node();
     }
 
-    pub fn for_generate_epilogue(&mut self) {
-        self.start_node(ForGenerateStatementEpilogue);
+    pub fn generate_epilogue(&mut self) {
+        self.start_node(GenerateEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
         self.opt_identifier();
         self.expect_token(SemiColon);
@@ -401,9 +402,13 @@ impl Parser {
 
     pub fn generate_statement_body(&mut self) {
         self.start_node(GenerateStatementBody);
-        self.opt_declarative_part();
-        if self.next_is(Keyword(Kw::Begin)) {
-            self.skip_into_node(DeclarationStatementSeparator);
+        if is_start_of_declarative_part(self.peek_token()) || self.next_is(Keyword(Kw::Begin)) {
+            self.start_node(GenerateBodyDeclarations);
+            self.declarations();
+            self.start_node(DeclarationStatementSeparator);
+            self.expect_kw(Kw::Begin);
+            self.end_node();
+            self.end_node();
         }
         self.concurrent_statements();
         if self.next_is(Keyword(Kw::End)) && !self.next_nth_is(Keyword(Kw::Generate), 1) {
@@ -413,7 +418,7 @@ impl Parser {
     }
 
     pub fn generate_statement_body_epilogue(&mut self) {
-        self.start_node(GenerateStatementBodyEpilogue);
+        self.start_node(GenerateBodyEpilogue);
         self.expect_kw(Kw::End);
         self.opt_identifier();
         self.expect_token(SemiColon);

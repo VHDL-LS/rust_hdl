@@ -6,7 +6,7 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  ComponentInstantiatedUnit
+  InstantiatedComponent
     Name
       NameDesignatorPrefix
         Identifier 'lib'

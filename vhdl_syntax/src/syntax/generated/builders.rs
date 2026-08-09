@@ -2843,50 +2843,6 @@ impl From<ComponentDeclarationPreambleBuilder> for ComponentDeclarationPreambleS
         value.build()
     }
 }
-pub struct ComponentInstantiatedUnitBuilder {
-    component_token: Option<Token>,
-    name: NameSyntax,
-}
-impl ComponentInstantiatedUnitBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
-        Self {
-            component_token: None,
-            name: name.into(),
-        }
-    }
-    pub fn with_component_token(mut self, t: impl Into<Token>) -> Self {
-        self.component_token = Some(t.into());
-        self
-    }
-    pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .component_token
-            .get_or_insert_with(|| Kw::Component.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
-        self
-    }
-    pub fn build(self) -> ComponentInstantiatedUnitSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ComponentInstantiatedUnit);
-        if let Some(t) = self.component_token {
-            builder.push(t);
-        }
-        builder.push_node(self.name.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ComponentInstantiatedUnitSyntax::cast(node).unwrap()
-    }
-}
-impl From<ComponentInstantiatedUnitBuilder> for ComponentInstantiatedUnitSyntax {
-    fn from(value: ComponentInstantiatedUnitBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ComponentInstantiationStatementBuilder {
     label: LabelSyntax,
     instantiated_unit: InstantiatedUnitSyntax,
@@ -4569,45 +4525,6 @@ impl From<ConfigurationDeclarationPreambleBuilder> for ConfigurationDeclarationP
         value.build()
     }
 }
-pub struct ConfigurationInstantiatedUnitBuilder {
-    configuration_token: Token,
-    name: NameSyntax,
-}
-impl ConfigurationInstantiatedUnitBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
-        Self {
-            configuration_token: Kw::Configuration.canonical_token(),
-            name: name.into(),
-        }
-    }
-    pub fn with_configuration_token(mut self, t: impl Into<Token>) -> Self {
-        self.configuration_token = t.into();
-        self
-    }
-    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.configuration_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
-        self
-    }
-    pub fn build(self) -> ConfigurationInstantiatedUnitSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConfigurationInstantiatedUnit);
-        builder.push(self.configuration_token);
-        builder.push_node(self.name.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConfigurationInstantiatedUnitSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConfigurationInstantiatedUnitBuilder> for ConfigurationInstantiatedUnitSyntax {
-    fn from(value: ConfigurationInstantiatedUnitBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ConstantDeclarationBuilder {
     constant_token: Token,
     identifier_list: Option<IdentifierListSyntax>,
@@ -5917,45 +5834,6 @@ impl From<EntityHeaderBuilder> for EntityHeaderSyntax {
         value.build()
     }
 }
-pub struct EntityInstantiatedUnitBuilder {
-    entity_token: Token,
-    name: NameSyntax,
-}
-impl EntityInstantiatedUnitBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
-        Self {
-            entity_token: Kw::Entity.canonical_token(),
-            name: name.into(),
-        }
-    }
-    pub fn with_entity_token(mut self, t: impl Into<Token>) -> Self {
-        self.entity_token = t.into();
-        self
-    }
-    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.entity_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
-        self
-    }
-    pub fn build(self) -> EntityInstantiatedUnitSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::EntityInstantiatedUnit);
-        builder.push(self.entity_token);
-        builder.push_node(self.name.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        EntityInstantiatedUnitSyntax::cast(node).unwrap()
-    }
-}
-impl From<EntityInstantiatedUnitBuilder> for EntityInstantiatedUnitSyntax {
-    fn from(value: EntityInstantiatedUnitBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct EntityNameListAllBuilder {
     all_token: Token,
 }
@@ -6765,149 +6643,12 @@ impl From<FileTypeDefinitionBuilder> for FileTypeDefinitionSyntax {
         value.build()
     }
 }
-pub struct ForGenerateStatementBuilder {
-    label: LabelSyntax,
-    for_generate_statement_preamble: ForGenerateStatementPreambleSyntax,
-    generate_statement_body: Option<GenerateStatementBodySyntax>,
-    for_generate_statement_epilogue: ForGenerateStatementEpilogueSyntax,
-}
-impl ForGenerateStatementBuilder {
-    pub fn new(
-        label: impl Into<LabelSyntax>,
-        for_generate_statement_preamble: impl Into<ForGenerateStatementPreambleSyntax>,
-    ) -> Self {
-        Self {
-            label: label.into(),
-            for_generate_statement_preamble: for_generate_statement_preamble.into(),
-            generate_statement_body: None,
-            for_generate_statement_epilogue: ForGenerateStatementEpilogueBuilder::default().build(),
-        }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
-        self
-    }
-    pub fn with_for_generate_statement_preamble(
-        mut self,
-        n: impl Into<ForGenerateStatementPreambleSyntax>,
-    ) -> Self {
-        self.for_generate_statement_preamble = n.into();
-        self
-    }
-    pub fn with_generate_statement_body(
-        mut self,
-        n: impl Into<GenerateStatementBodySyntax>,
-    ) -> Self {
-        self.generate_statement_body = Some(n.into());
-        self
-    }
-    pub fn with_for_generate_statement_epilogue(
-        mut self,
-        n: impl Into<ForGenerateStatementEpilogueSyntax>,
-    ) -> Self {
-        self.for_generate_statement_epilogue = n.into();
-        self
-    }
-    pub fn build(self) -> ForGenerateStatementSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ForGenerateStatement);
-        builder.push_node(self.label.raw().green().clone());
-        builder.push_node(self.for_generate_statement_preamble.raw().green().clone());
-        if let Some(n) = self.generate_statement_body {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.for_generate_statement_epilogue.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ForGenerateStatementSyntax::cast(node).unwrap()
-    }
-}
-impl From<ForGenerateStatementBuilder> for ForGenerateStatementSyntax {
-    fn from(value: ForGenerateStatementBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ForGenerateStatementEpilogueBuilder {
-    end_token: Token,
-    generate_token: Token,
-    identifier_token: Option<Token>,
-    semi_colon_token: Token,
-}
-impl Default for ForGenerateStatementEpilogueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ForGenerateStatementEpilogueBuilder {
-    pub fn new() -> Self {
-        Self {
-            end_token: Kw::End.canonical_token(),
-            generate_token: Kw::Generate.canonical_token(),
-            identifier_token: None,
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
-        self.end_token = t.into();
-        self
-    }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.end_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
-        self.generate_token = t.into();
-        self
-    }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.generate_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = Some(t.into().into());
-        self
-    }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        if let Some(ref mut t) = self.identifier_token {
-            t.set_leading_trivia(trivia);
-        }
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> ForGenerateStatementEpilogueSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ForGenerateStatementEpilogue);
-        builder.push(self.end_token);
-        builder.push(self.generate_token);
-        if let Some(t) = self.identifier_token {
-            builder.push(t);
-        }
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ForGenerateStatementEpilogueSyntax::cast(node).unwrap()
-    }
-}
-impl From<ForGenerateStatementEpilogueBuilder> for ForGenerateStatementEpilogueSyntax {
-    fn from(value: ForGenerateStatementEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ForGenerateStatementPreambleBuilder {
+pub struct ForGeneratePreambleBuilder {
     for_token: Token,
     parameter_specification: ParameterSpecificationSyntax,
     generate_token: Token,
 }
-impl ForGenerateStatementPreambleBuilder {
+impl ForGeneratePreambleBuilder {
     pub fn new(parameter_specification: impl Into<ParameterSpecificationSyntax>) -> Self {
         Self {
             for_token: Kw::For.canonical_token(),
@@ -6938,20 +6679,77 @@ impl ForGenerateStatementPreambleBuilder {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> ForGenerateStatementPreambleSyntax {
+    pub fn build(self) -> ForGeneratePreambleSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ForGenerateStatementPreamble);
+        builder.start_node(NodeKind::ForGeneratePreamble);
         builder.push(self.for_token);
         builder.push_node(self.parameter_specification.raw().green().clone());
         builder.push(self.generate_token);
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ForGenerateStatementPreambleSyntax::cast(node).unwrap()
+        ForGeneratePreambleSyntax::cast(node).unwrap()
     }
 }
-impl From<ForGenerateStatementPreambleBuilder> for ForGenerateStatementPreambleSyntax {
-    fn from(value: ForGenerateStatementPreambleBuilder) -> Self {
+impl From<ForGeneratePreambleBuilder> for ForGeneratePreambleSyntax {
+    fn from(value: ForGeneratePreambleBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ForGenerateStatementBuilder {
+    label: LabelSyntax,
+    for_generate_preamble: ForGeneratePreambleSyntax,
+    generate_statement_body: Option<GenerateStatementBodySyntax>,
+    generate_epilogue: GenerateEpilogueSyntax,
+}
+impl ForGenerateStatementBuilder {
+    pub fn new(
+        label: impl Into<LabelSyntax>,
+        for_generate_preamble: impl Into<ForGeneratePreambleSyntax>,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            for_generate_preamble: for_generate_preamble.into(),
+            generate_statement_body: None,
+            generate_epilogue: GenerateEpilogueBuilder::default().build(),
+        }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
+    }
+    pub fn with_for_generate_preamble(mut self, n: impl Into<ForGeneratePreambleSyntax>) -> Self {
+        self.for_generate_preamble = n.into();
+        self
+    }
+    pub fn with_generate_statement_body(
+        mut self,
+        n: impl Into<GenerateStatementBodySyntax>,
+    ) -> Self {
+        self.generate_statement_body = Some(n.into());
+        self
+    }
+    pub fn with_generate_epilogue(mut self, n: impl Into<GenerateEpilogueSyntax>) -> Self {
+        self.generate_epilogue = n.into();
+        self
+    }
+    pub fn build(self) -> ForGenerateStatementSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ForGenerateStatement);
+        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.for_generate_preamble.raw().green().clone());
+        if let Some(n) = self.generate_statement_body {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.generate_epilogue.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ForGenerateStatementSyntax::cast(node).unwrap()
+    }
+}
+impl From<ForGenerateStatementBuilder> for ForGenerateStatementSyntax {
+    fn from(value: ForGenerateStatementBuilder) -> Self {
         value.build()
     }
 }
@@ -7182,24 +6980,21 @@ impl From<FunctionSpecificationBuilder> for FunctionSpecificationSyntax {
         value.build()
     }
 }
-pub struct GenerateStatementBodyBuilder {
+pub struct GenerateBodyDeclarationsBuilder {
     declarations: Option<DeclarationsSyntax>,
-    declaration_statement_separator: Option<DeclarationStatementSeparatorSyntax>,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
-    generate_statement_body_epilogue: Option<GenerateStatementBodyEpilogueSyntax>,
+    declaration_statement_separator: DeclarationStatementSeparatorSyntax,
 }
-impl Default for GenerateStatementBodyBuilder {
+impl Default for GenerateBodyDeclarationsBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
-impl GenerateStatementBodyBuilder {
+impl GenerateBodyDeclarationsBuilder {
     pub fn new() -> Self {
         Self {
             declarations: None,
-            declaration_statement_separator: None,
-            concurrent_statements: None,
-            generate_statement_body_epilogue: None,
+            declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
+                .build(),
         }
     }
     pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
@@ -7210,57 +7005,38 @@ impl GenerateStatementBodyBuilder {
         mut self,
         n: impl Into<DeclarationStatementSeparatorSyntax>,
     ) -> Self {
-        self.declaration_statement_separator = Some(n.into());
+        self.declaration_statement_separator = n.into();
         self
     }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
-        self
-    }
-    pub fn with_generate_statement_body_epilogue(
-        mut self,
-        n: impl Into<GenerateStatementBodyEpilogueSyntax>,
-    ) -> Self {
-        self.generate_statement_body_epilogue = Some(n.into());
-        self
-    }
-    pub fn build(self) -> GenerateStatementBodySyntax {
+    pub fn build(self) -> GenerateBodyDeclarationsSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::GenerateStatementBody);
+        builder.start_node(NodeKind::GenerateBodyDeclarations);
         if let Some(n) = self.declarations {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.declaration_statement_separator {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.concurrent_statements {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.generate_statement_body_epilogue {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.declaration_statement_separator.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        GenerateStatementBodySyntax::cast(node).unwrap()
+        GenerateBodyDeclarationsSyntax::cast(node).unwrap()
     }
 }
-impl From<GenerateStatementBodyBuilder> for GenerateStatementBodySyntax {
-    fn from(value: GenerateStatementBodyBuilder) -> Self {
+impl From<GenerateBodyDeclarationsBuilder> for GenerateBodyDeclarationsSyntax {
+    fn from(value: GenerateBodyDeclarationsBuilder) -> Self {
         value.build()
     }
 }
-pub struct GenerateStatementBodyEpilogueBuilder {
+pub struct GenerateBodyEpilogueBuilder {
     end_token: Token,
     identifier_token: Option<Token>,
     semi_colon_token: Token,
 }
-impl Default for GenerateStatementBodyEpilogueBuilder {
+impl Default for GenerateBodyEpilogueBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
-impl GenerateStatementBodyEpilogueBuilder {
+impl GenerateBodyEpilogueBuilder {
     pub fn new() -> Self {
         Self {
             end_token: Kw::End.canonical_token(),
@@ -7294,9 +7070,9 @@ impl GenerateStatementBodyEpilogueBuilder {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> GenerateStatementBodyEpilogueSyntax {
+    pub fn build(self) -> GenerateBodyEpilogueSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::GenerateStatementBodyEpilogue);
+        builder.start_node(NodeKind::GenerateBodyEpilogue);
         builder.push(self.end_token);
         if let Some(t) = self.identifier_token {
             builder.push(t);
@@ -7305,11 +7081,141 @@ impl GenerateStatementBodyEpilogueBuilder {
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        GenerateStatementBodyEpilogueSyntax::cast(node).unwrap()
+        GenerateBodyEpilogueSyntax::cast(node).unwrap()
     }
 }
-impl From<GenerateStatementBodyEpilogueBuilder> for GenerateStatementBodyEpilogueSyntax {
-    fn from(value: GenerateStatementBodyEpilogueBuilder) -> Self {
+impl From<GenerateBodyEpilogueBuilder> for GenerateBodyEpilogueSyntax {
+    fn from(value: GenerateBodyEpilogueBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct GenerateEpilogueBuilder {
+    end_token: Token,
+    generate_token: Token,
+    identifier_token: Option<Token>,
+    semi_colon_token: Token,
+}
+impl Default for GenerateEpilogueBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl GenerateEpilogueBuilder {
+    pub fn new() -> Self {
+        Self {
+            end_token: Kw::End.canonical_token(),
+            generate_token: Kw::Generate.canonical_token(),
+            identifier_token: None,
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
+        self.end_token = t.into();
+        self
+    }
+    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.end_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
+        self.generate_token = t.into();
+        self
+    }
+    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.generate_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.identifier_token = Some(t.into().into());
+        self
+    }
+    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+        if let Some(ref mut t) = self.identifier_token {
+            t.set_leading_trivia(trivia);
+        }
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> GenerateEpilogueSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::GenerateEpilogue);
+        builder.push(self.end_token);
+        builder.push(self.generate_token);
+        if let Some(t) = self.identifier_token {
+            builder.push(t);
+        }
+        builder.push(self.semi_colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        GenerateEpilogueSyntax::cast(node).unwrap()
+    }
+}
+impl From<GenerateEpilogueBuilder> for GenerateEpilogueSyntax {
+    fn from(value: GenerateEpilogueBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct GenerateStatementBodyBuilder {
+    generate_body_declarations: Option<GenerateBodyDeclarationsSyntax>,
+    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    generate_body_epilogue: Option<GenerateBodyEpilogueSyntax>,
+}
+impl Default for GenerateStatementBodyBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl GenerateStatementBodyBuilder {
+    pub fn new() -> Self {
+        Self {
+            generate_body_declarations: None,
+            concurrent_statements: None,
+            generate_body_epilogue: None,
+        }
+    }
+    pub fn with_generate_body_declarations(
+        mut self,
+        n: impl Into<GenerateBodyDeclarationsSyntax>,
+    ) -> Self {
+        self.generate_body_declarations = Some(n.into());
+        self
+    }
+    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
+        self.concurrent_statements = Some(n.into());
+        self
+    }
+    pub fn with_generate_body_epilogue(mut self, n: impl Into<GenerateBodyEpilogueSyntax>) -> Self {
+        self.generate_body_epilogue = Some(n.into());
+        self
+    }
+    pub fn build(self) -> GenerateStatementBodySyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::GenerateStatementBody);
+        if let Some(n) = self.generate_body_declarations {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.concurrent_statements {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.generate_body_epilogue {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        GenerateStatementBodySyntax::cast(node).unwrap()
+    }
+}
+impl From<GenerateStatementBodyBuilder> for GenerateStatementBodySyntax {
+    fn from(value: GenerateStatementBodyBuilder) -> Self {
         value.build()
     }
 }
@@ -8822,6 +8728,128 @@ impl InertialDelayMechanismBuilder {
 }
 impl From<InertialDelayMechanismBuilder> for InertialDelayMechanismSyntax {
     fn from(value: InertialDelayMechanismBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct InstantiatedComponentBuilder {
+    component_token: Option<Token>,
+    name: NameSyntax,
+}
+impl InstantiatedComponentBuilder {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
+        Self {
+            component_token: None,
+            name: name.into(),
+        }
+    }
+    pub fn with_component_token(mut self, t: impl Into<Token>) -> Self {
+        self.component_token = Some(t.into());
+        self
+    }
+    pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
+        let tok = self
+            .component_token
+            .get_or_insert_with(|| Kw::Component.canonical_token());
+        tok.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
+        self
+    }
+    pub fn build(self) -> InstantiatedComponentSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::InstantiatedComponent);
+        if let Some(t) = self.component_token {
+            builder.push(t);
+        }
+        builder.push_node(self.name.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        InstantiatedComponentSyntax::cast(node).unwrap()
+    }
+}
+impl From<InstantiatedComponentBuilder> for InstantiatedComponentSyntax {
+    fn from(value: InstantiatedComponentBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct InstantiatedConfigurationBuilder {
+    configuration_token: Token,
+    name: NameSyntax,
+}
+impl InstantiatedConfigurationBuilder {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
+        Self {
+            configuration_token: Kw::Configuration.canonical_token(),
+            name: name.into(),
+        }
+    }
+    pub fn with_configuration_token(mut self, t: impl Into<Token>) -> Self {
+        self.configuration_token = t.into();
+        self
+    }
+    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.configuration_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
+        self
+    }
+    pub fn build(self) -> InstantiatedConfigurationSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::InstantiatedConfiguration);
+        builder.push(self.configuration_token);
+        builder.push_node(self.name.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        InstantiatedConfigurationSyntax::cast(node).unwrap()
+    }
+}
+impl From<InstantiatedConfigurationBuilder> for InstantiatedConfigurationSyntax {
+    fn from(value: InstantiatedConfigurationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct InstantiatedEntityBuilder {
+    entity_token: Token,
+    name: NameSyntax,
+}
+impl InstantiatedEntityBuilder {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
+        Self {
+            entity_token: Kw::Entity.canonical_token(),
+            name: name.into(),
+        }
+    }
+    pub fn with_entity_token(mut self, t: impl Into<Token>) -> Self {
+        self.entity_token = t.into();
+        self
+    }
+    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.entity_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
+        self
+    }
+    pub fn build(self) -> InstantiatedEntitySyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::InstantiatedEntity);
+        builder.push(self.entity_token);
+        builder.push_node(self.name.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        InstantiatedEntitySyntax::cast(node).unwrap()
+    }
+}
+impl From<InstantiatedEntityBuilder> for InstantiatedEntitySyntax {
+    fn from(value: InstantiatedEntityBuilder) -> Self {
         value.build()
     }
 }

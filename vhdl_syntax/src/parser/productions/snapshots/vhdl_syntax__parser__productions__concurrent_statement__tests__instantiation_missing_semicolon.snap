@@ -13,7 +13,7 @@ ComponentInstantiationStatement
   Label
     Identifier 'u_cpu'
     Colon
-  EntityInstantiatedUnit
+  InstantiatedEntity
     Keyword(Entity)
     Name
       NameDesignatorPrefix

@@ -6,7 +6,7 @@ ForGenerateStatement
   Label
     Identifier 'gen'
     Colon
-  ForGenerateStatementPreamble
+  ForGeneratePreamble
     Keyword(For)
     ParameterSpecification
       Identifier 'idx'
@@ -33,7 +33,7 @@ ForGenerateStatement
                 NameDesignatorPrefix
                   Identifier 'bar'
         SemiColon
-  ForGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

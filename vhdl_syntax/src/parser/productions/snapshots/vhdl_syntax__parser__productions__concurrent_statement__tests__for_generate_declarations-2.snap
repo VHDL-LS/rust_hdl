@@ -6,7 +6,7 @@ ForGenerateStatement
   Label
     Identifier 'gen'
     Colon
-  ForGenerateStatementPreamble
+  ForGeneratePreamble
     Keyword(For)
     ParameterSpecification
       Identifier 'idx'
@@ -19,19 +19,20 @@ ForGenerateStatement
           AbstractLiteral '1'
     Keyword(Generate)
   GenerateStatementBody
-    Declarations
-      SignalDeclaration
-        Keyword(Signal)
-        IdentifierList
-          Identifier 'foo'
-        Colon
-        SubtypeIndication
-          Name
-            NameDesignatorPrefix
-              Identifier 'natural'
-        SemiColon
-    DeclarationStatementSeparator
-      Keyword(Begin)
+    GenerateBodyDeclarations
+      Declarations
+        SignalDeclaration
+          Keyword(Signal)
+          IdentifierList
+            Identifier 'foo'
+          Colon
+          SubtypeIndication
+            Name
+              NameDesignatorPrefix
+                Identifier 'natural'
+          SemiColon
+      DeclarationStatementSeparator
+        Keyword(Begin)
     ConcurrentStatements
       ConcurrentSimpleSignalAssignment
         NameTarget
@@ -46,10 +47,10 @@ ForGenerateStatement
                 NameDesignatorPrefix
                   Identifier 'bar'
         SemiColon
-    GenerateStatementBodyEpilogue
+    GenerateBodyEpilogue
       Keyword(End)
       SemiColon
-  ForGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

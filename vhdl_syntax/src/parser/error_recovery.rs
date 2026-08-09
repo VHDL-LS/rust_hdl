@@ -353,9 +353,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::ConditionalWaveformAssignment
         | NodeKind::ExitStatement
         | NodeKind::ForGenerateStatement
-        | NodeKind::ForGenerateStatementEpilogue
+        | NodeKind::GenerateEpilogue
         | NodeKind::GenerateStatementBody
-        | NodeKind::GenerateStatementBodyEpilogue
+        | NodeKind::GenerateBodyEpilogue
         | NodeKind::IfGenerateStatement
         | NodeKind::IfGenerateStatementEpilogue
         | NodeKind::IfStatement
@@ -384,11 +384,11 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::ComponentDeclarationPreamble => {
             &[Keyword(Kw::End), Keyword(Kw::Generic), Keyword(Kw::Port)]
         }
-        NodeKind::ComponentInstantiatedUnit
-        | NodeKind::ConfigurationInstantiatedUnit
+        NodeKind::InstantiatedComponent
+        | NodeKind::InstantiatedConfiguration
         | NodeKind::EntityConfigurationAspect
         | NodeKind::EntityEntityAspect
-        | NodeKind::EntityInstantiatedUnit
+        | NodeKind::InstantiatedEntity
         | NodeKind::EntityOpenAspect => &[Keyword(Kw::Generic), Keyword(Kw::Port), SemiColon],
         NodeKind::NameList | NodeKind::SensitivityClause => {
             &[Keyword(Kw::For), Keyword(Kw::Until), SemiColon]
@@ -896,7 +896,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             SemiColon,
             StringLiteral,
         ],
-        NodeKind::EntityHeader | NodeKind::ForGenerateStatementPreamble => &[
+        NodeKind::EntityHeader | NodeKind::ForGeneratePreamble => &[
             CharacterLiteral,
             Identifier,
             Keyword(Kw::Alias),

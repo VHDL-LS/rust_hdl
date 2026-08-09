@@ -98,15 +98,14 @@ ConcurrentStatements =
 
 ForGenerateStatement =
   Label
-  for_generate_statement_preamble:('for' ParameterSpecification 'generate')
+  for_generate_preamble:('for' ParameterSpecification 'generate')
   GenerateStatementBody
-  for_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 GenerateStatementBody =
-  Declarations?
-  DeclarationStatementSeparator?
-  ConcurrentStatements?
-  generate_statement_body_epilogue:('end' '#identifier'? ';')?
+  generate_body_declarations:(Declarations? DeclarationStatementSeparator)?
+  ConcurrentStatements
+  generate_body_epilogue:('end' '#identifier'? ';')?
 
 IfGenerateStatement =
   Label
@@ -116,20 +115,11 @@ IfGenerateStatement =
   if_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
-  ComponentInstantiatedUnit
-| EntityInstantiatedUnit
-| ConfigurationInstantiatedUnit
-
-ComponentInstantiatedUnit =
-  'component'? Name
-
-// LRM has `"entity" name [ "(" identifier ")" ]`. The `(identifier)`
-// architecture-disambiguation is absorbed as a `ParenthesizedName` tail.
-EntityInstantiatedUnit =
-  'entity' Name
-
-ConfigurationInstantiatedUnit =
-  'configuration' Name
+  instantiated_component:('component'? Name)
+  // LRM has `"entity" name [ "(" identifier ")" ]`. The `(identifier)`
+  // architecture-disambiguation is absorbed as a `ParenthesizedName` tail.
+| instantiated_entity:('entity' Name)
+| instantiated_configuration:('configuration' Name)
 
 AllSensitivityList =
   'all'
@@ -886,7 +876,11 @@ SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
 
 SelectedVariableAssignment =
-  selected_assignment_preamble:('with' Expression 'select' '?'?) Target ':=' SelectedExpressions? ';'
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
+  Target
+  ':='
+  SelectedExpressions?
+  ';'
 
 SelectedWaveformAssignment =
   selected_assignment_preamble:('with' Expression 'select' '?'?)

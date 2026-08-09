@@ -20,19 +20,20 @@ IfGenerateStatement
             Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      Declarations
-        VariableDeclaration
-          Keyword(Variable)
-          IdentifierList
-            Identifier 'v1'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'boolean'
-          SemiColon
-      DeclarationStatementSeparator
-        Keyword(Begin)
+      GenerateBodyDeclarations
+        Declarations
+          VariableDeclaration
+            Keyword(Variable)
+            IdentifierList
+              Identifier 'v1'
+            Colon
+            SubtypeIndication
+              Name
+                NameDesignatorPrefix
+                  Identifier 'boolean'
+            SemiColon
+        DeclarationStatementSeparator
+          Keyword(Begin)
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
@@ -64,19 +65,20 @@ IfGenerateStatement
             Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      Declarations
-        VariableDeclaration
-          Keyword(Variable)
-          IdentifierList
-            Identifier 'v2'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'boolean'
-          SemiColon
-      DeclarationStatementSeparator
-        Keyword(Begin)
+      GenerateBodyDeclarations
+        Declarations
+          VariableDeclaration
+            Keyword(Variable)
+            IdentifierList
+              Identifier 'v2'
+            Colon
+            SubtypeIndication
+              Name
+                NameDesignatorPrefix
+                  Identifier 'boolean'
+            SemiColon
+        DeclarationStatementSeparator
+          Keyword(Begin)
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
@@ -98,19 +100,20 @@ IfGenerateStatement
     Keyword(Else)
     Keyword(Generate)
     GenerateStatementBody
-      Declarations
-        VariableDeclaration
-          Keyword(Variable)
-          IdentifierList
-            Identifier 'v3'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'boolean'
-          SemiColon
-      DeclarationStatementSeparator
-        Keyword(Begin)
+      GenerateBodyDeclarations
+        Declarations
+          VariableDeclaration
+            Keyword(Variable)
+            IdentifierList
+              Identifier 'v3'
+            Colon
+            SubtypeIndication
+              Name
+                NameDesignatorPrefix
+                  Identifier 'boolean'
+            SemiColon
+        DeclarationStatementSeparator
+          Keyword(Begin)
       ConcurrentStatements
         ConcurrentProcedureCallOrComponentInstantiationStatement
           Name

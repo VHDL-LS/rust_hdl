@@ -10,7 +10,7 @@ use crate::syntax::NodeKind::{self, *};
 use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
-fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
+pub(crate) fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
     matches!(
         token_kind,
         Keyword(

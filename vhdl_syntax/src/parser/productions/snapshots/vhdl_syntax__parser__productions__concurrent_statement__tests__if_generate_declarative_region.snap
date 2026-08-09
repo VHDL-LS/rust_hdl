@@ -20,8 +20,9 @@ IfGenerateStatement
             Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      DeclarationStatementSeparator
-        Keyword(Begin)
+      GenerateBodyDeclarations
+        DeclarationStatementSeparator
+          Keyword(Begin)
   IfGenerateStatementEpilogue
     Keyword(End)
     Keyword(Generate)
