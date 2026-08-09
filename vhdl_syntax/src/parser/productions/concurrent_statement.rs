@@ -288,6 +288,7 @@ impl Parser {
 
     pub fn case_generate_statement(&mut self) {
         self.start_node(CaseGenerateStatement);
+        self.label();
         self.case_generate_preamble();
         while self.next_is(Keyword(Kw::When)) {
             self.case_generate_alternative();
@@ -298,7 +299,6 @@ impl Parser {
 
     pub fn case_generate_preamble(&mut self) {
         self.start_node(CaseGenerateStatementPreamble);
-        self.opt_label();
         self.expect_kw(Kw::Case);
         self.expression();
         self.expect_kw(Kw::Generate);

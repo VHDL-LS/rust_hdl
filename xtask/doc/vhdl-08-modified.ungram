@@ -39,7 +39,8 @@ CaseGenerateAlternative =
   'when' Label? Choices '=>' GenerateStatementBody
 
 CaseGenerateStatement =
-  case_generate_statement_preamble:(Label 'case' Expression 'generate')
+  Label
+  case_generate_statement_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
   case_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 

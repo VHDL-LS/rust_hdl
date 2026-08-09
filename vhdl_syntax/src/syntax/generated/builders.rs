@@ -1836,20 +1836,27 @@ impl From<CaseGenerateAlternativeBuilder> for CaseGenerateAlternativeSyntax {
     }
 }
 pub struct CaseGenerateStatementBuilder {
+    label: LabelSyntax,
     case_generate_statement_preamble: CaseGenerateStatementPreambleSyntax,
     case_generate_alternatives: Vec<CaseGenerateAlternativeSyntax>,
     case_generate_statement_epilogue: CaseGenerateStatementEpilogueSyntax,
 }
 impl CaseGenerateStatementBuilder {
     pub fn new(
+        label: impl Into<LabelSyntax>,
         case_generate_statement_preamble: impl Into<CaseGenerateStatementPreambleSyntax>,
     ) -> Self {
         Self {
+            label: label.into(),
             case_generate_statement_preamble: case_generate_statement_preamble.into(),
             case_generate_alternatives: Vec::new(),
             case_generate_statement_epilogue: CaseGenerateStatementEpilogueBuilder::default()
                 .build(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
     }
     pub fn with_case_generate_statement_preamble(
         mut self,
@@ -1875,6 +1882,7 @@ impl CaseGenerateStatementBuilder {
     pub fn build(self) -> CaseGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CaseGenerateStatement);
+        builder.push_node(self.label.raw().green().clone());
         builder.push_node(self.case_generate_statement_preamble.raw().green().clone());
         for n in self.case_generate_alternatives {
             builder.push_node(n.raw().green().clone());
@@ -1966,23 +1974,17 @@ impl From<CaseGenerateStatementEpilogueBuilder> for CaseGenerateStatementEpilogu
     }
 }
 pub struct CaseGenerateStatementPreambleBuilder {
-    label: LabelSyntax,
     case_token: Token,
     expression: ExpressionSyntax,
     generate_token: Token,
 }
 impl CaseGenerateStatementPreambleBuilder {
-    pub fn new(label: impl Into<LabelSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: label.into(),
             case_token: Kw::Case.canonical_token(),
             expression: expression.into(),
             generate_token: Kw::Generate.canonical_token(),
         }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
-        self
     }
     pub fn with_case_token(mut self, t: impl Into<Token>) -> Self {
         self.case_token = t.into();
@@ -2007,7 +2009,6 @@ impl CaseGenerateStatementPreambleBuilder {
     pub fn build(self) -> CaseGenerateStatementPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CaseGenerateStatementPreamble);
-        builder.push_node(self.label.raw().green().clone());
         builder.push(self.case_token);
         builder.push_node(self.expression.raw().green().clone());
         builder.push(self.generate_token);

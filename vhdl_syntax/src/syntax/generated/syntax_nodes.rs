@@ -2093,6 +2093,12 @@ impl AstNode for CaseGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
                 name: "case_generate_statement_preamble",
                 kind: LayoutItemKind::Node(NodeKind::CaseGenerateStatementPreamble),
             },
@@ -2118,6 +2124,9 @@ impl AstNode for CaseGenerateStatementSyntax {
     }
 }
 impl CaseGenerateStatementSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn case_generate_statement_preamble(&self) -> Option<CaseGenerateStatementPreambleSyntax> {
         self.0
             .children()
@@ -2212,12 +2221,6 @@ impl AstNode for CaseGenerateStatementPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
                 name: "case",
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Case)),
             },
@@ -2252,9 +2255,6 @@ impl AstNode for CaseGenerateStatementPreambleSyntax {
     }
 }
 impl CaseGenerateStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
     pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
