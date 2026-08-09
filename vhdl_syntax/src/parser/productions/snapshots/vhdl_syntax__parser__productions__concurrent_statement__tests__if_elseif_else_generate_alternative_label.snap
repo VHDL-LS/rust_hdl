@@ -51,7 +51,7 @@ IfGenerateStatement
         Keyword(End)
         Identifier 'alt4'
         SemiColon
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

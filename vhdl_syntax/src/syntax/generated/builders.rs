@@ -1839,7 +1839,7 @@ pub struct CaseGenerateStatementBuilder {
     label: LabelSyntax,
     case_generate_statement_preamble: CaseGenerateStatementPreambleSyntax,
     case_generate_alternatives: Vec<CaseGenerateAlternativeSyntax>,
-    case_generate_statement_epilogue: CaseGenerateStatementEpilogueSyntax,
+    generate_epilogue: GenerateEpilogueSyntax,
 }
 impl CaseGenerateStatementBuilder {
     pub fn new(
@@ -1850,8 +1850,7 @@ impl CaseGenerateStatementBuilder {
             label: label.into(),
             case_generate_statement_preamble: case_generate_statement_preamble.into(),
             case_generate_alternatives: Vec::new(),
-            case_generate_statement_epilogue: CaseGenerateStatementEpilogueBuilder::default()
-                .build(),
+            generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -1872,11 +1871,8 @@ impl CaseGenerateStatementBuilder {
         self.case_generate_alternatives.push(n.into());
         self
     }
-    pub fn with_case_generate_statement_epilogue(
-        mut self,
-        n: impl Into<CaseGenerateStatementEpilogueSyntax>,
-    ) -> Self {
-        self.case_generate_statement_epilogue = n.into();
+    pub fn with_generate_epilogue(mut self, n: impl Into<GenerateEpilogueSyntax>) -> Self {
+        self.generate_epilogue = n.into();
         self
     }
     pub fn build(self) -> CaseGenerateStatementSyntax {
@@ -1887,7 +1883,7 @@ impl CaseGenerateStatementBuilder {
         for n in self.case_generate_alternatives {
             builder.push_node(n.raw().green().clone());
         }
-        builder.push_node(self.case_generate_statement_epilogue.raw().green().clone());
+        builder.push_node(self.generate_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -1896,80 +1892,6 @@ impl CaseGenerateStatementBuilder {
 }
 impl From<CaseGenerateStatementBuilder> for CaseGenerateStatementSyntax {
     fn from(value: CaseGenerateStatementBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct CaseGenerateStatementEpilogueBuilder {
-    end_token: Token,
-    generate_token: Token,
-    identifier_token: Option<Token>,
-    semi_colon_token: Token,
-}
-impl Default for CaseGenerateStatementEpilogueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl CaseGenerateStatementEpilogueBuilder {
-    pub fn new() -> Self {
-        Self {
-            end_token: Kw::End.canonical_token(),
-            generate_token: Kw::Generate.canonical_token(),
-            identifier_token: None,
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
-        self.end_token = t.into();
-        self
-    }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.end_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
-        self.generate_token = t.into();
-        self
-    }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.generate_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = Some(t.into().into());
-        self
-    }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        if let Some(ref mut t) = self.identifier_token {
-            t.set_leading_trivia(trivia);
-        }
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> CaseGenerateStatementEpilogueSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::CaseGenerateStatementEpilogue);
-        builder.push(self.end_token);
-        builder.push(self.generate_token);
-        if let Some(t) = self.identifier_token {
-            builder.push(t);
-        }
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        CaseGenerateStatementEpilogueSyntax::cast(node).unwrap()
-    }
-}
-impl From<CaseGenerateStatementEpilogueBuilder> for CaseGenerateStatementEpilogueSyntax {
-    fn from(value: CaseGenerateStatementEpilogueBuilder) -> Self {
         value.build()
     }
 }
@@ -8017,7 +7939,7 @@ pub struct IfGenerateStatementBuilder {
     if_generate_if: IfGenerateIfSyntax,
     if_generate_elsifs: Vec<IfGenerateElsifSyntax>,
     if_generate_else: Option<IfGenerateElseSyntax>,
-    if_generate_statement_epilogue: IfGenerateStatementEpilogueSyntax,
+    generate_epilogue: GenerateEpilogueSyntax,
 }
 impl IfGenerateStatementBuilder {
     pub fn new(
@@ -8029,7 +7951,7 @@ impl IfGenerateStatementBuilder {
             if_generate_if: if_generate_if.into(),
             if_generate_elsifs: Vec::new(),
             if_generate_else: None,
-            if_generate_statement_epilogue: IfGenerateStatementEpilogueBuilder::default().build(),
+            generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
     pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
@@ -8048,11 +7970,8 @@ impl IfGenerateStatementBuilder {
         self.if_generate_else = Some(n.into());
         self
     }
-    pub fn with_if_generate_statement_epilogue(
-        mut self,
-        n: impl Into<IfGenerateStatementEpilogueSyntax>,
-    ) -> Self {
-        self.if_generate_statement_epilogue = n.into();
+    pub fn with_generate_epilogue(mut self, n: impl Into<GenerateEpilogueSyntax>) -> Self {
+        self.generate_epilogue = n.into();
         self
     }
     pub fn build(self) -> IfGenerateStatementSyntax {
@@ -8066,7 +7985,7 @@ impl IfGenerateStatementBuilder {
         if let Some(n) = self.if_generate_else {
             builder.push_node(n.raw().green().clone());
         }
-        builder.push_node(self.if_generate_statement_epilogue.raw().green().clone());
+        builder.push_node(self.generate_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -8075,80 +7994,6 @@ impl IfGenerateStatementBuilder {
 }
 impl From<IfGenerateStatementBuilder> for IfGenerateStatementSyntax {
     fn from(value: IfGenerateStatementBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct IfGenerateStatementEpilogueBuilder {
-    end_token: Token,
-    generate_token: Token,
-    identifier_token: Option<Token>,
-    semi_colon_token: Token,
-}
-impl Default for IfGenerateStatementEpilogueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl IfGenerateStatementEpilogueBuilder {
-    pub fn new() -> Self {
-        Self {
-            end_token: Kw::End.canonical_token(),
-            generate_token: Kw::Generate.canonical_token(),
-            identifier_token: None,
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_end_token(mut self, t: impl Into<Token>) -> Self {
-        self.end_token = t.into();
-        self
-    }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.end_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
-        self.generate_token = t.into();
-        self
-    }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.generate_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = Some(t.into().into());
-        self
-    }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        if let Some(ref mut t) = self.identifier_token {
-            t.set_leading_trivia(trivia);
-        }
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> IfGenerateStatementEpilogueSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::IfGenerateStatementEpilogue);
-        builder.push(self.end_token);
-        builder.push(self.generate_token);
-        if let Some(t) = self.identifier_token {
-            builder.push(t);
-        }
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        IfGenerateStatementEpilogueSyntax::cast(node).unwrap()
-    }
-}
-impl From<IfGenerateStatementEpilogueBuilder> for IfGenerateStatementEpilogueSyntax {
-    fn from(value: IfGenerateStatementEpilogueBuilder) -> Self {
         value.build()
     }
 }

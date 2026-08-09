@@ -19,7 +19,7 @@ IfGenerateStatement
           NameDesignatorPrefix
             Identifier 'true'
     Keyword(Generate)
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

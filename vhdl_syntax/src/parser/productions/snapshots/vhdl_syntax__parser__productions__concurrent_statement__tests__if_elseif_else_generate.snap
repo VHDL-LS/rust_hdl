@@ -131,7 +131,7 @@ IfGenerateStatement
                             Identifier 'clk'
               RightPar
           SemiColon
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

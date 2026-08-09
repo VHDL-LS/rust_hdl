@@ -294,7 +294,7 @@ impl Parser {
         while self.next_is(Keyword(Kw::When)) {
             self.case_generate_alternative();
         }
-        self.case_generate_epliogue();
+        self.generate_epilogue();
         self.end_node();
     }
 
@@ -303,14 +303,6 @@ impl Parser {
         self.expect_kw(Kw::Case);
         self.expression();
         self.expect_kw(Kw::Generate);
-        self.end_node();
-    }
-
-    pub fn case_generate_epliogue(&mut self) {
-        self.start_node(CaseGenerateStatementEpilogue);
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
-        self.opt_identifier();
-        self.expect_token(SemiColon);
         self.end_node();
     }
 
@@ -388,15 +380,7 @@ impl Parser {
         if self.next_is(Keyword(Kw::Else)) {
             self.if_generate_else();
         }
-        self.if_generate_statement_epilogue();
-        self.end_node();
-    }
-
-    pub fn if_generate_statement_epilogue(&mut self) {
-        self.start_node(IfGenerateStatementEpilogue);
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
-        self.opt_identifier();
-        self.expect_token(SemiColon);
+        self.generate_epilogue();
         self.end_node();
     }
 

@@ -338,7 +338,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::BlockEpilogue
         | NodeKind::BlockStatement
         | NodeKind::CaseGenerateStatement
-        | NodeKind::CaseGenerateStatementEpilogue
         | NodeKind::CaseStatement
         | NodeKind::CaseStatementEpilogue
         | NodeKind::ComponentInstantiationStatement
@@ -357,7 +356,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::GenerateStatementBody
         | NodeKind::GenerateBodyEpilogue
         | NodeKind::IfGenerateStatement
-        | NodeKind::IfGenerateStatementEpilogue
         | NodeKind::IfStatement
         | NodeKind::IfStatementEpilogue
         | NodeKind::LoopStatement

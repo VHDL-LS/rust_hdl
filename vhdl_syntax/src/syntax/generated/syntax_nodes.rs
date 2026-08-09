@@ -2111,8 +2111,8 @@ impl AstNode for CaseGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "case_generate_statement_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::CaseGenerateStatementEpilogue),
+                name: "generate_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::GenerateEpilogue),
             },
         ],
     });
@@ -2140,75 +2140,10 @@ impl CaseGenerateStatementSyntax {
             .children()
             .filter_map(CaseGenerateAlternativeSyntax::cast)
     }
-    pub fn case_generate_statement_epilogue(&self) -> Option<CaseGenerateStatementEpilogueSyntax> {
+    pub fn generate_epilogue(&self) -> Option<GenerateEpilogueSyntax> {
         self.0
             .children()
-            .filter_map(CaseGenerateStatementEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct CaseGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for CaseGenerateStatementEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::CaseGenerateStatementEpilogue,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "end",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generate",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        CaseGenerateStatementEpilogueSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl CaseGenerateStatementEpilogueSyntax {
-    pub fn end_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
-            .nth(0)
-    }
-    pub fn generate_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .filter_map(GenerateEpilogueSyntax::cast)
             .nth(0)
     }
 }
@@ -9358,8 +9293,8 @@ impl AstNode for IfGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "if_generate_statement_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::IfGenerateStatementEpilogue),
+                name: "generate_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::GenerateEpilogue),
             },
         ],
     });
@@ -9389,75 +9324,10 @@ impl IfGenerateStatementSyntax {
             .filter_map(IfGenerateElseSyntax::cast)
             .nth(0)
     }
-    pub fn if_generate_statement_epilogue(&self) -> Option<IfGenerateStatementEpilogueSyntax> {
+    pub fn generate_epilogue(&self) -> Option<GenerateEpilogueSyntax> {
         self.0
             .children()
-            .filter_map(IfGenerateStatementEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct IfGenerateStatementEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for IfGenerateStatementEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::IfGenerateStatementEpilogue,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "end",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::End)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generate",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        IfGenerateStatementEpilogueSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl IfGenerateStatementEpilogueSyntax {
-    pub fn end_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
-            .nth(0)
-    }
-    pub fn generate_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .filter_map(GenerateEpilogueSyntax::cast)
             .nth(0)
     }
 }

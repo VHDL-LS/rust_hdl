@@ -76,7 +76,7 @@ CaseGenerateStatement
                             Identifier 'clk'
               RightPar
           SemiColon
-  CaseGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

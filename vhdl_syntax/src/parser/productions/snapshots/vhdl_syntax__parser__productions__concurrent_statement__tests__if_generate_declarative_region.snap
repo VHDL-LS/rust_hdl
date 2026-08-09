@@ -23,7 +23,7 @@ IfGenerateStatement
       GenerateBodyDeclarations
         DeclarationStatementSeparator
           Keyword(Begin)
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

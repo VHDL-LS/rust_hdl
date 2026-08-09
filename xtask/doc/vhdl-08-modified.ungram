@@ -42,7 +42,7 @@ CaseGenerateStatement =
   Label
   case_generate_statement_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
-  case_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 ComponentInstantiationStatement =
   Label InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
@@ -112,7 +112,7 @@ IfGenerateStatement =
   if_generate_if:('if' Label? Expression 'generate' GenerateStatementBody)
   if_generate_elsif:('elsif' Label? Expression 'generate' GenerateStatementBody)*
   if_generate_else:('else' Label? 'generate' GenerateStatementBody)?
-  if_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
   instantiated_component:('component'? Name)
