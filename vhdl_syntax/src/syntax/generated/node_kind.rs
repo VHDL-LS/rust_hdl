@@ -53,7 +53,6 @@ pub enum NodeKind {
     ComponentConfigurationPreamble,
     ComponentDeclaration,
     ComponentDeclarationEpilogue,
-    ComponentDeclarationItems,
     ComponentDeclarationPreamble,
     ComponentInstantiationStatement,
     ComponentSpecification,

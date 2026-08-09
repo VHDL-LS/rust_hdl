@@ -2799,8 +2799,14 @@ impl AstNode for ComponentDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "component_declaration_items",
-                kind: LayoutItemKind::Node(NodeKind::ComponentDeclarationItems),
+                name: "generic_clause",
+                kind: LayoutItemKind::Node(NodeKind::GenericClause),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "port_clause",
+                kind: LayoutItemKind::Node(NodeKind::PortClause),
             },
             LayoutItem {
                 optional: false,
@@ -2824,11 +2830,14 @@ impl ComponentDeclarationSyntax {
             .filter_map(ComponentDeclarationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn component_declaration_items(&self) -> Option<ComponentDeclarationItemsSyntax> {
+    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
         self.0
             .children()
-            .filter_map(ComponentDeclarationItemsSyntax::cast)
+            .filter_map(GenericClauseSyntax::cast)
             .nth(0)
+    }
+    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
+        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
     }
     pub fn component_declaration_epilogue(&self) -> Option<ComponentDeclarationEpilogueSyntax> {
         self.0
@@ -2900,44 +2909,6 @@ impl ComponentDeclarationEpilogueSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ComponentDeclarationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for ComponentDeclarationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ComponentDeclarationItems,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "generic_clause",
-                kind: LayoutItemKind::Node(NodeKind::GenericClause),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "port_clause",
-                kind: LayoutItemKind::Node(NodeKind::PortClause),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ComponentDeclarationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ComponentDeclarationItemsSyntax {
-    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericClauseSyntax::cast)
-            .nth(0)
-    }
-    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
-        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

@@ -2532,7 +2532,8 @@ impl From<ComponentConfigurationPreambleBuilder> for ComponentConfigurationPream
 }
 pub struct ComponentDeclarationBuilder {
     component_declaration_preamble: ComponentDeclarationPreambleSyntax,
-    component_declaration_items: Option<ComponentDeclarationItemsSyntax>,
+    generic_clause: Option<GenericClauseSyntax>,
+    port_clause: Option<PortClauseSyntax>,
     component_declaration_epilogue: ComponentDeclarationEpilogueSyntax,
 }
 impl ComponentDeclarationBuilder {
@@ -2541,7 +2542,8 @@ impl ComponentDeclarationBuilder {
     ) -> Self {
         Self {
             component_declaration_preamble: component_declaration_preamble.into(),
-            component_declaration_items: None,
+            generic_clause: None,
+            port_clause: None,
             component_declaration_epilogue: ComponentDeclarationEpilogueBuilder::default().build(),
         }
     }
@@ -2552,11 +2554,12 @@ impl ComponentDeclarationBuilder {
         self.component_declaration_preamble = n.into();
         self
     }
-    pub fn with_component_declaration_items(
-        mut self,
-        n: impl Into<ComponentDeclarationItemsSyntax>,
-    ) -> Self {
-        self.component_declaration_items = Some(n.into());
+    pub fn with_generic_clause(mut self, n: impl Into<GenericClauseSyntax>) -> Self {
+        self.generic_clause = Some(n.into());
+        self
+    }
+    pub fn with_port_clause(mut self, n: impl Into<PortClauseSyntax>) -> Self {
+        self.port_clause = Some(n.into());
         self
     }
     pub fn with_component_declaration_epilogue(
@@ -2570,7 +2573,10 @@ impl ComponentDeclarationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ComponentDeclaration);
         builder.push_node(self.component_declaration_preamble.raw().green().clone());
-        if let Some(n) = self.component_declaration_items {
+        if let Some(n) = self.generic_clause {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.port_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.component_declaration_epilogue.raw().green().clone());
@@ -2656,50 +2662,6 @@ impl ComponentDeclarationEpilogueBuilder {
 }
 impl From<ComponentDeclarationEpilogueBuilder> for ComponentDeclarationEpilogueSyntax {
     fn from(value: ComponentDeclarationEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ComponentDeclarationItemsBuilder {
-    generic_clause: Option<GenericClauseSyntax>,
-    port_clause: Option<PortClauseSyntax>,
-}
-impl Default for ComponentDeclarationItemsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ComponentDeclarationItemsBuilder {
-    pub fn new() -> Self {
-        Self {
-            generic_clause: None,
-            port_clause: None,
-        }
-    }
-    pub fn with_generic_clause(mut self, n: impl Into<GenericClauseSyntax>) -> Self {
-        self.generic_clause = Some(n.into());
-        self
-    }
-    pub fn with_port_clause(mut self, n: impl Into<PortClauseSyntax>) -> Self {
-        self.port_clause = Some(n.into());
-        self
-    }
-    pub fn build(self) -> ComponentDeclarationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ComponentDeclarationItems);
-        if let Some(n) = self.generic_clause {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.port_clause {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ComponentDeclarationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<ComponentDeclarationItemsBuilder> for ComponentDeclarationItemsSyntax {
-    fn from(value: ComponentDeclarationItemsBuilder) -> Self {
         value.build()
     }
 }

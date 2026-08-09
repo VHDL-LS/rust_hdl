@@ -229,7 +229,8 @@ AttributeDeclaration =
 
 ComponentDeclaration =
   component_declaration_preamble:('component' name:'#identifier' 'is'?)
-  component_declaration_items:(GenericClause? PortClause?)?
+  GenericClause?
+  PortClause?
   component_declaration_epilogue:('end' 'component' '#identifier'? ';')
 
 ConstantDeclaration =

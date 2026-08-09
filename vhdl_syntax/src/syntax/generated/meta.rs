@@ -57,7 +57,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ComponentConfigurationPreamble => ComponentConfigurationPreambleSyntax::META,
         NodeKind::ComponentDeclaration => ComponentDeclarationSyntax::META,
         NodeKind::ComponentDeclarationEpilogue => ComponentDeclarationEpilogueSyntax::META,
-        NodeKind::ComponentDeclarationItems => ComponentDeclarationItemsSyntax::META,
         NodeKind::ComponentDeclarationPreamble => ComponentDeclarationPreambleSyntax::META,
         NodeKind::ComponentInstantiationStatement => ComponentInstantiationStatementSyntax::META,
         NodeKind::ComponentSpecification => ComponentSpecificationSyntax::META,

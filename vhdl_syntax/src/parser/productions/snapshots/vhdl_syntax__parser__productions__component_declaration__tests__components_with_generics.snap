@@ -7,23 +7,22 @@ ComponentDeclaration
     Keyword(Component)
     Identifier 'foo'
     Keyword(Is)
-  ComponentDeclarationItems
-    GenericClause
-      GenericClausePreamble
-        Keyword(Generic)
-        LeftPar
-      InterfaceList
-        InterfaceObjectDeclaration
-          IdentifierList
-            Identifier 'foo'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'natural'
-      GenericClauseEpilogue
-        RightPar
-        SemiColon
+  GenericClause
+    GenericClausePreamble
+      Keyword(Generic)
+      LeftPar
+    InterfaceList
+      InterfaceObjectDeclaration
+        IdentifierList
+          Identifier 'foo'
+        Colon
+        SubtypeIndication
+          Name
+            NameDesignatorPrefix
+              Identifier 'natural'
+    GenericClauseEpilogue
+      RightPar
+      SemiColon
   ComponentDeclarationEpilogue
     Keyword(End)
     Keyword(Component)

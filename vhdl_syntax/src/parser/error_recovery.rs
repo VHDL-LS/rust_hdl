@@ -273,7 +273,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::CaseStatementAlternative
         | NodeKind::ComponentConfiguration
         | NodeKind::ComponentConfigurationItems
-        | NodeKind::ComponentDeclarationItems
         | NodeKind::CompoundConfigurationSpecificationItems
         | NodeKind::ConfigurationDeclarationItems
         | NodeKind::ElementDeclaration
