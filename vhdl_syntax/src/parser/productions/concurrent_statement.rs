@@ -234,7 +234,9 @@ impl Parser {
 
     pub fn concurrent_selected_signal_assignment(&mut self) {
         self.start_node(ConcurrentSelectedSignalAssignment);
-        self.concurrent_selected_signal_assignment_preamble();
+        self.opt_label();
+        self.opt_token(Keyword(Kw::Postponed));
+        self.selected_assignment_preamble();
         self.target();
         self.expect_token(LTE);
         self.opt_token(Keyword(Kw::Guarded));
@@ -244,10 +246,8 @@ impl Parser {
         self.end_node();
     }
 
-    pub fn concurrent_selected_signal_assignment_preamble(&mut self) {
-        self.start_node(ConcurrentSelectedSignalAssignmentPreamble);
-        self.opt_label();
-        self.opt_token(Keyword(Kw::Postponed));
+    pub fn selected_assignment_preamble(&mut self) {
+        self.start_node(SelectedAssignmentPreamble);
         self.expect_kw(Kw::With);
         self.expression();
         self.expect_kw(Kw::Select);

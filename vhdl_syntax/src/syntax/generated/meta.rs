@@ -79,9 +79,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ConcurrentSelectedSignalAssignment => {
             ConcurrentSelectedSignalAssignmentSyntax::META
         }
-        NodeKind::ConcurrentSelectedSignalAssignmentPreamble => {
-            ConcurrentSelectedSignalAssignmentPreambleSyntax::META
-        }
         NodeKind::ConcurrentSimpleSignalAssignment => ConcurrentSimpleSignalAssignmentSyntax::META,
         NodeKind::ConcurrentStatements => ConcurrentStatementsSyntax::META,
         NodeKind::ConditionClause => ConditionClauseSyntax::META,

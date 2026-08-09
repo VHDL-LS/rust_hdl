@@ -3604,10 +3604,22 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
         kind: NodeKind::ConcurrentSelectedSignalAssignment,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "postponed",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "concurrent_selected_signal_assignment_preamble",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentSelectedSignalAssignmentPreamble),
+                name: "selected_assignment_preamble",
+                kind: LayoutItemKind::Node(NodeKind::SelectedAssignmentPreamble),
             },
             LayoutItem {
                 optional: false,
@@ -3661,12 +3673,19 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
     }
 }
 impl ConcurrentSelectedSignalAssignmentSyntax {
-    pub fn concurrent_selected_signal_assignment_preamble(
-        &self,
-    ) -> Option<ConcurrentSelectedSignalAssignmentPreambleSyntax> {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn postponed_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
+            .nth(0)
+    }
+    pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
             .children()
-            .filter_map(ConcurrentSelectedSignalAssignmentPreambleSyntax::cast)
+            .filter_map(SelectedAssignmentPreambleSyntax::cast)
             .nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
@@ -3700,98 +3719,6 @@ impl ConcurrentSelectedSignalAssignmentSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConcurrentSelectedSignalAssignmentPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConcurrentSelectedSignalAssignmentPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConcurrentSelectedSignalAssignmentPreamble,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "postponed",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Postponed)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "with",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::With)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "select",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Select)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "que",
-                kind: LayoutItemKind::Token(TokenKind::Que),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConcurrentSelectedSignalAssignmentPreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConcurrentSelectedSignalAssignmentPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn postponed_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Postponed))
-            .nth(0)
-    }
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::With))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Select))
-            .nth(0)
-    }
-    pub fn que_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Que)
             .nth(0)
     }
 }

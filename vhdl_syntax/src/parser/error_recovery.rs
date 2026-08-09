@@ -401,8 +401,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Keyword(Kw::Library),
             Keyword(Kw::Use),
         ],
-        NodeKind::ConcurrentSelectedSignalAssignmentPreamble
-        | NodeKind::SelectedAssignmentPreamble => {
+        NodeKind::SelectedAssignmentPreamble => {
             &[CharacterLiteral, Identifier, LeftPar, LtLt, StringLiteral]
         }
         NodeKind::Signature => &[Colon, Comma, Keyword(Kw::Generic), SemiColon, Tick],

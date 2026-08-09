@@ -3363,8 +3363,9 @@ impl From<ConcurrentProcedureCallOrComponentInstantiationStatementBuilder>
     }
 }
 pub struct ConcurrentSelectedSignalAssignmentBuilder {
-    concurrent_selected_signal_assignment_preamble:
-        ConcurrentSelectedSignalAssignmentPreambleSyntax,
+    label: Option<LabelSyntax>,
+    postponed_token: Option<Token>,
+    selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     lte_token: Token,
     guarded_token: Option<Token>,
@@ -3374,14 +3375,13 @@ pub struct ConcurrentSelectedSignalAssignmentBuilder {
 }
 impl ConcurrentSelectedSignalAssignmentBuilder {
     pub fn new(
-        concurrent_selected_signal_assignment_preamble: impl Into<
-            ConcurrentSelectedSignalAssignmentPreambleSyntax,
-        >,
+        selected_assignment_preamble: impl Into<SelectedAssignmentPreambleSyntax>,
         target: impl Into<TargetSyntax>,
     ) -> Self {
         Self {
-            concurrent_selected_signal_assignment_preamble:
-                concurrent_selected_signal_assignment_preamble.into(),
+            label: None,
+            postponed_token: None,
+            selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
             guarded_token: None,
@@ -3390,11 +3390,26 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_concurrent_selected_signal_assignment_preamble(
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
+    }
+    pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
+        self.postponed_token = Some(t.into());
+        self
+    }
+    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+        let tok = self
+            .postponed_token
+            .get_or_insert_with(|| Kw::Postponed.canonical_token());
+        tok.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_selected_assignment_preamble(
         mut self,
-        n: impl Into<ConcurrentSelectedSignalAssignmentPreambleSyntax>,
+        n: impl Into<SelectedAssignmentPreambleSyntax>,
     ) -> Self {
-        self.concurrent_selected_signal_assignment_preamble = n.into();
+        self.selected_assignment_preamble = n.into();
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -3439,12 +3454,13 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
     pub fn build(self) -> ConcurrentSelectedSignalAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentSelectedSignalAssignment);
-        builder.push_node(
-            self.concurrent_selected_signal_assignment_preamble
-                .raw()
-                .green()
-                .clone(),
-        );
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(t) = self.postponed_token {
+            builder.push(t);
+        }
+        builder.push_node(self.selected_assignment_preamble.raw().green().clone());
         builder.push_node(self.target.raw().green().clone());
         builder.push(self.lte_token);
         if let Some(t) = self.guarded_token {
@@ -3465,99 +3481,6 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
 }
 impl From<ConcurrentSelectedSignalAssignmentBuilder> for ConcurrentSelectedSignalAssignmentSyntax {
     fn from(value: ConcurrentSelectedSignalAssignmentBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConcurrentSelectedSignalAssignmentPreambleBuilder {
-    label: Option<LabelSyntax>,
-    postponed_token: Option<Token>,
-    with_token: Token,
-    expression: ExpressionSyntax,
-    select_token: Token,
-    que_token: Option<Token>,
-}
-impl ConcurrentSelectedSignalAssignmentPreambleBuilder {
-    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            label: None,
-            postponed_token: None,
-            with_token: Kw::With.canonical_token(),
-            expression: expression.into(),
-            select_token: Kw::Select.canonical_token(),
-            que_token: None,
-        }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
-        self
-    }
-    pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
-        self.postponed_token = Some(t.into());
-        self
-    }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .postponed_token
-            .get_or_insert_with(|| Kw::Postponed.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_with_token(mut self, t: impl Into<Token>) -> Self {
-        self.with_token = t.into();
-        self
-    }
-    pub fn with_with_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.with_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn with_select_token(mut self, t: impl Into<Token>) -> Self {
-        self.select_token = t.into();
-        self
-    }
-    pub fn with_select_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.select_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_que_token(mut self, t: impl Into<Token>) -> Self {
-        self.que_token = Some(t.into());
-        self
-    }
-    pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .que_token
-            .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> ConcurrentSelectedSignalAssignmentPreambleSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConcurrentSelectedSignalAssignmentPreamble);
-        if let Some(n) = self.label {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(t) = self.postponed_token {
-            builder.push(t);
-        }
-        builder.push(self.with_token);
-        builder.push_node(self.expression.raw().green().clone());
-        builder.push(self.select_token);
-        if let Some(t) = self.que_token {
-            builder.push(t);
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConcurrentSelectedSignalAssignmentPreambleSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConcurrentSelectedSignalAssignmentPreambleBuilder>
-    for ConcurrentSelectedSignalAssignmentPreambleSyntax
-{
-    fn from(value: ConcurrentSelectedSignalAssignmentPreambleBuilder) -> Self {
         value.build()
     }
 }

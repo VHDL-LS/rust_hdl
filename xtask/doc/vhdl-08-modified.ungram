@@ -69,12 +69,14 @@ ConcurrentConditionalSignalAssignment =
   ';'
 
 ConcurrentSelectedSignalAssignment =
-  concurrent_selected_signal_assignment_preamble:(Label? 'postponed'? 'with' Expression 'select' '?'?)
+  Label?
+  'postponed'?
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   'guarded'?
   DelayMechanism?
-  SelectedWaveforms?
+  SelectedWaveforms
   ';'
 
 ConcurrentStatement =
@@ -868,7 +870,7 @@ SelectedExpressions =
   selected_expression_item:(Expression 'when' Choices?)* ','*
 
 SelectedForceAssignment =
-  SelectedAssignmentPreamble
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   'force'
@@ -883,18 +885,15 @@ SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
 
 SelectedVariableAssignment =
-  SelectedAssignmentPreamble Target ':=' SelectedExpressions? ';'
+  selected_assignment_preamble:('with' Expression 'select' '?'?) Target ':=' SelectedExpressions? ';'
 
 SelectedWaveformAssignment =
-  SelectedAssignmentPreamble
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   DelayMechanism?
   SelectedWaveforms?
   ';'
-
-SelectedAssignmentPreamble =
-  'with' Expression 'select' '?'?
 
 SensitivityClause =
   'on' NameList?

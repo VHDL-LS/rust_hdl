@@ -313,13 +313,7 @@ impl Parser {
             Keyword(Kw::Null) => self.null_statement(),
             Keyword(Kw::With) => {
                 let checkpoint = self.checkpoint();
-                self.start_node(SelectedAssignmentPreamble);
-                self.opt_label();
-                self.skip();
-                self.expression();
-                self.expect_kw(Kw::Select);
-                self.opt_token(Que);
-                self.end_node();
+                self.selected_assignment_preamble();
                 self.target();
                 match self.peek_token() {
                     LTE => {

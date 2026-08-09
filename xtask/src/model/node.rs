@@ -304,12 +304,17 @@ pub struct Model {
 impl Model {
     pub fn push_node(&mut self, node: impl Into<Node>) {
         let node = node.into();
-        if let Some(previous) = self.nodes.insert(node.name().clone(), node) {
-            panic!(
-                "Node {} is defined twice. A production name and the label of an inlined group \
-                 share one namespace, so both must be unique across the whole grammar.",
-                previous.name()
-            );
+        if let Some(previous) = self.nodes.insert(node.name().clone(), node.clone()) {
+            if previous != node {
+                panic!(
+                    "Node {} is defined twice with different content. A production name and the \
+                    label of an inlined group share one namespace, so one name always means one \
+                    node: repeating a construct at several use sites is fine, but every \
+                    definition of {} must be spelled identically.",
+                    previous.name(),
+                    previous.name()
+                );
+            }
         }
     }
 
