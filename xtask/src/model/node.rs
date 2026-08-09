@@ -297,17 +297,7 @@ pub struct Model {
 
 impl Model {
     pub fn push_node(&mut self, node: impl Into<Node>) {
-        let new_node = node.into();
-        if let Some(old_node) = self.all_nodes().find(|node| node.name() == new_node.name()) {
-            assert_eq!(
-                &new_node,
-                old_node,
-                "Node {} defined multiple, non-identical times",
-                new_node.name()
-            );
-            return;
-        }
-        self.nodes.push(new_node);
+        self.nodes.push(node.into());
     }
 
     pub fn nodes(&self) -> &[Node] {
@@ -455,15 +445,6 @@ impl Model {
     pub fn check_all_nodes_exist(&self) {
         let defined = self.collect_all_node_kinds();
         let referenced = self.collect_referenced_nodes();
-
-        let referenced_not_defined: Vec<_> = referenced.difference(&defined).collect();
-        if !referenced_not_defined.is_empty() {
-            println!("The following nodes are referenced, but not defined:");
-            for node in referenced_not_defined {
-                println!("{node}");
-            }
-            panic!()
-        }
 
         let mut defined_not_referenced: HashSet<_> = defined.difference(&referenced).collect();
         let top_node = NodeKind::from("DesignFile");
