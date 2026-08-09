@@ -7,7 +7,8 @@
 use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Field, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind,
+    ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens, SequenceNode,
+    TokenKind,
 };
 use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
@@ -60,7 +61,7 @@ fn generate_rust_struct(node: &Node) -> TokenStream {
 }
 
 /// Generate the struct `struct FooSyntax(SyntaxNode)`
-fn generate_syntax_node_struct(name: &str) -> TokenStream {
+fn generate_syntax_node_struct(name: &NodeKind) -> TokenStream {
     let struct_name = syntax_type_ident(name);
     quote! {
         #[derive(Debug, Clone)]
@@ -94,7 +95,7 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
         NodesOrTokens::Tokens(tokens) => tokens
             .iter()
             .map(|kind| {
-                let variant = variant_ident(&kind.default_name());
+                let variant = variant_ident(kind.default_name());
                 quote! { #variant(SyntaxToken) }
             })
             .collect(),
@@ -117,7 +118,7 @@ fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
     }
 }
 
-fn generate_sequence_ast_impl(name: &str, meta_items: &[TokenStream]) -> TokenStream {
+fn generate_sequence_ast_impl(name: &NodeKind, meta_items: &[TokenStream]) -> TokenStream {
     let struct_name = syntax_type_ident(name);
     let node_kind = node_kind_ident(name);
     quote! {
@@ -185,14 +186,14 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                 .iter()
                 .map(|kind| {
                     let kind_expr = token_kind_path(kind);
-                    let variant = variant_ident(&kind.default_name());
+                    let variant = variant_ident(kind.default_name());
                     quote! { #kind_expr => Some(#enum_name::#variant(token)) }
                 })
                 .collect();
             let raw_branches: Vec<_> = tokens
                 .iter()
                 .map(|kind| {
-                    let variant = variant_ident(&kind.default_name());
+                    let variant = variant_ident(kind.default_name());
                     quote! { #enum_name::#variant(token) => token.clone() }
                 })
                 .collect();
@@ -221,9 +222,9 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
 /// for a named node, expanding nested choice nodes as needed.
 /// `visited` guards against hypothetical cycles in the choice graph.
 fn collect_concrete_node_kinds(
-    name: &str,
+    name: &NodeKind,
     model: &Model,
-    visited: &mut HashSet<String>,
+    visited: &mut HashSet<NodeKind>,
 ) -> Vec<TokenStream> {
     if !visited.insert(name.to_owned()) {
         return vec![];
@@ -272,7 +273,7 @@ fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
 }
 
 /// Produce the `LayoutItemKind::…` expression for a node reference.
-fn layout_item_kind_for_node_ref(node_kind: &str, model: &Model) -> TokenStream {
+fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenStream {
     let target = model
         .all_nodes()
         .find(|n| n.name() == node_kind)
@@ -326,7 +327,7 @@ fn build_getter(item: &Field, model: &Model) -> TokenStream {
     }
 }
 
-fn build_node_getter(item: &Field, node_kind: &str, model: &Model) -> TokenStream {
+fn build_node_getter(item: &Field, node_kind: &NodeKind, model: &Model) -> TokenStream {
     let fn_name = format_ident!("{}", item.getter_name());
     let syntax = syntax_type_ident(node_kind);
     let nth = Literal::usize_unsuffixed(item.nth);
@@ -385,7 +386,7 @@ fn generate_node_kind_enum(model: &Model) -> TokenStream {
     let mut choices = model
         .collect_all_sequence_node_kinds()
         .into_iter()
-        .map(|kind| format_ident!("{}", kind))
+        .map(|kind| format_ident!("{}", kind.as_str()))
         .collect::<Vec<_>>();
     choices.sort();
     quote! {
@@ -417,14 +418,14 @@ fn generate_mod() -> TokenStream {
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{ChoiceNode, Field, Model, Node, NodesOrTokens, SequenceNode};
+    use crate::model::{ChoiceNode, Field, Model, Node, NodeKind, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
 
         // A token-choice node: RelOp -> { EQ | NE }
         let choice = ChoiceNode {
-            name: "RelOp".to_string(),
+            name: NodeKind::from("RelOp"),
             items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));

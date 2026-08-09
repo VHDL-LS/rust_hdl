@@ -24,7 +24,7 @@ pub fn load_model(file: &Path) -> Model {
 
     for node in grammar.iter() {
         let data = &grammar[node];
-        let node = map_rule(data.name.clone(), &data.rule, &grammar);
+        let node = map_rule(NodeKind::from(data.name.clone()), &data.rule, &grammar);
         model.push_node(node);
     }
 
@@ -82,7 +82,7 @@ fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
     );
 }
 
-fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Node {
+fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Node {
     match rule {
         ungrammar::Rule::Labeled { .. } => {
             panic!("Production {name} is a single labelled item; drop the label, the production name is the label")
@@ -91,7 +91,7 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
         | ungrammar::Rule::Token(_)
         | ungrammar::Rule::Rep(_)
         | ungrammar::Rule::Opt(_) => {
-            let mapped = map_single(&name, rule, grammar);
+            let mapped = map_single(name.as_str(), rule, grammar);
             Node::Items(SequenceNode {
                 name,
                 items: vec![mapped],
@@ -100,7 +100,7 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
         ungrammar::Rule::Seq(rules) => {
             let mut mapped = Vec::new();
             for rule in rules {
-                let mut next = map_single(&name, rule, grammar);
+                let mut next = map_single(name.as_str(), rule, grammar);
                 let nth = mapped
                     .iter()
                     .filter(|el: &&Field| el.kind == next.kind)
@@ -116,14 +116,14 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
         ungrammar::Rule::Alt(rules) => {
             let mapped = rules
                 .iter()
-                .map(|rule| map_single(&name, rule, grammar))
+                .map(|rule| map_single(name.as_str(), rule, grammar))
                 .collect::<Vec<_>>();
             let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
                     .iter()
                     .map(|rule| {
                         let kind = rule.as_node_kind().expect("checked above");
-                        assert_bare_alternative(&name, kind, rule);
+                        assert_bare_alternative(name.as_str(), kind.as_str(), rule);
                         kind.to_owned()
                     })
                     .collect()
@@ -132,7 +132,7 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
                     .iter()
                     .map(|rule| {
                         let kind = *rule.as_token_kind().expect("checked above");
-                        assert_bare_alternative(&name, &kind.default_name(), rule);
+                        assert_bare_alternative(name.as_str(), &kind.default_name(), rule);
                         kind
                     })
                     .collect()

@@ -10,7 +10,8 @@ use crate::generate::naming::{
 };
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Field, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind,
+    ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens, SequenceNode,
+    TokenKind,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -107,7 +108,7 @@ fn domain_type(kind: &TokenKind) -> Option<TokenStream> {
 /// Returns true when a sequence item can be default-constructed: optional and repeated items
 /// default to absent/empty, tokens with canonical text to that text and node references to the
 /// referenced node's own default (when it has one).
-fn is_defaultable_item(item: &Field, defaultable: &HashSet<String>) -> bool {
+fn is_defaultable_item(item: &Field, defaultable: &HashSet<NodeKind>) -> bool {
     if item.optional || item.repeated {
         return true;
     }
@@ -123,8 +124,8 @@ fn is_defaultable_item(item: &Field, defaultable: &HashSet<String>) -> bool {
 /// (and therefore implement `Default`).
 ///
 /// Because defaultability is self-referential we compute it via fixed-point iteration.
-fn compute_defaultable_nodes(model: &Model) -> HashSet<String> {
-    let mut defaultable: HashSet<String> = HashSet::new();
+fn compute_defaultable_nodes(model: &Model) -> HashSet<NodeKind> {
+    let mut defaultable: HashSet<NodeKind> = HashSet::new();
 
     loop {
         let prev_size = defaultable.len();
@@ -228,7 +229,7 @@ struct ItemDescriptor {
     build_stmt: TokenStream,
 }
 
-fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<String>) -> ItemDescriptor {
+fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -> ItemDescriptor {
     let is_ctor_arg = !is_defaultable_item(item, defaultable);
     match &item.kind {
         NodeOrTokenKind::Token(token_kind) => {
@@ -439,7 +440,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<String>) -> 
 fn generate_builder(
     node: &SequenceNode,
     model: &Model,
-    defaultable: &HashSet<String>,
+    defaultable: &HashSet<NodeKind>,
 ) -> TokenStream {
     let builder = builder_ident(&node.name);
     let syntax = syntax_type_ident(&node.name);
@@ -512,7 +513,7 @@ fn generate_builder(
 
 /// Generates `pub struct XyzToken(pub(crate) Token)` with named constructors and
 /// `From` impls for each token-choice choice node.
-fn generate_token_choice_token(name: &str, tokens: &[TokenKind]) -> TokenStream {
+fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenStream {
     let token_name = token_type_ident(name);
     let syntax_name = syntax_type_ident(name);
 
@@ -520,7 +521,7 @@ fn generate_token_choice_token(name: &str, tokens: &[TokenKind]) -> TokenStream 
     let constructors: Vec<TokenStream> = tokens
         .iter()
         .map(|kind| {
-            let method = method_ident(&kind.default_name());
+            let method = method_ident(kind.default_name());
             if let Some(domain) = domain_type(kind) {
                 quote! {
                     pub fn #method(v: impl Into<#domain>) -> Self {
@@ -553,7 +554,7 @@ fn generate_token_choice_token(name: &str, tokens: &[TokenKind]) -> TokenStream 
         .iter()
         .filter_map(|kind| {
             let domain = domain_type(kind)?;
-            let method = method_ident(&kind.default_name());
+            let method = method_ident(kind.default_name());
             Some(quote! {
                 impl From<#domain> for #token_name {
                     fn from(v: #domain) -> Self {
@@ -578,14 +579,14 @@ fn generate_token_choice_token(name: &str, tokens: &[TokenKind]) -> TokenStream 
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{ChoiceNode, Field, Node, NodesOrTokens, SequenceNode};
+    use crate::model::{ChoiceNode, Field, Node, NodeKind, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
 
         // A token-choice node (no builder generated for this, but used as a child)
         let choice = ChoiceNode {
-            name: "RelOp".to_string(),
+            name: NodeKind::from("RelOp"),
             items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));
@@ -706,8 +707,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![Field::token(TokenKind::SemiColon)
-                .make_optional()],
+            vec![Field::token(TokenKind::SemiColon).make_optional()],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -730,8 +730,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![Field::token(TokenKind::SemiColon)
-                .make_repeated()],
+            vec![Field::token(TokenKind::SemiColon).make_repeated()],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();

@@ -6,11 +6,53 @@
 
 use crate::model::TokenKind;
 use convert_case::{Case, Casing};
+use std::borrow::Borrow;
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+
+/// The name of a production in the grammar, i.e. the kind of a syntax node.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
+pub struct NodeKind(String);
+
+impl NodeKind {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for NodeKind {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for NodeKind {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Display for NodeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl From<String> for NodeKind {
+    fn from(value: String) -> Self {
+        NodeKind(value)
+    }
+}
+
+impl From<&str> for NodeKind {
+    fn from(value: &str) -> Self {
+        NodeKind(value.to_owned())
+    }
+}
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodeOrTokenKind {
-    Node(String),
+    Node(NodeKind),
     Token(TokenKind),
 }
 
@@ -35,10 +77,10 @@ impl Field {
         }
     }
 
-    pub fn node(kind: impl Into<String>) -> Field {
+    pub fn node(kind: impl Into<NodeKind>) -> Field {
         let kind = kind.into();
         Field {
-            name: kind.clone(),
+            name: kind.as_str().to_owned(),
             kind: NodeOrTokenKind::Node(kind),
             repeated: false,
             nth: 0,
@@ -91,7 +133,7 @@ impl Field {
     }
 
     /// The kind of the referenced node, or `None` when this item references a token.
-    pub fn as_node_kind(&self) -> Option<&str> {
+    pub fn as_node_kind(&self) -> Option<&NodeKind> {
         match &self.kind {
             NodeOrTokenKind::Node(kind) => Some(kind),
             NodeOrTokenKind::Token(_) => None,
@@ -112,10 +154,10 @@ pub enum Node {
 }
 
 impl Node {
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &NodeKind {
         match self {
-            Node::Items(items) => items.name.clone(),
-            Node::Choices(choices) => choices.name.clone(),
+            Node::Items(items) => &items.name,
+            Node::Choices(choices) => &choices.name,
         }
     }
 
@@ -151,7 +193,7 @@ impl From<ChoiceNode> for Node {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct SequenceNode {
-    pub name: String,
+    pub name: NodeKind,
     pub items: Vec<Field>,
 }
 
@@ -159,7 +201,7 @@ pub struct SequenceNode {
 impl SequenceNode {
     /// Test-only convenience constructor. Production code builds `SequenceNode`s in
     /// [`crate::model::load_model`], which takes the name verbatim from the ungrammar.
-    pub fn new(name: impl Into<String>, items: Vec<Field>) -> SequenceNode {
+    pub fn new(name: impl Into<NodeKind>, items: Vec<Field>) -> SequenceNode {
         SequenceNode {
             name: name.into(),
             items,
@@ -170,14 +212,14 @@ impl SequenceNode {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodesOrTokens {
     /// The alternatives of a node choice, as node kinds.
-    Nodes(Vec<String>),
+    Nodes(Vec<NodeKind>),
     /// The alternatives of a token choice, as token kinds. Same rule as [`NodesOrTokens::Nodes`]:
     /// an alternative is always a bare token reference.
     Tokens(Vec<TokenKind>),
 }
 
-impl FromIterator<String> for NodesOrTokens {
-    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
+impl FromIterator<NodeKind> for NodesOrTokens {
+    fn from_iter<T: IntoIterator<Item = NodeKind>>(iter: T) -> Self {
         NodesOrTokens::Nodes(iter.into_iter().collect())
     }
 }
@@ -190,7 +232,7 @@ impl FromIterator<TokenKind> for NodesOrTokens {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ChoiceNode {
-    pub name: String,
+    pub name: NodeKind,
     pub items: NodesOrTokens,
 }
 
@@ -198,7 +240,7 @@ pub struct ChoiceNode {
 pub struct Model {
     pub(crate) nodes: Vec<Node>,
     /// Set of node kinds whose choices are all tokens.
-    pub(crate) token_choice_kinds: HashSet<String>,
+    pub(crate) token_choice_kinds: HashSet<NodeKind>,
 }
 
 impl Model {
@@ -221,7 +263,7 @@ impl Model {
     }
 
     /// Returns true if the given node kind is a choice node whose choices are all tokens.
-    pub fn is_token_choice(&self, kind: &str) -> bool {
+    pub fn is_token_choice(&self, kind: &NodeKind) -> bool {
         self.token_choice_kinds.contains(kind)
     }
 
@@ -244,8 +286,8 @@ impl Model {
     /// Nodes with canonical-text tokens (keywords, symbols) are **not** empty-capable because
     /// those tokens are always emitted. The computation is a fixed-point iteration to handle
     /// transitive cases.
-    pub fn compute_empty_capable_nodes(&self) -> HashSet<String> {
-        let mut empty_capable: HashSet<String> = HashSet::new();
+    pub fn compute_empty_capable_nodes(&self) -> HashSet<NodeKind> {
+        let mut empty_capable: HashSet<NodeKind> = HashSet::new();
         loop {
             let prev_size = empty_capable.len();
             for node in self.all_nodes() {
@@ -300,13 +342,13 @@ impl Model {
         // `Option<T>` rather than causing a model inconsistency. The semantic "must be present"
         // constraint is enforced by the parser and the analysis layer.
         let empty_capable = self.compute_empty_capable_nodes();
-        let mut violations: Vec<(String, String)> = vec![];
+        let mut violations: Vec<(&NodeKind, &NodeKind)> = vec![];
         for node in self.all_nodes() {
             if let Node::Items(seq) = node {
                 for item in &seq.items {
                     if let NodeOrTokenKind::Node(kind) = &item.kind {
                         if !item.optional && !item.repeated && empty_capable.contains(kind) {
-                            violations.push((seq.name.clone(), kind.clone()));
+                            violations.push((&seq.name, kind));
                         }
                     }
                 }
@@ -337,7 +379,7 @@ impl Model {
                 Node::Choices(choices_node) => match &choices_node.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for item in nodes {
-                            let name = item.to_case(Case::Snake);
+                            let name = item.as_str().to_case(Case::Snake);
                             if seen.contains(&name) {
                                 panic!("Duplicate node {} in node {}", name, node.name())
                             }
@@ -372,7 +414,7 @@ impl Model {
         }
 
         let mut defined_not_referenced: HashSet<_> = defined.difference(&referenced).collect();
-        let top_node = "DesignFile".to_owned();
+        let top_node = NodeKind::from("DesignFile");
         assert!(
             defined_not_referenced.contains(&top_node),
             "'DesignFile' is not the top node (was referenced by some other production)"
@@ -409,7 +451,7 @@ impl Model {
     }
 
     /// The number of places (sequence items and choice alternatives) that reference `kind`.
-    pub fn count_uses_of_node(&self, kind: &str) -> usize {
+    pub fn count_uses_of_node(&self, kind: &NodeKind) -> usize {
         let mut uses = 0;
         for node in self.all_nodes() {
             match node {
@@ -437,7 +479,7 @@ impl Model {
         self.token_choice_kinds = self
             .all_nodes()
             .filter(|node| node.is_all_token_choices())
-            .map(|node| node.name())
+            .map(|node| node.name().clone())
             .collect();
     }
 
@@ -464,14 +506,14 @@ impl Model {
         }
     }
 
-    fn collect_referenced_nodes(&self) -> HashSet<String> {
+    fn collect_referenced_nodes(&self) -> HashSet<NodeKind> {
         let mut referenced = HashSet::new();
         for node in self.all_nodes() {
             match node {
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
                         if let Some(kind) = item.as_node_kind() {
-                            referenced.insert(kind.to_owned());
+                            referenced.insert(kind.clone());
                         }
                     }
                 }
@@ -485,14 +527,14 @@ impl Model {
         referenced
     }
 
-    pub fn collect_all_node_kinds(&self) -> HashSet<String> {
-        self.all_nodes().map(|node| node.name()).collect()
+    pub fn collect_all_node_kinds(&self) -> HashSet<NodeKind> {
+        self.all_nodes().map(|node| node.name().clone()).collect()
     }
 
-    pub fn collect_all_sequence_node_kinds(&self) -> HashSet<String> {
+    pub fn collect_all_sequence_node_kinds(&self) -> HashSet<NodeKind> {
         self.all_nodes()
             .filter(|node| matches!(node, Node::Items(_)))
-            .map(|node| node.name())
+            .map(|node| node.name().clone())
             .collect()
     }
 
@@ -509,7 +551,7 @@ mod tests {
         let mut model = Model::default();
         // Add a token-choice node: RelationalOperator -> { EQ | NE | LT }
         let choice = ChoiceNode {
-            name: "RelationalOperator".to_string(),
+            name: NodeKind::from("RelationalOperator"),
             items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));
@@ -523,19 +565,19 @@ mod tests {
     #[test]
     fn is_token_choice_true_for_all_token_choices() {
         let model = make_simple_model();
-        assert!(model.is_token_choice("RelationalOperator"));
+        assert!(model.is_token_choice(&NodeKind::from("RelationalOperator")));
     }
 
     #[test]
     fn is_token_choice_false_for_non_token_choice() {
         let model = make_simple_model();
-        assert!(!model.is_token_choice("DesignFile"));
+        assert!(!model.is_token_choice(&NodeKind::from("DesignFile")));
     }
 
     #[test]
     fn is_token_choice_false_for_unknown() {
         let model = make_simple_model();
-        assert!(!model.is_token_choice("NonExistent"));
+        assert!(!model.is_token_choice(&NodeKind::from("NonExistent")));
     }
 
     /// A node whose items are all repeated is empty-capable.

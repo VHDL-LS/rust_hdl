@@ -37,7 +37,7 @@ fn generate_meta(model: &Model) -> TokenStream {
     let arms: Vec<TokenStream> = entries
         .iter()
         .map(|name| {
-            let nk = format_ident!("{}", name);
+            let nk = format_ident!("{}", name.as_str());
             let syntax = syntax_type_ident(name);
             quote! { NodeKind::#nk => #syntax::META }
         })
