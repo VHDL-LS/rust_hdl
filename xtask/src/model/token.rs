@@ -256,34 +256,9 @@ pub enum Keyword {
     Xor,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
-    /// The name of the token; defines the function-name
-    pub name: String,
-    /// the occurrence of this token, i.e., whether this is the
-    /// 1st, second, third, e.t.c. token in the parent node.
-    pub nth: usize,
-    /// whether this token can occur repeatedly
-    pub repeated: bool,
-    /// whether this token is optional in the grammar
-    pub optional: bool,
-}
-
-impl From<TokenKind> for Token {
-    fn from(kind: TokenKind) -> Self {
-        Token {
-            name: kind.default_name(),
-            kind,
-            repeated: false,
-            nth: 0,
-            optional: false,
-        }
-    }
-}
-
-impl Token {
+impl TokenKind {
+    /// The accessor name for a token of this kind, when it carries no grammar label.
     pub fn getter_name(&self) -> String {
-        format!("{}_token", self.name.to_case(Case::Snake))
+        format!("{}_token", self.default_name().to_case(Case::Snake))
     }
 }

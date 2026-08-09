@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::model::{token::Token, TokenKind};
+use crate::model::TokenKind;
 use convert_case::{Case, Casing};
 use std::collections::HashSet;
 
@@ -20,7 +20,7 @@ pub struct Field {
     pub nth: usize,
     pub repeated: bool,
     pub name: String,
-    /// whether this node is optional in the grammar
+    /// whether this field is optional in the grammar
     pub optional: bool,
 }
 
@@ -97,37 +97,11 @@ impl Field {
             NodeOrTokenKind::Token(_) => None,
         }
     }
-
-    /// Converts into a standalone [`Token`], or `None` when this item references a node.
-    pub fn into_token(self) -> Option<Token> {
-        match self.kind {
-            NodeOrTokenKind::Token(kind) => Some(Token {
-                kind,
-                nth: self.nth,
-                repeated: self.repeated,
-                name: self.name,
-                optional: self.optional,
-            }),
-            NodeOrTokenKind::Node(_) => None,
-        }
-    }
 }
 
-impl From<crate::model::token::TokenKind> for Field {
-    fn from(value: crate::model::token::TokenKind) -> Self {
+impl From<TokenKind> for Field {
+    fn from(value: TokenKind) -> Self {
         Field::token(value)
-    }
-}
-
-impl From<Token> for Field {
-    fn from(value: Token) -> Self {
-        Field {
-            kind: NodeOrTokenKind::Token(value.kind),
-            nth: value.nth,
-            repeated: value.repeated,
-            name: value.name,
-            optional: value.optional,
-        }
     }
 }
 
@@ -197,7 +171,9 @@ impl SequenceNode {
 pub enum NodesOrTokens {
     /// The alternatives of a node choice, as node kinds.
     Nodes(Vec<String>),
-    Tokens(Vec<Token>),
+    /// The alternatives of a token choice, as token kinds. Same rule as [`NodesOrTokens::Nodes`]:
+    /// an alternative is always a bare token reference.
+    Tokens(Vec<TokenKind>),
 }
 
 impl FromIterator<String> for NodesOrTokens {
@@ -206,8 +182,8 @@ impl FromIterator<String> for NodesOrTokens {
     }
 }
 
-impl FromIterator<Token> for NodesOrTokens {
-    fn from_iter<T: IntoIterator<Item = Token>>(iter: T) -> Self {
+impl FromIterator<TokenKind> for NodesOrTokens {
+    fn from_iter<T: IntoIterator<Item = TokenKind>>(iter: T) -> Self {
         NodesOrTokens::Tokens(iter.into_iter().collect())
     }
 }
@@ -534,23 +510,11 @@ mod tests {
         // Add a token-choice node: RelationalOperator -> { EQ | NE | LT }
         let choice = ChoiceNode {
             name: "RelationalOperator".to_string(),
-            items: NodesOrTokens::Tokens(vec![
-                Token::from(crate::model::token::TokenKind::EQ),
-                Token::from(crate::model::token::TokenKind::NE),
-            ]),
+            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));
         // Add a sequence node that references the choice node
-        let seq = SequenceNode::new(
-            "DesignFile",
-            vec![Field {
-                kind: NodeOrTokenKind::Node("RelationalOperator".to_string()),
-                nth: 0,
-                repeated: false,
-                name: "relational_operator".to_string(),
-                optional: false,
-            }],
-        );
+        let seq = SequenceNode::new("DesignFile", vec![Field::node("RelationalOperator")]);
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model
@@ -584,10 +548,7 @@ mod tests {
             vec![Field::node("DesignFile").make_repeated().with_name("items")],
         );
         // DesignFile: required non-canonical token → NOT empty-capable
-        let root = SequenceNode::new(
-            "DesignFile",
-            vec![Field::node("InterfaceList")],
-        );
+        let root = SequenceNode::new("DesignFile", vec![Field::node("InterfaceList")]);
         model.push_node(Node::Items(list));
         model.push_node(Node::Items(root));
         model.do_postprocessing();
@@ -608,12 +569,8 @@ mod tests {
     /// A node with a required canonical-text token is NOT empty-capable.
     #[test]
     fn compute_empty_capable_nodes_canonical_token_not_empty() {
-        use crate::model::token::TokenKind;
         let mut model = Model::default();
-        let seq = SequenceNode::new(
-            "DesignFile",
-            vec![Field::from(Token::from(TokenKind::SemiColon))],
-        );
+        let seq = SequenceNode::new("DesignFile", vec![Field::token(TokenKind::SemiColon)]);
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
@@ -635,10 +592,7 @@ mod tests {
             vec![Field::node("DesignFile").make_repeated().with_name("items")],
         );
         // Root: required (non-optional, non-repeated) reference to empty-capable Leaf → violation
-        let root = SequenceNode::new(
-            "DesignFile",
-            vec![Field::node("Leaf")],
-        );
+        let root = SequenceNode::new("DesignFile", vec![Field::node("Leaf")]);
         model.push_node(Node::Items(leaf));
         model.push_node(Node::Items(root));
         model.do_postprocessing();
@@ -649,14 +603,8 @@ mod tests {
     #[test]
     fn check_empty_capable_repeated_use_is_ok() {
         let mut model = Model::default();
-        let leaf = SequenceNode::new(
-            "Leaf",
-            vec![Field::node("DesignFile").make_repeated()],
-        );
-        let root = SequenceNode::new(
-            "DesignFile",
-            vec![Field::node("Leaf").make_repeated()],
-        );
+        let leaf = SequenceNode::new("Leaf", vec![Field::node("DesignFile").make_repeated()]);
+        let root = SequenceNode::new("DesignFile", vec![Field::node("Leaf").make_repeated()]);
         model.push_node(Node::Items(leaf));
         model.push_node(Node::Items(root));
         model.do_postprocessing();
@@ -670,9 +618,9 @@ mod tests {
         let seq = SequenceNode::new(
             "DesignFile",
             vec![
-                Field::from(Token::from(crate::model::token::TokenKind::EQ)),
+                Field::token(TokenKind::EQ),
                 // Same token kind = same getter name → duplicate
-                Field::from(Token::from(crate::model::token::TokenKind::EQ)),
+                Field::token(TokenKind::EQ),
             ],
         );
         model.push_node(Node::Items(seq));

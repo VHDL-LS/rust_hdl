@@ -37,11 +37,7 @@ pub fn load_model(file: &Path) -> Model {
 
 /// Maps a single grammar item (a node or token reference, possibly labelled, optional or
 /// repeated) onto the model.
-fn map_single(
-    production: &str,
-    rule: &ungrammar::Rule,
-    grammar: &ungrammar::Grammar,
-) -> Field {
+fn map_single(production: &str, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Field {
     match rule {
         ungrammar::Rule::Labeled { label, rule } => {
             map_single(production, rule, grammar).with_name(label)
@@ -59,12 +55,8 @@ fn map_single(
                 .unwrap_or_else(|_| panic!("Invalid token kind {name} in production {production}"));
             Field::token(kind)
         }
-        ungrammar::Rule::Opt(rule) => {
-            map_single(production, rule, grammar).make_optional()
-        }
-        ungrammar::Rule::Rep(rule) => {
-            map_single(production, rule, grammar).make_repeated()
-        }
+        ungrammar::Rule::Opt(rule) => map_single(production, rule, grammar).make_optional(),
+        ungrammar::Rule::Rep(rule) => map_single(production, rule, grammar).make_repeated(),
         // A group is a `Seq` or `Alt` nested inside another rule, which the model cannot
         // represent: every item of a production is a single node or token reference.
         ungrammar::Rule::Seq(_) => panic!(
@@ -78,6 +70,16 @@ fn map_single(
              give the alternation its own named production and reference that instead."
         ),
     }
+}
+
+/// An alternation stores only the kind of each alternative, so anything else the grammar could
+/// attach to it (a label, `?`, `*`) would be silently dropped. Reject it instead.
+fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
+    assert!(
+        item.name == kind && !item.optional && !item.repeated,
+        "Alternative {kind} of production {production} is labelled, optional or repeated; \
+         an alternative must be a bare node or token reference."
+    );
 }
 
 fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) -> Node {
@@ -118,21 +120,21 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
                 .collect::<Vec<_>>();
             let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
-                    .into_iter()
+                    .iter()
                     .map(|rule| {
                         let kind = rule.as_node_kind().expect("checked above");
-                        assert!(
-                            rule.name == kind && !rule.optional && !rule.repeated,
-                            "Alternative {kind} of production {name} is labelled, optional or \
-                             repeated; an alternative must be a bare node reference."
-                        );
+                        assert_bare_alternative(&name, kind, rule);
                         kind.to_owned()
                     })
                     .collect()
             } else if mapped.iter().all(|rule| rule.as_token_kind().is_some()) {
                 mapped
-                    .into_iter()
-                    .map(|rule| rule.into_token().expect("checked above"))
+                    .iter()
+                    .map(|rule| {
+                        let kind = *rule.as_token_kind().expect("checked above");
+                        assert_bare_alternative(&name, &kind.default_name(), rule);
+                        kind
+                    })
                     .collect()
             } else {
                 panic!("Alternations must be either all nodes or all tokens, not a mix. Offending production: {name}");

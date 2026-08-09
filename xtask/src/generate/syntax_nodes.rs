@@ -7,7 +7,7 @@
 use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind, Field,
+    ChoiceNode, Field, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind,
 };
 use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
@@ -93,8 +93,8 @@ fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
             .collect(),
         NodesOrTokens::Tokens(tokens) => tokens
             .iter()
-            .map(|item| {
-                let variant = variant_ident(&item.name);
+            .map(|kind| {
+                let variant = variant_ident(&kind.default_name());
                 quote! { #variant(SyntaxToken) }
             })
             .collect(),
@@ -183,16 +183,16 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
         NodesOrTokens::Tokens(tokens) => {
             let cast_branches: Vec<_> = tokens
                 .iter()
-                .map(|item| {
-                    let kind_expr = token_kind_path(&item.kind);
-                    let variant = variant_ident(&item.name);
+                .map(|kind| {
+                    let kind_expr = token_kind_path(kind);
+                    let variant = variant_ident(&kind.default_name());
                     quote! { #kind_expr => Some(#enum_name::#variant(token)) }
                 })
                 .collect();
             let raw_branches: Vec<_> = tokens
                 .iter()
-                .map(|item| {
-                    let variant = variant_ident(&item.name);
+                .map(|kind| {
+                    let variant = variant_ident(&kind.default_name());
                     quote! { #enum_name::#variant(token) => token.clone() }
                 })
                 .collect();
@@ -289,7 +289,7 @@ fn layout_item_kind_for_node_ref(node_kind: &str, model: &Model) -> TokenStream 
                 quote! { LayoutItemKind::NodeChoice(&[#(#nks),*]) }
             }
             NodesOrTokens::Tokens(toks) => {
-                let tks: Vec<TokenStream> = toks.iter().map(|t| token_kind_path(&t.kind)).collect();
+                let tks: Vec<TokenStream> = toks.iter().map(token_kind_path).collect();
                 quote! { LayoutItemKind::TokenChoice(&[#(#tks),*]) }
             }
         },
@@ -417,9 +417,7 @@ fn generate_mod() -> TokenStream {
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{
-        ChoiceNode, Model, Node, NodesOrTokens, SequenceNode, Token, Field,
-    };
+    use crate::model::{ChoiceNode, Field, Model, Node, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
@@ -427,18 +425,12 @@ mod tests {
         // A token-choice node: RelOp -> { EQ | NE }
         let choice = ChoiceNode {
             name: "RelOp".to_string(),
-            items: NodesOrTokens::Tokens(vec![
-                Token::from(TokenKind::EQ),
-                Token::from(TokenKind::NE),
-            ]),
+            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));
 
         // A sequence node: DesignFile -> [RelOp]
-        let seq = SequenceNode::new(
-            "DesignFile",
-            vec![Field::node("RelOp")],
-        );
+        let seq = SequenceNode::new("DesignFile", vec![Field::node("RelOp")]);
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model

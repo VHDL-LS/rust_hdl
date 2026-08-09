@@ -10,8 +10,7 @@ use crate::generate::naming::{
 };
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, Token, TokenKind,
-    Field,
+    ChoiceNode, Field, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -229,11 +228,7 @@ struct ItemDescriptor {
     build_stmt: TokenStream,
 }
 
-fn describe_item(
-    item: &Field,
-    model: &Model,
-    defaultable: &HashSet<String>,
-) -> ItemDescriptor {
+fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<String>) -> ItemDescriptor {
     let is_ctor_arg = !is_defaultable_item(item, defaultable);
     match &item.kind {
         NodeOrTokenKind::Token(token_kind) => {
@@ -517,23 +512,23 @@ fn generate_builder(
 
 /// Generates `pub struct XyzToken(pub(crate) Token)` with named constructors and
 /// `From` impls for each token-choice choice node.
-fn generate_token_choice_token(name: &str, tokens: &[Token]) -> TokenStream {
+fn generate_token_choice_token(name: &str, tokens: &[TokenKind]) -> TokenStream {
     let token_name = token_type_ident(name);
     let syntax_name = syntax_type_ident(name);
 
     // For ForceModeToken: `fn in() -> ForceModeToken` and `fn out() -> ForceModeToken`
     let constructors: Vec<TokenStream> = tokens
         .iter()
-        .map(|token| {
-            let method = method_ident(&token.name);
-            if let Some(domain) = domain_type(&token.kind) {
+        .map(|kind| {
+            let method = method_ident(&kind.default_name());
+            if let Some(domain) = domain_type(kind) {
                 quote! {
                     pub fn #method(v: impl Into<#domain>) -> Self {
                         Self(v.into().into())
                     }
                 }
             } else {
-                let expr = token_default_expr(&token.kind);
+                let expr = token_default_expr(kind);
                 quote! {
                     pub fn #method() -> Self {
                         Self(#expr)
@@ -556,9 +551,9 @@ fn generate_token_choice_token(name: &str, tokens: &[Token]) -> TokenStream {
     // For `LiteralToken`: From<BitStringLiteral>, From<CharLiteral>, From<StringLiteral>
     let from_domain_impls: Vec<TokenStream> = tokens
         .iter()
-        .filter_map(|token| {
-            let domain = domain_type(&token.kind)?;
-            let method = method_ident(&token.name);
+        .filter_map(|kind| {
+            let domain = domain_type(kind)?;
+            let method = method_ident(&kind.default_name());
             Some(quote! {
                 impl From<#domain> for #token_name {
                     fn from(v: #domain) -> Self {
@@ -583,9 +578,7 @@ fn generate_token_choice_token(name: &str, tokens: &[Token]) -> TokenStream {
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{
-        ChoiceNode, Node, NodesOrTokens, SequenceNode, Token, Field,
-    };
+    use crate::model::{ChoiceNode, Field, Node, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
@@ -593,18 +586,12 @@ mod tests {
         // A token-choice node (no builder generated for this, but used as a child)
         let choice = ChoiceNode {
             name: "RelOp".to_string(),
-            items: NodesOrTokens::Tokens(vec![
-                Token::from(TokenKind::EQ),
-                Token::from(TokenKind::NE),
-            ]),
+            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
         };
         model.push_node(Node::Choices(choice));
 
         // A simple sequence node: DesignFile -> [RelOp]
-        let seq = SequenceNode::new(
-            "DesignFile",
-            vec![Field::node("RelOp".to_string())],
-        );
+        let seq = SequenceNode::new("DesignFile", vec![Field::node("RelOp")]);
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
         model
@@ -619,8 +606,8 @@ mod tests {
         let leaf = SequenceNode::new(
             "DesignFile",
             vec![
-                Field::from(Token::from(TokenKind::SemiColon)),
-                Field::from(Token::from(TokenKind::EQ)),
+                Field::token(TokenKind::SemiColon),
+                Field::token(TokenKind::EQ),
             ],
         );
         model.push_node(Node::Items(leaf));
@@ -630,13 +617,7 @@ mod tests {
             "ParentNode",
             vec![
                 Field::node("DesignFile"),
-                Field::from(Token {
-                    kind: TokenKind::Identifier,
-                    name: "name".to_string(),
-                    nth: 0,
-                    repeated: false,
-                    optional: false,
-                }),
+                Field::token(TokenKind::Identifier).with_name("name"),
             ],
         );
         model.push_node(Node::Items(parent));
@@ -707,10 +688,7 @@ mod tests {
     #[test]
     fn trivia_setter_emitted_for_required_canonical_token() {
         let mut model = Model::default();
-        let seq = SequenceNode::new(
-            "DesignFile",
-            vec![Field::from(Token::from(TokenKind::SemiColon))],
-        );
+        let seq = SequenceNode::new("DesignFile", vec![Field::token(TokenKind::SemiColon)]);
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
 
@@ -728,13 +706,8 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![Field::from(Token {
-                kind: TokenKind::SemiColon,
-                name: "semicolon".to_string(),
-                nth: 0,
-                repeated: false,
-                optional: true,
-            })],
+            vec![Field::token(TokenKind::SemiColon)
+                .make_optional()],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -743,7 +716,7 @@ mod tests {
         let code = gen.generate_files(&model)[0].1.to_string();
 
         assert!(
-            code.contains("with_semicolon_token_trivia"),
+            code.contains("with_semi_colon_token_trivia"),
             "expected trivia setter for optional canonical token:\n{code}"
         );
         assert!(
@@ -757,13 +730,8 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![Field::from(Token {
-                kind: TokenKind::SemiColon,
-                name: "semicolon".to_string(),
-                nth: 0,
-                repeated: true,
-                optional: false,
-            })],
+            vec![Field::token(TokenKind::SemiColon)
+                .make_repeated()],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -772,7 +740,7 @@ mod tests {
         let code = gen.generate_files(&model)[0].1.to_string();
 
         assert!(
-            !code.contains("with_semicolon_token_trivia"),
+            !code.contains("with_semi_colon_token_trivia"),
             "trivia setter should NOT be generated for repeated tokens:\n{code}"
         );
     }
