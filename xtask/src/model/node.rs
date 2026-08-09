@@ -4,33 +4,155 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::model::token::Token;
+use crate::model::{token::Token, TokenKind};
 use convert_case::{Case, Casing};
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TokenOrNode {
-    Node(NodeRef),
-    Token(Token),
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum NodeOrTokenKind {
+    Node(String),
+    Token(TokenKind),
 }
 
-impl From<crate::model::token::TokenKind> for TokenOrNode {
-    fn from(value: crate::model::token::TokenKind) -> Self {
-        TokenOrNode::Token(Token::from(value))
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct Field {
+    pub kind: NodeOrTokenKind,
+    pub nth: usize,
+    pub repeated: bool,
+    pub name: String,
+    /// whether this node is optional in the grammar
+    pub optional: bool,
+}
+
+impl Field {
+    pub fn token(kind: TokenKind) -> Field {
+        Field {
+            name: kind.default_name(),
+            kind: NodeOrTokenKind::Token(kind),
+            repeated: false,
+            nth: 0,
+            optional: false,
+        }
     }
-}
 
-impl From<NodeRef> for TokenOrNode {
-    fn from(value: NodeRef) -> Self {
-        TokenOrNode::Node(value)
+    pub fn node(kind: impl Into<String>) -> Field {
+        let kind = kind.into();
+        Field {
+            name: kind.clone(),
+            kind: NodeOrTokenKind::Node(kind),
+            repeated: false,
+            nth: 0,
+            optional: false,
+        }
     }
-}
 
-impl TokenOrNode {
+    pub fn with_name(self, name: impl Into<String>) -> Field {
+        Field {
+            name: name.into(),
+            ..self
+        }
+    }
+
+    pub fn make_optional(self) -> Field {
+        Field {
+            optional: true,
+            ..self
+        }
+    }
+
+    pub fn make_repeated(mut self) -> Field {
+        if self.as_node_kind().is_some() {
+            // The accessor for a repeated node is plural. Naive, but the only names it
+            // has to handle are the node names in the grammar file.
+            if !self.name.ends_with('s') {
+                self.name.push('s');
+            }
+        }
+
+        Field {
+            repeated: true,
+            ..self
+        }
+    }
+
     pub fn getter_name(&self) -> String {
-        match self {
-            TokenOrNode::Node(node) => node.getter_name(),
-            TokenOrNode::Token(token) => token.getter_name(),
+        match self.kind {
+            NodeOrTokenKind::Node(_) => self.name.to_case(Case::Snake),
+            NodeOrTokenKind::Token(_) => format!("{}_token", self.name.to_case(Case::Snake)),
+        }
+    }
+
+    /// The kind of the referenced token, or `None` when this item references a node.
+    pub fn as_token_kind(&self) -> Option<&TokenKind> {
+        match &self.kind {
+            NodeOrTokenKind::Token(kind) => Some(kind),
+            NodeOrTokenKind::Node(_) => None,
+        }
+    }
+
+    /// The kind of the referenced node, or `None` when this item references a token.
+    pub fn as_node_kind(&self) -> Option<&str> {
+        match &self.kind {
+            NodeOrTokenKind::Node(kind) => Some(kind),
+            NodeOrTokenKind::Token(_) => None,
+        }
+    }
+
+    /// Converts into a standalone [`NodeRef`], or `None` when this item references a token.
+    pub fn into_node_ref(self) -> Option<NodeRef> {
+        match self.kind {
+            NodeOrTokenKind::Node(kind) => Some(NodeRef {
+                kind,
+                nth: self.nth,
+                repeated: self.repeated,
+                name: self.name,
+                optional: self.optional,
+            }),
+            NodeOrTokenKind::Token(_) => None,
+        }
+    }
+
+    /// Converts into a standalone [`Token`], or `None` when this item references a node.
+    pub fn into_token(self) -> Option<Token> {
+        match self.kind {
+            NodeOrTokenKind::Token(kind) => Some(Token {
+                kind,
+                nth: self.nth,
+                repeated: self.repeated,
+                name: self.name,
+                optional: self.optional,
+            }),
+            NodeOrTokenKind::Node(_) => None,
+        }
+    }
+}
+
+impl From<crate::model::token::TokenKind> for Field {
+    fn from(value: crate::model::token::TokenKind) -> Self {
+        Field::token(value)
+    }
+}
+
+impl From<Token> for Field {
+    fn from(value: Token) -> Self {
+        Field {
+            kind: NodeOrTokenKind::Token(value.kind),
+            nth: value.nth,
+            repeated: value.repeated,
+            name: value.name,
+            optional: value.optional,
+        }
+    }
+}
+
+impl From<NodeRef> for Field {
+    fn from(value: NodeRef) -> Self {
+        Field {
+            kind: NodeOrTokenKind::Node(value.kind),
+            nth: value.nth,
+            repeated: value.repeated,
+            name: value.name,
+            optional: value.optional,
         }
     }
 }
@@ -110,14 +232,14 @@ impl From<ChoiceNode> for Node {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct SequenceNode {
     pub name: String,
-    pub items: Vec<TokenOrNode>,
+    pub items: Vec<Field>,
 }
 
 #[cfg(test)]
 impl SequenceNode {
     /// Test-only convenience constructor. Production code builds `SequenceNode`s in
     /// [`crate::model::load_model`], which takes the name verbatim from the ungrammar.
-    pub fn new(name: impl Into<String>, items: Vec<TokenOrNode>) -> SequenceNode {
+    pub fn new(name: impl Into<String>, items: Vec<Field>) -> SequenceNode {
         SequenceNode {
             name: name.into(),
             items,
@@ -209,12 +331,10 @@ impl Model {
                         if empty_capable.contains(&seq.name) {
                             continue;
                         }
-                        let is_empty_capable = seq.items.iter().all(|item| match item {
-                            TokenOrNode::Token(token) => token.optional || token.repeated,
-                            TokenOrNode::Node(node_ref) => {
-                                node_ref.optional
-                                    || node_ref.repeated
-                                    || empty_capable.contains(&node_ref.kind)
+                        let is_empty_capable = seq.items.iter().all(|item| match &item.kind {
+                            NodeOrTokenKind::Token(_) => item.optional || item.repeated,
+                            NodeOrTokenKind::Node(kind) => {
+                                item.optional || item.repeated || empty_capable.contains(kind)
                             }
                         });
                         if is_empty_capable {
@@ -264,12 +384,9 @@ impl Model {
         for node in self.all_nodes() {
             if let Node::Items(seq) = node {
                 for item in &seq.items {
-                    if let TokenOrNode::Node(node_ref) = item {
-                        if !node_ref.optional
-                            && !node_ref.repeated
-                            && empty_capable.contains(&node_ref.kind)
-                        {
-                            violations.push((seq.name.clone(), node_ref.kind.clone()));
+                    if let NodeOrTokenKind::Node(kind) = &item.kind {
+                        if !item.optional && !item.repeated && empty_capable.contains(kind) {
+                            violations.push((seq.name.clone(), kind.clone()));
                         }
                     }
                 }
@@ -372,19 +489,19 @@ impl Model {
         }
     }
 
-    pub fn check_where_node_is_used(&self, orig_node: &NodeRef) -> Vec<NodeRef> {
+    pub fn check_where_node_is_used(&self, orig_node: &NodeRef) -> Vec<Field> {
         let mut referenced_nodes = vec![];
         for node in self.all_nodes() {
             match node {
                 Node::Items(items) => {
                     for item in &items.items {
-                        match item {
-                            TokenOrNode::Node(node) => {
-                                if node == orig_node {
-                                    referenced_nodes.push(node.clone());
+                        match &item.kind {
+                            NodeOrTokenKind::Node(node) => {
+                                if node == &orig_node.kind {
+                                    referenced_nodes.push(item.clone());
                                 }
                             }
-                            TokenOrNode::Token(_) => {}
+                            NodeOrTokenKind::Token(_) => {}
                         }
                     }
                 }
@@ -392,7 +509,7 @@ impl Model {
                     NodesOrTokens::Nodes(nodes) => {
                         for node in nodes {
                             if node == orig_node {
-                                referenced_nodes.push(node.clone());
+                                referenced_nodes.push(Field::from(node.clone()));
                             }
                         }
                     }
@@ -426,12 +543,9 @@ impl Model {
         for node in self.nodes.iter_mut() {
             if let Node::Items(seq) = node {
                 for item in &mut seq.items {
-                    if let TokenOrNode::Node(node_ref) = item {
-                        if !node_ref.optional
-                            && !node_ref.repeated
-                            && empty_capable.contains(&node_ref.kind)
-                        {
-                            node_ref.optional = true;
+                    if let NodeOrTokenKind::Node(node_ref) = &item.kind {
+                        if !item.optional && !item.repeated && empty_capable.contains(node_ref) {
+                            item.optional = true;
                         }
                     }
                 }
@@ -445,8 +559,8 @@ impl Model {
             match node {
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
-                        if let TokenOrNode::Node(node_ref) = item {
-                            referenced.insert(node_ref.kind.clone());
+                        if let Some(kind) = item.as_node_kind() {
+                            referenced.insert(kind.to_owned());
                         }
                     }
                 }
@@ -496,13 +610,13 @@ mod tests {
         // Add a sequence node that references the choice node
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "RelationalOperator".to_string(),
+            vec![Field {
+                kind: NodeOrTokenKind::Node("RelationalOperator".to_string()),
                 nth: 0,
                 repeated: false,
                 name: "relational_operator".to_string(),
                 optional: false,
-            })],
+            }],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -534,24 +648,12 @@ mod tests {
         // InterfaceList: only repeated items → empty-capable
         let list = SequenceNode::new(
             "InterfaceList",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "DesignFile".to_string(),
-                nth: 0,
-                repeated: true,
-                name: "items".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("DesignFile").make_repeated().with_name("items")],
         );
         // DesignFile: required non-canonical token → NOT empty-capable
         let root = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "InterfaceList".to_string(),
-                nth: 0,
-                repeated: false,
-                name: "interface_list".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("InterfaceList")],
         );
         model.push_node(Node::Items(list));
         model.push_node(Node::Items(root));
@@ -577,7 +679,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
+            vec![Field::from(Token::from(TokenKind::SemiColon))],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -597,24 +699,12 @@ mod tests {
         // Leaf: all-optional → empty-capable
         let leaf = SequenceNode::new(
             "Leaf",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "DesignFile".to_string(),
-                nth: 0,
-                repeated: true,
-                name: "items".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("DesignFile").make_repeated().with_name("items")],
         );
         // Root: required (non-optional, non-repeated) reference to empty-capable Leaf → violation
         let root = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "Leaf".to_string(),
-                nth: 0,
-                repeated: false,
-                name: "leaf".to_string(),
-                optional: false, // ← violation
-            })],
+            vec![Field::node("Leaf")],
         );
         model.push_node(Node::Items(leaf));
         model.push_node(Node::Items(root));
@@ -628,23 +718,11 @@ mod tests {
         let mut model = Model::default();
         let leaf = SequenceNode::new(
             "Leaf",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "DesignFile".to_string(),
-                nth: 0,
-                repeated: true,
-                name: "items".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("DesignFile").make_repeated()],
         );
         let root = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "Leaf".to_string(),
-                nth: 0,
-                repeated: true, // repeated → fine
-                name: "leaf".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("Leaf").make_repeated()],
         );
         model.push_node(Node::Items(leaf));
         model.push_node(Node::Items(root));
@@ -659,9 +737,9 @@ mod tests {
         let seq = SequenceNode::new(
             "DesignFile",
             vec![
-                TokenOrNode::Token(Token::from(crate::model::token::TokenKind::EQ)),
+                Field::from(Token::from(crate::model::token::TokenKind::EQ)),
                 // Same token kind = same getter name → duplicate
-                TokenOrNode::Token(Token::from(crate::model::token::TokenKind::EQ)),
+                Field::from(Token::from(crate::model::token::TokenKind::EQ)),
             ],
         );
         model.push_node(Node::Items(seq));

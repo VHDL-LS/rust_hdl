@@ -41,30 +41,12 @@ fn map_single(
     production: &str,
     rule: &ungrammar::Rule,
     grammar: &ungrammar::Grammar,
-) -> TokenOrNode {
+) -> Field {
     match rule {
         ungrammar::Rule::Labeled { label, rule } => {
-            let mut inner = map_single(production, rule, grammar);
-            match &mut inner {
-                TokenOrNode::Node(node_ref) => {
-                    node_ref.name = label.clone();
-                }
-                TokenOrNode::Token(token) => {
-                    token.name = label.clone();
-                }
-            }
-            inner
+            map_single(production, rule, grammar).with_name(label)
         }
-        ungrammar::Rule::Node(node) => {
-            let name = &grammar[*node].name;
-            TokenOrNode::Node(NodeRef {
-                kind: name.clone(),
-                nth: 0,
-                repeated: false,
-                name: name.clone(),
-                optional: false,
-            })
-        }
+        ungrammar::Rule::Node(node) => Field::node(grammar[*node].name.clone()),
         ungrammar::Rule::Token(token) => {
             let mut name = grammar[*token].name.as_str();
             if name.starts_with('#') {
@@ -75,46 +57,13 @@ fn map_single(
                     Keyword::from_str(&name.to_case(Case::UpperCamel)).map(TokenKind::Keyword)
                 })
                 .unwrap_or_else(|_| panic!("Invalid token kind {name} in production {production}"));
-            let name = match kind {
-                TokenKind::Keyword(kw) => kw.to_string(),
-                other => other.to_string(),
-            };
-            TokenOrNode::Token(Token {
-                kind,
-                name,
-                nth: 0,
-                repeated: false,
-                optional: false,
-            })
+            Field::token(kind)
         }
         ungrammar::Rule::Opt(rule) => {
-            let mut inner = map_single(production, rule, grammar);
-            match &mut inner {
-                TokenOrNode::Node(node_ref) => {
-                    node_ref.optional = true;
-                }
-                TokenOrNode::Token(token) => {
-                    token.optional = true;
-                }
-            }
-            inner
+            map_single(production, rule, grammar).make_optional()
         }
         ungrammar::Rule::Rep(rule) => {
-            let mut inner = map_single(production, rule, grammar);
-            match &mut inner {
-                TokenOrNode::Node(node_ref) => {
-                    node_ref.repeated = true;
-                    // The accessor for a repeated node is plural. Naive, but the only names it
-                    // has to handle are the node names in the grammar file.
-                    if !node_ref.name.ends_with('s') {
-                        node_ref.name.push('s');
-                    }
-                }
-                TokenOrNode::Token(token) => {
-                    token.repeated = true;
-                }
-            }
-            inner
+            map_single(production, rule, grammar).make_repeated()
         }
         // A group is a `Seq` or `Alt` nested inside another rule, which the model cannot
         // represent: every item of a production is a single node or token reference.
@@ -152,24 +101,9 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
                 let mut next = map_single(&name, rule, grammar);
                 let nth = mapped
                     .iter()
-                    .filter(|el| match (el, &next) {
-                        (TokenOrNode::Node(prev_ref), TokenOrNode::Node(curr_rev)) => {
-                            prev_ref.kind == curr_rev.kind
-                        }
-                        (TokenOrNode::Token(prev_token), TokenOrNode::Token(curr_token)) => {
-                            prev_token.kind == curr_token.kind
-                        }
-                        _ => false,
-                    })
+                    .filter(|el: &&Field| el.kind == next.kind)
                     .count();
-                match &mut next {
-                    TokenOrNode::Node(node_ref) => {
-                        node_ref.nth = nth;
-                    }
-                    TokenOrNode::Token(token) => {
-                        token.nth = nth;
-                    }
-                }
+                next.nth = nth;
                 mapped.push(next);
             }
             Node::Items(SequenceNode {
@@ -182,27 +116,15 @@ fn map_rule(name: String, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar) 
                 .iter()
                 .map(|rule| map_single(&name, rule, grammar))
                 .collect::<Vec<_>>();
-            let result: NodesOrTokens = if mapped
-                .iter()
-                .all(|rule| matches!(rule, TokenOrNode::Node(_)))
-            {
+            let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
                     .into_iter()
-                    .map(|rule| match rule {
-                        TokenOrNode::Node(node) => node,
-                        _ => unreachable!(),
-                    })
+                    .map(|rule| rule.into_node_ref().expect("checked above"))
                     .collect()
-            } else if mapped
-                .iter()
-                .all(|rule| matches!(rule, TokenOrNode::Token(_)))
-            {
+            } else if mapped.iter().all(|rule| rule.as_token_kind().is_some()) {
                 mapped
                     .into_iter()
-                    .map(|rule| match rule {
-                        TokenOrNode::Node(_) => unreachable!(),
-                        TokenOrNode::Token(tok) => tok,
-                    })
+                    .map(|rule| rule.into_token().expect("checked above"))
                     .collect()
             } else {
                 panic!("Alternations must be either all nodes or all tokens, not a mix. Offending production: {name}");

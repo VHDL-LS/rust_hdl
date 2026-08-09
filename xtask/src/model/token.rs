@@ -123,6 +123,18 @@ pub enum TokenKind {
     Eof,
 }
 
+impl TokenKind {
+    /// The default name of this kind, i.e., the name used for accessors when the grammar does
+    /// not label the token. `to_string()` cannot be used directly: the `Keyword` variant is
+    /// disabled in strum and panics when formatted.
+    pub fn default_name(&self) -> String {
+        match self {
+            TokenKind::Keyword(kw) => kw.to_string(),
+            other => other.to_string(),
+        }
+    }
+}
+
 /// All available keywords in the latest (VHDL 2019) edition of VHDL
 #[derive(PartialEq, Eq, Clone, Copy, Debug, strum::Display, strum::EnumString)]
 pub enum Keyword {
@@ -261,7 +273,7 @@ pub struct Token {
 impl From<TokenKind> for Token {
     fn from(kind: TokenKind) -> Self {
         Token {
-            name: kind.to_string(),
+            name: kind.default_name(),
             kind,
             repeated: false,
             nth: 0,

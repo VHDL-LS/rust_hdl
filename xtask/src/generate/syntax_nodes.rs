@@ -7,7 +7,7 @@
 use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
+    ChoiceNode, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, TokenKind, Field,
 };
 use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
@@ -252,54 +252,42 @@ fn collect_concrete_node_kinds(
 // MARK: META item helpers
 
 /// Build a `LayoutItem { ... }` token-stream for one item in a sequence.
-fn layout_item_ts(item: &TokenOrNode, model: &Model) -> TokenStream {
-    match item {
-        TokenOrNode::Token(t) => {
-            let kind_expr = token_kind_path(&t.kind);
-            let optional = t.optional;
-            let repeated = t.repeated;
-            let name_str = t.name.to_case(Case::Snake);
-            quote! {
-                LayoutItem {
-                    optional: #optional,
-                    repeated: #repeated,
-                    name: #name_str,
-                    kind: LayoutItemKind::Token(#kind_expr),
-                }
-            }
+fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
+    let optional = item.optional;
+    let repeated = item.repeated;
+    let name_str = item.name.to_case(Case::Snake);
+    let kind_expr = match &item.kind {
+        NodeOrTokenKind::Token(token_kind) => {
+            let kind_expr = token_kind_path(token_kind);
+            quote! { LayoutItemKind::Token(#kind_expr) }
         }
-        TokenOrNode::Node(node_ref) => {
-            let optional = node_ref.optional;
-            let repeated = node_ref.repeated;
-            let name_str = node_ref.name.to_case(Case::Snake);
-            let kind_expr = layout_item_kind_for_node_ref(node_ref, model);
-            quote! {
-                LayoutItem {
-                    optional: #optional,
-                    repeated: #repeated,
-                    name: #name_str,
-                    kind: #kind_expr,
-                }
-            }
+        NodeOrTokenKind::Node(node_kind) => layout_item_kind_for_node_ref(node_kind, model),
+    };
+    quote! {
+        LayoutItem {
+            optional: #optional,
+            repeated: #repeated,
+            name: #name_str,
+            kind: #kind_expr,
         }
     }
 }
 
 /// Produce the `LayoutItemKind::…` expression for a node reference.
-fn layout_item_kind_for_node_ref(node_ref: &NodeRef, model: &Model) -> TokenStream {
+fn layout_item_kind_for_node_ref(node_kind: &str, model: &Model) -> TokenStream {
     let target = model
         .all_nodes()
-        .find(|n| n.name() == node_ref.kind)
-        .unwrap_or_else(|| panic!("node '{}' not found in model", node_ref.kind));
+        .find(|n| n.name() == node_kind)
+        .unwrap_or_else(|| panic!("node '{node_kind}' not found in model"));
 
     match target {
         Node::Items(_) => {
-            let nk = node_kind_ident(&node_ref.kind);
+            let nk = node_kind_ident(node_kind);
             quote! { LayoutItemKind::Node(NodeKind::#nk) }
         }
         Node::Choices(choice) => match &choice.items {
             NodesOrTokens::Nodes(_) => {
-                let nks = collect_concrete_node_kinds(&node_ref.kind, model, &mut HashSet::new());
+                let nks = collect_concrete_node_kinds(node_kind, model, &mut HashSet::new());
                 quote! { LayoutItemKind::NodeChoice(&[#(#nks),*]) }
             }
             NodesOrTokens::Tokens(toks) => {
@@ -333,26 +321,26 @@ fn generate_sequence_getters(node: &SequenceNode, model: &Model) -> TokenStream 
     }
 }
 
-fn build_getter(item: &TokenOrNode, model: &Model) -> TokenStream {
-    match item {
-        TokenOrNode::Node(node_ref) => build_node_getter(node_ref, model),
-        TokenOrNode::Token(token) => build_token_getter(token),
+fn build_getter(item: &Field, model: &Model) -> TokenStream {
+    match &item.kind {
+        NodeOrTokenKind::Node(node_kind) => build_node_getter(item, node_kind, model),
+        NodeOrTokenKind::Token(token_kind) => build_token_getter(item, token_kind),
     }
 }
 
-fn build_node_getter(node_ref: &NodeRef, model: &Model) -> TokenStream {
-    let fn_name = format_ident!("{}", node_ref.getter_name());
-    let syntax = syntax_type_ident(&node_ref.kind);
-    let nth = Literal::usize_unsuffixed(node_ref.nth);
-    let getter_fn_name = if model.is_token_choice(&node_ref.kind) {
+fn build_node_getter(item: &Field, node_kind: &str, model: &Model) -> TokenStream {
+    let fn_name = format_ident!("{}", item.getter_name());
+    let syntax = syntax_type_ident(node_kind);
+    let nth = Literal::usize_unsuffixed(item.nth);
+    let getter_fn_name = if model.is_token_choice(node_kind) {
         quote! { tokens }
     } else {
         quote! { children }
     };
-    if node_ref.repeated {
+    if item.repeated {
         assert_eq!(
-            node_ref.nth, 0,
-            "node {node_ref:?} is not at position 0 but is repeated"
+            item.nth, 0,
+            "node {item:?} is not at position 0 but is repeated"
         );
         quote! {
             pub fn #fn_name(&self) -> impl Iterator<Item = #syntax>  + use<'_> {
@@ -368,12 +356,12 @@ fn build_node_getter(node_ref: &NodeRef, model: &Model) -> TokenStream {
     }
 }
 
-fn build_token_getter(token: &Token) -> TokenStream {
-    let function_name = format_ident!("{}", token.getter_name());
-    let kind_expr = token_kind_path(&token.kind);
-    let nth = Literal::usize_unsuffixed(token.nth);
-    if token.repeated {
-        assert_eq!(token.nth, 0, "{} multiple", token.name);
+fn build_token_getter(item: &Field, token_kind: &TokenKind) -> TokenStream {
+    let function_name = format_ident!("{}", item.getter_name());
+    let kind_expr = token_kind_path(token_kind);
+    let nth = Literal::usize_unsuffixed(item.nth);
+    if item.repeated {
+        assert_eq!(item.nth, 0, "{} multiple", item.name);
         quote! {
             pub fn #function_name(&self) -> impl Iterator<Item = SyntaxToken>  + use<'_> {
                 self.0
@@ -432,7 +420,7 @@ mod tests {
     use super::*;
     use crate::model::token::TokenKind;
     use crate::model::{
-        ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
+        ChoiceNode, Model, Node, NodesOrTokens, SequenceNode, Token, Field,
     };
 
     fn make_test_model() -> Model {
@@ -451,13 +439,7 @@ mod tests {
         // A sequence node: DesignFile -> [RelOp]
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "RelOp".to_string(),
-                nth: 0,
-                repeated: false,
-                name: "rel_op".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("RelOp")],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();

@@ -10,7 +10,8 @@ use crate::generate::naming::{
 };
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Model, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenKind, TokenOrNode,
+    ChoiceNode, Model, Node, NodeOrTokenKind, NodesOrTokens, SequenceNode, Token, TokenKind,
+    Field,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -104,14 +105,17 @@ fn domain_type(kind: &TokenKind) -> Option<TokenStream> {
     }
 }
 
-/// Returns true when a token can be default-constructed
-fn is_defaultable_token(token: &Token) -> bool {
-    token.optional || token.repeated || has_canonical_text(&token.kind)
-}
-
-/// Returns true when a node ref can be default constructed
-fn is_defaultable_node(node_ref: &NodeRef, defaultable: &HashSet<String>) -> bool {
-    node_ref.optional || node_ref.repeated || defaultable.contains(&node_ref.kind)
+/// Returns true when a sequence item can be default-constructed: optional and repeated items
+/// default to absent/empty, tokens with canonical text to that text and node references to the
+/// referenced node's own default (when it has one).
+fn is_defaultable_item(item: &Field, defaultable: &HashSet<String>) -> bool {
+    if item.optional || item.repeated {
+        return true;
+    }
+    match &item.kind {
+        NodeOrTokenKind::Token(kind) => has_canonical_text(kind),
+        NodeOrTokenKind::Node(kind) => defaultable.contains(kind),
+    }
 }
 
 // MARK: Defaultable
@@ -132,10 +136,10 @@ fn compute_defaultable_nodes(model: &Model) -> HashSet<String> {
                     continue;
                 }
 
-                let is_defaultable = seq.items.iter().all(|item| match item {
-                    TokenOrNode::Token(token) => is_defaultable_token(token),
-                    TokenOrNode::Node(node_ref) => is_defaultable_node(node_ref, &defaultable),
-                });
+                let is_defaultable = seq
+                    .items
+                    .iter()
+                    .all(|item| is_defaultable_item(item, &defaultable));
 
                 if is_defaultable {
                     defaultable.insert(seq.name.clone());
@@ -152,9 +156,9 @@ fn compute_defaultable_nodes(model: &Model) -> HashSet<String> {
 }
 
 /// Generates the `Token::new(...)` expression for a token that has canonical text.
-fn token_default_expr(token: &Token) -> TokenStream {
-    let kind_path = token_kind_path(&token.kind);
-    match &token.kind {
+fn token_default_expr(kind: &TokenKind) -> TokenStream {
+    let kind_path = token_kind_path(kind);
+    match kind {
         TokenKind::Keyword(kw) => {
             let kw_ident = format_ident!("{}", kw.to_string());
             quote! {
@@ -178,16 +182,16 @@ fn token_default_expr(token: &Token) -> TokenStream {
 /// - **Optional non-canonical tokens**: only mutates when already `Some`; the user chooses
 ///   the value via the domain type's own `.with_trivia()` setter.
 /// - **Repeated tokens**: returns an empty stream — no unambiguous single target.
-fn generate_token_trivia_setter(token: &Token) -> TokenStream {
-    if token.repeated {
+fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
+    if item.repeated {
         return quote! {};
     }
-    let field = format_ident!("{}", token.getter_name());
-    let with_trivia = format_ident!("with_{}_trivia", token.getter_name());
+    let field = format_ident!("{}", item.getter_name());
+    let with_trivia = format_ident!("with_{}_trivia", item.getter_name());
 
-    if token.optional {
-        if has_canonical_text(&token.kind) {
-            let default_expr = token_default_expr(token);
+    if item.optional {
+        if has_canonical_text(kind) {
+            let default_expr = token_default_expr(kind);
             quote! {
                 pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
                     let tok = self.#field.get_or_insert_with(|| #default_expr);
@@ -226,25 +230,25 @@ struct ItemDescriptor {
 }
 
 fn describe_item(
-    item: &TokenOrNode,
+    item: &Field,
     model: &Model,
     defaultable: &HashSet<String>,
 ) -> ItemDescriptor {
-    match item {
-        TokenOrNode::Token(token) => {
-            let field = format_ident!("{}", token.getter_name());
-            let is_ctor_arg = !is_defaultable_token(token);
+    let is_ctor_arg = !is_defaultable_item(item, defaultable);
+    match &item.kind {
+        NodeOrTokenKind::Token(token_kind) => {
+            let field = format_ident!("{}", item.getter_name());
 
-            let field_decl = if token.repeated {
+            let field_decl = if item.repeated {
                 quote! { #field: Vec<Token> }
-            } else if token.optional {
+            } else if item.optional {
                 quote! { #field: Option<Token> }
             } else {
                 quote! { #field: Token }
             };
 
             let constructor_arg = if is_ctor_arg {
-                if let Some(domain) = domain_type(&token.kind) {
+                if let Some(domain) = domain_type(token_kind) {
                     Some(quote! { #field: impl Into<#domain> })
                 } else {
                     Some(quote! { #field: impl Into<Token> })
@@ -255,7 +259,7 @@ fn describe_item(
 
             // The type of the `Into<...>`. Either `Into<#domain_type>` for identifier, string literals, e.t.c.
             // or `Into<Token>` for everything else.
-            let parameter_type = if let Some(domain) = domain_type(&token.kind) {
+            let parameter_type = if let Some(domain) = domain_type(token_kind) {
                 // Into<#domain_type>: convert once to the actual type (e.g., into `Identifier`), then into `Token`
                 quote! { #domain }
             } else {
@@ -263,7 +267,7 @@ fn describe_item(
                 quote! { Token }
             };
 
-            let convert_into_token = if domain_type(&token.kind).is_some() {
+            let convert_into_token = if domain_type(token_kind).is_some() {
                 // Into<#domain_type>: convert once to the actual type (e.g., into `Identifier`), then into `Token`
                 quote! { into().into() }
             } else {
@@ -271,19 +275,19 @@ fn describe_item(
                 quote! { into() }
             };
 
-            let field_init = if token.repeated {
+            let field_init = if item.repeated {
                 quote! { #field: Vec::new() }
-            } else if token.optional {
+            } else if item.optional {
                 quote! { #field: None }
             } else if is_ctor_arg {
                 quote! { #field: #field.#convert_into_token }
             } else {
-                let default = token_default_expr(token);
+                let default = token_default_expr(token_kind);
                 quote! { #field: #default }
             };
 
-            let mut setter = if token.repeated {
-                let add = format_ident!("add_{}", token.getter_name());
+            let mut setter = if item.repeated {
+                let add = format_ident!("add_{}", item.getter_name());
                 quote! {
                     pub fn #add(mut self, t: impl Into<#parameter_type>) -> Self {
                         self.#field.push(t.#convert_into_token);
@@ -291,8 +295,8 @@ fn describe_item(
                     }
                 }
             } else {
-                let with = format_ident!("with_{}", token.getter_name());
-                if token.optional {
+                let with = format_ident!("with_{}", item.getter_name());
+                if item.optional {
                     quote! {
                         pub fn #with(mut self, t: impl Into<#parameter_type>) -> Self {
                             self.#field = Some(t.#convert_into_token);
@@ -308,15 +312,15 @@ fn describe_item(
                     }
                 }
             };
-            setter.extend(generate_token_trivia_setter(token));
+            setter.extend(generate_token_trivia_setter(item, token_kind));
 
-            let build_stmt = if token.repeated {
+            let build_stmt = if item.repeated {
                 quote! {
                     for t in self.#field {
                         builder.push(t);
                     }
                 }
-            } else if token.optional {
+            } else if item.optional {
                 quote! {
                     if let Some(t) = self.#field {
                         builder.push(t);
@@ -334,18 +338,17 @@ fn describe_item(
                 build_stmt,
             }
         }
-        TokenOrNode::Node(node_ref) => {
-            let field = format_ident!("{}", node_ref.getter_name());
-            let ty = if model.is_token_choice(&node_ref.kind) {
-                token_type_ident(&node_ref.kind)
+        NodeOrTokenKind::Node(node_kind) => {
+            let field = format_ident!("{}", item.getter_name());
+            let ty = if model.is_token_choice(node_kind) {
+                token_type_ident(node_kind)
             } else {
-                syntax_type_ident(&node_ref.kind)
+                syntax_type_ident(node_kind)
             };
-            let is_ctor_arg = !is_defaultable_node(node_ref, defaultable);
 
-            let field_decl = if node_ref.repeated {
+            let field_decl = if item.repeated {
                 quote! { #field: Vec<#ty> }
-            } else if node_ref.optional {
+            } else if item.optional {
                 quote! { #field: Option<#ty> }
             } else {
                 quote! { #field: #ty }
@@ -357,19 +360,19 @@ fn describe_item(
                 None
             };
 
-            let field_init = if node_ref.repeated {
+            let field_init = if item.repeated {
                 quote! { #field: Vec::new() }
-            } else if node_ref.optional {
+            } else if item.optional {
                 quote! { #field: None }
             } else if is_ctor_arg {
                 quote! { #field: #field.into() }
             } else {
-                let node_builder = builder_ident(&node_ref.kind);
+                let node_builder = builder_ident(node_kind);
                 quote! { #field: #node_builder::default().build() }
             };
 
-            let setter = if node_ref.repeated {
-                let add = format_ident!("add_{}", node_ref.getter_name());
+            let setter = if item.repeated {
+                let add = format_ident!("add_{}", item.getter_name());
                 quote! {
                     pub fn #add(mut self, n: impl Into<#ty>) -> Self {
                         self.#field.push(n.into());
@@ -377,8 +380,8 @@ fn describe_item(
                     }
                 }
             } else {
-                let with = format_ident!("with_{}", node_ref.getter_name());
-                if node_ref.optional {
+                let with = format_ident!("with_{}", item.getter_name());
+                if item.optional {
                     quote! {
                         pub fn #with(mut self, n: impl Into<#ty>) -> Self {
                             self.#field = Some(n.into());
@@ -395,14 +398,14 @@ fn describe_item(
                 }
             };
 
-            let build_stmt = if model.is_token_choice(&node_ref.kind) {
-                if node_ref.repeated {
+            let build_stmt = if model.is_token_choice(node_kind) {
+                if item.repeated {
                     quote! {
                         for n in self.#field {
                             builder.push(n.0);
                         }
                     }
-                } else if node_ref.optional {
+                } else if item.optional {
                     quote! {
                         if let Some(n) = self.#field {
                             builder.push(n.0);
@@ -411,13 +414,13 @@ fn describe_item(
                 } else {
                     quote! { builder.push(self.#field.0); }
                 }
-            } else if node_ref.repeated {
+            } else if item.repeated {
                 quote! {
                     for n in self.#field {
                         builder.push_node(n.raw().green().clone());
                     }
                 }
-            } else if node_ref.optional {
+            } else if item.optional {
                 quote! {
                     if let Some(n) = self.#field {
                         builder.push_node(n.raw().green().clone());
@@ -530,7 +533,7 @@ fn generate_token_choice_token(name: &str, tokens: &[Token]) -> TokenStream {
                     }
                 }
             } else {
-                let expr = token_default_expr(token);
+                let expr = token_default_expr(&token.kind);
                 quote! {
                     pub fn #method() -> Self {
                         Self(#expr)
@@ -581,7 +584,7 @@ mod tests {
     use super::*;
     use crate::model::token::TokenKind;
     use crate::model::{
-        ChoiceNode, Node, NodeRef, NodesOrTokens, SequenceNode, Token, TokenOrNode,
+        ChoiceNode, Node, NodesOrTokens, SequenceNode, Token, Field,
     };
 
     fn make_test_model() -> Model {
@@ -600,13 +603,7 @@ mod tests {
         // A simple sequence node: DesignFile -> [RelOp]
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Node(NodeRef {
-                kind: "RelOp".to_string(),
-                nth: 0,
-                repeated: false,
-                name: "rel_op".to_string(),
-                optional: false,
-            })],
+            vec![Field::node("RelOp".to_string())],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -622,8 +619,8 @@ mod tests {
         let leaf = SequenceNode::new(
             "DesignFile",
             vec![
-                TokenOrNode::Token(Token::from(TokenKind::SemiColon)),
-                TokenOrNode::Token(Token::from(TokenKind::EQ)),
+                Field::from(Token::from(TokenKind::SemiColon)),
+                Field::from(Token::from(TokenKind::EQ)),
             ],
         );
         model.push_node(Node::Items(leaf));
@@ -632,14 +629,8 @@ mod tests {
         let parent = SequenceNode::new(
             "ParentNode",
             vec![
-                TokenOrNode::Node(NodeRef {
-                    kind: "DesignFile".to_string(),
-                    nth: 0,
-                    repeated: false,
-                    name: "design_file".to_string(),
-                    optional: false,
-                }),
-                TokenOrNode::Token(Token {
+                Field::node("DesignFile"),
+                Field::from(Token {
                     kind: TokenKind::Identifier,
                     name: "name".to_string(),
                     nth: 0,
@@ -718,7 +709,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Token(Token::from(TokenKind::SemiColon))],
+            vec![Field::from(Token::from(TokenKind::SemiColon))],
         );
         model.push_node(Node::Items(seq));
         model.do_postprocessing();
@@ -737,7 +728,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Token(Token {
+            vec![Field::from(Token {
                 kind: TokenKind::SemiColon,
                 name: "semicolon".to_string(),
                 nth: 0,
@@ -766,7 +757,7 @@ mod tests {
         let mut model = Model::default();
         let seq = SequenceNode::new(
             "DesignFile",
-            vec![TokenOrNode::Token(Token {
+            vec![Field::from(Token {
                 kind: TokenKind::SemiColon,
                 name: "semicolon".to_string(),
                 nth: 0,
