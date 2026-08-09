@@ -158,7 +158,9 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::GenericClause => GenericClauseSyntax::META,
         NodeKind::GenericClauseEpilogue => GenericClauseEpilogueSyntax::META,
         NodeKind::GenericClausePreamble => GenericClausePreambleSyntax::META,
+        NodeKind::GenericMap => GenericMapSyntax::META,
         NodeKind::GenericMapAspect => GenericMapAspectSyntax::META,
+        NodeKind::GenericPart => GenericPartSyntax::META,
         NodeKind::GroupDeclaration => GroupDeclarationSyntax::META,
         NodeKind::GroupTemplateDeclaration => GroupTemplateDeclarationSyntax::META,
         NodeKind::GuardedSignalSpecification => GuardedSignalSpecificationSyntax::META,
@@ -260,7 +262,9 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PortClause => PortClauseSyntax::META,
         NodeKind::PortClauseEpilogue => PortClauseEpilogueSyntax::META,
         NodeKind::PortClausePreamble => PortClausePreambleSyntax::META,
+        NodeKind::PortMap => PortMapSyntax::META,
         NodeKind::PortMapAspect => PortMapAspectSyntax::META,
+        NodeKind::PortPart => PortPartSyntax::META,
         NodeKind::PrimaryUnitDeclaration => PrimaryUnitDeclarationSyntax::META,
         NodeKind::PrimaryUnitPackageDeclaration => PrimaryUnitPackageDeclarationSyntax::META,
         NodeKind::ProcedureCallStatement => ProcedureCallStatementSyntax::META,
@@ -306,10 +310,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SemiColonTerminatedBindingIndication => {
             SemiColonTerminatedBindingIndicationSyntax::META
         }
-        NodeKind::SemiColonTerminatedGenericMapAspect => {
-            SemiColonTerminatedGenericMapAspectSyntax::META
-        }
-        NodeKind::SemiColonTerminatedPortMapAspect => SemiColonTerminatedPortMapAspectSyntax::META,
         NodeKind::SemiColonTerminatedVerificationUnitBindingIndication => {
             SemiColonTerminatedVerificationUnitBindingIndicationSyntax::META
         }

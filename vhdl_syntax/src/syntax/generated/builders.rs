@@ -1569,10 +1569,8 @@ impl From<BlockEpilogueBuilder> for BlockEpilogueSyntax {
     }
 }
 pub struct BlockHeaderBuilder {
-    generic_clause: Option<GenericClauseSyntax>,
-    semi_colon_terminated_generic_map_aspect: Option<SemiColonTerminatedGenericMapAspectSyntax>,
-    port_clause: Option<PortClauseSyntax>,
-    semi_colon_terminated_port_map_aspect: Option<SemiColonTerminatedPortMapAspectSyntax>,
+    generic_part: Option<GenericPartSyntax>,
+    port_part: Option<PortPartSyntax>,
 }
 impl Default for BlockHeaderBuilder {
     fn default() -> Self {
@@ -1582,47 +1580,25 @@ impl Default for BlockHeaderBuilder {
 impl BlockHeaderBuilder {
     pub fn new() -> Self {
         Self {
-            generic_clause: None,
-            semi_colon_terminated_generic_map_aspect: None,
-            port_clause: None,
-            semi_colon_terminated_port_map_aspect: None,
+            generic_part: None,
+            port_part: None,
         }
     }
-    pub fn with_generic_clause(mut self, n: impl Into<GenericClauseSyntax>) -> Self {
-        self.generic_clause = Some(n.into());
+    pub fn with_generic_part(mut self, n: impl Into<GenericPartSyntax>) -> Self {
+        self.generic_part = Some(n.into());
         self
     }
-    pub fn with_semi_colon_terminated_generic_map_aspect(
-        mut self,
-        n: impl Into<SemiColonTerminatedGenericMapAspectSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_generic_map_aspect = Some(n.into());
-        self
-    }
-    pub fn with_port_clause(mut self, n: impl Into<PortClauseSyntax>) -> Self {
-        self.port_clause = Some(n.into());
-        self
-    }
-    pub fn with_semi_colon_terminated_port_map_aspect(
-        mut self,
-        n: impl Into<SemiColonTerminatedPortMapAspectSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_port_map_aspect = Some(n.into());
+    pub fn with_port_part(mut self, n: impl Into<PortPartSyntax>) -> Self {
+        self.port_part = Some(n.into());
         self
     }
     pub fn build(self) -> BlockHeaderSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockHeader);
-        if let Some(n) = self.generic_clause {
+        if let Some(n) = self.generic_part {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.semi_colon_terminated_generic_map_aspect {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.port_clause {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.semi_colon_terminated_port_map_aspect {
+        if let Some(n) = self.port_part {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -7595,6 +7571,50 @@ impl From<GenericClausePreambleBuilder> for GenericClausePreambleSyntax {
         value.build()
     }
 }
+pub struct GenericMapBuilder {
+    generic_map_aspect: GenericMapAspectSyntax,
+    semi_colon_token: Token,
+}
+impl Default for GenericMapBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl GenericMapBuilder {
+    pub fn new() -> Self {
+        Self {
+            generic_map_aspect: GenericMapAspectBuilder::default().build(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
+        self.generic_map_aspect = n.into();
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> GenericMapSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::GenericMap);
+        builder.push_node(self.generic_map_aspect.raw().green().clone());
+        builder.push(self.semi_colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        GenericMapSyntax::cast(node).unwrap()
+    }
+}
+impl From<GenericMapBuilder> for GenericMapSyntax {
+    fn from(value: GenericMapBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct GenericMapAspectBuilder {
     generic_token: Token,
     map_token: Token,
@@ -7671,6 +7691,48 @@ impl GenericMapAspectBuilder {
 }
 impl From<GenericMapAspectBuilder> for GenericMapAspectSyntax {
     fn from(value: GenericMapAspectBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct GenericPartBuilder {
+    generic_clause: GenericClauseSyntax,
+    generic_map: Option<GenericMapSyntax>,
+}
+impl Default for GenericPartBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl GenericPartBuilder {
+    pub fn new() -> Self {
+        Self {
+            generic_clause: GenericClauseBuilder::default().build(),
+            generic_map: None,
+        }
+    }
+    pub fn with_generic_clause(mut self, n: impl Into<GenericClauseSyntax>) -> Self {
+        self.generic_clause = n.into();
+        self
+    }
+    pub fn with_generic_map(mut self, n: impl Into<GenericMapSyntax>) -> Self {
+        self.generic_map = Some(n.into());
+        self
+    }
+    pub fn build(self) -> GenericPartSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::GenericPart);
+        builder.push_node(self.generic_clause.raw().green().clone());
+        if let Some(n) = self.generic_map {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        GenericPartSyntax::cast(node).unwrap()
+    }
+}
+impl From<GenericPartBuilder> for GenericPartSyntax {
+    fn from(value: GenericPartBuilder) -> Self {
         value.build()
     }
 }
@@ -12129,6 +12191,50 @@ impl From<PortClausePreambleBuilder> for PortClausePreambleSyntax {
         value.build()
     }
 }
+pub struct PortMapBuilder {
+    port_map_aspect: PortMapAspectSyntax,
+    semi_colon_token: Token,
+}
+impl Default for PortMapBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl PortMapBuilder {
+    pub fn new() -> Self {
+        Self {
+            port_map_aspect: PortMapAspectBuilder::default().build(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_port_map_aspect(mut self, n: impl Into<PortMapAspectSyntax>) -> Self {
+        self.port_map_aspect = n.into();
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> PortMapSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::PortMap);
+        builder.push_node(self.port_map_aspect.raw().green().clone());
+        builder.push(self.semi_colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        PortMapSyntax::cast(node).unwrap()
+    }
+}
+impl From<PortMapBuilder> for PortMapSyntax {
+    fn from(value: PortMapBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct PortMapAspectBuilder {
     port_token: Token,
     map_token: Token,
@@ -12205,6 +12311,48 @@ impl PortMapAspectBuilder {
 }
 impl From<PortMapAspectBuilder> for PortMapAspectSyntax {
     fn from(value: PortMapAspectBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct PortPartBuilder {
+    port_clause: PortClauseSyntax,
+    port_map: Option<PortMapSyntax>,
+}
+impl Default for PortPartBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl PortPartBuilder {
+    pub fn new() -> Self {
+        Self {
+            port_clause: PortClauseBuilder::default().build(),
+            port_map: None,
+        }
+    }
+    pub fn with_port_clause(mut self, n: impl Into<PortClauseSyntax>) -> Self {
+        self.port_clause = n.into();
+        self
+    }
+    pub fn with_port_map(mut self, n: impl Into<PortMapSyntax>) -> Self {
+        self.port_map = Some(n.into());
+        self
+    }
+    pub fn build(self) -> PortPartSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::PortPart);
+        builder.push_node(self.port_clause.raw().green().clone());
+        if let Some(n) = self.port_map {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        PortPartSyntax::cast(node).unwrap()
+    }
+}
+impl From<PortPartBuilder> for PortPartSyntax {
+    fn from(value: PortPartBuilder) -> Self {
         value.build()
     }
 }
@@ -14347,96 +14495,6 @@ impl From<SemiColonTerminatedBindingIndicationBuilder>
     for SemiColonTerminatedBindingIndicationSyntax
 {
     fn from(value: SemiColonTerminatedBindingIndicationBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct SemiColonTerminatedGenericMapAspectBuilder {
-    generic_map_aspect: GenericMapAspectSyntax,
-    semi_colon_token: Token,
-}
-impl Default for SemiColonTerminatedGenericMapAspectBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl SemiColonTerminatedGenericMapAspectBuilder {
-    pub fn new() -> Self {
-        Self {
-            generic_map_aspect: GenericMapAspectBuilder::default().build(),
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
-        self.generic_map_aspect = n.into();
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> SemiColonTerminatedGenericMapAspectSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SemiColonTerminatedGenericMapAspect);
-        builder.push_node(self.generic_map_aspect.raw().green().clone());
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SemiColonTerminatedGenericMapAspectSyntax::cast(node).unwrap()
-    }
-}
-impl From<SemiColonTerminatedGenericMapAspectBuilder>
-    for SemiColonTerminatedGenericMapAspectSyntax
-{
-    fn from(value: SemiColonTerminatedGenericMapAspectBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct SemiColonTerminatedPortMapAspectBuilder {
-    port_map_aspect: PortMapAspectSyntax,
-    semi_colon_token: Token,
-}
-impl Default for SemiColonTerminatedPortMapAspectBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl SemiColonTerminatedPortMapAspectBuilder {
-    pub fn new() -> Self {
-        Self {
-            port_map_aspect: PortMapAspectBuilder::default().build(),
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_port_map_aspect(mut self, n: impl Into<PortMapAspectSyntax>) -> Self {
-        self.port_map_aspect = n.into();
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> SemiColonTerminatedPortMapAspectSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SemiColonTerminatedPortMapAspect);
-        builder.push_node(self.port_map_aspect.raw().green().clone());
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SemiColonTerminatedPortMapAspectSyntax::cast(node).unwrap()
-    }
-}
-impl From<SemiColonTerminatedPortMapAspectBuilder> for SemiColonTerminatedPortMapAspectSyntax {
-    fn from(value: SemiColonTerminatedPortMapAspectBuilder) -> Self {
         value.build()
     }
 }

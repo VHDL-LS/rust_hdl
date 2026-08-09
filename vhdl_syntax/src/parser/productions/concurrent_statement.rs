@@ -49,20 +49,31 @@ impl Parser {
 
     pub fn block_header(&mut self) {
         self.start_node(BlockHeader);
-        self.opt_generic_clause();
-        let checkpoint = self.checkpoint();
-        if self.opt_generic_map_aspect() {
-            self.start_node_at(checkpoint, SemiColonTerminatedGenericMapAspect);
-            self.expect_token(SemiColon);
+
+        if self.next_is(Keyword(Kw::Generic)) {
+            self.start_node(GenericPart);
+            self.generic_clause();
+            if self.next_is(Keyword(Kw::Generic)) {
+                self.start_node(GenericMap);
+                self.opt_generic_map_aspect();
+                self.expect_token(SemiColon);
+                self.end_node();
+            }
             self.end_node();
         }
-        self.opt_port_clause();
-        let checkpoint = self.checkpoint();
-        if self.opt_port_map_aspect() {
-            self.start_node_at(checkpoint, SemiColonTerminatedPortMapAspect);
-            self.expect_token(SemiColon);
+
+        if self.next_is(Keyword(Kw::Port)) {
+            self.start_node(PortPart);
+            self.port_clause();
+            if self.next_is(Keyword(Kw::Port)) {
+                self.start_node(PortMap);
+                self.opt_port_map_aspect();
+                self.expect_token(SemiColon);
+                self.end_node();
+            }
             self.end_node();
         }
+
         self.end_node();
     }
 

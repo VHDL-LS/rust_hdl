@@ -1839,26 +1839,14 @@ impl AstNode for BlockHeaderSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "generic_clause",
-                kind: LayoutItemKind::Node(NodeKind::GenericClause),
+                name: "generic_part",
+                kind: LayoutItemKind::Node(NodeKind::GenericPart),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "semi_colon_terminated_generic_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedGenericMapAspect),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "port_clause",
-                kind: LayoutItemKind::Node(NodeKind::PortClause),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "semi_colon_terminated_port_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedPortMapAspect),
+                name: "port_part",
+                kind: LayoutItemKind::Node(NodeKind::PortPart),
             },
         ],
     });
@@ -1870,30 +1858,11 @@ impl AstNode for BlockHeaderSyntax {
     }
 }
 impl BlockHeaderSyntax {
-    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericClauseSyntax::cast)
-            .nth(0)
+    pub fn generic_part(&self) -> Option<GenericPartSyntax> {
+        self.0.children().filter_map(GenericPartSyntax::cast).nth(0)
     }
-    pub fn semi_colon_terminated_generic_map_aspect(
-        &self,
-    ) -> Option<SemiColonTerminatedGenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedGenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
-        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
-    }
-    pub fn semi_colon_terminated_port_map_aspect(
-        &self,
-    ) -> Option<SemiColonTerminatedPortMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedPortMapAspectSyntax::cast)
-            .nth(0)
+    pub fn port_part(&self) -> Option<PortPartSyntax> {
+        self.0.children().filter_map(PortPartSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -8901,6 +8870,47 @@ impl GenericClausePreambleSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct GenericMapSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenericMapSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::GenericMap,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generic_map_aspect",
+                kind: LayoutItemKind::Node(NodeKind::GenericMapAspect),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        GenericMapSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenericMapSyntax {
+    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericMapAspectSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct GenericMapAspectSyntax(pub(crate) SyntaxNode);
 impl AstNode for GenericMapAspectSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -8975,6 +8985,44 @@ impl GenericMapAspectSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct GenericPartSyntax(pub(crate) SyntaxNode);
+impl AstNode for GenericPartSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::GenericPart,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generic_clause",
+                kind: LayoutItemKind::Node(NodeKind::GenericClause),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "generic_map",
+                kind: LayoutItemKind::Node(NodeKind::GenericMap),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        GenericPartSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl GenericPartSyntax {
+    pub fn generic_clause(&self) -> Option<GenericClauseSyntax> {
+        self.0
+            .children()
+            .filter_map(GenericClauseSyntax::cast)
+            .nth(0)
+    }
+    pub fn generic_map(&self) -> Option<GenericMapSyntax> {
+        self.0.children().filter_map(GenericMapSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -13784,6 +13832,47 @@ impl PortClausePreambleSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct PortMapSyntax(pub(crate) SyntaxNode);
+impl AstNode for PortMapSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PortMap,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "port_map_aspect",
+                kind: LayoutItemKind::Node(NodeKind::PortMapAspect),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PortMapSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PortMapSyntax {
+    pub fn port_map_aspect(&self) -> Option<PortMapAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(PortMapAspectSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct PortMapAspectSyntax(pub(crate) SyntaxNode);
 impl AstNode for PortMapAspectSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -13858,6 +13947,41 @@ impl PortMapAspectSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::RightPar)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PortPartSyntax(pub(crate) SyntaxNode);
+impl AstNode for PortPartSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PortPart,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "port_clause",
+                kind: LayoutItemKind::Node(NodeKind::PortClause),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "port_map",
+                kind: LayoutItemKind::Node(NodeKind::PortMap),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PortPartSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PortPartSyntax {
+    pub fn port_clause(&self) -> Option<PortClauseSyntax> {
+        self.0.children().filter_map(PortClauseSyntax::cast).nth(0)
+    }
+    pub fn port_map(&self) -> Option<PortMapSyntax> {
+        self.0.children().filter_map(PortMapSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -16196,88 +16320,6 @@ impl SemiColonTerminatedBindingIndicationSyntax {
         self.0
             .children()
             .filter_map(BindingIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct SemiColonTerminatedGenericMapAspectSyntax(pub(crate) SyntaxNode);
-impl AstNode for SemiColonTerminatedGenericMapAspectSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SemiColonTerminatedGenericMapAspect,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generic_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::GenericMapAspect),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SemiColonTerminatedGenericMapAspectSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SemiColonTerminatedGenericMapAspectSyntax {
-    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct SemiColonTerminatedPortMapAspectSyntax(pub(crate) SyntaxNode);
-impl AstNode for SemiColonTerminatedPortMapAspectSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SemiColonTerminatedPortMapAspect,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "port_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::PortMapAspect),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SemiColonTerminatedPortMapAspectSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SemiColonTerminatedPortMapAspectSyntax {
-    pub fn port_map_aspect(&self) -> Option<PortMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(PortMapAspectSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {

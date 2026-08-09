@@ -23,10 +23,8 @@ DeclarationStatementSeparator =
   'begin'
 
 BlockHeader =
-  GenericClause?
-  semi_colon_terminated_generic_map_aspect:(GenericMapAspect ';')?
-  PortClause?
-  semi_colon_terminated_port_map_aspect:(PortMapAspect ';')?
+  generic_part:(GenericClause generic_map:(GenericMapAspect ';')?)?
+  port_part:(PortClause port_map:(PortMapAspect ';')?)?
 
 BlockStatement =
   block_preamble:(Label 'block' condition:ParenthesizedExpression? 'is'?)
@@ -75,9 +73,7 @@ ConcurrentConditionalSignalAssignment =
   ';'
 
 ConcurrentSelectedSignalAssignment =
-  concurrent_selected_signal_assignment_preamble:(
-    Label? 'postponed'? 'with' Expression 'select' '?'?
-  )
+  concurrent_selected_signal_assignment_preamble:(Label? 'postponed'? 'with' Expression 'select' '?'?)
   Target
   '<='
   'guarded'?
@@ -103,9 +99,7 @@ ConcurrentStatements =
   ConcurrentStatement*
 
 ForGenerateStatement =
-  for_generate_statement_preamble:(
-    Label? 'for' ParameterSpecification 'generate'
-  )
+  for_generate_statement_preamble:(Label? 'for' ParameterSpecification 'generate')
   GenerateStatementBody?
   for_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
@@ -456,9 +450,7 @@ Declarations =
 // § 3: Design entities and configuration
 //==============================================================================
 ArchitectureBody =
-  architecture_preamble:(
-    'architecture' name:'#identifier' 'of' entity_name:Name 'is'
-  )
+  architecture_preamble:('architecture' name:'#identifier' 'of' entity_name:Name 'is')
   Declarations?
   DeclarationStatementSeparator
   ConcurrentStatements?
@@ -497,9 +489,7 @@ ComponentConfigurationEpilogue =
   'end' 'for' ';'
 
 ConfigurationDeclaration =
-  configuration_declaration_preamble:(
-    'configuration' name:'#identifier' 'of' entity_name:Name 'is'
-  )
+  configuration_declaration_preamble:('configuration' name:'#identifier' 'of' entity_name:Name 'is')
   configuration_declaration_items:(
     Declarations?
     SemiColonTerminatedVerificationUnitBindingIndication*
@@ -562,8 +552,8 @@ PrimaryUnit =
 | PrimaryUnitPackageDeclaration
 | PackageInstantiationDeclarationPrimaryUnit
 | ContextDeclaration
-// PslVerificationUnit -- add here if PSL is supported
 
+// PslVerificationUnit -- add here if PSL is supported
 SecondaryUnitPackageBody =
   PackageBody
 
@@ -804,9 +794,7 @@ ConditionClause =
 
 ConditionalExpressions =
   conditional_expression:(Expression 'when' condition:Expression)
-  conditional_else_when_expression:(
-    'else' Expression 'when' condition:Expression
-  )*
+  conditional_else_when_expression:('else' Expression 'when' condition:Expression)*
   conditional_else_item:('else' Expression)?
 
 ConditionalForceAssignment =
@@ -823,9 +811,7 @@ ConditionalWaveformAssignment =
 
 ConditionalWaveforms =
   conditional_waveform:(Waveform 'when' Expression)
-  conditional_waveform_else_when_expression:(
-    'else' Waveform 'when' condition:Expression
-  )*
+  conditional_waveform_else_when_expression:('else' Waveform 'when' condition:Expression)*
   conditional_waveform_else_item:('else' Waveform)?
 
 TransportDelayMechanism =
@@ -1154,9 +1140,7 @@ SubprogramKind =
   'procedure' | 'function'
 
 SubprogramInstantiationDeclaration =
-  subprogram_instantiation_declaration_preamble:(
-    SubprogramKind name:'#identifier' 'is' 'new' Name Signature?
-  )
+  subprogram_instantiation_declaration_preamble:(SubprogramKind name:'#identifier' 'is' 'new' Name Signature?)
   GenericMapAspect?
   ';'
 
