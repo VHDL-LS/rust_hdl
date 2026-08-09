@@ -3,10 +3,10 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: for idx in 0 to 1 generate\nbegin\n  foo <= bar;\nend generate;\",)"
 ---
 ForGenerateStatement
+  Label
+    Identifier 'gen'
+    Colon
   ForGenerateStatementPreamble
-    Label
-      Identifier 'gen'
-      Colon
     Keyword(For)
     ParameterSpecification
       Identifier 'idx'

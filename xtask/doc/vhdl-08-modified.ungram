@@ -97,8 +97,9 @@ ConcurrentStatements =
   ConcurrentStatement*
 
 ForGenerateStatement =
-  for_generate_statement_preamble:(Label? 'for' ParameterSpecification 'generate')
-  GenerateStatementBody?
+  Label
+  for_generate_statement_preamble:('for' ParameterSpecification 'generate')
+  GenerateStatementBody
   for_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 GenerateStatementBody =

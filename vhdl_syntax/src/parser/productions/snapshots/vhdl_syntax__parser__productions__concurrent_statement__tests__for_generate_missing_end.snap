@@ -8,10 +8,10 @@ gen: for i in 0 to 7 generate
 
 == tree ==
 ForGenerateStatement
+  Label
+    Identifier 'gen'
+    Colon
   ForGenerateStatementPreamble
-    Label
-      Identifier 'gen'
-      Colon
     Keyword(For)
     ParameterSpecification
       Identifier 'i'

@@ -325,6 +325,7 @@ impl Parser {
 
     pub fn for_generate_statement(&mut self) {
         self.start_node(ForGenerateStatement);
+        self.label();
         self.for_generate_preamble();
         self.generate_statement_body();
         self.for_generate_epilogue();
@@ -333,7 +334,6 @@ impl Parser {
 
     pub fn for_generate_preamble(&mut self) {
         self.start_node(ForGenerateStatementPreamble);
-        self.opt_label();
         self.expect_kw(Kw::For);
         self.parameter_specification();
         self.expect_kw(Kw::Generate);

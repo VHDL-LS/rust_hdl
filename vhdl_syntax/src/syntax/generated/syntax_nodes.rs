@@ -8049,6 +8049,12 @@ impl AstNode for ForGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
                 name: "for_generate_statement_preamble",
                 kind: LayoutItemKind::Node(NodeKind::ForGenerateStatementPreamble),
             },
@@ -8074,6 +8080,9 @@ impl AstNode for ForGenerateStatementSyntax {
     }
 }
 impl ForGenerateStatementSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn for_generate_statement_preamble(&self) -> Option<ForGenerateStatementPreambleSyntax> {
         self.0
             .children()
@@ -8165,12 +8174,6 @@ impl AstNode for ForGenerateStatementPreambleSyntax {
         kind: NodeKind::ForGenerateStatementPreamble,
         items: &[
             LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "for",
@@ -8198,9 +8201,6 @@ impl AstNode for ForGenerateStatementPreambleSyntax {
     }
 }
 impl ForGenerateStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()

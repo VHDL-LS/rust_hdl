@@ -6766,19 +6766,26 @@ impl From<FileTypeDefinitionBuilder> for FileTypeDefinitionSyntax {
     }
 }
 pub struct ForGenerateStatementBuilder {
+    label: LabelSyntax,
     for_generate_statement_preamble: ForGenerateStatementPreambleSyntax,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
     for_generate_statement_epilogue: ForGenerateStatementEpilogueSyntax,
 }
 impl ForGenerateStatementBuilder {
     pub fn new(
+        label: impl Into<LabelSyntax>,
         for_generate_statement_preamble: impl Into<ForGenerateStatementPreambleSyntax>,
     ) -> Self {
         Self {
+            label: label.into(),
             for_generate_statement_preamble: for_generate_statement_preamble.into(),
             generate_statement_body: None,
             for_generate_statement_epilogue: ForGenerateStatementEpilogueBuilder::default().build(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
     }
     pub fn with_for_generate_statement_preamble(
         mut self,
@@ -6804,6 +6811,7 @@ impl ForGenerateStatementBuilder {
     pub fn build(self) -> ForGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ForGenerateStatement);
+        builder.push_node(self.label.raw().green().clone());
         builder.push_node(self.for_generate_statement_preamble.raw().green().clone());
         if let Some(n) = self.generate_statement_body {
             builder.push_node(n.raw().green().clone());
@@ -6895,7 +6903,6 @@ impl From<ForGenerateStatementEpilogueBuilder> for ForGenerateStatementEpilogueS
     }
 }
 pub struct ForGenerateStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
     for_token: Token,
     parameter_specification: ParameterSpecificationSyntax,
     generate_token: Token,
@@ -6903,15 +6910,10 @@ pub struct ForGenerateStatementPreambleBuilder {
 impl ForGenerateStatementPreambleBuilder {
     pub fn new(parameter_specification: impl Into<ParameterSpecificationSyntax>) -> Self {
         Self {
-            label: None,
             for_token: Kw::For.canonical_token(),
             parameter_specification: parameter_specification.into(),
             generate_token: Kw::Generate.canonical_token(),
         }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
-        self
     }
     pub fn with_for_token(mut self, t: impl Into<Token>) -> Self {
         self.for_token = t.into();
@@ -6939,9 +6941,6 @@ impl ForGenerateStatementPreambleBuilder {
     pub fn build(self) -> ForGenerateStatementPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ForGenerateStatementPreamble);
-        if let Some(n) = self.label {
-            builder.push_node(n.raw().green().clone());
-        }
         builder.push(self.for_token);
         builder.push_node(self.parameter_specification.raw().green().clone());
         builder.push(self.generate_token);
