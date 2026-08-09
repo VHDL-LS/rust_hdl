@@ -36,7 +36,7 @@ BlockStatement =
   block_epilogue:('end' 'block' '#identifier'? ';')
 
 CaseGenerateAlternative =
-  'when' Label? Choices? '=>' GenerateStatementBody?
+  'when' Label? Choices '=>' GenerateStatementBody
 
 CaseGenerateStatement =
   case_generate_statement_preamble:(Label 'case' Expression 'generate')
