@@ -56,14 +56,38 @@ pub enum NodeOrTokenKind {
     Token(TokenKind),
 }
 
+/// How often a [`Field`] occurs in its parent production.
+///
+/// `nth` distinguishes several fields of the same kind within one production (the 2nd
+/// `Identifier`, say) and is therefore meaningless for a repeated field, which owns every
+/// occurrence of its kind — hence it lives in the variants rather than beside them.
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum Cardinality {
+    Required { nth: usize },
+    Optional { nth: usize },
+    Repeated,
+}
+
+impl Cardinality {
+    pub fn is_optional(self) -> bool {
+        matches!(self, Cardinality::Optional { .. })
+    }
+
+    pub fn is_repeated(self) -> bool {
+        matches!(self, Cardinality::Repeated)
+    }
+
+    /// Whether the field may be absent from the green tree — i.e. everything but `Required`.
+    pub fn may_be_absent(self) -> bool {
+        !matches!(self, Cardinality::Required { .. })
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Field {
     pub kind: NodeOrTokenKind,
-    pub nth: usize,
-    pub repeated: bool,
     pub name: String,
-    /// whether this field is optional in the grammar
-    pub optional: bool,
+    pub cardinality: Cardinality,
 }
 
 impl Field {
@@ -71,9 +95,7 @@ impl Field {
         Field {
             name: kind.default_name(),
             kind: NodeOrTokenKind::Token(kind),
-            repeated: false,
-            nth: 0,
-            optional: false,
+            cardinality: Cardinality::Required { nth: 0 },
         }
     }
 
@@ -82,9 +104,7 @@ impl Field {
         Field {
             name: kind.as_str().to_owned(),
             kind: NodeOrTokenKind::Node(kind),
-            repeated: false,
-            nth: 0,
-            optional: false,
+            cardinality: Cardinality::Required { nth: 0 },
         }
     }
 
@@ -95,10 +115,29 @@ impl Field {
         }
     }
 
-    pub fn make_optional(self) -> Field {
+    /// Sets which occurrence of its kind this field denotes, keeping the cardinality.
+    pub fn with_nth(self, nth: usize) -> Field {
+        let cardinality = match self.cardinality {
+            Cardinality::Required { .. } => Cardinality::Required { nth },
+            Cardinality::Optional { .. } => Cardinality::Optional { nth },
+            Cardinality::Repeated => Cardinality::Repeated,
+        };
         Field {
-            optional: true,
+            cardinality,
             ..self
+        }
+    }
+
+    pub fn make_optional(mut self) -> Field {
+        self.set_optional();
+        self
+    }
+
+    /// Marks the field optional in place, keeping its `nth`. A repeated field already may be
+    /// absent, so it is left alone.
+    pub fn set_optional(&mut self) {
+        if let Cardinality::Required { nth } = self.cardinality {
+            self.cardinality = Cardinality::Optional { nth };
         }
     }
 
@@ -112,9 +151,22 @@ impl Field {
         }
 
         Field {
-            repeated: true,
+            cardinality: Cardinality::Repeated,
             ..self
         }
+    }
+
+    pub fn is_optional(&self) -> bool {
+        self.cardinality.is_optional()
+    }
+
+    pub fn is_repeated(&self) -> bool {
+        self.cardinality.is_repeated()
+    }
+
+    /// Whether the field may be absent from the green tree — i.e. everything but `Required`.
+    pub fn may_be_absent(&self) -> bool {
+        self.cardinality.may_be_absent()
     }
 
     pub fn getter_name(&self) -> String {
@@ -297,9 +349,9 @@ impl Model {
                             continue;
                         }
                         let is_empty_capable = seq.items.iter().all(|item| match &item.kind {
-                            NodeOrTokenKind::Token(_) => item.optional || item.repeated,
+                            NodeOrTokenKind::Token(_) => item.may_be_absent(),
                             NodeOrTokenKind::Node(kind) => {
-                                item.optional || item.repeated || empty_capable.contains(kind)
+                                item.may_be_absent() || empty_capable.contains(kind)
                             }
                         });
                         if is_empty_capable {
@@ -347,7 +399,7 @@ impl Model {
             if let Node::Items(seq) = node {
                 for item in &seq.items {
                     if let NodeOrTokenKind::Node(kind) = &item.kind {
-                        if !item.optional && !item.repeated && empty_capable.contains(kind) {
+                        if !item.may_be_absent() && empty_capable.contains(kind) {
                             violations.push((&seq.name, kind));
                         }
                     }
@@ -497,8 +549,8 @@ impl Model {
             if let Node::Items(seq) = node {
                 for item in &mut seq.items {
                     if let NodeOrTokenKind::Node(node_ref) = &item.kind {
-                        if !item.optional && !item.repeated && empty_capable.contains(node_ref) {
-                            item.optional = true;
+                        if !item.may_be_absent() && empty_capable.contains(node_ref) {
+                            item.set_optional();
                         }
                     }
                 }

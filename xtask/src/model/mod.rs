@@ -76,7 +76,7 @@ fn map_single(production: &str, rule: &ungrammar::Rule, grammar: &ungrammar::Gra
 /// attach to it (a label, `?`, `*`) would be silently dropped. Reject it instead.
 fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
     assert!(
-        item.name == kind && !item.optional && !item.repeated,
+        item.name == kind && !item.may_be_absent(),
         "Alternative {kind} of production {production} is labelled, optional or repeated; \
          an alternative must be a bare node or token reference."
     );
@@ -100,13 +100,12 @@ fn map_rule(name: NodeKind, rule: &ungrammar::Rule, grammar: &ungrammar::Grammar
         ungrammar::Rule::Seq(rules) => {
             let mut mapped = Vec::new();
             for rule in rules {
-                let mut next = map_single(name.as_str(), rule, grammar);
+                let next = map_single(name.as_str(), rule, grammar);
                 let nth = mapped
                     .iter()
                     .filter(|el: &&Field| el.kind == next.kind)
                     .count();
-                next.nth = nth;
-                mapped.push(next);
+                mapped.push(next.with_nth(nth));
             }
             Node::Items(SequenceNode {
                 name,

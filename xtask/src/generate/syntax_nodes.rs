@@ -7,8 +7,8 @@
 use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens, SequenceNode,
-    TokenKind,
+    Cardinality, ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens,
+    SequenceNode, TokenKind,
 };
 use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
@@ -252,8 +252,8 @@ fn collect_concrete_node_kinds(
 
 /// Build a `LayoutItem { ... }` token-stream for one item in a sequence.
 fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
-    let optional = item.optional;
-    let repeated = item.repeated;
+    let optional = item.is_optional();
+    let repeated = item.is_repeated();
     let name_str = item.name.to_case(Case::Snake);
     let kind_expr = match &item.kind {
         NodeOrTokenKind::Token(token_kind) => {
@@ -330,26 +330,23 @@ fn build_getter(item: &Field, model: &Model) -> TokenStream {
 fn build_node_getter(item: &Field, node_kind: &NodeKind, model: &Model) -> TokenStream {
     let fn_name = format_ident!("{}", item.getter_name());
     let syntax = syntax_type_ident(node_kind);
-    let nth = Literal::usize_unsuffixed(item.nth);
     let getter_fn_name = if model.is_token_choice(node_kind) {
         quote! { tokens }
     } else {
         quote! { children }
     };
-    if item.repeated {
-        assert_eq!(
-            item.nth, 0,
-            "node {item:?} is not at position 0 but is repeated"
-        );
-        quote! {
+    match item.cardinality {
+        Cardinality::Repeated => quote! {
             pub fn #fn_name(&self) -> impl Iterator<Item = #syntax>  + use<'_> {
                 self.0.#getter_fn_name().filter_map(#syntax::cast)
             }
-        }
-    } else {
-        quote! {
-            pub fn #fn_name(&self) -> Option<#syntax> {
-                self.0.#getter_fn_name().filter_map(#syntax::cast).nth(#nth)
+        },
+        Cardinality::Required { nth } | Cardinality::Optional { nth } => {
+            let nth = Literal::usize_unsuffixed(nth);
+            quote! {
+                pub fn #fn_name(&self) -> Option<#syntax> {
+                    self.0.#getter_fn_name().filter_map(#syntax::cast).nth(#nth)
+                }
             }
         }
     }
@@ -358,23 +355,23 @@ fn build_node_getter(item: &Field, node_kind: &NodeKind, model: &Model) -> Token
 fn build_token_getter(item: &Field, token_kind: &TokenKind) -> TokenStream {
     let function_name = format_ident!("{}", item.getter_name());
     let kind_expr = token_kind_path(token_kind);
-    let nth = Literal::usize_unsuffixed(item.nth);
-    if item.repeated {
-        assert_eq!(item.nth, 0, "{} multiple", item.name);
-        quote! {
+    match item.cardinality {
+        Cardinality::Repeated => quote! {
             pub fn #function_name(&self) -> impl Iterator<Item = SyntaxToken>  + use<'_> {
                 self.0
                     .tokens()
                     .filter(|token| token.kind() == #kind_expr)
             }
-        }
-    } else {
-        quote! {
-            pub fn #function_name(&self) -> Option<SyntaxToken> {
-                self.0
-                    .tokens()
-                    .filter(|token| token.kind() == #kind_expr)
-                    .nth(#nth)
+        },
+        Cardinality::Required { nth } | Cardinality::Optional { nth } => {
+            let nth = Literal::usize_unsuffixed(nth);
+            quote! {
+                pub fn #function_name(&self) -> Option<SyntaxToken> {
+                    self.0
+                        .tokens()
+                        .filter(|token| token.kind() == #kind_expr)
+                        .nth(#nth)
+                }
             }
         }
     }
