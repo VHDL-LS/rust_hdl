@@ -260,11 +260,17 @@ impl Parser {
         self.start_node(Assertion);
         self.expect_kw(Kw::Assert);
         self.condition();
-        if self.opt_token(Keyword(Kw::Report)) {
+        if self.next_is(Keyword(Kw::Report)) {
+            self.start_node(ReportClause);
+            self.skip(); // Kw::Report
             self.expression();
+            self.end_node();
         }
-        if self.opt_token(Keyword(Kw::Severity)) {
+        if self.next_is(Keyword(Kw::Severity)) {
+            self.start_node(SeverityClause);
+            self.skip(); // Kw::Severity
             self.expression();
+            self.end_node();
         }
         self.end_node();
     }
@@ -331,6 +337,16 @@ impl Parser {
         self.end_node();
     }
 
+    pub fn if_generate_if(&mut self) {
+        self.start_node(IfGenerateIf);
+        self.expect_kw(Kw::If);
+        self.opt_label();
+        self.expression();
+        self.expect_kw(Kw::Generate);
+        self.generate_statement_body();
+        self.end_node();
+    }
+
     pub fn if_generate_elsif(&mut self) {
         self.start_node(IfGenerateElsif);
         self.skip();
@@ -352,8 +368,8 @@ impl Parser {
 
     pub fn if_generate_statement(&mut self) {
         self.start_node(IfGenerateStatement);
-        self.if_generate_statement_preamble();
-        self.generate_statement_body();
+        self.label();
+        self.if_generate_if();
         while self.next_is(Keyword(Kw::Elsif)) {
             self.if_generate_elsif();
         }
@@ -361,16 +377,6 @@ impl Parser {
             self.if_generate_else();
         }
         self.if_generate_statement_epilogue();
-        self.end_node();
-    }
-
-    pub fn if_generate_statement_preamble(&mut self) {
-        self.start_node(IfGenerateStatementPreamble);
-        self.opt_label();
-        self.expect_kw(Kw::If);
-        self.opt_label();
-        self.expression();
-        self.expect_kw(Kw::Generate);
         self.end_node();
     }
 

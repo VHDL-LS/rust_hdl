@@ -73,8 +73,11 @@ impl Parser {
         }
 
         self.start_node(FileOpenInformation);
-        if self.opt_token(Keyword(Kw::Open)) {
+        if self.next_is(Keyword(Kw::Open)) {
+            self.start_node(FileOpenKind);
+            self.skip(); // Kw::Open
             self.expression();
+            self.end_node();
         }
         self.expect_token(Keyword(Kw::Is));
         self.expression();

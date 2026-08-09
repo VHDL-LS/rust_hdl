@@ -9,12 +9,14 @@ AssertionStatement
       Name
         NameDesignatorPrefix
           Identifier 'false'
-    Keyword(Report)
-    LiteralExpression
-      StringLiteral '"message"'
-    Keyword(Severity)
-    NameExpression
-      Name
-        NameDesignatorPrefix
-          Identifier 'error'
+    ReportClause
+      Keyword(Report)
+      LiteralExpression
+        StringLiteral '"message"'
+    SeverityClause
+      Keyword(Severity)
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'error'
   SemiColon

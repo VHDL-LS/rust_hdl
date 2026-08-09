@@ -12,11 +12,12 @@ FileDeclaration
       NameDesignatorPrefix
         Identifier 'bit'
   FileOpenInformation
-    Keyword(Open)
-    NameExpression
-      Name
-        NameDesignatorPrefix
-          Identifier 'WRITE_MODE'
+    FileOpenKind
+      Keyword(Open)
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'WRITE_MODE'
     Keyword(Is)
     LiteralExpression
       StringLiteral '"./path_to_file.txt"'

@@ -329,6 +329,53 @@ impl Model {
         self.check_all_nodes_exist();
         self.check_choices_are_unique();
         self.check_empty_capable_nodes_marked_optional();
+        self.check_nth_accessors_are_unambiguous();
+    }
+
+    /// Checks that every `nth`-based accessor actually addresses the field it was generated for.
+    pub fn check_nth_accessors_are_unambiguous(&self) {
+        let mut violations: Vec<String> = vec![];
+        for node in self.all_nodes() {
+            let Node::Items(seq) = node else {
+                continue;
+            };
+            for (index, item) in seq.items.iter().enumerate() {
+                if item.is_repeated() {
+                    if let Some((_, other)) =
+                        seq.items.iter().enumerate().find(|(other_index, other)| {
+                            *other_index != index && other.kind == item.kind
+                        })
+                    {
+                        violations.push(format!(
+                            "  {} in {}: repeated field shares its kind with `{}`",
+                            item.name, seq.name, other.name
+                        ));
+                    }
+                    continue;
+                }
+                for earlier in seq.items[..index]
+                    .iter()
+                    .filter(|earlier| earlier.kind == item.kind)
+                {
+                    if earlier.may_be_absent() {
+                        violations.push(format!(
+                            "  {} in {}: preceded by `{}` of the same kind, which may be absent",
+                            item.name, seq.name, earlier.name
+                        ));
+                    }
+                }
+            }
+        }
+        if !violations.is_empty() {
+            println!("The following fields cannot be addressed by their position:");
+            for violation in &violations {
+                println!("{violation}");
+            }
+            panic!(
+                "fix the violations above by giving the conflicting fields distinct node kinds, \
+                 e.g. by wrapping them in a labelled group"
+            );
+        }
     }
 
     /// Computes the set of sequence nodes that can produce a completely empty green tree node.
@@ -699,6 +746,60 @@ mod tests {
         model.push_node(Node::Items(root));
         model.do_postprocessing();
         model.check_empty_capable_nodes_marked_optional(); // must not panic
+    }
+
+    fn model_with(items: Vec<Field>) -> Model {
+        let mut model = Model::default();
+        model.push_node(Node::Items(SequenceNode::new("DesignFile", items)));
+        model
+    }
+
+    /// `A A?` is fine: the optional one comes last, so nothing shifts.
+    #[test]
+    fn check_nth_accessors_allows_trailing_optional() {
+        let model = model_with(vec![
+            Field::node("Expression").with_name("condition"),
+            Field::node("Expression").with_nth(1).make_optional(),
+        ]);
+        model.check_nth_accessors_are_unambiguous(); // must not panic
+    }
+
+    /// `A? A` shifts the second field's ordinal whenever the first is absent.
+    #[test]
+    #[should_panic(expected = "distinct node kinds")]
+    fn check_nth_accessors_rejects_preceding_optional() {
+        let model = model_with(vec![
+            Field::node("Expression")
+                .make_optional()
+                .with_name("report"),
+            Field::node("Expression")
+                .with_nth(1)
+                .make_optional()
+                .with_name("severity"),
+        ]);
+        model.check_nth_accessors_are_unambiguous();
+    }
+
+    /// The same holds for tokens.
+    #[test]
+    #[should_panic(expected = "distinct node kinds")]
+    fn check_nth_accessors_rejects_preceding_optional_token() {
+        let model = model_with(vec![
+            Field::token(TokenKind::SemiColon).make_optional(),
+            Field::token(TokenKind::SemiColon).with_nth(1),
+        ]);
+        model.check_nth_accessors_are_unambiguous();
+    }
+
+    /// A repeated field owns every child of its kind, so no sibling may share it.
+    #[test]
+    #[should_panic(expected = "distinct node kinds")]
+    fn check_nth_accessors_rejects_repeated_sharing_a_kind() {
+        let model = model_with(vec![
+            Field::node("Expression").with_name("first"),
+            Field::node("Expression").make_repeated().with_name("rest"),
+        ]);
+        model.check_nth_accessors_are_unambiguous();
     }
 
     #[test]

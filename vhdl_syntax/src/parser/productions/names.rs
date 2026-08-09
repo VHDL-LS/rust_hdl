@@ -82,6 +82,12 @@ impl Parser {
         self.expect_one_of_tokens([Identifier, StringLiteral, CharacterLiteral]);
     }
 
+    pub(crate) fn label(&mut self) {
+        self.start_node(Label);
+        self.expect_tokens([Identifier, Colon]);
+        self.end_node();
+    }
+
     pub(crate) fn opt_label(&mut self) {
         if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
             self.start_node(Label);

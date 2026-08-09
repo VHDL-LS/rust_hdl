@@ -116,14 +116,10 @@ GenerateStatementBody =
   generate_statement_body_epilogue:('end' '#identifier'? ';')?
 
 IfGenerateStatement =
-  if_generate_statement_preamble:(
-    Label? 'if' alternative_label:Label? condition:Expression 'generate'
-  )
-  GenerateStatementBody?
-  if_generate_elsif:(
-    'elsif' Label? Expression 'generate' GenerateStatementBody?
-  )*
-  if_generate_else:('else' Label? 'generate' GenerateStatementBody?)?
+  Label
+  if_generate_if:('if' Label? Expression 'generate' GenerateStatementBody)
+  if_generate_elsif:('elsif' Label? Expression 'generate' GenerateStatementBody)*
+  if_generate_else:('else' Label? 'generate' GenerateStatementBody)?
   if_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
@@ -275,7 +271,7 @@ FileDeclaration =
   'file' IdentifierList ':' SubtypeIndication FileOpenInformation? ';'
 
 FileOpenInformation =
-  'open'? file_open_kind:Expression? 'is' file_logical_name:Expression
+  file_open_kind:('open' Expression)? 'is' Expression
 
 // LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
 // The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
@@ -787,11 +783,9 @@ UseClause =
 //==============================================================================
 Assertion =
   'assert'
-  condition:Expression
-  'report'?
-  report:Expression?
-  'severity'?
-  severity:Expression?
+  Expression
+  report_clause:('report' Expression)?
+  severity_clause:('severity' Expression)?
 
 AssertionStatement =
   Label? Assertion ';'

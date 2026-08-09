@@ -3,10 +3,10 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: if cond = true generate\n  variable v1 : boolean;\nbegin\n  foo1(clk);\nelsif cond2 = true generate\n  variable v2 : boolean;\nbegin\n  foo2(clk);\nelse generate\n  variable v3 : boolean;\nbegin\n  foo3(clk);\nend generate;\",)"
 ---
 IfGenerateStatement
-  IfGenerateStatementPreamble
-    Label
-      Identifier 'gen'
-      Colon
+  Label
+    Identifier 'gen'
+    Colon
+  IfGenerateIf
     Keyword(If)
     BinaryExpression
       NameExpression
@@ -19,37 +19,37 @@ IfGenerateStatement
           NameDesignatorPrefix
             Identifier 'true'
     Keyword(Generate)
-  GenerateStatementBody
-    Declarations
-      VariableDeclaration
-        Keyword(Variable)
-        IdentifierList
-          Identifier 'v1'
-        Colon
-        SubtypeIndication
+    GenerateStatementBody
+      Declarations
+        VariableDeclaration
+          Keyword(Variable)
+          IdentifierList
+            Identifier 'v1'
+          Colon
+          SubtypeIndication
+            Name
+              NameDesignatorPrefix
+                Identifier 'boolean'
+          SemiColon
+      DeclarationStatementSeparator
+        Keyword(Begin)
+      ConcurrentStatements
+        ConcurrentProcedureCallOrComponentInstantiationStatement
           Name
             NameDesignatorPrefix
-              Identifier 'boolean'
-        SemiColon
-    DeclarationStatementSeparator
-      Keyword(Begin)
-    ConcurrentStatements
-      ConcurrentProcedureCallOrComponentInstantiationStatement
-        Name
-          NameDesignatorPrefix
-            Identifier 'foo1'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    NameExpression
-                      Name
-                        NameDesignatorPrefix
-                          Identifier 'clk'
-            RightPar
-        SemiColon
+              Identifier 'foo1'
+            ParenthesizedName
+              LeftPar
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      NameExpression
+                        Name
+                          NameDesignatorPrefix
+                            Identifier 'clk'
+              RightPar
+          SemiColon
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression

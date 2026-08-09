@@ -997,7 +997,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::IfGenerateStatementPreamble => &[
+        NodeKind::IfGenerateIf => &[
             CharacterLiteral,
             Identifier,
             Keyword(Kw::Alias),

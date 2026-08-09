@@ -732,21 +732,17 @@ impl From<ArchitecturePreambleBuilder> for ArchitecturePreambleSyntax {
 }
 pub struct AssertionBuilder {
     assert_token: Token,
-    condition: ExpressionSyntax,
-    report_token: Option<Token>,
-    report: Option<ExpressionSyntax>,
-    severity_token: Option<Token>,
-    severity: Option<ExpressionSyntax>,
+    expression: ExpressionSyntax,
+    report_clause: Option<ReportClauseSyntax>,
+    severity_clause: Option<SeverityClauseSyntax>,
 }
 impl AssertionBuilder {
-    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             assert_token: Kw::Assert.canonical_token(),
-            condition: condition.into(),
-            report_token: None,
-            report: None,
-            severity_token: None,
-            severity: None,
+            expression: expression.into(),
+            report_clause: None,
+            severity_clause: None,
         }
     }
     pub fn with_assert_token(mut self, t: impl Into<Token>) -> Self {
@@ -757,55 +753,27 @@ impl AssertionBuilder {
         self.assert_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.condition = n.into();
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
         self
     }
-    pub fn with_report_token(mut self, t: impl Into<Token>) -> Self {
-        self.report_token = Some(t.into());
+    pub fn with_report_clause(mut self, n: impl Into<ReportClauseSyntax>) -> Self {
+        self.report_clause = Some(n.into());
         self
     }
-    pub fn with_report_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .report_token
-            .get_or_insert_with(|| Kw::Report.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_report(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.report = Some(n.into());
-        self
-    }
-    pub fn with_severity_token(mut self, t: impl Into<Token>) -> Self {
-        self.severity_token = Some(t.into());
-        self
-    }
-    pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .severity_token
-            .get_or_insert_with(|| Kw::Severity.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_severity(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.severity = Some(n.into());
+    pub fn with_severity_clause(mut self, n: impl Into<SeverityClauseSyntax>) -> Self {
+        self.severity_clause = Some(n.into());
         self
     }
     pub fn build(self) -> AssertionSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::Assertion);
         builder.push(self.assert_token);
-        builder.push_node(self.condition.raw().green().clone());
-        if let Some(t) = self.report_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.report {
+        builder.push_node(self.expression.raw().green().clone());
+        if let Some(n) = self.report_clause {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(t) = self.severity_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.severity {
+        if let Some(n) = self.severity_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -6791,32 +6759,19 @@ impl From<FileDeclarationBuilder> for FileDeclarationSyntax {
     }
 }
 pub struct FileOpenInformationBuilder {
-    open_token: Option<Token>,
-    file_open_kind: Option<ExpressionSyntax>,
+    file_open_kind: Option<FileOpenKindSyntax>,
     is_token: Token,
-    file_logical_name: ExpressionSyntax,
+    expression: ExpressionSyntax,
 }
 impl FileOpenInformationBuilder {
-    pub fn new(file_logical_name: impl Into<ExpressionSyntax>) -> Self {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            open_token: None,
             file_open_kind: None,
             is_token: Kw::Is.canonical_token(),
-            file_logical_name: file_logical_name.into(),
+            expression: expression.into(),
         }
     }
-    pub fn with_open_token(mut self, t: impl Into<Token>) -> Self {
-        self.open_token = Some(t.into());
-        self
-    }
-    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .open_token
-            .get_or_insert_with(|| Kw::Open.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_file_open_kind(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+    pub fn with_file_open_kind(mut self, n: impl Into<FileOpenKindSyntax>) -> Self {
         self.file_open_kind = Some(n.into());
         self
     }
@@ -6828,21 +6783,18 @@ impl FileOpenInformationBuilder {
         self.is_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_file_logical_name(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.file_logical_name = n.into();
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
         self
     }
     pub fn build(self) -> FileOpenInformationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::FileOpenInformation);
-        if let Some(t) = self.open_token {
-            builder.push(t);
-        }
         if let Some(n) = self.file_open_kind {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.is_token);
-        builder.push_node(self.file_logical_name.raw().green().clone());
+        builder.push_node(self.expression.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -6851,6 +6803,45 @@ impl FileOpenInformationBuilder {
 }
 impl From<FileOpenInformationBuilder> for FileOpenInformationSyntax {
     fn from(value: FileOpenInformationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct FileOpenKindBuilder {
+    open_token: Token,
+    expression: ExpressionSyntax,
+}
+impl FileOpenKindBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            open_token: Kw::Open.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_open_token(mut self, t: impl Into<Token>) -> Self {
+        self.open_token = t.into();
+        self
+    }
+    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.open_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> FileOpenKindSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::FileOpenKind);
+        builder.push(self.open_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        FileOpenKindSyntax::cast(node).unwrap()
+    }
+}
+impl From<FileOpenKindBuilder> for FileOpenKindSyntax {
+    fn from(value: FileOpenKindBuilder) -> Self {
         value.build()
     }
 }
@@ -8089,30 +8080,45 @@ impl From<IfGenerateElsifBuilder> for IfGenerateElsifSyntax {
         value.build()
     }
 }
-pub struct IfGenerateStatementBuilder {
-    if_generate_statement_preamble: IfGenerateStatementPreambleSyntax,
+pub struct IfGenerateIfBuilder {
+    if_token: Token,
+    label: Option<LabelSyntax>,
+    expression: ExpressionSyntax,
+    generate_token: Token,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
-    if_generate_elsifs: Vec<IfGenerateElsifSyntax>,
-    if_generate_else: Option<IfGenerateElseSyntax>,
-    if_generate_statement_epilogue: IfGenerateStatementEpilogueSyntax,
 }
-impl IfGenerateStatementBuilder {
-    pub fn new(
-        if_generate_statement_preamble: impl Into<IfGenerateStatementPreambleSyntax>,
-    ) -> Self {
+impl IfGenerateIfBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            if_generate_statement_preamble: if_generate_statement_preamble.into(),
+            if_token: Kw::If.canonical_token(),
+            label: None,
+            expression: expression.into(),
+            generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
-            if_generate_elsifs: Vec::new(),
-            if_generate_else: None,
-            if_generate_statement_epilogue: IfGenerateStatementEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_if_generate_statement_preamble(
-        mut self,
-        n: impl Into<IfGenerateStatementPreambleSyntax>,
-    ) -> Self {
-        self.if_generate_statement_preamble = n.into();
+    pub fn with_if_token(mut self, t: impl Into<Token>) -> Self {
+        self.if_token = t.into();
+        self
+    }
+    pub fn with_if_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.if_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
+        self.generate_token = t.into();
+        self
+    }
+    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.generate_token.set_leading_trivia(trivia);
         self
     }
     pub fn with_generate_statement_body(
@@ -8120,6 +8126,57 @@ impl IfGenerateStatementBuilder {
         n: impl Into<GenerateStatementBodySyntax>,
     ) -> Self {
         self.generate_statement_body = Some(n.into());
+        self
+    }
+    pub fn build(self) -> IfGenerateIfSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::IfGenerateIf);
+        builder.push(self.if_token);
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.expression.raw().green().clone());
+        builder.push(self.generate_token);
+        if let Some(n) = self.generate_statement_body {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        IfGenerateIfSyntax::cast(node).unwrap()
+    }
+}
+impl From<IfGenerateIfBuilder> for IfGenerateIfSyntax {
+    fn from(value: IfGenerateIfBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct IfGenerateStatementBuilder {
+    label: LabelSyntax,
+    if_generate_if: IfGenerateIfSyntax,
+    if_generate_elsifs: Vec<IfGenerateElsifSyntax>,
+    if_generate_else: Option<IfGenerateElseSyntax>,
+    if_generate_statement_epilogue: IfGenerateStatementEpilogueSyntax,
+}
+impl IfGenerateStatementBuilder {
+    pub fn new(
+        label: impl Into<LabelSyntax>,
+        if_generate_if: impl Into<IfGenerateIfSyntax>,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            if_generate_if: if_generate_if.into(),
+            if_generate_elsifs: Vec::new(),
+            if_generate_else: None,
+            if_generate_statement_epilogue: IfGenerateStatementEpilogueBuilder::default().build(),
+        }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = n.into();
+        self
+    }
+    pub fn with_if_generate_if(mut self, n: impl Into<IfGenerateIfSyntax>) -> Self {
+        self.if_generate_if = n.into();
         self
     }
     pub fn add_if_generate_elsifs(mut self, n: impl Into<IfGenerateElsifSyntax>) -> Self {
@@ -8140,10 +8197,8 @@ impl IfGenerateStatementBuilder {
     pub fn build(self) -> IfGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfGenerateStatement);
-        builder.push_node(self.if_generate_statement_preamble.raw().green().clone());
-        if let Some(n) = self.generate_statement_body {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.if_generate_if.raw().green().clone());
         for n in self.if_generate_elsifs {
             builder.push_node(n.raw().green().clone());
         }
@@ -8233,74 +8288,6 @@ impl IfGenerateStatementEpilogueBuilder {
 }
 impl From<IfGenerateStatementEpilogueBuilder> for IfGenerateStatementEpilogueSyntax {
     fn from(value: IfGenerateStatementEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct IfGenerateStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
-    if_token: Token,
-    alternative_label: Option<LabelSyntax>,
-    condition: ExpressionSyntax,
-    generate_token: Token,
-}
-impl IfGenerateStatementPreambleBuilder {
-    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            label: None,
-            if_token: Kw::If.canonical_token(),
-            alternative_label: None,
-            condition: condition.into(),
-            generate_token: Kw::Generate.canonical_token(),
-        }
-    }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
-        self
-    }
-    pub fn with_if_token(mut self, t: impl Into<Token>) -> Self {
-        self.if_token = t.into();
-        self
-    }
-    pub fn with_if_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.if_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_alternative_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.alternative_label = Some(n.into());
-        self
-    }
-    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.condition = n.into();
-        self
-    }
-    pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
-        self.generate_token = t.into();
-        self
-    }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.generate_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> IfGenerateStatementPreambleSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::IfGenerateStatementPreamble);
-        if let Some(n) = self.label {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.if_token);
-        if let Some(n) = self.alternative_label {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.condition.raw().green().clone());
-        builder.push(self.generate_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        IfGenerateStatementPreambleSyntax::cast(node).unwrap()
-    }
-}
-impl From<IfGenerateStatementPreambleBuilder> for IfGenerateStatementPreambleSyntax {
-    fn from(value: IfGenerateStatementPreambleBuilder) -> Self {
         value.build()
     }
 }
@@ -13460,6 +13447,45 @@ impl From<RelativePathnameBuilder> for RelativePathnameSyntax {
         value.build()
     }
 }
+pub struct ReportClauseBuilder {
+    report_token: Token,
+    expression: ExpressionSyntax,
+}
+impl ReportClauseBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            report_token: Kw::Report.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_report_token(mut self, t: impl Into<Token>) -> Self {
+        self.report_token = t.into();
+        self
+    }
+    pub fn with_report_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.report_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> ReportClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ReportClause);
+        builder.push(self.report_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ReportClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<ReportClauseBuilder> for ReportClauseSyntax {
+    fn from(value: ReportClauseBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct ReportStatementBuilder {
     label: Option<LabelSyntax>,
     report_token: Token,
@@ -14591,6 +14617,45 @@ impl SequentialStatementsBuilder {
 }
 impl From<SequentialStatementsBuilder> for SequentialStatementsSyntax {
     fn from(value: SequentialStatementsBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct SeverityClauseBuilder {
+    severity_token: Token,
+    expression: ExpressionSyntax,
+}
+impl SeverityClauseBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            severity_token: Kw::Severity.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_severity_token(mut self, t: impl Into<Token>) -> Self {
+        self.severity_token = t.into();
+        self
+    }
+    pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.severity_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> SeverityClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::SeverityClause);
+        builder.push(self.severity_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        SeverityClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<SeverityClauseBuilder> for SeverityClauseSyntax {
+    fn from(value: SeverityClauseBuilder) -> Self {
         value.build()
     }
 }

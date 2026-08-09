@@ -826,7 +826,7 @@ impl AstNode for AssertionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "condition",
+                name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -841,44 +841,14 @@ impl AstNode for AssertionSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "report",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Report)),
+                name: "report_clause",
+                kind: LayoutItemKind::Node(NodeKind::ReportClause),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "report",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "severity",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Severity)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "severity",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "severity_clause",
+                kind: LayoutItemKind::Node(NodeKind::SeverityClause),
             },
         ],
     });
@@ -896,26 +866,20 @@ impl AssertionSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Assert))
             .nth(0)
     }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
-    pub fn report_token(&self) -> Option<SyntaxToken> {
+    pub fn report_clause(&self) -> Option<ReportClauseSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Report))
+            .children()
+            .filter_map(ReportClauseSyntax::cast)
             .nth(0)
     }
-    pub fn report(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
-    }
-    pub fn severity_token(&self) -> Option<SyntaxToken> {
+    pub fn severity_clause(&self) -> Option<SeverityClauseSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Severity))
+            .children()
+            .filter_map(SeverityClauseSyntax::cast)
             .nth(0)
-    }
-    pub fn severity(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(2)
     }
 }
 #[derive(Debug, Clone)]
@@ -8062,23 +8026,8 @@ impl AstNode for FileOpenInformationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "open",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
                 name: "file_open_kind",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                kind: LayoutItemKind::Node(NodeKind::FileOpenKind),
             },
             LayoutItem {
                 optional: false,
@@ -8089,7 +8038,7 @@ impl AstNode for FileOpenInformationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "file_logical_name",
+                name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -8111,14 +8060,11 @@ impl AstNode for FileOpenInformationSyntax {
     }
 }
 impl FileOpenInformationSyntax {
-    pub fn open_token(&self) -> Option<SyntaxToken> {
+    pub fn file_open_kind(&self) -> Option<FileOpenKindSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
+            .children()
+            .filter_map(FileOpenKindSyntax::cast)
             .nth(0)
-    }
-    pub fn file_open_kind(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -8126,8 +8072,55 @@ impl FileOpenInformationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn file_logical_name(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct FileOpenKindSyntax(pub(crate) SyntaxNode);
+impl AstNode for FileOpenKindSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::FileOpenKind,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "open",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Open)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        FileOpenKindSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl FileOpenKindSyntax {
+    pub fn open_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Open))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -9392,6 +9385,86 @@ impl IfGenerateElsifSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct IfGenerateIfSyntax(pub(crate) SyntaxNode);
+impl AstNode for IfGenerateIfSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::IfGenerateIf,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "if",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::If)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "generate",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "generate_statement_body",
+                kind: LayoutItemKind::Node(NodeKind::GenerateStatementBody),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        IfGenerateIfSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl IfGenerateIfSyntax {
+    pub fn if_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
+            .nth(0)
+    }
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn generate_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
+            .nth(0)
+    }
+    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
+        self.0
+            .children()
+            .filter_map(GenerateStatementBodySyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct IfGenerateStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for IfGenerateStatementSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -9400,14 +9473,14 @@ impl AstNode for IfGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "if_generate_statement_preamble",
-                kind: LayoutItemKind::Node(NodeKind::IfGenerateStatementPreamble),
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
-                name: "generate_statement_body",
-                kind: LayoutItemKind::Node(NodeKind::GenerateStatementBody),
+                name: "if_generate_if",
+                kind: LayoutItemKind::Node(NodeKind::IfGenerateIf),
             },
             LayoutItem {
                 optional: false,
@@ -9437,16 +9510,13 @@ impl AstNode for IfGenerateStatementSyntax {
     }
 }
 impl IfGenerateStatementSyntax {
-    pub fn if_generate_statement_preamble(&self) -> Option<IfGenerateStatementPreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(IfGenerateStatementPreambleSyntax::cast)
-            .nth(0)
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
     }
-    pub fn generate_statement_body(&self) -> Option<GenerateStatementBodySyntax> {
+    pub fn if_generate_if(&self) -> Option<IfGenerateIfSyntax> {
         self.0
             .children()
-            .filter_map(GenerateStatementBodySyntax::cast)
+            .filter_map(IfGenerateIfSyntax::cast)
             .nth(0)
     }
     pub fn if_generate_elsifs(&self) -> impl Iterator<Item = IfGenerateElsifSyntax> + use<'_> {
@@ -9527,83 +9597,6 @@ impl IfGenerateStatementEpilogueSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct IfGenerateStatementPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for IfGenerateStatementPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::IfGenerateStatementPreamble,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "if",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::If)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "alternative_label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "condition",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generate",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generate)),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        IfGenerateStatementPreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl IfGenerateStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
-    }
-    pub fn if_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
-            .nth(0)
-    }
-    pub fn alternative_label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(1)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn generate_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
             .nth(0)
     }
 }
@@ -15116,6 +15109,53 @@ impl RelativePathnameSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ReportClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for ReportClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ReportClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "report",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Report)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ReportClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ReportClauseSyntax {
+    pub fn report_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Report))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ReportStatementSyntax(pub(crate) SyntaxNode);
 impl AstNode for ReportStatementSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -16542,6 +16582,53 @@ impl SequentialStatementsSyntax {
         self.0
             .children()
             .filter_map(SequentialStatementSyntax::cast)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SeverityClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for SeverityClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SeverityClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "severity",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Severity)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SeverityClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SeverityClauseSyntax {
+    pub fn severity_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Severity))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
