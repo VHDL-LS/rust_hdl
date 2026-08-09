@@ -1,0 +1,31 @@
+---
+source: vhdl_syntax/src/parser/productions/sequential_statement.rs
+expression: "stmt_to_test_text(\"\\\nlbl: with x select\n   foo := bar when others;\n        \")"
+---
+SelectedVariableAssignment
+  Label
+    Identifier 'lbl'
+    Colon
+  SelectedAssignmentPreamble
+    Keyword(With)
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          Identifier 'x'
+    Keyword(Select)
+  NameTarget
+    Name
+      NameDesignatorPrefix
+        Identifier 'foo'
+  ColonEq
+  SelectedExpressions
+    SelectedExpressionItem
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'bar'
+      Keyword(When)
+      Choices
+        OthersChoice
+          Keyword(Others)
+  SemiColon

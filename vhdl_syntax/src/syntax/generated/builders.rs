@@ -13825,6 +13825,7 @@ impl From<SelectedExpressionsBuilder> for SelectedExpressionsSyntax {
     }
 }
 pub struct SelectedForceAssignmentBuilder {
+    label: Option<LabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     lte_token: Token,
@@ -13839,6 +13840,7 @@ impl SelectedForceAssignmentBuilder {
         target: impl Into<TargetSyntax>,
     ) -> Self {
         Self {
+            label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -13847,6 +13849,10 @@ impl SelectedForceAssignmentBuilder {
             selected_expressions: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
     }
     pub fn with_selected_assignment_preamble(
         mut self,
@@ -13894,6 +13900,9 @@ impl SelectedForceAssignmentBuilder {
     pub fn build(self) -> SelectedForceAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedForceAssignment);
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
         builder.push_node(self.target.raw().green().clone());
         builder.push(self.lte_token);
@@ -13956,6 +13965,7 @@ impl From<SelectedNameBuilder> for SelectedNameSyntax {
     }
 }
 pub struct SelectedVariableAssignmentBuilder {
+    label: Option<LabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     colon_eq_token: Token,
@@ -13968,12 +13978,17 @@ impl SelectedVariableAssignmentBuilder {
         target: impl Into<TargetSyntax>,
     ) -> Self {
         Self {
+            label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             selected_expressions: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
     }
     pub fn with_selected_assignment_preamble(
         mut self,
@@ -14009,6 +14024,9 @@ impl SelectedVariableAssignmentBuilder {
     pub fn build(self) -> SelectedVariableAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedVariableAssignment);
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
         builder.push_node(self.target.raw().green().clone());
         builder.push(self.colon_eq_token);
@@ -14028,6 +14046,7 @@ impl From<SelectedVariableAssignmentBuilder> for SelectedVariableAssignmentSynta
     }
 }
 pub struct SelectedWaveformAssignmentBuilder {
+    label: Option<LabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     lte_token: Token,
@@ -14041,6 +14060,7 @@ impl SelectedWaveformAssignmentBuilder {
         target: impl Into<TargetSyntax>,
     ) -> Self {
         Self {
+            label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -14048,6 +14068,10 @@ impl SelectedWaveformAssignmentBuilder {
             selected_waveforms: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
+    }
+    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
+        self.label = Some(n.into());
+        self
     }
     pub fn with_selected_assignment_preamble(
         mut self,
@@ -14087,6 +14111,9 @@ impl SelectedWaveformAssignmentBuilder {
     pub fn build(self) -> SelectedWaveformAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedWaveformAssignment);
+        if let Some(n) = self.label {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
         builder.push_node(self.target.raw().green().clone());
         builder.push(self.lte_token);

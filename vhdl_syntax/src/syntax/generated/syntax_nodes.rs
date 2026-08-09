@@ -15653,6 +15653,12 @@ impl AstNode for SelectedForceAssignmentSyntax {
         kind: NodeKind::SelectedForceAssignment,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "selected_assignment_preamble",
@@ -15710,6 +15716,9 @@ impl AstNode for SelectedForceAssignmentSyntax {
     }
 }
 impl SelectedForceAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
             .children()
@@ -15832,6 +15841,12 @@ impl AstNode for SelectedVariableAssignmentSyntax {
         kind: NodeKind::SelectedVariableAssignment,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "selected_assignment_preamble",
@@ -15874,6 +15889,9 @@ impl AstNode for SelectedVariableAssignmentSyntax {
     }
 }
 impl SelectedVariableAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
             .children()
@@ -15908,6 +15926,12 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::SelectedWaveformAssignment,
         items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Node(NodeKind::Label),
+            },
             LayoutItem {
                 optional: false,
                 repeated: false,
@@ -15960,6 +15984,9 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
     }
 }
 impl SelectedWaveformAssignmentSyntax {
+    pub fn label(&self) -> Option<LabelSyntax> {
+        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
             .children()

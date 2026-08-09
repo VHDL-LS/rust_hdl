@@ -861,6 +861,7 @@ SelectedExpressions =
   selected_expression_item:(Expression 'when' Choices?)* ','*
 
 SelectedForceAssignment =
+  Label?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
@@ -876,6 +877,7 @@ SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
 
 SelectedVariableAssignment =
+  Label?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   ':='
@@ -883,6 +885,7 @@ SelectedVariableAssignment =
   ';'
 
 SelectedWaveformAssignment =
+  Label?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='

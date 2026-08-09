@@ -313,6 +313,7 @@ impl Parser {
             Keyword(Kw::Null) => self.null_statement(),
             Keyword(Kw::With) => {
                 let checkpoint = self.checkpoint();
+                self.opt_label();
                 self.selected_assignment_preamble();
                 self.target();
                 match self.peek_token() {
@@ -833,6 +834,16 @@ with x(0) + 1 select
     }
 
     #[test]
+    fn labeled_selected_variable_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo := bar when others;
+        "
+        ));
+    }
+
+    #[test]
     fn conditional_variable_assignment() {
         insta::assert_snapshot!(stmt_to_test_text(
             "\
@@ -903,6 +914,26 @@ with x(0) + 1 select
 with x(0) + 1 select
    foo(0) <= force bar(1,2) when 0|1,
                        def when others;"
+        ));
+    }
+
+    #[test]
+    fn labeled_selected_signal_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo <= bar when others;
+        "
+        ));
+    }
+
+    #[test]
+    fn labeled_selected_signal_force_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo <= force bar when others;
+        "
         ));
     }
 
