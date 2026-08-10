@@ -27,59 +27,57 @@ ConfigurationDeclaration
                     LiteralExpression
                       AbstractLiteral '0'
             RightPar
-      BlockConfigurationItems
-        ComponentConfiguration
-          ComponentConfigurationPreamble
-            Keyword(For)
-            ComponentSpecification
-              InstantiationListList
-                Identifier 'inst'
-              Colon
+      ComponentConfiguration
+        ComponentConfigurationPreamble
+          Keyword(For)
+          ComponentSpecification
+            InstantiationListList
+              Identifier 'inst'
+            Colon
+            Name
+              NameDesignatorPrefix
+                Identifier 'lib'
+              SelectedName
+                Dot
+                Identifier 'pkg'
+              SelectedName
+                Dot
+                Identifier 'comp'
+        SemiColonTerminatedBindingIndication
+          BindingIndication
+            Keyword(Use)
+            EntityEntityAspect
+              Keyword(Entity)
               Name
                 NameDesignatorPrefix
-                  Identifier 'lib'
+                  Identifier 'work'
                 SelectedName
                   Dot
-                  Identifier 'pkg'
-                SelectedName
-                  Dot
-                  Identifier 'comp'
-          ComponentConfigurationItems
-            SemiColonTerminatedBindingIndication
-              BindingIndication
-                Keyword(Use)
-                EntityEntityAspect
-                  Keyword(Entity)
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'work'
-                    SelectedName
-                      Dot
-                      Identifier 'bar'
-              SemiColon
-            SemiColonTerminatedVerificationUnitBindingIndication
-              VerificationUnitBindingIndication
-                Keyword(Use)
-                Keyword(Vunit)
-                VerificationUnitList
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'baz'
-              SemiColon
-            BlockConfiguration
-              BlockConfigurationPreamble
-                Keyword(For)
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'arch'
-              BlockConfigurationEpilogue
-                Keyword(End)
-                Keyword(For)
-                SemiColon
-          ComponentConfigurationEpilogue
+                  Identifier 'bar'
+          SemiColon
+        SemiColonTerminatedVerificationUnitBindingIndication
+          VerificationUnitBindingIndication
+            Keyword(Use)
+            Keyword(Vunit)
+            VerificationUnitList
+              Name
+                NameDesignatorPrefix
+                  Identifier 'baz'
+          SemiColon
+        BlockConfiguration
+          BlockConfigurationPreamble
+            Keyword(For)
+            Name
+              NameDesignatorPrefix
+                Identifier 'arch'
+          BlockConfigurationEpilogue
             Keyword(End)
             Keyword(For)
             SemiColon
+        ComponentConfigurationEpilogue
+          Keyword(End)
+          Keyword(For)
+          SemiColon
       BlockConfigurationEpilogue
         Keyword(End)
         Keyword(For)

@@ -84,14 +84,12 @@ impl Parser {
     }
 
     fn block_configuration_known_spec(&mut self) {
-        self.start_node(NodeKind::BlockConfigurationItems);
         while self.next_is(Keyword(Kw::Use)) {
             self.use_clause();
         }
         while self.next_is(Keyword(Kw::For)) {
             self.configuration_item();
         }
-        self.end_node();
         self.block_configuration_epilogue();
     }
 
@@ -165,7 +163,6 @@ impl Parser {
     }
 
     fn component_configuration_known_spec(&mut self) {
-        self.start_node(NodeKind::ComponentConfigurationItems);
         if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
             && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
@@ -183,7 +180,6 @@ impl Parser {
         if self.next_is(Keyword(Kw::For)) {
             self.block_configuration();
         }
-        self.end_node();
         self.component_configuration_epilogue();
     }
 }

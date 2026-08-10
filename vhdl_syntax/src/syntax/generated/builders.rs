@@ -1273,14 +1273,16 @@ impl From<BindingIndicationBuilder> for BindingIndicationSyntax {
 }
 pub struct BlockConfigurationBuilder {
     block_configuration_preamble: BlockConfigurationPreambleSyntax,
-    block_configuration_items: Option<BlockConfigurationItemsSyntax>,
+    use_clauses: Vec<UseClauseSyntax>,
+    configuration_items: Vec<ConfigurationItemSyntax>,
     block_configuration_epilogue: BlockConfigurationEpilogueSyntax,
 }
 impl BlockConfigurationBuilder {
     pub fn new(block_configuration_preamble: impl Into<BlockConfigurationPreambleSyntax>) -> Self {
         Self {
             block_configuration_preamble: block_configuration_preamble.into(),
-            block_configuration_items: None,
+            use_clauses: Vec::new(),
+            configuration_items: Vec::new(),
             block_configuration_epilogue: BlockConfigurationEpilogueBuilder::default().build(),
         }
     }
@@ -1291,11 +1293,12 @@ impl BlockConfigurationBuilder {
         self.block_configuration_preamble = n.into();
         self
     }
-    pub fn with_block_configuration_items(
-        mut self,
-        n: impl Into<BlockConfigurationItemsSyntax>,
-    ) -> Self {
-        self.block_configuration_items = Some(n.into());
+    pub fn add_use_clauses(mut self, n: impl Into<UseClauseSyntax>) -> Self {
+        self.use_clauses.push(n.into());
+        self
+    }
+    pub fn add_configuration_items(mut self, n: impl Into<ConfigurationItemSyntax>) -> Self {
+        self.configuration_items.push(n.into());
         self
     }
     pub fn with_block_configuration_epilogue(
@@ -1309,7 +1312,10 @@ impl BlockConfigurationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockConfiguration);
         builder.push_node(self.block_configuration_preamble.raw().green().clone());
-        if let Some(n) = self.block_configuration_items {
+        for n in self.use_clauses {
+            builder.push_node(n.raw().green().clone());
+        }
+        for n in self.configuration_items {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.block_configuration_epilogue.raw().green().clone());
@@ -1408,50 +1414,6 @@ impl BlockConfigurationItemBuilder {
 }
 impl From<BlockConfigurationItemBuilder> for BlockConfigurationItemSyntax {
     fn from(value: BlockConfigurationItemBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct BlockConfigurationItemsBuilder {
-    use_clauses: Vec<UseClauseSyntax>,
-    configuration_items: Vec<ConfigurationItemSyntax>,
-}
-impl Default for BlockConfigurationItemsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl BlockConfigurationItemsBuilder {
-    pub fn new() -> Self {
-        Self {
-            use_clauses: Vec::new(),
-            configuration_items: Vec::new(),
-        }
-    }
-    pub fn add_use_clauses(mut self, n: impl Into<UseClauseSyntax>) -> Self {
-        self.use_clauses.push(n.into());
-        self
-    }
-    pub fn add_configuration_items(mut self, n: impl Into<ConfigurationItemSyntax>) -> Self {
-        self.configuration_items.push(n.into());
-        self
-    }
-    pub fn build(self) -> BlockConfigurationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::BlockConfigurationItems);
-        for n in self.use_clauses {
-            builder.push_node(n.raw().green().clone());
-        }
-        for n in self.configuration_items {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        BlockConfigurationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<BlockConfigurationItemsBuilder> for BlockConfigurationItemsSyntax {
-    fn from(value: BlockConfigurationItemsBuilder) -> Self {
         value.build()
     }
 }
@@ -2314,7 +2276,10 @@ impl From<ChoicesBuilder> for ChoicesSyntax {
 }
 pub struct ComponentConfigurationBuilder {
     component_configuration_preamble: ComponentConfigurationPreambleSyntax,
-    component_configuration_items: Option<ComponentConfigurationItemsSyntax>,
+    semi_colon_terminated_binding_indication: Option<SemiColonTerminatedBindingIndicationSyntax>,
+    semi_colon_terminated_verification_unit_binding_indications:
+        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+    block_configuration: Option<BlockConfigurationSyntax>,
     component_configuration_epilogue: ComponentConfigurationEpilogueSyntax,
 }
 impl ComponentConfigurationBuilder {
@@ -2323,7 +2288,9 @@ impl ComponentConfigurationBuilder {
     ) -> Self {
         Self {
             component_configuration_preamble: component_configuration_preamble.into(),
-            component_configuration_items: None,
+            semi_colon_terminated_binding_indication: None,
+            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
+            block_configuration: None,
             component_configuration_epilogue: ComponentConfigurationEpilogueBuilder::default()
                 .build(),
         }
@@ -2335,11 +2302,23 @@ impl ComponentConfigurationBuilder {
         self.component_configuration_preamble = n.into();
         self
     }
-    pub fn with_component_configuration_items(
+    pub fn with_semi_colon_terminated_binding_indication(
         mut self,
-        n: impl Into<ComponentConfigurationItemsSyntax>,
+        n: impl Into<SemiColonTerminatedBindingIndicationSyntax>,
     ) -> Self {
-        self.component_configuration_items = Some(n.into());
+        self.semi_colon_terminated_binding_indication = Some(n.into());
+        self
+    }
+    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
+        mut self,
+        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+    ) -> Self {
+        self.semi_colon_terminated_verification_unit_binding_indications
+            .push(n.into());
+        self
+    }
+    pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
+        self.block_configuration = Some(n.into());
         self
     }
     pub fn with_component_configuration_epilogue(
@@ -2353,7 +2332,13 @@ impl ComponentConfigurationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ComponentConfiguration);
         builder.push_node(self.component_configuration_preamble.raw().green().clone());
-        if let Some(n) = self.component_configuration_items {
+        if let Some(n) = self.semi_colon_terminated_binding_indication {
+            builder.push_node(n.raw().green().clone());
+        }
+        for n in self.semi_colon_terminated_verification_unit_binding_indications {
+            builder.push_node(n.raw().green().clone());
+        }
+        if let Some(n) = self.block_configuration {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.component_configuration_epilogue.raw().green().clone());
@@ -2424,67 +2409,6 @@ impl ComponentConfigurationEpilogueBuilder {
 }
 impl From<ComponentConfigurationEpilogueBuilder> for ComponentConfigurationEpilogueSyntax {
     fn from(value: ComponentConfigurationEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ComponentConfigurationItemsBuilder {
-    semi_colon_terminated_binding_indication: Option<SemiColonTerminatedBindingIndicationSyntax>,
-    semi_colon_terminated_verification_unit_binding_indications:
-        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
-    block_configuration: Option<BlockConfigurationSyntax>,
-}
-impl Default for ComponentConfigurationItemsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ComponentConfigurationItemsBuilder {
-    pub fn new() -> Self {
-        Self {
-            semi_colon_terminated_binding_indication: None,
-            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
-            block_configuration: None,
-        }
-    }
-    pub fn with_semi_colon_terminated_binding_indication(
-        mut self,
-        n: impl Into<SemiColonTerminatedBindingIndicationSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_binding_indication = Some(n.into());
-        self
-    }
-    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
-        mut self,
-        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n.into());
-        self
-    }
-    pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
-        self.block_configuration = Some(n.into());
-        self
-    }
-    pub fn build(self) -> ComponentConfigurationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ComponentConfigurationItems);
-        if let Some(n) = self.semi_colon_terminated_binding_indication {
-            builder.push_node(n.raw().green().clone());
-        }
-        for n in self.semi_colon_terminated_verification_unit_binding_indications {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.block_configuration {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ComponentConfigurationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<ComponentConfigurationItemsBuilder> for ComponentConfigurationItemsSyntax {
-    fn from(value: ComponentConfigurationItemsBuilder) -> Self {
         value.build()
     }
 }

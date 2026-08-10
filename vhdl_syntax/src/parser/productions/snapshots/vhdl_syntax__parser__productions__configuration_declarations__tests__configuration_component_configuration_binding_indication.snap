@@ -27,40 +27,38 @@ ConfigurationDeclaration
                     LiteralExpression
                       AbstractLiteral '0'
             RightPar
-      BlockConfigurationItems
-        ComponentConfiguration
-          ComponentConfigurationPreamble
-            Keyword(For)
-            ComponentSpecification
-              InstantiationListList
-                Identifier 'inst'
-              Colon
+      ComponentConfiguration
+        ComponentConfigurationPreamble
+          Keyword(For)
+          ComponentSpecification
+            InstantiationListList
+              Identifier 'inst'
+            Colon
+            Name
+              NameDesignatorPrefix
+                Identifier 'lib'
+              SelectedName
+                Dot
+                Identifier 'pkg'
+              SelectedName
+                Dot
+                Identifier 'comp'
+        SemiColonTerminatedBindingIndication
+          BindingIndication
+            Keyword(Use)
+            EntityEntityAspect
+              Keyword(Entity)
               Name
                 NameDesignatorPrefix
                   Identifier 'lib'
                 SelectedName
                   Dot
-                  Identifier 'pkg'
-                SelectedName
-                  Dot
-                  Identifier 'comp'
-          ComponentConfigurationItems
-            SemiColonTerminatedBindingIndication
-              BindingIndication
-                Keyword(Use)
-                EntityEntityAspect
-                  Keyword(Entity)
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'lib'
-                    SelectedName
-                      Dot
-                      Identifier 'use_name'
-              SemiColon
-          ComponentConfigurationEpilogue
-            Keyword(End)
-            Keyword(For)
-            SemiColon
+                  Identifier 'use_name'
+          SemiColon
+        ComponentConfigurationEpilogue
+          Keyword(End)
+          Keyword(For)
+          SemiColon
       BlockConfigurationEpilogue
         Keyword(End)
         Keyword(For)

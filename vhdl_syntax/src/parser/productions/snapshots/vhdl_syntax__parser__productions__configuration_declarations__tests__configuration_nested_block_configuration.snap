@@ -27,42 +27,41 @@ ConfigurationDeclaration
                     LiteralExpression
                       AbstractLiteral '0'
             RightPar
-      BlockConfigurationItems
-        BlockConfigurationItem
-          BlockConfiguration
-            BlockConfigurationPreamble
-              Keyword(For)
-              Name
-                NameDesignatorPrefix
-                  Identifier 'name'
-                ParenthesizedName
-                  LeftPar
-                  AssociationList
-                    AssociationElement
-                      ActualPart
-                        ActualPartExpression
-                          BinaryExpression
-                            LiteralExpression
-                              AbstractLiteral '0'
-                            Keyword(To)
-                            LiteralExpression
-                              AbstractLiteral '3'
-                  RightPar
-            BlockConfigurationEpilogue
-              Keyword(End)
-              Keyword(For)
-              SemiColon
-        BlockConfigurationItem
-          BlockConfiguration
-            BlockConfigurationPreamble
-              Keyword(For)
-              Name
-                NameDesignatorPrefix
-                  Identifier 'other_name'
-            BlockConfigurationEpilogue
-              Keyword(End)
-              Keyword(For)
-              SemiColon
+      BlockConfigurationItem
+        BlockConfiguration
+          BlockConfigurationPreamble
+            Keyword(For)
+            Name
+              NameDesignatorPrefix
+                Identifier 'name'
+              ParenthesizedName
+                LeftPar
+                AssociationList
+                  AssociationElement
+                    ActualPart
+                      ActualPartExpression
+                        BinaryExpression
+                          LiteralExpression
+                            AbstractLiteral '0'
+                          Keyword(To)
+                          LiteralExpression
+                            AbstractLiteral '3'
+                RightPar
+          BlockConfigurationEpilogue
+            Keyword(End)
+            Keyword(For)
+            SemiColon
+      BlockConfigurationItem
+        BlockConfiguration
+          BlockConfigurationPreamble
+            Keyword(For)
+            Name
+              NameDesignatorPrefix
+                Identifier 'other_name'
+          BlockConfigurationEpilogue
+            Keyword(End)
+            Keyword(For)
+            SemiColon
       BlockConfigurationEpilogue
         Keyword(End)
         Keyword(For)

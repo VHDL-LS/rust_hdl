@@ -454,16 +454,15 @@ ConfigurationItem =
 
 BlockConfiguration =
   block_configuration_preamble:('for' Name)
-  block_configuration_items:(UseClause* ConfigurationItem*)?
+  UseClause*
+  ConfigurationItem*
   block_configuration_epilogue:('end' 'for' ';')
 
 ComponentConfiguration =
   ComponentConfigurationPreamble
-  component_configuration_items:(
-    SemiColonTerminatedBindingIndication?
-    SemiColonTerminatedVerificationUnitBindingIndication*
-    BlockConfiguration?
-  )?
+  SemiColonTerminatedBindingIndication?
+  SemiColonTerminatedVerificationUnitBindingIndication*
+  BlockConfiguration?
   ComponentConfigurationEpilogue
 
 SemiColonTerminatedBindingIndication =

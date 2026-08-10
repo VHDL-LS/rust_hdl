@@ -1569,10 +1569,19 @@ impl AstNode for BlockConfigurationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::BlockConfigurationPreamble),
             },
             LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "block_configuration_items",
-                kind: LayoutItemKind::Node(NodeKind::BlockConfigurationItems),
+                optional: false,
+                repeated: true,
+                name: "use_clauses",
+                kind: LayoutItemKind::Node(NodeKind::UseClause),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "configuration_items",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::BlockConfigurationItem,
+                    NodeKind::ComponentConfiguration,
+                ]),
             },
             LayoutItem {
                 optional: false,
@@ -1596,11 +1605,11 @@ impl BlockConfigurationSyntax {
             .filter_map(BlockConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn block_configuration_items(&self) -> Option<BlockConfigurationItemsSyntax> {
-        self.0
-            .children()
-            .filter_map(BlockConfigurationItemsSyntax::cast)
-            .nth(0)
+    pub fn use_clauses(&self) -> impl Iterator<Item = UseClauseSyntax> + use<'_> {
+        self.0.children().filter_map(UseClauseSyntax::cast)
+    }
+    pub fn configuration_items(&self) -> impl Iterator<Item = ConfigurationItemSyntax> + use<'_> {
+        self.0.children().filter_map(ConfigurationItemSyntax::cast)
     }
     pub fn block_configuration_epilogue(&self) -> Option<BlockConfigurationEpilogueSyntax> {
         self.0
@@ -1687,44 +1696,6 @@ impl BlockConfigurationItemSyntax {
             .children()
             .filter_map(BlockConfigurationSyntax::cast)
             .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct BlockConfigurationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for BlockConfigurationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::BlockConfigurationItems,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "use_clauses",
-                kind: LayoutItemKind::Node(NodeKind::UseClause),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "configuration_items",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::BlockConfigurationItem,
-                    NodeKind::ComponentConfiguration,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        BlockConfigurationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl BlockConfigurationItemsSyntax {
-    pub fn use_clauses(&self) -> impl Iterator<Item = UseClauseSyntax> + use<'_> {
-        self.0.children().filter_map(UseClauseSyntax::cast)
-    }
-    pub fn configuration_items(&self) -> impl Iterator<Item = ConfigurationItemSyntax> + use<'_> {
-        self.0.children().filter_map(ConfigurationItemSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -2593,8 +2564,22 @@ impl AstNode for ComponentConfigurationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "component_configuration_items",
-                kind: LayoutItemKind::Node(NodeKind::ComponentConfigurationItems),
+                name: "semi_colon_terminated_binding_indication",
+                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "semi_colon_terminated_verification_unit_binding_indications",
+                kind: LayoutItemKind::Node(
+                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
+                ),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "block_configuration",
+                kind: LayoutItemKind::Node(NodeKind::BlockConfiguration),
             },
             LayoutItem {
                 optional: false,
@@ -2618,10 +2603,26 @@ impl ComponentConfigurationSyntax {
             .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn component_configuration_items(&self) -> Option<ComponentConfigurationItemsSyntax> {
+    pub fn semi_colon_terminated_binding_indication(
+        &self,
+    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
         self.0
             .children()
-            .filter_map(ComponentConfigurationItemsSyntax::cast)
+            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_terminated_verification_unit_binding_indications(
+        &self,
+    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
+    {
+        self.0
+            .children()
+            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
+    }
+    pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
+        self.0
+            .children()
+            .filter_map(BlockConfigurationSyntax::cast)
             .nth(0)
     }
     pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
@@ -2681,65 +2682,6 @@ impl ComponentConfigurationEpilogueSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ComponentConfigurationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for ComponentConfigurationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ComponentConfigurationItems,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "semi_colon_terminated_binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "semi_colon_terminated_verification_unit_binding_indications",
-                kind: LayoutItemKind::Node(
-                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
-                ),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "block_configuration",
-                kind: LayoutItemKind::Node(NodeKind::BlockConfiguration),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ComponentConfigurationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ComponentConfigurationItemsSyntax {
-    pub fn semi_colon_terminated_binding_indication(
-        &self,
-    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_terminated_verification_unit_binding_indications(
-        &self,
-    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
-    {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
-    }
-    pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
-        self.0
-            .children()
-            .filter_map(BlockConfigurationSyntax::cast)
             .nth(0)
     }
 }

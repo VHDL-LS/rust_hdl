@@ -268,11 +268,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::BlockConfiguration
         | NodeKind::BlockConfigurationEpilogue
         | NodeKind::BlockConfigurationItem
-        | NodeKind::BlockConfigurationItems
         | NodeKind::CaseGenerateAlternative
         | NodeKind::CaseStatementAlternative
         | NodeKind::ComponentConfiguration
-        | NodeKind::ComponentConfigurationItems
         | NodeKind::CompoundConfigurationSpecificationItems
         | NodeKind::ConfigurationDeclarationItems
         | NodeKind::ElementDeclaration
