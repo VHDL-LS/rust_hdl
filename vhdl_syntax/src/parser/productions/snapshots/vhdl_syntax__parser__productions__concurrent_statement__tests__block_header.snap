@@ -37,11 +37,12 @@ BlockStatement
           LeftPar
           AssociationList
             AssociationElement
-              FormalPart
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'gen'
-              RightArrow
+              Formal
+                FormalPart
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'gen'
+                RightArrow
               ActualPart
                 ActualPartExpression
                   LiteralExpression
@@ -75,11 +76,12 @@ BlockStatement
           LeftPar
           AssociationList
             AssociationElement
-              FormalPart
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'prt'
-              RightArrow
+              Formal
+                FormalPart
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'prt'
+                RightArrow
               ActualPart
                 ActualPartExpression
                   LiteralExpression

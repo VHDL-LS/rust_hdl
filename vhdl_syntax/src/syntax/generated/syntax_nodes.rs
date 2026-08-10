@@ -938,14 +938,8 @@ impl AstNode for AssociationElementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "formal_part",
-                kind: LayoutItemKind::Node(NodeKind::FormalPart),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "right_arrow",
-                kind: LayoutItemKind::Token(TokenKind::RightArrow),
+                name: "formal",
+                kind: LayoutItemKind::Node(NodeKind::Formal),
             },
             LayoutItem {
                 optional: false,
@@ -963,14 +957,8 @@ impl AstNode for AssociationElementSyntax {
     }
 }
 impl AssociationElementSyntax {
-    pub fn formal_part(&self) -> Option<FormalPartSyntax> {
-        self.0.children().filter_map(FormalPartSyntax::cast).nth(0)
-    }
-    pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightArrow)
-            .nth(0)
+    pub fn formal(&self) -> Option<FormalSyntax> {
+        self.0.children().filter_map(FormalSyntax::cast).nth(0)
     }
     pub fn actual_part(&self) -> Option<ActualPartSyntax> {
         self.0.children().filter_map(ActualPartSyntax::cast).nth(0)
@@ -7930,6 +7918,44 @@ impl ForceModeSyntax {
             ForceModeSyntax::In(token) => token.clone(),
             ForceModeSyntax::Out(token) => token.clone(),
         }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct FormalSyntax(pub(crate) SyntaxNode);
+impl AstNode for FormalSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Formal,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "formal_part",
+                kind: LayoutItemKind::Node(NodeKind::FormalPart),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_arrow",
+                kind: LayoutItemKind::Token(TokenKind::RightArrow),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        FormalSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl FormalSyntax {
+    pub fn formal_part(&self) -> Option<FormalPartSyntax> {
+        self.0.children().filter_map(FormalPartSyntax::cast).nth(0)
+    }
+    pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::RightArrow)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

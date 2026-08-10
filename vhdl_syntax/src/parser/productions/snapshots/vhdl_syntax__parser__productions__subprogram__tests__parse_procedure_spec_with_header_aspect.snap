@@ -41,11 +41,12 @@ SubprogramDeclaration
         LeftPar
         AssociationList
           AssociationElement
-            FormalPart
-              Name
-                NameDesignatorPrefix
-                  Identifier 'x'
-            RightArrow
+            Formal
+              FormalPart
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'x'
+              RightArrow
             ActualPart
               ActualPartExpression
                 LiteralExpression

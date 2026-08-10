@@ -228,8 +228,10 @@ impl Parser {
             .lookahead_max_token_index(max_index, [RightArrow])
             .is_ok()
         {
+            self.start_node(Formal);
             self.formal_part();
             self.expect_token(RightArrow);
+            self.end_node();
         }
         self.actual_part();
 

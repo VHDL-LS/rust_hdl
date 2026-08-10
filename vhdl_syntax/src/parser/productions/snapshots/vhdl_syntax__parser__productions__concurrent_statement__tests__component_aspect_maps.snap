@@ -23,11 +23,12 @@ ComponentInstantiationStatement
     LeftPar
     AssociationList
       AssociationElement
-        FormalPart
-          Name
-            NameDesignatorPrefix
-              Identifier 'const'
-        RightArrow
+        Formal
+          FormalPart
+            Name
+              NameDesignatorPrefix
+                Identifier 'const'
+          RightArrow
         ActualPart
           ActualPartExpression
             LiteralExpression
@@ -39,11 +40,12 @@ ComponentInstantiationStatement
     LeftPar
     AssociationList
       AssociationElement
-        FormalPart
-          Name
-            NameDesignatorPrefix
-              Identifier 'clk'
-        RightArrow
+        Formal
+          FormalPart
+            Name
+              NameDesignatorPrefix
+                Identifier 'clk'
+          RightArrow
         ActualPart
           ActualPartExpression
             NameExpression

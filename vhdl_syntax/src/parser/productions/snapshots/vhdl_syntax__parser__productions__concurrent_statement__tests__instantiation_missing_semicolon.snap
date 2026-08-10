@@ -27,11 +27,12 @@ ComponentInstantiationStatement
     LeftPar
     AssociationList
       AssociationElement
-        FormalPart
-          Name
-            NameDesignatorPrefix
-              Identifier 'clk'
-        RightArrow
+        Formal
+          FormalPart
+            Name
+              NameDesignatorPrefix
+                Identifier 'clk'
+          RightArrow
         ActualPart
           ActualPartExpression
             NameExpression

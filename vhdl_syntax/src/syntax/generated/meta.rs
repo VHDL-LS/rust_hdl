@@ -138,6 +138,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ForGeneratePreamble => ForGeneratePreambleSyntax::META,
         NodeKind::ForGenerateStatement => ForGenerateStatementSyntax::META,
         NodeKind::ForIterationScheme => ForIterationSchemeSyntax::META,
+        NodeKind::Formal => FormalSyntax::META,
         NodeKind::FormalPart => FormalPartSyntax::META,
         NodeKind::FullTypeDeclaration => FullTypeDeclarationSyntax::META,
         NodeKind::FunctionSpecification => FunctionSpecificationSyntax::META,

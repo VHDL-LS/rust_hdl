@@ -836,31 +836,18 @@ impl From<AssertionStatementBuilder> for AssertionStatementSyntax {
     }
 }
 pub struct AssociationElementBuilder {
-    formal_part: Option<FormalPartSyntax>,
-    right_arrow_token: Option<Token>,
+    formal: Option<FormalSyntax>,
     actual_part: ActualPartSyntax,
 }
 impl AssociationElementBuilder {
     pub fn new(actual_part: impl Into<ActualPartSyntax>) -> Self {
         Self {
-            formal_part: None,
-            right_arrow_token: None,
+            formal: None,
             actual_part: actual_part.into(),
         }
     }
-    pub fn with_formal_part(mut self, n: impl Into<FormalPartSyntax>) -> Self {
-        self.formal_part = Some(n.into());
-        self
-    }
-    pub fn with_right_arrow_token(mut self, t: impl Into<Token>) -> Self {
-        self.right_arrow_token = Some(t.into());
-        self
-    }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .right_arrow_token
-            .get_or_insert_with(|| TokenKind::RightArrow.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
+    pub fn with_formal(mut self, n: impl Into<FormalSyntax>) -> Self {
+        self.formal = Some(n.into());
         self
     }
     pub fn with_actual_part(mut self, n: impl Into<ActualPartSyntax>) -> Self {
@@ -870,11 +857,8 @@ impl AssociationElementBuilder {
     pub fn build(self) -> AssociationElementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::AssociationElement);
-        if let Some(n) = self.formal_part {
+        if let Some(n) = self.formal {
             builder.push_node(n.raw().green().clone());
-        }
-        if let Some(t) = self.right_arrow_token {
-            builder.push(t);
         }
         builder.push_node(self.actual_part.raw().green().clone());
         builder.end_node();
@@ -6581,6 +6565,45 @@ impl ForIterationSchemeBuilder {
 }
 impl From<ForIterationSchemeBuilder> for ForIterationSchemeSyntax {
     fn from(value: ForIterationSchemeBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct FormalBuilder {
+    formal_part: FormalPartSyntax,
+    right_arrow_token: Token,
+}
+impl FormalBuilder {
+    pub fn new(formal_part: impl Into<FormalPartSyntax>) -> Self {
+        Self {
+            formal_part: formal_part.into(),
+            right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_formal_part(mut self, n: impl Into<FormalPartSyntax>) -> Self {
+        self.formal_part = n.into();
+        self
+    }
+    pub fn with_right_arrow_token(mut self, t: impl Into<Token>) -> Self {
+        self.right_arrow_token = t.into();
+        self
+    }
+    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.right_arrow_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> FormalSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::Formal);
+        builder.push_node(self.formal_part.raw().green().clone());
+        builder.push(self.right_arrow_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        FormalSyntax::cast(node).unwrap()
+    }
+}
+impl From<FormalBuilder> for FormalSyntax {
+    fn from(value: FormalBuilder) -> Self {
         value.build()
     }
 }

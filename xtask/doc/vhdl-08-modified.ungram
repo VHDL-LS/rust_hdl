@@ -219,7 +219,8 @@ AliasDesignator =
   '#identifier' | '#character_literal' | '#string_literal'
 
 AssociationElement =
-  FormalPart? '=>'? ActualPart
+  formal:(FormalPart '=>')?
+  ActualPart
 
 AssociationList =
   AssociationElement* ','*

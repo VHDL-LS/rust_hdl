@@ -47,11 +47,12 @@ DesignFile
           LeftPar
           AssociationList
             AssociationElement
-              FormalPart
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'g'
-              RightArrow
+              Formal
+                FormalPart
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'g'
+                RightArrow
               ActualPart
                 ActualPartExpression
                   LiteralExpression
