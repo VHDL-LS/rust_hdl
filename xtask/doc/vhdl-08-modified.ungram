@@ -234,7 +234,12 @@ ComponentDeclaration =
   component_declaration_epilogue:('end' 'component' '#identifier'? ';')
 
 ConstantDeclaration =
-  'constant' IdentifierList ':' SubtypeIndication ':='? Expression? ';'
+  'constant'
+  IdentifierList
+  ':'
+  SubtypeIndication
+  initial_value:(':=' Expression)?
+  ';'
 
 ResolutionIndicationElementResolution =
   ResolutionIndication
@@ -394,8 +399,7 @@ SignalDeclaration =
   ':'
   SubtypeIndication
   SignalKind?
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
   ';'
 
 SignalKind =
@@ -421,7 +425,12 @@ TypeDefinition =
 | ProtectedTypeDefinition
 
 VariableDeclaration =
-  'variable' IdentifierList ':' SubtypeIndication ':='? Expression? ';'
+  'variable'
+  IdentifierList
+  ':'
+  SubtypeIndication
+  initial_value:(':=' Expression)?
+  ';'
 
 SharedVariableDeclaration =
   'shared'
@@ -429,8 +438,7 @@ SharedVariableDeclaration =
   IdentifierList
   ':'
   SubtypeIndication
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
   ';'
 
 Declarations =

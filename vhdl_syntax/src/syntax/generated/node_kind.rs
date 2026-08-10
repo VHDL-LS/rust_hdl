@@ -151,6 +151,7 @@ pub enum NodeKind {
     IndexSubtypeDefinition,
     IndexSubtypeDefinitionList,
     InertialDelayMechanism,
+    InitialValue,
     InstantiatedComponent,
     InstantiatedConfiguration,
     InstantiatedEntity,

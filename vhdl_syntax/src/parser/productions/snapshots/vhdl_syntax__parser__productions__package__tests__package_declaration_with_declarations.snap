@@ -21,9 +21,10 @@ Package
         Name
           NameDesignatorPrefix
             Identifier 'natural'
-      ColonEq
-      LiteralExpression
-        AbstractLiteral '0'
+      InitialValue
+        ColonEq
+        LiteralExpression
+          AbstractLiteral '0'
       SemiColon
   PackageEpilogue
     Keyword(End)

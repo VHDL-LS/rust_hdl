@@ -22,9 +22,10 @@ Package
         Name
           NameDesignatorPrefix
             Identifier 'real'
-      ColonEq
-      LiteralExpression
-        AbstractLiteral '3.14'
+      InitialValue
+        ColonEq
+        LiteralExpression
+          AbstractLiteral '3.14'
       SemiColon
   PackageEpilogue
     Keyword(End)

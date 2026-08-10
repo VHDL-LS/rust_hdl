@@ -4335,8 +4335,7 @@ pub struct ConstantDeclarationBuilder {
     identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
-    colon_eq_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    initial_value: Option<InitialValueSyntax>,
     semi_colon_token: Token,
 }
 impl ConstantDeclarationBuilder {
@@ -4346,8 +4345,7 @@ impl ConstantDeclarationBuilder {
             identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            colon_eq_token: None,
-            expression: None,
+            initial_value: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -4375,19 +4373,8 @@ impl ConstantDeclarationBuilder {
         self.subtype_indication = n.into();
         self
     }
-    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_eq_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_eq_token
-            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
+        self.initial_value = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -4407,10 +4394,7 @@ impl ConstantDeclarationBuilder {
         }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
-        if let Some(t) = self.colon_eq_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.initial_value {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);
@@ -8456,6 +8440,45 @@ impl InertialDelayMechanismBuilder {
 }
 impl From<InertialDelayMechanismBuilder> for InertialDelayMechanismSyntax {
     fn from(value: InertialDelayMechanismBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct InitialValueBuilder {
+    colon_eq_token: Token,
+    expression: ExpressionSyntax,
+}
+impl InitialValueBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
+        self.colon_eq_token = t.into();
+        self
+    }
+    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.colon_eq_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> InitialValueSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::InitialValue);
+        builder.push(self.colon_eq_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        InitialValueSyntax::cast(node).unwrap()
+    }
+}
+impl From<InitialValueBuilder> for InitialValueSyntax {
+    fn from(value: InitialValueBuilder) -> Self {
         value.build()
     }
 }
@@ -14393,8 +14416,7 @@ pub struct SharedVariableDeclarationBuilder {
     identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
-    colon_eq_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    initial_value: Option<InitialValueSyntax>,
     semi_colon_token: Token,
 }
 impl SharedVariableDeclarationBuilder {
@@ -14405,8 +14427,7 @@ impl SharedVariableDeclarationBuilder {
             identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            colon_eq_token: None,
-            expression: None,
+            initial_value: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -14442,19 +14463,8 @@ impl SharedVariableDeclarationBuilder {
         self.subtype_indication = n.into();
         self
     }
-    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_eq_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_eq_token
-            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
+        self.initial_value = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -14475,10 +14485,7 @@ impl SharedVariableDeclarationBuilder {
         }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
-        if let Some(t) = self.colon_eq_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.initial_value {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);
@@ -14499,8 +14506,7 @@ pub struct SignalDeclarationBuilder {
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     signal_kind: Option<SignalKindToken>,
-    colon_eq_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    initial_value: Option<InitialValueSyntax>,
     semi_colon_token: Token,
 }
 impl SignalDeclarationBuilder {
@@ -14511,8 +14517,7 @@ impl SignalDeclarationBuilder {
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             signal_kind: None,
-            colon_eq_token: None,
-            expression: None,
+            initial_value: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -14544,19 +14549,8 @@ impl SignalDeclarationBuilder {
         self.signal_kind = Some(n.into());
         self
     }
-    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_eq_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_eq_token
-            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
+        self.initial_value = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -14579,10 +14573,7 @@ impl SignalDeclarationBuilder {
         if let Some(n) = self.signal_kind {
             builder.push(n.0);
         }
-        if let Some(t) = self.colon_eq_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.initial_value {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);
@@ -16175,8 +16166,7 @@ pub struct VariableDeclarationBuilder {
     identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
-    colon_eq_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    initial_value: Option<InitialValueSyntax>,
     semi_colon_token: Token,
 }
 impl VariableDeclarationBuilder {
@@ -16186,8 +16176,7 @@ impl VariableDeclarationBuilder {
             identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
-            colon_eq_token: None,
-            expression: None,
+            initial_value: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -16215,19 +16204,8 @@ impl VariableDeclarationBuilder {
         self.subtype_indication = n.into();
         self
     }
-    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_eq_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_eq_token
-            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
+        self.initial_value = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -16247,10 +16225,7 @@ impl VariableDeclarationBuilder {
         }
         builder.push(self.colon_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
-        if let Some(t) = self.colon_eq_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.initial_value {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);

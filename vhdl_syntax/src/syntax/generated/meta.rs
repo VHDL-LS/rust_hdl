@@ -169,6 +169,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::IndexSubtypeDefinition => IndexSubtypeDefinitionSyntax::META,
         NodeKind::IndexSubtypeDefinitionList => IndexSubtypeDefinitionListSyntax::META,
         NodeKind::InertialDelayMechanism => InertialDelayMechanismSyntax::META,
+        NodeKind::InitialValue => InitialValueSyntax::META,
         NodeKind::InstantiatedComponent => InstantiatedComponentSyntax::META,
         NodeKind::InstantiatedConfiguration => InstantiatedConfigurationSyntax::META,
         NodeKind::InstantiatedEntity => InstantiatedEntitySyntax::META,

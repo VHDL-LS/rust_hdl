@@ -230,7 +230,8 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SelectedExpressions
         | NodeKind::SelectedWaveforms
         | NodeKind::TimeoutClause
-        | NodeKind::UnboundedArrayDefinition => &[SemiColon],
+        | NodeKind::UnboundedArrayDefinition
+        | NodeKind::InitialValue => &[SemiColon],
         NodeKind::AllSensitivityList
         | NodeKind::AssociationList
         | NodeKind::ElementResolutionResolutionIndication

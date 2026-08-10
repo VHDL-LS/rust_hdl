@@ -4947,23 +4947,8 @@ impl AstNode for ConstantDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "initial_value",
+                kind: LayoutItemKind::Node(NodeKind::InitialValue),
             },
             LayoutItem {
                 optional: false,
@@ -5005,14 +4990,11 @@ impl ConstantDeclarationSyntax {
             .filter_map(SubtypeIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .children()
+            .filter_map(InitialValueSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -9834,6 +9816,53 @@ impl InertialDelayMechanismSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Inertial))
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct InitialValueSyntax(pub(crate) SyntaxNode);
+impl AstNode for InitialValueSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::InitialValue,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon_eq",
+                kind: LayoutItemKind::Token(TokenKind::ColonEq),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        InitialValueSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl InitialValueSyntax {
+    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -16449,23 +16478,8 @@ impl AstNode for SharedVariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "initial_value",
+                kind: LayoutItemKind::Node(NodeKind::InitialValue),
             },
             LayoutItem {
                 optional: false,
@@ -16513,14 +16527,11 @@ impl SharedVariableDeclarationSyntax {
             .filter_map(SubtypeIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .children()
+            .filter_map(InitialValueSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -16618,23 +16629,8 @@ impl AstNode for SignalDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "initial_value",
+                kind: LayoutItemKind::Node(NodeKind::InitialValue),
             },
             LayoutItem {
                 optional: false,
@@ -16679,14 +16675,11 @@ impl SignalDeclarationSyntax {
     pub fn signal_kind(&self) -> Option<SignalKindSyntax> {
         self.0.tokens().filter_map(SignalKindSyntax::cast).nth(0)
     }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .children()
+            .filter_map(InitialValueSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -18710,23 +18703,8 @@ impl AstNode for VariableDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "initial_value",
+                kind: LayoutItemKind::Node(NodeKind::InitialValue),
             },
             LayoutItem {
                 optional: false,
@@ -18768,14 +18746,11 @@ impl VariableDeclarationSyntax {
             .filter_map(SubtypeIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .children()
+            .filter_map(InitialValueSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0

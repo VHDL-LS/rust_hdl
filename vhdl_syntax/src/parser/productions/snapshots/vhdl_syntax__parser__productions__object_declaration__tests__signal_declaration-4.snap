@@ -12,7 +12,8 @@ SignalDeclaration
       NameDesignatorPrefix
         Identifier 'bit'
   Keyword(Bus)
-  ColonEq
-  LiteralExpression
-    CharacterLiteral ''0''
+  InitialValue
+    ColonEq
+    LiteralExpression
+      CharacterLiteral ''0''
   SemiColon

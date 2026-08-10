@@ -15,7 +15,8 @@ ConstantDeclaration
     Name
       NameDesignatorPrefix
         Identifier 'integer'
-  ColonEq
+  InitialValue
+    ColonEq
   SemiColon
 
 == diagnostics ==
