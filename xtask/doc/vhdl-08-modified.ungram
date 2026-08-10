@@ -213,7 +213,7 @@ ActualPart =
   'inertial'? ActualPartBody
 
 AliasDeclaration =
-  'alias' AliasDesignator ':'? SubtypeIndication? 'is' Name Signature? ';'
+  'alias' AliasDesignator alias_subtype:(':' SubtypeIndication)? 'is' Name Signature? ';'
 
 AliasDesignator =
   '#identifier' | '#character_literal' | '#string_literal'

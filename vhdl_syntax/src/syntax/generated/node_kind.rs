@@ -15,6 +15,7 @@ pub enum NodeKind {
     Aggregate,
     AggregateTarget,
     AliasDeclaration,
+    AliasSubtype,
     AllSensitivityList,
     Allocator,
     ArchitectureBody,

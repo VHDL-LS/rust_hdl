@@ -377,14 +377,8 @@ impl AstNode for AliasDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+                name: "alias_subtype",
+                kind: LayoutItemKind::Node(NodeKind::AliasSubtype),
             },
             LayoutItem {
                 optional: false,
@@ -432,16 +426,10 @@ impl AliasDeclarationSyntax {
             .filter_map(AliasDesignatorSyntax::cast)
             .nth(0)
     }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+    pub fn alias_subtype(&self) -> Option<AliasSubtypeSyntax> {
         self.0
             .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
+            .filter_map(AliasSubtypeSyntax::cast)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
@@ -484,6 +472,47 @@ impl AliasDesignatorSyntax {
             AliasDesignatorSyntax::CharacterLiteral(token) => token.clone(),
             AliasDesignatorSyntax::StringLiteral(token) => token.clone(),
         }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct AliasSubtypeSyntax(pub(crate) SyntaxNode);
+impl AstNode for AliasSubtypeSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AliasSubtype,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "subtype_indication",
+                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AliasSubtypeSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl AliasSubtypeSyntax {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
+            .nth(0)
+    }
+    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(SubtypeIndicationSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

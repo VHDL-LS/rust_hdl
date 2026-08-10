@@ -334,8 +334,7 @@ impl From<AggregateTargetBuilder> for AggregateTargetSyntax {
 pub struct AliasDeclarationBuilder {
     alias_token: Token,
     alias_designator: AliasDesignatorToken,
-    colon_token: Option<Token>,
-    subtype_indication: Option<SubtypeIndicationSyntax>,
+    alias_subtype: Option<AliasSubtypeSyntax>,
     is_token: Token,
     name: NameSyntax,
     signature: Option<SignatureSyntax>,
@@ -349,8 +348,7 @@ impl AliasDeclarationBuilder {
         Self {
             alias_token: Kw::Alias.canonical_token(),
             alias_designator: alias_designator.into(),
-            colon_token: None,
-            subtype_indication: None,
+            alias_subtype: None,
             is_token: Kw::Is.canonical_token(),
             name: name.into(),
             signature: None,
@@ -369,19 +367,8 @@ impl AliasDeclarationBuilder {
         self.alias_designator = n.into();
         self
     }
-    pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_token
-            .get_or_insert_with(|| TokenKind::Colon.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_subtype_indication(mut self, n: impl Into<SubtypeIndicationSyntax>) -> Self {
-        self.subtype_indication = Some(n.into());
+    pub fn with_alias_subtype(mut self, n: impl Into<AliasSubtypeSyntax>) -> Self {
+        self.alias_subtype = Some(n.into());
         self
     }
     pub fn with_is_token(mut self, t: impl Into<Token>) -> Self {
@@ -413,10 +400,7 @@ impl AliasDeclarationBuilder {
         builder.start_node(NodeKind::AliasDeclaration);
         builder.push(self.alias_token);
         builder.push(self.alias_designator.0);
-        if let Some(t) = self.colon_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.subtype_indication {
+        if let Some(n) = self.alias_subtype {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.is_token);
@@ -433,6 +417,45 @@ impl AliasDeclarationBuilder {
 }
 impl From<AliasDeclarationBuilder> for AliasDeclarationSyntax {
     fn from(value: AliasDeclarationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct AliasSubtypeBuilder {
+    colon_token: Token,
+    subtype_indication: SubtypeIndicationSyntax,
+}
+impl AliasSubtypeBuilder {
+    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
+        Self {
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
+            subtype_indication: subtype_indication.into(),
+        }
+    }
+    pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.colon_token = t.into();
+        self
+    }
+    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_subtype_indication(mut self, n: impl Into<SubtypeIndicationSyntax>) -> Self {
+        self.subtype_indication = n.into();
+        self
+    }
+    pub fn build(self) -> AliasSubtypeSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::AliasSubtype);
+        builder.push(self.colon_token);
+        builder.push_node(self.subtype_indication.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        AliasSubtypeSyntax::cast(node).unwrap()
+    }
+}
+impl From<AliasSubtypeBuilder> for AliasSubtypeSyntax {
+    fn from(value: AliasSubtypeBuilder) -> Self {
         value.build()
     }
 }

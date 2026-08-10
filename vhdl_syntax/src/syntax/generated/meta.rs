@@ -19,6 +19,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::Aggregate => AggregateSyntax::META,
         NodeKind::AggregateTarget => AggregateTargetSyntax::META,
         NodeKind::AliasDeclaration => AliasDeclarationSyntax::META,
+        NodeKind::AliasSubtype => AliasSubtypeSyntax::META,
         NodeKind::AllSensitivityList => AllSensitivityListSyntax::META,
         NodeKind::Allocator => AllocatorSyntax::META,
         NodeKind::ArchitectureBody => ArchitectureBodySyntax::META,

@@ -14,8 +14,11 @@ impl Parser {
         self.start_node(AliasDeclaration);
         self.expect_kw(Kw::Alias);
         self.alias_designator();
-        if self.opt_token(Colon) {
+        if self.next_is(Colon) {
+            self.start_node(AliasSubtype);
+            self.skip(); // Colon
             self.subtype_indication();
+            self.end_node();
         }
         self.expect_token(Keyword(Kw::Is));
         self.name();
