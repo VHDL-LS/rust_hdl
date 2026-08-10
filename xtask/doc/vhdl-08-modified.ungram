@@ -1137,9 +1137,9 @@ SubprogramHeader =
 
 SubprogramBody =
   subprogram_body_preamble:(SubprogramSpecification 'is')
-  Declarations?
+  Declarations
   DeclarationStatementSeparator
-  SequentialStatements?
+  SequentialStatements
   subprogram_body_epilogue:('end' SubprogramKind? Designator? ';')
 
 SubprogramKind =
