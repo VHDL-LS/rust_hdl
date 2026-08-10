@@ -300,7 +300,12 @@ InterfaceFileDeclaration =
   'file' IdentifierList ':' SubtypeIndication
 
 InterfaceFunctionSpecification =
-  FunctionPurity? 'function' Designator ParameterList? 'return' Name
+  purity:('pure' | 'impure')?
+  'function'
+  Designator
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  'return'
+  Name
 
 InterfaceIncompleteTypeDeclaration =
   'type' '#identifier'
@@ -346,7 +351,9 @@ InterfacePackageGenericMapAspectInner =
 | InterfacePackageGenericMapAspectAssociations
 
 InterfaceProcedureSpecification =
-  'procedure' Designator ParameterList?
+  'procedure'
+  Designator
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 InterfaceSubprogramDeclaration =
   InterfaceSubprogramSpecification 'is'? InterfaceSubprogramDefault?
@@ -1110,22 +1117,19 @@ SubprogramSpecification =
   ProcedureSpecification | FunctionSpecification
 
 ProcedureSpecification =
-  'procedure' Designator SubprogramHeader? ParameterList?
+  'procedure'
+  Designator
+  SubprogramHeader
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 FunctionSpecification =
-  FunctionPurity?
+  purity:('pure' | 'impure')?
   'function'
   Designator
-  SubprogramHeader?
-  ParameterList?
+  SubprogramHeader
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
   'return'
   Name
-
-ParameterList =
-  'parameter'? parenthesized_interface_list:('(' InterfaceList ')')?
-
-FunctionPurity =
-  'pure' | 'impure'
 
 SubprogramHeader =
   subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')?

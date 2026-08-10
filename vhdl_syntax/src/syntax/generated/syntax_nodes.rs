@@ -8100,26 +8100,6 @@ impl FullTypeDeclarationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum FunctionPuritySyntax {
-    Pure(SyntaxToken),
-    Impure(SyntaxToken),
-}
-impl FunctionPuritySyntax {
-    pub fn cast(token: SyntaxToken) -> Option<Self> {
-        match token.kind() {
-            TokenKind::Keyword(Kw::Pure) => Some(FunctionPuritySyntax::Pure(token)),
-            TokenKind::Keyword(Kw::Impure) => Some(FunctionPuritySyntax::Impure(token)),
-            _ => None,
-        }
-    }
-    pub fn raw(&self) -> SyntaxToken {
-        match self {
-            FunctionPuritySyntax::Pure(token) => token.clone(),
-            FunctionPuritySyntax::Impure(token) => token.clone(),
-        }
-    }
-}
-#[derive(Debug, Clone)]
 pub struct FunctionSpecificationSyntax(pub(crate) SyntaxNode);
 impl AstNode for FunctionSpecificationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -8128,7 +8108,7 @@ impl AstNode for FunctionSpecificationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "function_purity",
+                name: "purity",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Pure),
                     TokenKind::Keyword(Kw::Impure),
@@ -8183,11 +8163,8 @@ impl AstNode for FunctionSpecificationSyntax {
     }
 }
 impl FunctionSpecificationSyntax {
-    pub fn function_purity(&self) -> Option<FunctionPuritySyntax> {
-        self.0
-            .tokens()
-            .filter_map(FunctionPuritySyntax::cast)
-            .nth(0)
+    pub fn purity(&self) -> Option<PuritySyntax> {
+        self.0.tokens().filter_map(PuritySyntax::cast).nth(0)
     }
     pub fn function_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -10346,7 +10323,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "function_purity",
+                name: "purity",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::Pure),
                     TokenKind::Keyword(Kw::Impure),
@@ -10395,11 +10372,8 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
     }
 }
 impl InterfaceFunctionSpecificationSyntax {
-    pub fn function_purity(&self) -> Option<FunctionPuritySyntax> {
-        self.0
-            .tokens()
-            .filter_map(FunctionPuritySyntax::cast)
-            .nth(0)
+    pub fn purity(&self) -> Option<PuritySyntax> {
+        self.0.tokens().filter_map(PuritySyntax::cast).nth(0)
     }
     pub fn function_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -12854,7 +12828,7 @@ impl AstNode for ParameterListSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Parameter)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "parenthesized_interface_list",
                 kind: LayoutItemKind::Node(NodeKind::ParenthesizedInterfaceList),
@@ -14604,6 +14578,26 @@ impl AstNode for ProtectedTypeDefinitionSyntax {
         match self {
             ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(inner) => inner.raw(),
             ProtectedTypeDefinitionSyntax::ProtectedTypeBody(inner) => inner.raw(),
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub enum PuritySyntax {
+    Pure(SyntaxToken),
+    Impure(SyntaxToken),
+}
+impl PuritySyntax {
+    pub fn cast(token: SyntaxToken) -> Option<Self> {
+        match token.kind() {
+            TokenKind::Keyword(Kw::Pure) => Some(PuritySyntax::Pure(token)),
+            TokenKind::Keyword(Kw::Impure) => Some(PuritySyntax::Impure(token)),
+            _ => None,
+        }
+    }
+    pub fn raw(&self) -> SyntaxToken {
+        match self {
+            PuritySyntax::Pure(token) => token.clone(),
+            PuritySyntax::Impure(token) => token.clone(),
         }
     }
 }

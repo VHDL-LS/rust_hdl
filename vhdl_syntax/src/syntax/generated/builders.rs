@@ -6732,7 +6732,7 @@ impl From<FullTypeDeclarationBuilder> for FullTypeDeclarationSyntax {
     }
 }
 pub struct FunctionSpecificationBuilder {
-    function_purity: Option<FunctionPurityToken>,
+    purity: Option<PurityToken>,
     function_token: Token,
     designator: DesignatorToken,
     subprogram_header: Option<SubprogramHeaderSyntax>,
@@ -6743,7 +6743,7 @@ pub struct FunctionSpecificationBuilder {
 impl FunctionSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>, name: impl Into<NameSyntax>) -> Self {
         Self {
-            function_purity: None,
+            purity: None,
             function_token: Kw::Function.canonical_token(),
             designator: designator.into(),
             subprogram_header: None,
@@ -6752,8 +6752,8 @@ impl FunctionSpecificationBuilder {
             name: name.into(),
         }
     }
-    pub fn with_function_purity(mut self, n: impl Into<FunctionPurityToken>) -> Self {
-        self.function_purity = Some(n.into());
+    pub fn with_purity(mut self, n: impl Into<PurityToken>) -> Self {
+        self.purity = Some(n.into());
         self
     }
     pub fn with_function_token(mut self, t: impl Into<Token>) -> Self {
@@ -6791,7 +6791,7 @@ impl FunctionSpecificationBuilder {
     pub fn build(self) -> FunctionSpecificationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::FunctionSpecification);
-        if let Some(n) = self.function_purity {
+        if let Some(n) = self.purity {
             builder.push(n.0);
         }
         builder.push(self.function_token);
@@ -8828,7 +8828,7 @@ impl From<InterfaceFileDeclarationBuilder> for InterfaceFileDeclarationSyntax {
     }
 }
 pub struct InterfaceFunctionSpecificationBuilder {
-    function_purity: Option<FunctionPurityToken>,
+    purity: Option<PurityToken>,
     function_token: Token,
     designator: DesignatorToken,
     parameter_list: Option<ParameterListSyntax>,
@@ -8838,7 +8838,7 @@ pub struct InterfaceFunctionSpecificationBuilder {
 impl InterfaceFunctionSpecificationBuilder {
     pub fn new(designator: impl Into<DesignatorToken>, name: impl Into<NameSyntax>) -> Self {
         Self {
-            function_purity: None,
+            purity: None,
             function_token: Kw::Function.canonical_token(),
             designator: designator.into(),
             parameter_list: None,
@@ -8846,8 +8846,8 @@ impl InterfaceFunctionSpecificationBuilder {
             name: name.into(),
         }
     }
-    pub fn with_function_purity(mut self, n: impl Into<FunctionPurityToken>) -> Self {
-        self.function_purity = Some(n.into());
+    pub fn with_purity(mut self, n: impl Into<PurityToken>) -> Self {
+        self.purity = Some(n.into());
         self
     }
     pub fn with_function_token(mut self, t: impl Into<Token>) -> Self {
@@ -8881,7 +8881,7 @@ impl InterfaceFunctionSpecificationBuilder {
     pub fn build(self) -> InterfaceFunctionSpecificationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::InterfaceFunctionSpecification);
-        if let Some(n) = self.function_purity {
+        if let Some(n) = self.purity {
             builder.push(n.0);
         }
         builder.push(self.function_token);
@@ -11076,7 +11076,7 @@ impl From<PackagePreambleBuilder> for PackagePreambleSyntax {
 }
 pub struct ParameterListBuilder {
     parameter_token: Option<Token>,
-    parenthesized_interface_list: Option<ParenthesizedInterfaceListSyntax>,
+    parenthesized_interface_list: ParenthesizedInterfaceListSyntax,
 }
 impl Default for ParameterListBuilder {
     fn default() -> Self {
@@ -11087,7 +11087,7 @@ impl ParameterListBuilder {
     pub fn new() -> Self {
         Self {
             parameter_token: None,
-            parenthesized_interface_list: None,
+            parenthesized_interface_list: ParenthesizedInterfaceListBuilder::default().build(),
         }
     }
     pub fn with_parameter_token(mut self, t: impl Into<Token>) -> Self {
@@ -11105,7 +11105,7 @@ impl ParameterListBuilder {
         mut self,
         n: impl Into<ParenthesizedInterfaceListSyntax>,
     ) -> Self {
-        self.parenthesized_interface_list = Some(n.into());
+        self.parenthesized_interface_list = n.into();
         self
     }
     pub fn build(self) -> ParameterListSyntax {
@@ -11114,9 +11114,7 @@ impl ParameterListBuilder {
         if let Some(t) = self.parameter_token {
             builder.push(t);
         }
-        if let Some(n) = self.parenthesized_interface_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.parenthesized_interface_list.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -16930,20 +16928,6 @@ impl From<ForceModeSyntax> for ForceModeToken {
         ForceModeToken(s.raw().token().clone())
     }
 }
-pub struct FunctionPurityToken(pub(crate) Token);
-impl FunctionPurityToken {
-    pub fn pure() -> Self {
-        Self(Kw::Pure.canonical_token())
-    }
-    pub fn impure() -> Self {
-        Self(Kw::Impure.canonical_token())
-    }
-}
-impl From<FunctionPuritySyntax> for FunctionPurityToken {
-    fn from(s: FunctionPuritySyntax) -> Self {
-        FunctionPurityToken(s.raw().token().clone())
-    }
-}
 pub struct InterfaceObjectClassToken(pub(crate) Token);
 impl InterfaceObjectClassToken {
     pub fn constant() -> Self {
@@ -17057,6 +17041,20 @@ impl From<crate::builder::StringLiteral> for NameDesignatorToken {
 impl From<crate::builder::CharLiteral> for NameDesignatorToken {
     fn from(v: crate::builder::CharLiteral) -> Self {
         NameDesignatorToken::character_literal(v)
+    }
+}
+pub struct PurityToken(pub(crate) Token);
+impl PurityToken {
+    pub fn pure() -> Self {
+        Self(Kw::Pure.canonical_token())
+    }
+    pub fn impure() -> Self {
+        Self(Kw::Impure.canonical_token())
+    }
+}
+impl From<PuritySyntax> for PurityToken {
+    fn from(s: PuritySyntax) -> Self {
+        PurityToken(s.raw().token().clone())
     }
 }
 pub struct SignalKindToken(pub(crate) Token);
