@@ -278,7 +278,7 @@ GenericClause =
   generic_clause_epilogue:(')' ';')
 
 GenericMapAspect =
-  'generic' 'map' '(' AssociationList? ')'
+  'generic' 'map' '(' AssociationList ')'
 
 // LRM has `"group" identifier ":" name "(" group_constituent_list ")" ";"`.
 // The `(group_constituent_list)` is absorbed as a `ParenthesizedName` tail on
