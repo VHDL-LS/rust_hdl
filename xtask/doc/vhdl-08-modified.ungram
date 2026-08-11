@@ -1170,7 +1170,7 @@ PackageInstantiation =
   ';'
 
 Signature =
-  '[' NameList? 'return'? return_type:Name? ']'
+  '[' NameList? return_type:('return' Name)? ']'
 
 //==============================================================================
 // § 5: Types

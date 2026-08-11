@@ -8,10 +8,11 @@ Name
   AttributeName
     Signature
       LeftSquare
-      Keyword(Return)
-      Name
-        NameDesignatorPrefix
-          Identifier 'natural'
+      ReturnType
+        Keyword(Return)
+        Name
+          NameDesignatorPrefix
+            Identifier 'natural'
       RightSquare
     Tick
     Identifier 'foo'

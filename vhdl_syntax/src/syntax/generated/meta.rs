@@ -291,6 +291,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             ResolutionIndicationElementResolutionSyntax::META
         }
         NodeKind::ReturnStatement => ReturnStatementSyntax::META,
+        NodeKind::ReturnType => ReturnTypeSyntax::META,
         NodeKind::SecondaryUnitDeclaration => SecondaryUnitDeclarationSyntax::META,
         NodeKind::SecondaryUnitPackageBody => SecondaryUnitPackageBodySyntax::META,
         NodeKind::SelectedAssignmentPreamble => SelectedAssignmentPreambleSyntax::META,

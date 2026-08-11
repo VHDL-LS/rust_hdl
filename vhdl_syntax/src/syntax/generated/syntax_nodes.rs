@@ -15303,6 +15303,44 @@ impl ReturnStatementSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ReturnTypeSyntax(pub(crate) SyntaxNode);
+impl AstNode for ReturnTypeSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ReturnType,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "return",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "name",
+                kind: LayoutItemKind::Node(NodeKind::Name),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ReturnTypeSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ReturnTypeSyntax {
+    pub fn return_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
+            .nth(0)
+    }
+    pub fn name(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum ScalarTypeDefinitionSyntax {
     EnumerationTypeDefinition(EnumerationTypeDefinitionSyntax),
     NumericTypeDefinition(NumericTypeDefinitionSyntax),
@@ -16908,14 +16946,8 @@ impl AstNode for SignatureSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "return",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Return)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
                 name: "return_type",
-                kind: LayoutItemKind::Node(NodeKind::Name),
+                kind: LayoutItemKind::Node(NodeKind::ReturnType),
             },
             LayoutItem {
                 optional: false,
@@ -16942,14 +16974,8 @@ impl SignatureSyntax {
     pub fn name_list(&self) -> Option<NameListSyntax> {
         self.0.children().filter_map(NameListSyntax::cast).nth(0)
     }
-    pub fn return_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
-            .nth(0)
-    }
-    pub fn return_type(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
+    pub fn return_type(&self) -> Option<ReturnTypeSyntax> {
+        self.0.children().filter_map(ReturnTypeSyntax::cast).nth(0)
     }
     pub fn right_square_token(&self) -> Option<SyntaxToken> {
         self.0

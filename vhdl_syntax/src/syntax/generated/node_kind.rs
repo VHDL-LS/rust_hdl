@@ -251,6 +251,7 @@ pub enum NodeKind {
     ReportStatement,
     ResolutionIndicationElementResolution,
     ReturnStatement,
+    ReturnType,
     SecondaryUnitDeclaration,
     SecondaryUnitPackageBody,
     SelectedAssignmentPreamble,

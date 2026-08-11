@@ -12,8 +12,9 @@ Signature
     Name
       NameDesignatorPrefix
         Identifier 'bit'
-  Keyword(Return)
-  Name
-    NameDesignatorPrefix
-      Identifier 'unsigned'
+  ReturnType
+    Keyword(Return)
+    Name
+      NameDesignatorPrefix
+        Identifier 'unsigned'
   RightSquare

@@ -4,8 +4,9 @@ expression: "to_test_text(Parser::signature, \"[return ret_t]\")"
 ---
 Signature
   LeftSquare
-  Keyword(Return)
-  Name
-    NameDesignatorPrefix
-      Identifier 'ret_t'
+  ReturnType
+    Keyword(Return)
+    Name
+      NameDesignatorPrefix
+        Identifier 'ret_t'
   RightSquare

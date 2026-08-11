@@ -13524,6 +13524,45 @@ impl From<ReturnStatementBuilder> for ReturnStatementSyntax {
         value.build()
     }
 }
+pub struct ReturnTypeBuilder {
+    return_token: Token,
+    name: NameSyntax,
+}
+impl ReturnTypeBuilder {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
+        Self {
+            return_token: Kw::Return.canonical_token(),
+            name: name.into(),
+        }
+    }
+    pub fn with_return_token(mut self, t: impl Into<Token>) -> Self {
+        self.return_token = t.into();
+        self
+    }
+    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.return_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.name = n.into();
+        self
+    }
+    pub fn build(self) -> ReturnTypeSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ReturnType);
+        builder.push(self.return_token);
+        builder.push_node(self.name.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ReturnTypeSyntax::cast(node).unwrap()
+    }
+}
+impl From<ReturnTypeBuilder> for ReturnTypeSyntax {
+    fn from(value: ReturnTypeBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct SecondaryUnitDeclarationBuilder {
     identifier_token: Token,
     eq_token: Token,
@@ -14753,8 +14792,7 @@ impl From<SignalListOthersBuilder> for SignalListOthersSyntax {
 pub struct SignatureBuilder {
     left_square_token: Token,
     name_list: Option<NameListSyntax>,
-    return_token: Option<Token>,
-    return_type: Option<NameSyntax>,
+    return_type: Option<ReturnTypeSyntax>,
     right_square_token: Token,
 }
 impl Default for SignatureBuilder {
@@ -14767,7 +14805,6 @@ impl SignatureBuilder {
         Self {
             left_square_token: TokenKind::LeftSquare.canonical_token().unwrap(),
             name_list: None,
-            return_token: None,
             return_type: None,
             right_square_token: TokenKind::RightSquare.canonical_token().unwrap(),
         }
@@ -14784,18 +14821,7 @@ impl SignatureBuilder {
         self.name_list = Some(n.into());
         self
     }
-    pub fn with_return_token(mut self, t: impl Into<Token>) -> Self {
-        self.return_token = Some(t.into());
-        self
-    }
-    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .return_token
-            .get_or_insert_with(|| Kw::Return.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_return_type(mut self, n: impl Into<NameSyntax>) -> Self {
+    pub fn with_return_type(mut self, n: impl Into<ReturnTypeSyntax>) -> Self {
         self.return_type = Some(n.into());
         self
     }
@@ -14813,9 +14839,6 @@ impl SignatureBuilder {
         builder.push(self.left_square_token);
         if let Some(n) = self.name_list {
             builder.push_node(n.raw().green().clone());
-        }
-        if let Some(t) = self.return_token {
-            builder.push(t);
         }
         if let Some(n) = self.return_type {
             builder.push_node(n.raw().green().clone());
