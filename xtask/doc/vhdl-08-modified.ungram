@@ -1102,7 +1102,7 @@ SimpleConfigurationSpecification =
   ComponentConfigurationEpilogue?
 
 VerificationUnitBindingIndication =
-  'use' 'vunit' VerificationUnitList?
+  'use' 'vunit' VerificationUnitList
 
 VerificationUnitList =
   Name* ','*
