@@ -1232,7 +1232,7 @@ PrimaryUnitDeclaration =
 
 ProtectedTypeBody =
   protected_type_body_preamble:('protected' 'body')
-  Declarations?
+  Declarations
   protected_type_body_epilogue:('end' 'protected' 'body' name:'#identifier'?)
 
 ProtectedTypeDeclaration =
