@@ -1253,7 +1253,7 @@ RangeConstraint =
 
 RecordTypeDefinition =
   RecordTypeDefinitionPreamble
-  RecordElementDeclarations?
+  RecordElementDeclarations
   record_type_definition_epilogue:('end' 'record' '#identifier'?)
 
 RecordElementDeclarations =
