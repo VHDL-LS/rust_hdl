@@ -995,7 +995,7 @@ AttributeSpecification =
   ';'
 
 BindingIndication =
-  'use'? EntityAspect? GenericMapAspect? PortMapAspect?
+  binding_use_clause:('use' EntityAspect)? GenericMapAspect? PortMapAspect?
 
 ComponentSpecification =
   InstantiationList ':' Name

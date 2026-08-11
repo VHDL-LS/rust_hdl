@@ -45,15 +45,16 @@ ConfigurationDeclaration
                 Identifier 'comp'
         SemiColonTerminatedBindingIndication
           BindingIndication
-            Keyword(Use)
-            EntityEntityAspect
-              Keyword(Entity)
-              Name
-                NameDesignatorPrefix
-                  Identifier 'lib'
-                SelectedName
-                  Dot
-                  Identifier 'use_name'
+            BindingUseClause
+              Keyword(Use)
+              EntityEntityAspect
+                Keyword(Entity)
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'lib'
+                  SelectedName
+                    Dot
+                    Identifier 'use_name'
           SemiColon
         ComponentConfigurationEpilogue
           Keyword(End)

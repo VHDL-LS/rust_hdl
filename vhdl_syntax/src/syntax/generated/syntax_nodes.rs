@@ -1513,18 +1513,8 @@ impl AstNode for BindingIndicationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "use",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "entity_aspect",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::EntityEntityAspect,
-                    NodeKind::EntityConfigurationAspect,
-                    NodeKind::EntityOpenAspect,
-                ]),
+                name: "binding_use_clause",
+                kind: LayoutItemKind::Node(NodeKind::BindingUseClause),
             },
             LayoutItem {
                 optional: true,
@@ -1548,16 +1538,10 @@ impl AstNode for BindingIndicationSyntax {
     }
 }
 impl BindingIndicationSyntax {
-    pub fn use_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Use))
-            .nth(0)
-    }
-    pub fn entity_aspect(&self) -> Option<EntityAspectSyntax> {
+    pub fn binding_use_clause(&self) -> Option<BindingUseClauseSyntax> {
         self.0
             .children()
-            .filter_map(EntityAspectSyntax::cast)
+            .filter_map(BindingUseClauseSyntax::cast)
             .nth(0)
     }
     pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
@@ -1570,6 +1554,51 @@ impl BindingIndicationSyntax {
         self.0
             .children()
             .filter_map(PortMapAspectSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct BindingUseClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for BindingUseClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::BindingUseClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "use",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Use)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "entity_aspect",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::EntityEntityAspect,
+                    NodeKind::EntityConfigurationAspect,
+                    NodeKind::EntityOpenAspect,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        BindingUseClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl BindingUseClauseSyntax {
+    pub fn use_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Use))
+            .nth(0)
+    }
+    pub fn entity_aspect(&self) -> Option<EntityAspectSyntax> {
+        self.0
+            .children()
+            .filter_map(EntityAspectSyntax::cast)
             .nth(0)
     }
 }

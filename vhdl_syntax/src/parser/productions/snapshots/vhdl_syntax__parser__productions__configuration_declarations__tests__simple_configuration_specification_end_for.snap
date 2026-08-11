@@ -19,26 +19,27 @@ SimpleConfigurationSpecification
           Dot
           Identifier 'comp'
   BindingIndication
-    Keyword(Use)
-    EntityEntityAspect
-      Keyword(Entity)
-      Name
-        NameDesignatorPrefix
-          Identifier 'work'
-        SelectedName
-          Dot
-          Identifier 'foo'
-        ParenthesizedName
-          LeftPar
-          AssociationList
-            AssociationElement
-              ActualPart
-                ActualPartExpression
-                  NameExpression
-                    Name
-                      NameDesignatorPrefix
-                        Identifier 'rtl'
-          RightPar
+    BindingUseClause
+      Keyword(Use)
+      EntityEntityAspect
+        Keyword(Entity)
+        Name
+          NameDesignatorPrefix
+            Identifier 'work'
+          SelectedName
+            Dot
+            Identifier 'foo'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'rtl'
+            RightPar
   SemiColon
   ComponentConfigurationEpilogue
     Keyword(End)

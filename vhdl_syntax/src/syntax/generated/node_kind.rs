@@ -30,6 +30,7 @@ pub enum NodeKind {
     AttributeSpecification,
     BinaryExpression,
     BindingIndication,
+    BindingUseClause,
     BlockConfiguration,
     BlockConfigurationEpilogue,
     BlockConfigurationItem,

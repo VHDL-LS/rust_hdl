@@ -8,6 +8,7 @@
 
 use crate::parser::util::StallGuard;
 use crate::parser::Parser;
+use crate::syntax::NodeKind::BindingUseClause;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
@@ -80,8 +81,10 @@ impl Parser {
     pub fn binding_indication(&mut self) {
         self.start_node(NodeKind::BindingIndication);
         if self.next_is(Keyword(Kw::Use)) {
-            self.skip();
+            self.start_node(BindingUseClause);
+            self.skip(); // Use
             self.entity_aspect();
+            self.end_node();
         }
         if self.next_is(Keyword(Kw::Generic)) {
             self.generic_map_aspect();

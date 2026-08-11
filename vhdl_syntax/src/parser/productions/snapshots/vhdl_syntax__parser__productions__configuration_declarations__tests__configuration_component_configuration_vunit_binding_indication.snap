@@ -45,15 +45,16 @@ ConfigurationDeclaration
                 Identifier 'comp'
         SemiColonTerminatedBindingIndication
           BindingIndication
-            Keyword(Use)
-            EntityEntityAspect
-              Keyword(Entity)
-              Name
-                NameDesignatorPrefix
-                  Identifier 'work'
-                SelectedName
-                  Dot
-                  Identifier 'bar'
+            BindingUseClause
+              Keyword(Use)
+              EntityEntityAspect
+                Keyword(Entity)
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'work'
+                  SelectedName
+                    Dot
+                    Identifier 'bar'
           SemiColon
         SemiColonTerminatedVerificationUnitBindingIndication
           VerificationUnitBindingIndication

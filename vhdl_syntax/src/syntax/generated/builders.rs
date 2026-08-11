@@ -1210,8 +1210,7 @@ impl From<BinaryExpressionBuilder> for BinaryExpressionSyntax {
     }
 }
 pub struct BindingIndicationBuilder {
-    use_token: Option<Token>,
-    entity_aspect: Option<EntityAspectSyntax>,
+    binding_use_clause: Option<BindingUseClauseSyntax>,
     generic_map_aspect: Option<GenericMapAspectSyntax>,
     port_map_aspect: Option<PortMapAspectSyntax>,
 }
@@ -1223,25 +1222,13 @@ impl Default for BindingIndicationBuilder {
 impl BindingIndicationBuilder {
     pub fn new() -> Self {
         Self {
-            use_token: None,
-            entity_aspect: None,
+            binding_use_clause: None,
             generic_map_aspect: None,
             port_map_aspect: None,
         }
     }
-    pub fn with_use_token(mut self, t: impl Into<Token>) -> Self {
-        self.use_token = Some(t.into());
-        self
-    }
-    pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .use_token
-            .get_or_insert_with(|| Kw::Use.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_entity_aspect(mut self, n: impl Into<EntityAspectSyntax>) -> Self {
-        self.entity_aspect = Some(n.into());
+    pub fn with_binding_use_clause(mut self, n: impl Into<BindingUseClauseSyntax>) -> Self {
+        self.binding_use_clause = Some(n.into());
         self
     }
     pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
@@ -1255,10 +1242,7 @@ impl BindingIndicationBuilder {
     pub fn build(self) -> BindingIndicationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BindingIndication);
-        if let Some(t) = self.use_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.entity_aspect {
+        if let Some(n) = self.binding_use_clause {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(n) = self.generic_map_aspect {
@@ -1275,6 +1259,45 @@ impl BindingIndicationBuilder {
 }
 impl From<BindingIndicationBuilder> for BindingIndicationSyntax {
     fn from(value: BindingIndicationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct BindingUseClauseBuilder {
+    use_token: Token,
+    entity_aspect: EntityAspectSyntax,
+}
+impl BindingUseClauseBuilder {
+    pub fn new(entity_aspect: impl Into<EntityAspectSyntax>) -> Self {
+        Self {
+            use_token: Kw::Use.canonical_token(),
+            entity_aspect: entity_aspect.into(),
+        }
+    }
+    pub fn with_use_token(mut self, t: impl Into<Token>) -> Self {
+        self.use_token = t.into();
+        self
+    }
+    pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.use_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_entity_aspect(mut self, n: impl Into<EntityAspectSyntax>) -> Self {
+        self.entity_aspect = n.into();
+        self
+    }
+    pub fn build(self) -> BindingUseClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::BindingUseClause);
+        builder.push(self.use_token);
+        builder.push_node(self.entity_aspect.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        BindingUseClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<BindingUseClauseBuilder> for BindingUseClauseSyntax {
+    fn from(value: BindingUseClauseBuilder) -> Self {
         value.build()
     }
 }

@@ -34,6 +34,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::AttributeSpecification => AttributeSpecificationSyntax::META,
         NodeKind::BinaryExpression => BinaryExpressionSyntax::META,
         NodeKind::BindingIndication => BindingIndicationSyntax::META,
+        NodeKind::BindingUseClause => BindingUseClauseSyntax::META,
         NodeKind::BlockConfiguration => BlockConfigurationSyntax::META,
         NodeKind::BlockConfigurationEpilogue => BlockConfigurationEpilogueSyntax::META,
         NodeKind::BlockConfigurationItem => BlockConfigurationItemSyntax::META,
