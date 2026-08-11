@@ -1220,7 +1220,7 @@ IndexSubtypeDefinition =
   Name 'range' '<>'
 
 PhysicalLiteral =
-  '#abstract_literal' Name
+  '#abstract_literal'? Name
 
 PhysicalTypeDefinition =
   RangeConstraint

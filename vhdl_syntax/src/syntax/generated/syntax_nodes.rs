@@ -13298,7 +13298,7 @@ impl AstNode for PhysicalLiteralSyntax {
         kind: NodeKind::PhysicalLiteral,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: false,
                 name: "abstract_literal",
                 kind: LayoutItemKind::Token(TokenKind::AbstractLiteral),

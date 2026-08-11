@@ -11578,16 +11578,13 @@ impl From<PartialPathnameBuilder> for PartialPathnameSyntax {
     }
 }
 pub struct PhysicalLiteralBuilder {
-    abstract_literal_token: Token,
+    abstract_literal_token: Option<Token>,
     name: NameSyntax,
 }
 impl PhysicalLiteralBuilder {
-    pub fn new(
-        abstract_literal_token: impl Into<crate::builder::AbstractLiteral>,
-        name: impl Into<NameSyntax>,
-    ) -> Self {
+    pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            abstract_literal_token: abstract_literal_token.into().into(),
+            abstract_literal_token: None,
             name: name.into(),
         }
     }
@@ -11595,11 +11592,13 @@ impl PhysicalLiteralBuilder {
         mut self,
         t: impl Into<crate::builder::AbstractLiteral>,
     ) -> Self {
-        self.abstract_literal_token = t.into().into();
+        self.abstract_literal_token = Some(t.into().into());
         self
     }
     pub fn with_abstract_literal_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.abstract_literal_token.set_leading_trivia(trivia);
+        if let Some(ref mut t) = self.abstract_literal_token {
+            t.set_leading_trivia(trivia);
+        }
         self
     }
     pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
@@ -11609,7 +11608,9 @@ impl PhysicalLiteralBuilder {
     pub fn build(self) -> PhysicalLiteralSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PhysicalLiteral);
-        builder.push(self.abstract_literal_token);
+        if let Some(t) = self.abstract_literal_token {
+            builder.push(t);
+        }
         builder.push_node(self.name.raw().green().clone());
         builder.end_node();
         let green = builder.end();
