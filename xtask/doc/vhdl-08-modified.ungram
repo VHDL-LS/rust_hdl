@@ -1161,7 +1161,7 @@ PackageHeader =
 
 PackageBody =
   package_body_preamble:('package' 'body' name:'#identifier' 'is')
-  Declarations?
+  Declarations
   package_body_epilogue:('end' 'package'? 'body'? '#identifier'? ';')
 
 PackageInstantiation =
