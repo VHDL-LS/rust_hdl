@@ -14251,6 +14251,33 @@ impl ProcessStatementSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ProtectedPreambleSyntax(pub(crate) SyntaxNode);
+impl AstNode for ProtectedPreambleSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ProtectedPreamble,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "protected",
+            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ProtectedPreambleSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ProtectedPreambleSyntax {
+    pub fn protected_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Protected))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ProtectedTypeBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for ProtectedTypeBodySyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -14418,8 +14445,8 @@ impl AstNode for ProtectedTypeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "protected_type_declaration_preamble",
-                kind: LayoutItemKind::Node(NodeKind::ProtectedTypeDeclarationPreamble),
+                name: "protected_preamble",
+                kind: LayoutItemKind::Node(NodeKind::ProtectedPreamble),
             },
             LayoutItem {
                 optional: true,
@@ -14443,12 +14470,10 @@ impl AstNode for ProtectedTypeDeclarationSyntax {
     }
 }
 impl ProtectedTypeDeclarationSyntax {
-    pub fn protected_type_declaration_preamble(
-        &self,
-    ) -> Option<ProtectedTypeDeclarationPreambleSyntax> {
+    pub fn protected_preamble(&self) -> Option<ProtectedPreambleSyntax> {
         self.0
             .children()
-            .filter_map(ProtectedTypeDeclarationPreambleSyntax::cast)
+            .filter_map(ProtectedPreambleSyntax::cast)
             .nth(0)
     }
     pub fn declarations(&self) -> Option<DeclarationsSyntax> {
@@ -14516,33 +14541,6 @@ impl ProtectedTypeDeclarationEpilogueSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ProtectedTypeDeclarationPreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for ProtectedTypeDeclarationPreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ProtectedTypeDeclarationPreamble,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "protected",
-            kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Protected)),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ProtectedTypeDeclarationPreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ProtectedTypeDeclarationPreambleSyntax {
-    pub fn protected_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Protected))
             .nth(0)
     }
 }

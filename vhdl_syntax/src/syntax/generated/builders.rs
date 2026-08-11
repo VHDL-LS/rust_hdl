@@ -12498,6 +12498,43 @@ impl From<ProcessStatementBuilder> for ProcessStatementSyntax {
         value.build()
     }
 }
+pub struct ProtectedPreambleBuilder {
+    protected_token: Token,
+}
+impl Default for ProtectedPreambleBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ProtectedPreambleBuilder {
+    pub fn new() -> Self {
+        Self {
+            protected_token: Kw::Protected.canonical_token(),
+        }
+    }
+    pub fn with_protected_token(mut self, t: impl Into<Token>) -> Self {
+        self.protected_token = t.into();
+        self
+    }
+    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.protected_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> ProtectedPreambleSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ProtectedPreamble);
+        builder.push(self.protected_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ProtectedPreambleSyntax::cast(node).unwrap()
+    }
+}
+impl From<ProtectedPreambleBuilder> for ProtectedPreambleSyntax {
+    fn from(value: ProtectedPreambleBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct ProtectedTypeBodyBuilder {
     protected_type_body_preamble: ProtectedTypeBodyPreambleSyntax,
     declarations: Option<DeclarationsSyntax>,
@@ -12676,7 +12713,7 @@ impl From<ProtectedTypeBodyPreambleBuilder> for ProtectedTypeBodyPreambleSyntax 
     }
 }
 pub struct ProtectedTypeDeclarationBuilder {
-    protected_type_declaration_preamble: ProtectedTypeDeclarationPreambleSyntax,
+    protected_preamble: ProtectedPreambleSyntax,
     declarations: Option<DeclarationsSyntax>,
     protected_type_declaration_epilogue: ProtectedTypeDeclarationEpilogueSyntax,
 }
@@ -12688,18 +12725,14 @@ impl Default for ProtectedTypeDeclarationBuilder {
 impl ProtectedTypeDeclarationBuilder {
     pub fn new() -> Self {
         Self {
-            protected_type_declaration_preamble: ProtectedTypeDeclarationPreambleBuilder::default()
-                .build(),
+            protected_preamble: ProtectedPreambleBuilder::default().build(),
             declarations: None,
             protected_type_declaration_epilogue: ProtectedTypeDeclarationEpilogueBuilder::default()
                 .build(),
         }
     }
-    pub fn with_protected_type_declaration_preamble(
-        mut self,
-        n: impl Into<ProtectedTypeDeclarationPreambleSyntax>,
-    ) -> Self {
-        self.protected_type_declaration_preamble = n.into();
+    pub fn with_protected_preamble(mut self, n: impl Into<ProtectedPreambleSyntax>) -> Self {
+        self.protected_preamble = n.into();
         self
     }
     pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
@@ -12716,12 +12749,7 @@ impl ProtectedTypeDeclarationBuilder {
     pub fn build(self) -> ProtectedTypeDeclarationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ProtectedTypeDeclaration);
-        builder.push_node(
-            self.protected_type_declaration_preamble
-                .raw()
-                .green()
-                .clone(),
-        );
+        builder.push_node(self.protected_preamble.raw().green().clone());
         if let Some(n) = self.declarations {
             builder.push_node(n.raw().green().clone());
         }
@@ -12802,43 +12830,6 @@ impl ProtectedTypeDeclarationEpilogueBuilder {
 }
 impl From<ProtectedTypeDeclarationEpilogueBuilder> for ProtectedTypeDeclarationEpilogueSyntax {
     fn from(value: ProtectedTypeDeclarationEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ProtectedTypeDeclarationPreambleBuilder {
-    protected_token: Token,
-}
-impl Default for ProtectedTypeDeclarationPreambleBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ProtectedTypeDeclarationPreambleBuilder {
-    pub fn new() -> Self {
-        Self {
-            protected_token: Kw::Protected.canonical_token(),
-        }
-    }
-    pub fn with_protected_token(mut self, t: impl Into<Token>) -> Self {
-        self.protected_token = t.into();
-        self
-    }
-    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.protected_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> ProtectedTypeDeclarationPreambleSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ProtectedTypeDeclarationPreamble);
-        builder.push(self.protected_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ProtectedTypeDeclarationPreambleSyntax::cast(node).unwrap()
-    }
-}
-impl From<ProtectedTypeDeclarationPreambleBuilder> for ProtectedTypeDeclarationPreambleSyntax {
-    fn from(value: ProtectedTypeDeclarationPreambleBuilder) -> Self {
         value.build()
     }
 }

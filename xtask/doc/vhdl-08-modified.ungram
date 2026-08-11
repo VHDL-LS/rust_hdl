@@ -1236,11 +1236,11 @@ ProtectedTypeBody =
   protected_type_body_epilogue:('end' 'protected' 'body' name:'#identifier'?)
 
 ProtectedTypeDeclaration =
-  ProtectedTypeDeclarationPreamble
-  Declarations?
+  ProtectedPreamble
+  Declarations
   protected_type_declaration_epilogue:('end' 'protected' name:'#identifier'?)
 
-ProtectedTypeDeclarationPreamble =
+ProtectedPreamble =
   'protected'
 
 ProtectedTypeDefinition =

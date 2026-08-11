@@ -641,7 +641,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::PackageBodyPreamble
         | NodeKind::PackageHeader
         | NodeKind::ProtectedTypeBodyPreamble
-        | NodeKind::ProtectedTypeDeclarationPreamble => &[
+        | NodeKind::ProtectedPreamble => &[
             Keyword(Kw::Alias),
             Keyword(Kw::Attribute),
             Keyword(Kw::Component),
