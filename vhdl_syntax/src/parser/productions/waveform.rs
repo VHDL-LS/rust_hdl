@@ -71,8 +71,11 @@ impl Parser {
     pub fn waveform_element(&mut self) {
         self.start_node(WaveformElement);
         self.expression();
-        if self.opt_token(Keyword(Kw::After)) {
+        if self.next_is(Keyword(Kw::After)) {
+            self.start_node(AfterClause);
+            self.skip(); // Kw::After
             self.expression();
+            self.end_node();
         }
         self.end_node()
     }

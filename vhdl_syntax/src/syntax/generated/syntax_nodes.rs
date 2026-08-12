@@ -268,6 +268,53 @@ impl ActualPartSubtypeIndicationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct AfterClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for AfterClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::AfterClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "after",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::After)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        AfterClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl AfterClauseSyntax {
+    pub fn after_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::After))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct AggregateSyntax(pub(crate) SyntaxNode);
 impl AstNode for AggregateSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -18842,23 +18889,8 @@ impl AstNode for WaveformElementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "after",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::After)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "time_expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "after_clause",
+                kind: LayoutItemKind::Node(NodeKind::AfterClause),
             },
         ],
     });
@@ -18873,14 +18905,8 @@ impl WaveformElementSyntax {
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
-    pub fn after_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::After))
-            .nth(0)
-    }
-    pub fn time_expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
+    pub fn after_clause(&self) -> Option<AfterClauseSyntax> {
+        self.0.children().filter_map(AfterClauseSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

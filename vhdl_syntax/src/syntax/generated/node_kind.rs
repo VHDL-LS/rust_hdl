@@ -12,6 +12,7 @@ pub enum NodeKind {
     ActualPartExpression,
     ActualPartOpen,
     ActualPartSubtypeIndication,
+    AfterClause,
     Aggregate,
     AggregateTarget,
     AliasDeclaration,

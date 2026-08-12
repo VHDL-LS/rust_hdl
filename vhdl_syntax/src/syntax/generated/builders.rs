@@ -232,6 +232,45 @@ impl From<ActualPartSubtypeIndicationBuilder> for ActualPartSubtypeIndicationSyn
         value.build()
     }
 }
+pub struct AfterClauseBuilder {
+    after_token: Token,
+    expression: ExpressionSyntax,
+}
+impl AfterClauseBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            after_token: Kw::After.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_after_token(mut self, t: impl Into<Token>) -> Self {
+        self.after_token = t.into();
+        self
+    }
+    pub fn with_after_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.after_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> AfterClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::AfterClause);
+        builder.push(self.after_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        AfterClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<AfterClauseBuilder> for AfterClauseSyntax {
+    fn from(value: AfterClauseBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct AggregateBuilder {
     left_par_token: Token,
     element_associations: Vec<ElementAssociationSyntax>,
@@ -16314,44 +16353,28 @@ impl From<WaitStatementBuilder> for WaitStatementSyntax {
 }
 pub struct WaveformElementBuilder {
     expression: ExpressionSyntax,
-    after_token: Option<Token>,
-    time_expression: Option<ExpressionSyntax>,
+    after_clause: Option<AfterClauseSyntax>,
 }
 impl WaveformElementBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             expression: expression.into(),
-            after_token: None,
-            time_expression: None,
+            after_clause: None,
         }
     }
     pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
         self.expression = n.into();
         self
     }
-    pub fn with_after_token(mut self, t: impl Into<Token>) -> Self {
-        self.after_token = Some(t.into());
-        self
-    }
-    pub fn with_after_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .after_token
-            .get_or_insert_with(|| Kw::After.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_time_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.time_expression = Some(n.into());
+    pub fn with_after_clause(mut self, n: impl Into<AfterClauseSyntax>) -> Self {
+        self.after_clause = Some(n.into());
         self
     }
     pub fn build(self) -> WaveformElementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::WaveformElement);
         builder.push_node(self.expression.raw().green().clone());
-        if let Some(t) = self.after_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.time_expression {
+        if let Some(n) = self.after_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();

@@ -16,6 +16,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ActualPartExpression => ActualPartExpressionSyntax::META,
         NodeKind::ActualPartOpen => ActualPartOpenSyntax::META,
         NodeKind::ActualPartSubtypeIndication => ActualPartSubtypeIndicationSyntax::META,
+        NodeKind::AfterClause => AfterClauseSyntax::META,
         NodeKind::Aggregate => AggregateSyntax::META,
         NodeKind::AggregateTarget => AggregateTargetSyntax::META,
         NodeKind::AliasDeclaration => AliasDeclarationSyntax::META,

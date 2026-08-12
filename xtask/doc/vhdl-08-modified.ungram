@@ -850,7 +850,7 @@ SelectedForceAssignment =
   '<='
   'force'
   ForceMode?
-  SelectedExpressions?
+  SelectedExpressions
   ';'
 
 SelectedWaveforms =
@@ -864,7 +864,7 @@ SelectedVariableAssignment =
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   ':='
-  SelectedExpressions?
+  SelectedExpressions
   ';'
 
 SelectedWaveformAssignment =
@@ -873,11 +873,11 @@ SelectedWaveformAssignment =
   Target
   '<='
   DelayMechanism?
-  SelectedWaveforms?
+  SelectedWaveforms
   ';'
 
 SensitivityClause =
-  'on' NameList?
+  'on' NameList
 
 SequentialStatement =
   WaitStatement
@@ -935,7 +935,7 @@ WaitStatement =
   Label? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
 
 WaveformElement =
-  Expression 'after'? time_expression:Expression?
+  Expression after_clause:('after' Expression)?
 
 WaveformElements =
   WaveformElement* ','*
