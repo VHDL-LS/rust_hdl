@@ -27,7 +27,7 @@ ConfigurationDeclaration
                 Dot
                 Identifier 'bar'
           SemiColon
-    SemiColonTerminatedVerificationUnitBindingIndication
+    VerificationUnitBinding
       VerificationUnitBindingIndication
         Keyword(Use)
         Keyword(Vunit)

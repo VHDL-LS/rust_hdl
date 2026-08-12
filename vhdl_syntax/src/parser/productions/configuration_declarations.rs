@@ -19,7 +19,7 @@ impl Parser {
         self.configuration_declarative_part();
         self.end_node();
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
-            self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
+            self.start_node(NodeKind::VerificationUnitBinding);
             self.verification_unit_binding_indication();
             self.expect_token(SemiColon);
             self.end_node();
@@ -166,13 +166,13 @@ impl Parser {
         if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
             && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
-            self.start_node(NodeKind::SemiColonTerminatedBindingIndication);
+            self.start_node(NodeKind::Binding);
             self.binding_indication();
             self.expect_token(TokenKind::SemiColon);
             self.end_node();
         }
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
-            self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
+            self.start_node(NodeKind::VerificationUnitBinding);
             self.verification_unit_binding_indication();
             self.expect_token(SemiColon);
             self.end_node();

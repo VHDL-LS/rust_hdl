@@ -444,9 +444,9 @@ Declarations =
 //==============================================================================
 ArchitectureBody =
   architecture_preamble:('architecture' name:'#identifier' 'of' entity_name:Name 'is')
-  Declarations?
+  Declarations
   DeclarationStatementSeparator
-  ConcurrentStatements?
+  ConcurrentStatements
   architecture_epilogue:('end' 'architecture'? '#identifier'? ';')
 
 BlockConfigurationItem =
@@ -462,29 +462,17 @@ BlockConfiguration =
   block_configuration_epilogue:('end' 'for' ';')
 
 ComponentConfiguration =
-  ComponentConfigurationPreamble
-  SemiColonTerminatedBindingIndication?
-  SemiColonTerminatedVerificationUnitBindingIndication*
+  component_configuration_preamble:('for' ComponentSpecification)
+  binding:(BindingIndication ';')?
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
   BlockConfiguration?
-  ComponentConfigurationEpilogue
-
-SemiColonTerminatedBindingIndication =
-  BindingIndication ';'
-
-SemiColonTerminatedVerificationUnitBindingIndication =
-  VerificationUnitBindingIndication ';'
-
-ComponentConfigurationPreamble =
-  'for' ComponentSpecification
-
-ComponentConfigurationEpilogue =
-  'end' 'for' ';'
+  component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationDeclaration =
   configuration_declaration_preamble:('configuration' name:'#identifier' 'of' entity_name:Name 'is')
   configuration_declaration_items:(
     Declarations?
-    SemiColonTerminatedVerificationUnitBindingIndication*
+    verification_unit_binding:(VerificationUnitBindingIndication ';')*
     BlockConfiguration
   )
   configuration_declaration_epilogue:('end' 'configuration'? '#identifier'? ';')
@@ -988,12 +976,12 @@ ComponentSpecification =
   InstantiationList ':' Name
 
 CompoundConfigurationSpecification =
-  ComponentConfigurationPreamble
+  component_configuration_preamble:('for' ComponentSpecification)
   compound_configuration_specification_items:(
-    SemiColonTerminatedBindingIndication
-    SemiColonTerminatedVerificationUnitBindingIndication*
+    binding:(BindingIndication ';')
+    verification_unit_binding:(VerificationUnitBindingIndication ';')*
   )
-  ComponentConfigurationEpilogue
+  component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationSpecification =
   SimpleConfigurationSpecification | CompoundConfigurationSpecification
@@ -1083,10 +1071,10 @@ SignalList =
   SignalListList | SignalListAll | SignalListOthers
 
 SimpleConfigurationSpecification =
-  ComponentConfigurationPreamble
+  component_configuration_preamble:('for' ComponentSpecification)
   BindingIndication
   ';'
-  ComponentConfigurationEpilogue?
+  component_configuration_epilogue:('end' 'for' ';')?
 
 VerificationUnitBindingIndication =
   'use' 'vunit' VerificationUnitList

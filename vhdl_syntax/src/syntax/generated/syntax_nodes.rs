@@ -1505,6 +1505,47 @@ impl BinaryOperatorSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct BindingSyntax(pub(crate) SyntaxNode);
+impl AstNode for BindingSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::Binding,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "binding_indication",
+                kind: LayoutItemKind::Node(NodeKind::BindingIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        BindingSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl BindingSyntax {
+    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(BindingIndicationSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct BindingIndicationSyntax(pub(crate) SyntaxNode);
 impl AstNode for BindingIndicationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -2610,16 +2651,14 @@ impl AstNode for ComponentConfigurationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "semi_colon_terminated_binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
+                name: "binding",
+                kind: LayoutItemKind::Node(NodeKind::Binding),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "semi_colon_terminated_verification_unit_binding_indications",
-                kind: LayoutItemKind::Node(
-                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
-                ),
+                name: "verification_unit_bindings",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
             },
             LayoutItem {
                 optional: true,
@@ -2649,21 +2688,15 @@ impl ComponentConfigurationSyntax {
             .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn semi_colon_terminated_binding_indication(
-        &self,
-    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
-            .nth(0)
+    pub fn binding(&self) -> Option<BindingSyntax> {
+        self.0.children().filter_map(BindingSyntax::cast).nth(0)
     }
-    pub fn semi_colon_terminated_verification_unit_binding_indications(
+    pub fn verification_unit_bindings(
         &self,
-    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
-    {
+    ) -> impl Iterator<Item = VerificationUnitBindingSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
+            .filter_map(VerificationUnitBindingSyntax::cast)
     }
     pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
         self.0
@@ -3184,16 +3217,14 @@ impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "semi_colon_terminated_binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::SemiColonTerminatedBindingIndication),
+                name: "binding",
+                kind: LayoutItemKind::Node(NodeKind::Binding),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "semi_colon_terminated_verification_unit_binding_indications",
-                kind: LayoutItemKind::Node(
-                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
-                ),
+                name: "verification_unit_bindings",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
             },
         ],
     });
@@ -3205,21 +3236,15 @@ impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
     }
 }
 impl CompoundConfigurationSpecificationItemsSyntax {
-    pub fn semi_colon_terminated_binding_indication(
-        &self,
-    ) -> Option<SemiColonTerminatedBindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SemiColonTerminatedBindingIndicationSyntax::cast)
-            .nth(0)
+    pub fn binding(&self) -> Option<BindingSyntax> {
+        self.0.children().filter_map(BindingSyntax::cast).nth(0)
     }
-    pub fn semi_colon_terminated_verification_unit_binding_indications(
+    pub fn verification_unit_bindings(
         &self,
-    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
-    {
+    ) -> impl Iterator<Item = VerificationUnitBindingSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
+            .filter_map(VerificationUnitBindingSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -4770,10 +4795,8 @@ impl AstNode for ConfigurationDeclarationItemsSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "semi_colon_terminated_verification_unit_binding_indications",
-                kind: LayoutItemKind::Node(
-                    NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
-                ),
+                name: "verification_unit_bindings",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
             },
             LayoutItem {
                 optional: false,
@@ -4797,13 +4820,12 @@ impl ConfigurationDeclarationItemsSyntax {
             .filter_map(DeclarationsSyntax::cast)
             .nth(0)
     }
-    pub fn semi_colon_terminated_verification_unit_binding_indications(
+    pub fn verification_unit_bindings(
         &self,
-    ) -> impl Iterator<Item = SemiColonTerminatedVerificationUnitBindingIndicationSyntax> + use<'_>
-    {
+    ) -> impl Iterator<Item = VerificationUnitBindingSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast)
+            .filter_map(VerificationUnitBindingSyntax::cast)
     }
     pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
         self.0
@@ -16123,90 +16145,6 @@ impl SelectedWaveformsSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct SemiColonTerminatedBindingIndicationSyntax(pub(crate) SyntaxNode);
-impl AstNode for SemiColonTerminatedBindingIndicationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SemiColonTerminatedBindingIndication,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::BindingIndication),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SemiColonTerminatedBindingIndicationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SemiColonTerminatedBindingIndicationSyntax {
-    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(BindingIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct SemiColonTerminatedVerificationUnitBindingIndicationSyntax(pub(crate) SyntaxNode);
-impl AstNode for SemiColonTerminatedVerificationUnitBindingIndicationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SemiColonTerminatedVerificationUnitBindingIndication,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "verification_unit_binding_indication",
-                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBindingIndication),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SemiColonTerminatedVerificationUnitBindingIndicationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SemiColonTerminatedVerificationUnitBindingIndicationSyntax {
-    pub fn verification_unit_binding_indication(
-        &self,
-    ) -> Option<VerificationUnitBindingIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(VerificationUnitBindingIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct SensitivityClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for SensitivityClauseSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -18761,6 +18699,49 @@ impl VariableDeclarationSyntax {
         self.0
             .children()
             .filter_map(InitialValueSyntax::cast)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct VerificationUnitBindingSyntax(pub(crate) SyntaxNode);
+impl AstNode for VerificationUnitBindingSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::VerificationUnitBinding,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "verification_unit_binding_indication",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBindingIndication),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        VerificationUnitBindingSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl VerificationUnitBindingSyntax {
+    pub fn verification_unit_binding_indication(
+        &self,
+    ) -> Option<VerificationUnitBindingIndicationSyntax> {
+        self.0
+            .children()
+            .filter_map(VerificationUnitBindingIndicationSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {

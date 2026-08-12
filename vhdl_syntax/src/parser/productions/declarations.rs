@@ -119,7 +119,7 @@ impl Parser {
             self.start_node_at(checkpoint, NodeKind::CompoundConfigurationSpecification);
             self.start_node(CompoundConfigurationSpecificationItems);
             while self.next_is(Keyword(Kw::Use)) {
-                self.start_node(SemiColonTerminatedVerificationUnitBindingIndication);
+                self.start_node(VerificationUnitBinding);
                 self.verification_unit_binding_indication();
                 self.expect_token(SemiColon);
                 self.end_node();

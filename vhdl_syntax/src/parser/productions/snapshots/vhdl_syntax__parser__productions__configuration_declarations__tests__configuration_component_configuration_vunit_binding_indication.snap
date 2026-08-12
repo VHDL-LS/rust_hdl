@@ -43,7 +43,7 @@ ConfigurationDeclaration
               SelectedName
                 Dot
                 Identifier 'comp'
-        SemiColonTerminatedBindingIndication
+        Binding
           BindingIndication
             BindingUseClause
               Keyword(Use)
@@ -56,7 +56,7 @@ ConfigurationDeclaration
                     Dot
                     Identifier 'bar'
           SemiColon
-        SemiColonTerminatedVerificationUnitBindingIndication
+        VerificationUnitBinding
           VerificationUnitBindingIndication
             Keyword(Use)
             Keyword(Vunit)

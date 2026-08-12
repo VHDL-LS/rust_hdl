@@ -33,6 +33,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::AttributeName => AttributeNameSyntax::META,
         NodeKind::AttributeSpecification => AttributeSpecificationSyntax::META,
         NodeKind::BinaryExpression => BinaryExpressionSyntax::META,
+        NodeKind::Binding => BindingSyntax::META,
         NodeKind::BindingIndication => BindingIndicationSyntax::META,
         NodeKind::BindingUseClause => BindingUseClauseSyntax::META,
         NodeKind::BlockConfiguration => BlockConfigurationSyntax::META,
@@ -302,12 +303,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SelectedWaveformAssignment => SelectedWaveformAssignmentSyntax::META,
         NodeKind::SelectedWaveformItem => SelectedWaveformItemSyntax::META,
         NodeKind::SelectedWaveforms => SelectedWaveformsSyntax::META,
-        NodeKind::SemiColonTerminatedBindingIndication => {
-            SemiColonTerminatedBindingIndicationSyntax::META
-        }
-        NodeKind::SemiColonTerminatedVerificationUnitBindingIndication => {
-            SemiColonTerminatedVerificationUnitBindingIndicationSyntax::META
-        }
         NodeKind::SensitivityClause => SensitivityClauseSyntax::META,
         NodeKind::SensitivityList => SensitivityListSyntax::META,
         NodeKind::SequentialStatements => SequentialStatementsSyntax::META,
@@ -347,6 +342,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::UseClauseContextItem => UseClauseContextItemSyntax::META,
         NodeKind::UseClauseDeclaration => UseClauseDeclarationSyntax::META,
         NodeKind::VariableDeclaration => VariableDeclarationSyntax::META,
+        NodeKind::VerificationUnitBinding => VerificationUnitBindingSyntax::META,
         NodeKind::VerificationUnitBindingIndication => {
             VerificationUnitBindingIndicationSyntax::META
         }

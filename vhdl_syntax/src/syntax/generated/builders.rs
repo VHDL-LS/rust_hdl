@@ -1209,6 +1209,52 @@ impl From<BinaryExpressionBuilder> for BinaryExpressionSyntax {
         value.build()
     }
 }
+pub struct BindingBuilder {
+    binding_indication: Option<BindingIndicationSyntax>,
+    semi_colon_token: Token,
+}
+impl Default for BindingBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl BindingBuilder {
+    pub fn new() -> Self {
+        Self {
+            binding_indication: None,
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_binding_indication(mut self, n: impl Into<BindingIndicationSyntax>) -> Self {
+        self.binding_indication = Some(n.into());
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> BindingSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::Binding);
+        if let Some(n) = self.binding_indication {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push(self.semi_colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        BindingSyntax::cast(node).unwrap()
+    }
+}
+impl From<BindingBuilder> for BindingSyntax {
+    fn from(value: BindingBuilder) -> Self {
+        value.build()
+    }
+}
 pub struct BindingIndicationBuilder {
     binding_use_clause: Option<BindingUseClauseSyntax>,
     generic_map_aspect: Option<GenericMapAspectSyntax>,
@@ -2306,9 +2352,8 @@ impl From<ChoicesBuilder> for ChoicesSyntax {
 }
 pub struct ComponentConfigurationBuilder {
     component_configuration_preamble: ComponentConfigurationPreambleSyntax,
-    semi_colon_terminated_binding_indication: Option<SemiColonTerminatedBindingIndicationSyntax>,
-    semi_colon_terminated_verification_unit_binding_indications:
-        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+    binding: Option<BindingSyntax>,
+    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
     block_configuration: Option<BlockConfigurationSyntax>,
     component_configuration_epilogue: ComponentConfigurationEpilogueSyntax,
 }
@@ -2318,8 +2363,8 @@ impl ComponentConfigurationBuilder {
     ) -> Self {
         Self {
             component_configuration_preamble: component_configuration_preamble.into(),
-            semi_colon_terminated_binding_indication: None,
-            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
+            binding: None,
+            verification_unit_bindings: Vec::new(),
             block_configuration: None,
             component_configuration_epilogue: ComponentConfigurationEpilogueBuilder::default()
                 .build(),
@@ -2332,19 +2377,15 @@ impl ComponentConfigurationBuilder {
         self.component_configuration_preamble = n.into();
         self
     }
-    pub fn with_semi_colon_terminated_binding_indication(
-        mut self,
-        n: impl Into<SemiColonTerminatedBindingIndicationSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_binding_indication = Some(n.into());
+    pub fn with_binding(mut self, n: impl Into<BindingSyntax>) -> Self {
+        self.binding = Some(n.into());
         self
     }
-    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
+    pub fn add_verification_unit_bindings(
         mut self,
-        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+        n: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
-        self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n.into());
+        self.verification_unit_bindings.push(n.into());
         self
     }
     pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
@@ -2362,10 +2403,10 @@ impl ComponentConfigurationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ComponentConfiguration);
         builder.push_node(self.component_configuration_preamble.raw().green().clone());
-        if let Some(n) = self.semi_colon_terminated_binding_indication {
+        if let Some(n) = self.binding {
             builder.push_node(n.raw().green().clone());
         }
-        for n in self.semi_colon_terminated_verification_unit_binding_indications {
+        for n in self.verification_unit_bindings {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(n) = self.block_configuration {
@@ -2854,9 +2895,8 @@ impl From<CompoundConfigurationSpecificationBuilder> for CompoundConfigurationSp
     }
 }
 pub struct CompoundConfigurationSpecificationItemsBuilder {
-    semi_colon_terminated_binding_indication: SemiColonTerminatedBindingIndicationSyntax,
-    semi_colon_terminated_verification_unit_binding_indications:
-        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+    binding: BindingSyntax,
+    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
 }
 impl Default for CompoundConfigurationSpecificationItemsBuilder {
     fn default() -> Self {
@@ -2866,36 +2906,26 @@ impl Default for CompoundConfigurationSpecificationItemsBuilder {
 impl CompoundConfigurationSpecificationItemsBuilder {
     pub fn new() -> Self {
         Self {
-            semi_colon_terminated_binding_indication:
-                SemiColonTerminatedBindingIndicationBuilder::default().build(),
-            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
+            binding: BindingBuilder::default().build(),
+            verification_unit_bindings: Vec::new(),
         }
     }
-    pub fn with_semi_colon_terminated_binding_indication(
-        mut self,
-        n: impl Into<SemiColonTerminatedBindingIndicationSyntax>,
-    ) -> Self {
-        self.semi_colon_terminated_binding_indication = n.into();
+    pub fn with_binding(mut self, n: impl Into<BindingSyntax>) -> Self {
+        self.binding = n.into();
         self
     }
-    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
+    pub fn add_verification_unit_bindings(
         mut self,
-        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+        n: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
-        self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n.into());
+        self.verification_unit_bindings.push(n.into());
         self
     }
     pub fn build(self) -> CompoundConfigurationSpecificationItemsSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CompoundConfigurationSpecificationItems);
-        builder.push_node(
-            self.semi_colon_terminated_binding_indication
-                .raw()
-                .green()
-                .clone(),
-        );
-        for n in self.semi_colon_terminated_verification_unit_binding_indications {
+        builder.push_node(self.binding.raw().green().clone());
+        for n in self.verification_unit_bindings {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -4236,15 +4266,14 @@ impl From<ConfigurationDeclarationEpilogueBuilder> for ConfigurationDeclarationE
 }
 pub struct ConfigurationDeclarationItemsBuilder {
     declarations: Option<DeclarationsSyntax>,
-    semi_colon_terminated_verification_unit_binding_indications:
-        Vec<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
     block_configuration: BlockConfigurationSyntax,
 }
 impl ConfigurationDeclarationItemsBuilder {
     pub fn new(block_configuration: impl Into<BlockConfigurationSyntax>) -> Self {
         Self {
             declarations: None,
-            semi_colon_terminated_verification_unit_binding_indications: Vec::new(),
+            verification_unit_bindings: Vec::new(),
             block_configuration: block_configuration.into(),
         }
     }
@@ -4252,12 +4281,11 @@ impl ConfigurationDeclarationItemsBuilder {
         self.declarations = Some(n.into());
         self
     }
-    pub fn add_semi_colon_terminated_verification_unit_binding_indications(
+    pub fn add_verification_unit_bindings(
         mut self,
-        n: impl Into<SemiColonTerminatedVerificationUnitBindingIndicationSyntax>,
+        n: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
-        self.semi_colon_terminated_verification_unit_binding_indications
-            .push(n.into());
+        self.verification_unit_bindings.push(n.into());
         self
     }
     pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
@@ -4270,7 +4298,7 @@ impl ConfigurationDeclarationItemsBuilder {
         if let Some(n) = self.declarations {
             builder.push_node(n.raw().green().clone());
         }
-        for n in self.semi_colon_terminated_verification_unit_binding_indications {
+        for n in self.verification_unit_bindings {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.block_configuration.raw().green().clone());
@@ -14204,109 +14232,6 @@ impl From<SelectedWaveformsBuilder> for SelectedWaveformsSyntax {
         value.build()
     }
 }
-pub struct SemiColonTerminatedBindingIndicationBuilder {
-    binding_indication: Option<BindingIndicationSyntax>,
-    semi_colon_token: Token,
-}
-impl Default for SemiColonTerminatedBindingIndicationBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl SemiColonTerminatedBindingIndicationBuilder {
-    pub fn new() -> Self {
-        Self {
-            binding_indication: None,
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_binding_indication(mut self, n: impl Into<BindingIndicationSyntax>) -> Self {
-        self.binding_indication = Some(n.into());
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> SemiColonTerminatedBindingIndicationSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SemiColonTerminatedBindingIndication);
-        if let Some(n) = self.binding_indication {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SemiColonTerminatedBindingIndicationSyntax::cast(node).unwrap()
-    }
-}
-impl From<SemiColonTerminatedBindingIndicationBuilder>
-    for SemiColonTerminatedBindingIndicationSyntax
-{
-    fn from(value: SemiColonTerminatedBindingIndicationBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct SemiColonTerminatedVerificationUnitBindingIndicationBuilder {
-    verification_unit_binding_indication: VerificationUnitBindingIndicationSyntax,
-    semi_colon_token: Token,
-}
-impl Default for SemiColonTerminatedVerificationUnitBindingIndicationBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl SemiColonTerminatedVerificationUnitBindingIndicationBuilder {
-    pub fn new() -> Self {
-        Self {
-            verification_unit_binding_indication:
-                VerificationUnitBindingIndicationBuilder::default().build(),
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_verification_unit_binding_indication(
-        mut self,
-        n: impl Into<VerificationUnitBindingIndicationSyntax>,
-    ) -> Self {
-        self.verification_unit_binding_indication = n.into();
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> SemiColonTerminatedVerificationUnitBindingIndicationSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
-        builder.push_node(
-            self.verification_unit_binding_indication
-                .raw()
-                .green()
-                .clone(),
-        );
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SemiColonTerminatedVerificationUnitBindingIndicationSyntax::cast(node).unwrap()
-    }
-}
-impl From<SemiColonTerminatedVerificationUnitBindingIndicationBuilder>
-    for SemiColonTerminatedVerificationUnitBindingIndicationSyntax
-{
-    fn from(value: SemiColonTerminatedVerificationUnitBindingIndicationBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct SensitivityClauseBuilder {
     on_token: Token,
     name_list: Option<NameListSyntax>,
@@ -16250,6 +16175,59 @@ impl VariableDeclarationBuilder {
 }
 impl From<VariableDeclarationBuilder> for VariableDeclarationSyntax {
     fn from(value: VariableDeclarationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct VerificationUnitBindingBuilder {
+    verification_unit_binding_indication: VerificationUnitBindingIndicationSyntax,
+    semi_colon_token: Token,
+}
+impl Default for VerificationUnitBindingBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl VerificationUnitBindingBuilder {
+    pub fn new() -> Self {
+        Self {
+            verification_unit_binding_indication:
+                VerificationUnitBindingIndicationBuilder::default().build(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_verification_unit_binding_indication(
+        mut self,
+        n: impl Into<VerificationUnitBindingIndicationSyntax>,
+    ) -> Self {
+        self.verification_unit_binding_indication = n.into();
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> VerificationUnitBindingSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::VerificationUnitBinding);
+        builder.push_node(
+            self.verification_unit_binding_indication
+                .raw()
+                .green()
+                .clone(),
+        );
+        builder.push(self.semi_colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        VerificationUnitBindingSyntax::cast(node).unwrap()
+    }
+}
+impl From<VerificationUnitBindingBuilder> for VerificationUnitBindingSyntax {
+    fn from(value: VerificationUnitBindingBuilder) -> Self {
         value.build()
     }
 }

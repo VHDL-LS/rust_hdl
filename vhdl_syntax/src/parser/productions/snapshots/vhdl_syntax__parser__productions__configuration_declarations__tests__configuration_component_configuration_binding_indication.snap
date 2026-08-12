@@ -43,7 +43,7 @@ ConfigurationDeclaration
               SelectedName
                 Dot
                 Identifier 'comp'
-        SemiColonTerminatedBindingIndication
+        Binding
           BindingIndication
             BindingUseClause
               Keyword(Use)
