@@ -93,6 +93,7 @@ pub enum NodeKind {
     DesignUnit,
     DisconnectionSpecification,
     ElementAssociation,
+    ElementChoices,
     ElementDeclaration,
     ElementResolutionResolutionIndication,
     EntityClassEntry,

@@ -10,10 +10,11 @@ QualifiedExpression
   ParenthesizedExpressionOrAggregate
     LeftPar
     ElementAssociation
-      Choices
-        OthersChoice
-          Keyword(Others)
-      RightArrow
+      ElementChoices
+        Choices
+          OthersChoice
+            Keyword(Others)
+        RightArrow
       LiteralExpression
         CharacterLiteral ''1''
     RightPar

@@ -109,6 +109,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::DesignUnit => DesignUnitSyntax::META,
         NodeKind::DisconnectionSpecification => DisconnectionSpecificationSyntax::META,
         NodeKind::ElementAssociation => ElementAssociationSyntax::META,
+        NodeKind::ElementChoices => ElementChoicesSyntax::META,
         NodeKind::ElementDeclaration => ElementDeclarationSyntax::META,
         NodeKind::ElementResolutionResolutionIndication => {
             ElementResolutionResolutionIndicationSyntax::META

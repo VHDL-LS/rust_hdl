@@ -5886,14 +5886,8 @@ impl AstNode for ElementAssociationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "choices",
-                kind: LayoutItemKind::Node(NodeKind::Choices),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "right_arrow",
-                kind: LayoutItemKind::Token(TokenKind::RightArrow),
+                name: "element_choices",
+                kind: LayoutItemKind::Node(NodeKind::ElementChoices),
             },
             LayoutItem {
                 optional: false,
@@ -5920,6 +5914,44 @@ impl AstNode for ElementAssociationSyntax {
     }
 }
 impl ElementAssociationSyntax {
+    pub fn element_choices(&self) -> Option<ElementChoicesSyntax> {
+        self.0
+            .children()
+            .filter_map(ElementChoicesSyntax::cast)
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElementChoicesSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElementChoicesSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElementChoices,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "choices",
+                kind: LayoutItemKind::Node(NodeKind::Choices),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_arrow",
+                kind: LayoutItemKind::Token(TokenKind::RightArrow),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElementChoicesSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElementChoicesSyntax {
     pub fn choices(&self) -> Option<ChoicesSyntax> {
         self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
     }
@@ -5928,9 +5960,6 @@ impl ElementAssociationSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::RightArrow)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

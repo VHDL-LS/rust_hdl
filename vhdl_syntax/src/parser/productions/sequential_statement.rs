@@ -206,8 +206,10 @@ impl Parser {
             Ok((RightArrow, _))
         );
         if has_choices {
+            self.start_node(ElementChoices);
             self.choices();
             self.expect_token(RightArrow);
+            self.end_node();
         }
         self.expression();
         self.end_node();

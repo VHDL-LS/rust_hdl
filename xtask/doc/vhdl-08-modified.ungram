@@ -493,7 +493,7 @@ ContextClause =
 
 ContextDeclaration =
   context_declaration_preamble:('context' name:'#identifier' 'is')
-  ContextClause?
+  ContextClause
   context_declaration_epilogue:('end' 'context'? '#identifier'? ';')
 
 UseClauseContextItem =
@@ -509,7 +509,7 @@ DesignFile =
   DesignUnit* '#eof'
 
 DesignUnit =
-  ContextClause? LibraryUnit
+  ContextClause LibraryUnit
 
 LibraryClause =
   'library' IdentifierList ';'
@@ -656,7 +656,8 @@ Choices =
   Choice* '|'*
 
 ElementAssociation =
-  Choices? '=>'? Expression
+  element_choices:(Choices '=>')?
+  Expression
 
 //==============================================================================
 // § 8: Names

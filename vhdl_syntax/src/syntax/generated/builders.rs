@@ -4998,31 +4998,18 @@ impl From<DisconnectionSpecificationBuilder> for DisconnectionSpecificationSynta
     }
 }
 pub struct ElementAssociationBuilder {
-    choices: Option<ChoicesSyntax>,
-    right_arrow_token: Option<Token>,
+    element_choices: Option<ElementChoicesSyntax>,
     expression: ExpressionSyntax,
 }
 impl ElementAssociationBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            choices: None,
-            right_arrow_token: None,
+            element_choices: None,
             expression: expression.into(),
         }
     }
-    pub fn with_choices(mut self, n: impl Into<ChoicesSyntax>) -> Self {
-        self.choices = Some(n.into());
-        self
-    }
-    pub fn with_right_arrow_token(mut self, t: impl Into<Token>) -> Self {
-        self.right_arrow_token = Some(t.into());
-        self
-    }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .right_arrow_token
-            .get_or_insert_with(|| TokenKind::RightArrow.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
+    pub fn with_element_choices(mut self, n: impl Into<ElementChoicesSyntax>) -> Self {
+        self.element_choices = Some(n.into());
         self
     }
     pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
@@ -5032,11 +5019,8 @@ impl ElementAssociationBuilder {
     pub fn build(self) -> ElementAssociationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ElementAssociation);
-        if let Some(n) = self.choices {
+        if let Some(n) = self.element_choices {
             builder.push_node(n.raw().green().clone());
-        }
-        if let Some(t) = self.right_arrow_token {
-            builder.push(t);
         }
         builder.push_node(self.expression.raw().green().clone());
         builder.end_node();
@@ -5047,6 +5031,52 @@ impl ElementAssociationBuilder {
 }
 impl From<ElementAssociationBuilder> for ElementAssociationSyntax {
     fn from(value: ElementAssociationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ElementChoicesBuilder {
+    choices: Option<ChoicesSyntax>,
+    right_arrow_token: Token,
+}
+impl Default for ElementChoicesBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ElementChoicesBuilder {
+    pub fn new() -> Self {
+        Self {
+            choices: None,
+            right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_choices(mut self, n: impl Into<ChoicesSyntax>) -> Self {
+        self.choices = Some(n.into());
+        self
+    }
+    pub fn with_right_arrow_token(mut self, t: impl Into<Token>) -> Self {
+        self.right_arrow_token = t.into();
+        self
+    }
+    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.right_arrow_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> ElementChoicesSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ElementChoices);
+        if let Some(n) = self.choices {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push(self.right_arrow_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ElementChoicesSyntax::cast(node).unwrap()
+    }
+}
+impl From<ElementChoicesBuilder> for ElementChoicesSyntax {
+    fn from(value: ElementChoicesBuilder) -> Self {
         value.build()
     }
 }

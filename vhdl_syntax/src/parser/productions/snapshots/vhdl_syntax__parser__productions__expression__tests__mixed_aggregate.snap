@@ -5,11 +5,12 @@ expression: "expr_to_test_text(\"(1 => 2, 3)\")"
 ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
-    Choices
-      ExpressionChoice
-        LiteralExpression
-          AbstractLiteral '1'
-    RightArrow
+    ElementChoices
+      Choices
+        ExpressionChoice
+          LiteralExpression
+            AbstractLiteral '1'
+      RightArrow
     LiteralExpression
       AbstractLiteral '2'
   Comma

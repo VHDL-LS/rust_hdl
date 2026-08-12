@@ -5,10 +5,11 @@ expression: "expr_to_test_text(\"(others => 1)\")"
 ParenthesizedExpressionOrAggregate
   LeftPar
   ElementAssociation
-    Choices
-      OthersChoice
-        Keyword(Others)
-    RightArrow
+    ElementChoices
+      Choices
+        OthersChoice
+          Keyword(Others)
+      RightArrow
     LiteralExpression
       AbstractLiteral '1'
   RightPar
