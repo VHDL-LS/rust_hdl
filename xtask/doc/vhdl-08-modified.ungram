@@ -694,7 +694,7 @@ PackagePathname =
   '@' '.'* simple_name:'#identifier'*
 
 RelativePathname =
-  '^'* '.'* PartialPathname?
+  '^'* '.'* PartialPathname
 
 PartialPathname =
   '#identifier'* '.'*
