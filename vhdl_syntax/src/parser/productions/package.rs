@@ -31,10 +31,17 @@ impl Parser {
     }
 
     pub fn package_header(&mut self) {
+        if !self.next_is(Keyword(Kw::Generic)) {
+            return;
+        }
         self.start_node(PackageHeader);
-        self.opt_generic_clause();
-        self.opt_generic_map_aspect();
-        self.opt_token(SemiColon);
+        self.generic_clause();
+        if self.next_is(Keyword(Kw::Generic)) {
+            self.start_node(GenericMap);
+            self.opt_generic_map_aspect();
+            self.expect_token(SemiColon);
+            self.end_node();
+        }
         self.end_node();
     }
 
@@ -101,6 +108,22 @@ package pkg_name is
   generic (
     type foo;
     type bar
+  );
+end package;"
+        ));
+    }
+
+    #[test]
+    fn test_package_declaration_generic_map_aspect() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::package,
+            "\
+package pkg_name is
+  generic (
+    type foo
+  );
+  generic map (
+    foo => bar
   );
 end package;"
         ));

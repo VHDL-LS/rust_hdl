@@ -3213,10 +3213,22 @@ impl AstNode for CompoundConfigurationSpecificationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::ComponentConfigurationPreamble),
             },
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "binding_indication",
+                kind: LayoutItemKind::Node(NodeKind::BindingIndication),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "compound_configuration_specification_items",
-                kind: LayoutItemKind::Node(NodeKind::CompoundConfigurationSpecificationItems),
+                name: "semi_colon",
+                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "verification_unit_bindings",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
             },
             LayoutItem {
                 optional: false,
@@ -3240,51 +3252,17 @@ impl CompoundConfigurationSpecificationSyntax {
             .filter_map(ComponentConfigurationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn compound_configuration_specification_items(
-        &self,
-    ) -> Option<CompoundConfigurationSpecificationItemsSyntax> {
+    pub fn binding_indication(&self) -> Option<BindingIndicationSyntax> {
         self.0
             .children()
-            .filter_map(CompoundConfigurationSpecificationItemsSyntax::cast)
+            .filter_map(BindingIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
-            .children()
-            .filter_map(ComponentConfigurationEpilogueSyntax::cast)
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct CompoundConfigurationSpecificationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for CompoundConfigurationSpecificationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::CompoundConfigurationSpecificationItems,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "binding",
-                kind: LayoutItemKind::Node(NodeKind::Binding),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "verification_unit_bindings",
-                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        CompoundConfigurationSpecificationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl CompoundConfigurationSpecificationItemsSyntax {
-    pub fn binding(&self) -> Option<BindingSyntax> {
-        self.0.children().filter_map(BindingSyntax::cast).nth(0)
     }
     pub fn verification_unit_bindings(
         &self,
@@ -3292,6 +3270,12 @@ impl CompoundConfigurationSpecificationItemsSyntax {
         self.0
             .children()
             .filter_map(VerificationUnitBindingSyntax::cast)
+    }
+    pub fn component_configuration_epilogue(&self) -> Option<ComponentConfigurationEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(ComponentConfigurationEpilogueSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -12372,7 +12356,7 @@ impl AstNode for PackageHeaderSyntax {
         kind: NodeKind::PackageHeader,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "generic_clause",
                 kind: LayoutItemKind::Node(NodeKind::GenericClause),
@@ -12380,14 +12364,8 @@ impl AstNode for PackageHeaderSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "generic_map_aspect",
-                kind: LayoutItemKind::Node(NodeKind::GenericMapAspect),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
+                name: "generic_map",
+                kind: LayoutItemKind::Node(NodeKind::GenericMap),
             },
         ],
     });
@@ -12405,17 +12383,8 @@ impl PackageHeaderSyntax {
             .filter_map(GenericClauseSyntax::cast)
             .nth(0)
     }
-    pub fn generic_map_aspect(&self) -> Option<GenericMapAspectSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericMapAspectSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
+    pub fn generic_map(&self) -> Option<GenericMapSyntax> {
+        self.0.children().filter_map(GenericMapSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -17461,7 +17430,7 @@ impl AstNode for SubprogramHeaderSyntax {
         kind: NodeKind::SubprogramHeader,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "subprogram_header_generic_clause",
                 kind: LayoutItemKind::Node(NodeKind::SubprogramHeaderGenericClause),

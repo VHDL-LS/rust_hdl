@@ -2875,7 +2875,9 @@ impl From<ComponentSpecificationBuilder> for ComponentSpecificationSyntax {
 }
 pub struct CompoundConfigurationSpecificationBuilder {
     component_configuration_preamble: ComponentConfigurationPreambleSyntax,
-    compound_configuration_specification_items: CompoundConfigurationSpecificationItemsSyntax,
+    binding_indication: Option<BindingIndicationSyntax>,
+    semi_colon_token: Token,
+    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
     component_configuration_epilogue: ComponentConfigurationEpilogueSyntax,
 }
 impl CompoundConfigurationSpecificationBuilder {
@@ -2884,8 +2886,9 @@ impl CompoundConfigurationSpecificationBuilder {
     ) -> Self {
         Self {
             component_configuration_preamble: component_configuration_preamble.into(),
-            compound_configuration_specification_items:
-                CompoundConfigurationSpecificationItemsBuilder::default().build(),
+            binding_indication: None,
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
+            verification_unit_bindings: Vec::new(),
             component_configuration_epilogue: ComponentConfigurationEpilogueBuilder::default()
                 .build(),
         }
@@ -2897,11 +2900,23 @@ impl CompoundConfigurationSpecificationBuilder {
         self.component_configuration_preamble = n.into();
         self
     }
-    pub fn with_compound_configuration_specification_items(
+    pub fn with_binding_indication(mut self, n: impl Into<BindingIndicationSyntax>) -> Self {
+        self.binding_indication = Some(n.into());
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn add_verification_unit_bindings(
         mut self,
-        n: impl Into<CompoundConfigurationSpecificationItemsSyntax>,
+        n: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
-        self.compound_configuration_specification_items = n.into();
+        self.verification_unit_bindings.push(n.into());
         self
     }
     pub fn with_component_configuration_epilogue(
@@ -2915,12 +2930,13 @@ impl CompoundConfigurationSpecificationBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CompoundConfigurationSpecification);
         builder.push_node(self.component_configuration_preamble.raw().green().clone());
-        builder.push_node(
-            self.compound_configuration_specification_items
-                .raw()
-                .green()
-                .clone(),
-        );
+        if let Some(n) = self.binding_indication {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push(self.semi_colon_token);
+        for n in self.verification_unit_bindings {
+            builder.push_node(n.raw().green().clone());
+        }
         builder.push_node(self.component_configuration_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -2930,53 +2946,6 @@ impl CompoundConfigurationSpecificationBuilder {
 }
 impl From<CompoundConfigurationSpecificationBuilder> for CompoundConfigurationSpecificationSyntax {
     fn from(value: CompoundConfigurationSpecificationBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct CompoundConfigurationSpecificationItemsBuilder {
-    binding: BindingSyntax,
-    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
-}
-impl Default for CompoundConfigurationSpecificationItemsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl CompoundConfigurationSpecificationItemsBuilder {
-    pub fn new() -> Self {
-        Self {
-            binding: BindingBuilder::default().build(),
-            verification_unit_bindings: Vec::new(),
-        }
-    }
-    pub fn with_binding(mut self, n: impl Into<BindingSyntax>) -> Self {
-        self.binding = n.into();
-        self
-    }
-    pub fn add_verification_unit_bindings(
-        mut self,
-        n: impl Into<VerificationUnitBindingSyntax>,
-    ) -> Self {
-        self.verification_unit_bindings.push(n.into());
-        self
-    }
-    pub fn build(self) -> CompoundConfigurationSpecificationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::CompoundConfigurationSpecificationItems);
-        builder.push_node(self.binding.raw().green().clone());
-        for n in self.verification_unit_bindings {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        CompoundConfigurationSpecificationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<CompoundConfigurationSpecificationItemsBuilder>
-    for CompoundConfigurationSpecificationItemsSyntax
-{
-    fn from(value: CompoundConfigurationSpecificationItemsBuilder) -> Self {
         value.build()
     }
 }
@@ -10648,9 +10617,8 @@ impl From<PackageEpilogueBuilder> for PackageEpilogueSyntax {
     }
 }
 pub struct PackageHeaderBuilder {
-    generic_clause: Option<GenericClauseSyntax>,
-    generic_map_aspect: Option<GenericMapAspectSyntax>,
-    semi_colon_token: Option<Token>,
+    generic_clause: GenericClauseSyntax,
+    generic_map: Option<GenericMapSyntax>,
 }
 impl Default for PackageHeaderBuilder {
     fn default() -> Self {
@@ -10660,41 +10628,24 @@ impl Default for PackageHeaderBuilder {
 impl PackageHeaderBuilder {
     pub fn new() -> Self {
         Self {
-            generic_clause: None,
-            generic_map_aspect: None,
-            semi_colon_token: None,
+            generic_clause: GenericClauseBuilder::default().build(),
+            generic_map: None,
         }
     }
     pub fn with_generic_clause(mut self, n: impl Into<GenericClauseSyntax>) -> Self {
-        self.generic_clause = Some(n.into());
+        self.generic_clause = n.into();
         self
     }
-    pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
-        self.generic_map_aspect = Some(n.into());
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = Some(t.into());
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .semi_colon_token
-            .get_or_insert_with(|| TokenKind::SemiColon.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
+    pub fn with_generic_map(mut self, n: impl Into<GenericMapSyntax>) -> Self {
+        self.generic_map = Some(n.into());
         self
     }
     pub fn build(self) -> PackageHeaderSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PackageHeader);
-        if let Some(n) = self.generic_clause {
+        builder.push_node(self.generic_clause.raw().green().clone());
+        if let Some(n) = self.generic_map {
             builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.generic_map_aspect {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(t) = self.semi_colon_token {
-            builder.push(t);
         }
         builder.end_node();
         let green = builder.end();
@@ -15239,7 +15190,7 @@ impl From<SubprogramDefaultBuilder> for SubprogramDefaultSyntax {
     }
 }
 pub struct SubprogramHeaderBuilder {
-    subprogram_header_generic_clause: Option<SubprogramHeaderGenericClauseSyntax>,
+    subprogram_header_generic_clause: SubprogramHeaderGenericClauseSyntax,
     generic_map_aspect: Option<GenericMapAspectSyntax>,
 }
 impl Default for SubprogramHeaderBuilder {
@@ -15250,7 +15201,8 @@ impl Default for SubprogramHeaderBuilder {
 impl SubprogramHeaderBuilder {
     pub fn new() -> Self {
         Self {
-            subprogram_header_generic_clause: None,
+            subprogram_header_generic_clause: SubprogramHeaderGenericClauseBuilder::default()
+                .build(),
             generic_map_aspect: None,
         }
     }
@@ -15258,7 +15210,7 @@ impl SubprogramHeaderBuilder {
         mut self,
         n: impl Into<SubprogramHeaderGenericClauseSyntax>,
     ) -> Self {
-        self.subprogram_header_generic_clause = Some(n.into());
+        self.subprogram_header_generic_clause = n.into();
         self
     }
     pub fn with_generic_map_aspect(mut self, n: impl Into<GenericMapAspectSyntax>) -> Self {
@@ -15268,9 +15220,7 @@ impl SubprogramHeaderBuilder {
     pub fn build(self) -> SubprogramHeaderSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SubprogramHeader);
-        if let Some(n) = self.subprogram_header_generic_clause {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.subprogram_header_generic_clause.raw().green().clone());
         if let Some(n) = self.generic_map_aspect {
             builder.push_node(n.raw().green().clone());
         }

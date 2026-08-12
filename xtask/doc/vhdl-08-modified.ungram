@@ -969,10 +969,9 @@ ComponentSpecification =
 
 CompoundConfigurationSpecification =
   component_configuration_preamble:('for' ComponentSpecification)
-  compound_configuration_specification_items:(
-    binding:(BindingIndication ';')
-    verification_unit_binding:(VerificationUnitBindingIndication ';')*
-  )
+  BindingIndication
+  ';'
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
   component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationSpecification =
@@ -1086,20 +1085,20 @@ SubprogramSpecification =
 ProcedureSpecification =
   'procedure'
   Designator
-  SubprogramHeader
+  SubprogramHeader?
   parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 FunctionSpecification =
   purity:('pure' | 'impure')?
   'function'
   Designator
-  SubprogramHeader
+  SubprogramHeader?
   parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
   'return'
   Name
 
 SubprogramHeader =
-  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')?
+  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')
   GenericMapAspect?
 
 SubprogramBody =
@@ -1119,12 +1118,13 @@ SubprogramInstantiationDeclaration =
 
 Package =
   package_preamble:('package' name:'#identifier' 'is')
-  PackageHeader
+  PackageHeader?
   Declarations
   package_epilogue:('end' 'package'? '#identifier'? ';')
 
 PackageHeader =
-  GenericClause? GenericMapAspect? ';'?
+  GenericClause
+  generic_map:(GenericMapAspect ';')?
 
 PackageBody =
   package_body_preamble:('package' 'body' name:'#identifier' 'is')

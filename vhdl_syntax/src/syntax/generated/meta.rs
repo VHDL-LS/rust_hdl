@@ -65,9 +65,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::CompoundConfigurationSpecification => {
             CompoundConfigurationSpecificationSyntax::META
         }
-        NodeKind::CompoundConfigurationSpecificationItems => {
-            CompoundConfigurationSpecificationItemsSyntax::META
-        }
         NodeKind::ConcurrentAssertionStatement => ConcurrentAssertionStatementSyntax::META,
         NodeKind::ConcurrentConditionalSignalAssignment => {
             ConcurrentConditionalSignalAssignmentSyntax::META

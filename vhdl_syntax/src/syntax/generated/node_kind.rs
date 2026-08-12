@@ -59,7 +59,6 @@ pub enum NodeKind {
     ComponentInstantiationStatement,
     ComponentSpecification,
     CompoundConfigurationSpecification,
-    CompoundConfigurationSpecificationItems,
     ConcurrentAssertionStatement,
     ConcurrentConditionalSignalAssignment,
     ConcurrentProcedureCallOrComponentInstantiationStatement,

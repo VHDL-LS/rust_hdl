@@ -88,16 +88,13 @@ impl Parser {
     }
 
     pub fn subprogram_header(&mut self) {
+        if !self.next_is(Keyword(Kw::Generic)) {
+            return;
+        }
         self.start_node(SubprogramHeader);
-        self.opt_subprogram_header_generic_clause();
+        self.subprogram_header_generic_clause();
         self.opt_generic_map_aspect();
         self.end_node();
-    }
-
-    fn opt_subprogram_header_generic_clause(&mut self) {
-        if self.next_is(Keyword(Kw::Generic)) {
-            self.subprogram_header_generic_clause();
-        }
     }
 
     pub fn subprogram_header_generic_clause(&mut self) {
