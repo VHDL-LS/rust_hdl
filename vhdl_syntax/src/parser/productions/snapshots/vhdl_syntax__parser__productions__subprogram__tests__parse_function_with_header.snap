@@ -20,9 +20,10 @@ SubprogramBody
                 Name
                   NameDesignatorPrefix
                     Identifier 'natural'
-              ColonEq
-              LiteralExpression
-                AbstractLiteral '4'
+              InitialValue
+                ColonEq
+                LiteralExpression
+                  AbstractLiteral '4'
           RightPar
       ParameterList
         ParenthesizedInterfaceList

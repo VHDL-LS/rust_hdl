@@ -24,9 +24,10 @@ BlockStatement
               Name
                 NameDesignatorPrefix
                   Identifier 'integer'
-            ColonEq
-            LiteralExpression
-              AbstractLiteral '1'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '1'
         GenericClauseEpilogue
           RightPar
           SemiColon
@@ -63,9 +64,10 @@ BlockStatement
               Name
                 NameDesignatorPrefix
                   Identifier 'integer'
-            ColonEq
-            LiteralExpression
-              AbstractLiteral '1'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '1'
         PortClauseEpilogue
           RightPar
           SemiColon

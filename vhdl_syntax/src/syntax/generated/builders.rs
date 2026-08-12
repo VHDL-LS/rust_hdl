@@ -9019,8 +9019,7 @@ pub struct InterfaceObjectDeclarationBuilder {
     mode: Option<ModeToken>,
     subtype_indication: SubtypeIndicationSyntax,
     bus_token: Option<Token>,
-    colon_eq_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    initial_value: Option<InitialValueSyntax>,
 }
 impl InterfaceObjectDeclarationBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
@@ -9031,8 +9030,7 @@ impl InterfaceObjectDeclarationBuilder {
             mode: None,
             subtype_indication: subtype_indication.into(),
             bus_token: None,
-            colon_eq_token: None,
-            expression: None,
+            initial_value: None,
         }
     }
     pub fn with_interface_object_class(mut self, n: impl Into<InterfaceObjectClassToken>) -> Self {
@@ -9070,19 +9068,8 @@ impl InterfaceObjectDeclarationBuilder {
         tok.set_leading_trivia(trivia);
         self
     }
-    pub fn with_colon_eq_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_eq_token = Some(t.into());
-        self
-    }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .colon_eq_token
-            .get_or_insert_with(|| TokenKind::ColonEq.canonical_token().unwrap());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
+        self.initial_value = Some(n.into());
         self
     }
     pub fn build(self) -> InterfaceObjectDeclarationSyntax {
@@ -9102,10 +9089,7 @@ impl InterfaceObjectDeclarationBuilder {
         if let Some(t) = self.bus_token {
             builder.push(t);
         }
-        if let Some(t) = self.colon_eq_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.initial_value {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();

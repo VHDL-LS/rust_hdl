@@ -321,8 +321,7 @@ InterfaceObjectDeclaration =
   Mode?
   SubtypeIndication
   'bus'?
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
 
 InterfaceObjectClass =
   'constant' | 'signal' | 'variable'

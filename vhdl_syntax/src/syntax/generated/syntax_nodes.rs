@@ -10595,23 +10595,8 @@ impl AstNode for InterfaceObjectDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "colon_eq",
-                kind: LayoutItemKind::Token(TokenKind::ColonEq),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "initial_value",
+                kind: LayoutItemKind::Node(NodeKind::InitialValue),
             },
         ],
     });
@@ -10656,14 +10641,11 @@ impl InterfaceObjectDeclarationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Bus))
             .nth(0)
     }
-    pub fn colon_eq_token(&self) -> Option<SyntaxToken> {
+    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::ColonEq)
+            .children()
+            .filter_map(InitialValueSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

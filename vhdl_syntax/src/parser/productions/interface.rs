@@ -188,8 +188,11 @@ impl Parser {
         self.opt_mode();
         self.subtype_indication();
         self.opt_token(Keyword(Kw::Bus));
-        if self.opt_token(ColonEq) {
+        if self.next_is(ColonEq) {
+            self.start_node(InitialValue);
+            self.skip(); // ColonEq
             self.expression();
+            self.end_node();
         }
         self.end_node();
     }
