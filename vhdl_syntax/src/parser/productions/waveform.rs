@@ -31,7 +31,9 @@ impl Parser {
             },
             Keyword(Kw::Reject) => {
                 self.start_node_at(checkpoint, InertialDelayMechanism);
+                self.start_node_at(checkpoint, RejectClause);
                 self.expression();
+                self.end_node();
                 self.expect_kw(Kw::Inertial);
             }
         );

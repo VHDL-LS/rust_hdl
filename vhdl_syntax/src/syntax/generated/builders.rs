@@ -8400,8 +8400,7 @@ impl From<IndexSubtypeDefinitionListBuilder> for IndexSubtypeDefinitionListSynta
     }
 }
 pub struct InertialDelayMechanismBuilder {
-    reject_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    reject_clause: Option<RejectClauseSyntax>,
     inertial_token: Token,
 }
 impl Default for InertialDelayMechanismBuilder {
@@ -8412,24 +8411,12 @@ impl Default for InertialDelayMechanismBuilder {
 impl InertialDelayMechanismBuilder {
     pub fn new() -> Self {
         Self {
-            reject_token: None,
-            expression: None,
+            reject_clause: None,
             inertial_token: Kw::Inertial.canonical_token(),
         }
     }
-    pub fn with_reject_token(mut self, t: impl Into<Token>) -> Self {
-        self.reject_token = Some(t.into());
-        self
-    }
-    pub fn with_reject_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .reject_token
-            .get_or_insert_with(|| Kw::Reject.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_reject_clause(mut self, n: impl Into<RejectClauseSyntax>) -> Self {
+        self.reject_clause = Some(n.into());
         self
     }
     pub fn with_inertial_token(mut self, t: impl Into<Token>) -> Self {
@@ -8443,10 +8430,7 @@ impl InertialDelayMechanismBuilder {
     pub fn build(self) -> InertialDelayMechanismSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::InertialDelayMechanism);
-        if let Some(t) = self.reject_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.reject_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.inertial_token);
@@ -13176,6 +13160,45 @@ impl RecordTypeDefinitionPreambleBuilder {
 }
 impl From<RecordTypeDefinitionPreambleBuilder> for RecordTypeDefinitionPreambleSyntax {
     fn from(value: RecordTypeDefinitionPreambleBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct RejectClauseBuilder {
+    reject_token: Token,
+    expression: ExpressionSyntax,
+}
+impl RejectClauseBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            reject_token: Kw::Reject.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_reject_token(mut self, t: impl Into<Token>) -> Self {
+        self.reject_token = t.into();
+        self
+    }
+    pub fn with_reject_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.reject_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> RejectClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::RejectClause);
+        builder.push(self.reject_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        RejectClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<RejectClauseBuilder> for RejectClauseSyntax {
+    fn from(value: RejectClauseBuilder) -> Self {
         value.build()
     }
 }

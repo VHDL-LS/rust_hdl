@@ -281,6 +281,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::RecordTypeDefinition => RecordTypeDefinitionSyntax::META,
         NodeKind::RecordTypeDefinitionEpilogue => RecordTypeDefinitionEpilogueSyntax::META,
         NodeKind::RecordTypeDefinitionPreamble => RecordTypeDefinitionPreambleSyntax::META,
+        NodeKind::RejectClause => RejectClauseSyntax::META,
         NodeKind::RelativePathname => RelativePathnameSyntax::META,
         NodeKind::ReportClause => ReportClauseSyntax::META,
         NodeKind::ReportStatement => ReportStatementSyntax::META,

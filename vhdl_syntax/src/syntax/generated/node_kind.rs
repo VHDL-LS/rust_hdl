@@ -247,6 +247,7 @@ pub enum NodeKind {
     RecordTypeDefinition,
     RecordTypeDefinitionEpilogue,
     RecordTypeDefinitionPreamble,
+    RejectClause,
     RelativePathname,
     ReportClause,
     ReportStatement,

@@ -9741,23 +9741,8 @@ impl AstNode for InertialDelayMechanismSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "reject",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Reject)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "reject_clause",
+                kind: LayoutItemKind::Node(NodeKind::RejectClause),
             },
             LayoutItem {
                 optional: false,
@@ -9775,14 +9760,11 @@ impl AstNode for InertialDelayMechanismSyntax {
     }
 }
 impl InertialDelayMechanismSyntax {
-    pub fn reject_token(&self) -> Option<SyntaxToken> {
+    pub fn reject_clause(&self) -> Option<RejectClauseSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Reject))
+            .children()
+            .filter_map(RejectClauseSyntax::cast)
             .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn inertial_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -14873,6 +14855,53 @@ impl RecordTypeDefinitionPreambleSyntax {
             .tokens()
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Record))
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct RejectClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for RejectClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::RejectClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "reject",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Reject)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        RejectClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl RejectClauseSyntax {
+    pub fn reject_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Reject))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

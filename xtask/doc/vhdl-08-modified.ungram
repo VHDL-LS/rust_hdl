@@ -796,7 +796,7 @@ TransportDelayMechanism =
   'transport'
 
 InertialDelayMechanism =
-  'reject'? Expression? 'inertial'
+  reject_clause:('reject' Expression)? 'inertial'
 
 DelayMechanism =
   TransportDelayMechanism | InertialDelayMechanism
