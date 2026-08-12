@@ -819,11 +819,11 @@ IterationScheme =
 
 LoopStatement =
   loop_statement_preamble:(Label? IterationScheme? 'loop')
-  SequentialStatements?
+  SequentialStatements
   loop_statement_epilogue:('end' 'loop' '#identifier'? ';')
 
 NextStatement =
-  Label? 'next' loop_label:'#identifier'? 'when'? Expression? ';'
+  Label? 'next' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
 
 NullStatement =
   Label? 'null' ';'

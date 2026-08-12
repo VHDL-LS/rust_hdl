@@ -11797,23 +11797,8 @@ impl AstNode for NextStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "when_clause",
+                kind: LayoutItemKind::Node(NodeKind::WhenClause),
             },
             LayoutItem {
                 optional: false,
@@ -11846,14 +11831,8 @@ impl NextStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    pub fn when_clause(&self) -> Option<WhenClauseSyntax> {
+        self.0.children().filter_map(WhenClauseSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0

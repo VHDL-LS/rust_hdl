@@ -65,8 +65,10 @@ impl Parser {
         self.expect_kw(Kw::Next);
         self.opt_identifier();
         if self.next_is(Keyword(Kw::When)) {
-            self.skip();
+            self.start_node(WhenClause);
+            self.skip(); // Kw::When
             self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();

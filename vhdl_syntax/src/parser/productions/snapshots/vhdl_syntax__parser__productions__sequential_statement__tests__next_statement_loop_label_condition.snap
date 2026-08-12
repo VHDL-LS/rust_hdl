@@ -5,9 +5,10 @@ expression: "to_test_text(Parser::next_statement, \"next foo when condition;\")"
 NextStatement
   Keyword(Next)
   Identifier 'foo'
-  Keyword(When)
-  NameExpression
-    Name
-      NameDesignatorPrefix
-        Identifier 'condition'
+  WhenClause
+    Keyword(When)
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          Identifier 'condition'
   SemiColon
