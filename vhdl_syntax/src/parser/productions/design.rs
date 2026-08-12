@@ -8,8 +8,8 @@
 
 use crate::parser::util::StallGuard;
 use crate::parser::Parser;
-use crate::syntax::NodeKind::BindingUseClause;
 use crate::syntax::node_kind::NodeKind;
+use crate::syntax::NodeKind::BindingUseClause;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 

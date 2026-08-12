@@ -9,7 +9,7 @@ ConditionalWaveformAssignment
         Identifier 'data_processing_state'
   LTE
   ConditionalWaveforms
-    ConditionalWaveform
+    WhenWaveform
       WaveformElements
         WaveformElement
           NameExpression
@@ -21,7 +21,7 @@ ConditionalWaveformAssignment
         Name
           NameDesignatorPrefix
             Identifier 'processing_data'
-    ConditionalWaveformElseItem
+    ElseWaveform
       Keyword(Else)
       WaveformElements
         WaveformElement

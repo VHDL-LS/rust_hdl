@@ -3913,195 +3913,6 @@ impl ConditionClauseSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConditionalElseItemSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalElseItemSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalElseItem,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "else",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalElseItemSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalElseItemSyntax {
-    pub fn else_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConditionalElseWhenExpressionSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalElseWhenExpressionSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalElseWhenExpression,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "else",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "condition",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalElseWhenExpressionSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalElseWhenExpressionSyntax {
-    pub fn else_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConditionalExpressionSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalExpressionSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalExpression,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "condition",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalExpressionSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalExpressionSyntax {
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ConditionalExpressionsSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConditionalExpressionsSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -4110,20 +3921,20 @@ impl AstNode for ConditionalExpressionsSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "conditional_expression",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalExpression),
+                name: "when_expression",
+                kind: LayoutItemKind::Node(NodeKind::WhenExpression),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "conditional_else_when_expressions",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalElseWhenExpression),
+                name: "else_when_expressions",
+                kind: LayoutItemKind::Node(NodeKind::ElseWhenExpression),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "conditional_else_item",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalElseItem),
+                name: "else_expression",
+                kind: LayoutItemKind::Node(NodeKind::ElseExpression),
             },
         ],
     });
@@ -4135,23 +3946,21 @@ impl AstNode for ConditionalExpressionsSyntax {
     }
 }
 impl ConditionalExpressionsSyntax {
-    pub fn conditional_expression(&self) -> Option<ConditionalExpressionSyntax> {
+    pub fn when_expression(&self) -> Option<WhenExpressionSyntax> {
         self.0
             .children()
-            .filter_map(ConditionalExpressionSyntax::cast)
+            .filter_map(WhenExpressionSyntax::cast)
             .nth(0)
     }
-    pub fn conditional_else_when_expressions(
+    pub fn else_when_expressions(
         &self,
-    ) -> impl Iterator<Item = ConditionalElseWhenExpressionSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConditionalElseWhenExpressionSyntax::cast)
+    ) -> impl Iterator<Item = ElseWhenExpressionSyntax> + use<'_> {
+        self.0.children().filter_map(ElseWhenExpressionSyntax::cast)
     }
-    pub fn conditional_else_item(&self) -> Option<ConditionalElseItemSyntax> {
+    pub fn else_expression(&self) -> Option<ElseExpressionSyntax> {
         self.0
             .children()
-            .filter_map(ConditionalElseItemSyntax::cast)
+            .filter_map(ElseExpressionSyntax::cast)
             .nth(0)
     }
 }
@@ -4354,65 +4163,6 @@ impl ConditionalVariableAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConditionalWaveformSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalWaveformSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalWaveform,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "waveform",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WaveformElements,
-                    NodeKind::UnaffectedWaveform,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalWaveformSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalWaveformSyntax {
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ConditionalWaveformAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConditionalWaveformAssignmentSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -4493,118 +4243,6 @@ impl ConditionalWaveformAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ConditionalWaveformElseItemSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalWaveformElseItemSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalWaveformElseItem,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "else",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "waveform",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WaveformElements,
-                    NodeKind::UnaffectedWaveform,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalWaveformElseItemSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalWaveformElseItemSyntax {
-    pub fn else_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
-            .nth(0)
-    }
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConditionalWaveformElseWhenExpressionSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConditionalWaveformElseWhenExpressionSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConditionalWaveformElseWhenExpression,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "else",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "waveform",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WaveformElements,
-                    NodeKind::UnaffectedWaveform,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "condition",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConditionalWaveformElseWhenExpressionSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConditionalWaveformElseWhenExpressionSyntax {
-    pub fn else_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
-            .nth(0)
-    }
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn condition(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct ConditionalWaveformsSyntax(pub(crate) SyntaxNode);
 impl AstNode for ConditionalWaveformsSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -4613,20 +4251,20 @@ impl AstNode for ConditionalWaveformsSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "conditional_waveform",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalWaveform),
+                name: "when_waveform",
+                kind: LayoutItemKind::Node(NodeKind::WhenWaveform),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "conditional_waveform_else_when_expressions",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalWaveformElseWhenExpression),
+                name: "else_when_waveforms",
+                kind: LayoutItemKind::Node(NodeKind::ElseWhenWaveform),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "conditional_waveform_else_item",
-                kind: LayoutItemKind::Node(NodeKind::ConditionalWaveformElseItem),
+                name: "else_waveform",
+                kind: LayoutItemKind::Node(NodeKind::ElseWaveform),
             },
         ],
     });
@@ -4638,23 +4276,19 @@ impl AstNode for ConditionalWaveformsSyntax {
     }
 }
 impl ConditionalWaveformsSyntax {
-    pub fn conditional_waveform(&self) -> Option<ConditionalWaveformSyntax> {
+    pub fn when_waveform(&self) -> Option<WhenWaveformSyntax> {
         self.0
             .children()
-            .filter_map(ConditionalWaveformSyntax::cast)
+            .filter_map(WhenWaveformSyntax::cast)
             .nth(0)
     }
-    pub fn conditional_waveform_else_when_expressions(
-        &self,
-    ) -> impl Iterator<Item = ConditionalWaveformElseWhenExpressionSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConditionalWaveformElseWhenExpressionSyntax::cast)
+    pub fn else_when_waveforms(&self) -> impl Iterator<Item = ElseWhenWaveformSyntax> + use<'_> {
+        self.0.children().filter_map(ElseWhenWaveformSyntax::cast)
     }
-    pub fn conditional_waveform_else_item(&self) -> Option<ConditionalWaveformElseItemSyntax> {
+    pub fn else_waveform(&self) -> Option<ElseWaveformSyntax> {
         self.0
             .children()
-            .filter_map(ConditionalWaveformElseItemSyntax::cast)
+            .filter_map(ElseWaveformSyntax::cast)
             .nth(0)
     }
 }
@@ -6090,6 +5724,242 @@ impl ElementResolutionResolutionIndicationSyntax {
             .children()
             .filter_map(ElementResolutionSyntax::cast)
             .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElseExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElseExpressionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElseExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "else",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElseExpressionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElseExpressionSyntax {
+    pub fn else_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElseWaveformSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElseWaveformSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElseWaveform,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "else",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "waveform",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::WaveformElements,
+                    NodeKind::UnaffectedWaveform,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElseWaveformSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElseWaveformSyntax {
+    pub fn else_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
+            .nth(0)
+    }
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElseWhenExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElseWhenExpressionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElseWhenExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "else",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "condition",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElseWhenExpressionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElseWhenExpressionSyntax {
+    pub fn else_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ElseWhenWaveformSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElseWhenWaveformSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ElseWhenWaveform,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "else",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "waveform",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::WaveformElements,
+                    NodeKind::UnaffectedWaveform,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "condition",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElseWhenWaveformSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElseWhenWaveformSyntax {
+    pub fn else_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
+            .nth(0)
+    }
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -19086,6 +18956,130 @@ impl WaveformElementsSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Comma)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct WhenExpressionSyntax(pub(crate) SyntaxNode);
+impl AstNode for WhenExpressionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::WhenExpression,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "condition",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        WhenExpressionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl WhenExpressionSyntax {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct WhenWaveformSyntax(pub(crate) SyntaxNode);
+impl AstNode for WhenWaveformSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::WhenWaveform,
+        items: &[
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "waveform",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::WaveformElements,
+                    NodeKind::UnaffectedWaveform,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "condition",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        WhenWaveformSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl WhenWaveformSyntax {
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

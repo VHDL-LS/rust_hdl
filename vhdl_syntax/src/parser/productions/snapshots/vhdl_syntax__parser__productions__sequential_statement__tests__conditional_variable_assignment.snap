@@ -18,7 +18,7 @@ ConditionalVariableAssignment
         RightPar
   ColonEq
   ConditionalExpressions
-    ConditionalExpression
+    WhenExpression
       NameExpression
         Name
           NameDesignatorPrefix

@@ -80,18 +80,10 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ConcurrentSimpleSignalAssignment => ConcurrentSimpleSignalAssignmentSyntax::META,
         NodeKind::ConcurrentStatements => ConcurrentStatementsSyntax::META,
         NodeKind::ConditionClause => ConditionClauseSyntax::META,
-        NodeKind::ConditionalElseItem => ConditionalElseItemSyntax::META,
-        NodeKind::ConditionalElseWhenExpression => ConditionalElseWhenExpressionSyntax::META,
-        NodeKind::ConditionalExpression => ConditionalExpressionSyntax::META,
         NodeKind::ConditionalExpressions => ConditionalExpressionsSyntax::META,
         NodeKind::ConditionalForceAssignment => ConditionalForceAssignmentSyntax::META,
         NodeKind::ConditionalVariableAssignment => ConditionalVariableAssignmentSyntax::META,
-        NodeKind::ConditionalWaveform => ConditionalWaveformSyntax::META,
         NodeKind::ConditionalWaveformAssignment => ConditionalWaveformAssignmentSyntax::META,
-        NodeKind::ConditionalWaveformElseItem => ConditionalWaveformElseItemSyntax::META,
-        NodeKind::ConditionalWaveformElseWhenExpression => {
-            ConditionalWaveformElseWhenExpressionSyntax::META
-        }
         NodeKind::ConditionalWaveforms => ConditionalWaveformsSyntax::META,
         NodeKind::ConfigurationDeclaration => ConfigurationDeclarationSyntax::META,
         NodeKind::ConfigurationDeclarationEpilogue => ConfigurationDeclarationEpilogueSyntax::META,
@@ -114,6 +106,10 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ElementResolutionResolutionIndication => {
             ElementResolutionResolutionIndicationSyntax::META
         }
+        NodeKind::ElseExpression => ElseExpressionSyntax::META,
+        NodeKind::ElseWaveform => ElseWaveformSyntax::META,
+        NodeKind::ElseWhenExpression => ElseWhenExpressionSyntax::META,
+        NodeKind::ElseWhenWaveform => ElseWhenWaveformSyntax::META,
         NodeKind::EntityClassEntry => EntityClassEntrySyntax::META,
         NodeKind::EntityClassEntryList => EntityClassEntryListSyntax::META,
         NodeKind::EntityConfigurationAspect => EntityConfigurationAspectSyntax::META,
@@ -351,6 +347,8 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::WaitStatement => WaitStatementSyntax::META,
         NodeKind::WaveformElement => WaveformElementSyntax::META,
         NodeKind::WaveformElements => WaveformElementsSyntax::META,
+        NodeKind::WhenExpression => WhenExpressionSyntax::META,
+        NodeKind::WhenWaveform => WhenWaveformSyntax::META,
         NodeKind::WhileIterationScheme => WhileIterationSchemeSyntax::META,
     }
 }

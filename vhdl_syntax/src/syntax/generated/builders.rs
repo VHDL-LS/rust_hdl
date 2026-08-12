@@ -3488,193 +3488,39 @@ impl From<ConditionClauseBuilder> for ConditionClauseSyntax {
         value.build()
     }
 }
-pub struct ConditionalElseItemBuilder {
-    else_token: Token,
-    expression: ExpressionSyntax,
-}
-impl ConditionalElseItemBuilder {
-    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            else_token: Kw::Else.canonical_token(),
-            expression: expression.into(),
-        }
-    }
-    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
-        self.else_token = t.into();
-        self
-    }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.else_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn build(self) -> ConditionalElseItemSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalElseItem);
-        builder.push(self.else_token);
-        builder.push_node(self.expression.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalElseItemSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalElseItemBuilder> for ConditionalElseItemSyntax {
-    fn from(value: ConditionalElseItemBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConditionalElseWhenExpressionBuilder {
-    else_token: Token,
-    expression: ExpressionSyntax,
-    when_token: Token,
-    condition: ExpressionSyntax,
-}
-impl ConditionalElseWhenExpressionBuilder {
-    pub fn new(
-        expression: impl Into<ExpressionSyntax>,
-        condition: impl Into<ExpressionSyntax>,
-    ) -> Self {
-        Self {
-            else_token: Kw::Else.canonical_token(),
-            expression: expression.into(),
-            when_token: Kw::When.canonical_token(),
-            condition: condition.into(),
-        }
-    }
-    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
-        self.else_token = t.into();
-        self
-    }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.else_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = t.into();
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.when_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.condition = n.into();
-        self
-    }
-    pub fn build(self) -> ConditionalElseWhenExpressionSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalElseWhenExpression);
-        builder.push(self.else_token);
-        builder.push_node(self.expression.raw().green().clone());
-        builder.push(self.when_token);
-        builder.push_node(self.condition.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalElseWhenExpressionSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalElseWhenExpressionBuilder> for ConditionalElseWhenExpressionSyntax {
-    fn from(value: ConditionalElseWhenExpressionBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConditionalExpressionBuilder {
-    expression: ExpressionSyntax,
-    when_token: Token,
-    condition: ExpressionSyntax,
-}
-impl ConditionalExpressionBuilder {
-    pub fn new(
-        expression: impl Into<ExpressionSyntax>,
-        condition: impl Into<ExpressionSyntax>,
-    ) -> Self {
-        Self {
-            expression: expression.into(),
-            when_token: Kw::When.canonical_token(),
-            condition: condition.into(),
-        }
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = t.into();
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.when_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.condition = n.into();
-        self
-    }
-    pub fn build(self) -> ConditionalExpressionSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalExpression);
-        builder.push_node(self.expression.raw().green().clone());
-        builder.push(self.when_token);
-        builder.push_node(self.condition.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalExpressionSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalExpressionBuilder> for ConditionalExpressionSyntax {
-    fn from(value: ConditionalExpressionBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ConditionalExpressionsBuilder {
-    conditional_expression: ConditionalExpressionSyntax,
-    conditional_else_when_expressions: Vec<ConditionalElseWhenExpressionSyntax>,
-    conditional_else_item: Option<ConditionalElseItemSyntax>,
+    when_expression: WhenExpressionSyntax,
+    else_when_expressions: Vec<ElseWhenExpressionSyntax>,
+    else_expression: Option<ElseExpressionSyntax>,
 }
 impl ConditionalExpressionsBuilder {
-    pub fn new(conditional_expression: impl Into<ConditionalExpressionSyntax>) -> Self {
+    pub fn new(when_expression: impl Into<WhenExpressionSyntax>) -> Self {
         Self {
-            conditional_expression: conditional_expression.into(),
-            conditional_else_when_expressions: Vec::new(),
-            conditional_else_item: None,
+            when_expression: when_expression.into(),
+            else_when_expressions: Vec::new(),
+            else_expression: None,
         }
     }
-    pub fn with_conditional_expression(
-        mut self,
-        n: impl Into<ConditionalExpressionSyntax>,
-    ) -> Self {
-        self.conditional_expression = n.into();
+    pub fn with_when_expression(mut self, n: impl Into<WhenExpressionSyntax>) -> Self {
+        self.when_expression = n.into();
         self
     }
-    pub fn add_conditional_else_when_expressions(
-        mut self,
-        n: impl Into<ConditionalElseWhenExpressionSyntax>,
-    ) -> Self {
-        self.conditional_else_when_expressions.push(n.into());
+    pub fn add_else_when_expressions(mut self, n: impl Into<ElseWhenExpressionSyntax>) -> Self {
+        self.else_when_expressions.push(n.into());
         self
     }
-    pub fn with_conditional_else_item(mut self, n: impl Into<ConditionalElseItemSyntax>) -> Self {
-        self.conditional_else_item = Some(n.into());
+    pub fn with_else_expression(mut self, n: impl Into<ElseExpressionSyntax>) -> Self {
+        self.else_expression = Some(n.into());
         self
     }
     pub fn build(self) -> ConditionalExpressionsSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConditionalExpressions);
-        builder.push_node(self.conditional_expression.raw().green().clone());
-        for n in self.conditional_else_when_expressions {
+        builder.push_node(self.when_expression.raw().green().clone());
+        for n in self.else_when_expressions {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.conditional_else_item {
+        if let Some(n) = self.else_expression {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -3843,54 +3689,6 @@ impl From<ConditionalVariableAssignmentBuilder> for ConditionalVariableAssignmen
         value.build()
     }
 }
-pub struct ConditionalWaveformBuilder {
-    waveform: Option<WaveformSyntax>,
-    when_token: Token,
-    expression: ExpressionSyntax,
-}
-impl ConditionalWaveformBuilder {
-    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            waveform: None,
-            when_token: Kw::When.canonical_token(),
-            expression: expression.into(),
-        }
-    }
-    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
-        self.waveform = Some(n.into());
-        self
-    }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = t.into();
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.when_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
-        self
-    }
-    pub fn build(self) -> ConditionalWaveformSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalWaveform);
-        if let Some(n) = self.waveform {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.when_token);
-        builder.push_node(self.expression.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalWaveformSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalWaveformBuilder> for ConditionalWaveformSyntax {
-    fn from(value: ConditionalWaveformBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ConditionalWaveformAssignmentBuilder {
     target: TargetSyntax,
     lte_token: Token,
@@ -3960,153 +3758,39 @@ impl From<ConditionalWaveformAssignmentBuilder> for ConditionalWaveformAssignmen
         value.build()
     }
 }
-pub struct ConditionalWaveformElseItemBuilder {
-    else_token: Token,
-    waveform: Option<WaveformSyntax>,
-}
-impl Default for ConditionalWaveformElseItemBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ConditionalWaveformElseItemBuilder {
-    pub fn new() -> Self {
-        Self {
-            else_token: Kw::Else.canonical_token(),
-            waveform: None,
-        }
-    }
-    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
-        self.else_token = t.into();
-        self
-    }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.else_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
-        self.waveform = Some(n.into());
-        self
-    }
-    pub fn build(self) -> ConditionalWaveformElseItemSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalWaveformElseItem);
-        builder.push(self.else_token);
-        if let Some(n) = self.waveform {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalWaveformElseItemSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalWaveformElseItemBuilder> for ConditionalWaveformElseItemSyntax {
-    fn from(value: ConditionalWaveformElseItemBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConditionalWaveformElseWhenExpressionBuilder {
-    else_token: Token,
-    waveform: Option<WaveformSyntax>,
-    when_token: Token,
-    condition: ExpressionSyntax,
-}
-impl ConditionalWaveformElseWhenExpressionBuilder {
-    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
-        Self {
-            else_token: Kw::Else.canonical_token(),
-            waveform: None,
-            when_token: Kw::When.canonical_token(),
-            condition: condition.into(),
-        }
-    }
-    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
-        self.else_token = t.into();
-        self
-    }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.else_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
-        self.waveform = Some(n.into());
-        self
-    }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = t.into();
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.when_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.condition = n.into();
-        self
-    }
-    pub fn build(self) -> ConditionalWaveformElseWhenExpressionSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConditionalWaveformElseWhenExpression);
-        builder.push(self.else_token);
-        if let Some(n) = self.waveform {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.when_token);
-        builder.push_node(self.condition.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConditionalWaveformElseWhenExpressionSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConditionalWaveformElseWhenExpressionBuilder>
-    for ConditionalWaveformElseWhenExpressionSyntax
-{
-    fn from(value: ConditionalWaveformElseWhenExpressionBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ConditionalWaveformsBuilder {
-    conditional_waveform: ConditionalWaveformSyntax,
-    conditional_waveform_else_when_expressions: Vec<ConditionalWaveformElseWhenExpressionSyntax>,
-    conditional_waveform_else_item: Option<ConditionalWaveformElseItemSyntax>,
+    when_waveform: WhenWaveformSyntax,
+    else_when_waveforms: Vec<ElseWhenWaveformSyntax>,
+    else_waveform: Option<ElseWaveformSyntax>,
 }
 impl ConditionalWaveformsBuilder {
-    pub fn new(conditional_waveform: impl Into<ConditionalWaveformSyntax>) -> Self {
+    pub fn new(when_waveform: impl Into<WhenWaveformSyntax>) -> Self {
         Self {
-            conditional_waveform: conditional_waveform.into(),
-            conditional_waveform_else_when_expressions: Vec::new(),
-            conditional_waveform_else_item: None,
+            when_waveform: when_waveform.into(),
+            else_when_waveforms: Vec::new(),
+            else_waveform: None,
         }
     }
-    pub fn with_conditional_waveform(mut self, n: impl Into<ConditionalWaveformSyntax>) -> Self {
-        self.conditional_waveform = n.into();
+    pub fn with_when_waveform(mut self, n: impl Into<WhenWaveformSyntax>) -> Self {
+        self.when_waveform = n.into();
         self
     }
-    pub fn add_conditional_waveform_else_when_expressions(
-        mut self,
-        n: impl Into<ConditionalWaveformElseWhenExpressionSyntax>,
-    ) -> Self {
-        self.conditional_waveform_else_when_expressions
-            .push(n.into());
+    pub fn add_else_when_waveforms(mut self, n: impl Into<ElseWhenWaveformSyntax>) -> Self {
+        self.else_when_waveforms.push(n.into());
         self
     }
-    pub fn with_conditional_waveform_else_item(
-        mut self,
-        n: impl Into<ConditionalWaveformElseItemSyntax>,
-    ) -> Self {
-        self.conditional_waveform_else_item = Some(n.into());
+    pub fn with_else_waveform(mut self, n: impl Into<ElseWaveformSyntax>) -> Self {
+        self.else_waveform = Some(n.into());
         self
     }
     pub fn build(self) -> ConditionalWaveformsSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConditionalWaveforms);
-        builder.push_node(self.conditional_waveform.raw().green().clone());
-        for n in self.conditional_waveform_else_when_expressions {
+        builder.push_node(self.when_waveform.raw().green().clone());
+        for n in self.else_when_waveforms {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.conditional_waveform_else_item {
+        if let Some(n) = self.else_waveform {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -5173,6 +4857,210 @@ impl From<ElementResolutionResolutionIndicationBuilder>
     for ElementResolutionResolutionIndicationSyntax
 {
     fn from(value: ElementResolutionResolutionIndicationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ElseExpressionBuilder {
+    else_token: Token,
+    expression: ExpressionSyntax,
+}
+impl ElseExpressionBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            else_token: Kw::Else.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
+        self.else_token = t.into();
+        self
+    }
+    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.else_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> ElseExpressionSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ElseExpression);
+        builder.push(self.else_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ElseExpressionSyntax::cast(node).unwrap()
+    }
+}
+impl From<ElseExpressionBuilder> for ElseExpressionSyntax {
+    fn from(value: ElseExpressionBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ElseWaveformBuilder {
+    else_token: Token,
+    waveform: Option<WaveformSyntax>,
+}
+impl Default for ElseWaveformBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ElseWaveformBuilder {
+    pub fn new() -> Self {
+        Self {
+            else_token: Kw::Else.canonical_token(),
+            waveform: None,
+        }
+    }
+    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
+        self.else_token = t.into();
+        self
+    }
+    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.else_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
+        self.waveform = Some(n.into());
+        self
+    }
+    pub fn build(self) -> ElseWaveformSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ElseWaveform);
+        builder.push(self.else_token);
+        if let Some(n) = self.waveform {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ElseWaveformSyntax::cast(node).unwrap()
+    }
+}
+impl From<ElseWaveformBuilder> for ElseWaveformSyntax {
+    fn from(value: ElseWaveformBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ElseWhenExpressionBuilder {
+    else_token: Token,
+    expression: ExpressionSyntax,
+    when_token: Token,
+    condition: ExpressionSyntax,
+}
+impl ElseWhenExpressionBuilder {
+    pub fn new(
+        expression: impl Into<ExpressionSyntax>,
+        condition: impl Into<ExpressionSyntax>,
+    ) -> Self {
+        Self {
+            else_token: Kw::Else.canonical_token(),
+            expression: expression.into(),
+            when_token: Kw::When.canonical_token(),
+            condition: condition.into(),
+        }
+    }
+    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
+        self.else_token = t.into();
+        self
+    }
+    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.else_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.condition = n.into();
+        self
+    }
+    pub fn build(self) -> ElseWhenExpressionSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ElseWhenExpression);
+        builder.push(self.else_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.push(self.when_token);
+        builder.push_node(self.condition.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ElseWhenExpressionSyntax::cast(node).unwrap()
+    }
+}
+impl From<ElseWhenExpressionBuilder> for ElseWhenExpressionSyntax {
+    fn from(value: ElseWhenExpressionBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct ElseWhenWaveformBuilder {
+    else_token: Token,
+    waveform: Option<WaveformSyntax>,
+    when_token: Token,
+    condition: ExpressionSyntax,
+}
+impl ElseWhenWaveformBuilder {
+    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            else_token: Kw::Else.canonical_token(),
+            waveform: None,
+            when_token: Kw::When.canonical_token(),
+            condition: condition.into(),
+        }
+    }
+    pub fn with_else_token(mut self, t: impl Into<Token>) -> Self {
+        self.else_token = t.into();
+        self
+    }
+    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.else_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
+        self.waveform = Some(n.into());
+        self
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.condition = n.into();
+        self
+    }
+    pub fn build(self) -> ElseWhenWaveformSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::ElseWhenWaveform);
+        builder.push(self.else_token);
+        if let Some(n) = self.waveform {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push(self.when_token);
+        builder.push_node(self.condition.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        ElseWhenWaveformSyntax::cast(node).unwrap()
+    }
+}
+impl From<ElseWhenWaveformBuilder> for ElseWhenWaveformSyntax {
+    fn from(value: ElseWhenWaveformBuilder) -> Self {
         value.build()
     }
 }
@@ -16543,6 +16431,103 @@ impl WaveformElementsBuilder {
 }
 impl From<WaveformElementsBuilder> for WaveformElementsSyntax {
     fn from(value: WaveformElementsBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct WhenExpressionBuilder {
+    expression: ExpressionSyntax,
+    when_token: Token,
+    condition: ExpressionSyntax,
+}
+impl WhenExpressionBuilder {
+    pub fn new(
+        expression: impl Into<ExpressionSyntax>,
+        condition: impl Into<ExpressionSyntax>,
+    ) -> Self {
+        Self {
+            expression: expression.into(),
+            when_token: Kw::When.canonical_token(),
+            condition: condition.into(),
+        }
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.condition = n.into();
+        self
+    }
+    pub fn build(self) -> WhenExpressionSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::WhenExpression);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.push(self.when_token);
+        builder.push_node(self.condition.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        WhenExpressionSyntax::cast(node).unwrap()
+    }
+}
+impl From<WhenExpressionBuilder> for WhenExpressionSyntax {
+    fn from(value: WhenExpressionBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct WhenWaveformBuilder {
+    waveform: Option<WaveformSyntax>,
+    when_token: Token,
+    condition: ExpressionSyntax,
+}
+impl WhenWaveformBuilder {
+    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            waveform: None,
+            when_token: Kw::When.canonical_token(),
+            condition: condition.into(),
+        }
+    }
+    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
+        self.waveform = Some(n.into());
+        self
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.condition = n.into();
+        self
+    }
+    pub fn build(self) -> WhenWaveformSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::WhenWaveform);
+        if let Some(n) = self.waveform {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push(self.when_token);
+        builder.push_node(self.condition.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        WhenWaveformSyntax::cast(node).unwrap()
+    }
+}
+impl From<WhenWaveformBuilder> for WhenWaveformSyntax {
+    fn from(value: WhenWaveformBuilder) -> Self {
         value.build()
     }
 }

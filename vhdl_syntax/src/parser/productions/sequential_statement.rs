@@ -374,14 +374,14 @@ impl Parser {
                         if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConditionalVariableAssignment);
                             self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
-                            self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
+                            self.start_node_at(cond_expr_checkpoint, WhenExpression);
                             self.skip();
                             self.expression();
                             self.end_node();
                             self.conditional_else(
                                 Parser::expression,
-                                ConditionalElseWhenExpression,
-                                ConditionalElseItem,
+                                ElseWhenExpression,
+                                ElseExpression,
                             );
                             self.end_node();
                         } else {
@@ -397,14 +397,14 @@ impl Parser {
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalForceAssignment);
                                 self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
-                                self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
+                                self.start_node_at(cond_expr_checkpoint, WhenExpression);
                                 self.skip();
                                 self.expression();
                                 self.end_node();
                                 self.conditional_else(
                                     Parser::expression,
-                                    ConditionalElseWhenExpression,
-                                    ConditionalElseItem,
+                                    ElseWhenExpression,
+                                    ElseExpression,
                                 );
                                 self.end_node();
                             } else {
@@ -422,14 +422,14 @@ impl Parser {
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalWaveformAssignment);
                                 self.start_node_at(wvfm_checkpoint, ConditionalWaveforms);
-                                self.start_node_at(wvfm_checkpoint, ConditionalWaveform);
+                                self.start_node_at(wvfm_checkpoint, WhenWaveform);
                                 self.skip();
                                 self.expression();
                                 self.end_node();
                                 self.conditional_else(
                                     Parser::waveform,
-                                    ConditionalWaveformElseWhenExpression,
-                                    ConditionalWaveformElseItem,
+                                    ElseWhenWaveform,
+                                    ElseWaveform,
                                 );
                                 self.end_node();
                             } else {

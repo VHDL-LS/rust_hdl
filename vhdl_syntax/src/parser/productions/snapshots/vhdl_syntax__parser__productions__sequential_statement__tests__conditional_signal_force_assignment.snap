@@ -19,7 +19,7 @@ ConditionalForceAssignment
   LTE
   Keyword(Force)
   ConditionalExpressions
-    ConditionalExpression
+    WhenExpression
       NameExpression
         Name
           NameDesignatorPrefix

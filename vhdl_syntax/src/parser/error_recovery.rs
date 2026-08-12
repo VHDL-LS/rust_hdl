@@ -209,9 +209,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::AccessTypeDefinition
         | NodeKind::Assertion
         | NodeKind::BindingIndication
-        | NodeKind::ConditionalElseItem
+        | NodeKind::ElseExpression
         | NodeKind::ConditionalExpressions
-        | NodeKind::ConditionalWaveformElseItem
+        | NodeKind::ElseWaveform
         | NodeKind::ConditionalWaveforms
         | NodeKind::ConstrainedArrayDefinition
         | NodeKind::EnumerationTypeDefinition
@@ -298,10 +298,10 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::NameTarget
         | NodeKind::CaseStatementPreamble => &[Keyword(Kw::End), Keyword(Kw::When)],
         NodeKind::ConditionClause => &[Keyword(Kw::For), SemiColon],
-        NodeKind::ConditionalElseWhenExpression
-        | NodeKind::ConditionalExpression
-        | NodeKind::ConditionalWaveform
-        | NodeKind::ConditionalWaveformElseWhenExpression => &[Keyword(Kw::Else), SemiColon],
+        NodeKind::ElseWhenExpression
+        | NodeKind::WhenExpression
+        | NodeKind::WhenWaveform
+        | NodeKind::ElseWhenWaveform => &[Keyword(Kw::Else), SemiColon],
         NodeKind::EntityDesignator => &[Colon, Comma],
         NodeKind::FunctionSpecification | NodeKind::ProcedureSpecification => {
             &[Keyword(Kw::Is), SemiColon]
@@ -330,9 +330,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         }
         NodeKind::VerificationUnitBinding
         | NodeKind::VerificationUnitBindingIndication
-        | NodeKind::VerificationUnitList => {
-            &[Keyword(Kw::End), SemiColon]
-        }
+        | NodeKind::VerificationUnitList => &[Keyword(Kw::End), SemiColon],
         NodeKind::AssertionStatement
         | NodeKind::BlockEpilogue
         | NodeKind::BlockStatement

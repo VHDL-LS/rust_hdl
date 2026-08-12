@@ -18,7 +18,7 @@ ConditionalWaveformAssignment
         RightPar
   LTE
   ConditionalWaveforms
-    ConditionalWaveform
+    WhenWaveform
       WaveformElements
         WaveformElement
           NameExpression

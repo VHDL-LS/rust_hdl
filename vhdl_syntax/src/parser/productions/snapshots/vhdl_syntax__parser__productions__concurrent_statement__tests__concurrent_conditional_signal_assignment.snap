@@ -9,7 +9,7 @@ ConcurrentConditionalSignalAssignment
         Identifier 'foo'
   LTE
   ConditionalWaveforms
-    ConditionalWaveform
+    WhenWaveform
       WaveformElements
         WaveformElement
           NameExpression
@@ -21,7 +21,7 @@ ConcurrentConditionalSignalAssignment
         Name
           NameDesignatorPrefix
             Identifier 'sel'
-    ConditionalWaveformElseItem
+    ElseWaveform
       Keyword(Else)
       WaveformElements
         WaveformElement

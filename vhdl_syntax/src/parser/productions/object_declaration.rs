@@ -5,8 +5,8 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 /// Parsing of object declarations (LRM §6.4.2)
 use crate::parser::Parser;
-use crate::syntax::NodeKind;
 use crate::syntax::node_kind::NodeKind::*;
+use crate::syntax::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::{self, *};
 

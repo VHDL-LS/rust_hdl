@@ -182,15 +182,11 @@ impl Parser {
                         if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConcurrentConditionalSignalAssignment);
                             self.start_node_at(waveform_checkpoint, ConditionalWaveforms);
-                            self.start_node_at(waveform_checkpoint, ConditionalWaveform);
+                            self.start_node_at(waveform_checkpoint, WhenWaveform);
                             self.skip();
                             self.expression();
                             self.end_node();
-                            self.conditional_else(
-                                Parser::waveform,
-                                ConditionalWaveformElseWhenExpression,
-                                ConditionalWaveformElseItem,
-                            );
+                            self.conditional_else(Parser::waveform, ElseWhenWaveform, ElseWaveform);
                             self.end_node();
                         } else {
                             self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
@@ -685,7 +681,7 @@ end process main;",
     #[test]
     fn concurrent_conditional_signal_assignment() {
         // The first `waveform when condition` must be wrapped in a
-        // `ConditionalWaveform` inside `ConditionalWaveforms`, like the
+        // `WhenWaveform` inside `ConditionalWaveforms`, like the
         // sequential form.
         insta::assert_snapshot!(stmt_to_test_text("foo <= a when sel else b;",));
     }
